@@ -33,6 +33,7 @@ from kmodels.models import (
     mobilevit,
     mobilevitv2,
     nextvit,
+    owlvit,
     pit,
     poolformer,
     res2net,
