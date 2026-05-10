@@ -9,6 +9,22 @@ from tqdm import tqdm
 from transformers import OwlViTForObjectDetection, OwlViTProcessor
 
 from kmodels.models import owlvit
+from kmodels.weight_utils.custom_exception import (
+    WeightMappingError,
+    WeightShapeMismatchError,
+)
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
+    compare_keras_torch_names,
+    transfer_nested_layer_weights,
+    transfer_weights,
+)
+
+weight_name_mapping: Dict[str, str] = {
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+    "embeddings": "weight",
+}
 
 model_configs: List[Dict[str, Any]] = [
     {
@@ -29,73 +45,6 @@ model_configs: List[Dict[str, Any]] = [
 ]
 
 
-def _walk(parent: keras.layers.Layer, path: str) -> keras.layers.Layer:
-    parts = path.split("/")
-    if isinstance(parent, keras.Model):
-        cur: Any = parent.get_layer(parts[0])
-        parts = parts[1:]
-    else:
-        cur = parent
-    for part in parts:
-        nxt = getattr(cur, part, None)
-        if nxt is None:
-            for child in getattr(cur, "encoder_layers", []) or []:
-                if getattr(child, "name", None) == part:
-                    nxt = child
-                    break
-        if nxt is None:
-            raise AttributeError(f"Could not resolve '{part}' on path '{path}'.")
-        cur = nxt
-    return cur
-
-
-def _load_state_dict(hf_repo: str) -> Dict[str, np.ndarray]:
-    from huggingface_hub import hf_hub_download
-    from huggingface_hub.errors import RemoteEntryNotFoundError
-
-    token = os.environ.get("HF_TOKEN")
-    try:
-        path = hf_hub_download(hf_repo, "model.safetensors", token=token)
-        from safetensors.torch import safe_open
-
-        sd: Dict[str, np.ndarray] = {}
-        with safe_open(path, framework="pt") as f:
-            for k in f.keys():
-                t = f.get_tensor(k)
-                sd[k] = t.cpu().numpy() if hasattr(t, "cpu") else np.asarray(t)
-        return sd
-    except RemoteEntryNotFoundError:
-        path = hf_hub_download(hf_repo, "pytorch_model.bin", token=token)
-        raw = torch.load(path, map_location="cpu", weights_only=True)
-        return {k: v.cpu().numpy() for k, v in raw.items()}
-
-
-def _transfer_encoder(
-    keras_model: keras.Model,
-    pytorch_state_dict: Dict[str, np.ndarray],
-    hf_prefix: str,
-    keras_prefix: str,
-    num_layers: int,
-    desc: str,
-) -> None:
-    for i in tqdm(range(num_layers), desc=desc):
-        h = f"{hf_prefix}.encoder.layers.{i}"
-        k = f"{keras_prefix}_layers_{i}"
-        self_attn = _walk(keras_model, f"{k}_self_attn")
-        for proj in ("k_proj", "v_proj", "q_proj", "out_proj"):
-            dense = getattr(self_attn, proj)
-            dense.kernel.assign(pytorch_state_dict[f"{h}.self_attn.{proj}.weight"].T)
-            dense.bias.assign(pytorch_state_dict[f"{h}.self_attn.{proj}.bias"])
-        for ln in ("layer_norm1", "layer_norm2"):
-            layer = _walk(keras_model, f"{k}_{ln}")
-            layer.weights[0].assign(pytorch_state_dict[f"{h}.{ln}.weight"])
-            layer.weights[1].assign(pytorch_state_dict[f"{h}.{ln}.bias"])
-        for fc in ("fc1", "fc2"):
-            layer = _walk(keras_model, f"{k}_mlp_{fc}")
-            layer.kernel.assign(pytorch_state_dict[f"{h}.mlp.{fc}.weight"].T)
-            layer.bias.assign(pytorch_state_dict[f"{h}.mlp.{fc}.bias"])
-
-
 for model_config in model_configs:
     print(f"\n{'=' * 60}")
     print(f"Converting {model_config['hf_model_name']}...")
@@ -110,84 +59,174 @@ for model_config in model_configs:
         token=os.environ.get("HF_TOKEN"),
     ).eval()
 
-    pytorch_state_dict: Dict[str, np.ndarray] = _load_state_dict(
-        model_config["hf_model_name"]
-    )
+    pytorch_state_dict: Dict[str, np.ndarray] = {
+        k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
+    }
 
     vision_layers: int = keras_model.vision_num_hidden_layers
     text_layers: int = owlvit.OwlViT.TEXT_NUM_HIDDEN_LAYERS
 
-    embed = _walk(keras_model, "vision_model_embeddings")
-    embed.class_embedding.assign(
-        pytorch_state_dict["owlvit.vision_model.embeddings.class_embedding"]
-    )
-    embed.patch_embedding.kernel.assign(
-        np.transpose(
-            pytorch_state_dict["owlvit.vision_model.embeddings.patch_embedding.weight"],
-            (2, 3, 1, 0),
+    embed = keras_model.get_layer("vision_model_embeddings")
+    cls_torch_name = "owlvit.vision_model.embeddings.class_embedding"
+    if cls_torch_name not in pytorch_state_dict:
+        raise WeightMappingError(
+            "vision_model_embeddings/class_embedding", cls_torch_name
         )
-    )
-    embed.position_embedding.weights[0].assign(
-        pytorch_state_dict["owlvit.vision_model.embeddings.position_embedding.weight"]
-    )
-
-    for ln_name in ("pre_layernorm", "post_layernorm"):
-        layer = _walk(keras_model, f"vision_model_{ln_name}")
-        layer.weights[0].assign(
-            pytorch_state_dict[f"owlvit.vision_model.{ln_name}.weight"]
+    cls_torch = pytorch_state_dict[cls_torch_name]
+    if not compare_keras_torch_names(
+        "class_embedding", embed.class_embedding, cls_torch_name, cls_torch
+    ):
+        raise WeightShapeMismatchError(
+            "vision_model_embeddings/class_embedding",
+            tuple(embed.class_embedding.shape),
+            cls_torch_name,
+            cls_torch.shape,
         )
-        layer.weights[1].assign(
-            pytorch_state_dict[f"owlvit.vision_model.{ln_name}.bias"]
+    embed.class_embedding.assign(cls_torch)
+
+    patch_torch_name = "owlvit.vision_model.embeddings.patch_embedding.weight"
+    if patch_torch_name not in pytorch_state_dict:
+        raise WeightMappingError(
+            "vision_model_embeddings/patch_embedding/kernel", patch_torch_name
+        )
+    transfer_weights(
+        "conv_kernel",
+        embed.patch_embedding.kernel,
+        pytorch_state_dict[patch_torch_name],
+    )
+
+    pos_torch_name = "owlvit.vision_model.embeddings.position_embedding.weight"
+    if pos_torch_name not in pytorch_state_dict:
+        raise WeightMappingError(
+            "vision_model_embeddings/position_embedding/embeddings", pos_torch_name
+        )
+    transfer_weights(
+        "position_embedding/embeddings",
+        embed.position_embedding.weights[0],
+        pytorch_state_dict[pos_torch_name],
+    )
+
+    transfer_nested_layer_weights(
+        keras_layer=keras_model.get_layer("vision_model_pre_layernorm"),
+        torch_weights_dict=pytorch_state_dict,
+        torch_prefix="owlvit.vision_model.pre_layernorm",
+        name_mapping=weight_name_mapping,
+    )
+    transfer_nested_layer_weights(
+        keras_layer=keras_model.get_layer("vision_model_post_layernorm"),
+        torch_weights_dict=pytorch_state_dict,
+        torch_prefix="owlvit.vision_model.post_layernorm",
+        name_mapping=weight_name_mapping,
+    )
+
+    for i in tqdm(range(vision_layers), desc="Transferring vision encoder weights"):
+        kp = f"vision_model_layers_{i}"
+        tp = f"owlvit.vision_model.encoder.layers.{i}"
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_self_attn"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.self_attn",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_layer_norm1"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.layer_norm1",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_layer_norm2"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.layer_norm2",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_mlp_fc1"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.mlp.fc1",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_mlp_fc2"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.mlp.fc2",
+            name_mapping=weight_name_mapping,
         )
 
-    _transfer_encoder(
-        keras_model,
-        pytorch_state_dict,
-        "owlvit.vision_model",
-        "vision_model",
-        vision_layers,
-        "Transferring vision encoder weights",
+    transfer_nested_layer_weights(
+        keras_layer=keras_model.get_layer("text_model_embeddings"),
+        torch_weights_dict=pytorch_state_dict,
+        torch_prefix="owlvit.text_model.embeddings",
+        name_mapping=weight_name_mapping,
+    )
+    transfer_nested_layer_weights(
+        keras_layer=keras_model.get_layer("text_model_final_layer_norm"),
+        torch_weights_dict=pytorch_state_dict,
+        torch_prefix="owlvit.text_model.final_layer_norm",
+        name_mapping=weight_name_mapping,
     )
 
-    text_embed = _walk(keras_model, "text_model_embeddings")
-    text_embed.token_embedding.weights[0].assign(
-        pytorch_state_dict["owlvit.text_model.embeddings.token_embedding.weight"]
-    )
-    text_embed.position_embedding.weights[0].assign(
-        pytorch_state_dict["owlvit.text_model.embeddings.position_embedding.weight"]
-    )
-    final_ln = _walk(keras_model, "text_model_final_layer_norm")
-    final_ln.weights[0].assign(
-        pytorch_state_dict["owlvit.text_model.final_layer_norm.weight"]
-    )
-    final_ln.weights[1].assign(
-        pytorch_state_dict["owlvit.text_model.final_layer_norm.bias"]
-    )
+    for i in tqdm(range(text_layers), desc="Transferring text encoder weights"):
+        kp = f"text_model_layers_{i}"
+        tp = f"owlvit.text_model.encoder.layers.{i}"
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_self_attn"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.self_attn",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_layer_norm1"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.layer_norm1",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_layer_norm2"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.layer_norm2",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_mlp_fc1"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.mlp.fc1",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"{kp}_mlp_fc2"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"{tp}.mlp.fc2",
+            name_mapping=weight_name_mapping,
+        )
 
-    _transfer_encoder(
-        keras_model,
-        pytorch_state_dict,
-        "owlvit.text_model",
-        "text_model",
-        text_layers,
-        "Transferring text encoder weights",
+    transfer_nested_layer_weights(
+        keras_layer=keras_model.get_layer("text_projection"),
+        torch_weights_dict=pytorch_state_dict,
+        torch_prefix="owlvit.text_projection",
+        name_mapping=weight_name_mapping,
     )
-
-    text_proj = _walk(keras_model, "text_projection")
-    text_proj.kernel.assign(pytorch_state_dict["owlvit.text_projection.weight"].T)
 
     for d in ("dense0", "dense1", "dense2"):
-        layer = _walk(keras_model, f"box_head_{d}")
-        layer.kernel.assign(pytorch_state_dict[f"box_head.{d}.weight"].T)
-        layer.bias.assign(pytorch_state_dict[f"box_head.{d}.bias"])
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"box_head_{d}"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"box_head.{d}",
+            name_mapping=weight_name_mapping,
+        )
     for d in ("dense0", "logit_shift", "logit_scale"):
-        layer = _walk(keras_model, f"class_head_{d}")
-        layer.kernel.assign(pytorch_state_dict[f"class_head.{d}.weight"].T)
-        layer.bias.assign(pytorch_state_dict[f"class_head.{d}.bias"])
-
-    top_ln = _walk(keras_model, "layer_norm")
-    top_ln.weights[0].assign(pytorch_state_dict["layer_norm.weight"])
-    top_ln.weights[1].assign(pytorch_state_dict["layer_norm.bias"])
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer(f"class_head_{d}"),
+            torch_weights_dict=pytorch_state_dict,
+            torch_prefix=f"class_head.{d}",
+            name_mapping=weight_name_mapping,
+        )
+    transfer_nested_layer_weights(
+        keras_layer=keras_model.get_layer("layer_norm"),
+        torch_weights_dict=pytorch_state_dict,
+        torch_prefix="layer_norm",
+        name_mapping=weight_name_mapping,
+    )
 
     print("\nVerifying model equivalence...")
 
@@ -212,12 +251,18 @@ for model_config in model_configs:
         hf_boxes = hf_output.pred_boxes.cpu().numpy()
 
     pix_chw = hf_inputs["pixel_values"].cpu().numpy()
+    input_ids_np = hf_inputs["input_ids"].cpu().numpy()
+    del torch_model, hf_output, hf_inputs
+    import gc
+
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     pix_hwc = np.transpose(pix_chw, (0, 2, 3, 1))
     keras_inputs = {
         "pixel_values": keras.ops.convert_to_tensor(pix_hwc, dtype="float32"),
-        "input_ids": keras.ops.convert_to_tensor(
-            hf_inputs["input_ids"].cpu().numpy(), dtype="int32"
-        ),
+        "input_ids": keras.ops.convert_to_tensor(input_ids_np, dtype="int32"),
     }
     keras_output = keras_model(keras_inputs)
     keras_logits = keras.ops.convert_to_numpy(keras_output["logits"])
@@ -243,5 +288,7 @@ for model_config in model_configs:
     keras_model.save_weights(model_filename)
     print(f"Model saved successfully as {model_filename}")
 
-    del keras_model, torch_model, pytorch_state_dict
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    del keras_model, pytorch_state_dict
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
