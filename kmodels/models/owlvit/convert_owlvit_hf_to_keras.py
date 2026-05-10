@@ -80,17 +80,18 @@ def _transfer_encoder(
 ) -> None:
     for i in tqdm(range(num_layers), desc=desc):
         h = f"{hf_prefix}.encoder.layers.{i}"
-        k = f"{keras_prefix}/encoder/layers_{i}"
+        k = f"{keras_prefix}_layers_{i}"
+        self_attn = _walk(keras_model, f"{k}_self_attn")
         for proj in ("k_proj", "v_proj", "q_proj", "out_proj"):
-            layer = _walk(keras_model, f"{k}/self_attn/{proj}")
-            layer.kernel.assign(pytorch_state_dict[f"{h}.self_attn.{proj}.weight"].T)
-            layer.bias.assign(pytorch_state_dict[f"{h}.self_attn.{proj}.bias"])
+            dense = getattr(self_attn, proj)
+            dense.kernel.assign(pytorch_state_dict[f"{h}.self_attn.{proj}.weight"].T)
+            dense.bias.assign(pytorch_state_dict[f"{h}.self_attn.{proj}.bias"])
         for ln in ("layer_norm1", "layer_norm2"):
-            layer = _walk(keras_model, f"{k}/{ln}")
+            layer = _walk(keras_model, f"{k}_{ln}")
             layer.weights[0].assign(pytorch_state_dict[f"{h}.{ln}.weight"])
             layer.weights[1].assign(pytorch_state_dict[f"{h}.{ln}.bias"])
         for fc in ("fc1", "fc2"):
-            layer = _walk(keras_model, f"{k}/mlp/{fc}")
+            layer = _walk(keras_model, f"{k}_mlp_{fc}")
             layer.kernel.assign(pytorch_state_dict[f"{h}.mlp.{fc}.weight"].T)
             layer.bias.assign(pytorch_state_dict[f"{h}.mlp.{fc}.bias"])
 
@@ -116,24 +117,22 @@ for model_config in model_configs:
     vision_layers: int = keras_model.vision_num_hidden_layers
     text_layers: int = owlvit.OwlViT.TEXT_NUM_HIDDEN_LAYERS
 
-    embed = _walk(keras_model, "vision_model/embeddings")
+    embed = _walk(keras_model, "vision_model_embeddings")
     embed.class_embedding.assign(
         pytorch_state_dict["owlvit.vision_model.embeddings.class_embedding"]
     )
-    patch_embed = _walk(keras_model, "vision_model/embeddings/patch_embedding")
-    patch_embed.kernel.assign(
+    embed.patch_embedding.kernel.assign(
         np.transpose(
             pytorch_state_dict["owlvit.vision_model.embeddings.patch_embedding.weight"],
             (2, 3, 1, 0),
         )
     )
-    pos_embed = _walk(keras_model, "vision_model/embeddings/position_embedding")
-    pos_embed.weights[0].assign(
+    embed.position_embedding.weights[0].assign(
         pytorch_state_dict["owlvit.vision_model.embeddings.position_embedding.weight"]
     )
 
     for ln_name in ("pre_layernorm", "post_layernorm"):
-        layer = _walk(keras_model, f"vision_model/{ln_name}")
+        layer = _walk(keras_model, f"vision_model_{ln_name}")
         layer.weights[0].assign(
             pytorch_state_dict[f"owlvit.vision_model.{ln_name}.weight"]
         )
@@ -150,15 +149,14 @@ for model_config in model_configs:
         "Transferring vision encoder weights",
     )
 
-    token_embed = _walk(keras_model, "text_model/embeddings/token_embedding")
-    token_embed.weights[0].assign(
+    text_embed = _walk(keras_model, "text_model_embeddings")
+    text_embed.token_embedding.weights[0].assign(
         pytorch_state_dict["owlvit.text_model.embeddings.token_embedding.weight"]
     )
-    text_pos_embed = _walk(keras_model, "text_model/embeddings/position_embedding")
-    text_pos_embed.weights[0].assign(
+    text_embed.position_embedding.weights[0].assign(
         pytorch_state_dict["owlvit.text_model.embeddings.position_embedding.weight"]
     )
-    final_ln = _walk(keras_model, "text_model/final_layer_norm")
+    final_ln = _walk(keras_model, "text_model_final_layer_norm")
     final_ln.weights[0].assign(
         pytorch_state_dict["owlvit.text_model.final_layer_norm.weight"]
     )
@@ -179,11 +177,11 @@ for model_config in model_configs:
     text_proj.kernel.assign(pytorch_state_dict["owlvit.text_projection.weight"].T)
 
     for d in ("dense0", "dense1", "dense2"):
-        layer = _walk(keras_model, f"box_head/{d}")
+        layer = _walk(keras_model, f"box_head_{d}")
         layer.kernel.assign(pytorch_state_dict[f"box_head.{d}.weight"].T)
         layer.bias.assign(pytorch_state_dict[f"box_head.{d}.bias"])
     for d in ("dense0", "logit_shift", "logit_scale"):
-        layer = _walk(keras_model, f"class_head/{d}")
+        layer = _walk(keras_model, f"class_head_{d}")
         layer.kernel.assign(pytorch_state_dict[f"class_head.{d}.weight"].T)
         layer.bias.assign(pytorch_state_dict[f"class_head.{d}.bias"])
 
