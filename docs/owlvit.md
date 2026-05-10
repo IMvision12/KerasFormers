@@ -106,7 +106,7 @@ outputs = model({
 
 ## Low-level API
 
-The :class:`OwlViTCore` class also exposes its sub-components:
+The :class:`OwlViT` class also exposes its sub-components:
 
 ```python
 from kmodels.models.owlvit import OwlViTBasePatch32

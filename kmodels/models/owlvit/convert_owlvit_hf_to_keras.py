@@ -30,8 +30,13 @@ model_configs: List[Dict[str, Any]] = [
 
 
 def _walk(parent: keras.layers.Layer, path: str) -> keras.layers.Layer:
-    cur: Any = parent
-    for part in path.split("/"):
+    parts = path.split("/")
+    if isinstance(parent, keras.Model):
+        cur: Any = parent.get_layer(parts[0])
+        parts = parts[1:]
+    else:
+        cur = parent
+    for part in parts:
         nxt = getattr(cur, part, None)
         if nxt is None:
             for child in getattr(cur, "encoder_layers", []) or []:
@@ -109,7 +114,7 @@ for model_config in model_configs:
     )
 
     vision_layers: int = keras_model.vision_num_hidden_layers
-    text_layers: int = keras_model.text_num_hidden_layers
+    text_layers: int = owlvit.OwlViT.TEXT_NUM_HIDDEN_LAYERS
 
     embed = _walk(keras_model, "vision_model/embeddings")
     embed.class_embedding.assign(
@@ -170,13 +175,8 @@ for model_config in model_configs:
         "Transferring text encoder weights",
     )
 
-    visual_proj = _walk(keras_model, "visual_projection")
-    visual_proj.kernel.assign(pytorch_state_dict["owlvit.visual_projection.weight"].T)
     text_proj = _walk(keras_model, "text_projection")
     text_proj.kernel.assign(pytorch_state_dict["owlvit.text_projection.weight"].T)
-    keras_model.logit_scale.assign(
-        np.array(pytorch_state_dict["owlvit.logit_scale"], dtype=np.float32)
-    )
 
     for d in ("dense0", "dense1", "dense2"):
         layer = _walk(keras_model, f"box_head/{d}")

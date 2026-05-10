@@ -772,6 +772,37 @@ class OwlViTClassPredictionHead(layers.Layer):
         return config
 
 
+@keras.saving.register_keras_serializable(package="kmodels")
+class OwlViTSplitBatchQueries(layers.Layer):
+    """Split a flat ``(B*Q, ...)`` tensor into a per-image ``(B, Q, ...)`` tensor.
+
+    OwlViT receives text queries flattened across the batch
+    (``B * Q`` rows). This layer reshapes that flat tensor back into
+    ``(B, Q, ...)`` using a separate batch-reference input to recover
+    ``B`` at runtime, so it works correctly under the Keras Functional
+    API where the leading ``B*Q`` dim is unknown at trace time.
+
+    Reference:
+    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+
+    Args:
+        **kwargs: Additional keyword arguments passed to ``Layer``.
+
+    Input Shape:
+        Two tensors:
+        - ``flat``: ``(B*Q, ..., last_dim)``
+        - ``batch_ref``: any tensor whose first dim is ``B``.
+
+    Output Shape:
+        ``(B, Q, ..., last_dim)``.
+    """
+
+    def call(self, flat, batch_ref):
+        b = ops.shape(batch_ref)[0]
+        last = flat.shape[-1]
+        return ops.reshape(flat, (b, -1, last))
+
+
 def compute_box_bias(num_patches_height, num_patches_width):
     """Constant log-space box bias added to raw ``box_head`` outputs.
 

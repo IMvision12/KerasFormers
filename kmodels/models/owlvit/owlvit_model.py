@@ -8,6 +8,7 @@ from .config import OWLVIT_MODEL_CONFIG, OWLVIT_WEIGHTS_CONFIG
 from .owlvit_layers import (
     OwlViTBoxPredictionHead,
     OwlViTClassPredictionHead,
+    OwlViTSplitBatchQueries,
     OwlViTTextTransformer,
     OwlViTVisionTransformer,
     compute_box_bias,
@@ -15,7 +16,7 @@ from .owlvit_layers import (
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class OwlViTCore(keras.Model):
+class OwlViT(keras.Model):
     """OWL-ViT (Open-vocabulary Object Detection with Vision Transformers).
 
     OWL-ViT performs open-vocabulary object detection by composing a
@@ -31,8 +32,8 @@ class OwlViTCore(keras.Model):
     Hyperparameters that are constant across all published OWL-ViT
     variants are exposed as class-level constants
     (``TEXT_MAX_POSITION_EMBEDDINGS``, ``TEXT_NUM_HIDDEN_LAYERS``,
-    ``TEXT_VOCAB_SIZE``, ``LOGIT_SCALE_INIT_VALUE``,
-    ``LAYER_NORM_EPS``, ``HIDDEN_ACT``) rather than ``__init__`` args.
+    ``TEXT_VOCAB_SIZE``, ``LAYER_NORM_EPS``, ``HIDDEN_ACT``) rather
+    than ``__init__`` args.
 
     Args:
         vision_image_size: Integer, square image input edge in pixels.
@@ -50,17 +51,15 @@ class OwlViTCore(keras.Model):
         text_num_attention_heads: Integer, number of text attention
             heads.
         projection_dim: Integer, joint contrastive projection size for
-            ``visual_projection`` / ``text_projection``.
+            ``text_projection``.
+        weights: ``None``, a config key (e.g. ``"owlvit"``), or a path
+            to a ``.weights.h5`` file.
+        input_shape: Optional ``(H, W, 3)`` for the image input.
+        text_input_shape: Optional ``(T,)`` for the input-ids input.
         name: String, model name.
 
-    Inputs:
-        Dictionary with keys:
-        - ``"pixel_values"``: ``(B, H, W, 3)`` channels-last image batch.
-        - ``"input_ids"``: ``(B*Q, T)`` text token ids for ``Q`` queries
-          per image.
-
-    Outputs:
-        Dictionary with keys:
+    Returns:
+        A ``keras.Model`` with dict outputs:
         - ``"logits"``: ``(B, num_patches, Q)`` per-query similarity.
         - ``"pred_boxes"``: ``(B, num_patches, 4)`` normalized
           ``(cx, cy, w, h)``.
@@ -75,41 +74,42 @@ class OwlViTCore(keras.Model):
     TEXT_MAX_POSITION_EMBEDDINGS = 16
     TEXT_NUM_HIDDEN_LAYERS = 12
     TEXT_VOCAB_SIZE = 49408
-    LOGIT_SCALE_INIT_VALUE = 2.6592
     LAYER_NORM_EPS = 1e-5
     HIDDEN_ACT = "quick_gelu"
 
     def __init__(
         self,
-        vision_image_size: int,
-        vision_patch_size: int,
-        vision_hidden_size: int,
-        vision_intermediate_size: int,
-        vision_num_hidden_layers: int,
-        vision_num_attention_heads: int,
-        text_hidden_size: int,
-        text_intermediate_size: int,
-        text_num_attention_heads: int,
-        projection_dim: int,
-        name: str = "OwlViTCore",
+        vision_image_size,
+        vision_patch_size,
+        vision_hidden_size,
+        vision_intermediate_size,
+        vision_num_hidden_layers,
+        vision_num_attention_heads,
+        text_hidden_size,
+        text_intermediate_size,
+        text_num_attention_heads,
+        projection_dim,
+        weights=None,
+        input_shape=None,
+        text_input_shape=None,
+        name="OwlViT",
         **kwargs,
     ):
-        super().__init__(name=name, **kwargs)
-        self.vision_image_size = vision_image_size
-        self.vision_patch_size = vision_patch_size
-        self.vision_hidden_size = vision_hidden_size
-        self.vision_intermediate_size = vision_intermediate_size
-        self.vision_num_hidden_layers = vision_num_hidden_layers
-        self.vision_num_attention_heads = vision_num_attention_heads
-        self.text_hidden_size = text_hidden_size
-        self.text_intermediate_size = text_intermediate_size
-        self.text_num_attention_heads = text_num_attention_heads
-        self.projection_dim = projection_dim
+        if input_shape is None:
+            input_shape = (vision_image_size, vision_image_size, 3)
+        if text_input_shape is None:
+            text_input_shape = (self.TEXT_MAX_POSITION_EMBEDDINGS,)
 
-        self.num_patches_h = vision_image_size // vision_patch_size
-        self.num_patches_w = vision_image_size // vision_patch_size
+        num_patches_h = vision_image_size // vision_patch_size
+        num_patches_w = vision_image_size // vision_patch_size
+        num_patches = num_patches_h * num_patches_w
 
-        self.vision_model = OwlViTVisionTransformer(
+        pixel_values = layers.Input(shape=input_shape, name="pixel_values")
+        input_ids = layers.Input(
+            shape=text_input_shape, dtype="int32", name="input_ids"
+        )
+
+        vision_model = OwlViTVisionTransformer(
             hidden_size=vision_hidden_size,
             image_size=vision_image_size,
             patch_size=vision_patch_size,
@@ -120,7 +120,7 @@ class OwlViTCore(keras.Model):
             hidden_act=self.HIDDEN_ACT,
             name="vision_model",
         )
-        self.text_model = OwlViTTextTransformer(
+        text_model = OwlViTTextTransformer(
             vocab_size=self.TEXT_VOCAB_SIZE,
             hidden_size=text_hidden_size,
             max_position_embeddings=self.TEXT_MAX_POSITION_EMBEDDINGS,
@@ -131,112 +131,84 @@ class OwlViTCore(keras.Model):
             hidden_act=self.HIDDEN_ACT,
             name="text_model",
         )
-        self.visual_projection = layers.Dense(
-            projection_dim, use_bias=False, name="visual_projection"
-        )
-        self.text_projection = layers.Dense(
+        text_projection = layers.Dense(
             projection_dim, use_bias=False, name="text_projection"
         )
-
-        self.class_head = OwlViTClassPredictionHead(
+        layer_norm = layers.LayerNormalization(
+            epsilon=self.LAYER_NORM_EPS, name="layer_norm"
+        )
+        class_head = OwlViTClassPredictionHead(
             query_dim=vision_hidden_size,
             out_dim=text_hidden_size,
             name="class_head",
         )
-        self.box_head = OwlViTBoxPredictionHead(
+        box_head = OwlViTBoxPredictionHead(
             hidden_size=vision_hidden_size,
             out_dim=4,
             name="box_head",
         )
-        self.layer_norm = layers.LayerNormalization(
-            epsilon=self.LAYER_NORM_EPS,
-            name="layer_norm",
-        )
 
-        self._box_bias = ops.convert_to_tensor(
-            compute_box_bias(self.num_patches_h, self.num_patches_w)
-        )
-
-    def build(self, input_shape):
-        self.logit_scale = self.add_weight(
-            name="logit_scale",
-            shape=(),
-            initializer=keras.initializers.Constant(self.LOGIT_SCALE_INIT_VALUE),
-            trainable=True,
-        )
-        super().build(input_shape)
-
-    def get_text_features(self, input_ids, attention_mask=None):
-        del attention_mask
-        _, pooled = self.text_model(input_ids)
-        return self.text_projection(pooled)
-
-    def get_image_features(self, pixel_values):
-        last_hidden = self.vision_model(pixel_values)
-        pooled = self.vision_model.post_layernorm(last_hidden[:, 0, :])
-        return self.visual_projection(pooled)
-
-    def image_text_embedder(self, pixel_values, input_ids):
-        vision_last_hidden = self.vision_model(pixel_values)
-        image_embeds = self.vision_model.post_layernorm(vision_last_hidden)
+        vision_last_hidden = vision_model(pixel_values)
+        image_embeds = vision_model.post_layernorm(vision_last_hidden)
 
         cls = image_embeds[:, :1, :]
-        cls_broadcast = ops.broadcast_to(cls, ops.shape(image_embeds[:, :-1, :]))
-        patch_embeds = image_embeds[:, 1:, :] * cls_broadcast
-        patch_embeds = self.layer_norm(patch_embeds)
+        patch_embeds = image_embeds[:, 1:, :] * cls
+        patch_embeds = layer_norm(patch_embeds)
 
-        b = ops.shape(patch_embeds)[0]
         feature_map = ops.reshape(
             patch_embeds,
-            (b, self.num_patches_h, self.num_patches_w, self.vision_hidden_size),
+            (-1, num_patches_h, num_patches_w, vision_hidden_size),
         )
+        image_feats = ops.reshape(patch_embeds, (-1, num_patches, vision_hidden_size))
 
-        _, text_pooled = self.text_model(input_ids)
-        query_embeds = self.text_projection(text_pooled)
-
-        return query_embeds, feature_map
-
-    def call(self, inputs, training=None):
-        pixel_values = inputs["pixel_values"]
-        input_ids = inputs["input_ids"]
-
-        query_embeds, feature_map = self.image_text_embedder(pixel_values, input_ids)
-
-        b = ops.shape(feature_map)[0]
-        num_patches = self.num_patches_h * self.num_patches_w
-        image_feats = ops.reshape(
-            feature_map, (b, num_patches, self.vision_hidden_size)
-        )
+        _, text_pooled = text_model(input_ids)
+        query_embeds = text_projection(text_pooled)
 
         norm = ops.sqrt(
             ops.sum(query_embeds * query_embeds, axis=-1, keepdims=True) + 1e-12
         )
         query_embeds = query_embeds / norm
 
-        max_text_queries = ops.shape(input_ids)[0] // b
-        query_embeds = ops.reshape(
-            query_embeds, (b, max_text_queries, self.text_hidden_size)
+        query_embeds = OwlViTSplitBatchQueries(name="split_text_embeds")(
+            query_embeds, patch_embeds
         )
-        input_ids_b = ops.reshape(
-            input_ids, (b, max_text_queries, ops.shape(input_ids)[-1])
+        input_ids_b = OwlViTSplitBatchQueries(name="split_input_ids")(
+            input_ids, patch_embeds
         )
         query_mask = input_ids_b[..., 0] > 0
 
-        pred_logits, class_embeds = self.class_head(
-            image_feats, query_embeds, query_mask
-        )
+        pred_logits, class_embeds = class_head(image_feats, query_embeds, query_mask)
 
-        pred_boxes = self.box_head(image_feats)
-        pred_boxes = pred_boxes + ops.cast(self._box_bias, pred_boxes.dtype)
+        box_bias = ops.cast(compute_box_bias(num_patches_h, num_patches_w), "float32")
+        pred_boxes = box_head(image_feats)
+        pred_boxes = pred_boxes + ops.cast(box_bias, pred_boxes.dtype)
         pred_boxes = ops.sigmoid(pred_boxes)
 
-        return {
+        outputs = {
             "logits": pred_logits,
             "pred_boxes": pred_boxes,
             "text_embeds": query_embeds,
             "image_embeds": feature_map,
             "class_embeds": class_embeds,
         }
+        inputs = {"pixel_values": pixel_values, "input_ids": input_ids}
+
+        super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
+
+        self.vision_image_size = vision_image_size
+        self.vision_patch_size = vision_patch_size
+        self.vision_hidden_size = vision_hidden_size
+        self.vision_intermediate_size = vision_intermediate_size
+        self.vision_num_hidden_layers = vision_num_hidden_layers
+        self.vision_num_attention_heads = vision_num_attention_heads
+        self.text_hidden_size = text_hidden_size
+        self.text_intermediate_size = text_intermediate_size
+        self.text_num_attention_heads = text_num_attention_heads
+        self.projection_dim = projection_dim
+        self.num_patches_h = num_patches_h
+        self.num_patches_w = num_patches_w
+        self._input_shape_arg = input_shape
+        self._text_input_shape_arg = text_input_shape
 
     def get_config(self):
         config = super().get_config()
@@ -252,6 +224,9 @@ class OwlViTCore(keras.Model):
                 "text_intermediate_size": self.text_intermediate_size,
                 "text_num_attention_heads": self.text_num_attention_heads,
                 "projection_dim": self.projection_dim,
+                "input_shape": self._input_shape_arg,
+                "text_input_shape": self._text_input_shape_arg,
+                "name": self.name,
             }
         )
         return config
@@ -263,7 +238,8 @@ class OwlViTCore(keras.Model):
 
 def _create_owlvit_model(variant, weights="owlvit", name=None, **kwargs):
     cfg = OWLVIT_MODEL_CONFIG[variant]
-    model = OwlViTCore(
+
+    model = OwlViT(
         vision_image_size=cfg["vision_image_size"],
         vision_patch_size=cfg["vision_patch_size"],
         vision_hidden_size=cfg["vision_hidden_size"],
@@ -274,15 +250,10 @@ def _create_owlvit_model(variant, weights="owlvit", name=None, **kwargs):
         text_intermediate_size=cfg["text_intermediate_size"],
         text_num_attention_heads=cfg["text_num_attention_heads"],
         projection_dim=cfg["projection_dim"],
+        weights=weights,
         name=name or variant,
         **kwargs,
     )
-
-    image_size = cfg["vision_image_size"]
-    dummy_pixel = ops.zeros((1, image_size, image_size, 3), dtype="float32")
-    dummy_ids = ops.ones((1, OwlViTCore.TEXT_MAX_POSITION_EMBEDDINGS), dtype="int32")
-    _ = model({"pixel_values": dummy_pixel, "input_ids": dummy_ids})
-    _ = model.get_image_features(dummy_pixel)
 
     if weights in OWLVIT_WEIGHTS_CONFIG.get(variant, {}):
         url = OWLVIT_WEIGHTS_CONFIG[variant][weights].get("url", "")

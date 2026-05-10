@@ -3,15 +3,15 @@ from .owlvit_image_processor import (
     owlvit_post_process_object_detection,
 )
 from .owlvit_model import (
+    OwlViT,
     OwlViTBasePatch16,
     OwlViTBasePatch32,
-    OwlViTCore,
     OwlViTLargePatch14,
 )
 from .owlvit_processor import OwlViTProcessor
 
 __all__ = [
-    "OwlViTCore",
+    "OwlViT",
     "OwlViTBasePatch32",
     "OwlViTBasePatch16",
     "OwlViTLargePatch14",
