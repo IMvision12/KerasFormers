@@ -19,6 +19,9 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
+
 weight_name_mapping: Dict[str, str] = {
     "kernel": "weight",
     "gamma": "weight",
@@ -27,11 +30,6 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_configs: List[Dict[str, Any]] = [
-    {
-        "keras_model_cls": owlvit.OwlViTBasePatch32,
-        "hf_model_name": "google/owlvit-base-patch32",
-        "image_size": 768,
-    },
     {
         "keras_model_cls": owlvit.OwlViTBasePatch16,
         "hf_model_name": "google/owlvit-base-patch16",
@@ -57,6 +55,7 @@ for model_config in model_configs:
     torch_model: torch.nn.Module = OwlViTForObjectDetection.from_pretrained(
         model_config["hf_model_name"],
         token=os.environ.get("HF_TOKEN"),
+        attn_implementation="eager",
     ).eval()
 
     pytorch_state_dict: Dict[str, np.ndarray] = {
