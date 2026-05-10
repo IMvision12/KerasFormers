@@ -79,7 +79,7 @@ class OwlViTImageProcessor(BaseImageProcessor):
             image_std=self.image_std if self.do_normalize else None,
             rescale=self.do_rescale,
             interpolation=self.resample,
-            antialias=False,
+            antialias=True,
             data_format=self.data_format,
         )
         if self.do_rescale and self.rescale_factor != 1 / 255:
