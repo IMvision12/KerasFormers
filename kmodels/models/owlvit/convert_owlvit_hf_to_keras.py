@@ -28,6 +28,11 @@ weight_name_mapping: Dict[str, str] = {
 
 model_configs: List[Dict[str, Any]] = [
     {
+        "keras_model_cls": owlvit.OwlViTBasePatch32,
+        "hf_model_name": "google/owlvit-base-patch32",
+        "image_size": 768,
+    },
+    {
         "keras_model_cls": owlvit.OwlViTBasePatch16,
         "hf_model_name": "google/owlvit-base-patch16",
         "image_size": 768,
