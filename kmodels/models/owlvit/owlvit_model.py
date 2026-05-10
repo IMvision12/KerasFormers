@@ -50,62 +50,7 @@ def owlvit_mlp(
     return x
 
 
-def owlvit_encoder_layer(
-    x,
-    attention_mask,
-    hidden_size,
-    num_heads,
-    intermediate_size,
-    layer_norm_eps,
-    hidden_act,
-    block_prefix,
-):
-    """Pre-norm transformer block: LN → SA → residual → LN → MLP → residual.
-
-    Reference:
-    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
-
-    Args:
-        x: Input tensor of shape
-            ``(batch_size, seq_len, hidden_size)``.
-        attention_mask: Optional additive attention mask broadcastable to
-            ``(batch_size, num_heads, seq_len, seq_len)``.
-        hidden_size: Integer, model dimension.
-        num_heads: Integer, number of attention heads.
-        intermediate_size: Integer, MLP expansion dimension.
-        layer_norm_eps: Float, layer normalization epsilon.
-        hidden_act: String, MLP activation.
-        block_prefix: String, name prefix for all sub-layers.
-
-    Returns:
-        Tensor of shape ``(batch_size, seq_len, hidden_size)``.
-    """
-    residual = x
-    x = layers.LayerNormalization(
-        epsilon=layer_norm_eps, name=f"{block_prefix}_layer_norm1"
-    )(x)
-    x = OwlViTAttention(
-        hidden_size=hidden_size,
-        num_heads=num_heads,
-        name=f"{block_prefix}_self_attn",
-    )(x, attention_mask=attention_mask)
-    x = layers.Add(name=f"{block_prefix}_sa_residual")([residual, x])
-
-    residual = x
-    x = layers.LayerNormalization(
-        epsilon=layer_norm_eps, name=f"{block_prefix}_layer_norm2"
-    )(x)
-    x = owlvit_mlp(
-        x,
-        hidden_size=hidden_size,
-        intermediate_size=intermediate_size,
-        hidden_act=hidden_act,
-        block_prefix=f"{block_prefix}_mlp",
-    )
-    return layers.Add(name=f"{block_prefix}_ff_residual")([residual, x])
-
-
-def owlvit_encoder(
+def owlvit_transformer_block(
     x,
     attention_mask,
     num_layers,
@@ -116,38 +61,60 @@ def owlvit_encoder(
     hidden_act,
     block_prefix,
 ):
-    """Stack of ``num_layers`` ``owlvit_encoder_layer`` blocks.
+    """Stack of ``num_layers`` pre-norm transformer blocks.
+
+    Each block applies LN → self-attention → residual → LN → MLP →
+    residual. Used by both the OWL-ViT vision and text towers.
+
+    Reference:
+    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
 
     Args:
-        x: Input tensor.
-        attention_mask: Optional additive attention mask.
-        num_layers: Integer, number of stacked encoder layers.
+        x: Input tensor of shape
+            ``(batch_size, seq_len, hidden_size)``.
+        attention_mask: Optional additive attention mask broadcastable
+            to ``(batch_size, num_heads, seq_len, seq_len)``.
+        num_layers: Integer, number of stacked blocks.
         hidden_size: Integer, model dimension.
-        num_heads: Integer, attention heads per layer.
-        intermediate_size: Integer, MLP expansion dimension per layer.
+        num_heads: Integer, attention heads per block.
+        intermediate_size: Integer, MLP expansion dimension per block.
         layer_norm_eps: Float, layer normalization epsilon.
         hidden_act: String, MLP activation.
-        block_prefix: String, name prefix; each layer is named
+        block_prefix: String, name prefix; each block is named
             ``f"{block_prefix}_layers_{i}_..."``.
 
     Returns:
-        Output tensor with the same shape as ``x``.
+        Tensor of shape ``(batch_size, seq_len, hidden_size)``.
     """
     for i in range(num_layers):
-        x = owlvit_encoder_layer(
-            x,
-            attention_mask=attention_mask,
+        prefix = f"{block_prefix}_layers_{i}"
+        residual = x
+        x = layers.LayerNormalization(
+            epsilon=layer_norm_eps, name=f"{prefix}_layer_norm1"
+        )(x)
+        x = OwlViTAttention(
             hidden_size=hidden_size,
             num_heads=num_heads,
+            name=f"{prefix}_self_attn",
+        )(x, attention_mask=attention_mask)
+        x = layers.Add(name=f"{prefix}_sa_residual")([residual, x])
+
+        residual = x
+        x = layers.LayerNormalization(
+            epsilon=layer_norm_eps, name=f"{prefix}_layer_norm2"
+        )(x)
+        x = owlvit_mlp(
+            x,
+            hidden_size=hidden_size,
             intermediate_size=intermediate_size,
-            layer_norm_eps=layer_norm_eps,
             hidden_act=hidden_act,
-            block_prefix=f"{block_prefix}_layers_{i}",
+            block_prefix=f"{prefix}_mlp",
         )
+        x = layers.Add(name=f"{prefix}_ff_residual")([residual, x])
     return x
 
 
-def build_owlvit_vision_transformer(
+def owlvit_vision_transformer(
     pixel_values,
     hidden_size,
     image_size,
@@ -173,7 +140,7 @@ def build_owlvit_vision_transformer(
     x = layers.LayerNormalization(
         epsilon=layer_norm_eps, name=f"{block_prefix}_pre_layernorm"
     )(x)
-    x = owlvit_encoder(
+    x = owlvit_transformer_block(
         x,
         attention_mask=None,
         num_layers=num_hidden_layers,
@@ -190,7 +157,7 @@ def build_owlvit_vision_transformer(
     return x
 
 
-def build_owlvit_text_transformer(
+def owlvit_text_transformer(
     input_ids,
     vocab_size,
     hidden_size,
@@ -223,7 +190,7 @@ def build_owlvit_text_transformer(
     causal = ops.where(j > i, ops.cast(-1e9, "float32"), ops.cast(0.0, "float32"))
     causal = ops.reshape(causal, (1, 1, seq_len, seq_len))
 
-    x = owlvit_encoder(
+    x = owlvit_transformer_block(
         x,
         attention_mask=causal,
         num_layers=num_hidden_layers,
@@ -428,7 +395,7 @@ class OwlViT(keras.Model):
             shape=text_input_shape, dtype="int32", name="input_ids"
         )
 
-        image_embeds = build_owlvit_vision_transformer(
+        image_embeds = owlvit_vision_transformer(
             pixel_values,
             hidden_size=vision_hidden_size,
             image_size=vision_image_size,
@@ -453,7 +420,7 @@ class OwlViT(keras.Model):
         )
         image_feats = ops.reshape(patch_embeds, (-1, num_patches, vision_hidden_size))
 
-        text_pooled = build_owlvit_text_transformer(
+        text_pooled = owlvit_text_transformer(
             input_ids,
             vocab_size=self.TEXT_VOCAB_SIZE,
             hidden_size=text_hidden_size,
