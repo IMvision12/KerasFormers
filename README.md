@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2, Qwen2-VL), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2, Qwen2-VL), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -24,7 +24,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
 
 ## 📑 Documentation
 
-Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for backbones, segmentation (SAM family, SegFormer, DeepLabV3, EoMT), object detection (DETR variants, D-FINE), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
+Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for backbones, segmentation (SAM family, SegFormer, DeepLabV3, EoMT), object detection (DETR variants, D-FINE, OWL-ViT), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
 
 ## 📑 Models
 
@@ -79,6 +79,7 @@ Per-model guides with architecture notes, usage examples, and available pretrain
     | RT-DETR | [DETRs Beat YOLOs on Real-time Object Detection](https://arxiv.org/abs/2304.08069) | `transformers` |
     | RT-DETRv2 | [RT-DETRv2: Improved Baseline with Bag-of-Freebies for Real-Time Detection Transformers](https://arxiv.org/abs/2407.17140) | `transformers` |
     | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `rfdetr` |
+    | OWL-ViT | [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230) | `transformers` |
 
 <br>
 
