@@ -759,6 +759,34 @@ MODEL_TEST_CONFIGS = {
             "text_logits": (2, 2),
         },
     },
+    "OwlViTBasePatch32": {
+        "module": "kmodels.models.owlvit",
+        "model_cls": "OwlViT",
+        "model_type": "object_detection",
+        "init_kwargs": {
+            "weights": None,
+            "vision_image_size": 64,
+            "vision_patch_size": 16,
+            "vision_hidden_size": 32,
+            "vision_intermediate_size": 64,
+            "vision_num_hidden_layers": 2,
+            "vision_num_attention_heads": 2,
+            "text_hidden_size": 16,
+            "text_intermediate_size": 32,
+            "text_num_attention_heads": 2,
+            "projection_dim": 16,
+        },
+        "input_factory": "owlvit_input",
+        "input_factory_kwargs": {
+            "image_size": 64,
+            "context_length": 16,
+            "num_queries": 2,
+        },
+        "expected_output_shape": {
+            "logits": (2, 16, 2),
+            "pred_boxes": (2, 16, 4),
+        },
+    },
 }
 
 

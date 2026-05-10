@@ -37,3 +37,12 @@ def sam_input(batch_size=2, image_size=64, num_prompts=1, num_points=1):
         ),
         "input_labels": ops.ones((batch_size, num_prompts, num_points), dtype="int32"),
     }
+
+
+def owlvit_input(batch_size=2, image_size=64, context_length=16, num_queries=2):
+    return {
+        "pixel_values": ops.ones((batch_size, image_size, image_size, 3)),
+        "input_ids": ops.ones(
+            (batch_size * num_queries, context_length), dtype="int32"
+        ),
+    }
