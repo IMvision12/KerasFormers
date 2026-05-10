@@ -76,10 +76,10 @@ class OwlViTProcessor(BaseProcessor):
 
         if vocab_file is None or merges_file is None:
             vocab_file = download_file(
-                "https://github.com/IMvision12/keras-models/releases/download/clip/vocab.json"
+                "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_vocab.json"
             )
             merges_file = download_file(
-                "https://github.com/IMvision12/keras-models/releases/download/clip/merges.txt"
+                "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_merges.txt"
             )
 
         self.tokenizer = CLIPTokenizer(

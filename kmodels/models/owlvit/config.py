@@ -40,17 +40,17 @@ OWLVIT_MODEL_CONFIG = {
 OWLVIT_WEIGHTS_CONFIG = {
     "OwlViTBasePatch32": {
         "owlvit": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_base_patch32.weights.h5",
         },
     },
     "OwlViTBasePatch16": {
         "owlvit": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_base_patch16.weights.h5",
         },
     },
     "OwlViTLargePatch14": {
         "owlvit": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_large_patch14.weights.h5",
         },
     },
 }
