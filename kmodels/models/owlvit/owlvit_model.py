@@ -28,6 +28,12 @@ class OwlViTCore(keras.Model):
     Reference:
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
 
+    Hyperparameters that are constant across all published OWL-ViT
+    variants are exposed as class-level constants
+    (``TEXT_MAX_POSITION_EMBEDDINGS``, ``TEXT_NUM_HIDDEN_LAYERS``,
+    ``TEXT_VOCAB_SIZE``, ``LOGIT_SCALE_INIT_VALUE``,
+    ``LAYER_NORM_EPS``, ``HIDDEN_ACT``) rather than ``__init__`` args.
+
     Args:
         vision_image_size: Integer, square image input edge in pixels.
         vision_patch_size: Integer, ViT patch edge in pixels.
@@ -38,23 +44,13 @@ class OwlViTCore(keras.Model):
             layers.
         vision_num_attention_heads: Integer, number of vision attention
             heads.
-        text_max_position_embeddings: Integer, maximum text sequence
-            length.
         text_hidden_size: Integer, hidden size of the text tower.
         text_intermediate_size: Integer, MLP intermediate size of the
             text tower.
-        text_num_hidden_layers: Integer, number of text transformer
-            layers.
         text_num_attention_heads: Integer, number of text attention
             heads.
-        text_vocab_size: Integer, text vocabulary size.
         projection_dim: Integer, joint contrastive projection size for
             ``visual_projection`` / ``text_projection``.
-        logit_scale_init_value: Float, initial value for the joint
-            contrastive logit scale.
-        layer_norm_eps: Float, layer normalization epsilon.
-        hidden_act: String, activation used in transformer MLPs.
-            ``"quick_gelu"`` matches HF defaults.
         name: String, model name.
 
     Inputs:
@@ -76,6 +72,13 @@ class OwlViTCore(keras.Model):
           features projected into the text space.
     """
 
+    TEXT_MAX_POSITION_EMBEDDINGS = 16
+    TEXT_NUM_HIDDEN_LAYERS = 12
+    TEXT_VOCAB_SIZE = 49408
+    LOGIT_SCALE_INIT_VALUE = 2.6592
+    LAYER_NORM_EPS = 1e-5
+    HIDDEN_ACT = "quick_gelu"
+
     def __init__(
         self,
         vision_image_size: int,
@@ -84,16 +87,10 @@ class OwlViTCore(keras.Model):
         vision_intermediate_size: int,
         vision_num_hidden_layers: int,
         vision_num_attention_heads: int,
-        text_max_position_embeddings: int,
         text_hidden_size: int,
         text_intermediate_size: int,
-        text_num_hidden_layers: int,
         text_num_attention_heads: int,
-        text_vocab_size: int,
         projection_dim: int,
-        logit_scale_init_value: float = 2.6592,
-        layer_norm_eps: float = 1e-5,
-        hidden_act: str = "quick_gelu",
         name: str = "OwlViTCore",
         **kwargs,
     ):
@@ -104,16 +101,10 @@ class OwlViTCore(keras.Model):
         self.vision_intermediate_size = vision_intermediate_size
         self.vision_num_hidden_layers = vision_num_hidden_layers
         self.vision_num_attention_heads = vision_num_attention_heads
-        self.text_max_position_embeddings = text_max_position_embeddings
         self.text_hidden_size = text_hidden_size
         self.text_intermediate_size = text_intermediate_size
-        self.text_num_hidden_layers = text_num_hidden_layers
         self.text_num_attention_heads = text_num_attention_heads
-        self.text_vocab_size = text_vocab_size
         self.projection_dim = projection_dim
-        self.logit_scale_init_value = logit_scale_init_value
-        self.layer_norm_eps = layer_norm_eps
-        self.hidden_act = hidden_act
 
         self.num_patches_h = vision_image_size // vision_patch_size
         self.num_patches_w = vision_image_size // vision_patch_size
@@ -125,19 +116,19 @@ class OwlViTCore(keras.Model):
             num_hidden_layers=vision_num_hidden_layers,
             num_heads=vision_num_attention_heads,
             intermediate_size=vision_intermediate_size,
-            layer_norm_eps=layer_norm_eps,
-            hidden_act=hidden_act,
+            layer_norm_eps=self.LAYER_NORM_EPS,
+            hidden_act=self.HIDDEN_ACT,
             name="vision_model",
         )
         self.text_model = OwlViTTextTransformer(
-            vocab_size=text_vocab_size,
+            vocab_size=self.TEXT_VOCAB_SIZE,
             hidden_size=text_hidden_size,
-            max_position_embeddings=text_max_position_embeddings,
-            num_hidden_layers=text_num_hidden_layers,
+            max_position_embeddings=self.TEXT_MAX_POSITION_EMBEDDINGS,
+            num_hidden_layers=self.TEXT_NUM_HIDDEN_LAYERS,
             num_heads=text_num_attention_heads,
             intermediate_size=text_intermediate_size,
-            layer_norm_eps=layer_norm_eps,
-            hidden_act=hidden_act,
+            layer_norm_eps=self.LAYER_NORM_EPS,
+            hidden_act=self.HIDDEN_ACT,
             name="text_model",
         )
         self.visual_projection = layers.Dense(
@@ -158,7 +149,7 @@ class OwlViTCore(keras.Model):
             name="box_head",
         )
         self.layer_norm = layers.LayerNormalization(
-            epsilon=layer_norm_eps,
+            epsilon=self.LAYER_NORM_EPS,
             name="layer_norm",
         )
 
@@ -170,7 +161,7 @@ class OwlViTCore(keras.Model):
         self.logit_scale = self.add_weight(
             name="logit_scale",
             shape=(),
-            initializer=keras.initializers.Constant(self.logit_scale_init_value),
+            initializer=keras.initializers.Constant(self.LOGIT_SCALE_INIT_VALUE),
             trainable=True,
         )
         super().build(input_shape)
@@ -257,16 +248,10 @@ class OwlViTCore(keras.Model):
                 "vision_intermediate_size": self.vision_intermediate_size,
                 "vision_num_hidden_layers": self.vision_num_hidden_layers,
                 "vision_num_attention_heads": self.vision_num_attention_heads,
-                "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_hidden_size": self.text_hidden_size,
                 "text_intermediate_size": self.text_intermediate_size,
-                "text_num_hidden_layers": self.text_num_hidden_layers,
                 "text_num_attention_heads": self.text_num_attention_heads,
-                "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
-                "logit_scale_init_value": self.logit_scale_init_value,
-                "layer_norm_eps": self.layer_norm_eps,
-                "hidden_act": self.hidden_act,
             }
         )
         return config
@@ -285,24 +270,17 @@ def _create_owlvit_model(variant, weights="owlvit", name=None, **kwargs):
         vision_intermediate_size=cfg["vision_intermediate_size"],
         vision_num_hidden_layers=cfg["vision_num_hidden_layers"],
         vision_num_attention_heads=cfg["vision_num_attention_heads"],
-        text_max_position_embeddings=cfg["text_max_position_embeddings"],
         text_hidden_size=cfg["text_hidden_size"],
         text_intermediate_size=cfg["text_intermediate_size"],
-        text_num_hidden_layers=cfg["text_num_hidden_layers"],
         text_num_attention_heads=cfg["text_num_attention_heads"],
-        text_vocab_size=cfg["text_vocab_size"],
         projection_dim=cfg["projection_dim"],
-        logit_scale_init_value=cfg["logit_scale_init_value"],
-        layer_norm_eps=cfg["layer_norm_eps"],
-        hidden_act=cfg["hidden_act"],
         name=name or variant,
         **kwargs,
     )
 
     image_size = cfg["vision_image_size"]
-    text_len = cfg["text_max_position_embeddings"]
     dummy_pixel = ops.zeros((1, image_size, image_size, 3), dtype="float32")
-    dummy_ids = ops.ones((1, text_len), dtype="int32")
+    dummy_ids = ops.ones((1, OwlViTCore.TEXT_MAX_POSITION_EMBEDDINGS), dtype="int32")
     _ = model({"pixel_values": dummy_pixel, "input_ids": dummy_ids})
     _ = model.get_image_features(dummy_pixel)
 
