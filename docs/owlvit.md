@@ -8,6 +8,8 @@ transformer, then uses class-token-modulated patch features as
 detection queries: each patch predicts one box and a per-text-query
 similarity score.
 
+![OWL-ViT Detection Output](../assets/owlvit_output.jpg)
+
 ## Architecture Highlights
 
 - **Open-vocabulary:** detection classes are arbitrary text strings,
@@ -27,9 +29,9 @@ similarity score.
 
 | Model | Vision tower | Image size | Weights |
 |-------|--------------|------------|---------|
-| `OwlViTBasePatch32` | ViT-B/32 (12L, 768 hidden, 12 heads) | 768×768 | `owlvit` (`google/owlvit-base-patch32`) |
-| `OwlViTBasePatch16` | ViT-B/16 (12L, 768 hidden, 12 heads) | 768×768 | `owlvit` (`google/owlvit-base-patch16`) |
-| `OwlViTLargePatch14` | ViT-L/14 (24L, 1024 hidden, 16 heads) | 840×840 | `owlvit` (`google/owlvit-large-patch14`) |
+| `OwlViTBasePatch32` | ViT-B/32 (12L, 768 hidden, 12 heads) | 768×768 | `owlvit` |
+| `OwlViTBasePatch16` | ViT-B/16 (12L, 768 hidden, 12 heads) | 768×768 | `owlvit` |
+| `OwlViTLargePatch14` | ViT-L/14 (24L, 1024 hidden, 16 heads) | 840×840 | `owlvit` |
 
 The text tower is fixed across variants (12 layers, hidden 512 / 768,
 8–16 heads, vocab 49408, max length 16).
@@ -39,89 +41,111 @@ from the HF checkpoint into the matching Keras layers.
 
 ## Weights
 
-OWL-ViT weights are downloaded straight from the HuggingFace Hub on
-first use (`google/owlvit-*` are public). Set `HF_TOKEN` if you want
-to avoid Hub rate limiting. Weights are converted in-memory; nothing
-is written to disk unless you `model.save_weights(...)` afterwards.
+Pre-converted Keras weights are cached at the `owlvit` GitHub release
+on first use:
+[https://github.com/IMvision12/keras-models/releases/tag/owlvit](https://github.com/IMvision12/keras-models/releases/tag/owlvit).
+The text-tower BPE vocab (`owlvit_vocab.json` + `owlvit_merges.txt`)
+is downloaded by `OwlViTProcessor` from the same release.
 
-## Quick Start
-
-### High-level pipeline
+## End-to-end Example (pure Keras 3, no torch / HF)
 
 ```python
-from kmodels.models.owlvit import OwlViTBasePatch32, OwlViTProcessor
-from PIL import Image
+from io import BytesIO
+import requests
+from PIL import Image, ImageDraw
 
-model = OwlViTBasePatch32(weights="owlvit")
+from kmodels.models.owlvit import (
+    OwlViTBasePatch32,
+    OwlViTProcessor,
+    owlvit_post_process_object_detection,
+)
+
+image = Image.open(BytesIO(requests.get(
+    "http://images.cocodataset.org/val2017/000000039769.jpg"
+).content)).convert("RGB")
+text_queries = [["a photo of a cat", "a photo of a dog", "a photo of a remote"]]
+
 processor = OwlViTProcessor()
-
-image = Image.open("image.jpg")
-text_queries = [["a photo of a cat", "a photo of a dog"]]  # one list per image
+model = OwlViTBasePatch32(weights="owlvit")
 
 inputs = processor(text=text_queries, images=image)
-outputs = model(inputs)
-# outputs["logits"]:      (B, num_patches,    Q)  — per-query similarity
-# outputs["pred_boxes"]:  (B, num_patches,    4)  — cxcywh normalized to [0, 1]
-# outputs["text_embeds"]: (B, Q, projection_dim)  — L2-normalized
-# outputs["image_embeds"]:(B, h_patches, w_patches, vision_hidden)
+outputs = model({
+    "pixel_values": inputs["pixel_values"],
+    "input_ids":    inputs["input_ids"],
+})
 
-results = processor.image_processor.post_process_object_detection(
-    outputs, threshold=0.1,
-    target_sizes=[image.size[::-1]],
+results = owlvit_post_process_object_detection(
+    outputs,
+    threshold=0.1,
+    target_sizes=[(image.height, image.width)],
     text_labels=text_queries,
-)
-for score, label, box in zip(results[0]["scores"],
-                              results[0]["text_labels"],
-                              results[0]["boxes"]):
-    print(f"{label}: {score:.2f}  [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
+)[0]
+
+draw = ImageDraw.Draw(image)
+for box, score, label in zip(
+    results["boxes"], results["scores"], results["text_labels"]
+):
+    x1, y1, x2, y2 = [float(v) for v in box]
+    draw.rectangle([x1, y1, x2, y2], outline=(220, 50, 50), width=3)
+    draw.text((x1, max(0, y1 - 18)), f"{label} {score:.2f}", fill=(255, 255, 255))
+
+image.save("owlvit_output.jpg")
 ```
 
-### Manual processor usage
+Output (printed):
+
+```
+a photo of a remote   score=0.206   box=[40.0,  72.4, 177.8, 115.6]
+a photo of a remote   score=0.184   box=[335.7, 74.2, 371.9, 187.6]
+a photo of a cat      score=0.704   box=[325.5, 20.5, 640.6, 372.9]
+a photo of a cat      score=0.713   box=[1.5,   55.2, 315.7, 472.2]
+```
+
+## Output Format
+
+The model returns a dict:
+
+| Key | Shape | Description |
+|---|---|---|
+| `logits` | `(B, num_patches, Q)` | per-query similarity score per patch |
+| `pred_boxes` | `(B, num_patches, 4)` | normalized `(cx, cy, w, h)` per patch |
+| `text_embeds` | `(B, Q, projection_dim)` | L2-normalized text query embeddings |
+| `image_embeds` | `(B, h_patches, w_patches, vision_hidden)` | per-patch image features (post `cls`-modulation + LN, shaped as a feature map) |
+| `class_embeds` | `(B, num_patches, text_hidden)` | per-patch features projected into the text space |
+
+`B` is the image batch and `Q` is the max number of text queries per
+image (the processor flattens text into `B*Q` rows; the model reshapes
+back to `(B, Q, ...)` and masks padded queries to `-inf` logits).
+
+## Manual Tokenizer / Image Processor Usage
+
+If you want to drive the components separately:
 
 ```python
-from kmodels.models.owlvit import OwlViTImageProcessor
+from kmodels.models.owlvit import OwlViTBasePatch32, OwlViTImageProcessor
 from kmodels.models.clip import CLIPTokenizer
 from kmodels.weight_utils import download_file
 
 image_processor = OwlViTImageProcessor(size={"height": 768, "width": 768})
 tokenizer = CLIPTokenizer(
     vocab_file=download_file(
-        "https://github.com/IMvision12/keras-models/releases/download/clip/vocab.json"
+        "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_vocab.json"
     ),
     merges_file=download_file(
-        "https://github.com/IMvision12/keras-models/releases/download/clip/merges.txt"
+        "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_merges.txt"
     ),
     context_length=16,
     pad_token="!",
 )
 
 pixel_values = image_processor(image)["pixel_values"]
-text_inputs = tokenizer(inputs=["a photo of a cat", "a photo of a dog"])
-
-outputs = model({
-    "pixel_values": pixel_values,
-    "input_ids": text_inputs["input_ids"],
-})
-```
-
-## Low-level API
-
-The :class:`OwlViT` class also exposes its sub-components:
-
-```python
-from kmodels.models.owlvit import OwlViTBasePatch32
+text_inputs  = tokenizer(inputs=["a photo of a cat", "a photo of a dog"])
 
 model = OwlViTBasePatch32(weights="owlvit")
-
-# Just the text encoder (pooled + projected, like CLIP).
-text_features = model.get_text_features(input_ids)         # (B, projection_dim)
-
-# Just the image encoder (CLS-pooled + projected).
-image_features = model.get_image_features(pixel_values)    # (B, projection_dim)
-
-# Internal embedder — returns the per-query text embeds and
-# the (B, h, w, hidden) image feature map used by the heads.
-query_embeds, feature_map = model.image_text_embedder(pixel_values, input_ids)
+outputs = model({
+    "pixel_values": pixel_values,
+    "input_ids":    text_inputs["input_ids"],
+})
 ```
 
 ## Parity vs HuggingFace Reference
@@ -134,47 +158,62 @@ inputs (random RGB image + two text queries):
 
 | Output | Shape | max_abs_diff | mean_abs_diff |
 |---|---|---:|---:|
-| `logits`        | `(1, 576, 2)`     | 3.1e-05 | 4.8e-06 |
-| `pred_boxes`    | `(1, 576, 4)`     | 8.8e-06 | 2.7e-07 |
-| `text_embeds`   | `(1, 2, 512)`     | 7.5e-08 | 1.5e-08 |
-| `image_embeds`  | `(1, 24, 24, 768)`| 2.3e-05 | 3.0e-07 |
+| `logits`       | `(1, 576, 2)`     | 3.1e-05 | 4.8e-06 |
+| `pred_boxes`   | `(1, 576, 4)`     | 8.8e-06 | 2.7e-07 |
+| `text_embeds`  | `(1, 2, 512)`     | 7.5e-08 | 1.5e-08 |
+| `image_embeds` | `(1, 24, 24, 768)`| 2.3e-05 | 3.0e-07 |
 
 ### `OwlViTBasePatch16`
 
 | Output | Shape | max_abs_diff | mean_abs_diff |
 |---|---|---:|---:|
-| `logits`        | `(1, 2304, 2)`    | 4.1e-04 | 2.5e-05 |
-| `pred_boxes`    | `(1, 2304, 4)`    | 2.1e-05 | 3.5e-07 |
-| `text_embeds`   | `(1, 2, 512)`     | 1.1e-07 | 1.7e-08 |
-| `image_embeds`  | `(1, 48, 48, 768)`| 9.5e-05 | 5.5e-07 |
+| `logits`       | `(1, 2304, 2)`    | 4.7e-04 | 2.5e-05 |
+| `pred_boxes`   | `(1, 2304, 4)`    | 2.0e-05 | 3.5e-07 |
+| `text_embeds`  | `(1, 2, 512)`     | 1.1e-07 | 1.7e-08 |
+| `image_embeds` | `(1, 48, 48, 768)`| 9.5e-05 | 5.5e-07 |
 
 **Status: at fp32 epsilon** — production-ready.
 
 `OwlViTLargePatch14` shares the same architecture and conversion
-path; only the layer count and hidden dims change, and the weight
-mapping is parameterized by them. Weight transfer completes with
-**412 / 0 missing**. Running both the HF reference and the Keras
-port at fp32 in parallel needs ~12 GB of RAM (24 layers × 1024
-hidden, 840×840 image), which can OOM on smaller machines —
-parity numbers for this variant are not re-listed here.
+path; only the layer count and hidden dims change. Weight transfer
+completes with **412 / 0 missing**. Running both the HF reference
+and the Keras port at fp32 in parallel needs ~12 GB of RAM
+(24 layers × 1024 hidden, 840×840 image), which OOMs on smaller
+machines — parity numbers are not re-listed here.
 
-Reproduce:
+Reproduce on any variant:
 
 ```bash
-KERAS_BACKEND=torch python -m kmodels.models.owlvit.convert_owlvit_hf_to_keras \
-    --variant OwlViTBasePatch32
+KERAS_BACKEND=torch python -m kmodels.models.owlvit.convert_owlvit_hf_to_keras
 ```
+
+## Real-image E2E vs HF (Base/32)
+
+Pure-Keras pipeline (`OwlViTProcessor` → `OwlViT` → post-processing,
+no torch/HF anywhere) against `transformers.OwlViTProcessor` +
+`OwlViTForObjectDetection` on the COCO `000000039769.jpg` cats image
+with three text queries (`cat`, `dog`, `remote`):
+
+| Object | HF score | Keras score | HF box (xyxy) | Keras box (xyxy) |
+|---|---:|---:|---|---|
+| remote | 0.197 | 0.206 | [40.0, 72.4, 177.8, 115.6] | [40.0, 72.4, 177.8, 115.6] |
+| remote | 0.176 | 0.184 | [335.7, 74.2, 371.9, 187.5] | [335.7, 74.2, 371.9, 187.6] |
+| cat    | 0.707 | 0.704 | [325.0, 20.4, 640.6, 373.3] | [325.5, 20.5, 640.6, 372.9] |
+| cat    | 0.717 | 0.713 | [1.5, 55.3, 315.5, 472.2]   | [1.5, 55.2, 315.7, 472.2]   |
+
+Same 4 objects, scores within 0.01, boxes within 0.5 px. The small
+remaining gap is the bicubic-kernel difference between PIL (HF) and
+`keras.ops.image.resize` (kmodels) — both are valid bicubic
+implementations with slightly different coefficients.
 
 ## Notes
 
 - **Padded queries.** The tokenizer pads with id 0 (`!`); the class
   predictor uses `input_ids[..., 0] > 0` to mask padded queries to
   `-inf` logits, matching HF.
-- **Image data format.** Inputs are channels-last
-  ``(B, H, W, 3)``; the HF processor returns channels-first, so when
-  feeding HF-preprocessed pixels into the Keras model you need to
-  transpose first (the bundled `OwlViTImageProcessor` already
-  produces channels-last).
+- **Channels first / last.** The model honors
+  `keras.config.image_data_format()`. Both formats are tested across
+  `torch`, `jax`, and `tensorflow` backends.
 - **Box bias.** The per-patch `box_bias` constant is precomputed once
   at model init for the configured grid. Variable-resolution
   inference (HF's `interpolate_pos_encoding=True`) is not currently
