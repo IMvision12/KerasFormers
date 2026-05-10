@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
 import keras
 import numpy as np
@@ -6,12 +6,7 @@ import torch
 from tqdm import tqdm
 from transformers import RTDetrV2ForObjectDetection
 
-from kmodels.models.rt_detr_v2.rt_detr_v2_model import (
-    RTDETRV2ResNet18,
-    RTDETRV2ResNet34,
-    RTDETRV2ResNet50,
-    RTDETRV2ResNet101,
-)
+from kmodels.models.rt_detr_v2 import RTDETRV2Detect
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
@@ -26,64 +21,30 @@ backbone_name_mapping: Dict[str, str] = {
     "moving_variance": "running_var",
 }
 
-model_configs: List[Dict[str, Union[str, type]]] = [
-    {
-        "keras_cls": RTDETRV2ResNet50,
-        "hf_name": "PekingU/rtdetr_v2_r50vd",
-        "output": "rtdetr_v2_r50vd_coco.weights.h5",
-    },
-    {
-        "keras_cls": RTDETRV2ResNet18,
-        "hf_name": "PekingU/rtdetr_v2_r18vd",
-        "output": "rtdetr_v2_r18vd_coco.weights.h5",
-    },
-    {
-        "keras_cls": RTDETRV2ResNet34,
-        "hf_name": "PekingU/rtdetr_v2_r34vd",
-        "output": "rtdetr_v2_r34vd_coco.weights.h5",
-    },
-    {
-        "keras_cls": RTDETRV2ResNet101,
-        "hf_name": "PekingU/rtdetr_v2_r101vd",
-        "output": "rtdetr_v2_r101vd_coco.weights.h5",
-    },
-]
 
-for model_config in model_configs:
-    hf_name = model_config["hf_name"]
-    output = model_config["output"]
+def transfer_rt_detr_v2_weights(keras_model, state_dict):
+    """Transfer RT-DETR-V2 weights from a ``RTDetrV2ForObjectDetection`` state_dict.
 
-    print(f"\n{'=' * 60}")
-    print(f"Converting {hf_name}...")
-    print(f"{'=' * 60}")
+    Same overall structure as RT-DETR (backbone → hybrid encoder →
+    deformable decoder → per-layer heads), with the V2 deformable
+    attention variant in the decoder.
 
-    torch_model = RTDetrV2ForObjectDetection.from_pretrained(
-        hf_name,
-        attn_implementation="eager",
-    ).eval()
-    sd: Dict[str, np.ndarray] = {
-        k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
-    }
-
-    keras_model: keras.Model = model_config["keras_cls"](
-        weights=None,
-        input_shape=(640, 640, 3),
-        num_queries=300,
-        num_labels=80,
-    )
-    print(f"  Parameters: {keras_model.count_params():,}")
-
-    bb_cfg = torch_model.model.backbone.model.config
-    block_repeats = bb_cfg.depths
-    layer_type = bb_cfg.layer_type
+    Args:
+        keras_model: A ``RTDETRV2Detect`` instance.
+        state_dict: Mapping of torch weight names to numpy arrays.
+    """
+    sd = state_dict
+    block_repeats = keras_model._backbone_block_repeats
+    layer_type = keras_model._backbone_layer_type
     num_convs = 2 if layer_type == "basic" else 3
+    num_dec = keras_model._decoder_layers
 
     for i in tqdm(range(3), desc="Transferring backbone stem"):
         hf_pre = f"model.backbone.model.embedder.embedder.{i}"
         conv = keras_model.get_layer(f"backbone_embedder_{i}_conv")
         transfer_weights("conv_kernel", conv.kernel, sd[f"{hf_pre}.convolution.weight"])
         bn = keras_model.get_layer(f"backbone_embedder_{i}_bn")
-        skipped = transfer_nested_layer_weights(
+        transfer_nested_layer_weights(
             bn,
             sd,
             f"{hf_pre}.normalization",
@@ -281,7 +242,6 @@ for model_config in model_configs:
         )
         layer.weights[1].assign(sd[f"model.decoder.query_pos_head.layers.{j}.bias"])
 
-    num_dec = torch_model.config.decoder_layers
     for i in tqdm(range(num_dec), desc="Transferring decoder layers"):
         hf_dl = f"model.decoder.layers.{i}"
         k_dl = f"decoder_layers_{i}"
@@ -333,11 +293,13 @@ for model_config in model_configs:
 
     for i in tqdm(range(num_dec), desc="Transferring detection heads"):
         try:
-            cls = keras_model.get_layer(f"class_embed_{i}")
+            cls_layer = keras_model.get_layer(f"class_embed_{i}")
             transfer_weights(
-                "kernel", cls.weights[0], sd[f"model.decoder.class_embed.{i}.weight"]
+                "kernel",
+                cls_layer.weights[0],
+                sd[f"model.decoder.class_embed.{i}.weight"],
             )
-            cls.weights[1].assign(sd[f"model.decoder.class_embed.{i}.bias"])
+            cls_layer.weights[1].assign(sd[f"model.decoder.class_embed.{i}.bias"])
         except ValueError:
             pass
 
@@ -350,59 +312,111 @@ for model_config in model_configs:
             )
             bbox.weights[1].assign(sd[f"model.decoder.bbox_embed.{i}.layers.{j}.bias"])
 
-    print("\nVerifying model equivalence...")
 
-    np.random.seed(42)
-    test_input = np.random.rand(1, 640, 640, 3).astype(np.float32)
+if __name__ == "__main__":
+    model_configs: List[Dict[str, Any]] = [
+        {
+            "variant": "rtdetr-v2-r50vd",
+            "hf_name": "PekingU/rtdetr_v2_r50vd",
+            "output": "rtdetr_v2_r50vd_coco.weights.h5",
+        },
+        {
+            "variant": "rtdetr-v2-r18vd",
+            "hf_name": "PekingU/rtdetr_v2_r18vd",
+            "output": "rtdetr_v2_r18vd_coco.weights.h5",
+        },
+        {
+            "variant": "rtdetr-v2-r34vd",
+            "hf_name": "PekingU/rtdetr_v2_r34vd",
+            "output": "rtdetr_v2_r34vd_coco.weights.h5",
+        },
+        {
+            "variant": "rtdetr-v2-r101vd",
+            "hf_name": "PekingU/rtdetr_v2_r101vd",
+            "output": "rtdetr_v2_r101vd_coco.weights.h5",
+        },
+    ]
 
-    hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
-    with torch.no_grad():
-        hf_output = torch_model(hf_input)
-        hf_logits = hf_output.logits.numpy()
-        hf_boxes = hf_output.pred_boxes.numpy()
+    for cfg in model_configs:
+        hf_name = cfg["hf_name"]
+        output = cfg["output"]
 
-    keras_output = keras_model.predict(test_input, verbose=0)
-    keras_logits = np.asarray(keras_output["logits"])
-    keras_boxes = np.asarray(keras_output["pred_boxes"])
+        print(f"\n{'=' * 60}")
+        print(f"Converting {hf_name}...")
+        print(f"{'=' * 60}")
 
-    logits_diff = np.max(np.abs(hf_logits - keras_logits))
-    boxes_diff = np.max(np.abs(hf_boxes - keras_boxes))
+        torch_model = RTDetrV2ForObjectDetection.from_pretrained(
+            hf_name,
+            attn_implementation="eager",
+        ).eval()
+        sd: Dict[str, np.ndarray] = {
+            k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
+        }
 
-    hf_flat = hf_logits.flatten()
-    k_flat = keras_logits.flatten()
-    logits_cos = float(
-        np.dot(hf_flat, k_flat)
-        / (np.linalg.norm(hf_flat) * np.linalg.norm(k_flat) + 1e-8)
-    )
-
-    print(f"Max logits diff:   {logits_diff:.6f}")
-    print(f"Max boxes diff:    {boxes_diff:.6f}")
-    print(f"Logits cosine sim: {logits_cos:.6f}")
-
-    if logits_diff > 1e-3 or boxes_diff > 1e-3:
-        sub_enc = keras.Model(
-            inputs=keras_model.input,
-            outputs=keras_model.get_layer("enc_score_head").output,
+        keras_model = RTDETRV2Detect.from_weights(
+            cfg["variant"],
+            load_weights=False,
+            input_shape=(640, 640, 3),
+            num_queries=300,
+            num_labels=80,
         )
-        keras_enc_scores = np.asarray(sub_enc.predict(test_input, verbose=0))
+        print(f"  Parameters: {keras_model.count_params():,}")
+
+        transfer_rt_detr_v2_weights(keras_model, sd)
+
+        print("\nVerifying model equivalence...")
+
+        np.random.seed(42)
+        test_input = np.random.rand(1, 640, 640, 3).astype(np.float32)
+
+        hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
         with torch.no_grad():
-            hf_model_out = torch_model.model(hf_input)
-            hf_enc_scores = hf_model_out.enc_outputs_class.cpu().numpy()
-        enc_diff = np.max(np.abs(keras_enc_scores - hf_enc_scores))
-        print(f"  Encoder scores diff: {enc_diff:.6f} (fallback check)")
-        assert enc_diff < 1e-3, (
-            f"Equivalence test failed on encoder scores (diff: {enc_diff:.6f})"
+            hf_output = torch_model(hf_input)
+            hf_logits = hf_output.logits.numpy()
+            hf_boxes = hf_output.pred_boxes.numpy()
+
+        keras_output = keras_model.predict(test_input, verbose=0)
+        keras_logits = np.asarray(keras_output["logits"])
+        keras_boxes = np.asarray(keras_output["pred_boxes"])
+
+        logits_diff = np.max(np.abs(hf_logits - keras_logits))
+        boxes_diff = np.max(np.abs(hf_boxes - keras_boxes))
+
+        hf_flat = hf_logits.flatten()
+        k_flat = keras_logits.flatten()
+        logits_cos = float(
+            np.dot(hf_flat, k_flat)
+            / (np.linalg.norm(hf_flat) * np.linalg.norm(k_flat) + 1e-8)
         )
 
-    if logits_cos < 0.95:
-        raise ValueError(
-            f"Equivalence test failed: logits cosine similarity {logits_cos:.4f} < 0.95"
-        )
+        print(f"Max logits diff:   {logits_diff:.6f}")
+        print(f"Max boxes diff:    {boxes_diff:.6f}")
+        print(f"Logits cosine sim: {logits_cos:.6f}")
 
-    print("Equivalence test passed!")
+        if logits_diff > 1e-3 or boxes_diff > 1e-3:
+            sub_enc = keras.Model(
+                inputs=keras_model.input,
+                outputs=keras_model.get_layer("enc_score_head").output,
+            )
+            keras_enc_scores = np.asarray(sub_enc.predict(test_input, verbose=0))
+            with torch.no_grad():
+                hf_model_out = torch_model.model(hf_input)
+                hf_enc_scores = hf_model_out.enc_outputs_class.cpu().numpy()
+            enc_diff = np.max(np.abs(keras_enc_scores - hf_enc_scores))
+            print(f"  Encoder scores diff: {enc_diff:.6f} (fallback check)")
+            assert enc_diff < 1e-3, (
+                f"Equivalence test failed on encoder scores (diff: {enc_diff:.6f})"
+            )
 
-    keras_model.save_weights(output)
-    print(f"Model saved as {output}")
+        if logits_cos < 0.95:
+            raise ValueError(
+                f"Equivalence test failed: logits cosine similarity {logits_cos:.4f} < 0.95"
+            )
 
-    del keras_model, torch_model, sd
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        print("Equivalence test passed!")
+
+        keras_model.save_weights(output)
+        print(f"Model saved as {output}")
+
+        del keras_model, torch_model, sd
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None

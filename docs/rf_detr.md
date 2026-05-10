@@ -4,40 +4,45 @@
 
 RF-DETR is a real-time object detection model based on the DETR framework, using neural architecture search to find efficient configurations and a DINOv2 backbone. It comes in multiple size variants to balance speed and accuracy for different deployment scenarios.
 
-## Model Variants
+## Available Variants
 
-- **RFDETRNano** — 384px resolution
-- **RFDETRSmall** — 512px resolution
-- **RFDETRMedium** — 576px resolution
-- **RFDETRBase** — 560px resolution, 29M params
-- **RFDETRLarge** — 704px resolution
+| Variant | Resolution | Notes |
+|---|---|---|
+| `rfdetr-nano` | 384px | smallest |
+| `rfdetr-small` | 512px | |
+| `rfdetr-medium` | 576px | |
+| `rfdetr-base` | 560px | 29M params |
+| `rfdetr-large` | 704px | |
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.rf_detr import RFDETRDetect
 
-# RF-DETR Base (29M params, 560px, COCO pre-trained)
-model = kmodels.models.rf_detr.RFDETRBase(weights="coco")
+# RF-DETR Base (kmodels release, COCO pre-trained)
+model = RFDETRDetect.from_weights("rfdetr-base")
 
-# Available variants
-model = kmodels.models.rf_detr.RFDETRNano(weights="coco")
-model = kmodels.models.rf_detr.RFDETRSmall(weights="coco")
-model = kmodels.models.rf_detr.RFDETRMedium(weights="coco")
-model = kmodels.models.rf_detr.RFDETRLarge(weights="coco")
+# Other variants
+model = RFDETRDetect.from_weights("rfdetr-nano")
+model = RFDETRDetect.from_weights("rfdetr-small")
+model = RFDETRDetect.from_weights("rfdetr-medium")
+model = RFDETRDetect.from_weights("rfdetr-large")
 
-# Without pre-trained weights
-model = kmodels.models.rf_detr.RFDETRBase(weights=None)
+# Untrained
+model = RFDETRDetect.from_weights("rfdetr-base", load_weights=False)
 ```
+
+> RF-DETR is not available through HuggingFace transformers. Use the
+> kmodels release variants above, or load a custom checkpoint via
+> `model.load_weights(...)`.
 
 ## Example Inference
 
 ```python
-import kmodels
-from kmodels.models.rf_detr import RFDETRImageProcessor
+from kmodels.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 from PIL import Image
 
-model = kmodels.models.rf_detr.RFDETRBase(weights="coco")
+model = RFDETRDetect.from_weights("rfdetr-base")
 
 image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
@@ -92,9 +97,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.rf_detr import RFDETRBase, RFDETRImageProcessor
+from kmodels.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 
-model = RFDETRBase(weights="coco")
+model = RFDETRDetect.from_weights("rfdetr-base")
 
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)

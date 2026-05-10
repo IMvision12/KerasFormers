@@ -4,20 +4,14 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"
 
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
 from tqdm import tqdm
 from transformers import AutoModelForObjectDetection
 
-from kmodels.models.dfine.dfine_model import (
-    DFineLarge,
-    DFineMedium,
-    DFineNano,
-    DFineSmall,
-    DFineXLarge,
-)
+from kmodels.models.dfine import DFineDetect
 from kmodels.weight_utils.custom_exception import WeightShapeMismatchError
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
@@ -33,65 +27,27 @@ backbone_name_mapping: Dict[str, str] = {
     "moving_variance": "running_var",
 }
 
-model_configs: List[Dict[str, Union[str, type]]] = [
-    {
-        "keras_cls": DFineNano,
-        "hf_name": "ustc-community/dfine-nano-coco",
-        "output": "dfine_nano_coco.weights.h5",
-    },
-    {
-        "keras_cls": DFineSmall,
-        "hf_name": "ustc-community/dfine-small-coco",
-        "output": "dfine_small_coco.weights.h5",
-    },
-    {
-        "keras_cls": DFineMedium,
-        "hf_name": "ustc-community/dfine-medium-coco",
-        "output": "dfine_medium_coco.weights.h5",
-    },
-    {
-        "keras_cls": DFineLarge,
-        "hf_name": "ustc-community/dfine-large-coco",
-        "output": "dfine_large_coco.weights.h5",
-    },
-    {
-        "keras_cls": DFineXLarge,
-        "hf_name": "ustc-community/dfine-xlarge-coco",
-        "output": "dfine_xlarge_coco.weights.h5",
-    },
-]
 
-for model_config in model_configs:
-    hf_name = model_config["hf_name"]
-    output = model_config["output"]
+def transfer_dfine_weights(keras_model, state_dict):
+    """Transfer D-FINE weights from a ``DFineForObjectDetection`` state_dict.
 
-    print(f"\n{'=' * 60}")
-    print(f"Converting {hf_name}...")
-    print(f"{'=' * 60}")
+    Handles the HGNetV2 backbone (stem + stages), the AIFI hybrid
+    encoder, the CCFM (FPN/PAN), the multi-level decoder, and all
+    detection heads (class/bbox + LQE refinement).
 
-    torch_model = AutoModelForObjectDetection.from_pretrained(
-        hf_name,
-        trust_remote_code=True,
-    ).eval()
-    sd: Dict[str, np.ndarray] = {
-        k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
-    }
-
-    keras_model = model_config["keras_cls"](
-        weights=None,
-        input_shape=(640, 640, 3),
-        num_queries=300,
-        num_labels=80,
-    )
-    print(f"  Parameters: {keras_model.count_params():,}")
-
-    bb_cfg = torch_model.config.backbone_config
-    if hasattr(bb_cfg, "to_dict"):
-        bb_cfg = bb_cfg.to_dict()
-    stage_num_blocks = bb_cfg["stage_num_blocks"]
-    stage_numb_of_layers = bb_cfg["stage_numb_of_layers"]
-    stage_light_block = bb_cfg["stage_light_block"]
-    use_lab = bb_cfg["use_learnable_affine_block"]
+    Args:
+        keras_model: A ``DFineDetect`` instance.
+        state_dict: Mapping of torch weight names to numpy arrays.
+    """
+    sd = state_dict
+    stage_num_blocks = keras_model._stage_num_blocks
+    stage_numb_of_layers = keras_model._stage_numb_of_layers
+    stage_light_block = keras_model.STAGE_LIGHT_BLOCK
+    stage_downsample = keras_model.STAGE_DOWNSAMPLE
+    use_lab = keras_model._use_lab
+    num_feature_levels = keras_model._num_feature_levels
+    num_dec = keras_model._decoder_layers
+    n_enc_proj = len(keras_model._encoder_in_channels)
 
     stem_conv_bn_pairs: List[Tuple[str, str]] = []
     for stem_name in ["stem1", "stem2a", "stem2b", "stem3", "stem4"]:
@@ -121,7 +77,7 @@ for model_config in model_configs:
 
     stage_conv_bn_pairs: List[Tuple[str, str]] = []
     for si in range(4):
-        if bb_cfg["stage_downsample"][si]:
+        if stage_downsample[si]:
             hf_ds = f"model.backbone.model.encoder.stages.{si}.downsample"
             ds_key = f"{hf_ds}.convolution.weight"
             if ds_key in sd:
@@ -180,7 +136,6 @@ for model_config in model_configs:
             except ValueError:
                 pass
 
-    n_enc_proj = len(torch_model.config.encoder_in_channels)
     for i in tqdm(range(n_enc_proj), desc="Transferring encoder input projections"):
         conv = keras_model.get_layer(f"encoder_input_proj_{i}_conv")
         transfer_weights(
@@ -195,14 +150,11 @@ for model_config in model_configs:
         )
 
     print("Transferring AIFI encoder...")
-    # transformers v4.x: model.encoder.encoder.0.layers.0
-    # transformers v5.x: model.encoder.aifi.0.layers.0
     hf_aifi = "model.encoder.aifi.0.layers.0"
     if f"{hf_aifi}.self_attn.q_proj.weight" not in sd:
         hf_aifi = "model.encoder.encoder.0.layers.0"
 
     sa = keras_model.get_layer("aifi_0_layers_0_self_attn")
-    # transformers v5.x renamed out_proj -> o_proj
     hf_out_proj = "o_proj" if f"{hf_aifi}.self_attn.o_proj.weight" in sd else "out_proj"
     for proj_name, hf_proj in [
         ("q_proj", "q_proj"),
@@ -227,7 +179,6 @@ for model_config in model_configs:
         f"{hf_aifi}.final_layer_norm",
         name_mapping=backbone_name_mapping,
     )
-    # transformers v5.x renamed fc1/fc2 -> mlp.layers.0/mlp.layers.1
     if f"{hf_aifi}.mlp.layers.0.weight" in sd:
         aifi_ffn_map = [
             ("aifi_0_layers_0_fc1", "mlp.layers.0"),
@@ -244,7 +195,7 @@ for model_config in model_configs:
         fc.bias.assign(sd[f"{hf_aifi}.{hf_suffix}.bias"])
 
     print("Transferring CCFM...")
-    num_fpn = torch_model.config.num_feature_levels - 1
+    num_fpn = num_feature_levels - 1
 
     ccfm_conv_norm_pairs: List[Tuple[str, str]] = []
     for i in range(num_fpn):
@@ -309,8 +260,7 @@ for model_config in model_configs:
                     pass
 
     for i in tqdm(
-        range(torch_model.config.num_feature_levels),
-        desc="Transferring decoder input projections",
+        range(num_feature_levels), desc="Transferring decoder input projections"
     ):
         try:
             conv = keras_model.get_layer(f"decoder_input_proj_{i}_conv")
@@ -371,7 +321,6 @@ for model_config in model_configs:
     dp.up.assign(sd["model.decoder.up"])
     dp.reg_scale.assign(sd["model.decoder.reg_scale"])
 
-    num_dec = torch_model.config.decoder_layers
     for i in tqdm(range(num_dec), desc="Transferring decoder layers"):
         hf_dl = f"model.decoder.layers.{i}"
         dec_layer = keras_model.get_layer(f"decoder_layers_{i}")
@@ -468,42 +417,99 @@ for model_config in model_configs:
                 sd[f"model.decoder.lqe_layers.{i}.reg_conf.{suffix}.bias"]
             )
 
-    print("\nVerifying model equivalence...")
-    np.random.seed(42)
-    test_input = np.random.rand(1, 640, 640, 3).astype(np.float32)
 
-    hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
-    with torch.no_grad():
-        hf_output = torch_model(hf_input)
-        hf_logits = hf_output.logits.numpy()
-        hf_boxes = hf_output.pred_boxes.numpy()
+if __name__ == "__main__":
+    model_configs: List[Dict[str, Any]] = [
+        {
+            "variant": "dfine-nano",
+            "hf_name": "ustc-community/dfine-nano-coco",
+            "output": "dfine_nano_coco.weights.h5",
+        },
+        {
+            "variant": "dfine-small",
+            "hf_name": "ustc-community/dfine-small-coco",
+            "output": "dfine_small_coco.weights.h5",
+        },
+        {
+            "variant": "dfine-medium",
+            "hf_name": "ustc-community/dfine-medium-coco",
+            "output": "dfine_medium_coco.weights.h5",
+        },
+        {
+            "variant": "dfine-large",
+            "hf_name": "ustc-community/dfine-large-coco",
+            "output": "dfine_large_coco.weights.h5",
+        },
+        {
+            "variant": "dfine-xlarge",
+            "hf_name": "ustc-community/dfine-xlarge-coco",
+            "output": "dfine_xlarge_coco.weights.h5",
+        },
+    ]
 
-    keras_output = keras_model.predict(test_input, verbose=0)
-    keras_logits = np.asarray(keras_output["logits"])
-    keras_boxes = np.asarray(keras_output["pred_boxes"])
+    for cfg in model_configs:
+        hf_name = cfg["hf_name"]
+        output = cfg["output"]
 
-    logits_diff = np.max(np.abs(hf_logits - keras_logits))
-    boxes_diff = np.max(np.abs(hf_boxes - keras_boxes))
+        print(f"\n{'=' * 60}")
+        print(f"Converting {hf_name}...")
+        print(f"{'=' * 60}")
 
-    hf_flat = hf_logits.flatten()
-    k_flat = keras_logits.flatten()
-    logits_cos = float(
-        np.dot(hf_flat, k_flat)
-        / (np.linalg.norm(hf_flat) * np.linalg.norm(k_flat) + 1e-8)
-    )
+        torch_model = AutoModelForObjectDetection.from_pretrained(
+            hf_name,
+            trust_remote_code=True,
+        ).eval()
+        sd: Dict[str, np.ndarray] = {
+            k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
+        }
 
-    print(f"Max logits diff:   {logits_diff:.6f}")
-    print(f"Max boxes diff:    {boxes_diff:.6f}")
-    print(f"Logits cosine sim: {logits_cos:.6f}")
-
-    if logits_cos < 0.95:
-        raise ValueError(
-            f"Equivalence test failed: logits cosine similarity {logits_cos:.4f} < 0.95"
+        keras_model = DFineDetect.from_weights(
+            cfg["variant"],
+            load_weights=False,
+            input_shape=(640, 640, 3),
+            num_queries=300,
+            num_labels=80,
         )
-    print("Equivalence test passed!")
+        print(f"  Parameters: {keras_model.count_params():,}")
 
-    keras_model.save_weights(output)
-    print(f"Model saved as {output}")
+        transfer_dfine_weights(keras_model, sd)
 
-    del keras_model, torch_model, sd
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        print("\nVerifying model equivalence...")
+        np.random.seed(42)
+        test_input = np.random.rand(1, 640, 640, 3).astype(np.float32)
+
+        hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
+        with torch.no_grad():
+            hf_output = torch_model(hf_input)
+            hf_logits = hf_output.logits.numpy()
+            hf_boxes = hf_output.pred_boxes.numpy()
+
+        keras_output = keras_model.predict(test_input, verbose=0)
+        keras_logits = np.asarray(keras_output["logits"])
+        keras_boxes = np.asarray(keras_output["pred_boxes"])
+
+        logits_diff = np.max(np.abs(hf_logits - keras_logits))
+        boxes_diff = np.max(np.abs(hf_boxes - keras_boxes))
+
+        hf_flat = hf_logits.flatten()
+        k_flat = keras_logits.flatten()
+        logits_cos = float(
+            np.dot(hf_flat, k_flat)
+            / (np.linalg.norm(hf_flat) * np.linalg.norm(k_flat) + 1e-8)
+        )
+
+        print(f"Max logits diff:   {logits_diff:.6f}")
+        print(f"Max boxes diff:    {boxes_diff:.6f}")
+        print(f"Logits cosine sim: {logits_cos:.6f}")
+
+        if logits_cos < 0.95:
+            raise ValueError(
+                f"Equivalence test failed: logits cosine similarity {logits_cos:.4f} < 0.95"
+            )
+        print("Equivalence test passed!")
+
+        keras_model.save_weights(output)
+        print(f"Model saved as {output}")
+
+        del keras_model, torch_model, sd
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None

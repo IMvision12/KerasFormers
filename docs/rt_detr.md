@@ -12,43 +12,49 @@ RT-DETR (Real-Time DEtection TRansformer) is the first real-time end-to-end obje
 - **Two-Stage Query Init:** Encoder proposals initialize decoder queries, eliminating the need for learned query embeddings.
 - **Iterative Box Refinement:** Each decoder layer refines bounding box predictions from the previous layer.
 
-## Available Models
+## Available Variants
 
-| Model | Backbone | Params | Weights |
-|-------|----------|--------|---------|
-| `RTDETRResNet18` | ResNet-18-vd | 20M | `coco`, `coco_o365` |
-| `RTDETRResNet34` | ResNet-34-vd | 31M | `coco` |
-| `RTDETRResNet50` | ResNet-50-vd | 43M | `coco`, `coco_o365` |
-| `RTDETRResNet101` | ResNet-101-vd | 77M | `coco`, `coco_o365` |
+| Variant | Backbone | Params | HF original |
+|---|---|---|---|
+| `rtdetr-r18vd` | ResNet-18-vd | 20M | `PekingU/rtdetr_r18vd` |
+| `rtdetr-r18vd-coco-o365` | ResNet-18-vd | 20M | `PekingU/rtdetr_r18vd_coco_o365` |
+| `rtdetr-r34vd` | ResNet-34-vd | 31M | `PekingU/rtdetr_r34vd` |
+| `rtdetr-r50vd` | ResNet-50-vd | 43M | `PekingU/rtdetr_r50vd` |
+| `rtdetr-r50vd-coco-o365` | ResNet-50-vd | 43M | `PekingU/rtdetr_r50vd_coco_o365` |
+| `rtdetr-r101vd` | ResNet-101-vd | 77M | `PekingU/rtdetr_r101vd` |
+| `rtdetr-r101vd-coco-o365` | ResNet-101-vd | 77M | `PekingU/rtdetr_r101vd_coco_o365` |
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.rt_detr import RTDETRDetect
 
-# RT-DETR with ResNet-50 backbone (COCO pre-trained)
-model = kmodels.models.rt_detr.RTDETRResNet50(weights="coco")
+# RT-DETR with ResNet-50 (kmodels release, COCO pre-trained)
+model = RTDETRDetect.from_weights("rtdetr-r50vd")
 
-# Available variants
-model = kmodels.models.rt_detr.RTDETRResNet18(weights="coco")
-model = kmodels.models.rt_detr.RTDETRResNet34(weights="coco")
-model = kmodels.models.rt_detr.RTDETRResNet101(weights="coco")
+# Other variants
+model = RTDETRDetect.from_weights("rtdetr-r18vd")
+model = RTDETRDetect.from_weights("rtdetr-r34vd")
+model = RTDETRDetect.from_weights("rtdetr-r101vd")
 
-# COCO + Objects365 pre-trained weights
-model = kmodels.models.rt_detr.RTDETRResNet50(weights="coco_o365")
+# COCO + Objects365 pre-trained
+model = RTDETRDetect.from_weights("rtdetr-r50vd-coco-o365")
 
-# Without pre-trained weights
-model = kmodels.models.rt_detr.RTDETRResNet50(weights=None)
+# Untrained
+model = RTDETRDetect.from_weights("rtdetr-r50vd", load_weights=False)
+
+# From HF (original or fine-tune)
+model = RTDETRDetect.from_weights("hf:PekingU/rtdetr_r50vd")
+model = RTDETRDetect.from_weights("hf:my-username/my-rtdetr-finetune")
 ```
 
 ## Example Inference
 
 ```python
-import kmodels
-from kmodels.models.rt_detr import RTDETRImageProcessor
+from kmodels.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 from PIL import Image
 
-model = kmodels.models.rt_detr.RTDETRResNet50(weights="coco")
+model = RTDETRDetect.from_weights("rtdetr-r50vd")
 
 image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
@@ -103,9 +109,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.rt_detr import RTDETRResNet50, RTDETRImageProcessor
+from kmodels.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 
-model = RTDETRResNet50(weights="coco")
+model = RTDETRDetect.from_weights("rtdetr-r50vd")
 
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)

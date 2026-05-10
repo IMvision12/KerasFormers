@@ -3,10 +3,9 @@ import math
 import keras
 from keras import layers, ops, utils
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import load_weights_from_config
+from kmodels.base import BaseModel
 
-from .config import RF_DETR_MODEL_CONFIG, RF_DETR_WEIGHTS_CONFIG
+from .config import RF_DETR_CONFIG, RF_DETR_WEIGHTS
 from .rf_detr_layers import (
     DinoV2Embeddings,
     DinoV2LayerScale,
@@ -713,7 +712,8 @@ def rf_detr_windowed_dinov2_encoder(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class RFDETR(keras.Model):
+@keras.saving.register_keras_serializable(package="kmodels")
+class RFDETRDetect(BaseModel):
     """RF-DETR: Real-Time Detection Transformer.
 
     A real-time object detection model based on DINOv2 backbone with windowed
@@ -754,6 +754,9 @@ class RFDETR(keras.Model):
         name: Model name.
     """
 
+    KMODELS_CONFIG = RF_DETR_CONFIG
+    KMODELS_WEIGHTS = RF_DETR_WEIGHTS
+
     def __init__(
         self,
         hidden_dim=256,
@@ -779,10 +782,9 @@ class RFDETR(keras.Model):
         lite_refpoint_refine=True,
         group_detr=13,
         dim_feedforward=2048,
-        weights="coco",
         input_shape=None,
         input_tensor=None,
-        name="RFDETR",
+        name="RFDETRDetect",
         **kwargs,
     ):
         if out_feature_indexes is None:
@@ -1117,186 +1119,10 @@ class RFDETR(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
-
-def _create_rf_detr_model(
-    variant,
-    num_queries=300,
-    num_classes=91,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name=None,
-    **kwargs,
-):
-    """Factory function to create RF-DETR model variants.
-
-    Creates an RF-DETR model with configuration based on the variant name,
-    loading pre-trained weights if available.
-
-    Args:
-        variant: Model variant name (e.g., "RFDETRNano", "RFDETRSmall").
-        num_queries: Number of object queries. Default 300.
-        num_classes: Number of object classes. Default 91 (COCO).
-        weights: Weight identifier ("coco", None) or path to weights file.
-            Default "coco".
-        input_shape: Input shape as ``(H, W, C)``. If None, uses variant default.
-        input_tensor: Optional input tensor for functional API usage.
-        name: Model name. If None, uses variant name.
-        **kwargs: Additional arguments passed to RFDETR constructor.
-
-    Returns:
-        RF-DETR model instance with loaded weights.
-    """
-    config = RF_DETR_MODEL_CONFIG[variant]
-
-    if input_shape is None:
-        res = config["resolution"]
-        input_shape = (res, res, 3)
-
-    model = RFDETR(
-        hidden_dim=256,
-        backbone_hidden_size=384,
-        backbone_num_heads=6,
-        backbone_num_layers=12,
-        backbone_mlp_ratio=4,
-        backbone_use_swiglu=False,
-        num_register_tokens=0,
-        out_feature_indexes=config.get("out_feature_indexes", [3, 6, 9, 12]),
-        patch_size=config.get("patch_size", 16),
-        num_windows=config.get("num_windows", 2),
-        positional_encoding_size=config["positional_encoding_size"],
-        resolution=config["resolution"],
-        dec_layers=config["dec_layers"],
-        sa_nheads=8,
-        ca_nheads=16,
-        dec_n_points=2,
-        num_queries=num_queries,
-        num_classes=num_classes,
-        two_stage=True,
-        bbox_reparam=True,
-        lite_refpoint_refine=True,
-        group_detr=13,
-        dim_feedforward=2048,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name or variant,
-        **kwargs,
-    )
-
-    if weights in RF_DETR_WEIGHTS_CONFIG.get(variant, {}):
-        load_weights_from_config(variant, weights, model, RF_DETR_WEIGHTS_CONFIG)
-    elif weights is not None and weights != "coco":
-        model.load_weights(weights)
-
-    return model
-
-
-@register_model
-def RFDETRNano(
-    num_queries=300,
-    num_classes=91,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RFDETRNano",
-    **kwargs,
-):
-    return _create_rf_detr_model(
-        "RFDETRNano",
-        num_queries=num_queries,
-        num_classes=num_classes,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def RFDETRSmall(
-    num_queries=300,
-    num_classes=91,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RFDETRSmall",
-    **kwargs,
-):
-    return _create_rf_detr_model(
-        "RFDETRSmall",
-        num_queries=num_queries,
-        num_classes=num_classes,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def RFDETRMedium(
-    num_queries=300,
-    num_classes=91,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RFDETRMedium",
-    **kwargs,
-):
-    return _create_rf_detr_model(
-        "RFDETRMedium",
-        num_queries=num_queries,
-        num_classes=num_classes,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def RFDETRBase(
-    num_queries=300,
-    num_classes=91,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RFDETRBase",
-    **kwargs,
-):
-    return _create_rf_detr_model(
-        "RFDETRBase",
-        num_queries=num_queries,
-        num_classes=num_classes,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def RFDETRLarge(
-    num_queries=300,
-    num_classes=91,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RFDETRLarge",
-    **kwargs,
-):
-    return _create_rf_detr_model(
-        "RFDETRLarge",
-        num_queries=num_queries,
-        num_classes=num_classes,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
+    @classmethod
+    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
+        raise NotImplementedError(
+            "RF-DETR is not available through HuggingFace transformers. "
+            "Use the kmodels release variants (e.g. 'rfdetr-base') or pass a "
+            "local .weights.h5 path via model.load_weights(...)."
+        )

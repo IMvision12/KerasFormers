@@ -1,17 +1,16 @@
 import keras
 from keras import layers, ops, utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.model_registry import register_model
 from kmodels.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
     DETRFlattenFeatures,
     DETRMultiHeadAttention,
     DETRPositionEmbeddingSine,
 )
-from kmodels.weight_utils import load_weights_from_config
 
-from .config import DETR_MODEL_CONFIG, DETR_WEIGHTS_CONFIG
+from .config import DETR_CONFIG, DETR_WEIGHTS
 
 
 def detr_encoder_layer(
@@ -25,32 +24,8 @@ def detr_encoder_layer(
 ):
     """Single DETR transformer encoder layer.
 
-    Applies self-attention followed by a two-layer feedforward network,
-    each with a residual connection, dropout, and post-norm layer
-    normalization. Positional embeddings are added to the query and key
-    inputs of the self-attention but not to the values, following the
-    original DETR design.
-
     Reference:
     - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
-
-    Args:
-        x: Input tensor of shape
-            `(batch_size, seq_len, hidden_dim)`.
-        pos_embed: Positional embedding tensor of shape
-            `(batch_size, seq_len, hidden_dim)`, added to the query
-            and key inputs of self-attention.
-        hidden_dim: Integer, model dimension.
-        num_heads: Integer, number of attention heads.
-        dim_feedforward: Integer, intermediate dimension of the
-            feedforward network.
-        dropout_rate: Float, dropout rate applied after attention and
-            each feedforward layer. Defaults to `0.1`.
-        block_prefix: String, name prefix for all sub-layers in this
-            block. Defaults to `"encoder_layers_0"`.
-
-    Returns:
-        Output tensor of shape `(batch_size, seq_len, hidden_dim)`.
     """
     self_attn = DETRMultiHeadAttention(
         hidden_dim=hidden_dim,
@@ -101,41 +76,7 @@ def detr_decoder_layer(
     dropout_rate=0.1,
     block_prefix="decoder_layers_0",
 ):
-    """Single DETR transformer decoder layer.
-
-    Applies masked self-attention on object queries, cross-attention
-    between object queries and the encoder memory, and a two-layer
-    feedforward network. Each sub-block uses a residual connection,
-    dropout, and post-norm layer normalization. Positional embeddings
-    are added to the query/key inputs of both attention operations.
-
-    Reference:
-    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
-
-    Args:
-        x: Decoder input tensor of shape
-            `(batch_size, num_queries, hidden_dim)`.
-        memory: Encoder output tensor of shape
-            `(batch_size, seq_len, hidden_dim)`.
-        pos_embed: Encoder positional embedding tensor of shape
-            `(batch_size, seq_len, hidden_dim)`, added to the key
-            in cross-attention.
-        query_pos: Object query positional embedding tensor of shape
-            `(batch_size, num_queries, hidden_dim)`, added to the
-            query in both self-attention and cross-attention.
-        hidden_dim: Integer, model dimension.
-        num_heads: Integer, number of attention heads.
-        dim_feedforward: Integer, intermediate dimension of the
-            feedforward network.
-        dropout_rate: Float, dropout rate applied after attention and
-            each feedforward layer. Defaults to `0.1`.
-        block_prefix: String, name prefix for all sub-layers in this
-            block. Defaults to `"decoder_layers_0"`.
-
-    Returns:
-        Output tensor of shape
-        `(batch_size, num_queries, hidden_dim)`.
-    """
+    """Single DETR transformer decoder layer with self-attn + cross-attn."""
     self_attn = DETRMultiHeadAttention(
         hidden_dim=hidden_dim,
         num_heads=num_heads,
@@ -202,36 +143,11 @@ def build_detr_backbone(
     data_format="channels_last",
     channels_axis=-1,
 ):
-    """Build a ResNet backbone for DETR feature extraction.
+    """Build a ResNet backbone (ResNet50 / ResNet101) for DETR.
 
-    Constructs a standard ResNet-50 or ResNet-101 bottleneck backbone
-    from scratch with layer naming that mirrors the HuggingFace DETR
-    backbone structure, enabling direct weight transfer from pretrained
-    HuggingFace checkpoints without name remapping for the backbone
-    layers.
-
-    Reference:
-    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
-    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)
-
-    Args:
-        input_tensor: Keras input tensor of shape
-            `(batch_size, height, width, 3)`.
-        backbone_variant: String, one of `"ResNet50"` or
-            `"ResNet101"`. Determines the number of bottleneck blocks
-            per stage.
-        include_normalization: Boolean, whether to prepend an
-            `ImageNormalizationLayer` for input preprocessing.
-        normalization_mode: String, normalization mode passed to
-            `ImageNormalizationLayer` (e.g., `"imagenet"`).
-        data_format: String, image data format. Defaults to
-            `"channels_last"`.
-        channels_axis: Integer, channel axis index. Defaults to ``-1``.
-
-    Returns:
-        Feature tensor from the last ResNet stage (C5).
+    Layer naming mirrors HuggingFace's DETR backbone so weights can be
+    transferred directly.
     """
-
     block_repeats = {
         "ResNet50": [3, 4, 6, 3],
         "ResNet101": [3, 4, 23, 3],
@@ -243,7 +159,6 @@ def build_detr_backbone(
         else input_tensor
     )
 
-    # Stem
     x = layers.ZeroPadding2D(padding=3, data_format=data_format)(x)
     x = layers.Conv2D(
         64,
@@ -278,7 +193,6 @@ def build_detr_backbone(
             strides = 2 if block_idx == 0 and stage_idx > 0 else 1
             residual = x
 
-            # Conv 1x1 reduce
             x = layers.Conv2D(
                 filters,
                 1,
@@ -296,7 +210,6 @@ def build_detr_backbone(
             )(x)
             x = layers.ReLU()(x)
 
-            # Conv 3x3
             if strides > 1:
                 x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
                 x = layers.Conv2D(
@@ -326,7 +239,6 @@ def build_detr_backbone(
             )(x)
             x = layers.ReLU()(x)
 
-            # Conv 1x1 expand
             x = layers.Conv2D(
                 filters * 4,
                 1,
@@ -343,7 +255,6 @@ def build_detr_backbone(
                 name=f"{prefix}_bn3",
             )(x)
 
-            # Downsample residual if needed
             in_channels = residual.shape[channels_axis]
             out_channels = filters * 4
             if strides != 1 or in_channels != out_channels:
@@ -374,71 +285,22 @@ def build_detr_backbone(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DETR(keras.Model):
-    """DEtection TRansformer (DETR) for end-to-end object detection.
-
-    DETR treats object detection as a direct set prediction problem
-    using a transformer encoder-decoder architecture with bipartite
-    matching loss. It eliminates the need for hand-designed components
-    like non-maximum suppression, anchor generation, or region proposal
-    networks. The architecture consists of a CNN backbone (ResNet) for
-    feature extraction, a 1x1 projection, fixed sinusoidal positional
-    embeddings, a transformer encoder that processes the flattened
-    feature map, and a transformer decoder that attends to encoder
-    output using learned object queries. Two prediction heads output
-    class logits and normalized bounding box coordinates for each
-    query.
+class DETRDetect(BaseModel):
+    """DETR object detection model (encoder-decoder transformer + heads).
 
     Reference:
     - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
-    Args:
-        hidden_dim: Integer, transformer hidden dimension and the
-            dimension of all internal projections. Defaults to `256`.
-        num_heads: Integer, number of attention heads per transformer
-            layer. Defaults to `8`.
-        num_encoder_layers: Integer, number of transformer encoder
-            layers. Defaults to `6`.
-        num_decoder_layers: Integer, number of transformer decoder
-            layers. Defaults to `6`.
-        dim_feedforward: Integer, intermediate dimension of the
-            feedforward networks in each transformer layer.
-            Defaults to `2048`.
-        dropout_rate: Float, dropout rate applied in all transformer
-            layers. Defaults to `0.1`.
-        num_queries: Integer, number of learned object queries
-            (maximum detections per image). Defaults to `100`.
-        num_classes: Integer, number of object classes including the
-            no-object class. Defaults to `92` (COCO: 91 + 1).
-        backbone_variant: String, ResNet variant for the backbone.
-            One of `"ResNet50"` or `"ResNet101"`.
-            Defaults to `"ResNet50"`.
-        include_normalization: Boolean, whether to prepend an input
-            normalization layer. Defaults to `True`.
-        normalization_mode: String, normalization mode passed to
-            `ImageNormalizationLayer` (e.g., `"imagenet"`).
-            Defaults to `"imagenet"`.
-        weights: String, one of `None` (random initialization), a
-            weight identifier from the config (e.g., `"coco"`), or
-            a path to a weights file to load.
-            Defaults to `"coco"`.
-        input_shape: Optional tuple of integers specifying the input
-            shape (excluding batch size), e.g., `(800, 800, 3)`.
-        input_tensor: Optional Keras tensor to use as the model input.
-        name: String, the name of the model.
-            Defaults to `"DETR"`.
-        **kwargs: Additional keyword arguments passed to the
-            `keras.Model` class.
-
-    Returns:
-        A `keras.Model` instance with dict outputs:
-        - `"logits"`: `(batch_size, num_queries, num_classes)`
-        - `"pred_boxes"`: `(batch_size, num_queries, 4)` in
-          `[cx, cy, w, h]` format, normalized to `[0, 1]`.
+    Loads pretrained weights via ``DETRDetect.from_weights(...)``.
+    See ``BaseModel.from_weights`` for the loading API.
     """
+
+    KMODELS_CONFIG = DETR_CONFIG
+    KMODELS_WEIGHTS = DETR_WEIGHTS
 
     def __init__(
         self,
+        backbone_variant="ResNet50",
         hidden_dim=256,
         num_heads=8,
         num_encoder_layers=6,
@@ -447,13 +309,11 @@ class DETR(keras.Model):
         dropout_rate=0.1,
         num_queries=100,
         num_classes=92,
-        backbone_variant="ResNet50",
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="coco",
         input_shape=None,
         input_tensor=None,
-        name="DETR",
+        name="DETRDetect",
         **kwargs,
     ):
         if input_shape is None:
@@ -555,6 +415,7 @@ class DETR(keras.Model):
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
+        self.backbone_variant = backbone_variant
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.num_encoder_layers = num_encoder_layers
@@ -563,7 +424,6 @@ class DETR(keras.Model):
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
         self.num_classes = num_classes
-        self.backbone_variant = backbone_variant
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -572,6 +432,7 @@ class DETR(keras.Model):
         config = super().get_config()
         config.update(
             {
+                "backbone_variant": self.backbone_variant,
                 "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
                 "num_encoder_layers": self.num_encoder_layers,
@@ -580,7 +441,6 @@ class DETR(keras.Model):
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "backbone_variant": self.backbone_variant,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
@@ -594,140 +454,54 @@ class DETR(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
-
-def _create_detr_model(
-    variant,
-    num_queries=100,
-    num_classes=92,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name=None,
-    **kwargs,
-):
-    """Factory function for creating DETR model variants.
-
-    Looks up the architecture configuration for the given variant
-    name, instantiates a `DETR` model, and optionally loads pretrained
-    weights from the configured URL or a local file path.
-
-    Args:
-        variant: String, model variant name (e.g., `"DETRResNet50"`).
-        num_queries: Integer, number of object queries. Defaults to
-            `100`.
-        num_classes: Integer, number of object classes (COCO default:
-            91 + 1 no-object). Defaults to `92`.
-        include_normalization: Boolean, whether to include an input
-            normalization layer. Defaults to `True`.
-        normalization_mode: String, normalization mode.
-            Defaults to `"imagenet"`.
-        weights: String, one of `None`, a weight identifier from the
-            config (e.g., `"coco"`), or a path to a weights file.
-            Defaults to `"coco"`.
-        input_shape: Optional tuple of integers specifying the input
-            shape. Defaults to `(800, 800, 3)`.
-        input_tensor: Optional Keras tensor to use as the model input.
-        name: String, the name of the model.
-        **kwargs: Additional keyword arguments passed to `DETR`.
-
-    Returns:
-        A configured `DETR` model instance.
-    """
-    config = DETR_MODEL_CONFIG[variant]
-
-    if input_shape is None:
-        input_shape = (800, 800, 3)
-
-    model = DETR(
-        hidden_dim=config["hidden_dim"],
-        num_heads=config["num_heads"],
-        num_encoder_layers=config["num_encoder_layers"],
-        num_decoder_layers=config["num_decoder_layers"],
-        dim_feedforward=config["dim_feedforward"],
-        dropout_rate=config["dropout_rate"],
-        num_queries=num_queries,
-        num_classes=num_classes,
-        backbone_variant=config["backbone_variant"],
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name or variant,
-        **kwargs,
-    )
-
-    if weights in DETR_WEIGHTS_CONFIG.get(variant, {}):
-        url = DETR_WEIGHTS_CONFIG[variant][weights].get("url", "")
-        if url:
-            load_weights_from_config(variant, weights, model, DETR_WEIGHTS_CONFIG)
+    @classmethod
+    def _config_from_hf(cls, hf_config):
+        backbone = getattr(hf_config, "backbone", "resnet50")
+        if "101" in backbone:
+            backbone_variant = "ResNet101"
         else:
-            print(
-                f"Weight URL for '{weights}' is not yet available. "
-                "Use the conversion script to generate weights."
-            )
-    elif weights is not None and weights != "coco":
-        model.load_weights(weights)
-    else:
-        if weights == "coco":
-            print(
-                "COCO weights URL not yet configured. "
-                "Run convert_detr_torch_to_keras.py to generate weights, "
-                "then pass the .weights.h5 file path."
-            )
+            backbone_variant = "ResNet50"
+        return {
+            "backbone_variant": backbone_variant,
+            "hidden_dim": hf_config.d_model,
+            "num_heads": hf_config.encoder_attention_heads,
+            "num_encoder_layers": hf_config.encoder_layers,
+            "num_decoder_layers": hf_config.decoder_layers,
+            "dim_feedforward": hf_config.encoder_ffn_dim,
+            "dropout_rate": hf_config.dropout,
+            "num_queries": hf_config.num_queries,
+            "num_classes": hf_config.num_labels + 1,
+            "include_normalization": False,
+        }
 
-    return model
+    @classmethod
+    def _transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_detr_torch_to_keras import transfer_detr_weights
 
+        transfer_detr_weights(keras_model, hf_state_dict)
 
-@register_model
-def DETRResNet50(
-    num_queries=100,
-    num_classes=92,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="DETRResNet50",
-    **kwargs,
-):
-    return _create_detr_model(
-        "DETRResNet50",
-        num_queries=num_queries,
-        num_classes=num_classes,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
+    @classmethod
+    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
+        try:
+            from transformers import AutoConfig, DetrForObjectDetection
+        except ImportError as e:
+            raise ImportError(
+                "Loading from HuggingFace requires the `transformers` package."
+            ) from e
 
+        if load_weights:
+            hf_model = DetrForObjectDetection.from_pretrained(hf_id)
+            hf_config = hf_model.config
+            state_dict = {
+                k: v.cpu().numpy() if hasattr(v, "cpu") else v
+                for k, v in hf_model.state_dict().items()
+            }
+        else:
+            hf_config = AutoConfig.from_pretrained(hf_id)
+            state_dict = None
 
-@register_model
-def DETRResNet101(
-    num_queries=100,
-    num_classes=92,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="DETRResNet101",
-    **kwargs,
-):
-    return _create_detr_model(
-        "DETRResNet101",
-        num_queries=num_queries,
-        num_classes=num_classes,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
+        kmodels_kwargs = cls._config_from_hf(hf_config)
+        model = cls(**kmodels_kwargs, **kwargs)
+        if load_weights:
+            cls._transfer_from_hf(model, state_dict)
+        return model

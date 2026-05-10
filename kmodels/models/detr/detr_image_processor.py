@@ -130,9 +130,9 @@ def detr_post_process_object_detection(
 
     Example:
         ```python
-        from kmodels.models.detr import DETRResNet50, detr_post_process_object_detection
+        from kmodels.models.detr import DETRDetect, detr_post_process_object_detection
 
-        model = DETRResNet50(weights="detr.weights.h5")
+        model = DETRDetect.from_weights("detr-resnet-50")
         output = model(image, training=False)
         results = detr_post_process_object_detection(output, threshold=0.7,
                                     target_sizes=[(800, 800)])

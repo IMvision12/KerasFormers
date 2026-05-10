@@ -1,5 +1,5 @@
-OWLVIT_MODEL_CONFIG = {
-    "OwlViTBasePatch32": {
+OWLVIT_CONFIG = {
+    "owlvit-base-patch32": {
         "vision_image_size": 768,
         "vision_patch_size": 32,
         "vision_hidden_size": 768,
@@ -11,7 +11,7 @@ OWLVIT_MODEL_CONFIG = {
         "text_num_attention_heads": 8,
         "projection_dim": 512,
     },
-    "OwlViTBasePatch16": {
+    "owlvit-base-patch16": {
         "vision_image_size": 768,
         "vision_patch_size": 16,
         "vision_hidden_size": 768,
@@ -23,7 +23,7 @@ OWLVIT_MODEL_CONFIG = {
         "text_num_attention_heads": 8,
         "projection_dim": 512,
     },
-    "OwlViTLargePatch14": {
+    "owlvit-large-patch14": {
         "vision_image_size": 840,
         "vision_patch_size": 14,
         "vision_hidden_size": 1024,
@@ -37,20 +37,14 @@ OWLVIT_MODEL_CONFIG = {
     },
 }
 
-OWLVIT_WEIGHTS_CONFIG = {
-    "OwlViTBasePatch32": {
-        "owlvit": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_base_patch32.weights.h5",
-        },
+OWLVIT_WEIGHTS = {
+    "owlvit-base-patch32": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_base_patch32.weights.h5",
     },
-    "OwlViTBasePatch16": {
-        "owlvit": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_base_patch16.weights.h5",
-        },
+    "owlvit-base-patch16": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_base_patch16.weights.h5",
     },
-    "OwlViTLargePatch14": {
-        "owlvit": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_large_patch14.weights.h5",
-        },
+    "owlvit-large-patch14": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_large_patch14.weights.h5",
     },
 }

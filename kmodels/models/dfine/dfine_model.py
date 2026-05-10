@@ -1,10 +1,9 @@
 import keras
 from keras import layers, ops, utils
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.base import BaseModel
 
-from .config import DFINE_MODEL_CONFIG, DFINE_WEIGHTS_CONFIG
+from .config import DFINE_CONFIG, DFINE_WEIGHTS
 from .dfine_layers import (
     DFineDecoderLayer,
     DFineDecoderParams,
@@ -940,7 +939,8 @@ def dfine_inverse_sigmoid(t, eps=1e-5):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DFine(keras.Model):
+@keras.saving.register_keras_serializable(package="kmodels")
+class DFineDetect(BaseModel):
     """D-FINE: Detection with Fine-grained Distribution Refinement.
 
     A real-time object detection model combining an HGNetV2 backbone with
@@ -1001,6 +1001,9 @@ class DFine(keras.Model):
     DECODER_ACTIVATION = "relu"
     MAX_NUM_BINS = 32
 
+    KMODELS_CONFIG = DFINE_CONFIG
+    KMODELS_WEIGHTS = DFINE_WEIGHTS
+
     def __init__(
         self,
         stem_channels=(3, 16, 16),
@@ -1024,10 +1027,9 @@ class DFine(keras.Model):
         feat_strides=(8, 16, 32),
         num_queries=300,
         num_labels=80,
-        weights="coco",
         input_shape=None,
         input_tensor=None,
-        name="DFine",
+        name="DFineDetect",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -1494,186 +1496,60 @@ class DFine(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
+    @classmethod
+    def _config_from_hf(cls, hf_config):
+        return {
+            "stem_channels": tuple(hf_config.stem_channels),
+            "stage_in_channels": tuple(hf_config.stage_in_channels),
+            "stage_mid_channels": tuple(hf_config.stage_mid_channels),
+            "stage_out_channels": tuple(hf_config.stage_out_channels),
+            "stage_num_blocks": tuple(hf_config.stage_num_blocks),
+            "stage_numb_of_layers": tuple(hf_config.stage_numb_of_layers),
+            "use_lab": hf_config.use_lab,
+            "encoder_in_channels": tuple(hf_config.encoder_in_channels),
+            "encoder_hidden_dim": hf_config.encoder_hidden_dim,
+            "encoder_ffn_dim": hf_config.encoder_ffn_dim,
+            "encode_proj_layers": tuple(hf_config.encode_proj_layers),
+            "hidden_expansion": hf_config.hidden_expansion,
+            "ccfm_num_blocks": getattr(hf_config, "ccfm_num_blocks", 1),
+            "d_model": hf_config.d_model,
+            "decoder_layers": hf_config.decoder_layers,
+            "decoder_ffn_dim": hf_config.decoder_ffn_dim,
+            "decoder_n_points": list(hf_config.decoder_n_points),
+            "num_feature_levels": hf_config.num_feature_levels,
+            "feat_strides": tuple(hf_config.feat_strides),
+            "num_queries": hf_config.num_queries,
+            "num_labels": hf_config.num_labels,
+        }
 
-def _create_dfine_model(
-    variant,
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name=None,
-    **kwargs,
-):
-    """Factory function for creating D-FINE model variants.
+    @classmethod
+    def _transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_dfine_hf_to_keras import transfer_dfine_weights
 
-    Looks up the architecture configuration for the given variant name,
-    instantiates a ``DFine`` model, and optionally loads pretrained
-    weights from the configured URL or a local file path.
+        transfer_dfine_weights(keras_model, hf_state_dict)
 
-    Args:
-        variant: String, model variant name (e.g., ``"DFineSmall"``).
-        num_queries: Integer, number of object queries.
-            Defaults to ``300``.
-        num_labels: Integer, number of object classes (COCO: 80).
-            Defaults to ``80``.
-        weights: String, one of ``None``, a weight identifier from the
-            config (e.g., ``"coco"``), or a path to a weights file.
-            Defaults to ``"coco"``.
-        input_shape: Optional tuple of integers specifying the input
-            shape. Defaults to ``(640, 640, 3)``.
-        input_tensor: Optional Keras tensor to use as the model input.
-        name: String, the name of the model.
-        **kwargs: Additional keyword arguments passed to ``DFine``.
+    @classmethod
+    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
+        try:
+            from transformers import AutoConfig, DFineForObjectDetection
+        except ImportError as e:
+            raise ImportError(
+                "Loading from HuggingFace requires the `transformers` package."
+            ) from e
 
-    Returns:
-        A configured ``DFine`` model instance.
-    """
-    cfg = DFINE_MODEL_CONFIG[variant]
-    if input_shape is None:
-        input_shape = (640, 640, 3)
-    model = DFine(
-        stem_channels=cfg["stem_channels"],
-        stage_in_channels=cfg["stage_in_channels"],
-        stage_mid_channels=cfg["stage_mid_channels"],
-        stage_out_channels=cfg["stage_out_channels"],
-        stage_num_blocks=cfg["stage_num_blocks"],
-        stage_numb_of_layers=cfg["stage_numb_of_layers"],
-        use_lab=cfg.get("use_lab", True),
-        encoder_in_channels=cfg["encoder_in_channels"],
-        encoder_hidden_dim=cfg.get("encoder_hidden_dim", 256),
-        encoder_ffn_dim=cfg.get("encoder_ffn_dim", 1024),
-        encode_proj_layers=cfg.get("encode_proj_layers", (2,)),
-        hidden_expansion=cfg.get("hidden_expansion", 1.0),
-        ccfm_num_blocks=cfg.get("ccfm_num_blocks", 1),
-        d_model=cfg.get("d_model", 256),
-        decoder_layers=cfg["decoder_layers"],
-        decoder_ffn_dim=cfg.get("decoder_ffn_dim", 1024),
-        decoder_n_points=cfg.get("decoder_n_points", [4, 4, 4]),
-        num_feature_levels=cfg.get("num_feature_levels", 3),
-        feat_strides=cfg.get("feat_strides", (8, 16, 32)),
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name or variant,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(DFINE_WEIGHTS_CONFIG):
-        load_weights_from_config(variant, weights, model, DFINE_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-    return model
+        if load_weights:
+            hf_model = DFineForObjectDetection.from_pretrained(hf_id)
+            hf_config = hf_model.config
+            state_dict = {
+                k: v.cpu().numpy() if hasattr(v, "cpu") else v
+                for k, v in hf_model.state_dict().items()
+            }
+        else:
+            hf_config = AutoConfig.from_pretrained(hf_id)
+            state_dict = None
 
-
-@register_model
-def DFineNano(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="DFineNano",
-    **kwargs,
-):
-    return _create_dfine_model(
-        "DFineNano",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def DFineSmall(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="DFineSmall",
-    **kwargs,
-):
-    return _create_dfine_model(
-        "DFineSmall",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def DFineMedium(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="DFineMedium",
-    **kwargs,
-):
-    return _create_dfine_model(
-        "DFineMedium",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def DFineLarge(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="DFineLarge",
-    **kwargs,
-):
-    return _create_dfine_model(
-        "DFineLarge",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def DFineXLarge(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="DFineXLarge",
-    **kwargs,
-):
-    return _create_dfine_model(
-        "DFineXLarge",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
+        kmodels_kwargs = cls._config_from_hf(hf_config)
+        model = cls(**kmodels_kwargs, **kwargs)
+        if load_weights:
+            cls._transfer_from_hf(model, state_dict)
+        return model

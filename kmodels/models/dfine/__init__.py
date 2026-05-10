@@ -1,17 +1,7 @@
 from .dfine_image_processor import DFineImageProcessor
-from .dfine_model import (
-    DFineLarge,
-    DFineMedium,
-    DFineNano,
-    DFineSmall,
-    DFineXLarge,
-)
+from .dfine_model import DFineDetect
 
 __all__ = [
-    "DFineNano",
-    "DFineSmall",
-    "DFineMedium",
-    "DFineLarge",
-    "DFineXLarge",
+    "DFineDetect",
     "DFineImageProcessor",
 ]

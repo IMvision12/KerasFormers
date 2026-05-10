@@ -2,10 +2,9 @@ import keras
 import numpy as np
 from keras import layers, ops, utils
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import load_weights_from_config
+from kmodels.base import BaseModel
 
-from .config import RT_DETR_V2_MODEL_CONFIG, RT_DETR_V2_WEIGHTS_CONFIG
+from .config import RT_DETR_V2_CONFIG, RT_DETR_V2_WEIGHTS
 from .rt_detr_v2_layers import (
     RTDETRV2MultiHeadAttention,
     RTDETRV2MultiScaleDeformableAttention,
@@ -604,7 +603,8 @@ def rt_detr_v2_decoder_layer(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class RTDETRV2(keras.Model):
+@keras.saving.register_keras_serializable(package="kmodels")
+class RTDETRV2Detect(BaseModel):
     """RT-DETR: Real-Time DEtection TRansformer.
 
     A real-time object detection model that combines a ResNet-vd backbone
@@ -649,6 +649,9 @@ class RTDETRV2(keras.Model):
         name: Model name.
     """
 
+    KMODELS_CONFIG = RT_DETR_V2_CONFIG
+    KMODELS_WEIGHTS = RT_DETR_V2_WEIGHTS
+
     def __init__(
         self,
         backbone_hidden_sizes=(256, 512, 1024, 2048),
@@ -674,10 +677,9 @@ class RTDETRV2(keras.Model):
         feat_strides=(8, 16, 32),
         num_queries=300,
         num_labels=80,
-        weights="coco",
         input_shape=None,
         input_tensor=None,
-        name="RTDETRV2",
+        name="RTDETRV2Detect",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -1016,191 +1018,63 @@ class RTDETRV2(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
+    @classmethod
+    def _config_from_hf(cls, hf_config):
+        bb = hf_config.backbone_config
+        return {
+            "backbone_hidden_sizes": tuple(bb.hidden_sizes),
+            "backbone_block_repeats": tuple(bb.depths),
+            "backbone_embedding_size": bb.embedding_size,
+            "backbone_layer_type": bb.layer_type,
+            "encoder_in_channels": tuple(hf_config.encoder_in_channels),
+            "encoder_hidden_dim": hf_config.encoder_hidden_dim,
+            "encoder_layers": hf_config.encoder_layers,
+            "encoder_ffn_dim": hf_config.encoder_ffn_dim,
+            "encoder_num_heads": hf_config.num_attention_heads,
+            "encode_proj_layers": tuple(hf_config.encode_proj_layers),
+            "encoder_activation_function": hf_config.encoder_activation_function,
+            "activation_function": hf_config.activation_function,
+            "hidden_expansion": hf_config.hidden_expansion,
+            "d_model": hf_config.d_model,
+            "decoder_layers": hf_config.decoder_layers,
+            "decoder_ffn_dim": hf_config.decoder_ffn_dim,
+            "decoder_num_heads": hf_config.decoder_attention_heads,
+            "decoder_n_points": hf_config.decoder_n_points,
+            "decoder_activation_function": hf_config.decoder_activation_function,
+            "num_feature_levels": hf_config.num_feature_levels,
+            "feat_strides": tuple(hf_config.feat_strides),
+            "num_queries": hf_config.num_queries,
+            "num_labels": hf_config.num_labels,
+        }
 
-def _create_rt_detr_v2_model(
-    variant,
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name=None,
-    **kwargs,
-):
-    """Factory function for creating RT-DETR model variants.
+    @classmethod
+    def _transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_rt_detr_v2_hf_to_keras import transfer_rt_detr_v2_weights
 
-    Looks up the architecture configuration for the given variant name,
-    instantiates an ``RTDETR`` model, and optionally loads pretrained
-    weights from the configured URL or a local file path.
+        transfer_rt_detr_v2_weights(keras_model, hf_state_dict)
 
-    Args:
-        variant: String, model variant name (e.g.,
-            ``"RTDETRV2ResNet50"``).
-        num_queries: Integer, number of object queries.
-            Defaults to ``300``.
-        num_labels: Integer, number of object classes (COCO: 80).
-            Defaults to ``80``.
-        weights: String, one of ``None``, a weight identifier from the
-            config (e.g., ``"coco"``), or a path to a weights file.
-            Defaults to ``"coco"``.
-        input_shape: Optional tuple of integers specifying the input
-            shape. Defaults to ``(640, 640, 3)``.
-        input_tensor: Optional Keras tensor to use as the model input.
-        name: String, the name of the model.
-        **kwargs: Additional keyword arguments passed to ``RTDETR``.
+    @classmethod
+    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
+        try:
+            from transformers import AutoConfig, RTDetrV2ForObjectDetection
+        except ImportError as e:
+            raise ImportError(
+                "Loading from HuggingFace requires the `transformers` package."
+            ) from e
 
-    Returns:
-        A configured ``RTDETR`` model instance.
-    """
-    cfg = RT_DETR_V2_MODEL_CONFIG[variant]
-    if input_shape is None:
-        input_shape = (640, 640, 3)
-    model = RTDETRV2(
-        backbone_hidden_sizes=cfg["backbone_hidden_sizes"],
-        backbone_block_repeats=cfg["backbone_block_repeats"],
-        backbone_embedding_size=cfg.get("backbone_embedding_size", 64),
-        backbone_layer_type=cfg.get("backbone_layer_type", "bottleneck"),
-        encoder_in_channels=cfg["encoder_in_channels"],
-        encoder_hidden_dim=cfg.get("encoder_hidden_dim", 256),
-        encoder_layers=cfg.get("encoder_layers", 1),
-        encoder_ffn_dim=cfg.get("encoder_ffn_dim", 1024),
-        encoder_num_heads=cfg.get("encoder_num_heads", 8),
-        encode_proj_layers=cfg.get("encode_proj_layers", (2,)),
-        encoder_activation_function=cfg.get("encoder_activation_function", "gelu"),
-        activation_function=cfg.get("activation_function", "silu"),
-        hidden_expansion=cfg.get("hidden_expansion", 1.0),
-        d_model=cfg.get("d_model", 256),
-        decoder_layers=cfg["decoder_layers"],
-        decoder_ffn_dim=cfg.get("decoder_ffn_dim", 1024),
-        decoder_num_heads=cfg.get("decoder_num_heads", 8),
-        decoder_n_points=cfg.get("decoder_n_points", 4),
-        decoder_activation_function=cfg.get("decoder_activation_function", "relu"),
-        num_feature_levels=cfg.get("num_feature_levels", 3),
-        feat_strides=cfg.get("feat_strides", (8, 16, 32)),
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name or variant,
-        **kwargs,
-    )
-    if weights in RT_DETR_V2_WEIGHTS_CONFIG.get(variant, {}):
-        url = RT_DETR_V2_WEIGHTS_CONFIG[variant][weights].get("url", "")
-        if url:
-            load_weights_from_config(variant, weights, model, RT_DETR_V2_WEIGHTS_CONFIG)
+        if load_weights:
+            hf_model = RTDetrV2ForObjectDetection.from_pretrained(hf_id)
+            hf_config = hf_model.config
+            state_dict = {
+                k: v.cpu().numpy() if hasattr(v, "cpu") else v
+                for k, v in hf_model.state_dict().items()
+            }
         else:
-            print(f"Weight URL for '{weights}' not yet available.")
-    elif weights is not None and weights != "coco":
-        model.load_weights(weights)
-    elif weights == "coco":
-        print("COCO weights URL not yet configured.")
-    return model
+            hf_config = AutoConfig.from_pretrained(hf_id)
+            state_dict = None
 
-
-@register_model
-def RTDETRV2ResNet50(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RTDETRV2ResNet50",
-    **kwargs,
-):
-    """RT-DETR with ResNet-50-vd backbone.
-
-    Reference:
-        - `RT-DETR <https://arxiv.org/abs/2304.08069>`_
-    """
-    return _create_rt_detr_v2_model(
-        "RTDETRV2ResNet50",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def RTDETRV2ResNet101(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RTDETRV2ResNet101",
-    **kwargs,
-):
-    """RT-DETR with ResNet-101-vd backbone.
-
-    Reference:
-        - `RT-DETR <https://arxiv.org/abs/2304.08069>`_
-    """
-    return _create_rt_detr_v2_model(
-        "RTDETRV2ResNet101",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def RTDETRV2ResNet18(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RTDETRV2ResNet18",
-    **kwargs,
-):
-    """RT-DETR with ResNet-18-vd backbone.
-
-    Reference:
-        - `RT-DETR <https://arxiv.org/abs/2304.08069>`_
-    """
-    return _create_rt_detr_v2_model(
-        "RTDETRV2ResNet18",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
-
-
-@register_model
-def RTDETRV2ResNet34(
-    num_queries=300,
-    num_labels=80,
-    weights="coco",
-    input_shape=None,
-    input_tensor=None,
-    name="RTDETRV2ResNet34",
-    **kwargs,
-):
-    """RT-DETR with ResNet-34-vd backbone.
-
-    Reference:
-        - `RT-DETR <https://arxiv.org/abs/2304.08069>`_
-    """
-    return _create_rt_detr_v2_model(
-        "RTDETRV2ResNet34",
-        num_queries=num_queries,
-        num_labels=num_labels,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        **kwargs,
-    )
+        kmodels_kwargs = cls._config_from_hf(hf_config)
+        model = cls(**kmodels_kwargs, **kwargs)
+        if load_weights:
+            cls._transfer_from_hf(model, state_dict)
+        return model
