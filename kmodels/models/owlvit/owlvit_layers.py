@@ -44,13 +44,14 @@ class OwlViTVisionEmbeddings(layers.Layer):
         self.num_channels = num_channels
         self.num_patches = (image_size // patch_size) ** 2
         self.num_positions = self.num_patches + 1
+        self._data_format = keras.config.image_data_format()
 
         self.patch_embedding = layers.Conv2D(
             filters=hidden_size,
             kernel_size=patch_size,
             strides=patch_size,
             use_bias=False,
-            data_format="channels_last",
+            data_format=self._data_format,
             name="patch_embedding",
         )
         self.position_embedding = layers.Embedding(
@@ -70,6 +71,8 @@ class OwlViTVisionEmbeddings(layers.Layer):
 
     def call(self, pixel_values):
         patch_embeds = self.patch_embedding(pixel_values)
+        if self._data_format == "channels_first":
+            patch_embeds = ops.transpose(patch_embeds, (0, 2, 3, 1))
         b = ops.shape(patch_embeds)[0]
         patch_embeds = ops.reshape(
             patch_embeds, (b, self.num_patches, self.hidden_size)

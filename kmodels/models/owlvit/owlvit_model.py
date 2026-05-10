@@ -382,7 +382,10 @@ class OwlViT(keras.Model):
         **kwargs,
     ):
         if input_shape is None:
-            input_shape = (vision_image_size, vision_image_size, 3)
+            if keras.config.image_data_format() == "channels_first":
+                input_shape = (3, vision_image_size, vision_image_size)
+            else:
+                input_shape = (vision_image_size, vision_image_size, 3)
         if text_input_shape is None:
             text_input_shape = (self.TEXT_MAX_POSITION_EMBEDDINGS,)
 
