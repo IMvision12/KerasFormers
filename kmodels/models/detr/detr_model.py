@@ -502,10 +502,56 @@ class DetrModel(BaseModel):
 
     Matches the HuggingFace ``DetrModel`` pattern — outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, hidden_dim)``.
-    Use ``DETRDetect`` if you also want classification + bbox heads.
+    Wraps the functional graph built by :func:`detr_functional`: a
+    ResNet-50/101 backbone, a stack of post-norm transformer encoder
+    layers with sine 2D position embeddings, and a stack of post-norm
+    transformer decoder layers with learned object queries plus a
+    final LayerNorm. Classification and bbox prediction heads are
+    intentionally pruned from the output graph; use
+    :class:`DETRDetect` if you want full detection outputs.
 
     Reference:
-    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
+        - `End-to-End Object Detection with Transformers
+          <https://arxiv.org/abs/2005.12872>`_
+
+    Args:
+        backbone_variant: Backbone architecture. One of ``"ResNet50"``
+            or ``"ResNet101"``. Defaults to ``"ResNet50"``.
+        hidden_dim: Transformer model dimension (channel width of both
+            encoder and decoder, and of the input projection that
+            reduces the backbone's 2048-channel feature map).
+            Defaults to ``256``.
+        num_heads: Number of attention heads in every transformer
+            self-attention and cross-attention layer.
+            Defaults to ``8``.
+        num_encoder_layers: Number of stacked transformer encoder
+            layers. Defaults to ``6``.
+        num_decoder_layers: Number of stacked transformer decoder
+            layers. Defaults to ``6``.
+        dim_feedforward: FFN intermediate dimension inside each
+            encoder / decoder layer. Defaults to ``2048``.
+        dropout_rate: Dropout probability used in attention and FFN
+            sub-layers. Defaults to ``0.1``.
+        num_queries: Number of learned object queries — also the
+            number of detections produced per image.
+            Defaults to ``100``.
+        include_normalization: If ``True``, prepend an
+            :class:`ImageNormalizationLayer` to the backbone so the
+            model accepts raw ``[0, 255]`` pixel values. Set to
+            ``False`` when inputs are already pre-normalized.
+            Defaults to ``True``.
+        normalization_mode: Normalization preset passed to the
+            built-in normalization layer (e.g. ``"imagenet"``).
+            Ignored when ``include_normalization=False``.
+            Defaults to ``"imagenet"``.
+        input_shape: Image input shape excluding the batch axis. When
+            ``None``, defaults to ``(800, 800, 3)``.
+        input_tensor: Optional pre-existing Keras tensor to use as the
+            model input instead of creating a new :class:`Input`.
+            Defaults to ``None``.
+        name: Model name. Defaults to ``"DetrModel"``.
+        **kwargs: Additional keyword arguments forwarded to
+            :class:`BaseModel` / :class:`keras.Model`.
     """
 
     KMODELS_CONFIG = DETR_CONFIG
