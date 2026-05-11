@@ -12,42 +12,45 @@ D-FINE is a real-time object detection model that redefines the bounding box reg
 - **Localization Quality Estimation (LQE):** Refines classification scores using the confidence of the predicted bounding box distribution, improving detection reliability.
 - **Deformable Cross-Attention:** Multi-scale deformable attention with variable sampling points per feature level for efficient encoder-decoder interaction.
 
-## Available Models
+## Available Variants
 
-| Model | Backbone | Params | Weights |
-|-------|----------|--------|---------|
-| `DFineNano` | HGNetV2-Nano | 6M | `coco` |
-| `DFineSmall` | HGNetV2-Small | 11M | `coco` |
-| `DFineMedium` | HGNetV2-Medium | 20M | `coco` |
-| `DFineLarge` | HGNetV2-Large | 32M | `coco` |
-| `DFineXLarge` | HGNetV2-XLarge | 63M | `coco` |
+| Variant | Backbone | Params | HF original |
+|---|---|---|---|
+| `dfine-nano` | HGNetV2-Nano | 6M | `ustc-community/dfine-nano-coco` |
+| `dfine-small` | HGNetV2-Small | 11M | `ustc-community/dfine-small-coco` |
+| `dfine-medium` | HGNetV2-Medium | 20M | `ustc-community/dfine-medium-coco` |
+| `dfine-large` | HGNetV2-Large | 32M | `ustc-community/dfine-large-coco` |
+| `dfine-xlarge` | HGNetV2-XLarge | 63M | `ustc-community/dfine-xlarge-coco` |
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.dfine import DFineDetect
 
-# D-FINE Large (COCO pre-trained)
-model = kmodels.models.dfine.DFineLarge(weights="coco")
+# D-FINE Large (kmodels release, COCO pre-trained)
+model = DFineDetect.from_weights("dfine-large")
 
-# Available variants
-model = kmodels.models.dfine.DFineNano(weights="coco")
-model = kmodels.models.dfine.DFineSmall(weights="coco")
-model = kmodels.models.dfine.DFineMedium(weights="coco")
-model = kmodels.models.dfine.DFineXLarge(weights="coco")
+# Other variants
+model = DFineDetect.from_weights("dfine-nano")
+model = DFineDetect.from_weights("dfine-small")
+model = DFineDetect.from_weights("dfine-medium")
+model = DFineDetect.from_weights("dfine-xlarge")
 
-# Without pre-trained weights
-model = kmodels.models.dfine.DFineLarge(weights=None, input_shape=(640, 640, 3))
+# Untrained
+model = DFineDetect.from_weights("dfine-large", load_weights=False)
+
+# Load original HF checkpoint or a community fine-tune
+model = DFineDetect.from_weights("hf:ustc-community/dfine-large-coco")
+model = DFineDetect.from_weights("hf:my-username/my-dfine-finetune")
 ```
 
 ## Example Inference
 
 ```python
-import kmodels
-from kmodels.models.dfine import DFineImageProcessor
+from kmodels.models.dfine import DFineDetect, DFineImageProcessor
 from PIL import Image
 
-model = kmodels.models.dfine.DFineLarge(weights="coco")
+model = DFineDetect.from_weights("dfine-large")
 
 image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
@@ -103,9 +106,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.dfine import DFineLarge, DFineImageProcessor
+from kmodels.models.dfine import DFineDetect, DFineImageProcessor
 
-model = DFineLarge(weights="coco")
+model = DFineDetect.from_weights("dfine-large")
 
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)

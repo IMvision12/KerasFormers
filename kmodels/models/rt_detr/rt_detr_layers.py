@@ -51,7 +51,6 @@ class RTDETRSinePositionEmbedding(layers.Layer):
 
         grid_w = ops.cast(ops.arange(width), "float32")
         grid_h = ops.cast(ops.arange(height), "float32")
-        # meshgrid with "xy" indexing
         grid_w, grid_h = ops.meshgrid(grid_w, grid_h)
 
         out_w = ops.reshape(grid_w, [-1, 1]) * ops.reshape(dim_t, [1, -1])
@@ -148,7 +147,6 @@ class RTDETRMultiHeadAttention(layers.Layer):
         return self.out_proj(attn_output)
 
     def compute_output_spec(self, query, key, value, **kwargs):
-        # Force-build sub-layers so weights are tracked
         if not self.q_proj.built:
             self.q_proj.build(query.shape)
         if not self.k_proj.built:
@@ -172,7 +170,7 @@ class RTDETRMultiHeadAttention(layers.Layer):
         return config
 
 
-def _ms_deform_attn_core(
+def ms_deform_attn_core(
     value, value_spatial_shapes, sampling_locations, attention_weights
 ):
     """Pure implementation of multi-scale deformable attention core.
@@ -193,7 +191,6 @@ def _ms_deform_attn_core(
     sampling_grids = 2 * sampling_locations - 1
 
     sizes = [h * w for h, w in value_spatial_shapes]
-    # ops.split uses cumulative indices, not sizes
     split_indices = []
     cum = 0
     for s in sizes[:-1]:
@@ -398,7 +395,7 @@ class RTDETRMultiScaleDeformableAttention(layers.Layer):
                 f"reference_points last dim must be 2 or 4, got {num_coords}"
             )
 
-        output = _ms_deform_attn_core(
+        output = ms_deform_attn_core(
             value, input_spatial_shapes, sampling_locations, attention_weights
         )
         return self.output_proj(output)
@@ -515,13 +512,11 @@ class RTDETRDecoderLayer(layers.Layer):
         reference_points,
         training=None,
     ):
-        # Self-attention with position embeddings added to Q and K
         q = k = hidden_states + query_pos
         residual = hidden_states
         attn_out = self.self_attn(q, k, hidden_states, training=training)
         hidden_states = self.self_attn_layer_norm(residual + attn_out)
 
-        # Deformable cross-attention
         residual = hidden_states
         cross_out = self.encoder_attn(
             hidden_states,
@@ -531,7 +526,6 @@ class RTDETRDecoderLayer(layers.Layer):
         )
         hidden_states = self.encoder_attn_layer_norm(residual + cross_out)
 
-        # FFN
         residual = hidden_states
         ff_out = self.fc2(self.fc1(hidden_states))
         hidden_states = self.final_layer_norm(residual + ff_out)

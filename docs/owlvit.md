@@ -25,13 +25,18 @@ similarity score.
   log-space bias so each patch's "default" box centers on its grid
   position with a one-patch size.
 
-## Available Models
+## Available Variants
 
-| Model | Vision tower | Image size | Weights |
-|-------|--------------|------------|---------|
-| `OwlViTBasePatch32` | ViT-B/32 (12L, 768 hidden, 12 heads) | 768×768 | `owlvit` |
-| `OwlViTBasePatch16` | ViT-B/16 (12L, 768 hidden, 12 heads) | 768×768 | `owlvit` |
-| `OwlViTLargePatch14` | ViT-L/14 (24L, 1024 hidden, 16 heads) | 840×840 | `owlvit` |
+| Variant | Vision tower | Image size | HF original |
+|---|---|---|---|
+| `owlvit-base-patch32` | ViT-B/32 (12L, 768 hidden, 12 heads) | 768×768 | `google/owlvit-base-patch32` |
+| `owlvit-base-patch16` | ViT-B/16 (12L, 768 hidden, 12 heads) | 768×768 | `google/owlvit-base-patch16` |
+| `owlvit-large-patch14` | ViT-L/14 (24L, 1024 hidden, 16 heads) | 840×840 | `google/owlvit-large-patch14` |
+
+Two classes are exposed:
+
+- `OwlViT` — vision + text encoder only (returns `image_embeds`, `text_embeds`).
+- `OwlViTDetect` — encoder + class/box heads for object detection (returns `logits`, `pred_boxes`, …).
 
 The text tower is fixed across variants (12 layers, hidden 512 / 768,
 8–16 heads, vocab 49408, max length 16).
@@ -55,7 +60,7 @@ import requests
 from PIL import Image, ImageDraw
 
 from kmodels.models.owlvit import (
-    OwlViTBasePatch32,
+    OwlViTDetect,
     OwlViTProcessor,
     owlvit_post_process_object_detection,
 )
@@ -66,7 +71,7 @@ image = Image.open(BytesIO(requests.get(
 text_queries = [["a photo of a cat", "a photo of a dog", "a photo of a remote"]]
 
 processor = OwlViTProcessor()
-model = OwlViTBasePatch32(weights="owlvit")
+model = OwlViTDetect.from_weights("owlvit-base-patch32")
 
 inputs = processor(text=text_queries, images=image)
 outputs = model({
@@ -122,7 +127,7 @@ back to `(B, Q, ...)` and masks padded queries to `-inf` logits).
 If you want to drive the components separately:
 
 ```python
-from kmodels.models.owlvit import OwlViTBasePatch32, OwlViTImageProcessor
+from kmodels.models.owlvit import OwlViTDetect, OwlViTImageProcessor
 from kmodels.models.clip import CLIPTokenizer
 from kmodels.weight_utils import download_file
 
@@ -141,7 +146,7 @@ tokenizer = CLIPTokenizer(
 pixel_values = image_processor(image)["pixel_values"]
 text_inputs  = tokenizer(inputs=["a photo of a cat", "a photo of a dog"])
 
-model = OwlViTBasePatch32(weights="owlvit")
+model = OwlViTDetect.from_weights("owlvit-base-patch32")
 outputs = model({
     "pixel_values": pixel_values,
     "input_ids":    text_inputs["input_ids"],
@@ -154,7 +159,7 @@ Forward-pass diff between the Keras port (with HF weights) and
 ``transformers.OwlViTForObjectDetection`` on the same synthetic
 inputs (random RGB image + two text queries):
 
-### `OwlViTBasePatch32`
+### `owlvit-base-patch32`
 
 | Output | Shape | max_abs_diff | mean_abs_diff |
 |---|---|---:|---:|
@@ -163,7 +168,7 @@ inputs (random RGB image + two text queries):
 | `text_embeds`  | `(1, 2, 512)`     | 7.5e-08 | 1.5e-08 |
 | `image_embeds` | `(1, 24, 24, 768)`| 2.3e-05 | 3.0e-07 |
 
-### `OwlViTBasePatch16`
+### `owlvit-base-patch16`
 
 | Output | Shape | max_abs_diff | mean_abs_diff |
 |---|---|---:|---:|
@@ -174,7 +179,7 @@ inputs (random RGB image + two text queries):
 
 **Status: at fp32 epsilon** — production-ready.
 
-`OwlViTLargePatch14` shares the same architecture and conversion
+`owlvit-large-patch14` shares the same architecture and conversion
 path; only the layer count and hidden dims change. Weight transfer
 completes with **412 / 0 missing**. Running both the HF reference
 and the Keras port at fp32 in parallel needs ~12 GB of RAM

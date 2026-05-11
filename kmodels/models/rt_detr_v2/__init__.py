@@ -1,15 +1,8 @@
 from .rt_detr_v2_image_processor import RTDETRV2ImageProcessor
-from .rt_detr_v2_model import (
-    RTDETRV2ResNet18,
-    RTDETRV2ResNet34,
-    RTDETRV2ResNet50,
-    RTDETRV2ResNet101,
-)
+from .rt_detr_v2_model import RTDETRV2Detect, RTDetrV2Model
 
 __all__ = [
-    "RTDETRV2ResNet18",
-    "RTDETRV2ResNet34",
-    "RTDETRV2ResNet50",
-    "RTDETRV2ResNet101",
+    "RTDetrV2Model",
+    "RTDETRV2Detect",
     "RTDETRV2ImageProcessor",
 ]

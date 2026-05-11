@@ -146,10 +146,10 @@ def rt_detr_post_process_object_detection(
     Example:
         ```python
         from kmodels.models.rt_detr import (
-            RTDETRResNet50, RTDETRImageProcessor, rt_detr_post_process_object_detection,
+            RTDETRDetect, RTDETRImageProcessor, rt_detr_post_process_object_detection,
         )
 
-        model = RTDETRResNet50(weights="coco")
+        model = RTDETRDetect.from_weights("rtdetr-r50vd")
         img = RTDETRImageProcessor("photo.jpg")
         output = model(img, training=False)
         results = rt_detr_post_process_object_detection(

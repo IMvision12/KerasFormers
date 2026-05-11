@@ -12,40 +12,43 @@ RT-DETRv2 is the second-generation Real-Time DEtection TRansformer, building on 
 - **Two-Stage Query Init:** Encoder proposals initialize decoder queries, eliminating the need for learned query embeddings.
 - **Iterative Box Refinement:** Each decoder layer refines bounding box predictions from the previous layer.
 
-## Available Models
+## Available Variants
 
-| Model | Backbone | Params | Weights |
-|-------|----------|--------|---------|
-| `RTDETRV2ResNet18` | ResNet-18-vd | 20M | `coco` |
-| `RTDETRV2ResNet34` | ResNet-34-vd | 31M | `coco` |
-| `RTDETRV2ResNet50` | ResNet-50-vd | 43M | `coco` |
-| `RTDETRV2ResNet101` | ResNet-101-vd | 76M | `coco` |
+| Variant | Backbone | Params | HF original |
+|---|---|---|---|
+| `rtdetr-v2-r18vd` | ResNet-18-vd | 20M | `PekingU/rtdetr_v2_r18vd` |
+| `rtdetr-v2-r34vd` | ResNet-34-vd | 31M | `PekingU/rtdetr_v2_r34vd` |
+| `rtdetr-v2-r50vd` | ResNet-50-vd | 43M | `PekingU/rtdetr_v2_r50vd` |
+| `rtdetr-v2-r101vd` | ResNet-101-vd | 76M | `PekingU/rtdetr_v2_r101vd` |
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.rt_detr_v2 import RTDETRV2Detect
 
-# RT-DETRv2 with ResNet-50 backbone (COCO pre-trained)
-model = kmodels.models.rt_detr_v2.RTDETRV2ResNet50(weights="coco")
+# RT-DETRv2 with ResNet-50 (kmodels release, COCO pre-trained)
+model = RTDETRV2Detect.from_weights("rtdetr-v2-r50vd")
 
-# Available variants
-model = kmodels.models.rt_detr_v2.RTDETRV2ResNet18(weights="coco")
-model = kmodels.models.rt_detr_v2.RTDETRV2ResNet34(weights="coco")
-model = kmodels.models.rt_detr_v2.RTDETRV2ResNet101(weights="coco")
+# Other variants
+model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd")
+model = RTDETRV2Detect.from_weights("rtdetr-v2-r34vd")
+model = RTDETRV2Detect.from_weights("rtdetr-v2-r101vd")
 
-# Without pre-trained weights
-model = kmodels.models.rt_detr_v2.RTDETRV2ResNet50(weights=None)
+# Untrained
+model = RTDETRV2Detect.from_weights("rtdetr-v2-r50vd", load_weights=False)
+
+# From HF (original or fine-tune)
+model = RTDETRV2Detect.from_weights("hf:PekingU/rtdetr_v2_r50vd")
+model = RTDETRV2Detect.from_weights("hf:my-username/my-rtdetr-v2-finetune")
 ```
 
 ## Example Inference
 
 ```python
-import kmodels
-from kmodels.models.rt_detr_v2 import RTDETRV2ImageProcessor
+from kmodels.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcessor
 from PIL import Image
 
-model = kmodels.models.rt_detr_v2.RTDETRV2ResNet50(weights="coco")
+model = RTDETRV2Detect.from_weights("rtdetr-v2-r50vd")
 
 image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
@@ -102,11 +105,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kmodels.models.rt_detr_v2 import (
-    RTDETRV2ResNet50,
+    RTDETRV2Detect,
     RTDETRV2ImageProcessor,
 )
 
-model = RTDETRV2ResNet50(weights="coco")
+model = RTDETRV2Detect.from_weights("rtdetr-v2-r50vd")
 
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)

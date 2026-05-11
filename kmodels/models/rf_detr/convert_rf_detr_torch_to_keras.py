@@ -10,8 +10,8 @@ import torch
 import torchvision.transforms as T
 from tqdm import tqdm
 
-from kmodels.models.rf_detr.config import RF_DETR_MODEL_CONFIG
-from kmodels.models.rf_detr.rf_detr_model import RFDETR
+from kmodels.models.rf_detr.config import RF_DETR_CONFIG
+from kmodels.models.rf_detr.rf_detr_model import RFDETRDetect
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -51,31 +51,36 @@ decoder_name_mapping: Dict[str, str] = {
 
 model_configs: List[Dict[str, Union[str, type]]] = [
     {
-        "variant": "RFDETRNano",
-        "output": "rf_detr_nano_coco.weights.h5",
+        "variant": "rfdetr-nano",
+        "rfdetr_cls": "RFDETRNano",
+        "output": "rf_detr_nano.weights.h5",
     },
     {
-        "variant": "RFDETRSmall",
-        "output": "rf_detr_small_coco.weights.h5",
+        "variant": "rfdetr-small",
+        "rfdetr_cls": "RFDETRSmall",
+        "output": "rf_detr_small.weights.h5",
     },
     {
-        "variant": "RFDETRMedium",
-        "output": "rf_detr_medium_coco.weights.h5",
+        "variant": "rfdetr-medium",
+        "rfdetr_cls": "RFDETRMedium",
+        "output": "rf_detr_medium.weights.h5",
     },
     {
-        "variant": "RFDETRBase",
-        "output": "rf_detr_base_coco.weights.h5",
+        "variant": "rfdetr-base",
+        "rfdetr_cls": "RFDETRBase",
+        "output": "rf_detr_base.weights.h5",
     },
     {
-        "variant": "RFDETRLarge",
-        "output": "rf_detr_large_coco.weights.h5",
+        "variant": "rfdetr-large",
+        "rfdetr_cls": "RFDETRLarge",
+        "output": "rf_detr_large.weights.h5",
     },
 ]
 
 for model_config in model_configs:
     variant = model_config["variant"]
     output = model_config["output"]
-    config = RF_DETR_MODEL_CONFIG[variant]
+    config = RF_DETR_CONFIG[variant]
     res = config["resolution"]
     dec_layers = config["dec_layers"]
 
@@ -83,41 +88,31 @@ for model_config in model_configs:
     print(f"Converting {variant}...")
     print(f"{'=' * 60}")
 
-    keras_model: keras.Model = RFDETR(
-        hidden_dim=256,
-        backbone_hidden_size=384,
-        backbone_num_heads=6,
-        backbone_num_layers=12,
-        backbone_mlp_ratio=4,
+    keras_model: keras.Model = RFDETRDetect.from_weights(
+        variant,
+        load_weights=False,
         backbone_use_swiglu=False,
         num_register_tokens=0,
-        out_feature_indexes=config.get("out_feature_indexes", [3, 6, 9, 12]),
-        patch_size=config.get("patch_size", 16),
-        num_windows=config.get("num_windows", 2),
-        positional_encoding_size=config["positional_encoding_size"],
-        resolution=res,
-        dec_layers=dec_layers,
-        sa_nheads=8,
-        ca_nheads=16,
-        dec_n_points=2,
-        num_queries=300,
-        num_classes=91,
-        two_stage=True,
-        bbox_reparam=True,
-        lite_refpoint_refine=True,
-        group_detr=13,
-        dim_feedforward=2048,
-        weights=None,
         input_shape=(res, res, 3),
-        name=variant,
     )
     dummy = keras.random.uniform((1, res, res, 3), dtype="float32")
     _ = keras_model(dummy)
     print(f"  Parameters: {keras_model.count_params():,}")
 
+    from transformers import pytorch_utils as _hf_pu
+
+    if not hasattr(_hf_pu, "find_pruneable_heads_and_indices"):
+
+        def find_pruneable_heads_and_indices(heads, n_heads, head_size, already_pruned):
+            raise NotImplementedError(
+                "Head pruning not supported in this conversion path"
+            )
+
+        _hf_pu.find_pruneable_heads_and_indices = find_pruneable_heads_and_indices
+
     import rfdetr as rfdetr_pkg
 
-    pt_cls = getattr(rfdetr_pkg, variant)
+    pt_cls = getattr(rfdetr_pkg, model_config["rfdetr_cls"])
     pt_wrapper = pt_cls()
     pt_model = pt_wrapper.model.model
 

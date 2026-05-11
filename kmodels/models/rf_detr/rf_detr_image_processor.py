@@ -14,9 +14,9 @@ class RFDETRImageProcessor(BaseImageProcessor):
 
     Args:
         size: Target size as ``{"height": H, "width": W}``.
-            Default: ``{"height": 560, "width": 560}`` (RFDETRBase
-            resolution). Use the model's resolution: 384 (Nano),
-            512 (Small), 576 (Medium), 560 (Base), or 704 (Large).
+            Default: ``{"height": 560, "width": 560}`` (rfdetr-base
+            resolution). Use the model's resolution: 384 (nano),
+            512 (small), 576 (medium), 560 (base), or 704 (large).
         resample: Interpolation method (``"nearest"``, ``"bilinear"``,
             or ``"bicubic"``).
         do_rescale: Whether to divide pixel values by 255.
@@ -136,9 +136,9 @@ def rf_detr_post_process_object_detection(
 
     Example:
         ```python
-        from kmodels.models.rf_detr import RFDETRBase, RFDETRImageProcessor, rf_detr_post_process_object_detection
+        from kmodels.models.rf_detr import RFDETRDetect, RFDETRImageProcessor, rf_detr_post_process_object_detection
 
-        model = RFDETRBase(weights="coco")
+        model = RFDETRDetect.from_weights("rfdetr-base")
         img = RFDETRImageProcessor("photo.jpg", size={"height": 560, "width": 560})
         output = model(img, training=False)
         results = rf_detr_post_process_object_detection(output, threshold=0.5,
@@ -154,12 +154,12 @@ def rf_detr_post_process_object_detection(
     batch_size = logits.shape[0]
     num_classes = logits.shape[2]
 
-    probs = _sigmoid(logits)
+    probs = sigmoid(logits)
 
     results = []
     for i in range(batch_size):
-        prob_i = probs[i]  # (num_queries, num_classes)
-        boxes_i = boxes[i]  # (num_queries, 4)
+        prob_i = probs[i]
+        boxes_i = boxes[i]
 
         flat_scores = prob_i.reshape(-1)
         num_select = min(num_top_queries, flat_scores.shape[0])
@@ -209,7 +209,7 @@ def rf_detr_post_process_object_detection(
     return results
 
 
-def _sigmoid(x: np.ndarray) -> np.ndarray:
+def sigmoid(x: np.ndarray) -> np.ndarray:
     """Numerically stable sigmoid."""
     return np.where(
         x >= 0,

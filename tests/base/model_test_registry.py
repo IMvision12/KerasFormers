@@ -497,28 +497,37 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "DFineSmall": {
+    "DFineDetect": {
         "module": "kmodels.models.dfine",
-        "model_cls": "DFineSmall",
+        "model_cls": "DFineDetect",
         "model_type": "object_detection",
         "init_kwargs": {
-            "weights": None,
+            "stem_channels": (3, 16, 16),
+            "stage_in_channels": (16, 64, 256, 512),
+            "stage_mid_channels": (16, 32, 64, 128),
+            "stage_out_channels": (64, 256, 512, 1024),
+            "stage_num_blocks": (1, 1, 2, 1),
+            "stage_numb_of_layers": (3, 3, 3, 3),
+            "use_lab": True,
+            "encoder_in_channels": (256, 512, 1024),
+            "hidden_expansion": 0.5,
+            "decoder_layers": 3,
+            "decoder_n_points": [3, 6, 3],
             "input_shape": (320, 320, 3),
-            "num_queries": 10,
             "num_labels": 80,
         },
         "input_shape": (2, 320, 320, 3),
         "expected_output_shape": {
-            "logits": (2, 10, 80),
-            "pred_boxes": (2, 10, 4),
+            "logits": (2, 300, 80),
+            "pred_boxes": (2, 300, 4),
         },
     },
-    "DETRResNet50": {
+    "DETRDetect": {
         "module": "kmodels.models.detr",
-        "model_cls": "DETRResNet50",
+        "model_cls": "DETRDetect",
         "model_type": "object_detection",
         "init_kwargs": {
-            "weights": None,
+            "backbone_variant": "ResNet50",
             "input_shape": (32, 32, 3),
             "num_classes": 92,
             "num_queries": 10,
@@ -530,12 +539,17 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
-    "RTDETRResNet18": {
+    "RTDETRDetect": {
         "module": "kmodels.models.rt_detr",
-        "model_cls": "RTDETRResNet18",
+        "model_cls": "RTDETRDetect",
         "model_type": "object_detection",
         "init_kwargs": {
-            "weights": None,
+            "backbone_hidden_sizes": (64, 128, 256, 512),
+            "backbone_block_repeats": (2, 2, 2, 2),
+            "backbone_layer_type": "basic",
+            "encoder_in_channels": (128, 256, 512),
+            "hidden_expansion": 0.5,
+            "decoder_layers": 3,
             "input_shape": (128, 128, 3),
             "num_queries": 10,
             "num_labels": 80,
@@ -546,12 +560,17 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
-    "RTDETRV2ResNet18": {
+    "RTDETRV2Detect": {
         "module": "kmodels.models.rt_detr_v2",
-        "model_cls": "RTDETRV2ResNet18",
+        "model_cls": "RTDETRV2Detect",
         "model_type": "object_detection",
         "init_kwargs": {
-            "weights": None,
+            "backbone_hidden_sizes": (64, 128, 256, 512),
+            "backbone_block_repeats": (2, 2, 2, 2),
+            "backbone_layer_type": "basic",
+            "encoder_in_channels": (128, 256, 512),
+            "hidden_expansion": 0.5,
+            "decoder_layers": 3,
             "input_shape": (128, 128, 3),
             "num_queries": 10,
             "num_labels": 80,
@@ -562,12 +581,16 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
-    "RFDETRNano": {
+    "RFDETRDetect": {
         "module": "kmodels.models.rf_detr",
-        "model_cls": "RFDETRNano",
+        "model_cls": "RFDETRDetect",
         "model_type": "object_detection",
         "init_kwargs": {
-            "weights": None,
+            "patch_size": 16,
+            "num_windows": 2,
+            "positional_encoding_size": 24,
+            "resolution": 384,
+            "dec_layers": 2,
             "num_queries": 10,
             "num_classes": 91,
             "input_shape": (256, 256, 3),
@@ -759,12 +782,11 @@ MODEL_TEST_CONFIGS = {
             "text_logits": (2, 2),
         },
     },
-    "OwlViTBasePatch32": {
+    "OwlViTDetect": {
         "module": "kmodels.models.owlvit",
-        "model_cls": "OwlViT",
+        "model_cls": "OwlViTDetect",
         "model_type": "object_detection",
         "init_kwargs": {
-            "weights": None,
             "vision_image_size": 64,
             "vision_patch_size": 16,
             "vision_hidden_size": 32,

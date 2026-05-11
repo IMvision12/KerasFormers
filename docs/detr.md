@@ -11,70 +11,52 @@ DETR (DEtection TRansformer) is an end-to-end object detection model that combin
 - **ResNet Backbones:** Uses standard deep residual networks (ResNet-50/ResNet-101) to extract initial 2D feature representations.
 - **Simplified Pipeline:** Streamlines standard complex detection pipelines into a straightforward encode-decode translation framework.
 
-## Available Models
+## Available Variants
 
-| Model | Description | Weights |
-|-------|-------------|---------|
-| `DETRResNet50` | DETR with a ResNet-50 backbone | `detr_resnet50_coco.weights.h5` |
-| `DETRResNet101` | DETR with a ResNet-101 backbone | `detr_resnet_101_coco.weights.h5` |
-
-*Note: The `detr_resnet50_coco` weights are pre-trained on the COCO 2017 object detection dataset.*
+| Variant | Description | HF original |
+|---|---|---|
+| `detr-resnet-50` | DETR with a ResNet-50 backbone | `facebook/detr-resnet-50` |
+| `detr-resnet-101` | DETR with a ResNet-101 backbone | `facebook/detr-resnet-101` |
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.detr import DETRDetect
 
-# Load DETR with ResNet-50 backbone (COCO pre-trained)
-model = kmodels.models.detr.DETRResNet50(
-    weights="detr_resnet50_coco.weights.h5",
-    input_shape=(800, 800, 3),
-    include_normalization=False,
-)
+# Load kmodels release weights (COCO pre-trained)
+model = DETRDetect.from_weights("detr-resnet-50")
 
-# Without pre-trained weights
-model = kmodels.models.detr.DETRResNet50(weights=None, input_shape=(800, 800, 3))
+# Untrained model
+model = DETRDetect.from_weights("detr-resnet-50", load_weights=False)
 
-# ResNet-101 variant
-model = kmodels.models.detr.DETRResNet101(weights=None, input_shape=(800, 800, 3))
+# Load original HF checkpoint or a community fine-tune
+model = DETRDetect.from_weights("hf:facebook/detr-resnet-50")
+model = DETRDetect.from_weights("hf:my-username/my-detr-finetune")
 ```
 
 ## Example Inference
 
 ```python
-import kmodels
-from kmodels.models.detr import DETRImageProcessor
+from kmodels.models.detr import DETRDetect, DETRImageProcessor
 from PIL import Image
 
-model = kmodels.models.detr.DETRResNet50(
-    weights="coco",
-    input_shape=(800, 800, 3),
-    include_normalization=False,
-)
+model = DETRDetect.from_weights("detr-resnet-50")
 
 image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
 
-# Preprocess: resize, rescale, ImageNet normalize
 processor = DETRImageProcessor(size={"height": 800, "width": 800})
 inputs = processor(image)
 
-# Inference
 output = model(inputs["pixel_values"], training=False)
 # output["logits"]:     (1, 100, 92) — class logits per query
 # output["pred_boxes"]: (1, 100, 4)  — normalized (cx, cy, w, h)
 
-# Post-process: filter by confidence, convert boxes to pixel coords
-results = processor.post_process_object_detection(output, threshold=0.7, target_sizes=[original_size])
+results = processor.post_process_object_detection(
+    output, threshold=0.7, target_sizes=[original_size]
+)
 for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
-
-# Output:
-# remote: 1.00 at [39, 71, 178, 117]
-# couch: 1.00 at [0, 1, 640, 474]
-# cat: 1.00 at [12, 52, 315, 469]
-# remote: 1.00 at [334, 74, 370, 188]
-# cat: 1.00 at [345, 24, 640, 371]
 ```
 
 ### Data format
@@ -105,12 +87,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.detr import DETRResNet50, DETRImageProcessor
+from kmodels.models.detr import DETRDetect, DETRImageProcessor
 
-model = DETRResNet50(weights="coco", input_shape=(800, 800, 3), include_normalization=False)
+model = DETRDetect.from_weights("detr-resnet-50")
 
 img = Image.open("image.jpg").convert("RGB")
-original_size = img.size[::-1]  # (H, W)
+original_size = img.size[::-1]
 
 processor = DETRImageProcessor(size={"height": 800, "width": 800})
 inputs = processor(img)

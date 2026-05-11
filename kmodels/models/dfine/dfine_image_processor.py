@@ -188,8 +188,8 @@ def dfine_post_process_object_detection(
     num_classes_int = int(ops.convert_to_numpy(num_classes))
 
     for i in range(batch_size_int):
-        scores_i = scores[i]  # (Q, C)
-        boxes_i = boxes_xyxy[i]  # (Q, 4)
+        scores_i = scores[i]
+        boxes_i = boxes_xyxy[i]
 
         flat_scores = ops.reshape(scores_i, [-1])
 
