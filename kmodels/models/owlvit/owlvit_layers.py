@@ -200,16 +200,16 @@ class OwlViTAttention(layers.Layer):
         self.q_proj = layers.Dense(hidden_size, name="q_proj")
         self.out_proj = layers.Dense(hidden_size, name="out_proj")
 
-    def _split_heads(self, x):
+    def split_heads(self, x):
         b = ops.shape(x)[0]
         s = ops.shape(x)[1]
         x = ops.reshape(x, (b, s, self.num_heads, self.head_dim))
         return ops.transpose(x, (0, 2, 1, 3))
 
     def call(self, hidden_states, attention_mask=None):
-        q = self._split_heads(self.q_proj(hidden_states))
-        k = self._split_heads(self.k_proj(hidden_states))
-        v = self._split_heads(self.v_proj(hidden_states))
+        q = self.split_heads(self.q_proj(hidden_states))
+        k = self.split_heads(self.k_proj(hidden_states))
+        v = self.split_heads(self.v_proj(hidden_states))
 
         attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
         if attention_mask is not None:

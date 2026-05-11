@@ -5,6 +5,7 @@ from kmodels.base import BaseModel
 from kmodels.base.base_model import hf_num_labels
 
 from .config import RT_DETR_CONFIG, RT_DETR_WEIGHTS
+from .convert_rt_detr_hf_to_keras import transfer_rt_detr_weights
 from .rt_detr_layers import (
     RTDETRDecoderLayer,
     RTDETRMultiHeadAttention,
@@ -130,7 +131,6 @@ def rt_detr_backbone(
             res = x
             in_ch = res.shape[channels_axis]
             if is_basic:
-                # Basic block: 3x3 conv -> BN -> ReLU -> 3x3 conv -> BN
                 if st > 1:
                     x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
                     x = layers.Conv2D(
@@ -167,7 +167,6 @@ def rt_detr_backbone(
                     axis=channels_axis, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn2"
                 )(x)
             else:
-                # Bottleneck: 1x1 -> 3x3 -> 1x1
                 x = layers.Conv2D(
                     filt,
                     1,
@@ -931,7 +930,7 @@ class RTDETRDetect(BaseModel):
         return cls(**config)
 
     @classmethod
-    def _config_from_hf(cls, hf_config):
+    def config_from_hf(cls, hf_config):
         bb = hf_config["backbone_config"]
         return {
             "backbone_hidden_sizes": tuple(bb["hidden_sizes"]),
@@ -960,7 +959,5 @@ class RTDETRDetect(BaseModel):
         }
 
     @classmethod
-    def _transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_rt_detr_hf_to_keras import transfer_rt_detr_weights
-
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
         transfer_rt_detr_weights(keras_model, hf_state_dict)

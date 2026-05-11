@@ -30,7 +30,7 @@ def hf_num_labels(hf_config):
     )
 
 
-def _load_hf_state_dict(hf_id):
+def load_hf_state_dict(hf_id):
     """Download HF model weights and return a flat ``{name: numpy_array}`` dict.
 
     Tries (in order):
@@ -40,7 +40,6 @@ def _load_hf_state_dict(hf_id):
     3. ``pytorch_model.bin`` (single-file pickle)
     4. ``pytorch_model.bin.index.json`` (sharded pickle)
     """
-    # 1. Single-file safetensors
     try:
         path = hf_hub_download(hf_id, "model.safetensors")
     except EntryNotFoundError:
@@ -50,7 +49,6 @@ def _load_hf_state_dict(hf_id):
 
         return load_file(path)
 
-    # 2. Sharded safetensors
     try:
         index_path = hf_hub_download(hf_id, "model.safetensors.index.json")
     except EntryNotFoundError:
@@ -67,7 +65,6 @@ def _load_hf_state_dict(hf_id):
             state_dict.update(load_file(shard_path))
         return state_dict
 
-    # 3. Single-file pytorch_model.bin
     try:
         path = hf_hub_download(hf_id, "pytorch_model.bin")
     except EntryNotFoundError:
@@ -78,7 +75,6 @@ def _load_hf_state_dict(hf_id):
         sd = torch.load(path, map_location="cpu", weights_only=True)
         return {k: v.cpu().numpy() if hasattr(v, "cpu") else v for k, v in sd.items()}
 
-    # 4. Sharded pytorch_model.bin
     try:
         index_path = hf_hub_download(hf_id, "pytorch_model.bin.index.json")
     except EntryNotFoundError:
@@ -122,44 +118,37 @@ class BaseModel(keras.Model):
 
     HF loading uses ``huggingface_hub`` (not ``transformers``) — it
     downloads ``config.json`` and the safetensors / pytorch weights
-    directly. Subclasses provide a ``_config_from_hf`` method that maps
+    directly. Subclasses provide a ``config_from_hf`` method that maps
     the parsed ``config.json`` dict into ``__init__`` kwargs, and a
-    ``_transfer_from_hf`` method that applies the HF state-dict to the
+    ``transfer_from_hf`` method that applies the HF state-dict to the
     Keras layers.
 
     .. code-block:: python
 
         class OwlViTDetect(BaseModel):
-            KMODELS_CONFIG = OWLVIT_CONFIG       # variant -> kwargs
-            KMODELS_WEIGHTS = OWLVIT_WEIGHTS     # variant -> {"url": ...}
+            KMODELS_CONFIG = OWLVIT_CONFIG
+            KMODELS_WEIGHTS = OWLVIT_WEIGHTS
 
             @classmethod
-            def _config_from_hf(cls, hf_config: dict): ...
+            def config_from_hf(cls, hf_config: dict): ...
 
             @classmethod
-            def _transfer_from_hf(cls, model, state_dict): ...
+            def transfer_from_hf(cls, model, state_dict): ...
 
     Usage:
 
     .. code-block:: python
 
-        # Trained kmodels release
         m = OwlViTDetect.from_weights("owlvit-base-patch32")
 
-        # Trained HF original or fine-tune
         m = OwlViTDetect.from_weights("hf:google/owlvit-base-patch32")
         m = OwlViTDetect.from_weights("hf:alice/owlvit-finetune")
 
-        # Untrained
         m = OwlViTDetect.from_weights("owlvit-base-patch32", load_weights=False)
     """
 
     KMODELS_CONFIG = None
     KMODELS_WEIGHTS = None
-    # ``model_type`` value(s) (from HF ``config.json``) this class can load
-    # from HuggingFace. ``str`` for a single value or ``tuple[str, ...]`` for
-    # several aliases (e.g. ``("d_fine", "dfine")``). ``None`` disables the
-    # guard — only do that for classes that don't load from HF at all.
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -182,11 +171,11 @@ class BaseModel(keras.Model):
         """
         if identifier.startswith(_HF_PREFIX):
             hf_id = identifier[len(_HF_PREFIX) :]
-            return cls._from_hf(hf_id, load_weights=load_weights, **kwargs)
-        return cls._from_release(identifier, load_weights=load_weights, **kwargs)
+            return cls.from_hf(hf_id, load_weights=load_weights, **kwargs)
+        return cls.from_release(identifier, load_weights=load_weights, **kwargs)
 
     @classmethod
-    def _from_release(cls, variant, load_weights=True, **kwargs):
+    def from_release(cls, variant, load_weights=True, **kwargs):
         if cls.KMODELS_CONFIG is None:
             raise NotImplementedError(
                 f"{cls.__name__} must set KMODELS_CONFIG to use from_weights()."
@@ -220,20 +209,20 @@ class BaseModel(keras.Model):
         return model
 
     @classmethod
-    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
+    def from_hf(cls, hf_id, load_weights=True, **kwargs):
         with open(hf_hub_download(hf_id, "config.json"), "r") as f:
             hf_config = json.load(f)
-        cls._assert_hf_model_type(hf_id, hf_config)
-        kmodels_kwargs = cls._config_from_hf(hf_config)
+        cls.assert_hf_model_type(hf_id, hf_config)
+        kmodels_kwargs = cls.config_from_hf(hf_config)
         kmodels_kwargs.update(kwargs)
         model = cls(**kmodels_kwargs)
         if load_weights:
-            state_dict = _load_hf_state_dict(hf_id)
-            cls._transfer_from_hf(model, state_dict)
+            state_dict = load_hf_state_dict(hf_id)
+            cls.transfer_from_hf(model, state_dict)
         return model
 
     @classmethod
-    def _assert_hf_model_type(cls, hf_id, hf_config):
+    def assert_hf_model_type(cls, hf_id, hf_config):
         """Reject HF configs whose ``model_type`` doesn't match this class.
 
         Fails fast with a clear message instead of letting the user wait
@@ -257,22 +246,22 @@ class BaseModel(keras.Model):
             )
 
     @classmethod
-    def _config_from_hf(cls, hf_config):
+    def config_from_hf(cls, hf_config):
         """Map a HuggingFace ``config.json`` dict to ``cls.__init__`` kwargs.
 
         ``hf_config`` is the result of ``json.load(open("config.json"))``
         — a plain dict, not a ``transformers`` config object. Subclasses
         must override this to support ``"hf:"`` loading.
         """
-        raise NotImplementedError(f"{cls.__name__}._config_from_hf is not implemented.")
+        raise NotImplementedError(f"{cls.__name__}.config_from_hf is not implemented.")
 
     @classmethod
-    def _transfer_from_hf(cls, keras_model, hf_state_dict):
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
         """Transfer weights from an HF ``state_dict`` into ``keras_model``.
 
         ``hf_state_dict`` is a flat ``{name: numpy_array}`` mapping.
         Subclasses must override this to support ``"hf:"`` loading.
         """
         raise NotImplementedError(
-            f"{cls.__name__}._transfer_from_hf is not implemented."
+            f"{cls.__name__}.transfer_from_hf is not implemented."
         )

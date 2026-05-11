@@ -12,6 +12,7 @@ from kmodels.models.detr.detr_layers import (
 )
 
 from .config import DETR_CONFIG, DETR_WEIGHTS
+from .convert_detr_torch_to_keras import transfer_detr_weights
 
 
 def detr_encoder_layer(
@@ -457,7 +458,7 @@ class DETRDetect(BaseModel):
         return cls(**config)
 
     @classmethod
-    def _config_from_hf(cls, hf_config):
+    def config_from_hf(cls, hf_config):
         backbone = hf_config.get("backbone", "resnet50") or "resnet50"
         backbone_variant = "ResNet101" if "101" in backbone else "ResNet50"
         return {
@@ -474,7 +475,5 @@ class DETRDetect(BaseModel):
         }
 
     @classmethod
-    def _transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_detr_torch_to_keras import transfer_detr_weights
-
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
         transfer_detr_weights(keras_model, hf_state_dict)

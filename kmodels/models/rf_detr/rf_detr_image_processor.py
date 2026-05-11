@@ -154,12 +154,12 @@ def rf_detr_post_process_object_detection(
     batch_size = logits.shape[0]
     num_classes = logits.shape[2]
 
-    probs = _sigmoid(logits)
+    probs = sigmoid(logits)
 
     results = []
     for i in range(batch_size):
-        prob_i = probs[i]  # (num_queries, num_classes)
-        boxes_i = boxes[i]  # (num_queries, 4)
+        prob_i = probs[i]
+        boxes_i = boxes[i]
 
         flat_scores = prob_i.reshape(-1)
         num_select = min(num_top_queries, flat_scores.shape[0])
@@ -209,7 +209,7 @@ def rf_detr_post_process_object_detection(
     return results
 
 
-def _sigmoid(x: np.ndarray) -> np.ndarray:
+def sigmoid(x: np.ndarray) -> np.ndarray:
     """Numerically stable sigmoid."""
     return np.where(
         x >= 0,

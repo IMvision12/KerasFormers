@@ -27,7 +27,7 @@ backbone_weight_name_mapping: Dict[str, str] = {
 }
 
 
-def _transfer_attention(keras_layer, state_dict, hf_prefix):
+def transfer_attention(keras_layer, state_dict, hf_prefix):
     for keras_proj, hf_proj in [
         ("q_proj", "q_proj"),
         ("k_proj", "k_proj"),
@@ -43,12 +43,12 @@ def _transfer_attention(keras_layer, state_dict, hf_prefix):
         proj.bias.assign(state_dict[f"{hf_prefix}.{hf_proj}.bias"])
 
 
-def _transfer_ln(keras_ln, state_dict, hf_prefix):
+def transfer_ln(keras_ln, state_dict, hf_prefix):
     keras_ln.weights[0].assign(state_dict[f"{hf_prefix}.weight"])
     keras_ln.weights[1].assign(state_dict[f"{hf_prefix}.bias"])
 
 
-def _transfer_dense_transposed(keras_dense, state_dict, hf_prefix):
+def transfer_dense_transposed(keras_dense, state_dict, hf_prefix):
     w = state_dict[f"{hf_prefix}.weight"]
     keras_dense.weights[0].assign(w.T)
     keras_dense.weights[1].assign(state_dict[f"{hf_prefix}.bias"])
@@ -120,27 +120,27 @@ def transfer_detr_weights(keras_model, state_dict):
         hf_prefix = f"model.encoder.layers.{i}"
         k_prefix = f"encoder_layers_{i}"
 
-        _transfer_attention(
+        transfer_attention(
             keras_model.get_layer(f"{k_prefix}_self_attn"),
             state_dict,
             f"{hf_prefix}.self_attn",
         )
-        _transfer_ln(
+        transfer_ln(
             keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm"),
             state_dict,
             f"{hf_prefix}.self_attn_layer_norm",
         )
-        _transfer_dense_transposed(
+        transfer_dense_transposed(
             keras_model.get_layer(f"{k_prefix}_fc1"),
             state_dict,
             f"{hf_prefix}.mlp.fc1",
         )
-        _transfer_dense_transposed(
+        transfer_dense_transposed(
             keras_model.get_layer(f"{k_prefix}_fc2"),
             state_dict,
             f"{hf_prefix}.mlp.fc2",
         )
-        _transfer_ln(
+        transfer_ln(
             keras_model.get_layer(f"{k_prefix}_final_layer_norm"),
             state_dict,
             f"{hf_prefix}.final_layer_norm",
@@ -152,56 +152,56 @@ def transfer_detr_weights(keras_model, state_dict):
         hf_prefix = f"model.decoder.layers.{i}"
         k_prefix = f"decoder_layers_{i}"
 
-        _transfer_attention(
+        transfer_attention(
             keras_model.get_layer(f"{k_prefix}_self_attn"),
             state_dict,
             f"{hf_prefix}.self_attn",
         )
-        _transfer_ln(
+        transfer_ln(
             keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm"),
             state_dict,
             f"{hf_prefix}.self_attn_layer_norm",
         )
-        _transfer_attention(
+        transfer_attention(
             keras_model.get_layer(f"{k_prefix}_encoder_attn"),
             state_dict,
             f"{hf_prefix}.encoder_attn",
         )
-        _transfer_ln(
+        transfer_ln(
             keras_model.get_layer(f"{k_prefix}_encoder_attn_layer_norm"),
             state_dict,
             f"{hf_prefix}.encoder_attn_layer_norm",
         )
-        _transfer_dense_transposed(
+        transfer_dense_transposed(
             keras_model.get_layer(f"{k_prefix}_fc1"),
             state_dict,
             f"{hf_prefix}.mlp.fc1",
         )
-        _transfer_dense_transposed(
+        transfer_dense_transposed(
             keras_model.get_layer(f"{k_prefix}_fc2"),
             state_dict,
             f"{hf_prefix}.mlp.fc2",
         )
-        _transfer_ln(
+        transfer_ln(
             keras_model.get_layer(f"{k_prefix}_final_layer_norm"),
             state_dict,
             f"{hf_prefix}.final_layer_norm",
         )
 
-    _transfer_ln(
+    transfer_ln(
         keras_model.get_layer("decoder_layernorm"),
         state_dict,
         "model.decoder.layernorm",
     )
 
-    _transfer_dense_transposed(
+    transfer_dense_transposed(
         keras_model.get_layer("class_labels_classifier"),
         state_dict,
         "class_labels_classifier",
     )
 
     for layer_idx in range(3):
-        _transfer_dense_transposed(
+        transfer_dense_transposed(
             keras_model.get_layer(f"bbox_predictor_{layer_idx}"),
             state_dict,
             f"bbox_predictor.layers.{layer_idx}",

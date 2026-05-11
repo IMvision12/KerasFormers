@@ -4,6 +4,10 @@ from keras import layers, ops
 from kmodels.base import BaseModel
 
 from .config import OWLVIT_CONFIG, OWLVIT_WEIGHTS
+from .convert_owlvit_hf_to_keras import (
+    transfer_owlvit_detection_weights,
+    transfer_owlvit_encoder_weights,
+)
 from .owlvit_layers import (
     OwlViTAttention,
     OwlViTSplitBatchQueries,
@@ -12,12 +16,6 @@ from .owlvit_layers import (
     compute_box_bias,
     quick_gelu,
 )
-
-# OWL-ViT's published variants all share these values, so they're
-# inlined as literals here (keras-hub-style): every ``LayerNormalization``
-# uses ``epsilon=1e-5`` and every MLP uses ``quick_gelu``. They aren't
-# shape-affecting — changing them would only alter numerics, never
-# break weight transfer — so they don't need to be ``__init__`` args.
 
 
 def owlvit_mlp(x, hidden_size, intermediate_size, block_prefix):
@@ -192,7 +190,7 @@ def owlvit_class_predictor(
     return pred_logits, image_class_embeds
 
 
-def _resolve_input_shapes(
+def resolve_input_shapes(
     vision_image_size, text_max_position_embeddings, input_shape, text_input_shape
 ):
     if input_shape is None:
@@ -205,7 +203,7 @@ def _resolve_input_shapes(
     return input_shape, text_input_shape
 
 
-def _build_owlvit_towers(
+def build_owlvit_towers(
     pixel_values,
     input_ids,
     *,
@@ -299,7 +297,7 @@ class OwlViT(BaseModel):
         name="OwlViT",
         **kwargs,
     ):
-        input_shape, text_input_shape = _resolve_input_shapes(
+        input_shape, text_input_shape = resolve_input_shapes(
             vision_image_size,
             text_max_position_embeddings,
             input_shape,
@@ -311,7 +309,7 @@ class OwlViT(BaseModel):
             shape=text_input_shape, dtype="int32", name="input_ids"
         )
 
-        image_embeds, text_embeds, _ = _build_owlvit_towers(
+        image_embeds, text_embeds, _ = build_owlvit_towers(
             pixel_values,
             input_ids,
             vision_image_size=vision_image_size,
@@ -381,7 +379,7 @@ class OwlViT(BaseModel):
         return cls(**config)
 
     @classmethod
-    def _config_from_hf(cls, hf_config):
+    def config_from_hf(cls, hf_config):
         vc = hf_config["vision_config"]
         tc = hf_config["text_config"]
         return {
@@ -401,9 +399,7 @@ class OwlViT(BaseModel):
         }
 
     @classmethod
-    def _transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_owlvit_hf_to_keras import transfer_owlvit_encoder_weights
-
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
         transfer_owlvit_encoder_weights(keras_model, hf_state_dict)
 
 
@@ -444,7 +440,7 @@ class OwlViTDetect(BaseModel):
         name="OwlViTDetect",
         **kwargs,
     ):
-        input_shape, text_input_shape = _resolve_input_shapes(
+        input_shape, text_input_shape = resolve_input_shapes(
             vision_image_size,
             text_max_position_embeddings,
             input_shape,
@@ -460,7 +456,7 @@ class OwlViTDetect(BaseModel):
             shape=text_input_shape, dtype="int32", name="input_ids"
         )
 
-        image_embeds_raw, text_embeds, _ = _build_owlvit_towers(
+        image_embeds_raw, text_embeds, _ = build_owlvit_towers(
             pixel_values,
             input_ids,
             vision_image_size=vision_image_size,
@@ -572,11 +568,9 @@ class OwlViTDetect(BaseModel):
         return cls(**config)
 
     @classmethod
-    def _config_from_hf(cls, hf_config):
-        return OwlViT._config_from_hf(hf_config)
+    def config_from_hf(cls, hf_config):
+        return OwlViT.config_from_hf(hf_config)
 
     @classmethod
-    def _transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_owlvit_hf_to_keras import transfer_owlvit_detection_weights
-
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
         transfer_owlvit_detection_weights(keras_model, hf_state_dict)

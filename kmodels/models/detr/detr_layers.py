@@ -92,7 +92,6 @@ class DETRFlattenFeatures(layers.Layer):
         shape = ops.shape(inputs)
         data_format = keras.config.image_data_format()
         if data_format == "channels_first":
-            # (B, C, H, W) -> (B, H*W, C)
             x = ops.transpose(inputs, [0, 2, 3, 1])
             return ops.reshape(x, [shape[0], shape[2] * shape[3], self.hidden_dim])
         return ops.reshape(inputs, [shape[0], shape[1] * shape[2], self.hidden_dim])

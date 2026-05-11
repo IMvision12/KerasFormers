@@ -257,7 +257,7 @@ class DFineMultiHeadAttention(layers.Layer):
         return config
 
 
-def _ms_deform_attn_core_variable(
+def ms_deform_attn_core_variable(
     value,
     value_spatial_shapes,
     sampling_locations,
@@ -515,7 +515,7 @@ class DFineMultiScaleDeformableAttention(layers.Layer):
         else:
             raise ValueError(f"reference_points last dim must be 4, got {num_coords}")
 
-        output = _ms_deform_attn_core_variable(
+        output = ms_deform_attn_core_variable(
             value,
             input_spatial_shapes,
             sampling_locations,

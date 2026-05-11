@@ -145,23 +145,19 @@ def detr_post_process_object_detection(
 
     batch_size = logits.shape[0]
 
-    # Softmax over classes; last class is "no object"
-    probs = _softmax(logits)
+    probs = softmax(logits)
 
     results = []
     for i in range(batch_size):
-        # Scores and labels from object classes only (exclude no-object)
-        obj_probs = probs[i, :, :-1]  # (num_queries, num_classes - 1)
-        scores = np.max(obj_probs, axis=-1)  # (num_queries,)
-        labels = np.argmax(obj_probs, axis=-1)  # (num_queries,)
+        obj_probs = probs[i, :, :-1]
+        scores = np.max(obj_probs, axis=-1)
+        labels = np.argmax(obj_probs, axis=-1)
 
-        # Filter by threshold
         keep = scores > threshold
         scores = scores[keep]
         labels = labels[keep]
-        kept_boxes = boxes[i][keep]  # (num_kept, 4) in (cx, cy, w, h)
+        kept_boxes = boxes[i][keep]
 
-        # Convert (cx, cy, w, h) -> (x_min, y_min, x_max, y_max)
         cx, cy, w, h = (
             kept_boxes[:, 0],
             kept_boxes[:, 1],
@@ -174,13 +170,11 @@ def detr_post_process_object_detection(
         y_max = cy + h / 2
         xyxy_boxes = np.stack([x_min, y_min, x_max, y_max], axis=-1)
 
-        # Scale to pixel coordinates if target_sizes provided
         if target_sizes is not None:
             img_h, img_w = target_sizes[i]
             scale = np.array([img_w, img_h, img_w, img_h], dtype=np.float32)
             xyxy_boxes = xyxy_boxes * scale
 
-        # Map label indices to class names
         _names = label_names if label_names is not None else COCO_91_CLASSES
         mapped_names = [_names[l] if l < len(_names) else f"class_{l}" for l in labels]
 
@@ -196,7 +190,7 @@ def detr_post_process_object_detection(
     return results
 
 
-def _softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
     """Numerically stable softmax."""
     e_x = np.exp(x - np.max(x, axis=axis, keepdims=True))
     return e_x / np.sum(e_x, axis=axis, keepdims=True)

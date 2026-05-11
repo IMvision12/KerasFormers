@@ -92,7 +92,6 @@ class DinoV2PatchEmbeddings(layers.Layer):
     def call(self, pixel_values):
         x = self.projection(pixel_values)
         if self.data_format == "channels_first":
-            # (B, C, H, W) -> (B, H*W, C)
             shape = ops.shape(x)
             x = ops.transpose(x, [0, 2, 3, 1])
             x = ops.reshape(x, [shape[0], shape[2] * shape[3], self.hidden_size])
@@ -189,7 +188,7 @@ class DinoV2Embeddings(layers.Layer):
             )
         super().build(input_shape)
 
-    def _interpolate_pos_encoding(self, embeddings, height, width):
+    def interpolate_pos_encoding(self, embeddings, height, width):
         num_positions = self.num_patches
 
         class_pos_embed = self.position_embeddings[:, :1, :]
@@ -229,7 +228,7 @@ class DinoV2Embeddings(layers.Layer):
         cls_tokens = ops.broadcast_to(self.cls_token, (batch_size, 1, self.hidden_size))
         embeddings = ops.concatenate([cls_tokens, embeddings], axis=1)
 
-        pos_embed = self._interpolate_pos_encoding(embeddings, height, width)
+        pos_embed = self.interpolate_pos_encoding(embeddings, height, width)
         embeddings = embeddings + pos_embed
 
         if self.num_windows > 1:
@@ -347,7 +346,7 @@ class DinoV2LayerScale(layers.Layer):
         return config
 
 
-def _ms_deform_attn_core(
+def ms_deform_attn_core(
     value, value_spatial_shapes, sampling_locations, attention_weights
 ):
     """Pure implementation of multi-scale deformable attention core.
@@ -563,7 +562,7 @@ class RFDETRMSDeformableAttention(layers.Layer):
             value, [N, self.n_heads, self.d_model // self.n_heads, Len_in]
         )
 
-        output = _ms_deform_attn_core(
+        output = ms_deform_attn_core(
             value, input_spatial_shapes, sampling_locations, attention_weights
         )
         return self.output_proj(output)
@@ -677,7 +676,7 @@ class RFDETRDecoderLayer(layers.Layer):
         self.dropout3 = layers.Dropout(self.dropout_rate)
         self.dropout_ffn = layers.Dropout(self.dropout_rate)
 
-    def _self_attention(self, q, k, v, training=None):
+    def self_attention(self, q, k, v, training=None):
         batch = ops.shape(q)[0]
         seq_len = ops.shape(q)[1]
         head_dim = self.d_model // self.sa_nhead
@@ -715,7 +714,7 @@ class RFDETRDecoderLayer(layers.Layer):
         q = k = tgt + query_pos
         v = tgt
 
-        tgt2 = self._self_attention(q, k, v, training=training)
+        tgt2 = self.self_attention(q, k, v, training=training)
         tgt = tgt + self.dropout1(tgt2, training=training)
         tgt = self.norm1(tgt)
 

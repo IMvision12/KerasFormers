@@ -5,6 +5,7 @@ from kmodels.base import BaseModel
 from kmodels.base.base_model import hf_num_labels
 
 from .config import DFINE_CONFIG, DFINE_WEIGHTS
+from .convert_dfine_hf_to_keras import transfer_dfine_weights
 from .dfine_layers import (
     DFineDecoderLayer,
     DFineDecoderParams,
@@ -108,11 +109,11 @@ def dfine_conv_bn(
     if activation is not None:
         x = layers.Activation(activation, name=f"{name}_act")(x)
         if use_lab:
-            x = _dfine_lab_layer(x, name=f"{name}_lab")
+            x = dfine_lab_layer(x, name=f"{name}_lab")
     return x
 
 
-def _dfine_lab_layer(x, name=""):
+def dfine_lab_layer(x, name=""):
     """Learnable Affine Block: scale * x + bias with scalar parameters.
 
     Args:
@@ -346,7 +347,7 @@ def dfine_backbone(
     )(stem2a)
     stem2a = layers.Activation("relu", name="backbone_stem2a_act")(stem2a)
     if use_lab:
-        stem2a = _dfine_lab_layer(stem2a, name="backbone_stem2a_lab")
+        stem2a = dfine_lab_layer(stem2a, name="backbone_stem2a_lab")
 
     stem2a_pad = layers.ZeroPadding2D(
         padding=((0, 1), (0, 1)),
@@ -369,7 +370,7 @@ def dfine_backbone(
     )(stem2b)
     stem2b = layers.Activation("relu", name="backbone_stem2b_act")(stem2b)
     if use_lab:
-        stem2b = _dfine_lab_layer(stem2b, name="backbone_stem2b_lab")
+        stem2b = dfine_lab_layer(stem2b, name="backbone_stem2b_lab")
 
     pooled = layers.ZeroPadding2D(
         padding=((0, 1), (0, 1)),
@@ -1508,7 +1509,7 @@ class DFineDetect(BaseModel):
         return cls(**config)
 
     @classmethod
-    def _config_from_hf(cls, hf_config):
+    def config_from_hf(cls, hf_config):
         bb = hf_config.get("backbone_config", hf_config)
         return {
             "stem_channels": tuple(bb["stem_channels"]),
@@ -1542,7 +1543,5 @@ class DFineDetect(BaseModel):
         }
 
     @classmethod
-    def _transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_dfine_hf_to_keras import transfer_dfine_weights
-
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
         transfer_dfine_weights(keras_model, hf_state_dict)

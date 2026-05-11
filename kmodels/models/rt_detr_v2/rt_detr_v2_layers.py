@@ -40,7 +40,6 @@ class RTDETRV2SinePositionEmbedding(layers.Layer):
 
         grid_w = ops.cast(ops.arange(width), "float32")
         grid_h = ops.cast(ops.arange(height), "float32")
-        # meshgrid with "xy" indexing
         grid_w, grid_h = ops.meshgrid(grid_w, grid_h)
 
         out_w = ops.reshape(grid_w, [-1, 1]) * ops.reshape(dim_t, [1, -1])
@@ -137,7 +136,6 @@ class RTDETRV2MultiHeadAttention(layers.Layer):
         return self.out_proj(attn_output)
 
     def compute_output_spec(self, query, key, value, **kwargs):
-        # Force-build sub-layers so weights are tracked
         if not self.q_proj.built:
             self.q_proj.build(query.shape)
         if not self.k_proj.built:
@@ -161,7 +159,7 @@ class RTDETRV2MultiHeadAttention(layers.Layer):
         return config
 
 
-def _ms_deform_attn_core(
+def ms_deform_attn_core(
     value, value_spatial_shapes, sampling_locations, attention_weights
 ):
     """Pure implementation of multi-scale deformable attention core.
@@ -182,7 +180,6 @@ def _ms_deform_attn_core(
     sampling_grids = 2 * sampling_locations - 1
 
     sizes = [h * w for h, w in value_spatial_shapes]
-    # ops.split uses cumulative indices, not sizes
     split_indices = []
     cum = 0
     for s in sizes[:-1]:
@@ -332,8 +329,6 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         self.output_proj = layers.Dense(self.d_model, name="output_proj")
 
     def build(self, input_shape):
-        # v2: learnable per-level scale (one per sampling point per level)
-        # Shape = sum(n_points_list) = n_levels * n_points
         self.n_points_scale = self.add_weight(
             name="n_points_scale",
             shape=(self.n_levels * self.n_points,),
@@ -361,8 +356,6 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         value = ops.reshape(value, [N, -1, self.n_heads, head_dim])
         value = ops.transpose(value, [0, 2, 3, 1])
 
-        # v2: offsets reshaped to (B, Q, n_heads, n_levels*n_points, 2)
-        # with levels and points merged into one dimension
         n_lp = self.n_levels * self.n_points
         sampling_offsets = self.sampling_offsets(query)
         sampling_offsets = ops.reshape(
@@ -384,7 +377,6 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
                 ops.convert_to_tensor(spatial_shapes_wh, dtype="float32"),
                 sampling_offsets.dtype,
             )
-            # Expand for merged level*point dim
             sampling_locations = (
                 reference_points[:, :, None, :, None, :]
                 + ops.reshape(
@@ -394,13 +386,11 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
                 / offset_normalizer[None, None, None, :, None, :]
             )
         elif num_coords == 4:
-            # v2: learnable n_points_scale (n_levels * n_points,)
             scale = ops.reshape(self.n_points_scale, [1, 1, 1, n_lp, 1])
             offset = (
                 sampling_offsets * scale * reference_points[:, :, None, :, 2:] * 0.5
             )
             sampling_locations = reference_points[:, :, None, :, :2] + offset
-            # Reshape to (B, Q, n_heads, n_levels, n_points, 2) for _ms_deform_attn_core
             sampling_locations = ops.reshape(
                 sampling_locations,
                 [N, Len_q, self.n_heads, self.n_levels, self.n_points, 2],
@@ -410,7 +400,7 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
                 f"reference_points last dim must be 2 or 4, got {num_coords}"
             )
 
-        output = _ms_deform_attn_core(
+        output = ms_deform_attn_core(
             value, input_spatial_shapes, sampling_locations, attention_weights
         )
         return self.output_proj(output)

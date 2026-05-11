@@ -15,7 +15,7 @@ from .rf_detr_layers import (
 )
 
 
-def _sincos_interleave(x):
+def sincos_interleave(x):
     """Interleave sine and cosine components for positional encoding.
 
     Converts alternating sin/cos components into an interleaved format,
@@ -121,16 +121,16 @@ def rf_detr_gen_sineembed_for_position(pos_tensor, dim=128):
     x_embed = pos_tensor[..., 0:1] * scale
     y_embed = pos_tensor[..., 1:2] * scale
 
-    pos_x = _sincos_interleave(x_embed / dim_t)
-    pos_y = _sincos_interleave(y_embed / dim_t)
+    pos_x = sincos_interleave(x_embed / dim_t)
+    pos_y = sincos_interleave(y_embed / dim_t)
 
     if pos_tensor.shape[-1] == 2:
         return ops.concatenate([pos_y, pos_x], axis=-1)
     elif pos_tensor.shape[-1] == 4:
         w_embed = pos_tensor[..., 2:3] * scale
         h_embed = pos_tensor[..., 3:4] * scale
-        pos_w = _sincos_interleave(w_embed / dim_t)
-        pos_h = _sincos_interleave(h_embed / dim_t)
+        pos_w = sincos_interleave(w_embed / dim_t)
+        pos_h = sincos_interleave(h_embed / dim_t)
         return ops.concatenate([pos_y, pos_x, pos_w, pos_h], axis=-1)
     else:
         raise ValueError(
@@ -222,9 +222,6 @@ def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
         proposals.append(proposal)
 
     output_proposals = ops.concatenate(proposals, axis=1)
-    # Broadcast proposals to match memory's batch dimension.
-    # Multiply by 0 and sum to get a (B, 1, 1) zero tensor that
-    # carries the dynamic batch dimension without slicing.
     batch_zero = ops.sum(memory * 0, axis=(1, 2), keepdims=True)
     output_proposals = batch_zero + output_proposals
 
@@ -875,7 +872,6 @@ class RFDETRDetect(BaseModel):
         spatial_shapes = [proj_shape]
         level_start_index = [0]
 
-        # Flatten spatial dims to sequence: (B, H, W, C) or (B, C, H, W) -> (B, H*W, C)
         if data_format == "channels_first":
             projected = ops.transpose(projected, [0, 2, 3, 1])
         src_flat = ops.reshape(
@@ -1120,7 +1116,7 @@ class RFDETRDetect(BaseModel):
         return cls(**config)
 
     @classmethod
-    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
+    def from_hf(cls, hf_id, load_weights=True, **kwargs):
         raise NotImplementedError(
             "RF-DETR is not available on HuggingFace Hub. "
             "Use the kmodels release variants (e.g. 'rfdetr-base') or pass a "
