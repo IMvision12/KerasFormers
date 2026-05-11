@@ -287,18 +287,19 @@ def build_detr_backbone(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DETRDetect(BaseModel):
-    """DETR object detection model (encoder-decoder transformer + heads).
+class DetrModel(BaseModel):
+    """DETR backbone + transformer encoder/decoder (no detection heads).
+
+    Matches the HuggingFace ``DetrModel`` pattern — outputs the decoder
+    ``last_hidden_state`` with shape ``(B, num_queries, hidden_dim)``.
+    Use ``DETRDetect`` if you also want classification + bbox heads.
 
     Reference:
     - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
-
-    Loads pretrained weights via ``DETRDetect.from_weights(...)``.
-    See ``BaseModel.from_weights`` for the loading API.
     """
 
     KMODELS_CONFIG = DETR_CONFIG
-    KMODELS_WEIGHTS = DETR_WEIGHTS
+    KMODELS_WEIGHTS = None
     HF_MODEL_TYPE = "detr"
 
     def __init__(
@@ -311,12 +312,11 @@ class DETRDetect(BaseModel):
         dim_feedforward=2048,
         dropout_rate=0.1,
         num_queries=100,
-        num_classes=92,
         include_normalization=True,
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
-        name="DETRDetect",
+        name="DetrModel",
         **kwargs,
     ):
         if input_shape is None:
@@ -330,13 +330,11 @@ class DETRDetect(BaseModel):
             else:
                 img_input = input_tensor
 
-        inputs = img_input
-
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
         backbone_features = build_detr_backbone(
-            inputs,
+            img_input,
             backbone_variant=backbone_variant,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
@@ -372,16 +370,13 @@ class DETRDetect(BaseModel):
                 block_prefix=f"encoder_layers_{i}",
             )
 
-        query_embed_layer = DETRExpandQueryEmbedding(
+        query_embed = DETRExpandQueryEmbedding(
             num_queries,
             hidden_dim,
             name="query_position_embeddings",
-        )
-        query_embed = query_embed_layer(encoder_output)
+        )(encoder_output)
 
-        decoder_input = ops.zeros_like(query_embed)
-
-        decoder_output = decoder_input
+        decoder_output = ops.zeros_like(query_embed)
         for i in range(num_decoder_layers):
             decoder_output = detr_decoder_layer(
                 decoder_output,
@@ -395,18 +390,126 @@ class DETRDetect(BaseModel):
                 block_prefix=f"decoder_layers_{i}",
             )
 
-        decoder_output = layers.LayerNormalization(
+        last_hidden_state = layers.LayerNormalization(
             epsilon=1e-5,
             name="decoder_layernorm",
         )(decoder_output)
 
+        super().__init__(
+            inputs=img_input, outputs=last_hidden_state, name=name, **kwargs
+        )
+
+        self.backbone_variant = backbone_variant
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.num_encoder_layers = num_encoder_layers
+        self.num_decoder_layers = num_decoder_layers
+        self.dim_feedforward = dim_feedforward
+        self.dropout_rate = dropout_rate
+        self.num_queries = num_queries
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "backbone_variant": self.backbone_variant,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
+                "num_encoder_layers": self.num_encoder_layers,
+                "num_decoder_layers": self.num_decoder_layers,
+                "dim_feedforward": self.dim_feedforward,
+                "dropout_rate": self.dropout_rate,
+                "num_queries": self.num_queries,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        backbone = hf_config.get("backbone", "resnet50") or "resnet50"
+        backbone_variant = "ResNet101" if "101" in backbone else "ResNet50"
+        return {
+            "backbone_variant": backbone_variant,
+            "hidden_dim": hf_config["d_model"],
+            "num_heads": hf_config["encoder_attention_heads"],
+            "num_encoder_layers": hf_config["encoder_layers"],
+            "num_decoder_layers": hf_config["decoder_layers"],
+            "dim_feedforward": hf_config["encoder_ffn_dim"],
+            "dropout_rate": hf_config["dropout"],
+            "num_queries": hf_config["num_queries"],
+            "include_normalization": False,
+        }
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class DETRDetect(BaseModel):
+    """DETR object detection model (encoder-decoder transformer + heads).
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
+
+    Loads pretrained weights via ``DETRDetect.from_weights(...)``.
+    See ``BaseModel.from_weights`` for the loading API.
+    """
+
+    KMODELS_CONFIG = DETR_CONFIG
+    KMODELS_WEIGHTS = DETR_WEIGHTS
+    HF_MODEL_TYPE = "detr"
+
+    def __init__(
+        self,
+        backbone_variant="ResNet50",
+        hidden_dim=256,
+        num_heads=8,
+        num_encoder_layers=6,
+        num_decoder_layers=6,
+        dim_feedforward=2048,
+        dropout_rate=0.1,
+        num_queries=100,
+        num_classes=92,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="DETRDetect",
+        **kwargs,
+    ):
+        base = DetrModel(
+            backbone_variant=backbone_variant,
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            num_encoder_layers=num_encoder_layers,
+            num_decoder_layers=num_decoder_layers,
+            dim_feedforward=dim_feedforward,
+            dropout_rate=dropout_rate,
+            num_queries=num_queries,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_model",
+        )
+        last_hidden_state = base.output
+
         logits = layers.Dense(
             num_classes,
             name="class_labels_classifier",
-        )(decoder_output)
+        )(last_hidden_state)
 
         bbox = layers.Dense(hidden_dim, activation="relu", name="bbox_predictor_0")(
-            decoder_output
+            last_hidden_state
         )
         bbox = layers.Dense(hidden_dim, activation="relu", name="bbox_predictor_1")(
             bbox
@@ -416,7 +519,7 @@ class DETRDetect(BaseModel):
 
         outputs = {"logits": logits, "pred_boxes": bbox}
 
-        super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
+        super().__init__(inputs=base.input, outputs=outputs, name=name, **kwargs)
 
         self.backbone_variant = backbone_variant
         self.hidden_dim = hidden_dim

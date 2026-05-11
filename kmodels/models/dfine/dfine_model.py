@@ -940,7 +940,535 @@ def dfine_inverse_sigmoid(t, eps=1e-5):
     return ops.log(t / (1 - t))
 
 
+def _dfine_build(
+    inputs,
+    stem_channels,
+    stage_in_channels,
+    stage_mid_channels,
+    stage_out_channels,
+    stage_num_blocks,
+    stage_numb_of_layers,
+    stage_downsample,
+    stage_light_block,
+    stage_kernel_size,
+    use_lab,
+    encoder_in_channels,
+    encoder_hidden_dim,
+    encoder_layers,
+    encoder_ffn_dim,
+    encoder_num_heads,
+    encode_proj_layers,
+    hidden_expansion,
+    ccfm_num_blocks,
+    d_model,
+    decoder_layers,
+    decoder_ffn_dim,
+    decoder_num_heads,
+    decoder_n_points,
+    num_feature_levels,
+    feat_strides,
+    max_num_bins,
+    num_queries,
+    num_labels,
+    input_shape,
+):
+    """Internal builder for D-FINE architecture (no per-layer class heads).
+
+    Used by ``DFineModel``. The class heads and LQE quality-score heads
+    live in ``DFineDetect`` which composes ``DFineModel``.
+
+    Returns:
+        hs: Decoder ``last_hidden_state``.
+        last_boxes: Final refined boxes from iterative bbox refinement.
+        last_pred_corners: ``pred_corners`` from the last decoder iteration
+            (needed by ``DFineDetect`` for LQE quality scoring).
+    """
+    data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else 1
+
+    if decoder_n_points is None:
+        decoder_n_points = [4] * num_feature_levels
+
+    out_stage_indices = []
+    for enc_ch in encoder_in_channels:
+        for si, soc in enumerate(stage_out_channels):
+            if soc == enc_ch and si not in out_stage_indices:
+                out_stage_indices.append(si)
+                break
+
+    bk_feats = dfine_backbone(
+        inputs,
+        stem_channels=list(stem_channels),
+        stage_in_channels=list(stage_in_channels),
+        stage_mid_channels=list(stage_mid_channels),
+        stage_out_channels=list(stage_out_channels),
+        stage_num_blocks=list(stage_num_blocks),
+        stage_downsample=list(stage_downsample),
+        stage_light_block=list(stage_light_block),
+        stage_kernel_size=list(stage_kernel_size),
+        stage_numb_of_layers=list(stage_numb_of_layers),
+        use_lab=use_lab,
+        out_stage_indices=out_stage_indices,
+        data_format=data_format,
+        channels_axis=channels_axis,
+    )
+
+    proj_feats = []
+    for i, feat in enumerate(bk_feats):
+        p = layers.Conv2D(
+            encoder_hidden_dim,
+            1,
+            padding="valid",
+            use_bias=False,
+            data_format=data_format,
+            name=f"encoder_input_proj_{i}_conv",
+        )(feat)
+        p = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=1e-5,
+            momentum=0.1,
+            name=f"encoder_input_proj_{i}_bn",
+        )(p)
+        proj_feats.append(p)
+
+    if data_format == "channels_first":
+        spatial_h, spatial_w = input_shape[1], input_shape[2]
+    else:
+        spatial_h, spatial_w = input_shape[0], input_shape[1]
+
+    for ai, enc_lvl in enumerate(encode_proj_layers):
+        feat = proj_feats[enc_lvl]
+        if data_format == "channels_first":
+            feat = layers.Permute((2, 3, 1), name=f"aifi_{ai}_to_cl")(feat)
+        h = spatial_h // feat_strides[enc_lvl]
+        w = spatial_w // feat_strides[enc_lvl]
+        flat = layers.Reshape((h * w, encoder_hidden_dim), name=f"aifi_{ai}_flatten")(
+            feat
+        )
+        pe = dfine_sine_pos_embed(h, w, encoder_hidden_dim, 10000)
+        for li in range(encoder_layers):
+            flat = dfine_aifi_encoder_layer(
+                flat,
+                pe,
+                encoder_hidden_dim,
+                encoder_num_heads,
+                encoder_ffn_dim,
+                activation="gelu",
+                name=f"aifi_{ai}_layers_{li}",
+            )
+        unflat = layers.Reshape(
+            (h, w, encoder_hidden_dim), name=f"aifi_{ai}_unflatten"
+        )(flat)
+        if data_format == "channels_first":
+            unflat = layers.Permute((3, 1, 2), name=f"aifi_{ai}_to_cf")(unflat)
+        proj_feats[enc_lvl] = unflat
+
+    num_fpn = num_feature_levels - 1
+    fpn = [proj_feats[-1]]
+    for idx in range(num_fpn):
+        bk_feat = proj_feats[num_fpn - idx - 1]
+        top = fpn[-1]
+        top = dfine_conv_norm(
+            top,
+            encoder_hidden_dim,
+            1,
+            1,
+            padding=0,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            name=f"lateral_convs_{idx}",
+        )
+        fpn[-1] = top
+        top = layers.UpSampling2D(
+            size=2,
+            interpolation="nearest",
+            data_format=data_format,
+            name=f"fpn_up_{idx}",
+        )(top)
+        fused = layers.Concatenate(axis=channels_axis, name=f"fpn_cat_{idx}")(
+            [top, bk_feat]
+        )
+        fpn.append(
+            dfine_rep_ncspelan4(
+                fused,
+                encoder_hidden_dim,
+                hidden_expansion,
+                activation="silu",
+                num_blocks=ccfm_num_blocks,
+                data_format=data_format,
+                channels_axis=channels_axis,
+                name=f"fpn_blocks_{idx}",
+            )
+        )
+    fpn.reverse()
+
+    pan = [fpn[0]]
+    for idx in range(num_fpn):
+        top_pan = pan[-1]
+        fpn_feat = fpn[idx + 1]
+        down = dfine_sc_down(
+            top_pan,
+            encoder_hidden_dim,
+            3,
+            2,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            name=f"downsample_convs_{idx}",
+        )
+        fused = layers.Concatenate(axis=channels_axis, name=f"pan_cat_{idx}")(
+            [down, fpn_feat]
+        )
+        pan.append(
+            dfine_rep_ncspelan4(
+                fused,
+                encoder_hidden_dim,
+                hidden_expansion,
+                activation="silu",
+                num_blocks=ccfm_num_blocks,
+                data_format=data_format,
+                channels_axis=channels_axis,
+                name=f"pan_blocks_{idx}",
+            )
+        )
+
+    dec_sources = []
+    for i, feat in enumerate(pan):
+        if d_model != encoder_hidden_dim:
+            p = layers.Conv2D(
+                d_model,
+                1,
+                padding="valid",
+                use_bias=False,
+                data_format=data_format,
+                name=f"decoder_input_proj_{i}_conv",
+            )(feat)
+            p = layers.BatchNormalization(
+                axis=channels_axis,
+                epsilon=1e-5,
+                momentum=0.1,
+                name=f"decoder_input_proj_{i}_bn",
+            )(p)
+            dec_sources.append(p)
+        else:
+            dec_sources.append(feat)
+
+    spatial_shapes = [(spatial_h // s, spatial_w // s) for s in feat_strides]
+    flat_list = []
+    for i, src in enumerate(dec_sources):
+        hi, wi = spatial_shapes[i]
+        if data_format == "channels_first":
+            src = layers.Permute((2, 3, 1), name=f"dec_flat_{i}_to_cl")(src)
+        flat_list.append(layers.Reshape((hi * wi, d_model), name=f"dec_flat_{i}")(src))
+    source_flat = layers.Concatenate(axis=1, name="dec_src_cat")(flat_list)
+
+    level_start = []
+    cum = 0
+    for hi, wi in spatial_shapes:
+        level_start.append(cum)
+        cum += hi * wi
+
+    gs = 0.05
+    anc_parts = []
+    for lvl, (hi, wi) in enumerate(spatial_shapes):
+        gy, gx = ops.meshgrid(
+            ops.cast(ops.arange(hi), "float32"),
+            ops.cast(ops.arange(wi), "float32"),
+            indexing="ij",
+        )
+        xy = ops.reshape(ops.stack([gx, gy], axis=-1), [1, hi * wi, 2])
+        xy = (xy + 0.5) / ops.convert_to_tensor(
+            [[[float(wi), float(hi)]]], dtype="float32"
+        )
+        wh = ops.ones_like(xy) * gs * (2.0**lvl)
+        anc_parts.append(ops.concatenate([xy, wh], axis=-1))
+    anchors = ops.concatenate(anc_parts, axis=1)
+    vmask = ops.cast(
+        ops.all((anchors > 1e-2) & (anchors < 1 - 1e-2), axis=-1, keepdims=True),
+        "float32",
+    )
+    anc_logit = ops.where(
+        vmask > 0.5,
+        ops.log(anchors / (1 - anchors)),
+        ops.convert_to_tensor(3.4028235e38, dtype="float32"),
+    )
+    anchors_t = anc_logit
+    vmask_t = vmask
+
+    memory = source_flat * vmask_t
+    enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)
+    enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
+        enc_out
+    )
+    enc_scores = layers.Dense(num_labels, name="enc_score_head")(enc_out)
+    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_0")(enc_out)
+    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_1")(enc_bb)
+    enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
+    enc_bb_logits = enc_bb + anchors_t
+
+    max_sc = ops.max(enc_scores, axis=-1)
+    _, topk_idx = ops.top_k(max_sc, k=num_queries)
+    idx3 = ops.expand_dims(topk_idx, -1)
+    target = ops.take_along_axis(enc_out, idx3, axis=1)
+    target = ops.stop_gradient(target)
+    idx4 = ops.repeat(idx3, 4, axis=-1)
+    ref_logit = ops.take_along_axis(enc_bb_logits, idx4, axis=1)
+    ref_logit = ops.stop_gradient(ref_logit)
+
+    decoder_params = DFineDecoderParams(name="decoder_params")
+
+    qp_d0 = layers.Dense(d_model * 2, activation="relu", name="query_pos_head_0")
+    qp_d1 = layers.Dense(d_model, name="query_pos_head_1")
+
+    pre_bb_d0 = layers.Dense(d_model, activation="relu", name="pre_bbox_head_0")
+    pre_bb_d1 = layers.Dense(d_model, activation="relu", name="pre_bbox_head_1")
+    pre_bb_d2 = layers.Dense(4, name="pre_bbox_head_2")
+
+    hs = target
+    ref_pts = ops.sigmoid(ref_logit)
+    ref_detach = ops.stop_gradient(ref_pts)
+
+    output_detach = ops.zeros_like(hs)
+    nbins_out = 4 * (max_num_bins + 1)
+    pred_corners_accum = None
+
+    ref_points_initial = None
+    last_boxes = None
+    last_pred_corners = None
+
+    for di in range(decoder_layers):
+        rp_in = ops.expand_dims(ref_detach, axis=2)
+        query_pos = qp_d1(qp_d0(ref_detach))
+        query_pos = ops.clip(query_pos, -10.0, 10.0)
+
+        dl = DFineDecoderLayer(
+            d_model=d_model,
+            num_heads=decoder_num_heads,
+            dim_feedforward=decoder_ffn_dim,
+            activation="relu",
+            n_levels=num_feature_levels,
+            num_points_list=decoder_n_points,
+            offset_scale=0.5,
+            spatial_shapes=spatial_shapes,
+            block_prefix=f"decoder_layers_{di}",
+            name=f"decoder_layers_{di}",
+        )
+        hs = dl(hs, source_flat, query_pos, rp_in)
+
+        if di == 0:
+            hs = decoder_params(hs)
+            pre_bb = pre_bb_d2(pre_bb_d1(pre_bb_d0(hs)))
+            new_ref = ops.sigmoid(pre_bb + dfine_inverse_sigmoid(ref_detach))
+            ref_points_initial = ops.stop_gradient(new_ref)
+
+        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_0")(
+            hs + output_detach
+        )
+        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_1")(bb_i)
+        bb_i = layers.Dense(nbins_out, name=f"bbox_embed_{di}_2")(bb_i)
+        pred_corners = bb_i if pred_corners_accum is None else bb_i + pred_corners_accum
+
+        up_val = decoder_params.up
+        rs_val = decoder_params.reg_scale
+        project = dfine_weighting_function(max_num_bins, up_val, rs_val)
+        distances = dfine_integral(pred_corners, project, max_num_bins)
+        inter_ref_bbox = dfine_distance2bbox(ref_points_initial, distances, rs_val)
+
+        pred_corners_accum = pred_corners
+        ref_detach = ops.stop_gradient(inter_ref_bbox)
+        output_detach = ops.stop_gradient(hs)
+
+        last_boxes = inter_ref_bbox
+        last_pred_corners = pred_corners
+
+    return hs, last_boxes, last_pred_corners
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
+class DFineModel(BaseModel):
+    """D-FINE backbone + hybrid encoder + decoder (no class heads).
+
+    Matches the HuggingFace ``DFineModel`` pattern — outputs the decoder
+    ``last_hidden_state`` with shape ``(B, num_queries, d_model)``. The
+    iterative bbox refinement layers stay in the model (they feed back
+    into the decoder via reference points); only the per-layer class
+    prediction and quality-score heads are pruned from the output graph.
+    Use ``DFineDetect`` for full detection outputs.
+
+    Reference:
+        - `D-FINE: Redefine Regression Task of DETRs as Fine-grained
+          Distribution Refinement <https://arxiv.org/abs/2410.13842>`_
+    """
+
+    KMODELS_CONFIG = DFINE_CONFIG
+    KMODELS_WEIGHTS = None
+    HF_MODEL_TYPE = ("d_fine", "dfine")
+
+    def __init__(
+        self,
+        stem_channels=(3, 16, 16),
+        stage_in_channels=(16, 64, 256, 512),
+        stage_mid_channels=(16, 32, 64, 128),
+        stage_out_channels=(64, 256, 512, 1024),
+        stage_num_blocks=(1, 1, 2, 1),
+        stage_numb_of_layers=(3, 3, 3, 3),
+        stage_downsample=(False, True, True, True),
+        stage_light_block=(False, False, True, True),
+        stage_kernel_size=(3, 3, 5, 5),
+        use_lab=True,
+        encoder_in_channels=(256, 512, 1024),
+        encoder_hidden_dim=256,
+        encoder_layers=1,
+        encoder_ffn_dim=1024,
+        encoder_num_heads=8,
+        encode_proj_layers=(2,),
+        hidden_expansion=1.0,
+        ccfm_num_blocks=1,
+        d_model=256,
+        decoder_layers=6,
+        decoder_ffn_dim=1024,
+        decoder_num_heads=8,
+        decoder_n_points=None,
+        num_feature_levels=3,
+        feat_strides=(8, 16, 32),
+        max_num_bins=32,
+        num_queries=300,
+        num_labels=80,
+        input_shape=None,
+        input_tensor=None,
+        name="DFineModel",
+        **kwargs,
+    ):
+        if input_shape is None:
+            input_shape = (640, 640, 3)
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        else:
+            if not utils.is_keras_tensor(input_tensor):
+                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            else:
+                img_input = input_tensor
+
+        if decoder_n_points is None:
+            decoder_n_points = [4] * num_feature_levels
+
+        hs_last, last_boxes, last_pred_corners = _dfine_build(
+            img_input,
+            stem_channels=stem_channels,
+            stage_in_channels=stage_in_channels,
+            stage_mid_channels=stage_mid_channels,
+            stage_out_channels=stage_out_channels,
+            stage_num_blocks=stage_num_blocks,
+            stage_numb_of_layers=stage_numb_of_layers,
+            stage_downsample=stage_downsample,
+            stage_light_block=stage_light_block,
+            stage_kernel_size=stage_kernel_size,
+            use_lab=use_lab,
+            encoder_in_channels=encoder_in_channels,
+            encoder_hidden_dim=encoder_hidden_dim,
+            encoder_layers=encoder_layers,
+            encoder_ffn_dim=encoder_ffn_dim,
+            encoder_num_heads=encoder_num_heads,
+            encode_proj_layers=encode_proj_layers,
+            hidden_expansion=hidden_expansion,
+            ccfm_num_blocks=ccfm_num_blocks,
+            d_model=d_model,
+            decoder_layers=decoder_layers,
+            decoder_ffn_dim=decoder_ffn_dim,
+            decoder_num_heads=decoder_num_heads,
+            decoder_n_points=decoder_n_points,
+            num_feature_levels=num_feature_levels,
+            feat_strides=feat_strides,
+            max_num_bins=max_num_bins,
+            num_queries=num_queries,
+            num_labels=num_labels,
+            input_shape=input_shape,
+        )
+
+        outputs = {
+            "last_hidden_state": hs_last,
+            "last_boxes": last_boxes,
+            "last_pred_corners": last_pred_corners,
+        }
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
+
+        self._stem_channels = list(stem_channels)
+        self._stage_in_channels = list(stage_in_channels)
+        self._stage_mid_channels = list(stage_mid_channels)
+        self._stage_out_channels = list(stage_out_channels)
+        self._stage_num_blocks = list(stage_num_blocks)
+        self._stage_numb_of_layers = list(stage_numb_of_layers)
+        self._stage_downsample = tuple(stage_downsample)
+        self._stage_light_block = tuple(stage_light_block)
+        self._stage_kernel_size = tuple(stage_kernel_size)
+        self._use_lab = use_lab
+        self._encoder_in_channels = list(encoder_in_channels)
+        self._encoder_hidden_dim = encoder_hidden_dim
+        self._encoder_layers = encoder_layers
+        self._encoder_ffn_dim = encoder_ffn_dim
+        self._encoder_num_heads = encoder_num_heads
+        self._encode_proj_layers = list(encode_proj_layers)
+        self._hidden_expansion = hidden_expansion
+        self._ccfm_num_blocks = ccfm_num_blocks
+        self._d_model = d_model
+        self._decoder_layers = decoder_layers
+        self._decoder_ffn_dim = decoder_ffn_dim
+        self._decoder_num_heads = decoder_num_heads
+        self._decoder_n_points = list(decoder_n_points)
+        self._num_feature_levels = num_feature_levels
+        self._feat_strides = list(feat_strides)
+        self._max_num_bins = max_num_bins
+        self._num_queries = num_queries
+        self._num_labels = num_labels
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "stem_channels": self._stem_channels,
+                "stage_in_channels": self._stage_in_channels,
+                "stage_mid_channels": self._stage_mid_channels,
+                "stage_out_channels": self._stage_out_channels,
+                "stage_num_blocks": self._stage_num_blocks,
+                "stage_numb_of_layers": self._stage_numb_of_layers,
+                "stage_downsample": self._stage_downsample,
+                "stage_light_block": self._stage_light_block,
+                "stage_kernel_size": self._stage_kernel_size,
+                "use_lab": self._use_lab,
+                "encoder_in_channels": self._encoder_in_channels,
+                "encoder_hidden_dim": self._encoder_hidden_dim,
+                "encoder_layers": self._encoder_layers,
+                "encoder_ffn_dim": self._encoder_ffn_dim,
+                "encoder_num_heads": self._encoder_num_heads,
+                "encode_proj_layers": self._encode_proj_layers,
+                "hidden_expansion": self._hidden_expansion,
+                "ccfm_num_blocks": self._ccfm_num_blocks,
+                "d_model": self._d_model,
+                "decoder_layers": self._decoder_layers,
+                "decoder_ffn_dim": self._decoder_ffn_dim,
+                "decoder_num_heads": self._decoder_num_heads,
+                "decoder_n_points": self._decoder_n_points,
+                "num_feature_levels": self._num_feature_levels,
+                "feat_strides": self._feat_strides,
+                "max_num_bins": self._max_num_bins,
+                "num_queries": self._num_queries,
+                "num_labels": self._num_labels,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return DFineDetect.config_from_hf(hf_config)
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
 class DFineDetect(BaseModel):
     """D-FINE: Detection with Fine-grained Distribution Refinement.
@@ -1031,409 +1559,65 @@ class DFineDetect(BaseModel):
         name="DFineDetect",
         **kwargs,
     ):
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        if input_shape is None:
-            input_shape = (640, 640, 3)
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(
-                    tensor=input_tensor,
-                    shape=input_shape,
-                )
-            else:
-                img_input = input_tensor
-        inputs = img_input
-
         if decoder_n_points is None:
             decoder_n_points = [4] * num_feature_levels
 
-        out_stage_indices = []
-        for enc_ch in encoder_in_channels:
-            for si, soc in enumerate(stage_out_channels):
-                if soc == enc_ch and si not in out_stage_indices:
-                    out_stage_indices.append(si)
-                    break
-
-        bk_feats = dfine_backbone(
-            inputs,
-            stem_channels=list(stem_channels),
-            stage_in_channels=list(stage_in_channels),
-            stage_mid_channels=list(stage_mid_channels),
-            stage_out_channels=list(stage_out_channels),
-            stage_num_blocks=list(stage_num_blocks),
-            stage_downsample=list(stage_downsample),
-            stage_light_block=list(stage_light_block),
-            stage_kernel_size=list(stage_kernel_size),
-            stage_numb_of_layers=list(stage_numb_of_layers),
+        base = DFineModel(
+            stem_channels=stem_channels,
+            stage_in_channels=stage_in_channels,
+            stage_mid_channels=stage_mid_channels,
+            stage_out_channels=stage_out_channels,
+            stage_num_blocks=stage_num_blocks,
+            stage_numb_of_layers=stage_numb_of_layers,
+            stage_downsample=stage_downsample,
+            stage_light_block=stage_light_block,
+            stage_kernel_size=stage_kernel_size,
             use_lab=use_lab,
-            out_stage_indices=out_stage_indices,
-            data_format=data_format,
-            channels_axis=channels_axis,
+            encoder_in_channels=encoder_in_channels,
+            encoder_hidden_dim=encoder_hidden_dim,
+            encoder_layers=encoder_layers,
+            encoder_ffn_dim=encoder_ffn_dim,
+            encoder_num_heads=encoder_num_heads,
+            encode_proj_layers=encode_proj_layers,
+            hidden_expansion=hidden_expansion,
+            ccfm_num_blocks=ccfm_num_blocks,
+            d_model=d_model,
+            decoder_layers=decoder_layers,
+            decoder_ffn_dim=decoder_ffn_dim,
+            decoder_num_heads=decoder_num_heads,
+            decoder_n_points=decoder_n_points,
+            num_feature_levels=num_feature_levels,
+            feat_strides=feat_strides,
+            max_num_bins=max_num_bins,
+            num_queries=num_queries,
+            num_labels=num_labels,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_model",
         )
+        hs_last = base.output["last_hidden_state"]
+        last_boxes = base.output["last_boxes"]
+        last_pred_corners = base.output["last_pred_corners"]
 
-        proj_feats = []
-        for i, feat in enumerate(bk_feats):
-            p = layers.Conv2D(
-                encoder_hidden_dim,
-                1,
-                padding="valid",
-                use_bias=False,
-                data_format=data_format,
-                name=f"encoder_input_proj_{i}_conv",
-            )(feat)
-            p = layers.BatchNormalization(
-                axis=channels_axis,
-                epsilon=1e-5,
-                momentum=0.1,
-                name=f"encoder_input_proj_{i}_bn",
-            )(p)
-            proj_feats.append(p)
+        di_last = decoder_layers - 1
+        class_logits = layers.Dense(num_labels, name=f"class_embed_{di_last}")(hs_last)
 
-        if data_format == "channels_first":
-            spatial_h, spatial_w = input_shape[1], input_shape[2]
-        else:
-            spatial_h, spatial_w = input_shape[0], input_shape[1]
-
-        for ai, enc_lvl in enumerate(encode_proj_layers):
-            feat = proj_feats[enc_lvl]
-            if data_format == "channels_first":
-                feat = layers.Permute(
-                    (2, 3, 1),
-                    name=f"aifi_{ai}_to_cl",
-                )(feat)
-            h = spatial_h // feat_strides[enc_lvl]
-            w = spatial_w // feat_strides[enc_lvl]
-            flat = layers.Reshape(
-                (h * w, encoder_hidden_dim),
-                name=f"aifi_{ai}_flatten",
-            )(feat)
-            pe = dfine_sine_pos_embed(h, w, encoder_hidden_dim, 10000)
-            for li in range(encoder_layers):
-                flat = dfine_aifi_encoder_layer(
-                    flat,
-                    pe,
-                    encoder_hidden_dim,
-                    encoder_num_heads,
-                    encoder_ffn_dim,
-                    activation="gelu",
-                    name=f"aifi_{ai}_layers_{li}",
-                )
-            unflat = layers.Reshape(
-                (h, w, encoder_hidden_dim),
-                name=f"aifi_{ai}_unflatten",
-            )(flat)
-            if data_format == "channels_first":
-                unflat = layers.Permute(
-                    (3, 1, 2),
-                    name=f"aifi_{ai}_to_cf",
-                )(unflat)
-            proj_feats[enc_lvl] = unflat
-
-        num_fpn = num_feature_levels - 1
-        fpn = [proj_feats[-1]]
-        for idx in range(num_fpn):
-            bk_feat = proj_feats[num_fpn - idx - 1]
-            top = fpn[-1]
-            top = dfine_conv_norm(
-                top,
-                encoder_hidden_dim,
-                1,
-                1,
-                padding=0,
-                data_format=data_format,
-                channels_axis=channels_axis,
-                name=f"lateral_convs_{idx}",
-            )
-            fpn[-1] = top
-            top = layers.UpSampling2D(
-                size=2,
-                interpolation="nearest",
-                data_format=data_format,
-                name=f"fpn_up_{idx}",
-            )(top)
-            fused = layers.Concatenate(
-                axis=channels_axis,
-                name=f"fpn_cat_{idx}",
-            )([top, bk_feat])
-            fpn.append(
-                dfine_rep_ncspelan4(
-                    fused,
-                    encoder_hidden_dim,
-                    hidden_expansion,
-                    activation="silu",
-                    num_blocks=ccfm_num_blocks,
-                    data_format=data_format,
-                    channels_axis=channels_axis,
-                    name=f"fpn_blocks_{idx}",
-                )
-            )
-        fpn.reverse()
-
-        pan = [fpn[0]]
-        for idx in range(num_fpn):
-            top_pan = pan[-1]
-            fpn_feat = fpn[idx + 1]
-            down = dfine_sc_down(
-                top_pan,
-                encoder_hidden_dim,
-                3,
-                2,
-                data_format=data_format,
-                channels_axis=channels_axis,
-                name=f"downsample_convs_{idx}",
-            )
-            fused = layers.Concatenate(
-                axis=channels_axis,
-                name=f"pan_cat_{idx}",
-            )([down, fpn_feat])
-            pan.append(
-                dfine_rep_ncspelan4(
-                    fused,
-                    encoder_hidden_dim,
-                    hidden_expansion,
-                    activation="silu",
-                    num_blocks=ccfm_num_blocks,
-                    data_format=data_format,
-                    channels_axis=channels_axis,
-                    name=f"pan_blocks_{idx}",
-                )
-            )
-
-        dec_sources = []
-        for i, feat in enumerate(pan):
-            if d_model != encoder_hidden_dim:
-                p = layers.Conv2D(
-                    d_model,
-                    1,
-                    padding="valid",
-                    use_bias=False,
-                    data_format=data_format,
-                    name=f"decoder_input_proj_{i}_conv",
-                )(feat)
-                p = layers.BatchNormalization(
-                    axis=channels_axis,
-                    epsilon=1e-5,
-                    momentum=0.1,
-                    name=f"decoder_input_proj_{i}_bn",
-                )(p)
-                dec_sources.append(p)
-            else:
-                dec_sources.append(feat)
-
-        spatial_shapes = [(spatial_h // s, spatial_w // s) for s in feat_strides]
-        flat_list = []
-        for i, src in enumerate(dec_sources):
-            hi, wi = spatial_shapes[i]
-            if data_format == "channels_first":
-                src = layers.Permute(
-                    (2, 3, 1),
-                    name=f"dec_flat_{i}_to_cl",
-                )(src)
-            flat_list.append(
-                layers.Reshape(
-                    (hi * wi, d_model),
-                    name=f"dec_flat_{i}",
-                )(src)
-            )
-        source_flat = layers.Concatenate(
-            axis=1,
-            name="dec_src_cat",
-        )(flat_list)
-
-        level_start = []
-        cum = 0
-        for hi, wi in spatial_shapes:
-            level_start.append(cum)
-            cum += hi * wi
-
-        gs = 0.05
-        anc_parts = []
-        for lvl, (hi, wi) in enumerate(spatial_shapes):
-            gy, gx = ops.meshgrid(
-                ops.cast(ops.arange(hi), "float32"),
-                ops.cast(ops.arange(wi), "float32"),
-                indexing="ij",
-            )
-            xy = ops.reshape(
-                ops.stack([gx, gy], axis=-1),
-                [1, hi * wi, 2],
-            )
-            xy = (xy + 0.5) / ops.convert_to_tensor(
-                [[[float(wi), float(hi)]]],
-                dtype="float32",
-            )
-            wh = ops.ones_like(xy) * gs * (2.0**lvl)
-            anc_parts.append(ops.concatenate([xy, wh], axis=-1))
-        anchors = ops.concatenate(anc_parts, axis=1)
-        vmask = ops.cast(
-            ops.all(
-                (anchors > 1e-2) & (anchors < 1 - 1e-2),
-                axis=-1,
-                keepdims=True,
-            ),
-            "float32",
+        prob = ops.softmax(
+            ops.reshape(last_pred_corners, [-1, num_queries, 4, max_num_bins + 1]),
+            axis=-1,
         )
-        anc_logit = ops.where(
-            vmask > 0.5,
-            ops.log(anchors / (1 - anchors)),
-            ops.convert_to_tensor(3.4028235e38, dtype="float32"),
+        prob_topk, _ = ops.top_k(prob, k=4)
+        prob_mean = ops.mean(prob_topk, axis=-1, keepdims=True)
+        stat = ops.concatenate([prob_topk, prob_mean], axis=-1)
+        stat = ops.reshape(stat, [-1, num_queries, 4 * 5])
+        quality_score = layers.Dense(64, activation="relu", name=f"lqe_{di_last}_0")(
+            stat
         )
-        anchors_t = anc_logit
-        vmask_t = vmask
+        quality_score = layers.Dense(1, name=f"lqe_{di_last}_1")(quality_score)
+        logits = class_logits + quality_score
 
-        memory = source_flat * vmask_t
-        enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)
-        enc_out = layers.LayerNormalization(
-            epsilon=1e-5,
-            name="enc_output_layernorm",
-        )(enc_out)
-        enc_scores = layers.Dense(num_labels, name="enc_score_head")(enc_out)
-        enc_bb = layers.Dense(
-            d_model,
-            activation="relu",
-            name="enc_bbox_head_0",
-        )(enc_out)
-        enc_bb = layers.Dense(
-            d_model,
-            activation="relu",
-            name="enc_bbox_head_1",
-        )(enc_bb)
-        enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
-        enc_bb_logits = enc_bb + anchors_t
-
-        max_sc = ops.max(enc_scores, axis=-1)
-        _, topk_idx = ops.top_k(max_sc, k=num_queries)
-        idx3 = ops.expand_dims(topk_idx, -1)
-        target = ops.take_along_axis(enc_out, idx3, axis=1)
-        target = ops.stop_gradient(target)
-        idx4 = ops.repeat(idx3, 4, axis=-1)
-        ref_logit = ops.take_along_axis(enc_bb_logits, idx4, axis=1)
-        ref_logit = ops.stop_gradient(ref_logit)
-
-        decoder_params = DFineDecoderParams(name="decoder_params")
-
-        qp_d0 = layers.Dense(
-            d_model * 2,
-            activation="relu",
-            name="query_pos_head_0",
-        )
-        qp_d1 = layers.Dense(d_model, name="query_pos_head_1")
-
-        pre_bb_d0 = layers.Dense(
-            d_model,
-            activation="relu",
-            name="pre_bbox_head_0",
-        )
-        pre_bb_d1 = layers.Dense(
-            d_model,
-            activation="relu",
-            name="pre_bbox_head_1",
-        )
-        pre_bb_d2 = layers.Dense(4, name="pre_bbox_head_2")
-
-        hs = target
-        ref_pts = ops.sigmoid(ref_logit)
-        ref_detach = ops.stop_gradient(ref_pts)
-
-        output_detach = ops.zeros_like(hs)
-        nbins_out = 4 * (max_num_bins + 1)
-        pred_corners_accum = None
-
-        ref_points_initial = None
-        all_logits = []
-        last_boxes = None
-
-        for di in range(decoder_layers):
-            rp_in = ops.expand_dims(ref_detach, axis=2)
-            query_pos = qp_d1(qp_d0(ref_detach))
-            query_pos = ops.clip(query_pos, -10.0, 10.0)
-
-            dl = DFineDecoderLayer(
-                d_model=d_model,
-                num_heads=decoder_num_heads,
-                dim_feedforward=decoder_ffn_dim,
-                activation="relu",
-                n_levels=num_feature_levels,
-                num_points_list=decoder_n_points,
-                offset_scale=0.5,
-                spatial_shapes=spatial_shapes,
-                block_prefix=f"decoder_layers_{di}",
-                name=f"decoder_layers_{di}",
-            )
-            hs = dl(hs, source_flat, query_pos, rp_in)
-
-            if di == 0:
-                hs = decoder_params(hs)
-                pre_bb = pre_bb_d2(pre_bb_d1(pre_bb_d0(hs)))
-                new_ref = ops.sigmoid(pre_bb + dfine_inverse_sigmoid(ref_detach))
-                ref_points_initial = ops.stop_gradient(new_ref)
-
-            bb_i = layers.Dense(
-                d_model,
-                activation="relu",
-                name=f"bbox_embed_{di}_0",
-            )(hs + output_detach)
-            bb_i = layers.Dense(
-                d_model,
-                activation="relu",
-                name=f"bbox_embed_{di}_1",
-            )(bb_i)
-            bb_i = layers.Dense(
-                nbins_out,
-                name=f"bbox_embed_{di}_2",
-            )(bb_i)
-            pred_corners = (
-                bb_i if pred_corners_accum is None else bb_i + pred_corners_accum
-            )
-
-            up_val = decoder_params.up
-            rs_val = decoder_params.reg_scale
-            project = dfine_weighting_function(max_num_bins, up_val, rs_val)
-            distances = dfine_integral(pred_corners, project, max_num_bins)
-            inter_ref_bbox = dfine_distance2bbox(
-                ref_points_initial,
-                distances,
-                rs_val,
-            )
-
-            pred_corners_accum = pred_corners
-            ref_detach = ops.stop_gradient(inter_ref_bbox)
-            output_detach = ops.stop_gradient(hs)
-
-            logits_i = layers.Dense(
-                num_labels,
-                name=f"class_embed_{di}",
-            )(hs)
-
-            prob = ops.softmax(
-                ops.reshape(pred_corners, [-1, num_queries, 4, max_num_bins + 1]),
-                axis=-1,
-            )
-            prob_topk, _ = ops.top_k(prob, k=4)
-            prob_mean = ops.mean(prob_topk, axis=-1, keepdims=True)
-            stat = ops.concatenate([prob_topk, prob_mean], axis=-1)
-            stat = ops.reshape(stat, [-1, num_queries, 4 * 5])
-            quality_score = layers.Dense(
-                64,
-                activation="relu",
-                name=f"lqe_{di}_0",
-            )(stat)
-            quality_score = layers.Dense(1, name=f"lqe_{di}_1")(quality_score)
-            logits_i = logits_i + quality_score
-
-            all_logits.append(logits_i)
-            last_boxes = inter_ref_bbox
-
-        last_logits = all_logits[-1]
-        for prev_logits in all_logits[:-1]:
-            last_logits = last_logits + 0.0 * prev_logits
-
-        outputs = {"logits": last_logits, "pred_boxes": last_boxes}
-        super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
+        outputs = {"logits": logits, "pred_boxes": last_boxes}
+        super().__init__(inputs=base.input, outputs=outputs, name=name, **kwargs)
 
         self._stem_channels = list(stem_channels)
         self._stage_in_channels = list(stage_in_channels)

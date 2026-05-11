@@ -1,7 +1,8 @@
 from .rt_detr_v2_image_processor import RTDETRV2ImageProcessor
-from .rt_detr_v2_model import RTDETRV2Detect
+from .rt_detr_v2_model import RTDETRV2Detect, RTDetrV2Model
 
 __all__ = [
+    "RTDetrV2Model",
     "RTDETRV2Detect",
     "RTDETRV2ImageProcessor",
 ]

@@ -511,7 +511,454 @@ def rt_detr_aifi_encoder_layer(
     return x
 
 
+def _rt_detr_build(
+    inputs,
+    backbone_hidden_sizes,
+    backbone_block_repeats,
+    backbone_embedding_size,
+    backbone_layer_type,
+    encoder_in_channels,
+    encoder_hidden_dim,
+    encoder_layers,
+    encoder_ffn_dim,
+    encoder_num_heads,
+    encode_proj_layers,
+    encoder_activation_function,
+    activation_function,
+    hidden_expansion,
+    d_model,
+    decoder_layers,
+    decoder_ffn_dim,
+    decoder_num_heads,
+    decoder_n_points,
+    decoder_activation_function,
+    num_feature_levels,
+    feat_strides,
+    num_queries,
+    num_labels,
+    input_shape,
+):
+    """Internal builder for RT-DETR architecture (no per-layer class heads).
+
+    Used by ``RTDetrModel``. The class heads live in ``RTDETRDetect`` which
+    composes ``RTDetrModel``.
+
+    Returns:
+        hs_last: Decoder ``last_hidden_state`` of shape
+            ``(B, num_queries, d_model)``.
+        last_boxes: Final-layer refined boxes ``(B, num_queries, 4)`` from
+            iterative bbox refinement.
+    """
+    data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else 1
+
+    feat_s3, feat_s4, feat_s5 = rt_detr_backbone(
+        inputs,
+        list(backbone_block_repeats),
+        list(backbone_hidden_sizes),
+        backbone_embedding_size,
+        layer_type=backbone_layer_type,
+        data_format=data_format,
+        channels_axis=channels_axis,
+    )
+    bk_feats = [feat_s3, feat_s4, feat_s5]
+
+    proj_feats = []
+    for i, feat in enumerate(bk_feats):
+        p = layers.Conv2D(
+            encoder_hidden_dim,
+            1,
+            padding="valid",
+            use_bias=False,
+            data_format=data_format,
+            name=f"encoder_input_proj_{i}_conv",
+        )(feat)
+        p = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=1e-5,
+            momentum=0.1,
+            name=f"encoder_input_proj_{i}_bn",
+        )(p)
+        proj_feats.append(p)
+
+    if data_format == "channels_first":
+        spatial_h, spatial_w = input_shape[1], input_shape[2]
+    else:
+        spatial_h, spatial_w = input_shape[0], input_shape[1]
+
+    for ai, enc_lvl in enumerate(encode_proj_layers):
+        feat = proj_feats[enc_lvl]
+        if data_format == "channels_first":
+            feat = layers.Permute((2, 3, 1), name=f"aifi_{ai}_to_cl")(feat)
+        h = spatial_h // feat_strides[enc_lvl]
+        w = spatial_w // feat_strides[enc_lvl]
+        flat = layers.Reshape((h * w, encoder_hidden_dim), name=f"aifi_{ai}_flatten")(
+            feat
+        )
+        pe = rt_detr_sine_pos_embed(h, w, encoder_hidden_dim, 10000)
+        for li in range(encoder_layers):
+            flat = rt_detr_aifi_encoder_layer(
+                flat,
+                pe,
+                encoder_hidden_dim,
+                encoder_num_heads,
+                encoder_ffn_dim,
+                activation=encoder_activation_function,
+                name=f"aifi_{ai}_layers_{li}",
+            )
+        unflat = layers.Reshape(
+            (h, w, encoder_hidden_dim), name=f"aifi_{ai}_unflatten"
+        )(flat)
+        if data_format == "channels_first":
+            unflat = layers.Permute((3, 1, 2), name=f"aifi_{ai}_to_cf")(unflat)
+        proj_feats[enc_lvl] = unflat
+
+    num_fpn = num_feature_levels - 1
+    fpn = [proj_feats[-1]]
+    for idx in range(num_fpn):
+        bk_feat = proj_feats[num_fpn - idx - 1]
+        top = fpn[-1]
+        top = rt_detr_conv_norm(
+            top,
+            encoder_hidden_dim,
+            1,
+            1,
+            padding=0,
+            activation=activation_function,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            name=f"lateral_convs_{idx}",
+        )
+        fpn[-1] = top
+        top = layers.UpSampling2D(
+            size=2,
+            interpolation="nearest",
+            data_format=data_format,
+            name=f"fpn_up_{idx}",
+        )(top)
+        fused = layers.Concatenate(axis=channels_axis, name=f"fpn_cat_{idx}")(
+            [top, bk_feat]
+        )
+        fpn.append(
+            rt_detr_csp_rep_layer(
+                fused,
+                encoder_hidden_dim,
+                expansion=hidden_expansion,
+                activation=activation_function,
+                data_format=data_format,
+                channels_axis=channels_axis,
+                name=f"fpn_blocks_{idx}",
+            )
+        )
+    fpn.reverse()
+
+    pan = [fpn[0]]
+    for idx in range(num_fpn):
+        top_pan = pan[-1]
+        fpn_feat = fpn[idx + 1]
+        down = rt_detr_conv_norm(
+            top_pan,
+            encoder_hidden_dim,
+            3,
+            2,
+            padding=1,
+            activation=activation_function,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            name=f"downsample_convs_{idx}",
+        )
+        fused = layers.Concatenate(axis=channels_axis, name=f"pan_cat_{idx}")(
+            [down, fpn_feat]
+        )
+        pan.append(
+            rt_detr_csp_rep_layer(
+                fused,
+                encoder_hidden_dim,
+                expansion=hidden_expansion,
+                activation=activation_function,
+                data_format=data_format,
+                channels_axis=channels_axis,
+                name=f"pan_blocks_{idx}",
+            )
+        )
+
+    dec_sources = []
+    for i, feat in enumerate(pan):
+        p = layers.Conv2D(
+            d_model,
+            1,
+            padding="valid",
+            use_bias=False,
+            data_format=data_format,
+            name=f"decoder_input_proj_{i}_conv",
+        )(feat)
+        p = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=1e-5,
+            momentum=0.1,
+            name=f"decoder_input_proj_{i}_bn",
+        )(p)
+        dec_sources.append(p)
+
+    spatial_shapes = [(spatial_h // s, spatial_w // s) for s in feat_strides]
+    flat_list = []
+    for i, src in enumerate(dec_sources):
+        hi, wi = spatial_shapes[i]
+        if data_format == "channels_first":
+            src = layers.Permute((2, 3, 1), name=f"dec_flat_{i}_to_cl")(src)
+        flat_list.append(layers.Reshape((hi * wi, d_model), name=f"dec_flat_{i}")(src))
+    source_flat = layers.Concatenate(axis=1, name="dec_src_cat")(flat_list)
+
+    level_start = []
+    cum = 0
+    for hi, wi in spatial_shapes:
+        level_start.append(cum)
+        cum += hi * wi
+
+    gs = 0.05
+    anc_parts = []
+    for lvl, (hi, wi) in enumerate(spatial_shapes):
+        gy, gx = ops.meshgrid(
+            ops.cast(ops.arange(hi), "float32"),
+            ops.cast(ops.arange(wi), "float32"),
+            indexing="ij",
+        )
+        xy = ops.reshape(ops.stack([gx, gy], axis=-1), [1, hi * wi, 2])
+        xy = (xy + 0.5) / ops.convert_to_tensor(
+            [[[float(wi), float(hi)]]], dtype="float32"
+        )
+        wh = ops.ones_like(xy) * gs * (2.0**lvl)
+        anc_parts.append(ops.concatenate([xy, wh], axis=-1))
+    anchors = ops.concatenate(anc_parts, axis=1)
+    vmask = ops.cast(
+        ops.all((anchors > 1e-2) & (anchors < 1 - 1e-2), axis=-1, keepdims=True),
+        "float32",
+    )
+    anc_logit = ops.where(
+        vmask > 0.5,
+        ops.log(anchors / (1 - anchors)),
+        ops.convert_to_tensor(3.4028235e38, dtype="float32"),
+    )
+    anchors_t = anc_logit
+    vmask_t = vmask
+
+    memory = source_flat * vmask_t
+    enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)
+    enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
+        enc_out
+    )
+    enc_scores = layers.Dense(num_labels, name="enc_score_head")(enc_out)
+    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_0")(enc_out)
+    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_1")(enc_bb)
+    enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
+    enc_bb_logits = enc_bb + anchors_t
+
+    max_sc = ops.max(enc_scores, axis=-1)
+    _, topk_idx = ops.top_k(max_sc, k=num_queries)
+    idx3 = ops.expand_dims(topk_idx, -1)
+    target = ops.take_along_axis(enc_out, idx3, axis=1)
+    target = ops.stop_gradient(target)
+    idx4 = ops.repeat(idx3, 4, axis=-1)
+    ref_logit = ops.take_along_axis(enc_bb_logits, idx4, axis=1)
+    ref_logit = ops.stop_gradient(ref_logit)
+
+    qp_d0 = layers.Dense(d_model * 2, activation="relu", name="query_pos_head_0")
+    qp_d1 = layers.Dense(d_model, name="query_pos_head_1")
+    hs = target
+    ref_pts = ops.sigmoid(ref_logit)
+    last_boxes = None
+
+    for di in range(decoder_layers):
+        query_pos = qp_d1(qp_d0(ref_pts))
+        rp_in = ops.expand_dims(ref_pts, axis=2)
+        rp_in = ops.repeat(rp_in, num_feature_levels, axis=2)
+        dl = RTDETRDecoderLayer(
+            d_model=d_model,
+            num_heads=decoder_num_heads,
+            dim_feedforward=decoder_ffn_dim,
+            activation=decoder_activation_function,
+            n_levels=num_feature_levels,
+            n_points=decoder_n_points,
+            spatial_shapes=spatial_shapes,
+            level_start_index=level_start,
+            block_prefix=f"decoder_layers_{di}",
+            name=f"decoder_layers_{di}",
+        )
+        hs = dl(hs, source_flat, query_pos, rp_in)
+        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_0")(hs)
+        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_1")(bb_i)
+        bb_i = layers.Dense(4, name=f"bbox_embed_{di}_2")(bb_i)
+
+        def rt_detr_inverse_sigmoid(t, e=1e-5):
+            t = ops.clip(t, e, 1 - e)
+            return ops.log(t / (1 - t))
+
+        new_ref = ops.sigmoid(bb_i + rt_detr_inverse_sigmoid(ref_pts))
+        ref_pts = ops.stop_gradient(new_ref)
+        last_boxes = new_ref
+
+    return hs, last_boxes
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
+class RTDetrModel(BaseModel):
+    """RT-DETR backbone + hybrid encoder + decoder (no class heads).
+
+    Matches the HuggingFace ``RTDetrModel`` pattern — outputs the decoder
+    ``last_hidden_state`` with shape ``(B, num_queries, d_model)``.
+    Iterative bbox refinement layers stay in the model (they feed back
+    into the decoder); only per-layer class prediction heads are pruned
+    from the output graph. Use ``RTDETRDetect`` for full detection
+    outputs.
+
+    Reference:
+        - `RT-DETR: DETRs Beat YOLOs on Real-time Object Detection
+          <https://arxiv.org/abs/2304.08069>`_
+    """
+
+    KMODELS_CONFIG = RT_DETR_CONFIG
+    KMODELS_WEIGHTS = None
+    HF_MODEL_TYPE = "rt_detr"
+
+    def __init__(
+        self,
+        backbone_hidden_sizes=(256, 512, 1024, 2048),
+        backbone_block_repeats=(3, 4, 6, 3),
+        backbone_embedding_size=64,
+        backbone_layer_type="bottleneck",
+        encoder_in_channels=(512, 1024, 2048),
+        encoder_hidden_dim=256,
+        encoder_layers=1,
+        encoder_ffn_dim=1024,
+        encoder_num_heads=8,
+        encode_proj_layers=(2,),
+        encoder_activation_function="gelu",
+        activation_function="silu",
+        hidden_expansion=1.0,
+        d_model=256,
+        decoder_layers=6,
+        decoder_ffn_dim=1024,
+        decoder_num_heads=8,
+        decoder_n_points=4,
+        decoder_activation_function="relu",
+        num_feature_levels=3,
+        feat_strides=(8, 16, 32),
+        num_queries=300,
+        num_labels=80,
+        input_shape=None,
+        input_tensor=None,
+        name="RTDetrModel",
+        **kwargs,
+    ):
+        if input_shape is None:
+            input_shape = (640, 640, 3)
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        else:
+            if not utils.is_keras_tensor(input_tensor):
+                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            else:
+                img_input = input_tensor
+
+        hs_last, last_boxes = _rt_detr_build(
+            img_input,
+            backbone_hidden_sizes=backbone_hidden_sizes,
+            backbone_block_repeats=backbone_block_repeats,
+            backbone_embedding_size=backbone_embedding_size,
+            backbone_layer_type=backbone_layer_type,
+            encoder_in_channels=encoder_in_channels,
+            encoder_hidden_dim=encoder_hidden_dim,
+            encoder_layers=encoder_layers,
+            encoder_ffn_dim=encoder_ffn_dim,
+            encoder_num_heads=encoder_num_heads,
+            encode_proj_layers=encode_proj_layers,
+            encoder_activation_function=encoder_activation_function,
+            activation_function=activation_function,
+            hidden_expansion=hidden_expansion,
+            d_model=d_model,
+            decoder_layers=decoder_layers,
+            decoder_ffn_dim=decoder_ffn_dim,
+            decoder_num_heads=decoder_num_heads,
+            decoder_n_points=decoder_n_points,
+            decoder_activation_function=decoder_activation_function,
+            num_feature_levels=num_feature_levels,
+            feat_strides=feat_strides,
+            num_queries=num_queries,
+            num_labels=num_labels,
+            input_shape=input_shape,
+        )
+
+        outputs = {"last_hidden_state": hs_last, "last_boxes": last_boxes}
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
+
+        self._backbone_hidden_sizes = list(backbone_hidden_sizes)
+        self._backbone_block_repeats = list(backbone_block_repeats)
+        self._backbone_embedding_size = backbone_embedding_size
+        self._backbone_layer_type = backbone_layer_type
+        self._encoder_in_channels = list(encoder_in_channels)
+        self._encoder_hidden_dim = encoder_hidden_dim
+        self._encoder_layers = encoder_layers
+        self._encoder_ffn_dim = encoder_ffn_dim
+        self._encoder_num_heads = encoder_num_heads
+        self._encode_proj_layers = list(encode_proj_layers)
+        self._encoder_activation_function = encoder_activation_function
+        self._activation_function = activation_function
+        self._hidden_expansion = hidden_expansion
+        self._d_model = d_model
+        self._decoder_layers = decoder_layers
+        self._decoder_ffn_dim = decoder_ffn_dim
+        self._decoder_num_heads = decoder_num_heads
+        self._decoder_n_points = decoder_n_points
+        self._decoder_activation_function = decoder_activation_function
+        self._num_feature_levels = num_feature_levels
+        self._feat_strides = list(feat_strides)
+        self._num_queries = num_queries
+        self._num_labels = num_labels
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "backbone_hidden_sizes": self._backbone_hidden_sizes,
+                "backbone_block_repeats": self._backbone_block_repeats,
+                "backbone_embedding_size": self._backbone_embedding_size,
+                "backbone_layer_type": self._backbone_layer_type,
+                "encoder_in_channels": self._encoder_in_channels,
+                "encoder_hidden_dim": self._encoder_hidden_dim,
+                "encoder_layers": self._encoder_layers,
+                "encoder_ffn_dim": self._encoder_ffn_dim,
+                "encoder_num_heads": self._encoder_num_heads,
+                "encode_proj_layers": self._encode_proj_layers,
+                "encoder_activation_function": self._encoder_activation_function,
+                "activation_function": self._activation_function,
+                "hidden_expansion": self._hidden_expansion,
+                "d_model": self._d_model,
+                "decoder_layers": self._decoder_layers,
+                "decoder_ffn_dim": self._decoder_ffn_dim,
+                "decoder_num_heads": self._decoder_num_heads,
+                "decoder_n_points": self._decoder_n_points,
+                "decoder_activation_function": self._decoder_activation_function,
+                "num_feature_levels": self._num_feature_levels,
+                "feat_strides": self._feat_strides,
+                "num_queries": self._num_queries,
+                "num_labels": self._num_labels,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return RTDETRDetect.config_from_hf(hf_config)
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
 class RTDETRDetect(BaseModel):
     """RT-DETR: Real-Time DEtection TRansformer.
@@ -592,279 +1039,43 @@ class RTDETRDetect(BaseModel):
         name="RTDETRDetect",
         **kwargs,
     ):
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        if input_shape is None:
-            input_shape = (640, 640, 3)
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-        inputs = img_input
-
-        feat_s3, feat_s4, feat_s5 = rt_detr_backbone(
-            inputs,
-            list(backbone_block_repeats),
-            list(backbone_hidden_sizes),
-            backbone_embedding_size,
-            layer_type=backbone_layer_type,
-            data_format=data_format,
-            channels_axis=channels_axis,
+        base = RTDetrModel(
+            backbone_hidden_sizes=backbone_hidden_sizes,
+            backbone_block_repeats=backbone_block_repeats,
+            backbone_embedding_size=backbone_embedding_size,
+            backbone_layer_type=backbone_layer_type,
+            encoder_in_channels=encoder_in_channels,
+            encoder_hidden_dim=encoder_hidden_dim,
+            encoder_layers=encoder_layers,
+            encoder_ffn_dim=encoder_ffn_dim,
+            encoder_num_heads=encoder_num_heads,
+            encode_proj_layers=encode_proj_layers,
+            encoder_activation_function=encoder_activation_function,
+            activation_function=activation_function,
+            hidden_expansion=hidden_expansion,
+            d_model=d_model,
+            decoder_layers=decoder_layers,
+            decoder_ffn_dim=decoder_ffn_dim,
+            decoder_num_heads=decoder_num_heads,
+            decoder_n_points=decoder_n_points,
+            decoder_activation_function=decoder_activation_function,
+            num_feature_levels=num_feature_levels,
+            feat_strides=feat_strides,
+            num_queries=num_queries,
+            num_labels=num_labels,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_model",
         )
-        bk_feats = [feat_s3, feat_s4, feat_s5]
+        hs_last = base.output["last_hidden_state"]
+        last_boxes = base.output["last_boxes"]
 
-        proj_feats = []
-        for i, feat in enumerate(bk_feats):
-            p = layers.Conv2D(
-                encoder_hidden_dim,
-                1,
-                padding="valid",
-                use_bias=False,
-                data_format=data_format,
-                name=f"encoder_input_proj_{i}_conv",
-            )(feat)
-            p = layers.BatchNormalization(
-                axis=channels_axis,
-                epsilon=1e-5,
-                momentum=0.1,
-                name=f"encoder_input_proj_{i}_bn",
-            )(p)
-            proj_feats.append(p)
-
-        if data_format == "channels_first":
-            spatial_h, spatial_w = input_shape[1], input_shape[2]
-        else:
-            spatial_h, spatial_w = input_shape[0], input_shape[1]
-
-        for ai, enc_lvl in enumerate(encode_proj_layers):
-            feat = proj_feats[enc_lvl]
-            if data_format == "channels_first":
-                feat = layers.Permute((2, 3, 1), name=f"aifi_{ai}_to_cl")(feat)
-            h = spatial_h // feat_strides[enc_lvl]
-            w = spatial_w // feat_strides[enc_lvl]
-            flat = layers.Reshape(
-                (h * w, encoder_hidden_dim), name=f"aifi_{ai}_flatten"
-            )(feat)
-            pe = rt_detr_sine_pos_embed(h, w, encoder_hidden_dim, 10000)
-            for li in range(encoder_layers):
-                flat = rt_detr_aifi_encoder_layer(
-                    flat,
-                    pe,
-                    encoder_hidden_dim,
-                    encoder_num_heads,
-                    encoder_ffn_dim,
-                    activation=encoder_activation_function,
-                    name=f"aifi_{ai}_layers_{li}",
-                )
-            unflat = layers.Reshape(
-                (h, w, encoder_hidden_dim), name=f"aifi_{ai}_unflatten"
-            )(flat)
-            if data_format == "channels_first":
-                unflat = layers.Permute((3, 1, 2), name=f"aifi_{ai}_to_cf")(unflat)
-            proj_feats[enc_lvl] = unflat
-
-        num_fpn = num_feature_levels - 1
-        fpn = [proj_feats[-1]]
-        for idx in range(num_fpn):
-            bk_feat = proj_feats[num_fpn - idx - 1]
-            top = fpn[-1]
-            top = rt_detr_conv_norm(
-                top,
-                encoder_hidden_dim,
-                1,
-                1,
-                padding=0,
-                activation=activation_function,
-                data_format=data_format,
-                channels_axis=channels_axis,
-                name=f"lateral_convs_{idx}",
-            )
-            fpn[-1] = top
-            top = layers.UpSampling2D(
-                size=2,
-                interpolation="nearest",
-                data_format=data_format,
-                name=f"fpn_up_{idx}",
-            )(top)
-            fused = layers.Concatenate(axis=channels_axis, name=f"fpn_cat_{idx}")(
-                [top, bk_feat]
-            )
-            fpn.append(
-                rt_detr_csp_rep_layer(
-                    fused,
-                    encoder_hidden_dim,
-                    expansion=hidden_expansion,
-                    activation=activation_function,
-                    data_format=data_format,
-                    channels_axis=channels_axis,
-                    name=f"fpn_blocks_{idx}",
-                )
-            )
-        fpn.reverse()
-
-        pan = [fpn[0]]
-        for idx in range(num_fpn):
-            top_pan = pan[-1]
-            fpn_feat = fpn[idx + 1]
-            down = rt_detr_conv_norm(
-                top_pan,
-                encoder_hidden_dim,
-                3,
-                2,
-                padding=1,
-                activation=activation_function,
-                data_format=data_format,
-                channels_axis=channels_axis,
-                name=f"downsample_convs_{idx}",
-            )
-            fused = layers.Concatenate(axis=channels_axis, name=f"pan_cat_{idx}")(
-                [down, fpn_feat]
-            )
-            pan.append(
-                rt_detr_csp_rep_layer(
-                    fused,
-                    encoder_hidden_dim,
-                    expansion=hidden_expansion,
-                    activation=activation_function,
-                    data_format=data_format,
-                    channels_axis=channels_axis,
-                    name=f"pan_blocks_{idx}",
-                )
-            )
-
-        dec_sources = []
-        for i, feat in enumerate(pan):
-            p = layers.Conv2D(
-                d_model,
-                1,
-                padding="valid",
-                use_bias=False,
-                data_format=data_format,
-                name=f"decoder_input_proj_{i}_conv",
-            )(feat)
-            p = layers.BatchNormalization(
-                axis=channels_axis,
-                epsilon=1e-5,
-                momentum=0.1,
-                name=f"decoder_input_proj_{i}_bn",
-            )(p)
-            dec_sources.append(p)
-
-        spatial_shapes = [(spatial_h // s, spatial_w // s) for s in feat_strides]
-        flat_list = []
-        for i, src in enumerate(dec_sources):
-            hi, wi = spatial_shapes[i]
-            if data_format == "channels_first":
-                src = layers.Permute((2, 3, 1), name=f"dec_flat_{i}_to_cl")(src)
-            flat_list.append(
-                layers.Reshape((hi * wi, d_model), name=f"dec_flat_{i}")(src)
-            )
-        source_flat = layers.Concatenate(axis=1, name="dec_src_cat")(flat_list)
-
-        level_start = []
-        cum = 0
-        for hi, wi in spatial_shapes:
-            level_start.append(cum)
-            cum += hi * wi
-
-        gs = 0.05
-        anc_parts = []
-        for lvl, (hi, wi) in enumerate(spatial_shapes):
-            gy, gx = ops.meshgrid(
-                ops.cast(ops.arange(hi), "float32"),
-                ops.cast(ops.arange(wi), "float32"),
-                indexing="ij",
-            )
-            xy = ops.reshape(ops.stack([gx, gy], axis=-1), [1, hi * wi, 2])
-            xy = (xy + 0.5) / ops.convert_to_tensor(
-                [[[float(wi), float(hi)]]], dtype="float32"
-            )
-            wh = ops.ones_like(xy) * gs * (2.0**lvl)
-            anc_parts.append(ops.concatenate([xy, wh], axis=-1))
-        anchors = ops.concatenate(anc_parts, axis=1)
-        vmask = ops.cast(
-            ops.all((anchors > 1e-2) & (anchors < 1 - 1e-2), axis=-1, keepdims=True),
-            "float32",
+        logits = layers.Dense(num_labels, name=f"class_embed_{decoder_layers - 1}")(
+            hs_last
         )
-        anc_logit = ops.where(
-            vmask > 0.5,
-            ops.log(anchors / (1 - anchors)),
-            ops.convert_to_tensor(3.4028235e38, dtype="float32"),
-        )
-        anchors_t = anc_logit
-        vmask_t = vmask
 
-        memory = source_flat * vmask_t
-        enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)
-        enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
-            enc_out
-        )
-        enc_scores = layers.Dense(num_labels, name="enc_score_head")(enc_out)
-        enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_0")(
-            enc_out
-        )
-        enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_1")(
-            enc_bb
-        )
-        enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
-        enc_bb_logits = enc_bb + anchors_t
-
-        max_sc = ops.max(enc_scores, axis=-1)
-        _, topk_idx = ops.top_k(max_sc, k=num_queries)
-        idx3 = ops.expand_dims(topk_idx, -1)
-        target = ops.take_along_axis(enc_out, idx3, axis=1)
-        target = ops.stop_gradient(target)
-        idx4 = ops.repeat(idx3, 4, axis=-1)
-        ref_logit = ops.take_along_axis(enc_bb_logits, idx4, axis=1)
-        ref_logit = ops.stop_gradient(ref_logit)
-
-        qp_d0 = layers.Dense(d_model * 2, activation="relu", name="query_pos_head_0")
-        qp_d1 = layers.Dense(d_model, name="query_pos_head_1")
-        hs = target
-        ref_pts = ops.sigmoid(ref_logit)
-        last_logits = last_boxes = None
-
-        for di in range(decoder_layers):
-            query_pos = qp_d1(qp_d0(ref_pts))
-            rp_in = ops.expand_dims(ref_pts, axis=2)
-            rp_in = ops.repeat(rp_in, num_feature_levels, axis=2)
-            dl = RTDETRDecoderLayer(
-                d_model=d_model,
-                num_heads=decoder_num_heads,
-                dim_feedforward=decoder_ffn_dim,
-                activation=decoder_activation_function,
-                n_levels=num_feature_levels,
-                n_points=decoder_n_points,
-                spatial_shapes=spatial_shapes,
-                level_start_index=level_start,
-                block_prefix=f"decoder_layers_{di}",
-                name=f"decoder_layers_{di}",
-            )
-            hs = dl(hs, source_flat, query_pos, rp_in)
-            logits_i = layers.Dense(num_labels, name=f"class_embed_{di}")(hs)
-            bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_0")(
-                hs
-            )
-            bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_1")(
-                bb_i
-            )
-            bb_i = layers.Dense(4, name=f"bbox_embed_{di}_2")(bb_i)
-
-            def rt_detr_inverse_sigmoid(t, e=1e-5):
-                t = ops.clip(t, e, 1 - e)
-                return ops.log(t / (1 - t))
-
-            new_ref = ops.sigmoid(bb_i + rt_detr_inverse_sigmoid(ref_pts))
-            ref_pts = ops.stop_gradient(new_ref)
-            last_logits = logits_i
-            last_boxes = new_ref
-
-        outputs = {"logits": last_logits, "pred_boxes": last_boxes}
-        super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
+        outputs = {"logits": logits, "pred_boxes": last_boxes}
+        super().__init__(inputs=base.input, outputs=outputs, name=name, **kwargs)
 
         self._backbone_hidden_sizes = list(backbone_hidden_sizes)
         self._backbone_block_repeats = list(backbone_block_repeats)
