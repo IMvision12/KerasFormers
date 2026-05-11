@@ -514,13 +514,12 @@ MODEL_TEST_CONFIGS = {
             "decoder_layers": 3,
             "decoder_n_points": [3, 6, 3],
             "input_shape": (320, 320, 3),
-            "num_queries": 10,
             "num_labels": 80,
         },
         "input_shape": (2, 320, 320, 3),
         "expected_output_shape": {
-            "logits": (2, 10, 80),
-            "pred_boxes": (2, 10, 4),
+            "logits": (2, 300, 80),
+            "pred_boxes": (2, 300, 4),
         },
     },
     "DETRDetect": {
