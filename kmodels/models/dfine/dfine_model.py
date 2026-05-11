@@ -940,78 +940,55 @@ def dfine_inverse_sigmoid(t, eps=1e-5):
     return ops.log(t / (1 - t))
 
 
-def _dfine_build(
-    inputs,
-    stem_channels,
-    stage_in_channels,
-    stage_mid_channels,
-    stage_out_channels,
-    stage_num_blocks,
-    stage_numb_of_layers,
-    stage_downsample,
-    stage_light_block,
-    stage_kernel_size,
-    use_lab,
-    encoder_in_channels,
+def dfine_hybrid_encoder(
+    bk_feats,
     encoder_hidden_dim,
-    encoder_layers,
     encoder_ffn_dim,
-    encoder_num_heads,
     encode_proj_layers,
     hidden_expansion,
     ccfm_num_blocks,
-    d_model,
-    decoder_layers,
-    decoder_ffn_dim,
-    decoder_num_heads,
-    decoder_n_points,
     num_feature_levels,
     feat_strides,
-    max_num_bins,
-    num_queries,
-    num_labels,
-    input_shape,
+    spatial_h,
+    spatial_w,
 ):
-    """Internal builder for D-FINE architecture (no per-layer class heads).
+    """Build D-FINE's hybrid encoder: AIFI transformer + CCFM (FPN + PAN).
 
-    Used by ``DFineModel``. The class heads and LQE quality-score heads
-    live in ``DFineDetect`` which composes ``DFineModel``.
+    Each backbone stage feature is projected to ``encoder_hidden_dim`` via
+    a 1x1 conv + batch norm. The AIFI transformer (a single self-attention
+    encoder layer with sine positional embeddings) is then applied on the
+    feature levels listed in ``encode_proj_layers``. Finally, a CCFM
+    cross-scale fusion runs a top-down FPN followed by a bottom-up PAN,
+    each fusing adjacent levels through ``dfine_rep_ncspelan4`` blocks.
+
+    Args:
+        bk_feats: List of backbone feature tensors, one per pyramid
+            level, with channel counts matching ``encoder_in_channels``.
+        encoder_hidden_dim: Channel dim used inside the hybrid encoder
+            (must match ``d_model`` to skip the decoder input projection).
+        encoder_ffn_dim: FFN dim inside the AIFI transformer layer.
+        encode_proj_layers: Tuple of feature-level indices on which to
+            apply the AIFI transformer (e.g. ``(2,)`` runs AIFI only on
+            the highest-stride level).
+        hidden_expansion: CSP hidden-channel expansion ratio in the
+            CCFM ``RepNCSPELAN4`` blocks.
+        ccfm_num_blocks: Number of RepVGG bottleneck blocks per CCFM stage.
+        num_feature_levels: Number of multi-scale levels produced.
+        feat_strides: Feature strides per level (e.g. ``(8, 16, 32)``).
+        spatial_h: Input image height in pixels (used to derive per-level
+            spatial shapes for the AIFI position embedding).
+        spatial_w: Input image width in pixels.
 
     Returns:
-        hs: Decoder ``last_hidden_state``.
-        last_boxes: Final refined boxes from iterative bbox refinement.
-        last_pred_corners: ``pred_corners`` from the last decoder iteration
-            (needed by ``DFineDetect`` for LQE quality scoring).
+        List of ``num_feature_levels`` post-PAN feature tensors, ordered
+        from highest spatial resolution to lowest, each with
+        ``encoder_hidden_dim`` channels.
     """
+    encoder_layers = 1
+    encoder_num_heads = 8
+
     data_format = keras.config.image_data_format()
     channels_axis = -1 if data_format == "channels_last" else 1
-
-    if decoder_n_points is None:
-        decoder_n_points = [4] * num_feature_levels
-
-    out_stage_indices = []
-    for enc_ch in encoder_in_channels:
-        for si, soc in enumerate(stage_out_channels):
-            if soc == enc_ch and si not in out_stage_indices:
-                out_stage_indices.append(si)
-                break
-
-    bk_feats = dfine_backbone(
-        inputs,
-        stem_channels=list(stem_channels),
-        stage_in_channels=list(stage_in_channels),
-        stage_mid_channels=list(stage_mid_channels),
-        stage_out_channels=list(stage_out_channels),
-        stage_num_blocks=list(stage_num_blocks),
-        stage_downsample=list(stage_downsample),
-        stage_light_block=list(stage_light_block),
-        stage_kernel_size=list(stage_kernel_size),
-        stage_numb_of_layers=list(stage_numb_of_layers),
-        use_lab=use_lab,
-        out_stage_indices=out_stage_indices,
-        data_format=data_format,
-        channels_axis=channels_axis,
-    )
 
     proj_feats = []
     for i, feat in enumerate(bk_feats):
@@ -1030,11 +1007,6 @@ def _dfine_build(
             name=f"encoder_input_proj_{i}_bn",
         )(p)
         proj_feats.append(p)
-
-    if data_format == "channels_first":
-        spatial_h, spatial_w = input_shape[1], input_shape[2]
-    else:
-        spatial_h, spatial_w = input_shape[0], input_shape[1]
 
     for ai, enc_lvl in enumerate(encode_proj_layers):
         feat = proj_feats[enc_lvl]
@@ -1131,6 +1103,52 @@ def _dfine_build(
             )
         )
 
+    return pan
+
+
+def dfine_decoder_inputs(
+    pan,
+    d_model,
+    encoder_hidden_dim,
+    feat_strides,
+    spatial_h,
+    spatial_w,
+):
+    """Prepare flattened tokens and anchor proposals for the D-FINE decoder.
+
+    When ``d_model`` differs from ``encoder_hidden_dim`` each PAN feature
+    level is first re-projected to ``d_model`` via a 1x1 conv + batch
+    norm. Features are then flattened from ``(B, H, W, d_model)`` per
+    level into a single ``(B, sum(H*W), d_model)`` token sequence. In
+    parallel, a regular anchor grid of ``(cx, cy, w, h)`` boxes is
+    generated for every token, converted to logits (sigmoid inverse),
+    and a validity mask is computed (anchors near the image border are
+    masked out and given a large sentinel logit).
+
+    Args:
+        pan: List of post-PAN feature tensors from
+            :func:`dfine_hybrid_encoder`.
+        d_model: Decoder model dimension.
+        encoder_hidden_dim: Channel dim of the PAN features (controls
+            whether re-projection to ``d_model`` is needed).
+        feat_strides: Feature strides per level used to derive per-level
+            spatial shapes.
+        spatial_h: Input image height in pixels.
+        spatial_w: Input image width in pixels.
+
+    Returns:
+        source_flat: ``(B, sum(H*W), d_model)`` flat token sequence over
+            all feature levels.
+        spatial_shapes: List of ``(H, W)`` per feature level, in the
+            order tokens appear in ``source_flat``.
+        anchors_t: ``(1, sum(H*W), 4)`` anchor logits in
+            ``inverse_sigmoid((cx, cy, w, h))`` space.
+        vmask_t: ``(1, sum(H*W), 1)`` float mask, ``1.0`` for tokens
+            whose anchor is fully inside the image, ``0.0`` otherwise.
+    """
+    data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else 1
+
     dec_sources = []
     for i, feat in enumerate(pan):
         if d_model != encoder_hidden_dim:
@@ -1161,12 +1179,6 @@ def _dfine_build(
         flat_list.append(layers.Reshape((hi * wi, d_model), name=f"dec_flat_{i}")(src))
     source_flat = layers.Concatenate(axis=1, name="dec_src_cat")(flat_list)
 
-    level_start = []
-    cum = 0
-    for hi, wi in spatial_shapes:
-        level_start.append(cum)
-        cum += hi * wi
-
     gs = 0.05
     anc_parts = []
     for lvl, (hi, wi) in enumerate(spatial_shapes):
@@ -1182,17 +1194,56 @@ def _dfine_build(
         wh = ops.ones_like(xy) * gs * (2.0**lvl)
         anc_parts.append(ops.concatenate([xy, wh], axis=-1))
     anchors = ops.concatenate(anc_parts, axis=1)
-    vmask = ops.cast(
+    vmask_t = ops.cast(
         ops.all((anchors > 1e-2) & (anchors < 1 - 1e-2), axis=-1, keepdims=True),
         "float32",
     )
-    anc_logit = ops.where(
-        vmask > 0.5,
+    anchors_t = ops.where(
+        vmask_t > 0.5,
         ops.log(anchors / (1 - anchors)),
         ops.convert_to_tensor(3.4028235e38, dtype="float32"),
     )
-    anchors_t = anc_logit
-    vmask_t = vmask
+
+    return source_flat, spatial_shapes, anchors_t, vmask_t
+
+
+def dfine_two_stage_proposals(
+    source_flat,
+    anchors_t,
+    vmask_t,
+    d_model,
+    num_labels,
+):
+    """Score every token and pick the top-K decoder queries (two-stage init).
+
+    The flat token sequence is masked by ``vmask_t``, projected through
+    a Linear + LayerNorm (``enc_output_*``), and then scored two ways:
+    ``enc_score_head`` produces a per-token class logit and
+    ``enc_bbox_head`` produces a 4-d delta added to ``anchors_t`` to get
+    a candidate reference box per token. The ``num_queries`` tokens with
+    the highest max-class score are picked: their post-projection
+    embedding becomes the initial decoder query (``target``) and their
+    candidate box becomes the initial reference (``ref_logit``). Both
+    are wrapped in ``stop_gradient`` to detach the second stage from
+    the encoder during backprop, matching the original D-FINE training
+    recipe.
+
+    Args:
+        source_flat: Flat token sequence from :func:`dfine_decoder_inputs`.
+        anchors_t: Anchor logits per token.
+        vmask_t: Validity mask per token.
+        d_model: Decoder model dimension (output channel of the encoder
+            projection).
+        num_labels: Number of object classes (output channel of
+            ``enc_score_head``).
+
+    Returns:
+        target: ``(B, num_queries, d_model)`` initial decoder query
+            embeddings, detached.
+        ref_logit: ``(B, num_queries, 4)`` initial reference box logits
+            in inverse-sigmoid space, detached.
+    """
+    num_queries = 300
 
     memory = source_flat * vmask_t
     enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)
@@ -1213,6 +1264,62 @@ def _dfine_build(
     idx4 = ops.repeat(idx3, 4, axis=-1)
     ref_logit = ops.take_along_axis(enc_bb_logits, idx4, axis=1)
     ref_logit = ops.stop_gradient(ref_logit)
+
+    return target, ref_logit
+
+
+def dfine_fdr_block(
+    target,
+    ref_logit,
+    source_flat,
+    spatial_shapes,
+    d_model,
+    decoder_layers,
+    decoder_ffn_dim,
+    decoder_n_points,
+    num_feature_levels,
+):
+    """Run the D-FINE iterative decoder with Fine-grained Distribution Refinement.
+
+    Stacks ``decoder_layers`` ``DFineDecoderLayer`` blocks; each layer
+    cross-attends queries to ``source_flat`` via multi-scale deformable
+    attention guided by the current reference points. After the first
+    decoder layer, a small ``pre_bbox_head`` MLP turns the initial
+    queries into ``ref_points_initial`` — the anchor used by FDR.
+
+    Per layer the FDR head ``bbox_embed_{di}`` predicts a residual
+    over a discretized distribution of ``4 * (max_num_bins + 1)``
+    corner offsets, which is accumulated across layers. The
+    distribution is integrated via ``dfine_integral`` into 4 corner
+    distances, and ``dfine_distance2bbox`` reconstructs a refined box
+    that replaces the reference points for the next iteration. Class
+    heads and LQE quality heads are not built here — they live in
+    ``DFineDetect``, which consumes ``last_pred_corners``.
+
+    Args:
+        target: Initial decoder query embeddings from
+            :func:`dfine_two_stage_proposals`.
+        ref_logit: Initial reference box logits.
+        source_flat: Flattened multi-scale encoder tokens (the cross-
+            attention "memory").
+        spatial_shapes: Per-level ``(H, W)`` for deformable attention.
+        d_model: Decoder model dimension.
+        decoder_layers: Number of stacked decoder layers.
+        decoder_ffn_dim: FFN dimension inside each decoder layer.
+        decoder_n_points: Sampling points per level for multi-scale
+            deformable attention.
+        num_feature_levels: Number of feature levels in ``source_flat``.
+
+    Returns:
+        hs: Last decoder hidden state, ``(B, num_queries, d_model)``.
+        last_boxes: Final refined boxes from the last decoder layer,
+            ``(B, num_queries, 4)`` as ``(cx, cy, w, h)``.
+        last_pred_corners: Accumulated FDR corner-distribution logits
+            from the last layer, ``(B, num_queries, 4 * (max_num_bins + 1))``;
+            consumed by ``DFineDetect`` for LQE quality scoring.
+    """
+    decoder_num_heads = 8
+    max_num_bins = 32
 
     decoder_params = DFineDecoderParams(name="decoder_params")
 
@@ -1283,6 +1390,221 @@ def _dfine_build(
     return hs, last_boxes, last_pred_corners
 
 
+def dfine_decoder(
+    pan,
+    d_model,
+    encoder_hidden_dim,
+    decoder_layers,
+    decoder_ffn_dim,
+    decoder_n_points,
+    num_feature_levels,
+    feat_strides,
+    num_labels,
+    spatial_h,
+    spatial_w,
+):
+    """Build the full D-FINE decoder stage on top of the hybrid encoder output.
+
+    Orchestrator that wires the three decoder sub-stages:
+
+    1. :func:`dfine_decoder_inputs` — re-project PAN features to
+       ``d_model``, flatten to a single token sequence, and generate
+       anchor proposals with validity masks.
+    2. :func:`dfine_two_stage_proposals` — score every token and select
+       the top ``num_queries`` as initial decoder queries + reference
+       boxes.
+    3. :func:`dfine_fdr_block` — iterative deformable decoder with FDR
+       (Fine-grained Distribution Refinement) bbox refinement.
+
+    Args:
+        pan: Multi-scale features from :func:`dfine_hybrid_encoder`.
+        d_model: Decoder model dimension.
+        encoder_hidden_dim: Channel dim of ``pan`` (controls whether
+            the input-projection conv is needed).
+        decoder_layers: Number of stacked decoder layers.
+        decoder_ffn_dim: FFN dimension inside each decoder layer.
+        decoder_n_points: Sampling points per level for deformable
+            attention.
+        num_feature_levels: Number of multi-scale levels.
+        feat_strides: Feature strides per level.
+        num_labels: Number of object classes (used by the
+            two-stage scoring head).
+        spatial_h: Input image height in pixels.
+        spatial_w: Input image width in pixels.
+
+    Returns:
+        Tuple ``(hs, last_boxes, last_pred_corners)`` — see
+        :func:`dfine_fdr_block` for shapes and semantics.
+    """
+    source_flat, spatial_shapes, anchors_t, vmask_t = dfine_decoder_inputs(
+        pan,
+        d_model=d_model,
+        encoder_hidden_dim=encoder_hidden_dim,
+        feat_strides=feat_strides,
+        spatial_h=spatial_h,
+        spatial_w=spatial_w,
+    )
+    target, ref_logit = dfine_two_stage_proposals(
+        source_flat,
+        anchors_t,
+        vmask_t,
+        d_model=d_model,
+        num_labels=num_labels,
+    )
+    return dfine_fdr_block(
+        target,
+        ref_logit,
+        source_flat,
+        spatial_shapes,
+        d_model=d_model,
+        decoder_layers=decoder_layers,
+        decoder_ffn_dim=decoder_ffn_dim,
+        decoder_n_points=decoder_n_points,
+        num_feature_levels=num_feature_levels,
+    )
+
+
+def dfine_functional(
+    inputs,
+    stem_channels,
+    stage_in_channels,
+    stage_mid_channels,
+    stage_out_channels,
+    stage_num_blocks,
+    stage_numb_of_layers,
+    use_lab,
+    encoder_in_channels,
+    encoder_hidden_dim,
+    encoder_ffn_dim,
+    encode_proj_layers,
+    hidden_expansion,
+    ccfm_num_blocks,
+    d_model,
+    decoder_layers,
+    decoder_ffn_dim,
+    decoder_n_points,
+    num_feature_levels,
+    feat_strides,
+    num_labels,
+    input_shape,
+):
+    """Build the full D-FINE architecture from an input tensor (no class heads).
+
+    Top-level orchestrator that wires the three architectural stages:
+
+    1. :func:`dfine_backbone` — HGNetV2 backbone produces multi-scale
+       features at the levels chosen by ``encoder_in_channels``.
+    2. :func:`dfine_hybrid_encoder` — AIFI transformer encoder + CCFM
+       (FPN + PAN) for cross-scale fusion.
+    3. :func:`dfine_decoder` — token preparation + two-stage query
+       initialization + iterative deformable decoder with FDR refinement.
+
+    Per-layer class prediction heads (``class_embed_*``) and LQE
+    quality-score heads are intentionally not built here — they are
+    added by :class:`DFineDetect`, which composes :class:`DFineModel`
+    around this graph.
+
+    Args:
+        inputs: Keras input tensor of shape ``(B, H, W, 3)`` (or
+            ``(B, 3, H, W)`` for ``channels_first``).
+        stem_channels: HGNetV2 stem channel configuration
+            ``[in, mid, out]``.
+        stage_in_channels: Input channels per backbone stage.
+        stage_mid_channels: Middle channels per backbone stage.
+        stage_out_channels: Output channels per backbone stage.
+        stage_num_blocks: Number of basic blocks per stage.
+        stage_numb_of_layers: Conv layers per basic block per stage.
+        use_lab: Whether the backbone uses Learnable Affine Blocks.
+        encoder_in_channels: Backbone channels fed into the hybrid encoder.
+        encoder_hidden_dim: Channel dim inside the hybrid encoder.
+        encoder_ffn_dim: FFN dim in the AIFI transformer.
+        encode_proj_layers: Feature-level indices where AIFI is applied.
+        hidden_expansion: CSP hidden-channel expansion ratio in CCFM.
+        ccfm_num_blocks: Number of RepVGG bottleneck blocks per CCFM stage.
+        d_model: Decoder model dimension.
+        decoder_layers: Number of stacked decoder layers.
+        decoder_ffn_dim: FFN dim in each decoder layer.
+        decoder_n_points: Sampling points per level for deformable attention.
+        num_feature_levels: Number of multi-scale levels.
+        feat_strides: Feature strides per level.
+        num_labels: Number of object classes (used by the two-stage scoring head).
+        input_shape: ``(H, W, C)`` (or ``(C, H, W)``) shape of ``inputs``,
+            used to compute per-level spatial sizes.
+
+    Returns:
+        Tuple ``(hs, last_boxes, last_pred_corners)`` — the three
+        outputs of :func:`dfine_fdr_block`. ``hs`` is the decoder last
+        hidden state, ``last_boxes`` are the final refined boxes, and
+        ``last_pred_corners`` is fed into the LQE head of
+        :class:`DFineDetect`.
+    """
+    stage_downsample = (False, True, True, True)
+    stage_light_block = (False, False, True, True)
+    stage_kernel_size = (3, 3, 5, 5)
+
+    data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else 1
+
+    if decoder_n_points is None:
+        decoder_n_points = [4] * num_feature_levels
+
+    if data_format == "channels_first":
+        spatial_h, spatial_w = input_shape[1], input_shape[2]
+    else:
+        spatial_h, spatial_w = input_shape[0], input_shape[1]
+
+    out_stage_indices = []
+    for enc_ch in encoder_in_channels:
+        for si, soc in enumerate(stage_out_channels):
+            if soc == enc_ch and si not in out_stage_indices:
+                out_stage_indices.append(si)
+                break
+
+    bk_feats = dfine_backbone(
+        inputs,
+        stem_channels=list(stem_channels),
+        stage_in_channels=list(stage_in_channels),
+        stage_mid_channels=list(stage_mid_channels),
+        stage_out_channels=list(stage_out_channels),
+        stage_num_blocks=list(stage_num_blocks),
+        stage_downsample=list(stage_downsample),
+        stage_light_block=list(stage_light_block),
+        stage_kernel_size=list(stage_kernel_size),
+        stage_numb_of_layers=list(stage_numb_of_layers),
+        use_lab=use_lab,
+        out_stage_indices=out_stage_indices,
+        data_format=data_format,
+        channels_axis=channels_axis,
+    )
+
+    pan = dfine_hybrid_encoder(
+        bk_feats,
+        encoder_hidden_dim=encoder_hidden_dim,
+        encoder_ffn_dim=encoder_ffn_dim,
+        encode_proj_layers=encode_proj_layers,
+        hidden_expansion=hidden_expansion,
+        ccfm_num_blocks=ccfm_num_blocks,
+        num_feature_levels=num_feature_levels,
+        feat_strides=feat_strides,
+        spatial_h=spatial_h,
+        spatial_w=spatial_w,
+    )
+
+    return dfine_decoder(
+        pan,
+        d_model=d_model,
+        encoder_hidden_dim=encoder_hidden_dim,
+        decoder_layers=decoder_layers,
+        decoder_ffn_dim=decoder_ffn_dim,
+        decoder_n_points=decoder_n_points,
+        num_feature_levels=num_feature_levels,
+        feat_strides=feat_strides,
+        num_labels=num_labels,
+        spatial_h=spatial_h,
+        spatial_w=spatial_w,
+    )
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
 class DFineModel(BaseModel):
     """D-FINE backbone + hybrid encoder + decoder (no class heads).
@@ -1311,27 +1633,19 @@ class DFineModel(BaseModel):
         stage_out_channels=(64, 256, 512, 1024),
         stage_num_blocks=(1, 1, 2, 1),
         stage_numb_of_layers=(3, 3, 3, 3),
-        stage_downsample=(False, True, True, True),
-        stage_light_block=(False, False, True, True),
-        stage_kernel_size=(3, 3, 5, 5),
         use_lab=True,
         encoder_in_channels=(256, 512, 1024),
         encoder_hidden_dim=256,
-        encoder_layers=1,
         encoder_ffn_dim=1024,
-        encoder_num_heads=8,
         encode_proj_layers=(2,),
         hidden_expansion=1.0,
         ccfm_num_blocks=1,
         d_model=256,
         decoder_layers=6,
         decoder_ffn_dim=1024,
-        decoder_num_heads=8,
         decoder_n_points=None,
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
-        max_num_bins=32,
-        num_queries=300,
         num_labels=80,
         input_shape=None,
         input_tensor=None,
@@ -1351,7 +1665,7 @@ class DFineModel(BaseModel):
         if decoder_n_points is None:
             decoder_n_points = [4] * num_feature_levels
 
-        hs_last, last_boxes, last_pred_corners = _dfine_build(
+        hs_last, last_boxes, last_pred_corners = dfine_functional(
             img_input,
             stem_channels=stem_channels,
             stage_in_channels=stage_in_channels,
@@ -1359,27 +1673,19 @@ class DFineModel(BaseModel):
             stage_out_channels=stage_out_channels,
             stage_num_blocks=stage_num_blocks,
             stage_numb_of_layers=stage_numb_of_layers,
-            stage_downsample=stage_downsample,
-            stage_light_block=stage_light_block,
-            stage_kernel_size=stage_kernel_size,
             use_lab=use_lab,
             encoder_in_channels=encoder_in_channels,
             encoder_hidden_dim=encoder_hidden_dim,
-            encoder_layers=encoder_layers,
             encoder_ffn_dim=encoder_ffn_dim,
-            encoder_num_heads=encoder_num_heads,
             encode_proj_layers=encode_proj_layers,
             hidden_expansion=hidden_expansion,
             ccfm_num_blocks=ccfm_num_blocks,
             d_model=d_model,
             decoder_layers=decoder_layers,
             decoder_ffn_dim=decoder_ffn_dim,
-            decoder_num_heads=decoder_num_heads,
             decoder_n_points=decoder_n_points,
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
-            max_num_bins=max_num_bins,
-            num_queries=num_queries,
             num_labels=num_labels,
             input_shape=input_shape,
         )
@@ -1397,27 +1703,19 @@ class DFineModel(BaseModel):
         self._stage_out_channels = list(stage_out_channels)
         self._stage_num_blocks = list(stage_num_blocks)
         self._stage_numb_of_layers = list(stage_numb_of_layers)
-        self._stage_downsample = tuple(stage_downsample)
-        self._stage_light_block = tuple(stage_light_block)
-        self._stage_kernel_size = tuple(stage_kernel_size)
         self._use_lab = use_lab
         self._encoder_in_channels = list(encoder_in_channels)
         self._encoder_hidden_dim = encoder_hidden_dim
-        self._encoder_layers = encoder_layers
         self._encoder_ffn_dim = encoder_ffn_dim
-        self._encoder_num_heads = encoder_num_heads
         self._encode_proj_layers = list(encode_proj_layers)
         self._hidden_expansion = hidden_expansion
         self._ccfm_num_blocks = ccfm_num_blocks
         self._d_model = d_model
         self._decoder_layers = decoder_layers
         self._decoder_ffn_dim = decoder_ffn_dim
-        self._decoder_num_heads = decoder_num_heads
         self._decoder_n_points = list(decoder_n_points)
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
-        self._max_num_bins = max_num_bins
-        self._num_queries = num_queries
         self._num_labels = num_labels
         self.input_tensor = input_tensor
 
@@ -1431,27 +1729,19 @@ class DFineModel(BaseModel):
                 "stage_out_channels": self._stage_out_channels,
                 "stage_num_blocks": self._stage_num_blocks,
                 "stage_numb_of_layers": self._stage_numb_of_layers,
-                "stage_downsample": self._stage_downsample,
-                "stage_light_block": self._stage_light_block,
-                "stage_kernel_size": self._stage_kernel_size,
                 "use_lab": self._use_lab,
                 "encoder_in_channels": self._encoder_in_channels,
                 "encoder_hidden_dim": self._encoder_hidden_dim,
-                "encoder_layers": self._encoder_layers,
                 "encoder_ffn_dim": self._encoder_ffn_dim,
-                "encoder_num_heads": self._encoder_num_heads,
                 "encode_proj_layers": self._encode_proj_layers,
                 "hidden_expansion": self._hidden_expansion,
                 "ccfm_num_blocks": self._ccfm_num_blocks,
                 "d_model": self._d_model,
                 "decoder_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
-                "decoder_num_heads": self._decoder_num_heads,
                 "decoder_n_points": self._decoder_n_points,
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
-                "max_num_bins": self._max_num_bins,
-                "num_queries": self._num_queries,
                 "num_labels": self._num_labels,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
@@ -1488,33 +1778,21 @@ class DFineDetect(BaseModel):
         stage_mid_channels: Middle channels per backbone stage.
         stage_out_channels: Output channels per backbone stage.
         stage_num_blocks: Number of basic blocks per stage.
-        stage_downsample: Whether to downsample per stage.
-        stage_light_block: Whether to use light blocks per stage.
-        stage_kernel_size: Kernel size per stage.
         stage_numb_of_layers: Conv layers per basic block per stage.
         use_lab: Whether to use Learnable Affine Block.
         encoder_in_channels: Backbone channels fed to encoder.
         encoder_hidden_dim: Hidden dim of hybrid encoder.
-        encoder_layers: Number of AIFI encoder layers.
         encoder_ffn_dim: FFN dim in AIFI encoder.
-        encoder_num_heads: Attention heads in AIFI encoder.
         encode_proj_layers: Feature level indices for AIFI.
-        encoder_activation_function: Activation in the AIFI FFN.
-        activation_function: Activation in CCFM (FPN/PAN) blocks.
         hidden_expansion: CSP hidden channel expansion ratio.
         ccfm_num_blocks: Number of RepVGG bottleneck blocks in CCFM.
         d_model: Decoder model dimension.
         decoder_layers: Number of decoder layers.
         decoder_ffn_dim: FFN dim in decoder.
-        decoder_num_heads: Attention heads in decoder.
         decoder_n_points: List of sampling points per feature level.
-        decoder_activation_function: Activation in the decoder FFN.
         num_feature_levels: Number of multi-scale feature levels.
         feat_strides: Feature strides from backbone.
-        max_num_bins: Number of FDR distribution bins.
-        num_queries: Number of object queries.
         num_labels: Number of object classes.
-        weights: Pre-trained weight identifier or file path.
         input_shape: Input image shape ``(H, W, C)``.
         input_tensor: Optional input Keras tensor.
         name: Model name.
@@ -1532,27 +1810,19 @@ class DFineDetect(BaseModel):
         stage_out_channels=(64, 256, 512, 1024),
         stage_num_blocks=(1, 1, 2, 1),
         stage_numb_of_layers=(3, 3, 3, 3),
-        stage_downsample=(False, True, True, True),
-        stage_light_block=(False, False, True, True),
-        stage_kernel_size=(3, 3, 5, 5),
         use_lab=True,
         encoder_in_channels=(256, 512, 1024),
         encoder_hidden_dim=256,
-        encoder_layers=1,
         encoder_ffn_dim=1024,
-        encoder_num_heads=8,
         encode_proj_layers=(2,),
         hidden_expansion=1.0,
         ccfm_num_blocks=1,
         d_model=256,
         decoder_layers=6,
         decoder_ffn_dim=1024,
-        decoder_num_heads=8,
         decoder_n_points=None,
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
-        max_num_bins=32,
-        num_queries=300,
         num_labels=80,
         input_shape=None,
         input_tensor=None,
@@ -1569,27 +1839,19 @@ class DFineDetect(BaseModel):
             stage_out_channels=stage_out_channels,
             stage_num_blocks=stage_num_blocks,
             stage_numb_of_layers=stage_numb_of_layers,
-            stage_downsample=stage_downsample,
-            stage_light_block=stage_light_block,
-            stage_kernel_size=stage_kernel_size,
             use_lab=use_lab,
             encoder_in_channels=encoder_in_channels,
             encoder_hidden_dim=encoder_hidden_dim,
-            encoder_layers=encoder_layers,
             encoder_ffn_dim=encoder_ffn_dim,
-            encoder_num_heads=encoder_num_heads,
             encode_proj_layers=encode_proj_layers,
             hidden_expansion=hidden_expansion,
             ccfm_num_blocks=ccfm_num_blocks,
             d_model=d_model,
             decoder_layers=decoder_layers,
             decoder_ffn_dim=decoder_ffn_dim,
-            decoder_num_heads=decoder_num_heads,
             decoder_n_points=decoder_n_points,
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
-            max_num_bins=max_num_bins,
-            num_queries=num_queries,
             num_labels=num_labels,
             input_shape=input_shape,
             input_tensor=input_tensor,
@@ -1598,6 +1860,9 @@ class DFineDetect(BaseModel):
         hs_last = base.output["last_hidden_state"]
         last_boxes = base.output["last_boxes"]
         last_pred_corners = base.output["last_pred_corners"]
+
+        max_num_bins = 32
+        num_queries = 300
 
         di_last = decoder_layers - 1
         class_logits = layers.Dense(num_labels, name=f"class_embed_{di_last}")(hs_last)
@@ -1625,27 +1890,19 @@ class DFineDetect(BaseModel):
         self._stage_out_channels = list(stage_out_channels)
         self._stage_num_blocks = list(stage_num_blocks)
         self._stage_numb_of_layers = list(stage_numb_of_layers)
-        self._stage_downsample = tuple(stage_downsample)
-        self._stage_light_block = tuple(stage_light_block)
-        self._stage_kernel_size = tuple(stage_kernel_size)
         self._use_lab = use_lab
         self._encoder_in_channels = list(encoder_in_channels)
         self._encoder_hidden_dim = encoder_hidden_dim
-        self._encoder_layers = encoder_layers
         self._encoder_ffn_dim = encoder_ffn_dim
-        self._encoder_num_heads = encoder_num_heads
         self._encode_proj_layers = list(encode_proj_layers)
         self._hidden_expansion = hidden_expansion
         self._ccfm_num_blocks = ccfm_num_blocks
         self._d_model = d_model
         self._decoder_layers = decoder_layers
         self._decoder_ffn_dim = decoder_ffn_dim
-        self._decoder_num_heads = decoder_num_heads
         self._decoder_n_points = list(decoder_n_points)
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
-        self._max_num_bins = max_num_bins
-        self._num_queries = num_queries
         self._num_labels = num_labels
         self.input_tensor = input_tensor
 
@@ -1659,27 +1916,19 @@ class DFineDetect(BaseModel):
                 "stage_out_channels": self._stage_out_channels,
                 "stage_num_blocks": self._stage_num_blocks,
                 "stage_numb_of_layers": self._stage_numb_of_layers,
-                "stage_downsample": self._stage_downsample,
-                "stage_light_block": self._stage_light_block,
-                "stage_kernel_size": self._stage_kernel_size,
                 "use_lab": self._use_lab,
                 "encoder_in_channels": self._encoder_in_channels,
                 "encoder_hidden_dim": self._encoder_hidden_dim,
-                "encoder_layers": self._encoder_layers,
                 "encoder_ffn_dim": self._encoder_ffn_dim,
-                "encoder_num_heads": self._encoder_num_heads,
                 "encode_proj_layers": self._encode_proj_layers,
                 "hidden_expansion": self._hidden_expansion,
                 "ccfm_num_blocks": self._ccfm_num_blocks,
                 "d_model": self._d_model,
                 "decoder_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
-                "decoder_num_heads": self._decoder_num_heads,
                 "decoder_n_points": self._decoder_n_points,
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
-                "max_num_bins": self._max_num_bins,
-                "num_queries": self._num_queries,
                 "num_labels": self._num_labels,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
@@ -1702,27 +1951,19 @@ class DFineDetect(BaseModel):
             "stage_out_channels": tuple(bb["stage_out_channels"]),
             "stage_num_blocks": tuple(bb["stage_num_blocks"]),
             "stage_numb_of_layers": tuple(bb["stage_numb_of_layers"]),
-            "stage_downsample": tuple(bb["stage_downsample"]),
-            "stage_light_block": tuple(bb["stage_light_block"]),
-            "stage_kernel_size": tuple(bb["stage_kernel_size"]),
             "use_lab": bb.get("use_learnable_affine_block", bb.get("use_lab", True)),
             "encoder_in_channels": tuple(hf_config["encoder_in_channels"]),
             "encoder_hidden_dim": hf_config["encoder_hidden_dim"],
-            "encoder_layers": hf_config["encoder_layers"],
             "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
-            "encoder_num_heads": hf_config["num_attention_heads"],
             "encode_proj_layers": tuple(hf_config["encode_proj_layers"]),
             "hidden_expansion": hf_config["hidden_expansion"],
             "ccfm_num_blocks": hf_config.get("ccfm_num_blocks", 1),
             "d_model": hf_config["d_model"],
             "decoder_layers": hf_config["decoder_layers"],
             "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
-            "decoder_num_heads": hf_config["decoder_attention_heads"],
             "decoder_n_points": list(hf_config["decoder_n_points"]),
             "num_feature_levels": hf_config["num_feature_levels"],
             "feat_strides": tuple(hf_config["feat_strides"]),
-            "max_num_bins": hf_config.get("max_num_bins", 32),
-            "num_queries": hf_config["num_queries"],
             "num_labels": hf_num_labels(hf_config),
         }
 

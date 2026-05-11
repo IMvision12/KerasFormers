@@ -137,7 +137,7 @@ def detr_decoder_layer(
     return x
 
 
-def build_detr_backbone(
+def detr_backbone(
     input_tensor,
     backbone_variant,
     include_normalization,
@@ -333,7 +333,7 @@ class DetrModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        backbone_features = build_detr_backbone(
+        backbone_features = detr_backbone(
             img_input,
             backbone_variant=backbone_variant,
             include_normalization=include_normalization,
