@@ -9,6 +9,7 @@ from kmodels.weight_utils.custom_exception import (
 )
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
+    transfer_nested_layer_weights,
     transfer_weights,
 )
 
@@ -25,33 +26,6 @@ backbone_weight_name_mapping: Dict[str, str] = {
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
 }
-
-
-def transfer_attention(keras_layer, state_dict, hf_prefix):
-    for keras_proj, hf_proj in [
-        ("q_proj", "q_proj"),
-        ("k_proj", "k_proj"),
-        ("v_proj", "v_proj"),
-        ("out_proj", "o_proj"),
-    ]:
-        proj = getattr(keras_layer, keras_proj)
-        transfer_weights(
-            "kernel",
-            proj.kernel,
-            state_dict[f"{hf_prefix}.{hf_proj}.weight"],
-        )
-        proj.bias.assign(state_dict[f"{hf_prefix}.{hf_proj}.bias"])
-
-
-def transfer_ln(keras_ln, state_dict, hf_prefix):
-    keras_ln.weights[0].assign(state_dict[f"{hf_prefix}.weight"])
-    keras_ln.weights[1].assign(state_dict[f"{hf_prefix}.bias"])
-
-
-def transfer_dense_transposed(keras_dense, state_dict, hf_prefix):
-    w = state_dict[f"{hf_prefix}.weight"]
-    keras_dense.weights[0].assign(w.T)
-    keras_dense.weights[1].assign(state_dict[f"{hf_prefix}.bias"])
 
 
 def transfer_detr_weights(keras_model, state_dict):
@@ -114,36 +88,49 @@ def transfer_detr_weights(keras_model, state_dict):
     query_layer = keras_model.get_layer("query_position_embeddings")
     query_layer.weights[0].assign(state_dict["model.query_position_embeddings.weight"])
 
+    ln_mapping = {"gamma": "weight", "beta": "bias"}
+    dense_mapping = {"kernel": "weight"}
+
     for i in tqdm(
         range(keras_model.num_encoder_layers), desc="Transferring encoder weights"
     ):
         hf_prefix = f"model.encoder.layers.{i}"
         k_prefix = f"encoder_layers_{i}"
 
-        transfer_attention(
+        sa_mapping = {
+            f"{k_prefix}_self_attn_": "",
+            "out_proj": "o_proj",
+            "kernel": "weight",
+        }
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_self_attn"),
             state_dict,
             f"{hf_prefix}.self_attn",
+            name_mapping=sa_mapping,
         )
-        transfer_ln(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm"),
             state_dict,
             f"{hf_prefix}.self_attn_layer_norm",
+            name_mapping=ln_mapping,
         )
-        transfer_dense_transposed(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_fc1"),
             state_dict,
             f"{hf_prefix}.mlp.fc1",
+            name_mapping=dense_mapping,
         )
-        transfer_dense_transposed(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_fc2"),
             state_dict,
             f"{hf_prefix}.mlp.fc2",
+            name_mapping=dense_mapping,
         )
-        transfer_ln(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_final_layer_norm"),
             state_dict,
             f"{hf_prefix}.final_layer_norm",
+            name_mapping=ln_mapping,
         )
 
     for i in tqdm(
@@ -152,59 +139,79 @@ def transfer_detr_weights(keras_model, state_dict):
         hf_prefix = f"model.decoder.layers.{i}"
         k_prefix = f"decoder_layers_{i}"
 
-        transfer_attention(
+        sa_mapping = {
+            f"{k_prefix}_self_attn_": "",
+            "out_proj": "o_proj",
+            "kernel": "weight",
+        }
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_self_attn"),
             state_dict,
             f"{hf_prefix}.self_attn",
+            name_mapping=sa_mapping,
         )
-        transfer_ln(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm"),
             state_dict,
             f"{hf_prefix}.self_attn_layer_norm",
+            name_mapping=ln_mapping,
         )
-        transfer_attention(
+        ca_mapping = {
+            f"{k_prefix}_encoder_attn_": "",
+            "out_proj": "o_proj",
+            "kernel": "weight",
+        }
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_encoder_attn"),
             state_dict,
             f"{hf_prefix}.encoder_attn",
+            name_mapping=ca_mapping,
         )
-        transfer_ln(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_encoder_attn_layer_norm"),
             state_dict,
             f"{hf_prefix}.encoder_attn_layer_norm",
+            name_mapping=ln_mapping,
         )
-        transfer_dense_transposed(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_fc1"),
             state_dict,
             f"{hf_prefix}.mlp.fc1",
+            name_mapping=dense_mapping,
         )
-        transfer_dense_transposed(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_fc2"),
             state_dict,
             f"{hf_prefix}.mlp.fc2",
+            name_mapping=dense_mapping,
         )
-        transfer_ln(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"{k_prefix}_final_layer_norm"),
             state_dict,
             f"{hf_prefix}.final_layer_norm",
+            name_mapping=ln_mapping,
         )
 
-    transfer_ln(
+    transfer_nested_layer_weights(
         keras_model.get_layer("decoder_layernorm"),
         state_dict,
         "model.decoder.layernorm",
+        name_mapping=ln_mapping,
     )
 
-    transfer_dense_transposed(
+    transfer_nested_layer_weights(
         keras_model.get_layer("class_labels_classifier"),
         state_dict,
         "class_labels_classifier",
+        name_mapping=dense_mapping,
     )
 
     for layer_idx in range(3):
-        transfer_dense_transposed(
+        transfer_nested_layer_weights(
             keras_model.get_layer(f"bbox_predictor_{layer_idx}"),
             state_dict,
             f"bbox_predictor.layers.{layer_idx}",
+            name_mapping=dense_mapping,
         )
 
 
