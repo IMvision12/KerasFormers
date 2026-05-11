@@ -276,9 +276,11 @@ def owlvit_class_predictor(
     Returns:
         pred_logits: Cosine-similarity-based class logits
             ``(B, num_patches, num_queries)``.
-        image_class_embeds: Pre-normalization image projections
-            ``(B, num_patches, out_dim)`` — returned so callers can
-            cache them for downstream re-ranking.
+        image_class_embeds: L2-normalized image projections
+            ``(B, num_patches, out_dim)`` — matches HuggingFace's
+            returned ``class_embeds`` so callers can use them directly
+            for cosine-similarity scoring against custom text queries
+            (e.g. one-shot / image-guided detection).
     """
     image_class_embeds = layers.Dense(out_dim, name=f"{block_prefix}_dense0")(
         image_embeds
@@ -313,7 +315,7 @@ def owlvit_class_predictor(
         very_neg = ops.cast(ops.full_like(pred_logits, -1e30), pred_logits.dtype)
         pred_logits = ops.where(mask, pred_logits, very_neg)
 
-    return pred_logits, image_class_embeds
+    return pred_logits, image_class_embeds_n
 
 
 def owlvit_functional(

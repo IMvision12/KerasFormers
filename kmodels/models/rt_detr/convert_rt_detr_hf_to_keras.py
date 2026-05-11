@@ -296,37 +296,37 @@ if __name__ == "__main__":
         {
             "variant": "rtdetr-r50vd",
             "hf_name": "PekingU/rtdetr_r50vd",
-            "output": "rtdetr_r50vd_coco.weights.h5",
+            "output": "rt_detr_r50vd.weights.h5",
         },
         {
             "variant": "rtdetr-r18vd",
             "hf_name": "PekingU/rtdetr_r18vd",
-            "output": "rtdetr_r18vd_coco.weights.h5",
+            "output": "rt_detr_r18vd.weights.h5",
         },
         {
             "variant": "rtdetr-r34vd",
             "hf_name": "PekingU/rtdetr_r34vd",
-            "output": "rtdetr_r34vd_coco.weights.h5",
+            "output": "rt_detr_r34vd.weights.h5",
         },
         {
             "variant": "rtdetr-r101vd",
             "hf_name": "PekingU/rtdetr_r101vd",
-            "output": "rtdetr_r101vd_coco.weights.h5",
+            "output": "rt_detr_r101vd.weights.h5",
         },
         {
             "variant": "rtdetr-r18vd-coco-o365",
             "hf_name": "PekingU/rtdetr_r18vd_coco_o365",
-            "output": "rtdetr_r18vd_coco_o365.weights.h5",
+            "output": "rt_detr_r18vd_coco_o365.weights.h5",
         },
         {
             "variant": "rtdetr-r50vd-coco-o365",
             "hf_name": "PekingU/rtdetr_r50vd_coco_o365",
-            "output": "rtdetr_r50vd_coco_o365.weights.h5",
+            "output": "rt_detr_r50vd_coco_o365.weights.h5",
         },
         {
             "variant": "rtdetr-r101vd-coco-o365",
             "hf_name": "PekingU/rtdetr_r101vd_coco_o365",
-            "output": "rtdetr_r101vd_coco_o365.weights.h5",
+            "output": "rt_detr_r101vd_coco_o365.weights.h5",
         },
     ]
 

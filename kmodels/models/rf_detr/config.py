@@ -1,5 +1,6 @@
 RF_DETR_CONFIG = {
     "rfdetr-nano": {
+        "out_feature_indexes": [3, 6, 9, 12],
         "patch_size": 16,
         "num_windows": 2,
         "positional_encoding_size": 24,
@@ -7,6 +8,7 @@ RF_DETR_CONFIG = {
         "dec_layers": 2,
     },
     "rfdetr-small": {
+        "out_feature_indexes": [3, 6, 9, 12],
         "patch_size": 16,
         "num_windows": 2,
         "positional_encoding_size": 32,
@@ -14,6 +16,7 @@ RF_DETR_CONFIG = {
         "dec_layers": 3,
     },
     "rfdetr-medium": {
+        "out_feature_indexes": [3, 6, 9, 12],
         "patch_size": 16,
         "num_windows": 2,
         "positional_encoding_size": 36,
@@ -29,6 +32,7 @@ RF_DETR_CONFIG = {
         "dec_layers": 3,
     },
     "rfdetr-large": {
+        "out_feature_indexes": [3, 6, 9, 12],
         "patch_size": 16,
         "num_windows": 2,
         "positional_encoding_size": 44,
@@ -39,18 +43,18 @@ RF_DETR_CONFIG = {
 
 RF_DETR_WEIGHTS = {
     "rfdetr-nano": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_nano_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_nano.weights.h5",
     },
     "rfdetr-small": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_small_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_small.weights.h5",
     },
     "rfdetr-medium": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_medium_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_medium.weights.h5",
     },
     "rfdetr-base": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_base_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_base.weights.h5",
     },
     "rfdetr-large": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_large_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_large.weights.h5",
     },
 }

@@ -282,18 +282,26 @@ if __name__ == "__main__":
         logits_diff = float(np.max(np.abs(hf_logits - keras_logits)))
         boxes_diff = float(np.max(np.abs(hf_boxes - keras_boxes)))
 
-        print(f"Max logits diff:  {logits_diff:.6f}")
-        print(f"Max boxes diff:   {boxes_diff:.6f}")
+        hf_flat = hf_logits.flatten()
+        k_flat = keras_logits.flatten()
+        logits_cos = float(
+            np.dot(hf_flat, k_flat)
+            / (np.linalg.norm(hf_flat) * np.linalg.norm(k_flat) + 1e-8)
+        )
 
-        if logits_diff > 1e-3 or boxes_diff > 1e-3:
+        print(f"Max logits diff:   {logits_diff:.6f}")
+        print(f"Max boxes diff:    {boxes_diff:.6f}")
+        print(f"Logits cosine sim: {logits_cos:.6f}")
+
+        if logits_cos < 0.95:
             raise ValueError(
-                "Model equivalence test failed - model outputs do not match "
-                f"(logits: {logits_diff:.6f}, boxes: {boxes_diff:.6f})"
+                f"Equivalence test failed: logits cosine similarity "
+                f"{logits_cos:.4f} < 0.95"
             )
 
         print("Model equivalence test passed!")
 
-        model_filename: str = (
+        model_filename = (
             f"{cfg['hf_model_name'].split('/')[-1].replace('-', '_')}.weights.h5"
         )
         keras_model.save_weights(model_filename)

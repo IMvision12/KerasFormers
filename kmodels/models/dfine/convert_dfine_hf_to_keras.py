@@ -35,8 +35,8 @@ def transfer_dfine_weights(keras_model, state_dict):
     sd = state_dict
     stage_num_blocks = keras_model._stage_num_blocks
     stage_numb_of_layers = keras_model._stage_numb_of_layers
-    stage_light_block = keras_model._stage_light_block
-    stage_downsample = keras_model._stage_downsample
+    stage_light_block = (False, False, True, True)
+    stage_downsample = (False, True, True, True)
     use_lab = keras_model._use_lab
     num_feature_levels = keras_model._num_feature_levels
     num_dec = keras_model._decoder_layers
@@ -382,11 +382,6 @@ def transfer_dfine_weights(keras_model, state_dict):
         dec_layer.final_layer_norm.beta.assign(sd[f"{hf_dl}.final_layer_norm.bias"])
 
     for i in tqdm(range(num_dec), desc="Transferring detection heads"):
-        cls_layer = keras_model.get_layer(f"class_embed_{i}")
-        transfer_weights(
-            "kernel", cls_layer.weights[0], sd[f"model.decoder.class_embed.{i}.weight"]
-        )
-        cls_layer.weights[1].assign(sd[f"model.decoder.class_embed.{i}.bias"])
         for j in range(3):
             bb_layer = keras_model.get_layer(f"bbox_embed_{i}_{j}")
             transfer_weights(
@@ -398,17 +393,23 @@ def transfer_dfine_weights(keras_model, state_dict):
                 sd[f"model.decoder.bbox_embed.{i}.layers.{j}.bias"]
             )
 
-    for i in tqdm(range(num_dec), desc="Transferring LQE layers"):
-        for j, suffix in enumerate(["layers.0", "layers.1"]):
-            lqe = keras_model.get_layer(f"lqe_{i}_{j}")
-            transfer_weights(
-                "kernel",
-                lqe.weights[0],
-                sd[f"model.decoder.lqe_layers.{i}.reg_conf.{suffix}.weight"],
-            )
-            lqe.weights[1].assign(
-                sd[f"model.decoder.lqe_layers.{i}.reg_conf.{suffix}.bias"]
-            )
+    last = num_dec - 1
+    cls_layer = keras_model.get_layer(f"class_embed_{last}")
+    transfer_weights(
+        "kernel", cls_layer.weights[0], sd[f"model.decoder.class_embed.{last}.weight"]
+    )
+    cls_layer.weights[1].assign(sd[f"model.decoder.class_embed.{last}.bias"])
+
+    for j, suffix in enumerate(["layers.0", "layers.1"]):
+        lqe = keras_model.get_layer(f"lqe_{last}_{j}")
+        transfer_weights(
+            "kernel",
+            lqe.weights[0],
+            sd[f"model.decoder.lqe_layers.{last}.reg_conf.{suffix}.weight"],
+        )
+        lqe.weights[1].assign(
+            sd[f"model.decoder.lqe_layers.{last}.reg_conf.{suffix}.bias"]
+        )
 
 
 if __name__ == "__main__":
@@ -425,27 +426,27 @@ if __name__ == "__main__":
         {
             "variant": "dfine-nano",
             "hf_name": "ustc-community/dfine-nano-coco",
-            "output": "dfine_nano_coco.weights.h5",
+            "output": "dfine_nano.weights.h5",
         },
         {
             "variant": "dfine-small",
             "hf_name": "ustc-community/dfine-small-coco",
-            "output": "dfine_small_coco.weights.h5",
+            "output": "dfine_small.weights.h5",
         },
         {
             "variant": "dfine-medium",
             "hf_name": "ustc-community/dfine-medium-coco",
-            "output": "dfine_medium_coco.weights.h5",
+            "output": "dfine_medium.weights.h5",
         },
         {
             "variant": "dfine-large",
             "hf_name": "ustc-community/dfine-large-coco",
-            "output": "dfine_large_coco.weights.h5",
+            "output": "dfine_large.weights.h5",
         },
         {
             "variant": "dfine-xlarge",
             "hf_name": "ustc-community/dfine-xlarge-coco",
-            "output": "dfine_xlarge_coco.weights.h5",
+            "output": "dfine_xlarge.weights.h5",
         },
     ]
 

@@ -320,22 +320,22 @@ if __name__ == "__main__":
         {
             "variant": "rtdetr-v2-r50vd",
             "hf_name": "PekingU/rtdetr_v2_r50vd",
-            "output": "rtdetr_v2_r50vd_coco.weights.h5",
+            "output": "rt_detr_v2_r50vd.weights.h5",
         },
         {
             "variant": "rtdetr-v2-r18vd",
             "hf_name": "PekingU/rtdetr_v2_r18vd",
-            "output": "rtdetr_v2_r18vd_coco.weights.h5",
+            "output": "rt_detr_v2_r18vd.weights.h5",
         },
         {
             "variant": "rtdetr-v2-r34vd",
             "hf_name": "PekingU/rtdetr_v2_r34vd",
-            "output": "rtdetr_v2_r34vd_coco.weights.h5",
+            "output": "rt_detr_v2_r34vd.weights.h5",
         },
         {
             "variant": "rtdetr-v2-r101vd",
             "hf_name": "PekingU/rtdetr_v2_r101vd",
-            "output": "rtdetr_v2_r101vd_coco.weights.h5",
+            "output": "rt_detr_v2_r101vd.weights.h5",
         },
     ]
 

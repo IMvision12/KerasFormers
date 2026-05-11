@@ -43,15 +43,15 @@ RT_DETR_V2_CONFIG = {
 
 RT_DETR_V2_WEIGHTS = {
     "rtdetr-v2-r18vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r18vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr-v2/rt_detr_v2_r18vd.weights.h5",
     },
     "rtdetr-v2-r34vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r34vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr-v2/rt_detr_v2_r34vd.weights.h5",
     },
     "rtdetr-v2-r50vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r50vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr-v2/rt_detr_v2_r50vd.weights.h5",
     },
     "rtdetr-v2-r101vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r101vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr-v2/rt_detr_v2_r101vd.weights.h5",
     },
 }

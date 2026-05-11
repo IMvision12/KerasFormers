@@ -46,24 +46,24 @@ RT_DETR_CONFIG = {
 
 RT_DETR_WEIGHTS = {
     "rtdetr-r18vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RT-DETR/rtdetr_r18vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr/rt_detr_r18vd.weights.h5",
     },
     "rtdetr-r18vd-coco-o365": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RT-DETR/rtdetr_r18vd_coco_o365.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr/rt_detr_r18vd_coco_o365.weights.h5",
     },
     "rtdetr-r34vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RT-DETR/rtdetr_r34vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr/rt_detr_r34vd.weights.h5",
     },
     "rtdetr-r50vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RT-DETR/rtdetr_r50vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr/rt_detr_r50vd.weights.h5",
     },
     "rtdetr-r50vd-coco-o365": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RT-DETR/rtdetr_r50vd_coco_o365.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr/rt_detr_r50vd_coco_o365.weights.h5",
     },
     "rtdetr-r101vd": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RT-DETR/rtdetr_r101vd_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr/rt_detr_r101vd.weights.h5",
     },
     "rtdetr-r101vd-coco-o365": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/RT-DETR/rtdetr_r101vd_coco_o365.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detr/rt_detr_r101vd_coco_o365.weights.h5",
     },
 }

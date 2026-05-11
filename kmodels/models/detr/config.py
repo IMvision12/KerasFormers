@@ -9,9 +9,9 @@ DETR_CONFIG = {
 
 DETR_WEIGHTS = {
     "detr-resnet-50": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/DeTR/detr_resnet_50_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/detr/detr_resnet50.weights.h5",
     },
     "detr-resnet-101": {
-        "url": "https://github.com/IMvision12/keras-models/releases/download/DeTR/detr_resnet_101_coco.weights.h5",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/detr/detr_resnet101.weights.h5",
     },
 }

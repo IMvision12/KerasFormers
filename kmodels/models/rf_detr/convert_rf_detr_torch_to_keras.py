@@ -53,27 +53,27 @@ model_configs: List[Dict[str, Union[str, type]]] = [
     {
         "variant": "rfdetr-nano",
         "rfdetr_cls": "RFDETRNano",
-        "output": "rf_detr_nano_coco.weights.h5",
+        "output": "rf_detr_nano.weights.h5",
     },
     {
         "variant": "rfdetr-small",
         "rfdetr_cls": "RFDETRSmall",
-        "output": "rf_detr_small_coco.weights.h5",
+        "output": "rf_detr_small.weights.h5",
     },
     {
         "variant": "rfdetr-medium",
         "rfdetr_cls": "RFDETRMedium",
-        "output": "rf_detr_medium_coco.weights.h5",
+        "output": "rf_detr_medium.weights.h5",
     },
     {
         "variant": "rfdetr-base",
         "rfdetr_cls": "RFDETRBase",
-        "output": "rf_detr_base_coco.weights.h5",
+        "output": "rf_detr_base.weights.h5",
     },
     {
         "variant": "rfdetr-large",
         "rfdetr_cls": "RFDETRLarge",
-        "output": "rf_detr_large_coco.weights.h5",
+        "output": "rf_detr_large.weights.h5",
     },
 ]
 
@@ -98,6 +98,17 @@ for model_config in model_configs:
     dummy = keras.random.uniform((1, res, res, 3), dtype="float32")
     _ = keras_model(dummy)
     print(f"  Parameters: {keras_model.count_params():,}")
+
+    from transformers import pytorch_utils as _hf_pu
+
+    if not hasattr(_hf_pu, "find_pruneable_heads_and_indices"):
+
+        def find_pruneable_heads_and_indices(heads, n_heads, head_size, already_pruned):
+            raise NotImplementedError(
+                "Head pruning not supported in this conversion path"
+            )
+
+        _hf_pu.find_pruneable_heads_and_indices = find_pruneable_heads_and_indices
 
     import rfdetr as rfdetr_pkg
 

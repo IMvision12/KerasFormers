@@ -227,6 +227,7 @@ if __name__ == "__main__":
         {
             "variant": "detr-resnet-50",
             "hf_model_name": "facebook/detr-resnet-50",
+            "output": "detr_resnet50.weights.h5",
             "input_shape": [800, 800, 3],
             "num_classes": 92,
             "num_queries": 100,
@@ -234,6 +235,7 @@ if __name__ == "__main__":
         {
             "variant": "detr-resnet-101",
             "hf_model_name": "facebook/detr-resnet-101",
+            "output": "detr_resnet101.weights.h5",
             "input_shape": [800, 800, 3],
             "num_classes": 92,
             "num_queries": 100,
@@ -299,9 +301,7 @@ if __name__ == "__main__":
 
         print("Model equivalence test passed!")
 
-        model_filename: str = (
-            f"{cfg['hf_model_name'].split('/')[-1].replace('-', '_')}_coco.weights.h5"
-        )
+        model_filename = cfg["output"]
         keras_model.save_weights(model_filename)
         print(f"Model saved successfully as {model_filename}")
 
