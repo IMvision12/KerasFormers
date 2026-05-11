@@ -52,6 +52,7 @@ jobs:
           pip install -U keras>=3.11.0 pytest pytest-cov
           pip install torch>=2.5.0 torchvision jax[cpu] tensorflow-cpu>=2.19.0
           pip install sentencepiece matplotlib>=3.8.0 pillow
+          pip install huggingface_hub safetensors
           pip install "transformers>=5.0.0"
           pip install -e .
       - name: Run all tests

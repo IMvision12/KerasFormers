@@ -1,3 +1,5 @@
+import json
+
 import keras
 
 from kmodels.weight_utils import download_file
@@ -5,12 +7,141 @@ from kmodels.weight_utils import download_file
 _HF_PREFIX = "hf:"
 
 
+def _hf_download(hf_id, filename):
+    """Download a single file from a HuggingFace Hub repo.
+
+    Uses ``huggingface_hub.hf_hub_download`` directly so that
+    ``transformers`` is **not** required for HF loading.
+    """
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as e:
+        raise ImportError(
+            "Loading from HuggingFace requires the `huggingface_hub` package. "
+            "Install it with `pip install huggingface_hub`."
+        ) from e
+    from huggingface_hub.utils import EntryNotFoundError  # noqa: F401
+
+    return hf_hub_download(hf_id, filename)
+
+
+def _hf_try_download(hf_id, filename):
+    """Best-effort download. Returns ``None`` if ``filename`` is absent."""
+    try:
+        from huggingface_hub.utils import EntryNotFoundError
+    except ImportError:
+        EntryNotFoundError = Exception  # type: ignore[misc]
+    try:
+        return _hf_download(hf_id, filename)
+    except EntryNotFoundError:
+        return None
+    except Exception as e:  # noqa: BLE001
+        # huggingface_hub raises different exception classes across versions;
+        # fall through silently and let the caller try the next candidate.
+        if "404" in str(e) or "not found" in str(e).lower():
+            return None
+        raise
+
+
+def _load_hf_config(hf_id):
+    """Download ``config.json`` from an HF repo and return it as a dict."""
+    path = _hf_download(hf_id, "config.json")
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def hf_num_labels(hf_config):
+    """Derive ``num_labels`` from a HuggingFace ``config.json`` dict.
+
+    HF's ``PretrainedConfig`` exposes ``num_labels`` as a property derived
+    from ``id2label``, but ``config.json`` typically stores ``id2label``
+    rather than ``num_labels`` directly. This helper checks both.
+    """
+    if "num_labels" in hf_config:
+        return hf_config["num_labels"]
+    id2label = hf_config.get("id2label")
+    if id2label:
+        return len(id2label)
+    label2id = hf_config.get("label2id")
+    if label2id:
+        return len(label2id)
+    raise KeyError(
+        "Could not determine num_labels from HF config.json — "
+        "neither 'num_labels' nor 'id2label' / 'label2id' is present."
+    )
+
+
+def _load_hf_state_dict(hf_id):
+    """Download HF model weights and return a flat ``{name: numpy_array}`` dict.
+
+    Tries (in order):
+
+    1. ``model.safetensors`` (single-file safetensors)
+    2. ``model.safetensors.index.json`` (sharded safetensors)
+    3. ``pytorch_model.bin`` (single-file pickle)
+    4. ``pytorch_model.bin.index.json`` (sharded pickle)
+    """
+    # 1. Single-file safetensors
+    path = _hf_try_download(hf_id, "model.safetensors")
+    if path is not None:
+        from safetensors.numpy import load_file
+
+        return load_file(path)
+
+    # 2. Sharded safetensors
+    index_path = _hf_try_download(hf_id, "model.safetensors.index.json")
+    if index_path is not None:
+        from safetensors.numpy import load_file
+
+        with open(index_path, "r") as f:
+            index = json.load(f)
+        weight_map = index["weight_map"]
+        state_dict = {}
+        for shard_file in sorted(set(weight_map.values())):
+            shard_path = _hf_download(hf_id, shard_file)
+            state_dict.update(load_file(shard_path))
+        return state_dict
+
+    # 3. Single-file pytorch_model.bin
+    path = _hf_try_download(hf_id, "pytorch_model.bin")
+    if path is not None:
+        import torch
+
+        sd = torch.load(path, map_location="cpu", weights_only=True)
+        return {k: v.cpu().numpy() if hasattr(v, "cpu") else v for k, v in sd.items()}
+
+    # 4. Sharded pytorch_model.bin
+    index_path = _hf_try_download(hf_id, "pytorch_model.bin.index.json")
+    if index_path is not None:
+        import torch
+
+        with open(index_path, "r") as f:
+            index = json.load(f)
+        weight_map = index["weight_map"]
+        state_dict = {}
+        for shard_file in sorted(set(weight_map.values())):
+            shard_path = _hf_download(hf_id, shard_file)
+            shard = torch.load(shard_path, map_location="cpu", weights_only=True)
+            state_dict.update(
+                {
+                    k: v.cpu().numpy() if hasattr(v, "cpu") else v
+                    for k, v in shard.items()
+                }
+            )
+        return state_dict
+
+    raise FileNotFoundError(
+        f"No supported weights file found in HF repo '{hf_id}'. "
+        f"Expected one of: model.safetensors, model.safetensors.index.json, "
+        f"pytorch_model.bin, pytorch_model.bin.index.json."
+    )
+
+
 class BaseModel(keras.Model):
     """Base class for kmodels models with unified weight loading.
 
     Subclasses are Functional Keras models that share a single entry
-    point for loading pretrained weights, regardless of source. Two
-    sources are supported by default:
+    point for loading pretrained weights, regardless of source:
 
     1. **kmodels release** — weights hosted on GitHub Releases keyed by
        a short variant string (e.g. ``"owlvit-base-patch32"``).
@@ -18,18 +149,21 @@ class BaseModel(keras.Model):
        by an ``"hf:org/repo"`` string. Works for original HF checkpoints
        and for community fine-tunes that share the same architecture.
 
-    To wire a new model in, a subclass sets three class attributes and
-    optionally overrides two hooks:
+    HF loading uses ``huggingface_hub`` (not ``transformers``) — it
+    downloads ``config.json`` and the safetensors / pytorch weights
+    directly. Subclasses provide a ``_config_from_hf`` method that maps
+    the parsed ``config.json`` dict into ``__init__`` kwargs, and a
+    ``_transfer_from_hf`` method that applies the HF state-dict to the
+    Keras layers.
 
     .. code-block:: python
 
         class OwlViTDetect(BaseModel):
-            KMODELS_CONFIG = OWLVIT_CONFIG          # variant -> kwargs
-            KMODELS_WEIGHTS = OWLVIT_WEIGHTS        # variant -> url
-            HF_MODEL_CLS = transformers.OwlViTForObjectDetection
+            KMODELS_CONFIG = OWLVIT_CONFIG       # variant -> kwargs
+            KMODELS_WEIGHTS = OWLVIT_WEIGHTS     # variant -> {"url": ...}
 
             @classmethod
-            def _config_from_hf(cls, hf_config): ...
+            def _config_from_hf(cls, hf_config: dict): ...
 
             @classmethod
             def _transfer_from_hf(cls, model, state_dict): ...
@@ -51,7 +185,6 @@ class BaseModel(keras.Model):
 
     KMODELS_CONFIG = None
     KMODELS_WEIGHTS = None
-    HF_MODEL_CLS = None
 
     @classmethod
     def from_weights(cls, identifier, load_weights=True, **kwargs):
@@ -62,12 +195,10 @@ class BaseModel(keras.Model):
                 ``"owlvit-base-patch32"``) which resolves against
                 ``cls.KMODELS_CONFIG`` / ``cls.KMODELS_WEIGHTS``, or an
                 ``"hf:<org>/<repo>"`` string which pulls config and
-                weights from HuggingFace via ``cls.HF_MODEL_CLS``.
+                weights from HuggingFace.
             load_weights: If ``False``, only the architecture is built
-                (random init). The kmodels release URL is not fetched
-                and HF weights are not transferred, but the HF config
-                is still used to size the model when an ``"hf:"`` id
-                is passed.
+                (random init). For HF ids, ``config.json`` is still
+                fetched to size the model; the weight files are not.
             **kwargs: Forwarded to the model constructor.
 
         Returns:
@@ -114,42 +245,27 @@ class BaseModel(keras.Model):
 
     @classmethod
     def _from_hf(cls, hf_id, load_weights=True, **kwargs):
-        if cls.HF_MODEL_CLS is None:
-            raise NotImplementedError(
-                f"{cls.__name__} must set HF_MODEL_CLS to load from HuggingFace."
-            )
-        try:
-            from transformers import AutoConfig
-        except ImportError as e:
-            raise ImportError(
-                "Loading from HuggingFace requires the `transformers` package. "
-                "Install it with `pip install transformers`."
-            ) from e
-
-        if load_weights:
-            hf_model = cls.HF_MODEL_CLS.from_pretrained(hf_id)
-            hf_config = hf_model.config
-            state_dict = {
-                k: v.cpu().numpy() if hasattr(v, "cpu") else v
-                for k, v in hf_model.state_dict().items()
-            }
-        else:
-            hf_config = AutoConfig.from_pretrained(hf_id)
-            state_dict = None
-
+        hf_config = _load_hf_config(hf_id)
         kmodels_kwargs = cls._config_from_hf(hf_config)
-        model = cls(**kmodels_kwargs, **kwargs)
-
+        # User-supplied kwargs override values derived from the HF config.
+        # Most fine-tunes don't need overrides — `config.json` already encodes
+        # ``num_labels``, ``num_queries``, etc. — but this leaves room for
+        # things like swapping a head size for transfer learning, in which
+        # case ``load_weights=False`` is usually also wanted.
+        kmodels_kwargs.update(kwargs)
+        model = cls(**kmodels_kwargs)
         if load_weights:
+            state_dict = _load_hf_state_dict(hf_id)
             cls._transfer_from_hf(model, state_dict)
-
         return model
 
     @classmethod
     def _config_from_hf(cls, hf_config):
-        """Map a HuggingFace config to ``cls.__init__`` kwargs.
+        """Map a HuggingFace ``config.json`` dict to ``cls.__init__`` kwargs.
 
-        Subclasses must override this when ``HF_MODEL_CLS`` is set.
+        ``hf_config`` is the result of ``json.load(open("config.json"))``
+        — a plain dict, not a ``transformers`` config object. Subclasses
+        must override this to support ``"hf:"`` loading.
         """
         raise NotImplementedError(f"{cls.__name__}._config_from_hf is not implemented.")
 
@@ -157,7 +273,8 @@ class BaseModel(keras.Model):
     def _transfer_from_hf(cls, keras_model, hf_state_dict):
         """Transfer weights from an HF ``state_dict`` into ``keras_model``.
 
-        Subclasses must override this when ``HF_MODEL_CLS`` is set.
+        ``hf_state_dict`` is a flat ``{name: numpy_array}`` mapping.
+        Subclasses must override this to support ``"hf:"`` loading.
         """
         raise NotImplementedError(
             f"{cls.__name__}._transfer_from_hf is not implemented."

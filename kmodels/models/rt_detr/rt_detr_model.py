@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.base import BaseModel
+from kmodels.base.base_model import hf_num_labels
 
 from .config import RT_DETR_CONFIG, RT_DETR_WEIGHTS
 from .rt_detr_layers import (
@@ -930,31 +931,31 @@ class RTDETRDetect(BaseModel):
 
     @classmethod
     def _config_from_hf(cls, hf_config):
-        bb = hf_config.backbone_config
+        bb = hf_config["backbone_config"]
         return {
-            "backbone_hidden_sizes": tuple(bb.hidden_sizes),
-            "backbone_block_repeats": tuple(bb.depths),
-            "backbone_embedding_size": bb.embedding_size,
-            "backbone_layer_type": bb.layer_type,
-            "encoder_in_channels": tuple(hf_config.encoder_in_channels),
-            "encoder_hidden_dim": hf_config.encoder_hidden_dim,
-            "encoder_layers": hf_config.encoder_layers,
-            "encoder_ffn_dim": hf_config.encoder_ffn_dim,
-            "encoder_num_heads": hf_config.num_attention_heads,
-            "encode_proj_layers": tuple(hf_config.encode_proj_layers),
-            "encoder_activation_function": hf_config.encoder_activation_function,
-            "activation_function": hf_config.activation_function,
-            "hidden_expansion": hf_config.hidden_expansion,
-            "d_model": hf_config.d_model,
-            "decoder_layers": hf_config.decoder_layers,
-            "decoder_ffn_dim": hf_config.decoder_ffn_dim,
-            "decoder_num_heads": hf_config.decoder_attention_heads,
-            "decoder_n_points": hf_config.decoder_n_points,
-            "decoder_activation_function": hf_config.decoder_activation_function,
-            "num_feature_levels": hf_config.num_feature_levels,
-            "feat_strides": tuple(hf_config.feat_strides),
-            "num_queries": hf_config.num_queries,
-            "num_labels": hf_config.num_labels,
+            "backbone_hidden_sizes": tuple(bb["hidden_sizes"]),
+            "backbone_block_repeats": tuple(bb["depths"]),
+            "backbone_embedding_size": bb["embedding_size"],
+            "backbone_layer_type": bb["layer_type"],
+            "encoder_in_channels": tuple(hf_config["encoder_in_channels"]),
+            "encoder_hidden_dim": hf_config["encoder_hidden_dim"],
+            "encoder_layers": hf_config["encoder_layers"],
+            "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
+            "encoder_num_heads": hf_config["num_attention_heads"],
+            "encode_proj_layers": tuple(hf_config["encode_proj_layers"]),
+            "encoder_activation_function": hf_config["encoder_activation_function"],
+            "activation_function": hf_config["activation_function"],
+            "hidden_expansion": hf_config["hidden_expansion"],
+            "d_model": hf_config["d_model"],
+            "decoder_layers": hf_config["decoder_layers"],
+            "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
+            "decoder_num_heads": hf_config["decoder_attention_heads"],
+            "decoder_n_points": hf_config["decoder_n_points"],
+            "decoder_activation_function": hf_config["decoder_activation_function"],
+            "num_feature_levels": hf_config["num_feature_levels"],
+            "feat_strides": tuple(hf_config["feat_strides"]),
+            "num_queries": hf_config["num_queries"],
+            "num_labels": hf_num_labels(hf_config),
         }
 
     @classmethod
@@ -962,29 +963,3 @@ class RTDETRDetect(BaseModel):
         from .convert_rt_detr_hf_to_keras import transfer_rt_detr_weights
 
         transfer_rt_detr_weights(keras_model, hf_state_dict)
-
-    @classmethod
-    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
-        try:
-            from transformers import AutoConfig, RTDetrForObjectDetection
-        except ImportError as e:
-            raise ImportError(
-                "Loading from HuggingFace requires the `transformers` package."
-            ) from e
-
-        if load_weights:
-            hf_model = RTDetrForObjectDetection.from_pretrained(hf_id)
-            hf_config = hf_model.config
-            state_dict = {
-                k: v.cpu().numpy() if hasattr(v, "cpu") else v
-                for k, v in hf_model.state_dict().items()
-            }
-        else:
-            hf_config = AutoConfig.from_pretrained(hf_id)
-            state_dict = None
-
-        kmodels_kwargs = cls._config_from_hf(hf_config)
-        model = cls(**kmodels_kwargs, **kwargs)
-        if load_weights:
-            cls._transfer_from_hf(model, state_dict)
-        return model

@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.base import BaseModel
+from kmodels.base.base_model import hf_num_labels
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
@@ -456,21 +457,18 @@ class DETRDetect(BaseModel):
 
     @classmethod
     def _config_from_hf(cls, hf_config):
-        backbone = getattr(hf_config, "backbone", "resnet50")
-        if "101" in backbone:
-            backbone_variant = "ResNet101"
-        else:
-            backbone_variant = "ResNet50"
+        backbone = hf_config.get("backbone", "resnet50") or "resnet50"
+        backbone_variant = "ResNet101" if "101" in backbone else "ResNet50"
         return {
             "backbone_variant": backbone_variant,
-            "hidden_dim": hf_config.d_model,
-            "num_heads": hf_config.encoder_attention_heads,
-            "num_encoder_layers": hf_config.encoder_layers,
-            "num_decoder_layers": hf_config.decoder_layers,
-            "dim_feedforward": hf_config.encoder_ffn_dim,
-            "dropout_rate": hf_config.dropout,
-            "num_queries": hf_config.num_queries,
-            "num_classes": hf_config.num_labels + 1,
+            "hidden_dim": hf_config["d_model"],
+            "num_heads": hf_config["encoder_attention_heads"],
+            "num_encoder_layers": hf_config["encoder_layers"],
+            "num_decoder_layers": hf_config["decoder_layers"],
+            "dim_feedforward": hf_config["encoder_ffn_dim"],
+            "dropout_rate": hf_config["dropout"],
+            "num_queries": hf_config["num_queries"],
+            "num_classes": hf_num_labels(hf_config) + 1,
             "include_normalization": False,
         }
 
@@ -479,29 +477,3 @@ class DETRDetect(BaseModel):
         from .convert_detr_torch_to_keras import transfer_detr_weights
 
         transfer_detr_weights(keras_model, hf_state_dict)
-
-    @classmethod
-    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
-        try:
-            from transformers import AutoConfig, DetrForObjectDetection
-        except ImportError as e:
-            raise ImportError(
-                "Loading from HuggingFace requires the `transformers` package."
-            ) from e
-
-        if load_weights:
-            hf_model = DetrForObjectDetection.from_pretrained(hf_id)
-            hf_config = hf_model.config
-            state_dict = {
-                k: v.cpu().numpy() if hasattr(v, "cpu") else v
-                for k, v in hf_model.state_dict().items()
-            }
-        else:
-            hf_config = AutoConfig.from_pretrained(hf_id)
-            state_dict = None
-
-        kmodels_kwargs = cls._config_from_hf(hf_config)
-        model = cls(**kmodels_kwargs, **kwargs)
-        if load_weights:
-            cls._transfer_from_hf(model, state_dict)
-        return model

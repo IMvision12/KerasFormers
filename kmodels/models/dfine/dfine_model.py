@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.base import BaseModel
+from kmodels.base.base_model import hf_num_labels
 
 from .config import DFINE_CONFIG, DFINE_WEIGHTS
 from .dfine_layers import (
@@ -1498,28 +1499,29 @@ class DFineDetect(BaseModel):
 
     @classmethod
     def _config_from_hf(cls, hf_config):
+        bb = hf_config.get("backbone_config", hf_config)
         return {
-            "stem_channels": tuple(hf_config.stem_channels),
-            "stage_in_channels": tuple(hf_config.stage_in_channels),
-            "stage_mid_channels": tuple(hf_config.stage_mid_channels),
-            "stage_out_channels": tuple(hf_config.stage_out_channels),
-            "stage_num_blocks": tuple(hf_config.stage_num_blocks),
-            "stage_numb_of_layers": tuple(hf_config.stage_numb_of_layers),
-            "use_lab": hf_config.use_lab,
-            "encoder_in_channels": tuple(hf_config.encoder_in_channels),
-            "encoder_hidden_dim": hf_config.encoder_hidden_dim,
-            "encoder_ffn_dim": hf_config.encoder_ffn_dim,
-            "encode_proj_layers": tuple(hf_config.encode_proj_layers),
-            "hidden_expansion": hf_config.hidden_expansion,
-            "ccfm_num_blocks": getattr(hf_config, "ccfm_num_blocks", 1),
-            "d_model": hf_config.d_model,
-            "decoder_layers": hf_config.decoder_layers,
-            "decoder_ffn_dim": hf_config.decoder_ffn_dim,
-            "decoder_n_points": list(hf_config.decoder_n_points),
-            "num_feature_levels": hf_config.num_feature_levels,
-            "feat_strides": tuple(hf_config.feat_strides),
-            "num_queries": hf_config.num_queries,
-            "num_labels": hf_config.num_labels,
+            "stem_channels": tuple(bb["stem_channels"]),
+            "stage_in_channels": tuple(bb["stage_in_channels"]),
+            "stage_mid_channels": tuple(bb["stage_mid_channels"]),
+            "stage_out_channels": tuple(bb["stage_out_channels"]),
+            "stage_num_blocks": tuple(bb["stage_num_blocks"]),
+            "stage_numb_of_layers": tuple(bb["stage_numb_of_layers"]),
+            "use_lab": bb.get("use_learnable_affine_block", bb.get("use_lab", True)),
+            "encoder_in_channels": tuple(hf_config["encoder_in_channels"]),
+            "encoder_hidden_dim": hf_config["encoder_hidden_dim"],
+            "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
+            "encode_proj_layers": tuple(hf_config["encode_proj_layers"]),
+            "hidden_expansion": hf_config["hidden_expansion"],
+            "ccfm_num_blocks": hf_config.get("ccfm_num_blocks", 1),
+            "d_model": hf_config["d_model"],
+            "decoder_layers": hf_config["decoder_layers"],
+            "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
+            "decoder_n_points": list(hf_config["decoder_n_points"]),
+            "num_feature_levels": hf_config["num_feature_levels"],
+            "feat_strides": tuple(hf_config["feat_strides"]),
+            "num_queries": hf_config["num_queries"],
+            "num_labels": hf_num_labels(hf_config),
         }
 
     @classmethod
@@ -1527,29 +1529,3 @@ class DFineDetect(BaseModel):
         from .convert_dfine_hf_to_keras import transfer_dfine_weights
 
         transfer_dfine_weights(keras_model, hf_state_dict)
-
-    @classmethod
-    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
-        try:
-            from transformers import AutoConfig, DFineForObjectDetection
-        except ImportError as e:
-            raise ImportError(
-                "Loading from HuggingFace requires the `transformers` package."
-            ) from e
-
-        if load_weights:
-            hf_model = DFineForObjectDetection.from_pretrained(hf_id)
-            hf_config = hf_model.config
-            state_dict = {
-                k: v.cpu().numpy() if hasattr(v, "cpu") else v
-                for k, v in hf_model.state_dict().items()
-            }
-        else:
-            hf_config = AutoConfig.from_pretrained(hf_id)
-            state_dict = None
-
-        kmodels_kwargs = cls._config_from_hf(hf_config)
-        model = cls(**kmodels_kwargs, **kwargs)
-        if load_weights:
-            cls._transfer_from_hf(model, state_dict)
-        return model

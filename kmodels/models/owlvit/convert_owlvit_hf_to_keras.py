@@ -1,15 +1,8 @@
-import gc
-import os
 from typing import Any, Dict, List
 
-import keras
 import numpy as np
-import torch
-from PIL import Image
 from tqdm import tqdm
-from transformers import OwlViTForObjectDetection, OwlViTProcessor
 
-from kmodels.models.owlvit import OwlViTDetect
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -28,22 +21,32 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 
-def transfer_owlvit_encoder_weights(keras_model, state_dict, prefix=""):
+def transfer_owlvit_encoder_weights(keras_model, state_dict, prefix=None):
     """Transfer OWL-ViT vision + text encoder weights from an HF state_dict.
 
     Loads ``vision_model``, ``text_model``, and ``text_projection``
-    sub-modules. Works for both ``OwlViTModel`` (``prefix=""``) and
-    ``OwlViTForObjectDetection`` (``prefix="owlvit."``) state_dicts.
+    sub-modules. Works for both ``OwlViTModel`` and
+    ``OwlViTForObjectDetection`` state_dicts — the prefix is
+    auto-detected by default.
 
     Args:
         keras_model: Either an ``OwlViT`` (encoder) or ``OwlViTDetect``
             instance — anything that exposes the standard
             ``vision_model_*`` / ``text_model_*`` named layers.
         state_dict: Mapping of torch weight names to numpy arrays.
-        prefix: Empty for ``OwlViTModel`` checkpoints, ``"owlvit."``
-            for ``OwlViTForObjectDetection`` checkpoints (HF wraps the
-            encoder under that attribute).
+        prefix: ``""`` for ``OwlViTModel`` checkpoints, ``"owlvit."``
+            for ``OwlViTForObjectDetection`` checkpoints. When ``None``
+            (the default), the prefix is sniffed by checking for
+            ``owlvit.vision_model.embeddings.class_embedding`` in the
+            state_dict.
     """
+    if prefix is None:
+        prefix = (
+            "owlvit."
+            if "owlvit.vision_model.embeddings.class_embedding" in state_dict
+            else ""
+        )
+
     vision_layers = keras_model.vision_num_hidden_layers
     text_layers = keras_model.TEXT_NUM_HIDDEN_LAYERS
 
@@ -190,6 +193,16 @@ def transfer_owlvit_detection_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
+    import gc
+    import os
+
+    import keras
+    import torch
+    from PIL import Image
+    from transformers import OwlViTForObjectDetection, OwlViTProcessor
+
+    from kmodels.models.owlvit import OwlViTDetect
+
     model_configs: List[Dict[str, Any]] = [
         {
             "variant": "owlvit-base-patch32",

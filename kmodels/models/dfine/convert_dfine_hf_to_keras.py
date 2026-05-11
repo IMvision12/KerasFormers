@@ -1,17 +1,10 @@
 """Convert D-FINE weights from HuggingFace to Keras format."""
 
-import os
-
-os.environ["KERAS_BACKEND"] = "torch"
-
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import AutoModelForObjectDetection
 
-from kmodels.models.dfine import DFineDetect
 from kmodels.weight_utils.custom_exception import WeightShapeMismatchError
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
@@ -419,6 +412,15 @@ def transfer_dfine_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
+    import os
+
+    os.environ.setdefault("KERAS_BACKEND", "torch")
+
+    import torch
+    from transformers import AutoModelForObjectDetection
+
+    from kmodels.models.dfine import DFineDetect
+
     model_configs: List[Dict[str, Any]] = [
         {
             "variant": "dfine-nano",

@@ -10,3 +10,6 @@ Pillow>=10.0.0
 jax[cpu]
 
 keras>=3.11.0
+
+huggingface_hub
+safetensors

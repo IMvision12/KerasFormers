@@ -1122,7 +1122,7 @@ class RFDETRDetect(BaseModel):
     @classmethod
     def _from_hf(cls, hf_id, load_weights=True, **kwargs):
         raise NotImplementedError(
-            "RF-DETR is not available through HuggingFace transformers. "
+            "RF-DETR is not available on HuggingFace Hub. "
             "Use the kmodels release variants (e.g. 'rfdetr-base') or pass a "
             "local .weights.h5 path via model.load_weights(...)."
         )

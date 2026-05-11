@@ -402,39 +402,26 @@ class OwlViT(BaseModel):
 
     @classmethod
     def _config_from_hf(cls, hf_config):
-        return _owlvit_kwargs_from_hf_config(hf_config)
+        vc = hf_config["vision_config"]
+        tc = hf_config["text_config"]
+        return {
+            "vision_image_size": vc["image_size"],
+            "vision_patch_size": vc["patch_size"],
+            "vision_hidden_size": vc["hidden_size"],
+            "vision_intermediate_size": vc["intermediate_size"],
+            "vision_num_hidden_layers": vc["num_hidden_layers"],
+            "vision_num_attention_heads": vc["num_attention_heads"],
+            "text_hidden_size": tc["hidden_size"],
+            "text_intermediate_size": tc["intermediate_size"],
+            "text_num_attention_heads": tc["num_attention_heads"],
+            "projection_dim": hf_config["projection_dim"],
+        }
 
     @classmethod
     def _transfer_from_hf(cls, keras_model, hf_state_dict):
         from .convert_owlvit_hf_to_keras import transfer_owlvit_encoder_weights
 
-        transfer_owlvit_encoder_weights(keras_model, hf_state_dict, prefix="")
-
-    @classmethod
-    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
-        try:
-            from transformers import AutoConfig, OwlViTModel
-        except ImportError as e:
-            raise ImportError(
-                "Loading from HuggingFace requires the `transformers` package."
-            ) from e
-
-        if load_weights:
-            hf_model = OwlViTModel.from_pretrained(hf_id)
-            hf_config = hf_model.config
-            state_dict = {
-                k: v.cpu().numpy() if hasattr(v, "cpu") else v
-                for k, v in hf_model.state_dict().items()
-            }
-        else:
-            hf_config = AutoConfig.from_pretrained(hf_id)
-            state_dict = None
-
-        kmodels_kwargs = cls._config_from_hf(hf_config)
-        model = cls(**kmodels_kwargs, **kwargs)
-        if load_weights:
-            cls._transfer_from_hf(model, state_dict)
-        return model
+        transfer_owlvit_encoder_weights(keras_model, hf_state_dict)
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -601,52 +588,10 @@ class OwlViTDetect(BaseModel):
 
     @classmethod
     def _config_from_hf(cls, hf_config):
-        return _owlvit_kwargs_from_hf_config(hf_config)
+        return OwlViT._config_from_hf(hf_config)
 
     @classmethod
     def _transfer_from_hf(cls, keras_model, hf_state_dict):
         from .convert_owlvit_hf_to_keras import transfer_owlvit_detection_weights
 
         transfer_owlvit_detection_weights(keras_model, hf_state_dict)
-
-    @classmethod
-    def _from_hf(cls, hf_id, load_weights=True, **kwargs):
-        try:
-            from transformers import AutoConfig, OwlViTForObjectDetection
-        except ImportError as e:
-            raise ImportError(
-                "Loading from HuggingFace requires the `transformers` package."
-            ) from e
-
-        if load_weights:
-            hf_model = OwlViTForObjectDetection.from_pretrained(hf_id)
-            hf_config = hf_model.config
-            state_dict = {
-                k: v.cpu().numpy() if hasattr(v, "cpu") else v
-                for k, v in hf_model.state_dict().items()
-            }
-        else:
-            hf_config = AutoConfig.from_pretrained(hf_id)
-            state_dict = None
-
-        kmodels_kwargs = cls._config_from_hf(hf_config)
-        model = cls(**kmodels_kwargs, **kwargs)
-        if load_weights:
-            cls._transfer_from_hf(model, state_dict)
-        return model
-
-
-def _owlvit_kwargs_from_hf_config(hf_config):
-    """Map a ``transformers.OwlViTConfig`` to ``OwlViT(Detect).__init__`` kwargs."""
-    return {
-        "vision_image_size": hf_config.vision_config.image_size,
-        "vision_patch_size": hf_config.vision_config.patch_size,
-        "vision_hidden_size": hf_config.vision_config.hidden_size,
-        "vision_intermediate_size": hf_config.vision_config.intermediate_size,
-        "vision_num_hidden_layers": hf_config.vision_config.num_hidden_layers,
-        "vision_num_attention_heads": hf_config.vision_config.num_attention_heads,
-        "text_hidden_size": hf_config.text_config.hidden_size,
-        "text_intermediate_size": hf_config.text_config.intermediate_size,
-        "text_num_attention_heads": hf_config.text_config.num_attention_heads,
-        "projection_dim": hf_config.projection_dim,
-    }
