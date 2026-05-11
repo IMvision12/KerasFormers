@@ -993,6 +993,7 @@ class DFineDetect(BaseModel):
 
     KMODELS_CONFIG = DFINE_CONFIG
     KMODELS_WEIGHTS = DFINE_WEIGHTS
+    HF_MODEL_TYPE = ("d_fine", "dfine")
 
     def __init__(
         self,

@@ -277,6 +277,7 @@ class OwlViT(BaseModel):
     """
 
     KMODELS_CONFIG = OWLVIT_CONFIG
+    HF_MODEL_TYPE = "owlvit"
 
     def __init__(
         self,
@@ -421,6 +422,7 @@ class OwlViTDetect(BaseModel):
 
     KMODELS_CONFIG = OWLVIT_CONFIG
     KMODELS_WEIGHTS = OWLVIT_WEIGHTS
+    HF_MODEL_TYPE = "owlvit"
 
     def __init__(
         self,

@@ -652,6 +652,7 @@ class RTDETRV2Detect(BaseModel):
 
     KMODELS_CONFIG = RT_DETR_V2_CONFIG
     KMODELS_WEIGHTS = RT_DETR_V2_WEIGHTS
+    HF_MODEL_TYPE = "rt_detr_v2"
 
     def __init__(
         self,

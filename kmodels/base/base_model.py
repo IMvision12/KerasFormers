@@ -185,6 +185,11 @@ class BaseModel(keras.Model):
 
     KMODELS_CONFIG = None
     KMODELS_WEIGHTS = None
+    # ``model_type`` value(s) (from HF ``config.json``) this class can load
+    # from HuggingFace. ``str`` for a single value or ``tuple[str, ...]`` for
+    # several aliases (e.g. ``("d_fine", "dfine")``). ``None`` disables the
+    # guard — only do that for classes that don't load from HF at all.
+    HF_MODEL_TYPE = None
 
     @classmethod
     def from_weights(cls, identifier, load_weights=True, **kwargs):
@@ -246,6 +251,7 @@ class BaseModel(keras.Model):
     @classmethod
     def _from_hf(cls, hf_id, load_weights=True, **kwargs):
         hf_config = _load_hf_config(hf_id)
+        cls._assert_hf_model_type(hf_id, hf_config)
         kmodels_kwargs = cls._config_from_hf(hf_config)
         kmodels_kwargs.update(kwargs)
         model = cls(**kmodels_kwargs)
@@ -253,6 +259,30 @@ class BaseModel(keras.Model):
             state_dict = _load_hf_state_dict(hf_id)
             cls._transfer_from_hf(model, state_dict)
         return model
+
+    @classmethod
+    def _assert_hf_model_type(cls, hf_id, hf_config):
+        """Reject HF configs whose ``model_type`` doesn't match this class.
+
+        Fails fast with a clear message instead of letting the user wait
+        for a ``KeyError`` or shape mismatch deep inside weight transfer.
+        Subclasses opt in by setting ``cls.HF_MODEL_TYPE``; the check is
+        skipped when it's ``None``.
+        """
+        expected = cls.HF_MODEL_TYPE
+        if expected is None:
+            return
+        if isinstance(expected, str):
+            expected = (expected,)
+        actual = hf_config.get("model_type")
+        if actual not in expected:
+            options = expected[0] if len(expected) == 1 else f"one of {list(expected)}"
+            raise ValueError(
+                f"{cls.__name__} can only load HF models whose "
+                f"config.json model_type is {options}, but '{hf_id}' "
+                f"has model_type={actual!r}. This kmodels class is the "
+                f"wrong destination for that checkpoint."
+            )
 
     @classmethod
     def _config_from_hf(cls, hf_config):
