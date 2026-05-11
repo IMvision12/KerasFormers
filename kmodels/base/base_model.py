@@ -247,11 +247,6 @@ class BaseModel(keras.Model):
     def _from_hf(cls, hf_id, load_weights=True, **kwargs):
         hf_config = _load_hf_config(hf_id)
         kmodels_kwargs = cls._config_from_hf(hf_config)
-        # User-supplied kwargs override values derived from the HF config.
-        # Most fine-tunes don't need overrides — `config.json` already encodes
-        # ``num_labels``, ``num_queries``, etc. — but this leaves room for
-        # things like swapping a head size for transfer learning, in which
-        # case ``load_weights=False`` is usually also wanted.
         kmodels_kwargs.update(kwargs)
         model = cls(**kmodels_kwargs)
         if load_weights:

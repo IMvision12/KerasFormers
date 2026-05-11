@@ -13,20 +13,21 @@ from .owlvit_layers import (
     quick_gelu,
 )
 
+# OWL-ViT's published variants all share these values, so they're
+# inlined as literals here (keras-hub-style): every ``LayerNormalization``
+# uses ``epsilon=1e-5`` and every MLP uses ``quick_gelu``. They aren't
+# shape-affecting — changing them would only alter numerics, never
+# break weight transfer — so they don't need to be ``__init__`` args.
 
-def owlvit_mlp(x, hidden_size, intermediate_size, hidden_act, block_prefix):
-    """Two-layer MLP block (``fc1`` → activation → ``fc2``).
+
+def owlvit_mlp(x, hidden_size, intermediate_size, block_prefix):
+    """Two-layer MLP block (``fc1`` → quick_gelu → ``fc2``).
 
     Reference:
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
     """
     x = layers.Dense(intermediate_size, name=f"{block_prefix}_fc1")(x)
-    if hidden_act == "quick_gelu":
-        x = quick_gelu(x)
-    elif hidden_act == "gelu":
-        x = ops.gelu(x, approximate=False)
-    else:
-        x = keras.activations.get(hidden_act)(x)
+    x = quick_gelu(x)
     x = layers.Dense(hidden_size, name=f"{block_prefix}_fc2")(x)
     return x
 
@@ -38,17 +39,13 @@ def owlvit_transformer_block(
     hidden_size,
     num_heads,
     intermediate_size,
-    layer_norm_eps,
-    hidden_act,
     block_prefix,
 ):
     """Stack of pre-norm transformer blocks shared by the vision and text towers."""
     for i in range(num_layers):
         prefix = f"{block_prefix}_layers_{i}"
         residual = x
-        x = layers.LayerNormalization(
-            epsilon=layer_norm_eps, name=f"{prefix}_layer_norm1"
-        )(x)
+        x = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_layer_norm1")(x)
         x = OwlViTAttention(
             hidden_size=hidden_size,
             num_heads=num_heads,
@@ -57,14 +54,11 @@ def owlvit_transformer_block(
         x = layers.Add(name=f"{prefix}_sa_residual")([residual, x])
 
         residual = x
-        x = layers.LayerNormalization(
-            epsilon=layer_norm_eps, name=f"{prefix}_layer_norm2"
-        )(x)
+        x = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_layer_norm2")(x)
         x = owlvit_mlp(
             x,
             hidden_size=hidden_size,
             intermediate_size=intermediate_size,
-            hidden_act=hidden_act,
             block_prefix=f"{prefix}_mlp",
         )
         x = layers.Add(name=f"{prefix}_ff_residual")([residual, x])
@@ -79,8 +73,6 @@ def owlvit_vision_transformer(
     num_hidden_layers,
     num_heads,
     intermediate_size,
-    layer_norm_eps,
-    hidden_act,
     block_prefix,
 ):
     """OWL-ViT vision tower: embeddings → pre LN → encoder → post LN."""
@@ -90,9 +82,7 @@ def owlvit_vision_transformer(
         patch_size=patch_size,
         name=f"{block_prefix}_embeddings",
     )(pixel_values)
-    x = layers.LayerNormalization(
-        epsilon=layer_norm_eps, name=f"{block_prefix}_pre_layernorm"
-    )(x)
+    x = layers.LayerNormalization(epsilon=1e-5, name=f"{block_prefix}_pre_layernorm")(x)
     x = owlvit_transformer_block(
         x,
         attention_mask=None,
@@ -100,13 +90,11 @@ def owlvit_vision_transformer(
         hidden_size=hidden_size,
         num_heads=num_heads,
         intermediate_size=intermediate_size,
-        layer_norm_eps=layer_norm_eps,
-        hidden_act=hidden_act,
         block_prefix=block_prefix,
     )
-    x = layers.LayerNormalization(
-        epsilon=layer_norm_eps, name=f"{block_prefix}_post_layernorm"
-    )(x)
+    x = layers.LayerNormalization(epsilon=1e-5, name=f"{block_prefix}_post_layernorm")(
+        x
+    )
     return x
 
 
@@ -118,8 +106,6 @@ def owlvit_text_transformer(
     num_hidden_layers,
     num_heads,
     intermediate_size,
-    layer_norm_eps,
-    hidden_act,
     block_prefix,
 ):
     """OWL-ViT text tower: embeddings → causal encoder → final LN → pool."""
@@ -143,12 +129,10 @@ def owlvit_text_transformer(
         hidden_size=hidden_size,
         num_heads=num_heads,
         intermediate_size=intermediate_size,
-        layer_norm_eps=layer_norm_eps,
-        hidden_act=hidden_act,
         block_prefix=block_prefix,
     )
     x = layers.LayerNormalization(
-        epsilon=layer_norm_eps, name=f"{block_prefix}_final_layer_norm"
+        epsilon=1e-5, name=f"{block_prefix}_final_layer_norm"
     )(x)
 
     pool_indices = ops.cast(ops.argmax(input_ids, axis=-1), "int32")
@@ -234,12 +218,10 @@ def _build_owlvit_towers(
     text_hidden_size,
     text_intermediate_size,
     text_num_attention_heads,
-    projection_dim,
-    layer_norm_eps,
-    hidden_act,
-    text_max_position_embeddings,
     text_num_hidden_layers,
+    text_max_position_embeddings,
     text_vocab_size,
+    projection_dim,
 ):
     """Build the shared vision + text tower outputs.
 
@@ -259,8 +241,6 @@ def _build_owlvit_towers(
         num_hidden_layers=vision_num_hidden_layers,
         num_heads=vision_num_attention_heads,
         intermediate_size=vision_intermediate_size,
-        layer_norm_eps=layer_norm_eps,
-        hidden_act=hidden_act,
         block_prefix="vision_model",
     )
 
@@ -272,8 +252,6 @@ def _build_owlvit_towers(
         num_hidden_layers=text_num_hidden_layers,
         num_heads=text_num_attention_heads,
         intermediate_size=text_intermediate_size,
-        layer_norm_eps=layer_norm_eps,
-        hidden_act=hidden_act,
         block_prefix="text_model",
     )
     text_embeds = layers.Dense(projection_dim, use_bias=False, name="text_projection")(
@@ -298,12 +276,6 @@ class OwlViT(BaseModel):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
     """
 
-    TEXT_MAX_POSITION_EMBEDDINGS = 16
-    TEXT_NUM_HIDDEN_LAYERS = 12
-    TEXT_VOCAB_SIZE = 49408
-    LAYER_NORM_EPS = 1e-5
-    HIDDEN_ACT = "quick_gelu"
-
     KMODELS_CONFIG = OWLVIT_CONFIG
 
     def __init__(
@@ -318,6 +290,9 @@ class OwlViT(BaseModel):
         text_intermediate_size,
         text_num_attention_heads,
         projection_dim,
+        text_num_hidden_layers=12,
+        text_max_position_embeddings=16,
+        text_vocab_size=49408,
         input_shape=None,
         text_input_shape=None,
         name="OwlViT",
@@ -325,7 +300,7 @@ class OwlViT(BaseModel):
     ):
         input_shape, text_input_shape = _resolve_input_shapes(
             vision_image_size,
-            self.TEXT_MAX_POSITION_EMBEDDINGS,
+            text_max_position_embeddings,
             input_shape,
             text_input_shape,
         )
@@ -347,12 +322,10 @@ class OwlViT(BaseModel):
             text_hidden_size=text_hidden_size,
             text_intermediate_size=text_intermediate_size,
             text_num_attention_heads=text_num_attention_heads,
+            text_num_hidden_layers=text_num_hidden_layers,
+            text_max_position_embeddings=text_max_position_embeddings,
+            text_vocab_size=text_vocab_size,
             projection_dim=projection_dim,
-            layer_norm_eps=self.LAYER_NORM_EPS,
-            hidden_act=self.HIDDEN_ACT,
-            text_max_position_embeddings=self.TEXT_MAX_POSITION_EMBEDDINGS,
-            text_num_hidden_layers=self.TEXT_NUM_HIDDEN_LAYERS,
-            text_vocab_size=self.TEXT_VOCAB_SIZE,
         )
 
         outputs = {
@@ -371,6 +344,9 @@ class OwlViT(BaseModel):
         self.text_hidden_size = text_hidden_size
         self.text_intermediate_size = text_intermediate_size
         self.text_num_attention_heads = text_num_attention_heads
+        self.text_num_hidden_layers = text_num_hidden_layers
+        self.text_max_position_embeddings = text_max_position_embeddings
+        self.text_vocab_size = text_vocab_size
         self.projection_dim = projection_dim
         self._input_shape_arg = input_shape
         self._text_input_shape_arg = text_input_shape
@@ -388,6 +364,9 @@ class OwlViT(BaseModel):
                 "text_hidden_size": self.text_hidden_size,
                 "text_intermediate_size": self.text_intermediate_size,
                 "text_num_attention_heads": self.text_num_attention_heads,
+                "text_num_hidden_layers": self.text_num_hidden_layers,
+                "text_max_position_embeddings": self.text_max_position_embeddings,
+                "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
                 "input_shape": self._input_shape_arg,
                 "text_input_shape": self._text_input_shape_arg,
@@ -414,6 +393,9 @@ class OwlViT(BaseModel):
             "text_hidden_size": tc["hidden_size"],
             "text_intermediate_size": tc["intermediate_size"],
             "text_num_attention_heads": tc["num_attention_heads"],
+            "text_num_hidden_layers": tc["num_hidden_layers"],
+            "text_max_position_embeddings": tc["max_position_embeddings"],
+            "text_vocab_size": tc["vocab_size"],
             "projection_dim": hf_config["projection_dim"],
         }
 
@@ -437,12 +419,6 @@ class OwlViTDetect(BaseModel):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
     """
 
-    TEXT_MAX_POSITION_EMBEDDINGS = 16
-    TEXT_NUM_HIDDEN_LAYERS = 12
-    TEXT_VOCAB_SIZE = 49408
-    LAYER_NORM_EPS = 1e-5
-    HIDDEN_ACT = "quick_gelu"
-
     KMODELS_CONFIG = OWLVIT_CONFIG
     KMODELS_WEIGHTS = OWLVIT_WEIGHTS
 
@@ -458,6 +434,9 @@ class OwlViTDetect(BaseModel):
         text_intermediate_size,
         text_num_attention_heads,
         projection_dim,
+        text_num_hidden_layers=12,
+        text_max_position_embeddings=16,
+        text_vocab_size=49408,
         input_shape=None,
         text_input_shape=None,
         name="OwlViTDetect",
@@ -465,7 +444,7 @@ class OwlViTDetect(BaseModel):
     ):
         input_shape, text_input_shape = _resolve_input_shapes(
             vision_image_size,
-            self.TEXT_MAX_POSITION_EMBEDDINGS,
+            text_max_position_embeddings,
             input_shape,
             text_input_shape,
         )
@@ -491,19 +470,17 @@ class OwlViTDetect(BaseModel):
             text_hidden_size=text_hidden_size,
             text_intermediate_size=text_intermediate_size,
             text_num_attention_heads=text_num_attention_heads,
+            text_num_hidden_layers=text_num_hidden_layers,
+            text_max_position_embeddings=text_max_position_embeddings,
+            text_vocab_size=text_vocab_size,
             projection_dim=projection_dim,
-            layer_norm_eps=self.LAYER_NORM_EPS,
-            hidden_act=self.HIDDEN_ACT,
-            text_max_position_embeddings=self.TEXT_MAX_POSITION_EMBEDDINGS,
-            text_num_hidden_layers=self.TEXT_NUM_HIDDEN_LAYERS,
-            text_vocab_size=self.TEXT_VOCAB_SIZE,
         )
 
         cls_token = image_embeds_raw[:, :1, :]
         patch_embeds = image_embeds_raw[:, 1:, :] * cls_token
-        patch_embeds = layers.LayerNormalization(
-            epsilon=self.LAYER_NORM_EPS, name="layer_norm"
-        )(patch_embeds)
+        patch_embeds = layers.LayerNormalization(epsilon=1e-5, name="layer_norm")(
+            patch_embeds
+        )
 
         feature_map = ops.reshape(
             patch_embeds,
@@ -555,6 +532,9 @@ class OwlViTDetect(BaseModel):
         self.text_hidden_size = text_hidden_size
         self.text_intermediate_size = text_intermediate_size
         self.text_num_attention_heads = text_num_attention_heads
+        self.text_num_hidden_layers = text_num_hidden_layers
+        self.text_max_position_embeddings = text_max_position_embeddings
+        self.text_vocab_size = text_vocab_size
         self.projection_dim = projection_dim
         self.num_patches_h = num_patches_h
         self.num_patches_w = num_patches_w
@@ -574,6 +554,9 @@ class OwlViTDetect(BaseModel):
                 "text_hidden_size": self.text_hidden_size,
                 "text_intermediate_size": self.text_intermediate_size,
                 "text_num_attention_heads": self.text_num_attention_heads,
+                "text_num_hidden_layers": self.text_num_hidden_layers,
+                "text_max_position_embeddings": self.text_max_position_embeddings,
+                "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
                 "input_shape": self._input_shape_arg,
                 "text_input_shape": self._text_input_shape_arg,

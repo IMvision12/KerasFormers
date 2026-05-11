@@ -35,8 +35,8 @@ def transfer_dfine_weights(keras_model, state_dict):
     sd = state_dict
     stage_num_blocks = keras_model._stage_num_blocks
     stage_numb_of_layers = keras_model._stage_numb_of_layers
-    stage_light_block = keras_model.STAGE_LIGHT_BLOCK
-    stage_downsample = keras_model.STAGE_DOWNSAMPLE
+    stage_light_block = keras_model._stage_light_block
+    stage_downsample = keras_model._stage_downsample
     use_lab = keras_model._use_lab
     num_feature_levels = keras_model._num_feature_levels
     num_dec = keras_model._decoder_layers

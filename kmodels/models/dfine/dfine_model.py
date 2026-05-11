@@ -991,17 +991,6 @@ class DFineDetect(BaseModel):
         name: Model name.
     """
 
-    STAGE_DOWNSAMPLE = (False, True, True, True)
-    STAGE_LIGHT_BLOCK = (False, False, True, True)
-    STAGE_KERNEL_SIZE = (3, 3, 5, 5)
-    ENCODER_LAYERS = 1
-    ENCODER_NUM_HEADS = 8
-    ENCODER_ACTIVATION = "gelu"
-    ACTIVATION = "silu"
-    DECODER_NUM_HEADS = 8
-    DECODER_ACTIVATION = "relu"
-    MAX_NUM_BINS = 32
-
     KMODELS_CONFIG = DFINE_CONFIG
     KMODELS_WEIGHTS = DFINE_WEIGHTS
 
@@ -1013,19 +1002,26 @@ class DFineDetect(BaseModel):
         stage_out_channels=(64, 256, 512, 1024),
         stage_num_blocks=(1, 1, 2, 1),
         stage_numb_of_layers=(3, 3, 3, 3),
+        stage_downsample=(False, True, True, True),
+        stage_light_block=(False, False, True, True),
+        stage_kernel_size=(3, 3, 5, 5),
         use_lab=True,
         encoder_in_channels=(256, 512, 1024),
         encoder_hidden_dim=256,
+        encoder_layers=1,
         encoder_ffn_dim=1024,
+        encoder_num_heads=8,
         encode_proj_layers=(2,),
         hidden_expansion=1.0,
         ccfm_num_blocks=1,
         d_model=256,
         decoder_layers=6,
         decoder_ffn_dim=1024,
+        decoder_num_heads=8,
         decoder_n_points=None,
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
+        max_num_bins=32,
         num_queries=300,
         num_labels=80,
         input_shape=None,
@@ -1067,9 +1063,9 @@ class DFineDetect(BaseModel):
             stage_mid_channels=list(stage_mid_channels),
             stage_out_channels=list(stage_out_channels),
             stage_num_blocks=list(stage_num_blocks),
-            stage_downsample=list(self.STAGE_DOWNSAMPLE),
-            stage_light_block=list(self.STAGE_LIGHT_BLOCK),
-            stage_kernel_size=list(self.STAGE_KERNEL_SIZE),
+            stage_downsample=list(stage_downsample),
+            stage_light_block=list(stage_light_block),
+            stage_kernel_size=list(stage_kernel_size),
             stage_numb_of_layers=list(stage_numb_of_layers),
             use_lab=use_lab,
             out_stage_indices=out_stage_indices,
@@ -1114,14 +1110,14 @@ class DFineDetect(BaseModel):
                 name=f"aifi_{ai}_flatten",
             )(feat)
             pe = dfine_sine_pos_embed(h, w, encoder_hidden_dim, 10000)
-            for li in range(self.ENCODER_LAYERS):
+            for li in range(encoder_layers):
                 flat = dfine_aifi_encoder_layer(
                     flat,
                     pe,
                     encoder_hidden_dim,
-                    self.ENCODER_NUM_HEADS,
+                    encoder_num_heads,
                     encoder_ffn_dim,
-                    activation=self.ENCODER_ACTIVATION,
+                    activation="gelu",
                     name=f"aifi_{ai}_layers_{li}",
                 )
             unflat = layers.Reshape(
@@ -1166,7 +1162,7 @@ class DFineDetect(BaseModel):
                     fused,
                     encoder_hidden_dim,
                     hidden_expansion,
-                    activation=self.ACTIVATION,
+                    activation="silu",
                     num_blocks=ccfm_num_blocks,
                     data_format=data_format,
                     channels_axis=channels_axis,
@@ -1197,7 +1193,7 @@ class DFineDetect(BaseModel):
                     fused,
                     encoder_hidden_dim,
                     hidden_expansion,
-                    activation=self.ACTIVATION,
+                    activation="silu",
                     num_blocks=ccfm_num_blocks,
                     data_format=data_format,
                     channels_axis=channels_axis,
@@ -1342,7 +1338,6 @@ class DFineDetect(BaseModel):
         ref_detach = ops.stop_gradient(ref_pts)
 
         output_detach = ops.zeros_like(hs)
-        max_num_bins = self.MAX_NUM_BINS
         nbins_out = 4 * (max_num_bins + 1)
         pred_corners_accum = None
 
@@ -1357,9 +1352,9 @@ class DFineDetect(BaseModel):
 
             dl = DFineDecoderLayer(
                 d_model=d_model,
-                num_heads=self.DECODER_NUM_HEADS,
+                num_heads=decoder_num_heads,
                 dim_feedforward=decoder_ffn_dim,
-                activation=self.DECODER_ACTIVATION,
+                activation="relu",
                 n_levels=num_feature_levels,
                 num_points_list=decoder_n_points,
                 offset_scale=0.5,
@@ -1444,19 +1439,26 @@ class DFineDetect(BaseModel):
         self._stage_out_channels = list(stage_out_channels)
         self._stage_num_blocks = list(stage_num_blocks)
         self._stage_numb_of_layers = list(stage_numb_of_layers)
+        self._stage_downsample = tuple(stage_downsample)
+        self._stage_light_block = tuple(stage_light_block)
+        self._stage_kernel_size = tuple(stage_kernel_size)
         self._use_lab = use_lab
         self._encoder_in_channels = list(encoder_in_channels)
         self._encoder_hidden_dim = encoder_hidden_dim
+        self._encoder_layers = encoder_layers
         self._encoder_ffn_dim = encoder_ffn_dim
+        self._encoder_num_heads = encoder_num_heads
         self._encode_proj_layers = list(encode_proj_layers)
         self._hidden_expansion = hidden_expansion
         self._ccfm_num_blocks = ccfm_num_blocks
         self._d_model = d_model
         self._decoder_layers = decoder_layers
         self._decoder_ffn_dim = decoder_ffn_dim
+        self._decoder_num_heads = decoder_num_heads
         self._decoder_n_points = list(decoder_n_points)
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
+        self._max_num_bins = max_num_bins
         self._num_queries = num_queries
         self._num_labels = num_labels
         self.input_tensor = input_tensor
@@ -1471,19 +1473,26 @@ class DFineDetect(BaseModel):
                 "stage_out_channels": self._stage_out_channels,
                 "stage_num_blocks": self._stage_num_blocks,
                 "stage_numb_of_layers": self._stage_numb_of_layers,
+                "stage_downsample": self._stage_downsample,
+                "stage_light_block": self._stage_light_block,
+                "stage_kernel_size": self._stage_kernel_size,
                 "use_lab": self._use_lab,
                 "encoder_in_channels": self._encoder_in_channels,
                 "encoder_hidden_dim": self._encoder_hidden_dim,
+                "encoder_layers": self._encoder_layers,
                 "encoder_ffn_dim": self._encoder_ffn_dim,
+                "encoder_num_heads": self._encoder_num_heads,
                 "encode_proj_layers": self._encode_proj_layers,
                 "hidden_expansion": self._hidden_expansion,
                 "ccfm_num_blocks": self._ccfm_num_blocks,
                 "d_model": self._d_model,
                 "decoder_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
+                "decoder_num_heads": self._decoder_num_heads,
                 "decoder_n_points": self._decoder_n_points,
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
+                "max_num_bins": self._max_num_bins,
                 "num_queries": self._num_queries,
                 "num_labels": self._num_labels,
                 "input_shape": self.input_shape[1:],
@@ -1507,19 +1516,26 @@ class DFineDetect(BaseModel):
             "stage_out_channels": tuple(bb["stage_out_channels"]),
             "stage_num_blocks": tuple(bb["stage_num_blocks"]),
             "stage_numb_of_layers": tuple(bb["stage_numb_of_layers"]),
+            "stage_downsample": tuple(bb["stage_downsample"]),
+            "stage_light_block": tuple(bb["stage_light_block"]),
+            "stage_kernel_size": tuple(bb["stage_kernel_size"]),
             "use_lab": bb.get("use_learnable_affine_block", bb.get("use_lab", True)),
             "encoder_in_channels": tuple(hf_config["encoder_in_channels"]),
             "encoder_hidden_dim": hf_config["encoder_hidden_dim"],
+            "encoder_layers": hf_config["encoder_layers"],
             "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
+            "encoder_num_heads": hf_config["num_attention_heads"],
             "encode_proj_layers": tuple(hf_config["encode_proj_layers"]),
             "hidden_expansion": hf_config["hidden_expansion"],
             "ccfm_num_blocks": hf_config.get("ccfm_num_blocks", 1),
             "d_model": hf_config["d_model"],
             "decoder_layers": hf_config["decoder_layers"],
             "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
+            "decoder_num_heads": hf_config["decoder_attention_heads"],
             "decoder_n_points": list(hf_config["decoder_n_points"]),
             "num_feature_levels": hf_config["num_feature_levels"],
             "feat_strides": tuple(hf_config["feat_strides"]),
+            "max_num_bins": hf_config.get("max_num_bins", 32),
             "num_queries": hf_config["num_queries"],
             "num_labels": hf_num_labels(hf_config),
         }

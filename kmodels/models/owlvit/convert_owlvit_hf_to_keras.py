@@ -48,7 +48,7 @@ def transfer_owlvit_encoder_weights(keras_model, state_dict, prefix=None):
         )
 
     vision_layers = keras_model.vision_num_hidden_layers
-    text_layers = keras_model.TEXT_NUM_HIDDEN_LAYERS
+    text_layers = keras_model.text_num_hidden_layers
 
     embed = keras_model.get_layer("vision_model_embeddings")
     cls_torch_name = f"{prefix}vision_model.embeddings.class_embedding"
