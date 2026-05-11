@@ -708,44 +708,59 @@ def rf_detr_windowed_dinov2_encoder(
     return features
 
 
-def _rf_detr_build(
+def rf_detr_backbone(
     inputs,
-    hidden_dim,
-    backbone_hidden_size,
-    backbone_num_heads,
-    backbone_num_layers,
-    backbone_mlp_ratio,
-    backbone_use_swiglu,
+    hidden_size,
+    num_heads,
+    num_layers,
+    mlp_ratio,
+    use_swiglu,
     num_register_tokens,
     out_feature_indexes,
     patch_size,
     num_windows,
     positional_encoding_size,
-    dec_layers,
-    sa_nheads,
-    ca_nheads,
-    dec_n_points,
-    num_queries,
-    num_classes,
-    two_stage,
-    bbox_reparam,
-    lite_refpoint_refine,
-    dim_feedforward,
     input_shape,
+    data_format,
 ):
-    """Build RF-DETR backbone + projector + decoder with iterative heads.
+    """Build RF-DETR's DINOv2 backbone with windowed attention.
+
+    Patch-embeds the input image with :class:`DinoV2Embeddings`, runs
+    a stack of ``num_layers`` DINOv2 transformer blocks (windowed
+    attention everywhere except at ``out_feature_indexes`` layers,
+    which use full attention), extracts intermediate features at each
+    output index, and unwindows them back into ``(num_h, num_w)``
+    feature maps.
+
+    Args:
+        inputs: Keras input tensor of shape ``(B, H, W, 3)`` (or
+            ``(B, 3, H, W)`` for channels_first).
+        hidden_size: DINOv2 backbone model dimension.
+        num_heads: Number of attention heads in each backbone block.
+        num_layers: Total number of DINOv2 transformer blocks.
+        mlp_ratio: FFN expansion ratio in each backbone block.
+        use_swiglu: Whether backbone FFNs use SwiGLU (True) or GELU MLP.
+        num_register_tokens: Number of DINOv2 register tokens.
+        out_feature_indexes: 1-indexed block IDs at which to extract
+            features (these blocks also run full attention).
+        patch_size: Patch size for DINOv2 patch embeddings.
+        num_windows: Number of windows per spatial dimension in
+            windowed-attention blocks.
+        positional_encoding_size: Side length of the learned positional
+            encoding grid (interpolated to match the patch grid).
+        input_shape: Input shape excluding the batch dim, used to derive
+            the patch grid size ``(num_h, num_w)``.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
 
     Returns:
-        output: Decoder ``last_hidden_state`` (post layernorm), shape
-            ``(B, num_queries, hidden_dim)``.
-        pred_logits: Final class logits.
-        pred_boxes: Final bbox predictions.
+        features: List of unwindowed feature maps, one per
+            ``out_feature_indexes`` entry, each with shape
+            ``(B, num_h, num_w, hidden_size)`` for channels_last (or
+            ``(B, hidden_size, num_h, num_w)`` for channels_first).
+        spatial_shape: ``(num_h, num_w)`` patch grid size.
     """
-    data_format = keras.config.image_data_format()
-    channels_axis = -1 if data_format == "channels_last" else 1
-
     embeddings = DinoV2Embeddings(
-        hidden_size=backbone_hidden_size,
+        hidden_size=hidden_size,
         patch_size=patch_size,
         num_channels=3,
         num_register_tokens=num_register_tokens,
@@ -760,11 +775,11 @@ def _rf_detr_build(
 
     encoder_features = rf_detr_windowed_dinov2_encoder(
         embeddings,
-        hidden_size=backbone_hidden_size,
-        num_heads=backbone_num_heads,
-        num_layers=backbone_num_layers,
-        mlp_ratio=backbone_mlp_ratio,
-        use_swiglu=backbone_use_swiglu,
+        hidden_size=hidden_size,
+        num_heads=num_heads,
+        num_layers=num_layers,
+        mlp_ratio=mlp_ratio,
+        use_swiglu=use_swiglu,
         num_windows=num_windows,
         out_feature_indexes=out_feature_indexes,
         window_block_indexes=window_block_indexes,
@@ -779,20 +794,53 @@ def _rf_detr_build(
         num_w = input_shape[1] // patch_size
 
     unwindowed_features = []
-    for i, feat in enumerate(encoder_features):
+    for feat in encoder_features:
         uw = rf_detr_unwindow_features(
             feat,
             num_h,
             num_w,
             num_windows,
-            backbone_hidden_size,
+            hidden_size,
             num_register_tokens,
             data_format=data_format,
         )
         unwindowed_features.append(uw)
 
+    return unwindowed_features, (num_h, num_w)
+
+
+def rf_detr_projector(
+    features,
+    hidden_dim,
+    spatial_shape,
+    data_format,
+    channels_axis,
+):
+    """Project multi-scale backbone features into a single decoder memory.
+
+    Concatenates the multi-scale unwindowed features along the channel
+    axis, fuses them with a C2F (CSP Bottleneck with 2 convolutions)
+    block down to ``hidden_dim`` channels, applies a channel-wise
+    layernorm, and flattens the spatial dimensions into the token
+    sequence expected by the deformable decoder.
+
+    Args:
+        features: List of feature maps from :func:`rf_detr_backbone`,
+            all with the same spatial shape.
+        hidden_dim: Decoder hidden dimension (projector output channels).
+        spatial_shape: ``(num_h, num_w)`` spatial size of the projector
+            output (same as backbone feature spatial size).
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel axis (-1 or 1).
+
+    Returns:
+        ``(B, num_h * num_w, hidden_dim)`` flattened token sequence
+        used as encoder memory by the deformable decoder.
+    """
+    num_h, num_w = spatial_shape
+
     concat_feat = layers.Concatenate(axis=channels_axis, name="concat_features")(
-        unwindowed_features
+        features
     )
     projected = rf_detr_c2f(
         concat_feat,
@@ -808,16 +856,37 @@ def _rf_detr_build(
     )
     projected = RFDETRChannelLayerNorm(name="projector_ln")(projected)
 
-    proj_shape = (num_h, num_w)
-    num_feature_levels = 1
-    spatial_shapes = [proj_shape]
-    level_start_index = [0]
-
     if data_format == "channels_first":
         projected = ops.transpose(projected, [0, 2, 3, 1])
-    src_flat = ops.reshape(projected, [-1, proj_shape[0] * proj_shape[1], hidden_dim])
-    memory = src_flat
+    memory = ops.reshape(projected, [-1, num_h * num_w, hidden_dim])
+    return memory
 
+
+def rf_detr_decoder_inputs(
+    memory,
+    num_queries,
+    hidden_dim,
+):
+    """Initialize learned object queries and reference points.
+
+    Both the query features (``tgt``) and the reference points
+    (``refpoint_embed``) are learned per-query embeddings broadcast
+    across the batch from ``memory``. Reference points are initialized
+    to zero and later refined either by the two-stage proposal
+    selection (:func:`rf_detr_two_stage_proposals`) or directly by the
+    decoder's iterative refinement loop.
+
+    Args:
+        memory: Encoder memory ``(B, H*W, hidden_dim)`` — used only to
+            carry the batch dimension into the learned-embedding layers.
+        num_queries: Number of object queries.
+        hidden_dim: Query feature dimension.
+
+    Returns:
+        tgt: ``(B, num_queries, hidden_dim)`` initial query features.
+        refpoint_embed: ``(B, num_queries, 4)`` initial reference points
+            (cx, cy, w, h), zero-initialized.
+    """
     tgt = RFDETRLearnedEmbedding(
         num_queries,
         hidden_dim,
@@ -830,64 +899,156 @@ def _rf_detr_build(
         initializer="zeros",
         name="refpoint_embed_layer",
     )(memory)
+    return tgt, refpoint_embed
 
-    if two_stage:
-        output_memory_filtered, output_proposals = rf_detr_encoder_output_proposals(
-            memory,
-            spatial_shapes=spatial_shapes,
-            bbox_reparam=bbox_reparam,
-        )
 
-        enc_output_proj = layers.Dense(hidden_dim, name="enc_output_0")(
-            output_memory_filtered
-        )
-        enc_output_norm = layers.LayerNormalization(
-            epsilon=1e-5, name="enc_output_norm_0"
-        )
-        output_memory_proj = enc_output_norm(enc_output_proj)
+def rf_detr_two_stage_proposals(
+    memory,
+    refpoint_embed,
+    hidden_dim,
+    num_classes,
+    num_queries,
+    bbox_reparam,
+    spatial_shapes,
+):
+    """Refine reference points from top-k encoder proposals (two-stage init).
 
-        enc_cls = layers.Dense(num_classes, name="enc_out_class_embed_0")(
-            output_memory_proj
-        )
+    Generates anchor proposals from spatial grid positions across all
+    feature levels (:func:`rf_detr_encoder_output_proposals`), projects
+    and normalizes the encoder memory, predicts class scores + bbox
+    deltas on top of it, selects the top-``num_queries`` highest-scoring
+    anchors, and combines them with the learned ``refpoint_embed`` via
+    :func:`rf_detr_two_stage_refine_refpoints`.
 
-        bbox_embed_enc_0 = layers.Dense(
-            hidden_dim, activation="relu", name="enc_bbox_0"
-        )
-        bbox_embed_enc_1 = layers.Dense(
-            hidden_dim, activation="relu", name="enc_bbox_1"
-        )
-        bbox_embed_enc_2 = layers.Dense(4, name="enc_bbox_2")
+    Args:
+        memory: Encoder memory ``(B, H*W, hidden_dim)``.
+        refpoint_embed: Learned reference points
+            ``(B, num_queries, 4)``.
+        hidden_dim: Decoder hidden dimension.
+        num_classes: Number of classes for the first-stage class scoring
+            head (proposal scoring; not the final detection head).
+        num_queries: Number of object queries / top-k anchors to keep.
+        bbox_reparam: Whether to use bbox reparameterization
+            (multiplicative center + exponential size) instead of
+            additive refinement.
+        spatial_shapes: List of ``(H, W)`` per feature level (single
+            level for RF-DETR).
 
-        enc_bbox_delta = bbox_embed_enc_2(
-            bbox_embed_enc_1(bbox_embed_enc_0(output_memory_proj))
+    Returns:
+        ``(B, num_queries, 4)`` refined reference points.
+    """
+    output_memory_filtered, output_proposals = rf_detr_encoder_output_proposals(
+        memory,
+        spatial_shapes=spatial_shapes,
+        bbox_reparam=bbox_reparam,
+    )
+
+    enc_output_proj = layers.Dense(hidden_dim, name="enc_output_0")(
+        output_memory_filtered
+    )
+    enc_output_norm = layers.LayerNormalization(epsilon=1e-5, name="enc_output_norm_0")
+    output_memory_proj = enc_output_norm(enc_output_proj)
+
+    enc_cls = layers.Dense(num_classes, name="enc_out_class_embed_0")(
+        output_memory_proj
+    )
+
+    bbox_embed_enc_0 = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_0")
+    bbox_embed_enc_1 = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_1")
+    bbox_embed_enc_2 = layers.Dense(4, name="enc_bbox_2")
+
+    enc_bbox_delta = bbox_embed_enc_2(
+        bbox_embed_enc_1(bbox_embed_enc_0(output_memory_proj))
+    )
+
+    if bbox_reparam:
+        enc_coord_cxcy = (
+            enc_bbox_delta[..., :2] * output_proposals[..., 2:]
+            + output_proposals[..., :2]
         )
-
-        if bbox_reparam:
-            enc_coord_cxcy = (
-                enc_bbox_delta[..., :2] * output_proposals[..., 2:]
-                + output_proposals[..., :2]
-            )
-            enc_coord_wh = ops.exp(enc_bbox_delta[..., 2:]) * output_proposals[..., 2:]
-            enc_coords = ops.concatenate([enc_coord_cxcy, enc_coord_wh], axis=-1)
-        else:
-            enc_coords = enc_bbox_delta + output_proposals
-
-        enc_cls_max = ops.max(enc_cls, axis=-1)
-        topk_indices = ops.top_k(
-            enc_cls_max, k=min(num_queries, proj_shape[0] * proj_shape[1])
-        )[1]
-        topk_idx_4 = ops.repeat(ops.expand_dims(topk_indices, axis=-1), 4, axis=-1)
-        refpoint_embed_ts = ops.take_along_axis(enc_coords, topk_idx_4, axis=1)
-        refpoint_embed_ts = ops.stop_gradient(refpoint_embed_ts)
-
-        refpoints_unsigmoid = rf_detr_two_stage_refine_refpoints(
-            refpoint_embed,
-            refpoint_embed_ts,
-            bbox_reparam=bbox_reparam,
-            num_queries=num_queries,
-        )
+        enc_coord_wh = ops.exp(enc_bbox_delta[..., 2:]) * output_proposals[..., 2:]
+        enc_coords = ops.concatenate([enc_coord_cxcy, enc_coord_wh], axis=-1)
     else:
-        refpoints_unsigmoid = refpoint_embed
+        enc_coords = enc_bbox_delta + output_proposals
+
+    proj_shape = spatial_shapes[0]
+    enc_cls_max = ops.max(enc_cls, axis=-1)
+    topk_indices = ops.top_k(
+        enc_cls_max, k=min(num_queries, proj_shape[0] * proj_shape[1])
+    )[1]
+    topk_idx_4 = ops.repeat(ops.expand_dims(topk_indices, axis=-1), 4, axis=-1)
+    refpoint_embed_ts = ops.take_along_axis(enc_coords, topk_idx_4, axis=1)
+    refpoint_embed_ts = ops.stop_gradient(refpoint_embed_ts)
+
+    return rf_detr_two_stage_refine_refpoints(
+        refpoint_embed,
+        refpoint_embed_ts,
+        bbox_reparam=bbox_reparam,
+        num_queries=num_queries,
+    )
+
+
+def rf_detr_decoder(
+    memory,
+    tgt,
+    refpoints_unsigmoid,
+    hidden_dim,
+    dec_layers,
+    sa_nheads,
+    ca_nheads,
+    dec_n_points,
+    dim_feedforward,
+    lite_refpoint_refine,
+    bbox_reparam,
+    spatial_shapes,
+):
+    """Build the RF-DETR deformable decoder with iterative bbox refinement.
+
+    Runs ``dec_layers`` deformable cross-attention decoder layers
+    (:class:`RFDETRDecoderLayer`) on top of the encoder memory. Each
+    layer takes the current query features, a query positional
+    encoding derived from the current reference points, and a
+    reference-point sampling location for deformable attention.
+
+    Two refinement modes are supported:
+
+    - ``lite_refpoint_refine=True`` (default): reference points are
+      not refined between layers — the query positional encoding is
+      computed once from the initial refpoints, and the bbox head is
+      applied only after the final layer.
+    - ``lite_refpoint_refine=False``: each decoder layer re-encodes
+      the current refpoints into a query positional encoding and
+      applies the bbox head to refine refpoints between layers,
+      with gradient stopped between layers (standard DETR-style
+      iterative refinement).
+
+    Args:
+        memory: Encoder memory ``(B, H*W, hidden_dim)``.
+        tgt: Initial query features ``(B, num_queries, hidden_dim)``.
+        refpoints_unsigmoid: Initial reference points
+            ``(B, num_queries, 4)`` — either learned (no two-stage) or
+            from :func:`rf_detr_two_stage_proposals`.
+        hidden_dim: Decoder hidden dimension.
+        dec_layers: Number of decoder layers.
+        sa_nheads: Number of self-attention heads.
+        ca_nheads: Number of deformable cross-attention heads.
+        dec_n_points: Number of sampling points per head in deformable
+            cross-attention.
+        dim_feedforward: FFN dimension inside each decoder layer.
+        lite_refpoint_refine: See above.
+        bbox_reparam: Whether to use bbox reparameterization
+            (multiplicative + exponential) instead of additive refinement.
+        spatial_shapes: List of ``(H, W)`` per feature level (single
+            level for RF-DETR).
+
+    Returns:
+        last_hidden_state: ``(B, num_queries, hidden_dim)`` post-norm
+            query features after the final decoder layer.
+        pred_boxes: ``(B, num_queries, 4)`` final bounding box
+            predictions in (cx, cy, w, h) normalized coordinates.
+    """
+    level_start_index = [0]
+    num_feature_levels = len(spatial_shapes)
 
     ref_point_head_0 = layers.Dense(
         hidden_dim, activation="relu", name="ref_point_head_0"
@@ -929,7 +1090,7 @@ def _rf_detr_build(
         query_pos = ref_point_head_1(ref_point_head_0(query_sine))
 
     output = tgt
-    for layer_id, dec_layer in enumerate(decoder_layers_list):
+    for dec_layer in decoder_layers_list:
         if not lite_refpoint_refine:
             if bbox_reparam:
                 ref_for_query = refpoints_unsigmoid
@@ -967,9 +1128,9 @@ def _rf_detr_build(
                 refpoints_unsigmoid = refpoints_unsigmoid + new_delta
             refpoints_unsigmoid = ops.stop_gradient(refpoints_unsigmoid)
 
-    output = decoder_norm(output)
+    last_hidden_state = decoder_norm(output)
 
-    pred_bbox_delta = bbox_embed_2(bbox_embed_1(bbox_embed_0(output)))
+    pred_bbox_delta = bbox_embed_2(bbox_embed_1(bbox_embed_0(last_hidden_state)))
     if bbox_reparam:
         pred_cxcy = (
             pred_bbox_delta[..., :2] * refpoints_unsigmoid[..., 2:]
@@ -980,7 +1141,148 @@ def _rf_detr_build(
     else:
         pred_boxes = ops.sigmoid(pred_bbox_delta + refpoints_unsigmoid)
 
-    return output, pred_boxes
+    return last_hidden_state, pred_boxes
+
+
+def rf_detr_functional(
+    inputs,
+    hidden_dim,
+    backbone_hidden_size,
+    backbone_num_heads,
+    backbone_num_layers,
+    backbone_mlp_ratio,
+    backbone_use_swiglu,
+    num_register_tokens,
+    out_feature_indexes,
+    patch_size,
+    num_windows,
+    positional_encoding_size,
+    dec_layers,
+    sa_nheads,
+    ca_nheads,
+    dec_n_points,
+    num_queries,
+    num_classes,
+    two_stage,
+    bbox_reparam,
+    lite_refpoint_refine,
+    dim_feedforward,
+    input_shape,
+):
+    """Build the full RF-DETR architecture from an input tensor (no class head).
+
+    Top-level orchestrator that wires the four architectural stages:
+
+    1. :func:`rf_detr_backbone` — DINOv2 windowed-attention backbone
+       producing multi-scale features.
+    2. :func:`rf_detr_projector` — concat + C2F fusion of the backbone
+       features into a single decoder memory.
+    3. :func:`rf_detr_decoder_inputs` (+ optional
+       :func:`rf_detr_two_stage_proposals`) — initial query features
+       and reference points.
+    4. :func:`rf_detr_decoder` — deformable decoder with iterative
+       bbox refinement and the final bbox prediction head.
+
+    The final class prediction head is intentionally not built here —
+    it is added by :class:`RFDETRDetect`, which composes
+    :class:`RFDetrModel` around this graph.
+
+    Args:
+        inputs: Keras input tensor of shape ``(B, H, W, 3)`` (or
+            ``(B, 3, H, W)`` for ``channels_first``).
+        hidden_dim: Decoder hidden dimension.
+        backbone_hidden_size: DINOv2 backbone hidden size.
+        backbone_num_heads: Number of attention heads in backbone.
+        backbone_num_layers: Number of transformer layers in backbone.
+        backbone_mlp_ratio: MLP expansion ratio in backbone.
+        backbone_use_swiglu: Whether backbone uses SwiGLU FFN.
+        num_register_tokens: Number of DINOv2 register tokens.
+        out_feature_indexes: Backbone layers to extract features from.
+        patch_size: Patch size for DINOv2 patch embeddings.
+        num_windows: Number of windows for windowed attention.
+        positional_encoding_size: Size of positional encoding grid.
+        dec_layers: Number of decoder layers.
+        sa_nheads: Number of self-attention heads in decoder.
+        ca_nheads: Number of cross-attention heads in decoder.
+        dec_n_points: Number of sampling points in deformable attention.
+        num_queries: Number of object queries.
+        num_classes: Number of classes for the first-stage proposal
+            scoring head (not the final detection head).
+        two_stage: Whether to use two-stage query initialization.
+        bbox_reparam: Whether to use bbox reparameterization.
+        lite_refpoint_refine: Whether to use lite reference point
+            refinement.
+        dim_feedforward: FFN dimension in decoder.
+        input_shape: Input image shape excluding batch dim.
+
+    Returns:
+        last_hidden_state: ``(B, num_queries, hidden_dim)`` decoder
+            post-norm hidden states.
+        pred_boxes: ``(B, num_queries, 4)`` final bbox predictions in
+            (cx, cy, w, h) normalized coordinates.
+    """
+    data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else 1
+
+    features, spatial_shape = rf_detr_backbone(
+        inputs,
+        hidden_size=backbone_hidden_size,
+        num_heads=backbone_num_heads,
+        num_layers=backbone_num_layers,
+        mlp_ratio=backbone_mlp_ratio,
+        use_swiglu=backbone_use_swiglu,
+        num_register_tokens=num_register_tokens,
+        out_feature_indexes=out_feature_indexes,
+        patch_size=patch_size,
+        num_windows=num_windows,
+        positional_encoding_size=positional_encoding_size,
+        input_shape=input_shape,
+        data_format=data_format,
+    )
+
+    memory = rf_detr_projector(
+        features,
+        hidden_dim=hidden_dim,
+        spatial_shape=spatial_shape,
+        data_format=data_format,
+        channels_axis=channels_axis,
+    )
+
+    spatial_shapes = [spatial_shape]
+
+    tgt, refpoint_embed = rf_detr_decoder_inputs(
+        memory,
+        num_queries=num_queries,
+        hidden_dim=hidden_dim,
+    )
+
+    if two_stage:
+        refpoints_unsigmoid = rf_detr_two_stage_proposals(
+            memory,
+            refpoint_embed,
+            hidden_dim=hidden_dim,
+            num_classes=num_classes,
+            num_queries=num_queries,
+            bbox_reparam=bbox_reparam,
+            spatial_shapes=spatial_shapes,
+        )
+    else:
+        refpoints_unsigmoid = refpoint_embed
+
+    return rf_detr_decoder(
+        memory,
+        tgt,
+        refpoints_unsigmoid,
+        hidden_dim=hidden_dim,
+        dec_layers=dec_layers,
+        sa_nheads=sa_nheads,
+        ca_nheads=ca_nheads,
+        dec_n_points=dec_n_points,
+        dim_feedforward=dim_feedforward,
+        lite_refpoint_refine=lite_refpoint_refine,
+        bbox_reparam=bbox_reparam,
+        spatial_shapes=spatial_shapes,
+    )
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -1045,7 +1347,7 @@ class RFDetrModel(BaseModel):
             else:
                 img_input = input_tensor
 
-        last_hidden_state, pred_boxes = _rf_detr_build(
+        last_hidden_state, pred_boxes = rf_detr_functional(
             img_input,
             hidden_dim=hidden_dim,
             backbone_hidden_size=backbone_hidden_size,
