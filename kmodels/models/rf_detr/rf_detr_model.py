@@ -873,7 +873,7 @@ def rf_detr_decoder_inputs(
     (``refpoint_embed``) are learned per-query embeddings broadcast
     across the batch from ``memory``. Reference points are initialized
     to zero and later refined either by the two-stage proposal
-    selection (:func:`rf_detr_two_stage_proposals`) or directly by the
+    selection (:func:`rf_detr_two_stage_refpoints`) or directly by the
     decoder's iterative refinement loop.
 
     Args:
@@ -902,7 +902,7 @@ def rf_detr_decoder_inputs(
     return tgt, refpoint_embed
 
 
-def rf_detr_two_stage_proposals(
+def rf_detr_two_stage_refpoints(
     memory,
     refpoint_embed,
     hidden_dim,
@@ -1027,7 +1027,7 @@ def rf_detr_decoder(
         tgt: Initial query features ``(B, num_queries, hidden_dim)``.
         refpoints_unsigmoid: Initial reference points
             ``(B, num_queries, 4)`` — either learned (no two-stage) or
-            from :func:`rf_detr_two_stage_proposals`.
+            from :func:`rf_detr_two_stage_refpoints`.
         hidden_dim: Decoder hidden dimension.
         dec_layers: Number of decoder layers.
         sa_nheads: Number of self-attention heads.
@@ -1178,7 +1178,7 @@ def rf_detr_functional(
     2. :func:`rf_detr_projector` — concat + C2F fusion of the backbone
        features into a single decoder memory.
     3. :func:`rf_detr_decoder_inputs` (+ optional
-       :func:`rf_detr_two_stage_proposals`) — initial query features
+       :func:`rf_detr_two_stage_refpoints`) — initial query features
        and reference points.
     4. :func:`rf_detr_decoder` — deformable decoder with iterative
        bbox refinement and the final bbox prediction head.
@@ -1257,7 +1257,7 @@ def rf_detr_functional(
     )
 
     if two_stage:
-        refpoints_unsigmoid = rf_detr_two_stage_proposals(
+        refpoints_unsigmoid = rf_detr_two_stage_refpoints(
             memory,
             refpoint_embed,
             hidden_dim=hidden_dim,
