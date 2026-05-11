@@ -286,6 +286,216 @@ def detr_backbone(
     return x
 
 
+def detr_encoder(
+    backbone_features,
+    hidden_dim,
+    num_heads,
+    num_encoder_layers,
+    dim_feedforward,
+    dropout_rate,
+):
+    """Build DETR's transformer encoder on top of backbone features.
+
+    Projects the backbone's ``(B, H, W, 2048)`` feature map down to
+    ``hidden_dim`` channels with a 1x1 conv, adds sinusoidal 2-D
+    position embeddings, flattens both the features and the positions
+    into ``(B, H*W, hidden_dim)`` token sequences, and runs
+    ``num_encoder_layers`` post-norm transformer encoder layers
+    (self-attention with positional embeddings added to Q/K, then FFN).
+
+    Args:
+        backbone_features: ResNet backbone output, ``(B, H/32, W/32, C)``
+            for ``channels_last`` (C=2048 for ResNet-50).
+        hidden_dim: Transformer model dimension.
+        num_heads: Number of self-attention heads.
+        num_encoder_layers: Number of stacked encoder layers.
+        dim_feedforward: FFN dimension inside each encoder layer.
+        dropout_rate: Dropout probability inside attention/FFN.
+
+    Returns:
+        encoder_output: ``(B, H*W, hidden_dim)`` encoded token sequence.
+        pos: ``(B, H*W, hidden_dim)`` flattened position embeddings,
+            reused by the decoder's cross-attention.
+    """
+    data_format = keras.config.image_data_format()
+
+    projected = layers.Conv2D(
+        hidden_dim,
+        1,
+        padding="valid",
+        data_format=data_format,
+        name="input_projection",
+    )(backbone_features)
+
+    pos_embed = DETRPositionEmbeddingSine(
+        hidden_dim=hidden_dim,
+        name="position_embedding",
+    )(projected)
+
+    src = DETRFlattenFeatures(hidden_dim, name="flatten_src")(projected)
+    pos = DETRFlattenFeatures(hidden_dim, name="flatten_pos")(pos_embed)
+
+    encoder_output = src
+    for i in range(num_encoder_layers):
+        encoder_output = detr_encoder_layer(
+            encoder_output,
+            pos,
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            dim_feedforward=dim_feedforward,
+            dropout_rate=dropout_rate,
+            block_prefix=f"encoder_layers_{i}",
+        )
+
+    return encoder_output, pos
+
+
+def detr_decoder(
+    encoder_output,
+    pos,
+    hidden_dim,
+    num_heads,
+    num_decoder_layers,
+    dim_feedforward,
+    dropout_rate,
+    num_queries,
+):
+    """Build DETR's transformer decoder on top of encoder outputs.
+
+    Creates ``num_queries`` learned query position embeddings, runs
+    ``num_decoder_layers`` post-norm transformer decoder layers
+    (self-attention between queries with query positions added to Q/K,
+    then cross-attention to the encoder memory with image positions
+    added to keys, then FFN), and applies a final LayerNorm. Each
+    decoder layer starts from zeros and is offset by the learned
+    queries; the final hidden state is what classification + bbox
+    heads consume in ``DETRDetect``.
+
+    Args:
+        encoder_output: Encoded token sequence from :func:`detr_encoder`.
+        pos: Flattened image position embeddings (also from
+            :func:`detr_encoder`); added to encoder keys in cross-attention.
+        hidden_dim: Transformer model dimension.
+        num_heads: Number of attention heads.
+        num_decoder_layers: Number of stacked decoder layers.
+        dim_feedforward: FFN dimension inside each decoder layer.
+        dropout_rate: Dropout probability inside attention/FFN.
+        num_queries: Number of learned object queries.
+
+    Returns:
+        Decoder ``last_hidden_state`` of shape
+        ``(B, num_queries, hidden_dim)`` — the DETR equivalent of
+        HuggingFace's ``DetrModel.last_hidden_state``.
+    """
+    query_embed = DETRExpandQueryEmbedding(
+        num_queries,
+        hidden_dim,
+        name="query_position_embeddings",
+    )(encoder_output)
+
+    decoder_output = ops.zeros_like(query_embed)
+    for i in range(num_decoder_layers):
+        decoder_output = detr_decoder_layer(
+            decoder_output,
+            encoder_output,
+            pos,
+            query_embed,
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            dim_feedforward=dim_feedforward,
+            dropout_rate=dropout_rate,
+            block_prefix=f"decoder_layers_{i}",
+        )
+
+    last_hidden_state = layers.LayerNormalization(
+        epsilon=1e-5,
+        name="decoder_layernorm",
+    )(decoder_output)
+
+    return last_hidden_state
+
+
+def detr_functional(
+    inputs,
+    backbone_variant,
+    hidden_dim,
+    num_heads,
+    num_encoder_layers,
+    num_decoder_layers,
+    dim_feedforward,
+    dropout_rate,
+    num_queries,
+    include_normalization,
+    normalization_mode,
+):
+    """Build the full DETR architecture from an input tensor (no class heads).
+
+    Top-level orchestrator that wires the three architectural stages:
+
+    1. :func:`detr_backbone` — ResNet-50 / ResNet-101 produces a
+       ``(B, H/32, W/32, 2048)`` feature map.
+    2. :func:`detr_encoder` — 1x1 input projection + sine position
+       embedding + flatten + ``num_encoder_layers`` transformer encoder
+       layers.
+    3. :func:`detr_decoder` — learned object queries +
+       ``num_decoder_layers`` transformer decoder layers + final
+       LayerNorm.
+
+    Classification + bounding-box prediction heads are intentionally
+    not built here — they are added by :class:`DETRDetect`, which
+    composes :class:`DetrModel` around this graph.
+
+    Args:
+        inputs: Keras input tensor of shape ``(B, H, W, 3)`` (or
+            ``(B, 3, H, W)`` for ``channels_first``).
+        backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
+        hidden_dim: Transformer model dimension.
+        num_heads: Number of attention heads in encoder and decoder.
+        num_encoder_layers: Number of transformer encoder layers.
+        num_decoder_layers: Number of transformer decoder layers.
+        dim_feedforward: FFN dimension inside each transformer layer.
+        dropout_rate: Dropout probability inside attention/FFN.
+        num_queries: Number of learned object queries.
+        include_normalization: Whether to prepend an
+            :class:`ImageNormalizationLayer` (apply only when ``inputs``
+            is in raw ``[0, 255]`` pixel space).
+        normalization_mode: Normalization preset (e.g. ``"imagenet"``).
+
+    Returns:
+        Decoder ``last_hidden_state`` of shape
+        ``(B, num_queries, hidden_dim)``.
+    """
+    data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else 1
+
+    backbone_features = detr_backbone(
+        inputs,
+        backbone_variant=backbone_variant,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
+        data_format=data_format,
+        channels_axis=channels_axis,
+    )
+    encoder_output, pos = detr_encoder(
+        backbone_features,
+        hidden_dim=hidden_dim,
+        num_heads=num_heads,
+        num_encoder_layers=num_encoder_layers,
+        dim_feedforward=dim_feedforward,
+        dropout_rate=dropout_rate,
+    )
+    return detr_decoder(
+        encoder_output,
+        pos,
+        hidden_dim=hidden_dim,
+        num_heads=num_heads,
+        num_decoder_layers=num_decoder_layers,
+        dim_feedforward=dim_feedforward,
+        dropout_rate=dropout_rate,
+        num_queries=num_queries,
+    )
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
 class DetrModel(BaseModel):
     """DETR backbone + transformer encoder/decoder (no detection heads).
@@ -330,70 +540,19 @@ class DetrModel(BaseModel):
             else:
                 img_input = input_tensor
 
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        backbone_features = detr_backbone(
+        last_hidden_state = detr_functional(
             img_input,
             backbone_variant=backbone_variant,
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            num_encoder_layers=num_encoder_layers,
+            num_decoder_layers=num_decoder_layers,
+            dim_feedforward=dim_feedforward,
+            dropout_rate=dropout_rate,
+            num_queries=num_queries,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            data_format=data_format,
-            channels_axis=channels_axis,
         )
-
-        projected = layers.Conv2D(
-            hidden_dim,
-            1,
-            padding="valid",
-            data_format=data_format,
-            name="input_projection",
-        )(backbone_features)
-
-        pos_embed = DETRPositionEmbeddingSine(
-            hidden_dim=hidden_dim,
-            name="position_embedding",
-        )(projected)
-
-        src = DETRFlattenFeatures(hidden_dim, name="flatten_src")(projected)
-        pos = DETRFlattenFeatures(hidden_dim, name="flatten_pos")(pos_embed)
-
-        encoder_output = src
-        for i in range(num_encoder_layers):
-            encoder_output = detr_encoder_layer(
-                encoder_output,
-                pos,
-                hidden_dim=hidden_dim,
-                num_heads=num_heads,
-                dim_feedforward=dim_feedforward,
-                dropout_rate=dropout_rate,
-                block_prefix=f"encoder_layers_{i}",
-            )
-
-        query_embed = DETRExpandQueryEmbedding(
-            num_queries,
-            hidden_dim,
-            name="query_position_embeddings",
-        )(encoder_output)
-
-        decoder_output = ops.zeros_like(query_embed)
-        for i in range(num_decoder_layers):
-            decoder_output = detr_decoder_layer(
-                decoder_output,
-                encoder_output,
-                pos,
-                query_embed,
-                hidden_dim=hidden_dim,
-                num_heads=num_heads,
-                dim_feedforward=dim_feedforward,
-                dropout_rate=dropout_rate,
-                block_prefix=f"decoder_layers_{i}",
-            )
-
-        last_hidden_state = layers.LayerNormalization(
-            epsilon=1e-5,
-            name="decoder_layernorm",
-        )(decoder_output)
 
         super().__init__(
             inputs=img_input, outputs=last_hidden_state, name=name, **kwargs
