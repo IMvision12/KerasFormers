@@ -1,53 +1,12 @@
 import json
 
 import keras
+from huggingface_hub import hf_hub_download
+from huggingface_hub.utils import EntryNotFoundError
 
 from kmodels.weight_utils import download_file
 
 _HF_PREFIX = "hf:"
-
-
-def _hf_download(hf_id, filename):
-    """Download a single file from a HuggingFace Hub repo.
-
-    Uses ``huggingface_hub.hf_hub_download`` directly so that
-    ``transformers`` is **not** required for HF loading.
-    """
-    try:
-        from huggingface_hub import hf_hub_download
-    except ImportError as e:
-        raise ImportError(
-            "Loading from HuggingFace requires the `huggingface_hub` package. "
-            "Install it with `pip install huggingface_hub`."
-        ) from e
-    from huggingface_hub.utils import EntryNotFoundError  # noqa: F401
-
-    return hf_hub_download(hf_id, filename)
-
-
-def _hf_try_download(hf_id, filename):
-    """Best-effort download. Returns ``None`` if ``filename`` is absent."""
-    try:
-        from huggingface_hub.utils import EntryNotFoundError
-    except ImportError:
-        EntryNotFoundError = Exception  # type: ignore[misc]
-    try:
-        return _hf_download(hf_id, filename)
-    except EntryNotFoundError:
-        return None
-    except Exception as e:  # noqa: BLE001
-        # huggingface_hub raises different exception classes across versions;
-        # fall through silently and let the caller try the next candidate.
-        if "404" in str(e) or "not found" in str(e).lower():
-            return None
-        raise
-
-
-def _load_hf_config(hf_id):
-    """Download ``config.json`` from an HF repo and return it as a dict."""
-    path = _hf_download(hf_id, "config.json")
-    with open(path, "r") as f:
-        return json.load(f)
 
 
 def hf_num_labels(hf_config):
@@ -82,14 +41,20 @@ def _load_hf_state_dict(hf_id):
     4. ``pytorch_model.bin.index.json`` (sharded pickle)
     """
     # 1. Single-file safetensors
-    path = _hf_try_download(hf_id, "model.safetensors")
+    try:
+        path = hf_hub_download(hf_id, "model.safetensors")
+    except EntryNotFoundError:
+        path = None
     if path is not None:
         from safetensors.numpy import load_file
 
         return load_file(path)
 
     # 2. Sharded safetensors
-    index_path = _hf_try_download(hf_id, "model.safetensors.index.json")
+    try:
+        index_path = hf_hub_download(hf_id, "model.safetensors.index.json")
+    except EntryNotFoundError:
+        index_path = None
     if index_path is not None:
         from safetensors.numpy import load_file
 
@@ -98,12 +63,15 @@ def _load_hf_state_dict(hf_id):
         weight_map = index["weight_map"]
         state_dict = {}
         for shard_file in sorted(set(weight_map.values())):
-            shard_path = _hf_download(hf_id, shard_file)
+            shard_path = hf_hub_download(hf_id, shard_file)
             state_dict.update(load_file(shard_path))
         return state_dict
 
     # 3. Single-file pytorch_model.bin
-    path = _hf_try_download(hf_id, "pytorch_model.bin")
+    try:
+        path = hf_hub_download(hf_id, "pytorch_model.bin")
+    except EntryNotFoundError:
+        path = None
     if path is not None:
         import torch
 
@@ -111,7 +79,10 @@ def _load_hf_state_dict(hf_id):
         return {k: v.cpu().numpy() if hasattr(v, "cpu") else v for k, v in sd.items()}
 
     # 4. Sharded pytorch_model.bin
-    index_path = _hf_try_download(hf_id, "pytorch_model.bin.index.json")
+    try:
+        index_path = hf_hub_download(hf_id, "pytorch_model.bin.index.json")
+    except EntryNotFoundError:
+        index_path = None
     if index_path is not None:
         import torch
 
@@ -120,7 +91,7 @@ def _load_hf_state_dict(hf_id):
         weight_map = index["weight_map"]
         state_dict = {}
         for shard_file in sorted(set(weight_map.values())):
-            shard_path = _hf_download(hf_id, shard_file)
+            shard_path = hf_hub_download(hf_id, shard_file)
             shard = torch.load(shard_path, map_location="cpu", weights_only=True)
             state_dict.update(
                 {
@@ -250,7 +221,8 @@ class BaseModel(keras.Model):
 
     @classmethod
     def _from_hf(cls, hf_id, load_weights=True, **kwargs):
-        hf_config = _load_hf_config(hf_id)
+        with open(hf_hub_download(hf_id, "config.json"), "r") as f:
+            hf_config = json.load(f)
         cls._assert_hf_model_type(hf_id, hf_config)
         kmodels_kwargs = cls._config_from_hf(hf_config)
         kmodels_kwargs.update(kwargs)
