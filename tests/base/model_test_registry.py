@@ -470,31 +470,31 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": None,
     },
-    "DinoV3ViTSmall16": {
+    "DinoV3ViTBackbone": {
         "module": "kmodels.models.dino_v3",
-        "model_cls": "DinoV3ViTSmall16",
+        "model_cls": "DinoV3ViTBackbone",
         "model_type": "backbone",
         "init_kwargs": {
-            "weights": None,
+            "patch_size": 16,
+            "dim": 384,
+            "depth": 12,
+            "num_heads": 6,
             "input_shape": (32, 32, 3),
-            "include_top": True,
-            "num_classes": 1000,
         },
         "input_shape": (2, 32, 32, 3),
-        "expected_output_shape": (2, 1000),
+        "expected_output_shape": None,
     },
-    "DinoV3ConvNeXtTiny": {
+    "DinoV3ConvNeXtBackbone": {
         "module": "kmodels.models.dino_v3",
-        "model_cls": "DinoV3ConvNeXtTiny",
+        "model_cls": "DinoV3ConvNeXtBackbone",
         "model_type": "backbone",
         "init_kwargs": {
-            "weights": None,
+            "depths": [3, 3, 9, 3],
+            "projection_dims": [96, 192, 384, 768],
             "input_shape": (32, 32, 3),
-            "include_top": True,
-            "num_classes": 1000,
         },
         "input_shape": (2, 32, 32, 3),
-        "expected_output_shape": (2, 1000),
+        "expected_output_shape": None,
     },
     "DFineDetect": {
         "module": "kmodels.models.dfine",

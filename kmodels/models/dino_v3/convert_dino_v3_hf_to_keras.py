@@ -14,20 +14,23 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-DINOV3_HF_MODEL_IDS = {
-    "DinoV3ViTSmall16": "facebook/dinov3-vits16-pretrain-lvd1689m",
-    "DinoV3ViTBase16": "facebook/dinov3-vitb16-pretrain-lvd1689m",
-    "DinoV3ViTLarge16": "facebook/dinov3-vitl16-pretrain-lvd1689m",
-    "DinoV3ConvNeXtTiny": "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
-    "DinoV3ConvNeXtSmall": "facebook/dinov3-convnext-small-pretrain-lvd1689m",
-    "DinoV3ConvNeXtBase": "facebook/dinov3-convnext-base-pretrain-lvd1689m",
-    "DinoV3ConvNeXtLarge": "facebook/dinov3-convnext-large-pretrain-lvd1689m",
-}
+DINOV3_VIT_VARIANTS = [
+    ("dinov3_vits16", "facebook/dinov3-vits16-pretrain-lvd1689m"),
+    ("dinov3_vitb16", "facebook/dinov3-vitb16-pretrain-lvd1689m"),
+    ("dinov3_vitl16", "facebook/dinov3-vitl16-pretrain-lvd1689m"),
+]
+
+DINOV3_CONVNEXT_VARIANTS = [
+    ("dinov3_convnext_tiny", "facebook/dinov3-convnext-tiny-pretrain-lvd1689m"),
+    ("dinov3_convnext_small", "facebook/dinov3-convnext-small-pretrain-lvd1689m"),
+    ("dinov3_convnext_base", "facebook/dinov3-convnext-base-pretrain-lvd1689m"),
+    ("dinov3_convnext_large", "facebook/dinov3-convnext-large-pretrain-lvd1689m"),
+]
 
 DINOV3_VIT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "patch.embed": "embeddings.patch_embeddings",
-    "blocks.": "layer.",
+    "blocks.": "model.layer.",
     "dense.1": "mlp.up_proj",
     "dense.2": "mlp.down_proj",
     "layernorm.1": "norm1",
@@ -48,13 +51,13 @@ def _resolve_vit_attention(keras_weight_path: str):
     if m:
         idx = int(m.group(1))
         suffix = "weight" if "kernel" in var_name else "bias"
-        return f"layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
+        return f"model.layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
 
     m = re.match(r"blocks_(\d+)_attn_proj$", layer_name)
     if m:
         idx = int(m.group(1))
         suffix = "weight" if "kernel" in var_name else "bias"
-        return f"layer.{idx}.attention.o_proj.{suffix}"
+        return f"model.layer.{idx}.attention.o_proj.{suffix}"
 
     return None
 
@@ -66,7 +69,7 @@ def _resolve_vit_layer_scale(keras_weight_path: str):
         return None
     idx = int(m.group(1))
     which = m.group(2)
-    return f"layer.{idx}.layer_scale{which}.lambda1"
+    return f"model.layer.{idx}.layer_scale{which}.lambda1"
 
 
 def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
@@ -133,15 +136,15 @@ def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
 _VAR_MAP = {"kernel": "weight", "gamma": "weight", "bias": "bias", "beta": "bias"}
 
 DINOV3_CONVNEXT_WEIGHT_MAPPING = {
-    r"stem_conv_(kernel|bias)": "stages.0.downsample_layers.0.{v}",
-    r"stem_layernorm_(gamma|beta)": "stages.0.downsample_layers.1.{v}",
-    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "stages.{0}.downsample_layers.0.{v}",
-    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "stages.{0}.downsample_layers.1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "stages.{0}.layers.{1}.gamma",
-    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "stages.{0}.layers.{1}.depthwise_conv.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "stages.{0}.layers.{1}.layer_norm.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv2.{v}",
+    r"stem_conv_(kernel|bias)": "model.stages.0.downsample_layers.0.{v}",
+    r"stem_layernorm_(gamma|beta)": "model.stages.0.downsample_layers.1.{v}",
+    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "model.stages.{0}.downsample_layers.0.{v}",
+    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "model.stages.{0}.downsample_layers.1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "model.stages.{0}.layers.{1}.gamma",
+    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "model.stages.{0}.layers.{1}.depthwise_conv.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "model.stages.{0}.layers.{1}.layer_norm.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv2.{v}",
     r"final_layernorm_(gamma|beta)": "layer_norm.{v}",
 }
 
@@ -196,45 +199,26 @@ if __name__ == "__main__":
     import torch
     from transformers import AutoModel
 
-    from kmodels.models.dino_v3.dino_v3_model import (
-        DinoV3ConvNeXtBase,
-        DinoV3ConvNeXtLarge,
-        DinoV3ConvNeXtSmall,
-        DinoV3ConvNeXtTiny,
-        DinoV3ViTBase16,
-        DinoV3ViTLarge16,
-        DinoV3ViTSmall16,
+    from kmodels.models.dino_v3 import (
+        DinoV3ConvNeXtBackbone,
+        DinoV3ViTBackbone,
     )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
-    VIT_VARIANTS = [
-        ("DinoV3ViTSmall16", DinoV3ViTSmall16, "dinov3_vits16"),
-        ("DinoV3ViTBase16", DinoV3ViTBase16, "dinov3_vitb16"),
-        ("DinoV3ViTLarge16", DinoV3ViTLarge16, "dinov3_vitl16"),
-    ]
-
-    CONVNEXT_VARIANTS = [
-        ("DinoV3ConvNeXtTiny", DinoV3ConvNeXtTiny, "dinov3_convnext_tiny"),
-        ("DinoV3ConvNeXtSmall", DinoV3ConvNeXtSmall, "dinov3_convnext_small"),
-        ("DinoV3ConvNeXtBase", DinoV3ConvNeXtBase, "dinov3_convnext_base"),
-        ("DinoV3ConvNeXtLarge", DinoV3ConvNeXtLarge, "dinov3_convnext_large"),
-    ]
-
-    for name, ctor, save_name in VIT_VARIANTS:
-        hf_id = DINOV3_HF_MODEL_IDS[name]
+    for variant, hf_id in DINOV3_VIT_VARIANTS:
         print(f"\n{'=' * 60}")
-        print(f"Converting ViT: {name}  <-  {hf_id}")
+        print(f"Converting ViT: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
         hf_model = AutoModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = ctor(
-            include_top=False,
-            include_normalization=False,
+        keras_model = DinoV3ViTBackbone.from_weights(
+            variant,
+            load_weights=False,
             input_shape=(224, 224, 3),
-            weights=None,
+            include_normalization=False,
         )
         transfer_dinov3_vit_weights(keras_model, hf_sd)
 
@@ -247,17 +231,16 @@ if __name__ == "__main__":
                 .numpy()
             )
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        k_out = keras_model(k_in, training=False)
+        # Backbone output is a list of intermediate features; take last
+        last = keras_model(k_in, training=False)[-1]
         k_out = (
-            k_out.detach().cpu().numpy()
-            if hasattr(k_out, "detach")
-            else np.asarray(k_out)
+            last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )
         diff = float(np.abs(k_out - hf_out).max())
-        assert diff < 1e-2, f"{name}: max diff {diff:.2e}"
+        assert diff < 1e-2, f"{variant}: max diff {diff:.2e}"
         print(f"  Verification OK (max diff = {diff:.2e})")
 
-        out = f"{save_name}.weights.h5"
+        out = f"{variant}.weights.h5"
         keras_model.save_weights(out)
         print(f"  Saved -> {out}")
 
@@ -266,20 +249,19 @@ if __name__ == "__main__":
         gc.collect()
         torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
-    for name, ctor, save_name in CONVNEXT_VARIANTS:
-        hf_id = DINOV3_HF_MODEL_IDS[name]
+    for variant, hf_id in DINOV3_CONVNEXT_VARIANTS:
         print(f"\n{'=' * 60}")
-        print(f"Converting ConvNeXt: {name}  <-  {hf_id}")
+        print(f"Converting ConvNeXt: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
         hf_model = AutoModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = ctor(
-            include_top=False,
-            include_normalization=False,
+        keras_model = DinoV3ConvNeXtBackbone.from_weights(
+            variant,
+            load_weights=False,
             input_shape=(224, 224, 3),
-            weights=None,
+            include_normalization=False,
         )
         transfer_dinov3_convnext_weights(keras_model, hf_sd)
 
@@ -289,20 +271,18 @@ if __name__ == "__main__":
             hf_out_obj = hf_model(
                 pixel_values=torch.from_numpy(x_np), output_hidden_states=True
             )
-
             hf_feat = hf_out_obj.hidden_states[-1].permute(0, 2, 3, 1).cpu().numpy()
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        k_out = keras_model(k_in, training=False)
+        # Backbone output is a list of stage features; compare last
+        last = keras_model(k_in, training=False)[-1]
         k_out = (
-            k_out.detach().cpu().numpy()
-            if hasattr(k_out, "detach")
-            else np.asarray(k_out)
+            last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )
         diff = float(np.abs(k_out - hf_feat).max())
-        assert diff < 1e-2, f"{name}: max diff {diff:.2e}"
+        assert diff < 1e-2, f"{variant}: max diff {diff:.2e}"
         print(f"  Verification OK (max diff = {diff:.2e})")
 
-        out = f"{save_name}.weights.h5"
+        out = f"{variant}.weights.h5"
         keras_model.save_weights(out)
         print(f"  Saved -> {out}")
 

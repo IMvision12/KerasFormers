@@ -1,20 +1,19 @@
 import keras
 from keras import layers, ops, utils
-from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer, LayerScale
-from kmodels.model_registry import register_model
 from kmodels.models.convnext.convnext_model import ConvNeXt
-from kmodels.weight_utils.hf_gated_weight_download import load_gated_weights_from_hf
-
-from .config import (
-    DINOV3_CONVNEXT_MODEL_CONFIG,
-    DINOV3_VIT_MODEL_CONFIG,
-)
-from .convert_dino_v3_hf_to_keras import (
-    DINOV3_HF_MODEL_IDS,
+from kmodels.models.dino_v3.convert_dino_v3_hf_to_keras import (
     transfer_dinov3_convnext_weights,
     transfer_dinov3_vit_weights,
+)
+
+from .config import (
+    DINOV3_CONVNEXT_CONFIG,
+    DINOV3_CONVNEXT_WEIGHTS,
+    DINOV3_VIT_CONFIG,
+    DINOV3_VIT_WEIGHTS,
 )
 from .dino_v3_layers import (
     DinoV3Attention,
@@ -25,22 +24,7 @@ from .dino_v3_layers import (
 
 
 def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx):
-    """
-    Implements a SwiGLU feed-forward network.
-
-    Computes ``gate = SiLU(x @ W_gate)``, ``up = x @ W_up``, and returns
-    ``(gate * up) @ W_down``. SwiGLU typically yields better performance
-    than standard GELU MLP at the same parameter count.
-
-    Args:
-        x: Input tensor of shape ``(batch, seq_len, dim)``.
-        dim: Integer, output dimension (same as input).
-        hidden_dim: Integer, intermediate dimension for gate and up projections.
-        block_idx: Integer, block index used for layer naming.
-
-    Returns:
-        Output tensor of the same shape as the input.
-    """
+    """SwiGLU gated feed-forward network used in DINOv3 ViT blocks."""
     gate = layers.Dense(
         hidden_dim, use_bias=True, name=f"blocks_{block_idx}_swiglu_gate"
     )(x)
@@ -54,18 +38,7 @@ def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx):
 
 
 def dinov3_mlp_block(x, dim, hidden_dim, block_idx):
-    """
-    Implements a standard two-layer MLP with GELU activation.
-
-    Args:
-        x: Input tensor of shape ``(batch, seq_len, dim)``.
-        dim: Integer, output dimension (same as input).
-        hidden_dim: Integer, intermediate hidden dimension.
-        block_idx: Integer, block index used for layer naming.
-
-    Returns:
-        Output tensor of the same shape as the input.
-    """
+    """Standard two-layer MLP with GELU activation."""
     x = layers.Dense(hidden_dim, use_bias=True, name=f"blocks_{block_idx}_dense_1")(x)
     x = layers.Activation("gelu", name=f"blocks_{block_idx}_gelu")(x)
     x = layers.Dense(dim, use_bias=True, name=f"blocks_{block_idx}_dense_2")(x)
@@ -85,33 +58,7 @@ def dinov3_transformer_block(
     rope_cos,
     rope_sin,
 ):
-    """
-    Implements a DINOv3 transformer block with self-attention and MLP.
-
-    The block consists of two residual branches:
-    1. Multi-head self-attention with 2D RoPE
-    2. Feed-forward network (SwiGLU or standard GELU MLP)
-
-    Both branches use pre-normalization (LayerNorm) and optional LayerScale.
-
-    Args:
-        inputs: Input tensor of shape ``(batch, seq_len, dim)``.
-        dim: Integer, embedding dimension.
-        num_heads: Integer, number of attention heads.
-        mlp_hidden_dim: Integer, hidden dimension for the MLP.
-        num_prefix_tokens: Integer, number of non-patch tokens (CLS + registers)
-            excluded from RoPE.
-        rope_theta: Float, RoPE frequency base.
-        use_swiglu: Boolean, whether to use SwiGLU FFN instead of GELU MLP.
-        init_values: Float or None, initial value for LayerScale. If None,
-            LayerScale is not applied.
-        block_idx: Integer, block index used for layer naming.
-        rope_cos: Tensor, precomputed RoPE cosine table.
-        rope_sin: Tensor, precomputed RoPE sine table.
-
-    Returns:
-        Output tensor with the same shape as the input.
-    """
+    """DINOv3 transformer block with 2D-RoPE self-attention + MLP."""
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
@@ -146,46 +93,65 @@ def dinov3_transformer_block(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DinoV3ViT(keras.Model):
-    """Instantiates a DINOv3 Vision Transformer with 2D RoPE and register tokens.
+class DinoV3ViTBackbone(BaseModel):
+    """DINOv3 Vision Transformer backbone with 2D RoPE and register tokens.
+
+    Returns the list of intermediate feature maps (initial embedding +
+    each transformer block), suitable for feeding into detection /
+    segmentation / depth necks.
+
+    Weights are gated on HuggingFace — see
+    https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m for
+    license acceptance. Accept the license and set ``HF_TOKEN`` env var
+    before calling :meth:`from_weights`.
 
     Reference:
-    - [DINOv3](https://arxiv.org/abs/2508.10104)
+        - `DINOv3 <https://arxiv.org/abs/2508.10104>`_
 
     Args:
-        patch_size: Integer, patch size for embedding. Defaults to ``16``.
-        dim: Integer, embedding dimension. Defaults to ``768``.
-        depth: Integer, number of transformer blocks. Defaults to ``12``.
-        num_heads: Integer, number of attention heads. Defaults to ``12``.
-        mlp_ratio: Float, MLP hidden dim ratio. Defaults to ``4.0``.
-        use_swiglu: Boolean, use SwiGLU FFN instead of GELU MLP.
+        patch_size: ViT patch size. DINOv3 uses 16.
+        dim: Hidden dimension.
+        depth: Number of transformer encoder layers.
+        num_heads: Number of attention heads per layer.
+        mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
+        use_swiglu: Whether to use SwiGLU FFN instead of GELU MLP.
             Defaults to ``False``.
-        num_register_tokens: Integer, number of register tokens.
-            Defaults to ``4``.
-        init_values: Float, LayerScale init value. Defaults to ``1.0``.
-        rope_theta: Float, RoPE frequency base. Defaults to ``100.0``.
-        include_top: Boolean, whether to include a classification head.
-            Defaults to ``False``.
-        as_backbone: Boolean, whether to return intermediate feature maps.
-            Defaults to ``False``.
-        include_normalization: Boolean, whether to include input normalization.
-            Defaults to ``True``.
-        normalization_mode: String, normalization mode. Defaults to ``"imagenet"``.
-        weights: String or None, weight identifier or file path.
-        input_shape: Optional tuple for input shape.
-            Defaults to ``(224, 224, 3)``.
-        input_tensor: Optional Keras tensor as input.
-        pooling: Optional pooling mode when ``include_top=False``:
-            ``None`` returns the token sequence, ``"avg"`` or ``"max"``
-            applies global pooling.
-        num_classes: Integer, number of output classes.
-        classifier_activation: String, activation for classification head.
-            Defaults to ``"softmax"``.
-        name: String, model name.
-
-    Returns:
-        A Keras ``Model`` instance.
+        num_register_tokens: Number of register tokens. Defaults to ``4``.
+        init_values: LayerScale init value. Defaults to ``1.0``.
+        rope_theta: 2D-RoPE frequency base. Defaults to ``100.0``.
+        include_normalization: Whether to prepend
+            :class:`ImageNormalizationLayer`.
+        normalization_mode: Normalization preset.
+        input_shape: Image input shape excluding batch dim. Defaults to
+            ``(224, 224, 3)``.
+        input_tensor: Optional pre-existing Keras input tensor.
+        name: Model name.
     """
+
+    KMODELS_CONFIG = DINOV3_VIT_CONFIG
+    KMODELS_WEIGHTS = DINOV3_VIT_WEIGHTS
+    HF_MODEL_TYPE = "dinov3_vit"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        intermediate = hf_config.get("intermediate_size")
+        hidden = hf_config["hidden_size"]
+        mlp_ratio = intermediate / hidden if intermediate else 4.0
+        return {
+            "patch_size": hf_config.get("patch_size", 16),
+            "dim": hidden,
+            "depth": hf_config["num_hidden_layers"],
+            "num_heads": hf_config["num_attention_heads"],
+            "mlp_ratio": mlp_ratio,
+            "use_swiglu": hf_config.get("use_gated_mlp", False),
+            "num_register_tokens": hf_config.get("num_register_tokens", 4),
+            "init_values": hf_config.get("layerscale_value", 1.0),
+            "rope_theta": hf_config.get("rope_theta", 100.0),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        transfer_dinov3_vit_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
@@ -198,38 +164,16 @@ class DinoV3ViT(keras.Model):
         num_register_tokens=4,
         init_values=1.0,
         rope_theta=100.0,
-        include_top=False,
-        as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights=None,
         input_shape=None,
         input_tensor=None,
-        pooling=None,
-        num_classes=None,
-        classifier_activation="softmax",
-        name="DinoV3ViT",
+        name="DinoV3ViTBackbone",
         **kwargs,
     ):
-        if include_top and num_classes is None:
-            num_classes = 1000
-
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
         data_format = keras.config.image_data_format()
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
-        )
+        if input_shape is None and input_tensor is None:
+            input_shape = (224, 224, 3)
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
@@ -239,13 +183,8 @@ class DinoV3ViT(keras.Model):
             else:
                 img_input = input_tensor
 
-        inputs = img_input
-        features = []
-
         if data_format == "channels_first":
-            _, height, width = (
-                input_shape if len(input_shape) == 3 else (None, *input_shape[1:])
-            )
+            height, width = input_shape[1], input_shape[2]
         else:
             height, width = input_shape[0], input_shape[1]
 
@@ -254,10 +193,7 @@ class DinoV3ViT(keras.Model):
         num_prefix_tokens = 1 + num_register_tokens
 
         rope_cos_np, rope_sin_np = build_rope_2d_cache(
-            grid_h,
-            grid_w,
-            dim // num_heads,
-            theta=rope_theta,
+            grid_h, grid_w, dim // num_heads, theta=rope_theta
         )
         rope_cos = ops.convert_to_tensor(rope_cos_np)
         rope_sin = ops.convert_to_tensor(rope_sin_np)
@@ -268,9 +204,9 @@ class DinoV3ViT(keras.Model):
             mlp_hidden_dim = int(dim * mlp_ratio)
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
         x = layers.Conv2D(
             filters=dim,
@@ -281,16 +217,13 @@ class DinoV3ViT(keras.Model):
             name="patch_embed",
         )(x)
         x = layers.Reshape((-1, dim))(x)
-
         x = DinoV3CLSToken(name="cls_token")(x)
-
         if num_register_tokens > 0:
             x = DinoV3RegisterTokens(
                 num_tokens=num_register_tokens, name="register_tokens"
             )(x)
 
-        features.append(x)
-
+        features = [x]
         for i in range(depth):
             x = dinov3_transformer_block(
                 x,
@@ -306,29 +239,12 @@ class DinoV3ViT(keras.Model):
                 rope_sin=rope_sin,
             )
             features.append(x)
+        # Final LayerNorm applied to last feature
+        features[-1] = layers.LayerNormalization(
+            epsilon=1e-6, axis=-1, name="final_layernorm"
+        )(features[-1])
 
-        x = layers.LayerNormalization(epsilon=1e-6, axis=-1, name="final_layernorm")(x)
-
-        if include_top:
-            x = layers.Lambda(lambda v: v[:, 0], name="extract_cls")(x)
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling1D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling1D(data_format=data_format, name="max_pool")(
-                    x
-                )
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.dim = dim
@@ -339,14 +255,10 @@ class DinoV3ViT(keras.Model):
         self.num_register_tokens = num_register_tokens
         self.init_values = init_values
         self.rope_theta = rope_theta
-        self.include_top = include_top
-        self.as_backbone = as_backbone
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
+        self._input_shape_val = input_shape
         self.input_tensor = input_tensor
-        self.pooling = pooling
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
 
     def get_config(self):
         config = super().get_config()
@@ -361,17 +273,10 @@ class DinoV3ViT(keras.Model):
                 "num_register_tokens": self.num_register_tokens,
                 "init_values": self.init_values,
                 "rope_theta": self.rope_theta,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
+                "input_shape": self._input_shape_val,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -381,324 +286,107 @@ class DinoV3ViT(keras.Model):
         return cls(**config)
 
 
-def dinov3_model(
-    model_name,
-    include_top,
-    as_backbone,
-    include_normalization,
-    normalization_mode,
-    weights,
-    input_tensor,
-    input_shape,
-    pooling,
-    num_classes,
-    classifier_activation,
-    name,
-    **kwargs,
-):
-    """Instantiates a DINOv3 model (ViT or ConvNeXt variant).
+@keras.saving.register_keras_serializable(package="kmodels")
+class DinoV3ConvNeXtBackbone(BaseModel):
+    """DINOv3 ConvNeXt backbone.
+
+    Returns the list of intermediate feature maps from each ConvNeXt
+    stage, suitable for feeding into detection / segmentation / depth
+    necks.
+
+    Weights are gated on HuggingFace — see
+    https://huggingface.co/facebook/dinov3-convnext-tiny-pretrain-lvd1689m
+    for license acceptance. Accept the license and set ``HF_TOKEN`` env
+    var before calling :meth:`from_weights`.
 
     Reference:
-    - [DINOv3](https://arxiv.org/abs/2508.10104)
+        - `DINOv3 <https://arxiv.org/abs/2508.10104>`_
 
     Args:
-        model_name: String, key into model config (ViT or ConvNeXt).
-        include_top: Boolean, whether to include a classification head.
-        as_backbone: Boolean, whether to return intermediate feature maps.
-        include_normalization: Boolean, whether to include input normalization.
-        normalization_mode: String, normalization mode.
-        weights: String, ``"dinov3"`` for gated HF weights, file path, or None.
-        input_tensor: Optional Keras tensor as input.
-        input_shape: Optional tuple for input shape.
-        pooling: Optional pooling mode when ``include_top=False``.
-        num_classes: Integer, number of output classes.
-        classifier_activation: String, activation for classification head.
-        name: String, model name.
-
-    Returns:
-        A Keras ``Model`` instance.
+        depths: Per-stage block counts.
+        projection_dims: Per-stage channel counts.
+        include_normalization: Whether to prepend
+            :class:`ImageNormalizationLayer`.
+        normalization_mode: Normalization preset.
+        input_shape: Image input shape excluding batch dim. Defaults to
+            ``(224, 224, 3)``.
+        input_tensor: Optional pre-existing Keras input tensor.
+        name: Model name.
     """
-    if include_top and num_classes is None:
-        num_classes = 1000
 
-    is_vit = model_name in DINOV3_VIT_MODEL_CONFIG
+    KMODELS_CONFIG = DINOV3_CONVNEXT_CONFIG
+    KMODELS_WEIGHTS = DINOV3_CONVNEXT_WEIGHTS
+    HF_MODEL_TYPE = "dinov3_convnext"
 
-    if is_vit:
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "depths": list(hf_config["depths"]),
+            "projection_dims": list(hf_config["hidden_sizes"]),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        transfer_dinov3_convnext_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        depths=None,
+        projection_dims=None,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="DinoV3ConvNeXtBackbone",
+        **kwargs,
+    ):
+        if depths is None:
+            depths = [3, 3, 9, 3]
+        if projection_dims is None:
+            projection_dims = [96, 192, 384, 768]
         if input_shape is None and input_tensor is None:
             input_shape = (224, 224, 3)
 
-        model = DinoV3ViT(
-            **DINOV3_VIT_MODEL_CONFIG[model_name],
-            include_top=include_top,
-            as_backbone=as_backbone,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
-            weights=None,
-            name=name,
-            input_tensor=input_tensor,
-            input_shape=input_shape,
-            pooling=pooling,
-            num_classes=num_classes,
-            classifier_activation=classifier_activation,
-            **kwargs,
-        )
-        transfer_fn = transfer_dinov3_vit_weights
-    else:
-        model = ConvNeXt(
-            **DINOV3_CONVNEXT_MODEL_CONFIG[model_name],
+        base = ConvNeXt(
+            depths=depths,
+            projection_dims=projection_dims,
             drop_path_rate=0.0,
             layer_scale_init_value=1e-6,
             use_grn=False,
             use_conv=True,
-            include_top=include_top,
-            as_backbone=as_backbone,
+            include_top=False,
+            as_backbone=True,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             weights=None,
-            name=name,
             input_tensor=input_tensor,
             input_shape=input_shape,
-            pooling=pooling,
-            num_classes=num_classes,
-            classifier_activation=classifier_activation,
-            **kwargs,
+            name=f"{name}_convnext",
         )
-        transfer_fn = transfer_dinov3_convnext_weights
 
-    if weights == "dinov3":
-        load_gated_weights_from_hf(
-            model=model,
-            model_name=model_name.lower(),
-            hf_model_id=DINOV3_HF_MODEL_IDS[model_name],
-            transfer_fn=transfer_fn,
+        super().__init__(inputs=base.input, outputs=base.output, name=name, **kwargs)
+
+        self.depths = list(depths)
+        self.projection_dims = list(projection_dims)
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self._input_shape_val = input_shape
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "projection_dims": self.projection_dims,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self._input_shape_val,
+                "name": self.name,
+            }
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        return config
 
-    return model
-
-
-@register_model
-def DinoV3ViTSmall16(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dinov3",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoV3ViTSmall16",
-    **kwargs,
-):
-    return dinov3_model(
-        "DinoV3ViTSmall16",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoV3ViTBase16(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dinov3",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoV3ViTBase16",
-    **kwargs,
-):
-    return dinov3_model(
-        "DinoV3ViTBase16",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoV3ViTLarge16(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dinov3",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoV3ViTLarge16",
-    **kwargs,
-):
-    return dinov3_model(
-        "DinoV3ViTLarge16",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoV3ConvNeXtTiny(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dinov3",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoV3ConvNeXtTiny",
-    **kwargs,
-):
-    return dinov3_model(
-        "DinoV3ConvNeXtTiny",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoV3ConvNeXtSmall(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dinov3",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoV3ConvNeXtSmall",
-    **kwargs,
-):
-    return dinov3_model(
-        "DinoV3ConvNeXtSmall",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoV3ConvNeXtBase(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dinov3",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoV3ConvNeXtBase",
-    **kwargs,
-):
-    return dinov3_model(
-        "DinoV3ConvNeXtBase",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoV3ConvNeXtLarge(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dinov3",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoV3ConvNeXtLarge",
-    **kwargs,
-):
-    return dinov3_model(
-        "DinoV3ConvNeXtLarge",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
