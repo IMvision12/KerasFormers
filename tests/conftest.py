@@ -1,6 +1,32 @@
+import gc
 import os
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _release_backend_state():
+    """Release per-test Keras / JAX state to keep CI memory bounded.
+
+    Each parametrized model in the integration suite triggers fresh
+    XLA / TF function tracing. Without an explicit teardown the JIT
+    cache, compiled HLO modules, and dead Keras layers accumulate
+    across the 300+ tests and the JAX matrix entry hits the
+    ubuntu-latest runner's 7 GB RAM / 60 min timeout (visible as
+    process SIGTERM, exit code 143).
+    """
+    yield
+    try:
+        import keras
+
+        keras.utils.clear_session()
+        if keras.config.backend() == "jax":
+            import jax
+
+            jax.clear_caches()
+    except Exception:
+        pass
+    gc.collect()
 
 
 def pytest_addoption(parser):
