@@ -91,7 +91,6 @@ CLIP_CONFIG = {
     },
 }
 
-
 CLIP_WEIGHTS = {
     "clip_vit_base_16": {
         "url": "https://github.com/IMvision12/keras-models/releases/download/clip/clipvitbase16_openai_224.weights.h5",

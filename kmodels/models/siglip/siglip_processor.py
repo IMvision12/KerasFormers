@@ -104,14 +104,12 @@ class SigLIPProcessor(BaseProcessor):
 
     def __init__(
         self,
-        # Image processor params
         image_resolution: int = 224,
         mean: List[float] = [0.5, 0.5, 0.5],
         std: List[float] = [0.5, 0.5, 0.5],
         do_center_crop: bool = True,
         do_normalize: bool = True,
         do_resize: bool = True,
-        # Tokenizer params
         vocab_file: Optional[str] = None,
         multilingual: bool = False,
         context_length: int = 64,

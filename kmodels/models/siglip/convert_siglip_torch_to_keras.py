@@ -63,7 +63,8 @@ def transfer_siglip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -
     """Transfer HuggingFace SigLIP / SigLIP-2 weights into a Keras model.
 
     Args:
-        keras_model: A :class:`SigLIPModel` instance.
+        keras_model: A :class:`SigLIPModel` or :class:`SigLIPZeroShotClassify`
+            instance.
         hf_state_dict: Mapping of HF weight names to numpy arrays from
             ``SiglipModel.state_dict()``.
     """
@@ -131,13 +132,71 @@ def transfer_siglip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
+def transfer_siglip_image_classify_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer HuggingFace ``SiglipForImageClassification`` weights.
+
+    Loads the SigLIP vision encoder (no text encoder, no attention
+    pooling, no ``logit_scale``/``logit_bias`` — none of those exist in
+    the Keras :class:`SigLIPImageClassify` graph) plus the final
+    ``classifier`` Dense head. If the source is a base SigLIP checkpoint
+    without classifier weights, the head stays randomly initialized.
+    """
+    has_classifier = (
+        "classifier.weight" in hf_state_dict and "classifier.bias" in hf_state_dict
+    )
+    trainable, non_trainable = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        if keras_weight_name in ("classifier_kernel", "classifier_bias"):
+            if not has_classifier:
+                continue
+            if "kernel" in keras_weight.path:
+                keras_weight.assign(np.transpose(hf_state_dict["classifier.weight"]))
+            else:
+                keras_weight.assign(hf_state_dict["classifier.bias"])
+            continue
+
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
+
+        if "attention" in torch_weight_name:
+            transfer_attention_weights(
+                keras_weight_name, keras_weight, hf_state_dict, ATTN_NAME_REPLACE
+            )
+            continue
+
+        if "position.ids" in torch_weight_name:
+            key = "vision_model.embeddings.position_ids"
+            if key in hf_state_dict:
+                keras_weight.assign(hf_state_dict[key])
+            continue
+
+        if torch_weight_name not in hf_state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = hf_state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+
 if __name__ == "__main__":
     import gc
 
     import keras
     from transformers import SiglipModel
 
-    from kmodels.models.siglip import SigLIPModel
+    from kmodels.models.siglip import SigLIPZeroShotClassify
 
     SIGLIP_CONVERSION_CONFIG = [
         ("siglip_base_p16_224", "google/siglip-base-patch16-224"),
@@ -156,7 +215,7 @@ if __name__ == "__main__":
         hf_model = SiglipModel.from_pretrained(hf_id).eval()
         state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = SigLIPModel.from_weights(variant, load_weights=False)
+        keras_model = SigLIPZeroShotClassify.from_weights(variant, load_weights=False)
         transfer_siglip_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

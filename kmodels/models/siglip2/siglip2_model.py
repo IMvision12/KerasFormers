@@ -1,150 +1,215 @@
-from kmodels.model_registry import register_model
-from kmodels.models.siglip.siglip_model import SigLIPModel
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+"""SigLIP 2 model classes.
 
-from .config import SigLIP2_MODEL_CONFIG, SigLIP2_WEIGHTS_CONFIG
+SigLIP 2 shares the SigLIP v1 architecture (vision + text dual encoder
+with attention pooling on the vision side, last-token pooling + Dense
+on the text side, sigmoid-similarity head). The differences live in
+preprocessing — Gemma SentencePiece tokenizer, vocab 256000, and a
+different set of pretrained checkpoints.
+
+These three classes are thin wrappers over the siglip module's encoder
+code with SigLIP 2's variant registry. ``HF_MODEL_TYPE = "siglip2"``
+keeps each class scoped to its HuggingFace ``model_type``.
+"""
+
+import keras
+
+from kmodels.base import BaseModel
+from kmodels.models.siglip.siglip_model import (
+    SigLIPImageClassify,
+    SigLIPModel,
+    siglip_head,
+)
+
+from .config import SIGLIP2_CONFIG, SIGLIP2_WEIGHTS
 
 
-@register_model
-def SigLIP2BaseP16(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIP2BaseP16",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP2_MODEL_CONFIG["SigLIP2BaseP16"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class SigLIP2Model(SigLIPModel):
+    """SigLIP 2 dual encoder (no contrastive head).
 
-    if weights in get_all_weight_names(SigLIP2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIP2BaseP16", weights, model, SigLIP2_WEIGHTS_CONFIG
+    Architecture identical to :class:`SigLIPModel`; differs only in the
+    variant registry and ``HF_MODEL_TYPE``. Returns the projected vision
+    + text embeddings.
+
+    >>> SigLIP2Model.from_weights("siglip2_base_p16_224")
+    >>> SigLIP2Model.from_weights("hf:google/siglip2-base-patch16-224")
+    """
+
+    KMODELS_CONFIG = SIGLIP2_CONFIG
+    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+
+    HF_MODEL_TYPE = "siglip"
+
+    def __init__(self, *args, name="SigLIP2Model", **kwargs):
+        super().__init__(*args, name=name, **kwargs)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class SigLIP2ZeroShotClassify(BaseModel):
+    """SigLIP 2 + sigmoid-similarity head for zero-shot classification.
+
+    Composes :class:`SigLIP2Model` + the standard SigLIP head (L2-normalize
+    both sides, learnable ``logit_scale`` and ``logit_bias`` on the
+    cosine-similarity matrix).
+    """
+
+    KMODELS_CONFIG = SIGLIP2_CONFIG
+    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+
+    HF_MODEL_TYPE = "siglip"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return SigLIP2Model.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.siglip.convert_siglip_torch_to_keras import (
+            transfer_siglip_weights,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        transfer_siglip_weights(keras_model, hf_state_dict)
 
-
-@register_model
-def SigLIP2BaseP32(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIP2BaseP32",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP2_MODEL_CONFIG["SigLIP2BaseP32"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
+    def __init__(
+        self,
+        image_resolution=224,
+        patch_size=16,
+        vision_hidden_dim=768,
+        vision_num_layers=12,
+        vision_num_heads=12,
+        vision_intermediate_dim=3072,
+        vocabulary_size=256000,
+        embed_dim=768,
+        text_hidden_dim=768,
+        text_num_layers=12,
+        text_num_heads=12,
+        text_intermediate_dim=3072,
+        max_sequence_length=64,
+        input_shape=None,
+        input_tensor=None,
+        name="SigLIP2ZeroShotClassify",
         **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIP2BaseP32", weights, model, SigLIP2_WEIGHTS_CONFIG
+    ):
+        base = SigLIP2Model(
+            image_resolution=image_resolution,
+            patch_size=patch_size,
+            vision_hidden_dim=vision_hidden_dim,
+            vision_num_layers=vision_num_layers,
+            vision_num_heads=vision_num_heads,
+            vision_intermediate_dim=vision_intermediate_dim,
+            vocabulary_size=vocabulary_size,
+            embed_dim=embed_dim,
+            text_hidden_dim=text_hidden_dim,
+            text_num_layers=text_num_layers,
+            text_num_heads=text_num_heads,
+            text_intermediate_dim=text_intermediate_dim,
+            max_sequence_length=max_sequence_length,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_base",
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def SigLIP2LargeP16(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIP2LargeP16",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP2_MODEL_CONFIG["SigLIP2LargeP16"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIP2LargeP16", weights, model, SigLIP2_WEIGHTS_CONFIG
+        image_logits, text_logits = siglip_head(
+            base.output["image_embeddings"], base.output["text_embeddings"]
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
-
-
-@register_model
-def SigLIP2So400mP14(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIP2So400mP14",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP2_MODEL_CONFIG["SigLIP2So400mP14"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIP2So400mP14", weights, model, SigLIP2_WEIGHTS_CONFIG
+        super().__init__(
+            inputs=base.input,
+            outputs={"image_logits": image_logits, "text_logits": text_logits},
+            name=name,
+            **kwargs,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        self.image_resolution = image_resolution
+        self.patch_size = patch_size
+        self.vision_hidden_dim = vision_hidden_dim
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
+        self.vision_intermediate_dim = vision_intermediate_dim
+        self.vocabulary_size = vocabulary_size
+        self.embed_dim = embed_dim
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_layers = text_num_layers
+        self.text_num_heads = text_num_heads
+        self.text_intermediate_dim = text_intermediate_dim
+        self.max_sequence_length = max_sequence_length
+        self.input_tensor = input_tensor
 
-
-@register_model
-def SigLIP2So400mP16(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIP2So400mP16",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP2_MODEL_CONFIG["SigLIP2So400mP16"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIP2So400mP16", weights, model, SigLIP2_WEIGHTS_CONFIG
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape["images"]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "patch_size": self.patch_size,
+                "vision_hidden_dim": self.vision_hidden_dim,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_num_heads": self.vision_num_heads,
+                "vision_intermediate_dim": self.vision_intermediate_dim,
+                "vocabulary_size": self.vocabulary_size,
+                "embed_dim": self.embed_dim,
+                "text_hidden_dim": self.text_hidden_dim,
+                "text_num_layers": self.text_num_layers,
+                "text_num_heads": self.text_num_heads,
+                "text_intermediate_dim": self.text_intermediate_dim,
+                "max_sequence_length": self.max_sequence_length,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        return config
 
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class SigLIP2ImageClassify(SigLIPImageClassify):
+    """SigLIP 2 vision encoder + linear classifier head.
+
+    Mirrors :class:`SigLIPImageClassify`; the only differences are the
+    variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS``) and
+    ``HF_MODEL_TYPE = "siglip2"``. ``from_release`` warm-starts the
+    encoder from a :class:`SigLIP2Model` checkpoint.
+    """
+
+    KMODELS_CONFIG = SIGLIP2_CONFIG
+    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+
+    HF_MODEL_TYPE = "siglip"
+
+    def __init__(self, *args, name="SigLIP2ImageClassify", **kwargs):
+        super().__init__(*args, name=name, **kwargs)
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        if variant not in cls.KMODELS_CONFIG:
+            available = sorted(cls.KMODELS_CONFIG.keys())
+            raise ValueError(
+                f"Unknown variant '{variant}' for {cls.__name__}. "
+                f"Available variants: {available}"
+            )
+        full = cls.KMODELS_CONFIG[variant]
+        config = {k: v for k, v in full.items() if k in cls._RELEASE_CONFIG_KEYS}
+        config.update(kwargs)
+        model = cls(**config)
+
+        if load_weights:
+            src = SigLIP2Model.from_weights(variant)
+
+            def _key(w):
+                return "/".join(w.path.split("/")[-2:])
+
+            src_map = {_key(w): w for w in src.weights}
+            for dst_w in model.weights:
+                src_w = src_map.get(_key(dst_w))
+                if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
+                    dst_w.assign(src_w)
+            del src
+
+        return model

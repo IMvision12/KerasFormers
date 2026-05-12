@@ -136,7 +136,6 @@ SIGLIP_CONFIG = {
     },
 }
 
-
 SIGLIP_WEIGHTS = {
     "siglip_base_p16_224": {
         "url": "https://github.com/IMvision12/keras-models/releases/download/SigLIP/siglipbasep16_google_224.weights.h5",

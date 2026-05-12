@@ -48,7 +48,6 @@ attn_name_replace = {
     "out.proj": "out_proj",
 }
 
-
 HF_REPO = {
     "metaclip2_worldwide_s16_224": "facebook/metaclip-2-worldwide-s16",
     "metaclip2_worldwide_s16_384": "facebook/metaclip-2-worldwide-s16-384",
@@ -132,6 +131,57 @@ def transfer_metaclip2_weights(keras_model, hf_state_dict):
         transfer_weights(keras_weight_name, keras_weight, tw)
 
 
+def transfer_metaclip2_image_classify_weights(keras_model, hf_state_dict):
+    """Transfer HuggingFace ``MetaClip2ForImageClassification`` weights.
+
+    Loads the MetaCLIP 2 vision encoder (no text encoder, no visual
+    projection, no post-LN — none of those exist in the Keras
+    :class:`MetaClip2ImageClassify` graph) plus the final ``classifier``
+    Dense head. If the source is a base MetaCLIP 2 checkpoint without
+    classifier weights, the head stays randomly initialized.
+    """
+    has_classifier = (
+        "classifier.weight" in hf_state_dict and "classifier.bias" in hf_state_dict
+    )
+    trainable_k, non_trainable_k = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable_k + non_trainable_k:
+        if keras_weight_name in ("classifier_kernel", "classifier_bias"):
+            if not has_classifier:
+                continue
+            if "kernel" in keras_weight.path:
+                keras_weight.assign(np.transpose(hf_state_dict["classifier.weight"]))
+            else:
+                keras_weight.assign(hf_state_dict["classifier.bias"])
+            continue
+
+        torch_weight_name = keras_weight_name
+        for a, b in weight_name_mapping.items():
+            torch_weight_name = torch_weight_name.replace(a, b)
+
+        if "attention" in torch_weight_name:
+            transfer_attention_weights(
+                keras_weight_name, keras_weight, hf_state_dict, attn_name_replace
+            )
+            continue
+
+        if keras_weight_name == "vision_model_embeddings_pos_embed":
+            pos = hf_state_dict["vision_model.embeddings.position_embedding.weight"]
+            keras_weight.assign(np.expand_dims(pos, 0))
+            continue
+
+        if torch_weight_name not in hf_state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+        tw = hf_state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, tw
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name, keras_weight.shape, torch_weight_name, tw.shape
+            )
+        transfer_weights(keras_weight_name, keras_weight, tw)
+
+
 if __name__ == "__main__":
     import gc
     import sys
@@ -140,7 +190,7 @@ if __name__ == "__main__":
     import torch
     from transformers import AutoModel
 
-    from kmodels.models.metaclip2 import MetaClip2Model
+    from kmodels.models.metaclip2 import MetaClip2ZeroShotClassify
 
     variant = sys.argv[1] if len(sys.argv) > 1 else "metaclip2_worldwide_b32_224"
     hf_id = HF_REPO[variant]
@@ -149,7 +199,8 @@ if __name__ == "__main__":
 
     hf_model = AutoModel.from_pretrained(hf_id).eval()
     state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
-    keras_model = MetaClip2Model.from_weights(variant, load_weights=False)
+
+    keras_model = MetaClip2ZeroShotClassify.from_weights(variant, load_weights=False)
     transfer_metaclip2_weights(keras_model, state)
 
     out_path = f"{variant}.weights.h5"

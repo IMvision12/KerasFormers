@@ -10,119 +10,30 @@ from kmodels.weight_utils import download_file
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SigLIP2Processor(BaseProcessor):
-    """
-    Unified processor for SigLIP2 models.
+    """Combined processor for SigLIP 2 models — image + Gemma text.
 
-    This processor combines image preprocessing and text tokenization into a single interface
-    for SigLIP2 multimodal models. It handles all necessary preprocessing steps for both
-    visual and textual inputs, making it easy to prepare data for model inference or training.
-
-    The processor uses a SentencePiece-based tokenizer for text processing and supports
-    flexible input formats including PIL Images, numpy arrays, file paths, and various text
-    formats. It applies consistent preprocessing including image resizing, normalization,
-    and text tokenization with proper padding and truncation.
-
-    Args:
-        image_resolution (int, optional): The target resolution for processed images.
-            Default is 224.
-        mean (List[float], optional): RGB mean values for image normalization.
-            Default is [0.5, 0.5, 0.5].
-        std (List[float], optional): RGB standard deviation values for image normalization.
-            Default is [0.5, 0.5, 0.5].
-        do_center_crop (bool, optional): Whether to apply center cropping to images.
-            Default is True.
-        do_normalize (bool, optional): Whether to normalize images. Default is True.
-        do_resize (bool, optional): Whether to resize images. Default is True.
-        vocab_file (str, optional): Path to the SentencePiece model file (.spm).
-            If None, will download the default SentencePiece model file.
-        context_length (int, optional): Maximum token sequence length. Default is 64.
-        add_bos (bool, optional): Whether to add beginning of sentence token. Default is False.
-        add_eos (bool, optional): Whether to add end of sentence token. Default is False.
-        pad_token (str, optional): Padding token. Default is "<pad>".
-        bos_token (str, optional): Beginning of sentence token. Default is "<bos>".
-        eos_token (str, optional): End of sequence token. Default is "<eos>".
-        unk_token (str, optional): Token to use for unknown words. Default is "<unk>".
-        **kwargs: Additional keyword arguments passed to the base Layer class.
-
-    Example:
-        ```python
-        # Creating a processor with default settings
-        processor = SigLIP2Processor()
-
-        # Processing text and images together
-        import numpy as np
-        from PIL import Image
-
-        # Load an example image
-        image = Image.open("example.jpg")
-        image_array = keras.utils.img_to_array(image)
-
-        # Process both text and images
-        inputs = processor(
-            text=["A photo of a cat", "An image of a dog"],
-            images=image_array  # Single image or batch of images
-        )
-
-        # The result contains both text and image encodings
-        print(inputs.keys())  # Contains 'input_ids' + 'images'
-
-        # Process from file paths
-        inputs = processor(
-            text=["A photo of a cat"],
-            image_paths="path/to/image.jpg"
-        )
-
-        # Process multiple images from paths
-        inputs = processor(
-            text=["Photo 1", "Photo 2"],
-            image_paths=["path/to/image1.jpg", "path/to/image2.jpg"]
-        )
-
-        # Custom configuration for higher resolution and longer sequences
-        high_res_processor = SigLIP2Processor(
-            image_resolution=384,
-            context_length=128,
-            add_bos=True,
-            add_eos=True
-        )
-
-        inputs = high_res_processor(
-            text=["A detailed photo of a landscape"],
-            images=image_array
-        )
-
-        # Decode processed text back to strings
-        decoded_texts = processor.decode_text(inputs["input_ids"])
-        print(decoded_texts)
-
-        # Get actual sequence lengths (excluding padding)
-        seq_lengths = processor.get_sequence_length(inputs["input_ids"])
-        print(f"Sequence lengths: {seq_lengths}")
-        ```
-
-    Note:
-        This processor requires the `sentencepiece` library to be installed for text tokenization:
-        pip install sentencepiece
+    Pairs :class:`SigLIP2ImageProcessor` (resize / center crop /
+    normalize) with :class:`SigLIP2Tokenizer` (Gemma SentencePiece,
+    vocab 256000). Downloads the Gemma SP model on first use when
+    ``vocab_file`` is not supplied.
     """
 
     def __init__(
         self,
-        # Image processor params
         image_resolution: int = 224,
         mean: List[float] = [0.5, 0.5, 0.5],
         std: List[float] = [0.5, 0.5, 0.5],
         do_center_crop: bool = True,
         do_normalize: bool = True,
         do_resize: bool = True,
-        # Tokenizer params
         vocab_file: Optional[str] = None,
         context_length: int = 64,
-        add_bos: bool = False,
-        add_eos: bool = True,
         pad_token: str = "<pad>",
         bos_token: str = "<bos>",
         eos_token: str = "<eos>",
         unk_token: str = "<unk>",
+        add_bos: bool = False,
+        add_eos: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -163,12 +74,12 @@ class SigLIP2Processor(BaseProcessor):
             "do_resize": do_resize,
             "vocab_file": vocab_file,
             "context_length": context_length,
-            "add_bos": add_bos,
-            "add_eos": add_eos,
             "pad_token": pad_token,
             "bos_token": bos_token,
             "eos_token": eos_token,
             "unk_token": unk_token,
+            "add_bos": add_bos,
+            "add_eos": add_eos,
         }
 
     def call(
@@ -181,34 +92,16 @@ class SigLIP2Processor(BaseProcessor):
             raise ValueError(
                 "At least one of 'text', 'images', or 'image_paths' must be provided"
             )
-
         if images is not None and image_paths is not None:
             raise ValueError("Cannot specify both 'images' and 'image_paths'")
-
-        if image_paths is not None:
-            if isinstance(image_paths, (list, tuple)) and len(image_paths) == 0:
-                raise ValueError("image_paths cannot be an empty list")
 
         encoding = {}
-
         if text is not None:
-            text_encoding = self.tokenizer(inputs=text)
-            encoding.update(text_encoding)
-
-        if images is not None and image_paths is not None:
-            raise ValueError("Cannot specify both 'images' and 'image_paths'")
-
+            encoding.update(self.tokenizer(inputs=text))
         if images is not None:
             encoding["images"] = self.image_processor(images)["pixel_values"]
-
         if image_paths is not None:
             encoding["images"] = self.image_processor(image_paths)["pixel_values"]
-
-        if not encoding:
-            raise ValueError(
-                "Must provide at least one of 'text', 'images', or 'image_paths'"
-            )
-
         return encoding
 
     def decode_text(
@@ -217,14 +110,6 @@ class SigLIP2Processor(BaseProcessor):
         return self.tokenizer.batch_decode(
             token_ids, skip_special_tokens=skip_special_tokens
         )
-
-    def get_sequence_length(self, input_ids: keras.KerasTensor) -> keras.KerasTensor:
-        return self.tokenizer.get_sequence_length(input_ids)
-
-    def truncate_sequences(
-        self, input_ids: keras.KerasTensor, max_length: int
-    ) -> keras.KerasTensor:
-        return self.tokenizer.truncate_sequences(input_ids, max_length)
 
     @property
     def vocab_size(self) -> int:
@@ -237,14 +122,6 @@ class SigLIP2Processor(BaseProcessor):
     @property
     def eos_token_id(self) -> int:
         return self.tokenizer.eos_token_id
-
-    @property
-    def bos_token_id(self) -> int:
-        return self.tokenizer.bos_token_id
-
-    @property
-    def unk_token_id(self) -> int:
-        return self.tokenizer.unk_token_id
 
     def get_config(self):
         config = super().get_config()

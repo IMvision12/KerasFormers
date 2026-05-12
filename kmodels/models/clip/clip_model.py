@@ -681,17 +681,62 @@ class CLIPImageClassify(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = None
-    KMODELS_WEIGHTS = None
+    KMODELS_CONFIG = CLIP_CONFIG
+    KMODELS_WEIGHTS = CLIP_WEIGHTS
     HF_MODEL_TYPE = "clip"
+
+    _RELEASE_CONFIG_KEYS = (
+        "image_resolution",
+        "vision_layers",
+        "vision_width",
+        "vision_patch_size",
+        "vision_mlp_ratio",
+        "hidden_act",
+        "layer_norm_eps",
+    )
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        """Build CLIPImageClassify from a kmodels CLIP variant.
+
+        The release ``.weights.h5`` is the full dual-encoder checkpoint;
+        we materialize a temporary :class:`CLIPModel`, load it from that
+        file, then copy the matching vision-encoder layer weights into
+        the new image-classify graph. The classifier head stays randomly
+        initialized.
+        """
+        if variant not in cls.KMODELS_CONFIG:
+            available = sorted(cls.KMODELS_CONFIG.keys())
+            raise ValueError(
+                f"Unknown variant '{variant}' for {cls.__name__}. "
+                f"Available variants: {available}"
+            )
+        full = cls.KMODELS_CONFIG[variant]
+        config = {k: v for k, v in full.items() if k in cls._RELEASE_CONFIG_KEYS}
+        config.update(kwargs)
+        model = cls(**config)
+
+        if load_weights:
+            src = CLIPModel.from_weights(variant)
+
+            def _key(w):
+                return "/".join(w.path.split("/")[-2:])
+
+            src_map = {_key(w): w for w in src.weights}
+            for dst_w in model.weights:
+                src_w = src_map.get(_key(dst_w))
+                if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
+                    dst_w.assign(src_w)
+            del src
+
+        return model
 
     @classmethod
     def config_from_hf(cls, hf_config):
         from kmodels.base.base_model import hf_num_labels
 
         vc = hf_config["vision_config"]
-        return {
-            "num_labels": hf_num_labels(hf_config),
+        config = {
             "image_resolution": vc.get("image_size", 224),
             "vision_layers": vc["num_hidden_layers"],
             "vision_width": vc["hidden_size"],
@@ -700,6 +745,11 @@ class CLIPImageClassify(BaseModel):
             "hidden_act": vc.get("hidden_act", "quick_gelu"),
             "layer_norm_eps": vc.get("layer_norm_eps", 1e-5),
         }
+        try:
+            config["num_labels"] = hf_num_labels(hf_config)
+        except KeyError:
+            config["num_labels"] = 1000
+        return config
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
@@ -756,7 +806,6 @@ class CLIPImageClassify(BaseModel):
         else:
             images_input = input_tensor
 
-        # Vision encoder, full last_hidden_state output
         encoded = clip_vision_features(
             images_input,
             input_resolution=image_size,
@@ -770,7 +819,6 @@ class CLIPImageClassify(BaseModel):
             data_format=data_format,
         )
 
-        # Mean-pool patch tokens (drop CLS at index 0)
         patches = layers.Lambda(lambda t: t[:, 1:, :], name="drop_cls")(encoded)
         pooled = layers.GlobalAveragePooling1D(name="patch_pool")(patches)
         logits = layers.Dense(num_labels, name="classifier")(pooled)

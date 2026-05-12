@@ -1,10 +1,19 @@
+from kmodels.models.siglip2 import config
 from kmodels.models.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
 from kmodels.models.siglip2.siglip2_model import (
-    SigLIP2BaseP16,
-    SigLIP2BaseP32,
-    SigLIP2LargeP16,
-    SigLIP2So400mP14,
-    SigLIP2So400mP16,
+    SigLIP2ImageClassify,
+    SigLIP2Model,
+    SigLIP2ZeroShotClassify,
 )
 from kmodels.models.siglip2.siglip2_processor import SigLIP2Processor
 from kmodels.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
+
+__all__ = [
+    "config",
+    "SigLIP2Model",
+    "SigLIP2ZeroShotClassify",
+    "SigLIP2ImageClassify",
+    "SigLIP2ImageProcessor",
+    "SigLIP2Processor",
+    "SigLIP2Tokenizer",
+]

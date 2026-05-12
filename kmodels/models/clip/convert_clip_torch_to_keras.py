@@ -152,11 +152,13 @@ def transfer_clip_image_classify_weights(
             ``CLIPForImageClassification.state_dict()``.
     """
     state = _strip_model_prefix(hf_state_dict)
+    has_classifier = "classifier.weight" in state and "classifier.bias" in state
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
-        # `classifier` head is the only weight outside the vision encoder.
         if keras_weight_name in ("classifier_kernel", "classifier_bias"):
+            if not has_classifier:
+                continue
             if "kernel" in keras_weight.path:
                 keras_weight.assign(np.transpose(state["classifier.weight"]))
             else:
@@ -209,9 +211,6 @@ if __name__ == "__main__":
         ("clip_vit_large_14_336", "openai/clip-vit-large-patch14-336"),
     ]
 
-    # Convert into CLIPZeroShotClassify so saved .weights.h5 includes both the
-    # encoders *and* the contrastive head's logit_scale. CLIPModel can still
-    # load the same file (the extra logit_scale is silently ignored).
     for variant, hf_id in CLIP_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

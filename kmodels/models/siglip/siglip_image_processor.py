@@ -124,10 +124,8 @@ class SigLIPImageProcessor(BaseImageProcessor):
         num_channels = shape[-1]
 
         if num_channels == 1:
-            # Convert grayscale to RGB by repeating the single channel
             image = ops.repeat(image, 3, axis=-1)
         elif num_channels == 4:
-            # Convert RGBA to RGB by dropping the alpha channel
             image = image[..., :3]
         elif num_channels == 3:
             pass

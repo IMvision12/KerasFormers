@@ -102,18 +102,23 @@ def metaclip2_encoder(
     return x
 
 
-def metaclip2_image_encoder(
+def metaclip2_vision_features(
     inputs,
     input_resolution=224,
     patch_size=16,
     width=768,
     num_layers=12,
     heads=12,
-    output_dim=512,
     vision_mlp_ratio=4.0,
     hidden_act="gelu",
     data_format="channels_last",
 ):
+    """MetaCLIP 2 vision encoder up through the transformer blocks.
+
+    Returns the full token sequence ``(B, 1 + num_patches, width)`` (CLS
+    + patch tokens) before any projection or pooling. Matches HF's
+    ``MetaClip2VisionModel.last_hidden_state``.
+    """
     patch_embeddings = keras.layers.Conv2D(
         filters=width,
         kernel_size=patch_size,
@@ -131,7 +136,7 @@ def metaclip2_image_encoder(
     x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_1")(
         embeddings
     )
-    encoded = metaclip2_encoder(
+    return metaclip2_encoder(
         x,
         width=width,
         num_layers=num_layers,
@@ -141,16 +146,39 @@ def metaclip2_image_encoder(
         hidden_act=hidden_act,
     )
 
+
+def metaclip2_image_encoder(
+    inputs,
+    input_resolution=224,
+    patch_size=16,
+    width=768,
+    num_layers=12,
+    heads=12,
+    output_dim=512,
+    vision_mlp_ratio=4.0,
+    hidden_act="gelu",
+    data_format="channels_last",
+):
+    """Full MetaCLIP 2 vision encoder used by the contrastive head — features
+    -> CLS token -> post-LN -> visual projection."""
+    encoded = metaclip2_vision_features(
+        inputs,
+        input_resolution=input_resolution,
+        patch_size=patch_size,
+        width=width,
+        num_layers=num_layers,
+        heads=heads,
+        vision_mlp_ratio=vision_mlp_ratio,
+        hidden_act=hidden_act,
+        data_format=data_format,
+    )
     class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
         encoded
     )
     x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_2")(
         class_token
     )
-    outputs = keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(
-        x
-    )
-    return outputs
+    return keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(x)
 
 
 def metaclip2_text_encoder(
@@ -227,9 +255,38 @@ def metaclip2_head(image_embeddings, text_embeddings):
     return image_logits, text_logits
 
 
+def _metaclip2_resolve_image_shape(input_shape, image_resolution, data_format):
+    if input_shape is not None:
+        if data_format == "channels_first":
+            if len(input_shape) == 3:
+                channels = input_shape[0]
+                image_size = min(input_shape[1], input_shape[2])
+            else:
+                channels = 3
+                image_size = input_shape[0] if len(input_shape) >= 1 else 224
+        else:
+            if len(input_shape) >= 2:
+                image_size = min(input_shape[0], input_shape[1])
+            else:
+                image_size = input_shape[0] if len(input_shape) >= 1 else 224
+            channels = input_shape[2] if len(input_shape) == 3 else 3
+    else:
+        image_size, channels = image_resolution, 3
+    return (
+        [channels, image_size, image_size]
+        if data_format == "channels_first"
+        else [image_size, image_size, channels]
+    ), image_size
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
 class MetaClip2Model(BaseModel):
     """MetaCLIP 2 (multilingual / worldwide) contrastive vision-language model.
+
+    Returns the projected vision + text embeddings (no head). Use
+    :class:`MetaClip2ZeroShotClassify` for the contrastive similarity
+    head or :class:`MetaClip2ImageClassify` for supervised image
+    classification.
 
     MetaCLIP 2 is Meta's 2nd-generation CLIP, trained on multilingual data with
     the XLM-R tokenizer (vocab 901629). Architecturally it is identical to
@@ -372,9 +429,10 @@ class MetaClip2Model(BaseModel):
             eos_token_id=eos_token_id,
         )
 
-        image_logits, text_logits = metaclip2_head(image_embeddings, text_embeddings)
-
-        outputs = {"image_logits": image_logits, "text_logits": text_logits}
+        outputs = {
+            "image_embeddings": image_embeddings,
+            "text_embeddings": text_embeddings,
+        }
         inputs = {
             "images": images_input,
             "token_ids": token_ids_input,
@@ -428,6 +486,308 @@ class MetaClip2Model(BaseModel):
                 "input_tensor": self.input_tensor,
                 "name": self.name,
                 "trainable": self.trainable,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class MetaClip2ZeroShotClassify(BaseModel):
+    """MetaCLIP 2 + contrastive similarity head for zero-shot classification / retrieval.
+
+    Composes the same vision + text encoders as :class:`MetaClip2Model`
+    and adds the standard CLIP-style head — L2-normalize both sides,
+    then a learnable ``logit_scale`` temperature on the cosine-similarity
+    matrix. Output is the ``(B, B)`` image-vs-text similarity logits.
+
+    >>> MetaClip2ZeroShotClassify.from_weights("metaclip2_worldwide_b32_224")
+    >>> MetaClip2ZeroShotClassify.from_weights("hf:facebook/metaclip-2-worldwide-b32")
+    """
+
+    KMODELS_CONFIG = METACLIP2_CONFIG
+    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    HF_MODEL_TYPE = "metaclip_2"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return MetaClip2Model.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.metaclip2.convert_metaclip2_hf_to_keras import (
+            transfer_metaclip2_weights,
+        )
+
+        transfer_metaclip2_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        embed_dim=512,
+        image_resolution=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=32,
+        vision_heads=None,
+        context_length=77,
+        vocab_size=901629,
+        transformer_width=512,
+        transformer_heads=8,
+        transformer_layers=12,
+        vision_mlp_ratio=4.0,
+        text_mlp_ratio=4.0,
+        hidden_act="gelu",
+        eos_token_id=METACLIP2_EOS_TOKEN_ID,
+        input_shape=None,
+        input_tensor=None,
+        name="MetaClip2ZeroShotClassify",
+        **kwargs,
+    ):
+        base = MetaClip2Model(
+            embed_dim=embed_dim,
+            image_resolution=image_resolution,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
+            vision_heads=vision_heads,
+            context_length=context_length,
+            vocab_size=vocab_size,
+            transformer_width=transformer_width,
+            transformer_heads=transformer_heads,
+            transformer_layers=transformer_layers,
+            vision_mlp_ratio=vision_mlp_ratio,
+            text_mlp_ratio=text_mlp_ratio,
+            hidden_act=hidden_act,
+            eos_token_id=eos_token_id,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_base",
+        )
+        image_logits, text_logits = metaclip2_head(
+            base.output["image_embeddings"], base.output["text_embeddings"]
+        )
+
+        super().__init__(
+            inputs=base.input,
+            outputs={"image_logits": image_logits, "text_logits": text_logits},
+            name=name,
+            **kwargs,
+        )
+
+        self.embed_dim = embed_dim
+        self.image_resolution = image_resolution
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_heads = (
+            vision_heads if vision_heads is not None else vision_width // 64
+        )
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+        self.transformer_width = transformer_width
+        self.transformer_heads = transformer_heads
+        self.transformer_layers = transformer_layers
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.text_mlp_ratio = text_mlp_ratio
+        self.hidden_act = hidden_act
+        self.eos_token_id = eos_token_id
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape["images"]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "embed_dim": self.embed_dim,
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_heads": self.vision_heads,
+                "context_length": self.context_length,
+                "vocab_size": self.vocab_size,
+                "transformer_width": self.transformer_width,
+                "transformer_heads": self.transformer_heads,
+                "transformer_layers": self.transformer_layers,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "text_mlp_ratio": self.text_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "eos_token_id": self.eos_token_id,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class MetaClip2ImageClassify(BaseModel):
+    """MetaCLIP 2 vision encoder + linear image-classification head.
+
+    Mirrors HF's ``MetaClip2ForImageClassification``: uses **only the
+    vision encoder** (no text encoder, no visual projection, no post-LN,
+    no ``logit_scale``), drops the CLS token, mean-pools the patch
+    tokens, and applies a single linear classifier producing
+    ``num_labels`` logits.
+    """
+
+    KMODELS_CONFIG = METACLIP2_CONFIG
+    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    HF_MODEL_TYPE = "metaclip_2"
+
+    _RELEASE_CONFIG_KEYS = (
+        "image_resolution",
+        "vision_layers",
+        "vision_width",
+        "vision_patch_size",
+        "vision_heads",
+        "vision_mlp_ratio",
+        "hidden_act",
+    )
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        if variant not in cls.KMODELS_CONFIG:
+            available = sorted(cls.KMODELS_CONFIG.keys())
+            raise ValueError(
+                f"Unknown variant '{variant}' for {cls.__name__}. "
+                f"Available variants: {available}"
+            )
+        full = cls.KMODELS_CONFIG[variant]
+        config = {k: v for k, v in full.items() if k in cls._RELEASE_CONFIG_KEYS}
+        config.update(kwargs)
+        model = cls(**config)
+
+        if load_weights:
+            src = MetaClip2Model.from_weights(variant)
+
+            def _key(w):
+                return "/".join(w.path.split("/")[-2:])
+
+            src_map = {_key(w): w for w in src.weights}
+            for dst_w in model.weights:
+                src_w = src_map.get(_key(dst_w))
+                if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
+                    dst_w.assign(src_w)
+            del src
+
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        from kmodels.base.base_model import hf_num_labels
+
+        vc = hf_config["vision_config"]
+        config = {
+            "image_resolution": vc.get("image_size", 224),
+            "vision_layers": vc["num_hidden_layers"],
+            "vision_width": vc["hidden_size"],
+            "vision_patch_size": vc["patch_size"],
+            "vision_mlp_ratio": vc["intermediate_size"] / vc["hidden_size"],
+            "hidden_act": vc.get("hidden_act", "gelu"),
+        }
+        try:
+            config["num_labels"] = hf_num_labels(hf_config)
+        except KeyError:
+            config["num_labels"] = 1000
+        return config
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.metaclip2.convert_metaclip2_hf_to_keras import (
+            transfer_metaclip2_image_classify_weights,
+        )
+
+        transfer_metaclip2_image_classify_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        num_labels=1000,
+        image_resolution=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=16,
+        vision_heads=None,
+        vision_mlp_ratio=4.0,
+        hidden_act="gelu",
+        input_shape=None,
+        input_tensor=None,
+        name="MetaClip2ImageClassify",
+        **kwargs,
+    ):
+        if vision_heads is None:
+            vision_heads = vision_width // 64
+        data_format = keras.backend.image_data_format()
+        image_input_shape, image_size = _metaclip2_resolve_image_shape(
+            input_shape, image_resolution, data_format
+        )
+
+        if input_tensor is None:
+            images_input = layers.Input(shape=image_input_shape, name="images")
+        else:
+            images_input = input_tensor
+
+        encoded = metaclip2_vision_features(
+            images_input,
+            input_resolution=image_size,
+            patch_size=vision_patch_size,
+            width=vision_width,
+            num_layers=vision_layers,
+            heads=vision_heads,
+            vision_mlp_ratio=vision_mlp_ratio,
+            hidden_act=hidden_act,
+            data_format=data_format,
+        )
+
+        patches = layers.Lambda(lambda t: t[:, 1:, :], name="drop_cls")(encoded)
+        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(patches)
+        logits = layers.Dense(num_labels, name="classifier")(pooled)
+
+        super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
+
+        self.num_labels = num_labels
+        self.image_resolution = image_size
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_heads = vision_heads
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.hidden_act = hidden_act
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "num_labels": self.num_labels,
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_heads": self.vision_heads,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
             }
         )
         return config

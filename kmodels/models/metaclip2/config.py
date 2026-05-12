@@ -260,11 +260,6 @@ METACLIP2_CONFIG = {
     },
 }
 
-
-# Direct release URLs for converted weights.
-# Variants whose value is a dict with ``hf_id`` are pulled live from HF and
-# converted on first call (used for larger checkpoints that exceed
-# GitHub Release size limits — same flow as DinoV3).
 METACLIP2_WEIGHTS = {
     "metaclip2_worldwide_s16_224": {
         "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwides16_worldwide_224.weights.h5",
