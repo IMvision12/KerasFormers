@@ -601,35 +601,34 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
-    "DepthAnythingV1Small": {
+    "DepthAnythingV1DepthEstimation": {
         "module": "kmodels.models.depth_anything_v1",
-        "model_cls": "DepthAnythingV1Small",
+        "model_cls": "DepthAnythingV1DepthEstimation",
         "model_type": "depth_estimation",
         "init_kwargs": {
-            "weights": None,
             "input_shape": (42, 42, 3),
         },
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": (2, 42, 42, 1),
     },
-    "DepthAnythingV2Small": {
+    "DepthAnythingV2DepthEstimation": {
         "module": "kmodels.models.depth_anything_v2",
-        "model_cls": "DepthAnythingV2Small",
+        "model_cls": "DepthAnythingV2DepthEstimation",
         "model_type": "depth_estimation",
         "init_kwargs": {
-            "weights": None,
             "input_shape": (42, 42, 3),
         },
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": (2, 42, 42, 1),
     },
-    "DepthAnythingV2MetricIndoorSmall": {
+    "DepthAnythingV2DepthMetric": {
         "module": "kmodels.models.depth_anything_v2",
-        "model_cls": "DepthAnythingV2MetricIndoorSmall",
+        "model_cls": "DepthAnythingV2DepthEstimation",
         "model_type": "depth_estimation",
         "init_kwargs": {
-            "weights": None,
             "input_shape": (42, 42, 3),
+            "depth_estimation_type": "metric",
+            "max_depth": 20.0,
         },
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": (2, 42, 42, 1),

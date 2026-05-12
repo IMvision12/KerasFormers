@@ -1,5 +1,5 @@
-DEPTH_ANYTHING_V1_MODEL_CONFIG = {
-    "DepthAnythingV1Small": {
+DEPTHANYTHINGV1_CONFIG = {
+    "depth_anything_small": {
         "backbone_dim": 384,
         "backbone_depth": 12,
         "backbone_num_heads": 6,
@@ -8,7 +8,7 @@ DEPTH_ANYTHING_V1_MODEL_CONFIG = {
         "fusion_hidden_size": 64,
         "reassemble_factors": [4, 2, 1, 0.5],
     },
-    "DepthAnythingV1Base": {
+    "depth_anything_base": {
         "backbone_dim": 768,
         "backbone_depth": 12,
         "backbone_num_heads": 12,
@@ -17,7 +17,7 @@ DEPTH_ANYTHING_V1_MODEL_CONFIG = {
         "fusion_hidden_size": 128,
         "reassemble_factors": [4, 2, 1, 0.5],
     },
-    "DepthAnythingV1Large": {
+    "depth_anything_large": {
         "backbone_dim": 1024,
         "backbone_depth": 24,
         "backbone_num_heads": 16,
@@ -28,20 +28,12 @@ DEPTH_ANYTHING_V1_MODEL_CONFIG = {
     },
 }
 
-DEPTH_ANYTHING_V1_WEIGHTS_CONFIG = {
-    "DepthAnythingV1Small": {
-        "da_v1": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v1_small.weights.h5",
-        },
-    },
-    "DepthAnythingV1Base": {
-        "da_v1": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v1_base.weights.h5",
-        },
-    },
-    "DepthAnythingV1Large": {
-        "da_v1": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v1_large.weights.h5",
-        },
-    },
+V1_BASE_URL = (
+    "https://github.com/IMvision12/keras-models/releases/download/depth-anything-v1"
+)
+
+DEPTHANYTHINGV1_WEIGHTS = {
+    "depth_anything_small": {"url": f"{V1_BASE_URL}/depth_anything_small.weights.h5"},
+    "depth_anything_base": {"url": f"{V1_BASE_URL}/depth_anything_base.weights.h5"},
+    "depth_anything_large": {"url": f"{V1_BASE_URL}/depth_anything_large.weights.h5"},
 }
