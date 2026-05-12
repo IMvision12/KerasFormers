@@ -188,7 +188,8 @@ class BaseModel(keras.Model):
             )
 
         config = dict(cls.KMODELS_CONFIG[variant])
-        model = cls(**config, **kwargs)
+        config.update(kwargs)
+        model = cls(**config)
 
         if load_weights:
             if cls.KMODELS_WEIGHTS is None or variant not in cls.KMODELS_WEIGHTS:
@@ -203,8 +204,21 @@ class BaseModel(keras.Model):
                 raise ValueError(
                     f"Release weights URL for variant '{variant}' is empty."
                 )
-            weights_path = download_file(url)
-            model.load_weights(weights_path)
+            if url.lower().endswith(".json"):
+                json_path = download_file(url)
+                with open(json_path, "r") as f:
+                    index = json.load(f)
+                if "weight_map" not in index:
+                    raise ValueError(
+                        f"Sharded weights index '{url}' must contain 'weight_map'."
+                    )
+                base_url = "/".join(url.split("/")[:-1])
+                for shard_file in sorted(set(index["weight_map"].values())):
+                    download_file(f"{base_url}/{shard_file}")
+                model.load_weights(json_path)
+            else:
+                weights_path = download_file(url)
+                model.load_weights(weights_path)
 
         return model
 

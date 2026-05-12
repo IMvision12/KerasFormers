@@ -1,9 +1,8 @@
 from .eomt_image_processor import EoMTImageProcessor
-from .eomt_model import EoMTBase, EoMTLarge, EoMTSmall
+from .eomt_model import EoMTModel, EoMTUniversalSegment
 
 __all__ = [
-    "EoMTSmall",
-    "EoMTBase",
-    "EoMTLarge",
+    "EoMTModel",
+    "EoMTUniversalSegment",
     "EoMTImageProcessor",
 ]

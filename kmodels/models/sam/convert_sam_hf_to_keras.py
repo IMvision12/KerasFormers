@@ -1,9 +1,12 @@
+import gc
+from typing import Dict, List, Tuple
+
+import keras
 import numpy as np
 import torch
 from tqdm import tqdm
 from transformers import SamModel
 
-from kmodels.models.sam.sam_model import SAMViTBase, SAMViTHuge, SAMViTLarge
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -17,43 +20,22 @@ vision_encoder_name_mapping = {
     "beta": "bias",
 }
 
-attention_name_mapping = {
-    "kernel": "weight",
-}
 
-model_configs = [
-    {
-        "keras_model_cls": SAMViTBase,
-        "hf_model_name": "facebook/sam-vit-base",
-        "input_shape": (1024, 1024, 3),
-    },
-    {
-        "keras_model_cls": SAMViTLarge,
-        "hf_model_name": "facebook/sam-vit-large",
-        "input_shape": (1024, 1024, 3),
-    },
-    {
-        "keras_model_cls": SAMViTHuge,
-        "hf_model_name": "facebook/sam-vit-huge",
-        "input_shape": (1024, 1024, 3),
-    },
-]
+def transfer_sam_weights(
+    keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer SAM weights from a HuggingFace state-dict.
 
-for model_config in model_configs:
-    print(f"\n{'=' * 60}")
-    print(f"Converting {model_config['hf_model_name']}...")
-    print(f"{'=' * 60}")
+    Walks the vision encoder, vision neck, shared image embedding,
+    prompt encoder (point embeddings, no-mask embedding, optional
+    mask conv stack), and the mask decoder (transformer layers,
+    upscale convs, hypernetwork MLPs, IoU head).
 
-    print(f"Loading HF model: {model_config['hf_model_name']}")
-    hf_model = SamModel.from_pretrained(model_config["hf_model_name"]).eval()
-    hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
-
-    print("Creating Keras model...")
-    keras_model = model_config["keras_model_cls"](
-        input_shape=model_config["input_shape"], weights=None
-    )
-
-    print("Transferring patch embeddings...")
+    Args:
+        keras_model: A ``SAMPromptableSegment`` instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``SamModel.state_dict()``.
+    """
     patch_conv = keras_model.get_layer("vision_encoder_patch_embed_projection")
     transfer_weights(
         "conv_kernel",
@@ -62,12 +44,11 @@ for model_config in model_configs:
     )
     patch_conv.bias.assign(hf_state_dict["vision_encoder.patch_embed.projection.bias"])
 
-    print("Transferring position embedding...")
     pos_layer = keras_model.get_layer("vision_encoder_pos_embed")
     pos_layer.pos_embed.assign(hf_state_dict["vision_encoder.pos_embed"])
 
     num_layers = keras_model.vision_num_hidden_layers
-    for i in tqdm(range(num_layers), desc="Transferring vision encoder layers"):
+    for i in tqdm(range(num_layers), desc="Transferring SAM vision encoder layers"):
         layer = keras_model.get_layer(f"vision_encoder_layers_{i}")
         skipped = transfer_nested_layer_weights(
             layer,
@@ -81,14 +62,12 @@ for model_config in model_configs:
             hf_key = f"vision_encoder.layers.{i}.attn.{w_name}"
             keras_weight.assign(hf_state_dict[hf_key])
 
-    print("Transferring vision neck...")
     neck_conv1 = keras_model.get_layer("vision_encoder_neck_conv1")
     transfer_weights(
         "conv_kernel",
         neck_conv1.kernel,
         hf_state_dict["vision_encoder.neck.conv1.weight"],
     )
-
     neck_ln1 = keras_model.get_layer("vision_encoder_neck_layer_norm1")
     neck_ln1.gamma.assign(hf_state_dict["vision_encoder.neck.layer_norm1.weight"])
     neck_ln1.beta.assign(hf_state_dict["vision_encoder.neck.layer_norm1.bias"])
@@ -99,18 +78,15 @@ for model_config in model_configs:
         neck_conv2.kernel,
         hf_state_dict["vision_encoder.neck.conv2.weight"],
     )
-
     neck_ln2 = keras_model.get_layer("vision_encoder_neck_layer_norm2")
     neck_ln2.gamma.assign(hf_state_dict["vision_encoder.neck.layer_norm2.weight"])
     neck_ln2.beta.assign(hf_state_dict["vision_encoder.neck.layer_norm2.bias"])
 
-    print("Transferring shared image embedding...")
     image_pe_layer = keras_model.get_layer("image_positional_embeddings")
     image_pe_layer.shared_embedding.positional_embedding.assign(
         hf_state_dict["shared_image_embedding.positional_embedding"]
     )
 
-    print("Transferring prompt encoder...")
     prompt_enc = keras_model.get_layer("prompt_encoder")
     for i in range(prompt_enc.num_point_embeddings):
         prompt_enc.point_embeddings[i].assign(
@@ -125,53 +101,30 @@ for model_config in model_configs:
     )
 
     if getattr(keras_model, "enable_masks", False):
-        mask_embed_conv1 = keras_model.get_layer("prompt_encoder_mask_embed_conv1")
+        for idx in (1, 2):
+            conv = keras_model.get_layer(f"prompt_encoder_mask_embed_conv{idx}")
+            transfer_weights(
+                "conv_kernel",
+                conv.kernel,
+                hf_state_dict[f"prompt_encoder.mask_embed.conv{idx}.weight"],
+            )
+            conv.bias.assign(hf_state_dict[f"prompt_encoder.mask_embed.conv{idx}.bias"])
+            ln = keras_model.get_layer(f"prompt_encoder_mask_embed_layer_norm{idx}")
+            ln.gamma.assign(
+                hf_state_dict[f"prompt_encoder.mask_embed.layer_norm{idx}.weight"]
+            )
+            ln.beta.assign(
+                hf_state_dict[f"prompt_encoder.mask_embed.layer_norm{idx}.bias"]
+            )
+
+        conv3 = keras_model.get_layer("prompt_encoder_mask_embed_conv3")
         transfer_weights(
             "conv_kernel",
-            mask_embed_conv1.kernel,
-            hf_state_dict["prompt_encoder.mask_embed.conv1.weight"],
-        )
-        mask_embed_conv1.bias.assign(
-            hf_state_dict["prompt_encoder.mask_embed.conv1.bias"]
-        )
-
-        mask_embed_ln1 = keras_model.get_layer("prompt_encoder_mask_embed_layer_norm1")
-        mask_embed_ln1.gamma.assign(
-            hf_state_dict["prompt_encoder.mask_embed.layer_norm1.weight"]
-        )
-        mask_embed_ln1.beta.assign(
-            hf_state_dict["prompt_encoder.mask_embed.layer_norm1.bias"]
-        )
-
-        mask_embed_conv2 = keras_model.get_layer("prompt_encoder_mask_embed_conv2")
-        transfer_weights(
-            "conv_kernel",
-            mask_embed_conv2.kernel,
-            hf_state_dict["prompt_encoder.mask_embed.conv2.weight"],
-        )
-        mask_embed_conv2.bias.assign(
-            hf_state_dict["prompt_encoder.mask_embed.conv2.bias"]
-        )
-
-        mask_embed_ln2 = keras_model.get_layer("prompt_encoder_mask_embed_layer_norm2")
-        mask_embed_ln2.gamma.assign(
-            hf_state_dict["prompt_encoder.mask_embed.layer_norm2.weight"]
-        )
-        mask_embed_ln2.beta.assign(
-            hf_state_dict["prompt_encoder.mask_embed.layer_norm2.bias"]
-        )
-
-        mask_embed_conv3 = keras_model.get_layer("prompt_encoder_mask_embed_conv3")
-        transfer_weights(
-            "conv_kernel",
-            mask_embed_conv3.kernel,
+            conv3.kernel,
             hf_state_dict["prompt_encoder.mask_embed.conv3.weight"],
         )
-        mask_embed_conv3.bias.assign(
-            hf_state_dict["prompt_encoder.mask_embed.conv3.bias"]
-        )
+        conv3.bias.assign(hf_state_dict["prompt_encoder.mask_embed.conv3.bias"])
 
-    print("Transferring mask decoder...")
     mask_dec = keras_model.get_layer("mask_decoder")
 
     mask_dec.iou_token.assign(hf_state_dict["mask_decoder.iou_token.weight"])
@@ -202,13 +155,14 @@ for model_config in model_configs:
                     hf_state_dict[f"{hf_prefix}.{attn_suffix}.{proj_name}.bias"]
                 )
 
-        ln1 = mask_dec.transformer_layer_norm1s[i]
-        ln1.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm1.weight"])
-        ln1.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm1.bias"])
-
-        ln2 = mask_dec.transformer_layer_norm2s[i]
-        ln2.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm2.weight"])
-        ln2.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm2.bias"])
+        for ln_attr, hf_ln in [
+            (mask_dec.transformer_layer_norm1s[i], "layer_norm1"),
+            (mask_dec.transformer_layer_norm2s[i], "layer_norm2"),
+            (mask_dec.transformer_layer_norm3s[i], "layer_norm3"),
+            (mask_dec.transformer_layer_norm4s[i], "layer_norm4"),
+        ]:
+            ln_attr.gamma.assign(hf_state_dict[f"{hf_prefix}.{hf_ln}.weight"])
+            ln_attr.beta.assign(hf_state_dict[f"{hf_prefix}.{hf_ln}.bias"])
 
         mlp_lin1 = mask_dec.transformer_mlp_lin1s[i]
         transfer_weights(
@@ -221,14 +175,6 @@ for model_config in model_configs:
             "kernel", mlp_lin2.kernel, hf_state_dict[f"{hf_prefix}.mlp.lin2.weight"]
         )
         mlp_lin2.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.lin2.bias"])
-
-        ln3 = mask_dec.transformer_layer_norm3s[i]
-        ln3.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm3.weight"])
-        ln3.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm3.bias"])
-
-        ln4 = mask_dec.transformer_layer_norm4s[i]
-        ln4.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm4.weight"])
-        ln4.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm4.bias"])
 
     hf_final_attn = "mask_decoder.transformer.final_attn_token_to_image"
     for proj_name in ["q_proj", "k_proj", "v_proj", "out_proj"]:
@@ -314,53 +260,80 @@ for model_config in model_configs:
     )
     mask_dec.iou_head_proj_out.bias.assign(hf_state_dict[f"{hf_prefix}.proj_out.bias"])
 
-    print("Weight transfer complete!")
 
-    print("Verifying model equivalence...")
-    np.random.seed(42)
-    test_image = np.random.rand(1, 1024, 1024, 3).astype(np.float32)
-    test_points = np.array([[[[500.0, 500.0]]]], dtype=np.float32)
-    test_labels = np.array([[[1]]], dtype=np.int32)
+SAM_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+    ("sam_vit_base", "facebook/sam-vit-base"),
+    ("sam_vit_large", "facebook/sam-vit-large"),
+    ("sam_vit_huge", "facebook/sam-vit-huge"),
+]
 
-    keras_output = keras_model.predict(
-        {
-            "pixel_values": test_image,
-            "input_points": test_points,
-            "input_labels": test_labels,
-        },
-        verbose=0,
-    )
-    keras_masks = keras_output["pred_masks"]
-    keras_iou = keras_output["iou_scores"]
 
-    with torch.no_grad():
-        hf_input = {
-            "pixel_values": torch.from_numpy(test_image.transpose(0, 3, 1, 2)),
-            "input_points": torch.from_numpy(test_points),
-            "input_labels": torch.from_numpy(test_labels),
-            "multimask_output": True,
-        }
-        hf_output = hf_model(**hf_input)
-        hf_masks = hf_output.pred_masks.cpu().numpy()
-        hf_iou = hf_output.iou_scores.cpu().numpy()
+if __name__ == "__main__":
+    from kmodels.models.sam import SAMPromptableSegment
 
-    mask_diff = np.max(np.abs(keras_masks - hf_masks))
-    iou_diff = np.max(np.abs(keras_iou - hf_iou))
-    print(f"Max mask diff: {mask_diff:.6f}")
-    print(f"Max IoU diff:  {iou_diff:.6f}")
+    for variant, hf_id in SAM_CONVERSION_CONFIG:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  {hf_id}")
+        print(f"{'=' * 60}")
 
-    assert mask_diff < 0.8, f"Mask diff too large: {mask_diff}"
-    assert iou_diff < 1e-2, f"IoU diff too large: {iou_diff}"
-    print("Model equivalence verified!")
+        hf_model = SamModel.from_pretrained(hf_id).eval()
+        hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-    model_base = model_config["hf_model_name"].split("/")[-1].replace("-", "_")
-    if "huge" in model_config["hf_model_name"]:
-        model_filename = model_base + ".weights.json"
-        keras_model.save_weights(model_filename, max_shard_size=1.5)
-    else:
-        model_filename = model_base + ".weights.h5"
-        keras_model.save_weights(model_filename)
-    print(f"Model saved as {model_filename}")
+        keras_model: keras.Model = SAMPromptableSegment.from_weights(
+            variant, load_weights=False
+        )
 
-    del keras_model, hf_model, hf_state_dict
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        transfer_sam_weights(keras_model, hf_state_dict)
+
+        print("Verifying model equivalence...")
+        np.random.seed(42)
+        test_image = np.random.rand(1, 1024, 1024, 3).astype(np.float32)
+        test_points = np.array([[[[500.0, 500.0]]]], dtype=np.float32)
+        test_labels = np.array([[[1]]], dtype=np.int32)
+
+        keras_output = keras_model.predict(
+            {
+                "pixel_values": test_image,
+                "input_points": test_points,
+                "input_labels": test_labels,
+            },
+            verbose=0,
+        )
+        keras_masks = keras_output["pred_masks"]
+        keras_iou = keras_output["iou_scores"]
+
+        with torch.no_grad():
+            hf_input = {
+                "pixel_values": torch.from_numpy(test_image.transpose(0, 3, 1, 2)),
+                "input_points": torch.from_numpy(test_points),
+                "input_labels": torch.from_numpy(test_labels),
+                "multimask_output": True,
+            }
+            hf_output = hf_model(**hf_input)
+            hf_masks = hf_output.pred_masks.cpu().numpy()
+            hf_iou = hf_output.iou_scores.cpu().numpy()
+
+        mask_diff = float(np.max(np.abs(keras_masks - hf_masks)))
+        iou_diff = float(np.max(np.abs(keras_iou - hf_iou)))
+        print(f"  Max mask diff: {mask_diff:.6f}")
+        print(f"  Max IoU diff:  {iou_diff:.6f}")
+
+        if mask_diff > 0.8:
+            raise ValueError(f"{variant}: mask diff {mask_diff:.6f} > 0.8")
+        if iou_diff > 1e-2:
+            raise ValueError(f"{variant}: iou diff {iou_diff:.6f} > 1e-2")
+        print("  Verification OK")
+
+        if variant == "sam_vit_huge":
+            model_filename = f"{variant}.weights.json"
+            keras_model.save_weights(model_filename, max_shard_size=1.5)
+        else:
+            model_filename = f"{variant}.weights.h5"
+            keras_model.save_weights(model_filename)
+        print(f"  Saved -> {model_filename}")
+
+        del keras_model, hf_model, hf_state_dict
+        keras.backend.clear_session()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

@@ -6,6 +6,11 @@ SAM (Segment Anything Model) is a promptable segmentation model that can generat
 
 **Reference:** [Segment Anything](https://arxiv.org/abs/2304.02643) (Kirillov et al., 2023)
 
+Two classes are exposed:
+
+- `SAMVisionModel` — ViT vision encoder + neck (no prompt encoder, no mask decoder). Returns image embeddings ``(B, 64, 64, 256)``. Use this to cache image features when running many prompt combinations.
+- `SAMPromptableSegment` — full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores"}``.
+
 ## Architecture Highlights
 
 - **Promptable Object Segmentation:** Naturally accepts ambiguous or explicit prompts in the form of interactive points, bounding boxes, or dense masks.
@@ -13,50 +18,60 @@ SAM (Segment Anything Model) is a promptable segmentation model that can generat
 - **Three-Part Pipeline:** Features a robust ViT Image Encoder, a flexible sparse/dense Prompt Encoder, and a lightweight two-way Mask Decoder for lightning-fast prompting.
 - **Ambiguity Awareness:** Generates multiple valid segmentation mask hypotheses when a prompt is underspecified (e.g. part vs whole).
 
-## Available Models
+## Available Weights
 
-| Model | Parameters | Description | Weights |
-|-------|-----------|-------------|---------|
-| `SAMViTBase` | ~93M | ViT-B/16 backbone | `sa1b` |
-| `SAMViTLarge` | ~308M | ViT-L/16 backbone | `sa1b` |
-| `SAMViTHuge` | ~636M | ViT-H/16 backbone | `sa1b` |
+Pretrained weights are loaded via `SAMPromptableSegment.from_weights(variant_id)` (or `from_hf(hf_id)` for arbitrary HF fine-tunes).
+
+| Variant         | Parameters | Backbone   |
+|-----------------|-----------:|------------|
+| `sam_vit_base`  |     ~93 M  | ViT-B/16   |
+| `sam_vit_large` |    ~308 M  | ViT-L/16   |
+| `sam_vit_huge`  |    ~636 M  | ViT-H/16   |
+
+All variants take a 1024×1024 input. The Huge checkpoint is stored as a sharded ``.weights.json`` index + shards on GitHub Releases; loading is transparent.
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.sam import SAMPromptableSegment
 
-# List available SAM models
-print(kmodels.list_models("sam"))
+# Build a SAM model with default 1024x1024 input and multi-mask output
+model = SAMPromptableSegment.from_weights("sam_vit_base")
 
-# Build a SAM model (default 1024×1024 input, multi-mask output)
-model = kmodels.models.sam.SAMViTBase(
-    input_shape=(1024, 1024, 3),
-    weights="sa1b",
+# For single best-mask output instead of 3 ambiguity hypotheses
+model_single = SAMPromptableSegment.from_weights(
+    "sam_vit_base", multimask_output=False
 )
 
-# For single best-mask output instead of 3 ambiguity hypotheses:
-model_single = kmodels.models.sam.SAMViTBase(
-    weights="sa1b",
-    multimask_output=False,
+# Build an untrained model
+model_init = SAMPromptableSegment.from_weights(
+    "sam_vit_base", load_weights=False
 )
 ```
 
 `multimask_output` is a **construction-time** flag in the Keras port (unlike the HuggingFace port where it's a runtime kwarg). The Keras functional graph needs to be built for one mode or the other.
 
+### Loading HF fine-tunes
+
+Any HF repo whose `model_type` is `"sam"` (the official `facebook/sam-vit-*` checkpoints or any user fine-tune built on the same architecture) can be loaded directly with `from_hf`. The class reads ViT dims, MLP dim, and global-attention indices straight from the HF config.
+
+```python
+model = SAMPromptableSegment.from_hf("facebook/sam-vit-base")
+```
+
 ## Model Inputs
 
-The SAM model's functional graph has six inputs that must always be provided — for prompts you are not using, pass zero-valued placeholders and toggle the corresponding `has_*_input` flag to `0.0`:
+The SAM model's functional graph requires `pixel_values`, `input_points`, and `input_labels`. Enable optional prompt kinds at construction time via `enable_boxes=True` / `enable_masks=True`; otherwise those inputs are not part of the graph.
 
 | Input | Shape | Description |
 |---|---|---|
 | `pixel_values` | `(batch, 1024, 1024, 3)` | Normalized image (ImageNet mean/std). |
 | `input_points` | `(batch, point_batch, num_points, 2)` | `(x, y)` pixel coords in the model input frame. |
 | `input_labels` | `(batch, point_batch, num_points)` | `1` foreground, `0` background, `-1` padding, `-10` ignore. |
-| `input_boxes` | `(batch, point_batch, 4)` | `(x1, y1, x2, y2)`. Dim‑1 must match `point_batch`. |
-| `input_masks` | `(batch, 256, 256, 1)` | Dense mask prompt at 4× downscale of the model input. |
-| `has_boxes_input` | `(batch, 1)` | `1.0` if `input_boxes` is meaningful, else `0.0`. |
-| `has_mask_input` | `(batch, 1)` | `1.0` if `input_masks` is meaningful, else `0.0`. |
+| `input_boxes` (when `enable_boxes=True`) | `(batch, point_batch, 4)` | `(x1, y1, x2, y2)`. Dim‑1 must match `point_batch`. |
+| `has_boxes_input` (when `enable_boxes=True`) | `(batch, 1)` | `1.0` if `input_boxes` is meaningful, else `0.0`. |
+| `input_masks` (when `enable_masks=True`) | `(batch, 256, 256, 1)` | Dense mask prompt at 4× downscale of the model input. |
+| `has_mask_input` (when `enable_masks=True`) | `(batch, 1)` | `1.0` if `input_masks` is meaningful, else `0.0`. |
 
 ## Inference with Point Prompts
 
@@ -64,10 +79,10 @@ The SAM model's functional graph has six inputs that must always be provided —
 import numpy as np
 import keras
 from kmodels.models.sam import (
-    SAMViTBase, SAMImageProcessorWithPrompts,
+    SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
-model = SAMViTBase(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAMPromptableSegment.from_weights("sam_vit_base")
 
 processor = SAMImageProcessorWithPrompts(
     input_points=np.array([[[390, 280]]]),  # (x, y) pixel coord on the subject
@@ -75,13 +90,14 @@ processor = SAMImageProcessorWithPrompts(
 )
 inputs = processor("groceries.jpg")
 
-# Fill in the placeholders for the prompt kinds we're not using
-inputs["input_boxes"]     = np.zeros((1, 1, 4), dtype="float32")
-inputs["input_masks"]     = np.zeros((1, 256, 256, 1), dtype="float32")
-inputs["has_boxes_input"] = np.zeros((1, 1), dtype="float32")
-inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
-
-outputs = model.predict(inputs, verbose=0)
+outputs = model.predict(
+    {
+        "pixel_values": inputs["pixel_values"],
+        "input_points": inputs["input_points"],
+        "input_labels": inputs["input_labels"],
+    },
+    verbose=0,
+)
 
 masks = processor.post_process_masks(
     outputs["pred_masks"],
@@ -113,15 +129,15 @@ Image processors return tensors in the requested layout; post-processors accept 
 
 ## Inference with Box Prompts
 
-Pass a real `(x1, y1, x2, y2)` box and toggle `has_boxes_input=1`. The prompt encoder embeds the two corners via the same positional encoding path as points — you no longer need the old "corner label" workaround.
+Pass a real `(x1, y1, x2, y2)` box and toggle `has_boxes_input=1`. Build the model with `enable_boxes=True` so the box inputs are part of the graph:
 
 ```python
 import numpy as np
 from kmodels.models.sam import (
-    SAMViTBase, SAMImageProcessorWithPrompts,
+    SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
-model = SAMViTBase(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAMPromptableSegment.from_weights("sam_vit_base", enable_boxes=True)
 
 processor = SAMImageProcessorWithPrompts(
     input_points=np.zeros((1, 1, 1, 2), dtype="float32"),   # placeholder
@@ -129,9 +145,7 @@ processor = SAMImageProcessorWithPrompts(
     input_boxes=np.array([[100, 200, 400, 500]]),           # (x1, y1, x2, y2)
 )
 inputs = processor("photo.jpg")
-inputs["input_masks"]     = np.zeros((1, 256, 256, 1), dtype="float32")
 inputs["has_boxes_input"] = np.ones((1, 1), dtype="float32")
-inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
 
 outputs = model.predict(inputs, verbose=0)
 masks = processor.post_process_masks(
@@ -145,9 +159,13 @@ Note the shape constraint: `input_boxes` dim‑1 must equal `point_batch`. For a
 
 ## Mask Refinement
 
-Feed a coarse low-resolution mask back in to refine the output. Masks must be passed at the 256×256 prompt-encoder resolution:
+Feed a coarse low-resolution mask back in to refine the output. Build the model with `enable_masks=True`; masks must be passed at the 256×256 prompt-encoder resolution:
 
 ```python
+model = SAMPromptableSegment.from_weights(
+    "sam_vit_base", enable_masks=True
+)
+# ... initial inference returns outputs["pred_masks"]
 coarse = outputs["pred_masks"][0, 0, 0:1]                # (1, 256, 256)
 coarse = np.transpose(coarse, (1, 2, 0))[None, ...]      # (1, 256, 256, 1)
 
@@ -158,18 +176,18 @@ refined = model.predict(inputs, verbose=0)
 
 ## Precomputed Image Embeddings (Multi-Prompt Inference)
 
-For interactive tools that try many prompts on the same image, run the ViT encoder **once** and reuse its output. The Keras port exposes two sub-models on every SAM instance:
+For interactive tools that try many prompts on the same image, run the ViT encoder **once** and reuse its output. Every `SAMPromptableSegment` instance exposes three sub-models:
 
 | Attribute | Inputs | Outputs |
 |---|---|---|
 | `model.vision_encoder_model` | `pixel_values` | `image_embeddings` `(1, 64, 64, 256)` |
-| `model.prompt_decoder_model` | `image_embeddings` + all six prompt inputs | `pred_masks`, `iou_scores` |
-| `model.prompt_encoder_model` | all six prompt inputs | `sparse_embeddings`, `dense_embeddings` |
+| `model.prompt_decoder_model` | `image_embeddings` + prompt inputs | `pred_masks`, `iou_scores` |
+| `model.prompt_encoder_model` | prompt inputs | `sparse_embeddings`, `dense_embeddings` |
 
 ```python
-from kmodels.models.sam import SAMViTBase, SAMImageProcessor
+from kmodels.models.sam import SAMPromptableSegment, SAMImageProcessor
 
-model = SAMViTBase(weights="sa1b")
+model = SAMPromptableSegment.from_weights("sam_vit_base")
 processor = SAMImageProcessor()
 pre = processor("photo.jpg")
 
@@ -182,22 +200,23 @@ for (x, y) in [(450, 600), (200, 150), (700, 300)]:
         "image_embeddings":  image_embeddings,
         "input_points":      np.array([[[[x, y]]]], dtype="float32"),
         "input_labels":      np.array([[[1]]], dtype="int32"),
-        "input_boxes":       np.zeros((1, 1, 4), dtype="float32"),
-        "input_masks":       np.zeros((1, 256, 256, 1), dtype="float32"),
-        "has_boxes_input":   np.zeros((1, 1), dtype="float32"),
-        "has_mask_input":    np.zeros((1, 1), dtype="float32"),
     }, verbose=0)
 ```
 
 For a 1024×1024 image the ViT is roughly 95% of the compute — the decoder itself runs in milliseconds.
 
+Alternatively use `SAMVisionModel` standalone if you only need image embeddings (no prompt encoder / mask decoder built):
+
+```python
+from kmodels.models.sam import SAMVisionModel
+vision = SAMVisionModel.from_weights("sam_vit_base")
+image_embeddings = vision(pre["pixel_values"])
+```
+
 You can also extract prompt embeddings without invoking the mask decoder:
 
 ```python
-pe = model.get_prompt_embeddings(
-    input_points, input_labels, input_boxes, input_masks,
-    has_boxes_input, has_mask_input,
-)
+pe = model.get_prompt_embeddings(input_points, input_labels)
 # pe["sparse_embeddings"]: (batch, point_batch, N, 256)
 # pe["dense_embeddings"] : (batch, 64, 64, 256)
 ```
@@ -216,7 +235,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kmodels.models.sam import (
-    SAMViTLarge, SAMImageProcessorWithPrompts,
+    SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
 COLORS = [
@@ -235,7 +254,7 @@ def show_points(coords, ax, color, marker_size=340):
                s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
 
 
-model = SAMViTLarge(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAMPromptableSegment.from_weights("sam_vit_large")
 img = Image.open("assets/coco_cats.jpg").convert("RGB")   # COCO val2017/000000039769.jpg
 
 prompts = [
@@ -272,7 +291,7 @@ for i, prompt in enumerate(prompts):
     show_points(prompt["points"][0], ax, color=color[:3])
     print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
 
-ax.set_title("SAM ViT-Large — Point Prompts (COCO cats)", fontsize=14)
+ax.set_title("SAM ViT-Large - Point Prompts (COCO cats)", fontsize=14)
 ax.axis("off")
 plt.tight_layout()
 fig.savefig("sam_train_output.jpg", bbox_inches="tight", dpi=130)
@@ -315,7 +334,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam import SAMViTLarge, SAMGenerateMasks
+from kmodels.models.sam import SAMPromptableSegment, SAMGenerateMasks
 
 
 def overlay_masks(ax, masks_list):
@@ -332,13 +351,13 @@ def overlay_masks(ax, masks_list):
     ax.imshow(overlay)
 
 
-model = SAMViTLarge(weights="sa1b")
+model = SAMPromptableSegment.from_weights("sam_vit_large")
 img = Image.open("assets/coco_cats.jpg").convert("RGB")
 
 result = SAMGenerateMasks(
     model,
     np.array(img, dtype="float32"),
-    points_per_side=16,        # 16 × 16 = 256 grid points
+    points_per_side=16,        # 16 x 16 = 256 grid points
     points_per_batch=32,
     pred_iou_thresh=0.88,
     stability_score_thresh=0.92,
@@ -356,7 +375,7 @@ fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 axes[0].imshow(np.array(img)); axes[0].set_title("Input"); axes[0].axis("off")
 axes[1].imshow(np.array(img))
 overlay_masks(axes[1], result["masks"])
-axes[1].set_title(f"SAM ViT-Large — AMG ({len(result['masks'])} masks)")
+axes[1].set_title(f"SAM ViT-Large - AMG ({len(result['masks'])} masks)")
 axes[1].axis("off")
 plt.tight_layout()
 fig.savefig("sam_coco_cats_amg_output.jpg", bbox_inches="tight", dpi=130)
@@ -409,7 +428,7 @@ The Keras port intentionally differs from the PyTorch/HuggingFace `SamModel` API
 
 | Aspect | HuggingFace | Keras port |
 |---|---|---|
-| Optional prompts | pass `None` in `forward` | pass zero placeholders + `has_*_input=0` |
+| Optional prompts | pass `None` in `forward` | enable via `enable_boxes=True` / `enable_masks=True` at construction |
 | `multimask_output` | runtime kwarg | construction-time flag |
 | Precomputed embeddings | `model(image_embeddings=..., ...)` | `model.prompt_decoder_model(...)` sub-model |
 | Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
