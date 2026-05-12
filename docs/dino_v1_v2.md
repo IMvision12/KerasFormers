@@ -11,13 +11,13 @@ DINO and DINOv2 are pure feature extractors — no classification head. Three ba
 
 - `DinoViTBackbone` — DINO V1 ViT (4 variants).
 - `DinoResNetBackbone` — DINO V1 ResNet-50.
-- `DinoV2Backbone` — DINOv2 ViT (3 variants). Supports `from_hf` for HF Hub fine-tunes.
+- `DinoV2Backbone` — DINOv2 ViT (3 variants). Supports `from_weights("hf:<repo>")` for HF Hub fine-tunes.
 
 All three return a list of intermediate feature maps from each block / stage, suitable for feeding into detection / segmentation / depth necks.
 
 ## Available Weights
 
-Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Backbone` also supports `from_hf(hf_id)` for arbitrary HF fine-tunes whose `model_type` is `"dinov2"`.
+Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Backbone` also supports `from_weights("hf:<repo>")` for arbitrary HF fine-tunes whose `model_type` is `"dinov2"`.
 
 ### DINO V1 (`DinoViTBackbone` and `DinoResNetBackbone`)
 
@@ -62,17 +62,17 @@ print(len(features), features[-1].shape)  # 13, (1, 257, 384)
 
 ## Loading HF fine-tunes (DINOv2)
 
-Any HF repo whose `model_type` is `"dinov2"` (the official `facebook/dinov2-*` checkpoints or any user fine-tune) can be loaded directly with `from_hf`. The class reads ViT dims, depth, num heads, and LayerScale value straight from the HF config; position embeddings are bicubically resampled if your `input_shape` differs from HF's training resolution. The backbone's last feature map matches HF's `last_hidden_state` (the final LayerNorm is included). For `Dinov2For*` task-head wrappers, the `dinov2.` prefix on state-dict keys is stripped automatically and any classifier head is dropped.
+Any HF repo whose `model_type` is `"dinov2"` (the official `facebook/dinov2-*` checkpoints or any user fine-tune) can be loaded directly via `from_weights("hf:<repo>")`. The class reads ViT dims, depth, num heads, and LayerScale value straight from the HF config; position embeddings are bicubically resampled if your `input_shape` differs from HF's training resolution. The backbone's last feature map matches HF's `last_hidden_state` (the final LayerNorm is included). For `Dinov2For*` task-head wrappers, the `dinov2.` prefix on state-dict keys is stripped automatically and any classifier head is dropped.
 
 ```python
 from kmodels.models.dino_v2 import DinoV2Backbone
 
 # Canonical
-model = DinoV2Backbone.from_hf("facebook/dinov2-base")
+model = DinoV2Backbone.from_weights("hf:facebook/dinov2-base")
 
 # User fine-tune at a different resolution
-model = DinoV2Backbone.from_hf(
-    "Jayanth2002/dinov2-base-finetuned-SkinDisease",
+model = DinoV2Backbone.from_weights(
+    "hf:Jayanth2002/dinov2-base-finetuned-SkinDisease",
     input_shape=(518, 518, 3),
 )
 ```

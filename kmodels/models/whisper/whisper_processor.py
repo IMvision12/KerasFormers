@@ -22,7 +22,7 @@ class WhisperProcessor(BaseProcessor):
     * ``processor.get_decoder_prompt_ids(language, task, no_timestamps)``
       — turns ``("en", "transcribe")`` into the
       ``forced_decoder_ids`` list that
-      :class:`kmodels.models.whisper.WhisperGenerate` consumes.
+      :class:`kmodels.models.whisper.WhisperSpeechToText` consumes.
     * ``processor.decode`` / ``processor.batch_decode`` — proxy to the
       tokenizer.
 

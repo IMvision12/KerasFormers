@@ -46,7 +46,7 @@ Before the first call:
 - **Gated weight loading:** First call downloads from HuggingFace, converts from PyTorch, and caches at `~/.cache/kmodels/<variant>/`.
 - **2D RoPE:** ViT variants use 2D Rotary Position Embeddings applied to patch tokens only (CLS and register tokens are excluded).
 - **Register tokens:** 4 learnable register tokens inserted between CLS and patch tokens improve attention map quality.
-- **HF passthrough:** `from_hf("hf:facebook/dinov3-...")` also works for arbitrary fine-tunes whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"`.
+- **HF passthrough:** `from_weights("hf:facebook/dinov3-...")` also works for arbitrary fine-tunes whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"`.
 - **Fine-tune compatibility:** `query_bias`, `key_bias`, `value_bias`, `hidden_act`, `mlp_bias`, and `layer_norm_eps` are read from the HF config — fine-tunes that change these from the canonical DINOv3 settings (including gated-MLP variants) load correctly.
 
 ## Basic Usage
@@ -75,12 +75,12 @@ print(len(features), features[-1].shape)  # 5, (1, 7, 7, 768)
 
 ## Loading HF Fine-tunes
 
-Any HF repo whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"` (the official DINOv3 checkpoints or any user fine-tune built on the same architectures) can be loaded directly with `from_hf`:
+Any HF repo whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"` (the official DINOv3 checkpoints or any user fine-tune built on the same architectures) can be loaded directly via `from_weights("hf:<repo>")`:
 
 ```python
 from kmodels.models.dino_v3 import DinoV3ViTBackbone
 
-model = DinoV3ViTBackbone.from_hf("facebook/dinov3-vitb16-pretrain-lvd1689m")
+model = DinoV3ViTBackbone.from_weights("hf:facebook/dinov3-vitb16-pretrain-lvd1689m")
 ```
 
 ## Building a Classification Model on Top

@@ -1,15 +1,31 @@
+from typing import List, Optional, Union
+
 import keras
+import numpy as np
 from keras import layers, ops
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.base import BaseModel
 
-from .config import WHISPER_MODEL_CONFIG, WHISPER_WEIGHTS_CONFIG
+from .config import (
+    WHISPER_BEGIN_SUPPRESS_TOKENS,
+    WHISPER_CONFIG,
+    WHISPER_SUPPRESS_TOKENS,
+    WHISPER_WEIGHTS,
+)
 from .whisper_layers import (
     LearnedPositionEmbedding,
     SinusoidalPositionEmbedding,
     WhisperAttention,
+    WhisperLayerWeights,
 )
+
+_ACTIVATION_ALIASES = {
+    "gelu": lambda x: keras.activations.gelu(x, approximate=False),
+    "gelu_new": lambda x: keras.activations.gelu(x, approximate=True),
+    "relu": keras.activations.relu,
+    "silu": keras.activations.silu,
+    "swish": keras.activations.silu,
+}
 
 
 def _gelu(x):
@@ -23,35 +39,34 @@ def _gelu(x):
     return keras.activations.gelu(x, approximate=False)
 
 
-def whisper_encoder_block(x, d_model, num_heads, ffn_dim, layer_idx):
-    """One pre-LN encoder block: self-attention + MLP with residuals.
+def _resolve_activation(name):
+    """Return a callable for the given activation name.
 
-    Layout matches the HF Whisper encoder layer:
-
-    1. ``LayerNorm`` → :class:`WhisperAttention` (self-attn) → residual.
-    2. ``LayerNorm`` → ``Dense(ffn_dim)`` → exact GELU →
-       ``Dense(d_model)`` → residual.
-
-    All sub-layer names follow the HF convention
-    (``encoder_layers_{i}_self_attn_layer_norm``, ``..._fc1``,
-    ``..._fc2``, ...) so converted PyTorch weights drop in cleanly.
-
-    Args:
-        x: Input tensor of shape ``(B, T, d_model)``.
-        d_model: Hidden / embedding dimension.
-        num_heads: Number of self-attention heads.
-        ffn_dim: MLP intermediate dimension (conventionally
-            ``4 * d_model``).
-        layer_idx: Index of the block within the encoder; used to name
-            sub-layers.
-
-    Returns:
-        Output tensor of shape ``(B, T, d_model)``.
+    Whisper exposes ``activation_function`` in its HF config. Defaults to
+    ``"gelu"`` (which means exact GELU, matching OpenAI). Fine-tunes may
+    swap in ``"gelu_new"`` (tanh-approx), ``"relu"``, ``"silu"``, etc.
     """
+    if callable(name):
+        return name
+    if name in _ACTIVATION_ALIASES:
+        return _ACTIVATION_ALIASES[name]
+    return keras.activations.get(name)
+
+
+def whisper_encoder_block(
+    x,
+    d_model,
+    num_heads,
+    ffn_dim,
+    layer_idx,
+    activation=_gelu,
+    layer_norm_eps=1e-5,
+):
+    """One pre-LN encoder block: self-attention + MLP with residuals."""
     prefix = f"encoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
-        epsilon=1e-5, name=f"{prefix}_self_attn_layer_norm"
+        epsilon=layer_norm_eps, name=f"{prefix}_self_attn_layer_norm"
     )(x)
     attn_out = WhisperAttention(
         proj_dim=d_model,
@@ -60,54 +75,32 @@ def whisper_encoder_block(x, d_model, num_heads, ffn_dim, layer_idx):
     )(ln_1)
     x = layers.Add()([x, attn_out])
 
-    ln_2 = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_final_layer_norm")(x)
+    ln_2 = layers.LayerNormalization(
+        epsilon=layer_norm_eps, name=f"{prefix}_final_layer_norm"
+    )(x)
     h = layers.Dense(ffn_dim, name=f"{prefix}_fc1")(ln_2)
-    h = layers.Lambda(_gelu, name=f"{prefix}_fc1_act")(h)
+    h = layers.Lambda(activation, name=f"{prefix}_fc1_act")(h)
     h = layers.Dense(d_model, name=f"{prefix}_fc2")(h)
     x = layers.Add()([x, h])
     return x
 
 
 def whisper_decoder_block(
-    x, encoder_hidden_states, causal_mask, d_model, num_heads, ffn_dim, layer_idx
+    x,
+    encoder_hidden_states,
+    causal_mask,
+    d_model,
+    num_heads,
+    ffn_dim,
+    layer_idx,
+    activation=_gelu,
+    layer_norm_eps=1e-5,
 ):
-    """One pre-LN decoder block: self-attn + cross-attn + MLP with residuals.
-
-    Layout matches the HF Whisper decoder layer:
-
-    1. ``LayerNorm`` → :class:`WhisperAttention` self-attn (with
-       ``causal_mask``) → residual.
-    2. ``LayerNorm`` → :class:`WhisperAttention` cross-attn over
-       ``encoder_hidden_states`` → residual.
-    3. ``LayerNorm`` → ``Dense(ffn_dim)`` → exact GELU →
-       ``Dense(d_model)`` → residual.
-
-    All sub-layer names follow the HF convention
-    (``decoder_layers_{i}_self_attn_layer_norm``,
-    ``..._encoder_attn_layer_norm``, ...) so converted PyTorch weights
-    drop in cleanly.
-
-    Args:
-        x: Decoder input tensor of shape ``(B, L, d_model)``.
-        encoder_hidden_states: Encoder output tensor of shape
-            ``(B, T, d_model)`` consumed by the cross-attention K / V
-            projections.
-        causal_mask: Additive mask of shape ``(1, 1, L, L)`` enforcing
-            left-to-right attention in the self-attention sub-layer.
-        d_model: Hidden / embedding dimension.
-        num_heads: Number of attention heads (shared between self-attn
-            and cross-attn).
-        ffn_dim: MLP intermediate dimension.
-        layer_idx: Index of the block within the decoder; used to name
-            sub-layers.
-
-    Returns:
-        Output tensor of shape ``(B, L, d_model)``.
-    """
+    """One pre-LN decoder block: self-attn + cross-attn + MLP with residuals."""
     prefix = f"decoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
-        epsilon=1e-5, name=f"{prefix}_self_attn_layer_norm"
+        epsilon=layer_norm_eps, name=f"{prefix}_self_attn_layer_norm"
     )(x)
     self_attn_out = WhisperAttention(
         proj_dim=d_model,
@@ -117,7 +110,7 @@ def whisper_decoder_block(
     x = layers.Add()([x, self_attn_out])
 
     ln_2 = layers.LayerNormalization(
-        epsilon=1e-5, name=f"{prefix}_encoder_attn_layer_norm"
+        epsilon=layer_norm_eps, name=f"{prefix}_encoder_attn_layer_norm"
     )(x)
     cross_attn_out = WhisperAttention(
         proj_dim=d_model,
@@ -126,9 +119,11 @@ def whisper_decoder_block(
     )(ln_2, key_value_states=encoder_hidden_states)
     x = layers.Add()([x, cross_attn_out])
 
-    ln_3 = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_final_layer_norm")(x)
+    ln_3 = layers.LayerNormalization(
+        epsilon=layer_norm_eps, name=f"{prefix}_final_layer_norm"
+    )(x)
     h = layers.Dense(ffn_dim, name=f"{prefix}_fc1")(ln_3)
-    h = layers.Lambda(_gelu, name=f"{prefix}_fc1_act")(h)
+    h = layers.Lambda(activation, name=f"{prefix}_fc1_act")(h)
     h = layers.Dense(d_model, name=f"{prefix}_fc2")(h)
     x = layers.Add()([x, h])
     return x
@@ -141,38 +136,17 @@ def whisper_encoder(
     encoder_layers,
     encoder_attention_heads,
     encoder_ffn_dim,
+    activation=_gelu,
+    layer_norm_eps=1e-5,
+    output_all_hidden_states=False,
     name="encoder",
 ):
     """Build the Whisper encoder as a Functional :class:`keras.Model`.
 
-    Architecture (matches HF / OpenAI exactly):
-
-    1. ``input_features`` of shape ``(B, num_mel_bins, T_audio)``
-       permuted to ``(B, T_audio, num_mel_bins)`` for ``Conv1D``.
-    2. Two ``Conv1D`` layers (kernel 3, stride 1 then stride 2) with
-       exact GELU activations and explicit ``ZeroPadding1D(1)``,
-       halving the time axis once.
-    3. :class:`SinusoidalPositionEmbedding` adding fixed position
-       encodings.
-    4. ``encoder_layers`` repetitions of :func:`whisper_encoder_block`.
-    5. Final ``LayerNorm``.
-
-    Args:
-        d_model: Hidden / embedding dimension.
-        num_mel_bins: Number of mel bins in the input log-mel
-            spectrogram (``80`` for v1, ``128`` for v3).
-        max_source_positions: Length of the encoder output time axis
-            after the stride-2 conv. Always ``1500`` for Whisper.
-        encoder_layers: Number of stacked transformer blocks.
-        encoder_attention_heads: Heads per self-attention block.
-        encoder_ffn_dim: MLP intermediate dimension (conventionally
-            ``4 * d_model``).
-        name: Returned model name.
-
-    Returns:
-        ``keras.Model`` mapping
-        ``input_features: (B, num_mel_bins, T_audio)`` →
-        ``(B, max_source_positions, d_model)``.
+    When ``output_all_hidden_states=True`` the model returns the list of
+    ``encoder_layers + 1`` hidden states (post-embedding through
+    final-LN) instead of just the last one. Used by
+    :class:`WhisperAudioClassify` with weighted layer sum.
     """
     mel = layers.Input(shape=(num_mel_bins, None), name="input_features")
     x = layers.Permute((2, 1), name="encoder_permute_in")(mel)
@@ -185,7 +159,7 @@ def whisper_encoder(
         padding="valid",
         name="encoder_conv1",
     )(x)
-    x = layers.Lambda(_gelu, name="encoder_conv1_act")(x)
+    x = layers.Lambda(activation, name="encoder_conv1_act")(x)
     x = layers.ZeroPadding1D(padding=1, name="encoder_conv2_pad")(x)
     x = layers.Conv1D(
         filters=d_model,
@@ -194,7 +168,7 @@ def whisper_encoder(
         padding="valid",
         name="encoder_conv2",
     )(x)
-    x = layers.Lambda(_gelu, name="encoder_conv2_act")(x)
+    x = layers.Lambda(activation, name="encoder_conv2_act")(x)
 
     x = SinusoidalPositionEmbedding(
         max_source_positions=max_source_positions,
@@ -202,6 +176,7 @@ def whisper_encoder(
         name="encoder_embed_positions",
     )(x)
 
+    all_hidden = [x]
     for i in range(encoder_layers):
         x = whisper_encoder_block(
             x,
@@ -209,23 +184,21 @@ def whisper_encoder(
             num_heads=encoder_attention_heads,
             ffn_dim=encoder_ffn_dim,
             layer_idx=i,
+            activation=activation,
+            layer_norm_eps=layer_norm_eps,
         )
+        all_hidden.append(x)
 
-    x = layers.LayerNormalization(epsilon=1e-5, name="encoder_layer_norm")(x)
+    x = layers.LayerNormalization(epsilon=layer_norm_eps, name="encoder_layer_norm")(x)
+
+    if output_all_hidden_states:
+        all_hidden[-1] = x
+        return keras.Model(inputs=mel, outputs=all_hidden, name=name)
     return keras.Model(inputs=mel, outputs=x, name=name)
 
 
 def _make_causal_mask_from_ids(decoder_input_ids):
-    """Build an additive causal attention mask matching the input length.
-
-    Returns a tensor of shape ``(1, 1, T, T)`` whose ``(i, j)`` entries
-    are ``-1e9`` when ``j > i`` and ``0`` otherwise. Suitable for being
-    added before softmax in :class:`WhisperAttention`.
-
-    Wrapped in a ``keras.layers.Lambda`` inside the decoder graph so
-    the mask shape stays dynamic with the decoded sequence length
-    ``T``.
-    """
+    """Build an additive causal attention mask matching the input length."""
     seq_len = ops.shape(decoder_input_ids)[1]
     i = ops.arange(seq_len)[:, None]
     j = ops.arange(seq_len)[None, :]
@@ -240,38 +213,12 @@ def whisper_decoder(
     decoder_layers,
     decoder_attention_heads,
     decoder_ffn_dim,
+    activation=_gelu,
+    layer_norm_eps=1e-5,
+    scale_embedding=False,
     name="decoder",
 ):
-    """Build the Whisper decoder as a Functional :class:`keras.Model`.
-
-    Architecture (matches HF / OpenAI exactly):
-
-    1. ``decoder_input_ids`` of shape ``(B, L)`` → token embedding.
-    2. :class:`LearnedPositionEmbedding` added in place.
-    3. ``decoder_layers`` repetitions of :func:`whisper_decoder_block`,
-       each cross-attending to ``encoder_hidden_states``.
-    4. Final ``LayerNorm``.
-    5. Tied LM head: ``logits = x @ embedding_matrix.T`` (no separate
-       output projection — the input embedding weights are reused).
-
-    Args:
-        d_model: Hidden / embedding dimension.
-        max_target_positions: Maximum decoded sequence length the
-            position table supports. Always ``448`` for Whisper.
-        vocab_size: Token vocabulary size (``51865`` for v1,
-            ``51866`` for v3).
-        decoder_layers: Number of stacked transformer blocks.
-        decoder_attention_heads: Heads per attention sub-layer (shared
-            between self-attn and cross-attn).
-        decoder_ffn_dim: MLP intermediate dimension.
-        name: Returned model name.
-
-    Returns:
-        ``keras.Model`` whose dict-input
-        ``{"decoder_input_ids": (B, L),
-        "encoder_hidden_states": (B, T, d_model)}`` maps to
-        ``(B, L, vocab_size)`` logits.
-    """
+    """Build the Whisper decoder as a Functional :class:`keras.Model`."""
     decoder_input_ids = layers.Input(
         shape=(None,), dtype="int32", name="decoder_input_ids"
     )
@@ -283,6 +230,9 @@ def whisper_decoder(
         input_dim=vocab_size, output_dim=d_model, name="decoder_embed_tokens"
     )
     x = tok_embed(decoder_input_ids)
+    if scale_embedding:
+        scale = float(d_model) ** 0.5
+        x = layers.Lambda(lambda t, s=scale: t * s, name="decoder_embed_scale")(x)
     x = LearnedPositionEmbedding(
         max_target_positions=max_target_positions,
         d_model=d_model,
@@ -304,9 +254,11 @@ def whisper_decoder(
             num_heads=decoder_attention_heads,
             ffn_dim=decoder_ffn_dim,
             layer_idx=i,
+            activation=activation,
+            layer_norm_eps=layer_norm_eps,
         )
 
-    x = layers.LayerNormalization(epsilon=1e-5, name="decoder_layer_norm")(x)
+    x = layers.LayerNormalization(epsilon=layer_norm_eps, name="decoder_layer_norm")(x)
 
     embed_weight = tok_embed.embeddings
     logits = layers.Lambda(
@@ -324,7 +276,8 @@ def whisper_decoder(
     )
 
 
-class Whisper(keras.Model):
+@keras.saving.register_keras_serializable(package="kmodels")
+class WhisperModel(BaseModel):
     """Whisper encoder-decoder transformer for ASR / translation.
 
     Wires :func:`whisper_encoder` and :func:`whisper_decoder` into a single
@@ -335,9 +288,14 @@ class Whisper(keras.Model):
     >>> out["logits"]                  # (B, L, vocab_size)
 
     This is the teacher-forced training path. For autoregressive
-    inference use the :class:`WhisperGenerate` wrapper, which calls the
-    encoder once and the decoder per step via the ``model.encoder`` and
-    ``model.decoder`` attributes.
+    inference use :class:`WhisperSpeechToText`, which subclasses this
+    and adds a ``.generate(audio, processor, ...)`` method.
+
+    Construction:
+
+    >>> WhisperModel.from_weights("whisper_tiny")             # kmodels release
+    >>> WhisperModel.from_weights("hf:openai/whisper-tiny")   # HF canonical
+    >>> WhisperModel.from_weights("hf:user/whisper-finetune") # any HF fine-tune
 
     .. note::
         Unlike vision models in kmodels, Whisper has a **fixed input
@@ -348,29 +306,55 @@ class Whisper(keras.Model):
         feed :class:`WhisperFeatureExtractor` output directly.
 
     Args:
-        d_model: Hidden / embedding dimension. ``384`` (tiny) →
-            ``1280`` (large).
+        d_model: Hidden / embedding dimension.
         encoder_layers: Number of encoder transformer blocks.
         decoder_layers: Number of decoder transformer blocks.
         encoder_attention_heads: Encoder self-attn head count.
-        decoder_attention_heads: Decoder self-attn / cross-attn head
-            count.
-        encoder_ffn_dim: Encoder MLP hidden dim. Conventionally
-            ``4 * d_model``.
-        decoder_ffn_dim: Decoder MLP hidden dim. Conventionally
-            ``4 * d_model``.
+        decoder_attention_heads: Decoder self-attn / cross-attn head count.
+        encoder_ffn_dim: Encoder MLP hidden dim.
+        decoder_ffn_dim: Decoder MLP hidden dim.
         num_mel_bins: Mel bin count of the input log-mel spectrogram.
-            ``80`` for v1 variants, ``128`` for large-v3 /
-            large-v3-turbo.
-        max_source_positions: Max encoder position (post-stride-2 conv).
-            Always ``1500`` for Whisper (= 30 s @ 16 kHz / 320 hop).
-        max_target_positions: Max decoded length, including special
-            prompt prefix. Always ``448``.
-        vocab_size: Token vocabulary size. ``51865`` for v1 variants,
-            ``51866`` for v3 (adds Cantonese language id).
-        name: Model name. Defaults to ``"Whisper"``.
-        **kwargs: Additional ``keras.Model`` keyword arguments.
+        max_source_positions: Max encoder position. Always ``1500``.
+        max_target_positions: Max decoded length. Always ``448``.
+        vocab_size: Token vocabulary size.
+        activation_function: MLP activation. ``"gelu"`` (exact GELU,
+            default, matches OpenAI / HF), ``"gelu_new"`` (tanh-approx),
+            ``"relu"``, ``"silu"`` / ``"swish"``.
+        layer_norm_eps: Epsilon for every LayerNorm. Defaults to ``1e-5``.
+        scale_embedding: Whether to scale the decoder token embedding by
+            ``sqrt(d_model)``. ``False`` for canonical OpenAI Whisper.
+        name: Model name. Defaults to ``"WhisperModel"``.
     """
+
+    KMODELS_CONFIG = WHISPER_CONFIG
+    KMODELS_WEIGHTS = WHISPER_WEIGHTS
+    HF_MODEL_TYPE = "whisper"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "d_model": hf_config["d_model"],
+            "encoder_layers": hf_config["encoder_layers"],
+            "decoder_layers": hf_config["decoder_layers"],
+            "encoder_attention_heads": hf_config["encoder_attention_heads"],
+            "decoder_attention_heads": hf_config["decoder_attention_heads"],
+            "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
+            "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
+            "num_mel_bins": hf_config.get("num_mel_bins", 80),
+            "max_source_positions": hf_config.get("max_source_positions", 1500),
+            "max_target_positions": hf_config.get("max_target_positions", 448),
+            "vocab_size": hf_config["vocab_size"],
+            "activation_function": hf_config.get("activation_function", "gelu"),
+            "scale_embedding": hf_config.get("scale_embedding", False),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.whisper.convert_whisper_torch_to_keras import (
+            transfer_whisper_weights,
+        )
+
+        transfer_whisper_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
@@ -385,9 +369,14 @@ class Whisper(keras.Model):
         max_source_positions=1500,
         max_target_positions=448,
         vocab_size=51865,
-        name="Whisper",
+        activation_function="gelu",
+        layer_norm_eps=1e-5,
+        scale_embedding=False,
+        name="WhisperModel",
         **kwargs,
     ):
+        activation_fn = _resolve_activation(activation_function)
+
         encoder = whisper_encoder(
             d_model=d_model,
             num_mel_bins=num_mel_bins,
@@ -395,6 +384,8 @@ class Whisper(keras.Model):
             encoder_layers=encoder_layers,
             encoder_attention_heads=encoder_attention_heads,
             encoder_ffn_dim=encoder_ffn_dim,
+            activation=activation_fn,
+            layer_norm_eps=layer_norm_eps,
             name=f"{name}_encoder",
         )
         decoder = whisper_decoder(
@@ -404,6 +395,9 @@ class Whisper(keras.Model):
             decoder_layers=decoder_layers,
             decoder_attention_heads=decoder_attention_heads,
             decoder_ffn_dim=decoder_ffn_dim,
+            activation=activation_fn,
+            layer_norm_eps=layer_norm_eps,
+            scale_embedding=scale_embedding,
             name=f"{name}_decoder",
         )
 
@@ -445,6 +439,9 @@ class Whisper(keras.Model):
         self.max_source_positions = max_source_positions
         self.max_target_positions = max_target_positions
         self.vocab_size = vocab_size
+        self.activation_function = activation_function
+        self.layer_norm_eps = layer_norm_eps
+        self.scale_embedding = scale_embedding
 
     def get_config(self):
         config = super().get_config()
@@ -461,6 +458,9 @@ class Whisper(keras.Model):
                 "max_source_positions": self.max_source_positions,
                 "max_target_positions": self.max_target_positions,
                 "vocab_size": self.vocab_size,
+                "activation_function": self.activation_function,
+                "layer_norm_eps": self.layer_norm_eps,
+                "scale_embedding": self.scale_embedding,
                 "name": self.name,
             }
         )
@@ -471,121 +471,286 @@ class Whisper(keras.Model):
         return cls(**config)
 
 
-@register_model
-def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperTiny"], name=name, **kwargs)
+@keras.saving.register_keras_serializable(package="kmodels")
+class WhisperSpeechToText(WhisperModel):
+    """Whisper speech-to-text model (transcription + translation).
 
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config("WhisperTiny", weights, model, WHISPER_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    Composes the same encoder + decoder + tied LM head Functional graph as
+    :class:`WhisperModel` (so it loads the same weights and is a drop-in
+    replacement for teacher-forced training and forward passes), and adds
+    :meth:`generate` — an end-to-end audio → text method that pulls in a
+    :class:`~kmodels.models.whisper.WhisperProcessor` for feature
+    extraction, prompt construction, and detokenization.
 
-    return model
+    This mirrors the HuggingFace pattern (``WhisperModel`` is the bare
+    encoder/decoder, ``WhisperForConditionalGeneration`` adds the LM head
+    + ``.generate()``) and the kmodels detection-style pattern
+    (``DetrModel`` + ``DETRDetect``).
 
+    .. code-block:: python
 
-@register_model
-def WhisperBase(weights="openai", name="WhisperBase", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperBase"], name=name, **kwargs)
+        model = WhisperSpeechToText.from_weights("whisper_tiny")
+        processor = WhisperProcessor(variant="v1")
+        text = model.generate(audio, processor, language="en", task="transcribe")
+    """
 
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config("WhisperBase", weights, model, WHISPER_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    def generate(
+        self,
+        audio,
+        processor,
+        language: Optional[str] = "en",
+        task: str = "transcribe",
+        no_timestamps: bool = True,
+        max_new_tokens: int = 224,
+        sampling_rate: int = 16000,
+        return_ids: bool = False,
+        suppress_tokens: Optional[List[int]] = None,
+        begin_suppress_tokens: Optional[List[int]] = None,
+    ) -> Union[List[str], List[List[int]]]:
+        """End-to-end audio → text using a :class:`WhisperProcessor`.
 
-    return model
+        Runs feature extraction, encoder, autoregressive greedy decoding
+        with the standard Whisper logit processors, and detokenization.
 
+        Mirrors the key logit processors used by HF Whisper generate:
 
-@register_model
-def WhisperSmall(weights="openai", name="WhisperSmall", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperSmall"], name=name, **kwargs)
+        * ``forced_decoder_ids`` (built by the processor): at decoded
+          position ``k``, force the output to a specific id — typically
+          ``{1: lang_id, 2: task_id, 3: <|notimestamps|>}`` for English
+          no-timestamps transcription.
+        * ``suppress_tokens``: permanently forbid this set of token ids.
+        * ``begin_suppress_tokens``: suppress these only at the very
+          first generated step (e.g. blank / silent tokens).
 
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config("WhisperSmall", weights, model, WHISPER_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def WhisperMedium(weights="openai", name="WhisperMedium", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperMedium"], name=name, **kwargs)
-
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "WhisperMedium", weights, model, WHISPER_WEIGHTS_CONFIG
+        Args:
+            audio: 1-D waveform or list / batched array of waveforms at
+                ``sampling_rate`` Hz.
+            processor: A :class:`WhisperProcessor` matching this model's
+                tokenizer variant + mel bin count.
+            language: Either a 2-3 char ISO code (``"en"``, ``"fr"``,
+                ``"yue"``), the full special token (``"<|en|>"``), or
+                ``None`` to let the decoder auto-detect.
+            task: ``"transcribe"`` (same-language) or ``"translate"``
+                (any language to English).
+            no_timestamps: When ``True`` (default), forces the
+                ``<|notimestamps|>`` token so the output is raw text.
+            max_new_tokens: Maximum decoded tokens after the prompt.
+            sampling_rate: Must match the processor's configured rate
+                (default ``16000``).
+            return_ids: When ``True``, return the raw token-id lists
+                instead of decoded strings.
+            suppress_tokens: Token ids forbidden at every step. ``None``
+                falls back to OpenAI's default 88-token list.
+            begin_suppress_tokens: Token ids forbidden only at the first
+                generated step. ``None`` falls back to ``[220, 50257]``.
+        """
+        inputs = processor(audio=audio, sampling_rate=sampling_rate)
+        forced = dict(
+            processor.get_decoder_prompt_ids(
+                language=language, task=task, no_timestamps=no_timestamps
+            )
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        decoder_start_token_id = processor.decoder_start_token_id
+        eos_token_id = processor.tokenizer.eos_token_id
 
-    return model
-
-
-@register_model
-def WhisperLarge(weights="openai", name="WhisperLarge", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLarge"], name=name, **kwargs)
-
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config("WhisperLarge", weights, model, WHISPER_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def WhisperLargeV2(weights="openai", name="WhisperLargeV2", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV2"], name=name, **kwargs)
-
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "WhisperLargeV2", weights, model, WHISPER_WEIGHTS_CONFIG
+        suppress_set = set(
+            suppress_tokens if suppress_tokens is not None else WHISPER_SUPPRESS_TOKENS
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def WhisperLargeV3(weights="openai", name="WhisperLargeV3", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3"], name=name, **kwargs)
-
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "WhisperLargeV3", weights, model, WHISPER_WEIGHTS_CONFIG
+        begin_suppress_set = set(
+            begin_suppress_tokens
+            if begin_suppress_tokens is not None
+            else WHISPER_BEGIN_SUPPRESS_TOKENS
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
-
-
-@register_model
-def WhisperLargeV3Turbo(weights="openai", name="WhisperLargeV3Turbo", **kwargs):
-    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3Turbo"], name=name, **kwargs)
-
-    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "WhisperLargeV3Turbo", weights, model, WHISPER_WEIGHTS_CONFIG
+        enc_out = self.encoder(inputs["input_features"])
+        enc_np = (
+            ops.convert_to_numpy(enc_out)
+            if not isinstance(enc_out, np.ndarray)
+            else enc_out
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        batch = enc_np.shape[0]
 
-    return model
+        generated = np.full((batch, 1), decoder_start_token_id, dtype=np.int32)
+        done = np.zeros(batch, dtype=bool)
+
+        for step in range(max_new_tokens):
+            cur_pos = generated.shape[1]
+            if cur_pos in forced:
+                next_ids = np.full((batch,), forced[cur_pos], dtype=np.int32)
+            else:
+                logits = self.decoder(
+                    {
+                        "decoder_input_ids": generated,
+                        "encoder_hidden_states": enc_np,
+                    }
+                )
+                next_logits = ops.convert_to_numpy(logits)[:, -1, :].copy()
+                if suppress_set:
+                    next_logits[:, list(suppress_set)] = -1e9
+                if step == 0 and begin_suppress_set:
+                    next_logits[:, list(begin_suppress_set)] = -1e9
+                next_ids = np.argmax(next_logits, axis=-1).astype(np.int32)
+
+            next_ids = np.where(done, eos_token_id, next_ids)
+            generated = np.concatenate([generated, next_ids[:, None]], axis=1)
+            done = done | (next_ids == eos_token_id)
+            if done.all():
+                break
+
+        ids = [list(row) for row in generated]
+        if return_ids:
+            return ids
+        return processor.batch_decode(ids, skip_special_tokens=True)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class WhisperAudioClassify(BaseModel):
+    """Whisper encoder + linear classifier for audio classification.
+
+    Mirrors HF's ``WhisperForAudioClassification``: uses **only the
+    Whisper encoder** (no decoder), then a per-frame ``projector`` Dense,
+    a mean pool over time, and a final linear classifier producing
+    ``num_labels`` logits.
+
+    When ``use_weighted_layer_sum=True``, all encoder hidden states
+    (post-embedding through final LayerNorm) are stacked and combined
+    by a learnable softmax weighting before the projector — matching
+    the SUPERB-style classification head used by HF.
+
+    .. code-block:: python
+
+        model = WhisperAudioClassify.from_weights(
+            "hf:sanchit-gandhi/whisper-tiny-ft-keyword-spotting"
+        )
+        processor = WhisperFeatureExtractor()
+        mel = processor(audio)
+        logits = model(mel)              # (B, num_labels)
+
+    Args:
+        d_model: Encoder hidden dimension.
+        encoder_layers: Number of encoder transformer blocks.
+        encoder_attention_heads: Encoder self-attention head count.
+        encoder_ffn_dim: Encoder MLP intermediate dim.
+        num_mel_bins: Mel bin count of the input log-mel spectrogram.
+        max_source_positions: Max encoder position. Always ``1500``.
+        num_labels: Number of output classes.
+        classifier_proj_size: Projector hidden dim. Defaults to ``256``.
+        use_weighted_layer_sum: Combine all encoder hidden states via a
+            learnable softmax. Defaults to ``False``.
+        activation_function: MLP activation. Defaults to ``"gelu"``.
+        layer_norm_eps: Epsilon for every LayerNorm. Defaults to ``1e-5``.
+        name: Model name.
+    """
+
+    KMODELS_CONFIG = None
+    KMODELS_WEIGHTS = None
+    HF_MODEL_TYPE = "whisper"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        from kmodels.base.base_model import hf_num_labels
+
+        return {
+            "d_model": hf_config["d_model"],
+            "encoder_layers": hf_config["encoder_layers"],
+            "encoder_attention_heads": hf_config["encoder_attention_heads"],
+            "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
+            "num_mel_bins": hf_config.get("num_mel_bins", 80),
+            "max_source_positions": hf_config.get("max_source_positions", 1500),
+            "num_labels": hf_num_labels(hf_config),
+            "classifier_proj_size": hf_config.get("classifier_proj_size", 256),
+            "use_weighted_layer_sum": hf_config.get("use_weighted_layer_sum", False),
+            "activation_function": hf_config.get("activation_function", "gelu"),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.whisper.convert_whisper_torch_to_keras import (
+            transfer_whisper_audio_classify_weights,
+        )
+
+        transfer_whisper_audio_classify_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        d_model=384,
+        encoder_layers=4,
+        encoder_attention_heads=6,
+        encoder_ffn_dim=1536,
+        num_mel_bins=80,
+        max_source_positions=1500,
+        num_labels=2,
+        classifier_proj_size=256,
+        use_weighted_layer_sum=False,
+        activation_function="gelu",
+        layer_norm_eps=1e-5,
+        name="WhisperAudioClassify",
+        **kwargs,
+    ):
+        activation_fn = _resolve_activation(activation_function)
+
+        encoder = whisper_encoder(
+            d_model=d_model,
+            num_mel_bins=num_mel_bins,
+            max_source_positions=max_source_positions,
+            encoder_layers=encoder_layers,
+            encoder_attention_heads=encoder_attention_heads,
+            encoder_ffn_dim=encoder_ffn_dim,
+            activation=activation_fn,
+            layer_norm_eps=layer_norm_eps,
+            output_all_hidden_states=use_weighted_layer_sum,
+            name=f"{name}_encoder",
+        )
+
+        input_features = layers.Input(shape=(num_mel_bins, None), name="input_features")
+        encoder_out = encoder(input_features)
+
+        if use_weighted_layer_sum:
+            x = WhisperLayerWeights(
+                num_layers=encoder_layers + 1, name="layer_weights"
+            )(encoder_out)
+        else:
+            x = encoder_out
+
+        x = layers.Dense(classifier_proj_size, name="projector")(x)
+        x = layers.GlobalAveragePooling1D(name="audio_pool")(x)
+        logits = layers.Dense(num_labels, name="classifier")(x)
+
+        super().__init__(inputs=input_features, outputs=logits, name=name, **kwargs)
+
+        self.encoder = encoder
+        self.d_model = d_model
+        self.encoder_layers = encoder_layers
+        self.encoder_attention_heads = encoder_attention_heads
+        self.encoder_ffn_dim = encoder_ffn_dim
+        self.num_mel_bins = num_mel_bins
+        self.max_source_positions = max_source_positions
+        self.num_labels = num_labels
+        self.classifier_proj_size = classifier_proj_size
+        self.use_weighted_layer_sum = use_weighted_layer_sum
+        self.activation_function = activation_function
+        self.layer_norm_eps = layer_norm_eps
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "d_model": self.d_model,
+                "encoder_layers": self.encoder_layers,
+                "encoder_attention_heads": self.encoder_attention_heads,
+                "encoder_ffn_dim": self.encoder_ffn_dim,
+                "num_mel_bins": self.num_mel_bins,
+                "max_source_positions": self.max_source_positions,
+                "num_labels": self.num_labels,
+                "classifier_proj_size": self.classifier_proj_size,
+                "use_weighted_layer_sum": self.use_weighted_layer_sum,
+                "activation_function": self.activation_function,
+                "layer_norm_eps": self.layer_norm_eps,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

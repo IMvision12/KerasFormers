@@ -246,3 +246,50 @@ class LearnedPositionEmbedding(keras.layers.Layer):
             }
         )
         return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class WhisperLayerWeights(keras.layers.Layer):
+    """Learnable softmax weights over all encoder hidden states.
+
+    Reproduces HF ``WhisperForAudioClassification``'s
+    ``use_weighted_layer_sum`` path: given a list of
+    ``num_layers + 1`` encoder hidden states (post-embedding through
+    final-LN), holds a learnable ``layer_weights`` vector, softmaxes
+    it, and computes the weighted sum across the layer axis.
+
+    Args:
+        num_layers: Number of hidden states being combined (typically
+            ``encoder_layers + 1``).
+        **kwargs: Additional ``keras.layers.Layer`` keyword arguments.
+
+    Input Shape:
+        List of ``num_layers`` tensors, each ``(B, T, d_model)``.
+
+    Output Shape:
+        ``(B, T, d_model)``.
+    """
+
+    def __init__(self, num_layers, **kwargs):
+        super().__init__(**kwargs)
+        self.num_layers = num_layers
+
+    def build(self, input_shape):
+        self.layer_weights = self.add_weight(
+            shape=(self.num_layers,),
+            initializer=keras.initializers.Constant(1.0 / self.num_layers),
+            trainable=True,
+            name="layer_weights",
+        )
+        super().build(input_shape)
+
+    def call(self, inputs):
+        stacked = ops.stack(inputs, axis=1)  # (B, num_layers, T, d_model)
+        weights = ops.softmax(self.layer_weights, axis=-1)
+        weights = ops.reshape(weights, (1, self.num_layers, 1, 1))
+        return ops.sum(stacked * weights, axis=1)
+
+    def get_config(self):
+        config = super().get_config()
+        config["num_layers"] = self.num_layers
+        return config

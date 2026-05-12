@@ -1,5 +1,5 @@
-WHISPER_MODEL_CONFIG = {
-    "WhisperTiny": {
+WHISPER_CONFIG = {
+    "whisper_tiny": {
         "d_model": 384,
         "encoder_layers": 4,
         "encoder_attention_heads": 6,
@@ -12,7 +12,7 @@ WHISPER_MODEL_CONFIG = {
         "max_target_positions": 448,
         "num_mel_bins": 80,
     },
-    "WhisperBase": {
+    "whisper_base": {
         "d_model": 512,
         "encoder_layers": 6,
         "encoder_attention_heads": 8,
@@ -25,7 +25,7 @@ WHISPER_MODEL_CONFIG = {
         "max_target_positions": 448,
         "num_mel_bins": 80,
     },
-    "WhisperSmall": {
+    "whisper_small": {
         "d_model": 768,
         "encoder_layers": 12,
         "encoder_attention_heads": 12,
@@ -38,7 +38,7 @@ WHISPER_MODEL_CONFIG = {
         "max_target_positions": 448,
         "num_mel_bins": 80,
     },
-    "WhisperMedium": {
+    "whisper_medium": {
         "d_model": 1024,
         "encoder_layers": 24,
         "encoder_attention_heads": 16,
@@ -51,7 +51,7 @@ WHISPER_MODEL_CONFIG = {
         "max_target_positions": 448,
         "num_mel_bins": 80,
     },
-    "WhisperLarge": {
+    "whisper_large": {
         "d_model": 1280,
         "encoder_layers": 32,
         "encoder_attention_heads": 20,
@@ -64,7 +64,7 @@ WHISPER_MODEL_CONFIG = {
         "max_target_positions": 448,
         "num_mel_bins": 80,
     },
-    "WhisperLargeV2": {
+    "whisper_large_v2": {
         "d_model": 1280,
         "encoder_layers": 32,
         "encoder_attention_heads": 20,
@@ -77,7 +77,7 @@ WHISPER_MODEL_CONFIG = {
         "max_target_positions": 448,
         "num_mel_bins": 80,
     },
-    "WhisperLargeV3": {
+    "whisper_large_v3": {
         "d_model": 1280,
         "encoder_layers": 32,
         "encoder_attention_heads": 20,
@@ -90,7 +90,7 @@ WHISPER_MODEL_CONFIG = {
         "max_target_positions": 448,
         "num_mel_bins": 128,
     },
-    "WhisperLargeV3Turbo": {
+    "whisper_large_v3_turbo": {
         "d_model": 1280,
         "encoder_layers": 32,
         "encoder_attention_heads": 20,
@@ -102,6 +102,34 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 128,
+    },
+}
+
+
+WHISPER_WEIGHTS = {
+    "whisper_tiny": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispertiny_openai.weights.h5",
+    },
+    "whisper_base": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperbase_openai.weights.h5",
+    },
+    "whisper_small": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispersmall_openai.weights.h5",
+    },
+    "whisper_medium": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispermedium_openai.weights.json",
+    },
+    "whisper_large": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlarge_openai.weights.json",
+    },
+    "whisper_large_v2": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev2_openai.weights.json",
+    },
+    "whisper_large_v3": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3_openai.weights.json",
+    },
+    "whisper_large_v3_turbo": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3turbo_openai.weights.json",
     },
 }
 
@@ -212,49 +240,5 @@ WHISPER_TOKENIZER_FILES = {
         "vocab": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_vocab_v3.json",
         "merges": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_merges_v3.txt",
         "added_tokens": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_added_tokens_v3.json",
-    },
-}
-
-
-WHISPER_WEIGHTS_CONFIG = {
-    "WhisperTiny": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispertiny_openai.weights.h5",
-        },
-    },
-    "WhisperBase": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperbase_openai.weights.h5",
-        },
-    },
-    "WhisperSmall": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispersmall_openai.weights.h5",
-        },
-    },
-    "WhisperMedium": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispermedium_openai.weights.json",
-        },
-    },
-    "WhisperLarge": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlarge_openai.weights.json",
-        },
-    },
-    "WhisperLargeV2": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev2_openai.weights.json",
-        },
-    },
-    "WhisperLargeV3": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3_openai.weights.json",
-        },
-    },
-    "WhisperLargeV3Turbo": {
-        "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3turbo_openai.weights.json",
-        },
     },
 }
