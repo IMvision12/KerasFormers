@@ -30,9 +30,12 @@ DINOV3_CONVNEXT_VARIANTS = [
 DINOV3_VIT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "patch.embed": "embeddings.patch_embeddings",
-    "blocks.": "model.layer.",
+    "blocks.": "layer.",
     "dense.1": "mlp.up_proj",
     "dense.2": "mlp.down_proj",
+    "swiglu.gate": "mlp.gate_proj",
+    "swiglu.up": "mlp.up_proj",
+    "swiglu.down": "mlp.down_proj",
     "layernorm.1": "norm1",
     "layernorm.2": "norm2",
     "final.layernorm": "norm",
@@ -51,13 +54,13 @@ def _resolve_vit_attention(keras_weight_path: str):
     if m:
         idx = int(m.group(1))
         suffix = "weight" if "kernel" in var_name else "bias"
-        return f"model.layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
+        return f"layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
 
     m = re.match(r"blocks_(\d+)_attn_proj$", layer_name)
     if m:
         idx = int(m.group(1))
         suffix = "weight" if "kernel" in var_name else "bias"
-        return f"model.layer.{idx}.attention.o_proj.{suffix}"
+        return f"layer.{idx}.attention.o_proj.{suffix}"
 
     return None
 
@@ -69,10 +72,42 @@ def _resolve_vit_layer_scale(keras_weight_path: str):
         return None
     idx = int(m.group(1))
     which = m.group(2)
-    return f"model.layer.{idx}.layer_scale{which}.lambda1"
+    return f"layer.{idx}.layer_scale{which}.lambda1"
+
+
+def _strip_prefix(state_dict, prefix):
+    """Strip a common prefix from all state-dict keys (e.g. ``dinov3_vit.``).
+
+    For task-head wrappers like ``Dinov3ForImageClassification``, the
+    backbone keys are nested under ``dinov3_vit.*`` / ``dinov3_convnext.*``
+    and there is an additional ``classifier.*`` head. We strip the
+    prefix and drop non-backbone keys.
+    """
+    if not any(k.startswith(prefix) for k in state_dict):
+        return state_dict
+    return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
+
+
+def _strip_model_prefix(state_dict):
+    """Strip the optional ``model.`` prefix from keys.
+
+    ``AutoModel.from_pretrained`` wraps DinoV3 in a top-level ``model``
+    submodule, so its state-dict keys look like ``model.layer.X.*``.
+    Raw safetensors on disk lack this prefix (``layer.X.*``). The
+    converter targets the raw layout; here we normalize the AutoModel
+    layout to match.
+    """
+    if not any(k.startswith("model.") for k in state_dict):
+        return state_dict
+    out = {}
+    for k, v in state_dict.items():
+        out[k[len("model.") :] if k.startswith("model.") else k] = v
+    return out
 
 
 def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
+    hf_state_dict = _strip_prefix(hf_state_dict, "dinov3_vit.")
+    hf_state_dict = _strip_model_prefix(hf_state_dict)
     trainable, non_trainable = split_model_weights(keras_model)
     all_weights = trainable + non_trainable
 
@@ -136,15 +171,15 @@ def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
 _VAR_MAP = {"kernel": "weight", "gamma": "weight", "bias": "bias", "beta": "bias"}
 
 DINOV3_CONVNEXT_WEIGHT_MAPPING = {
-    r"stem_conv_(kernel|bias)": "model.stages.0.downsample_layers.0.{v}",
-    r"stem_layernorm_(gamma|beta)": "model.stages.0.downsample_layers.1.{v}",
-    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "model.stages.{0}.downsample_layers.0.{v}",
-    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "model.stages.{0}.downsample_layers.1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "model.stages.{0}.layers.{1}.gamma",
-    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "model.stages.{0}.layers.{1}.depthwise_conv.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "model.stages.{0}.layers.{1}.layer_norm.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv2.{v}",
+    r"stem_conv_(kernel|bias)": "stages.0.downsample_layers.0.{v}",
+    r"stem_layernorm_(gamma|beta)": "stages.0.downsample_layers.1.{v}",
+    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "stages.{0}.downsample_layers.0.{v}",
+    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "stages.{0}.downsample_layers.1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "stages.{0}.layers.{1}.gamma",
+    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "stages.{0}.layers.{1}.depthwise_conv.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "stages.{0}.layers.{1}.layer_norm.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv2.{v}",
     r"final_layernorm_(gamma|beta)": "layer_norm.{v}",
 }
 
@@ -162,6 +197,8 @@ def _keras_to_hf_convnext(keras_name: str):
 
 
 def transfer_dinov3_convnext_weights(keras_model, hf_state_dict):
+    hf_state_dict = _strip_prefix(hf_state_dict, "dinov3_convnext.")
+    hf_state_dict = _strip_model_prefix(hf_state_dict)
     trainable, non_trainable = split_model_weights(keras_model)
     all_weights = trainable + non_trainable
 

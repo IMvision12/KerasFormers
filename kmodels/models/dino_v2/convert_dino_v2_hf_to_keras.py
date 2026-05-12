@@ -102,6 +102,19 @@ def _interpolate_pos_embed(pos_embed, target_num_patches: int):
     return torch.cat([cls_pe, spatial_pe], dim=1).numpy()
 
 
+def _strip_prefix(state_dict, prefix):
+    """Strip a common prefix from all state-dict keys that start with it.
+
+    For ``Dinov2ForImageClassification`` and similar task wrappers, the
+    backbone keys are nested under ``dinov2.*`` and there is an
+    additional ``classifier.*`` head. We strip the prefix from keys
+    that have it; other keys (classifier head, etc.) are dropped.
+    """
+    if not any(k.startswith(prefix) for k in state_dict):
+        return state_dict
+    return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
+
+
 def transfer_dino_v2_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
@@ -111,11 +124,16 @@ def transfer_dino_v2_weights(
     LayerScale, and bicubic interpolation of the position embeddings
     when the Keras input shape differs from HF's training resolution.
 
+    Also strips a ``dinov2.`` prefix when loading from
+    ``Dinov2ForImageClassification`` or other task-head fine-tunes,
+    discarding the classifier head.
+
     Args:
         keras_model: A ``DinoV2Backbone`` instance.
         hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``Dinov2Model.state_dict()``.
+            ``Dinov2Model.state_dict()`` or any ``Dinov2For*`` variant.
     """
+    hf_state_dict = _strip_prefix(hf_state_dict, "dinov2.")
     trainable, non_trainable = split_model_weights(keras_model)
     for keras_weight, keras_weight_name in tqdm(
         trainable + non_trainable, desc="Transferring DINOv2 weights"

@@ -1,4 +1,5 @@
 import keras
+from keras import layers
 
 from kmodels.base import BaseModel
 from kmodels.models.dino_v2.convert_dino_v2_hf_to_keras import transfer_dino_v2_weights
@@ -103,8 +104,13 @@ class DinoV2Backbone(BaseModel):
             input_shape=input_shape,
             name=f"{name}_vit",
         )
+        features = list(base.output)
+        final_ln = layers.LayerNormalization(
+            epsilon=1e-6, axis=-1, name="final_layernorm"
+        )
+        features[-1] = final_ln(features[-1])
 
-        super().__init__(inputs=base.input, outputs=base.output, name=name, **kwargs)
+        super().__init__(inputs=base.input, outputs=features, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.dim = dim

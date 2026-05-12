@@ -23,25 +23,27 @@ from .dino_v3_layers import (
 )
 
 
-def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx):
-    """SwiGLU gated feed-forward network used in DINOv3 ViT blocks."""
+def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True):
+    """Gated feed-forward network used in DINOv3 ViT blocks (GeGLU / SwiGLU)."""
     gate = layers.Dense(
-        hidden_dim, use_bias=True, name=f"blocks_{block_idx}_swiglu_gate"
+        hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_gate"
     )(x)
-    gate = layers.Activation("silu")(gate)
-    up = layers.Dense(hidden_dim, use_bias=True, name=f"blocks_{block_idx}_swiglu_up")(
-        x
-    )
+    gate = layers.Activation(hidden_act)(gate)
+    up = layers.Dense(
+        hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_up"
+    )(x)
     x = layers.Multiply()([gate, up])
-    x = layers.Dense(dim, use_bias=True, name=f"blocks_{block_idx}_swiglu_down")(x)
+    x = layers.Dense(dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_down")(x)
     return x
 
 
-def dinov3_mlp_block(x, dim, hidden_dim, block_idx):
-    """Standard two-layer MLP with GELU activation."""
-    x = layers.Dense(hidden_dim, use_bias=True, name=f"blocks_{block_idx}_dense_1")(x)
-    x = layers.Activation("gelu", name=f"blocks_{block_idx}_gelu")(x)
-    x = layers.Dense(dim, use_bias=True, name=f"blocks_{block_idx}_dense_2")(x)
+def dinov3_mlp_block(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True):
+    """Standard two-layer MLP with configurable activation."""
+    x = layers.Dense(hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_dense_1")(
+        x
+    )
+    x = layers.Activation(hidden_act, name=f"blocks_{block_idx}_{hidden_act}")(x)
+    x = layers.Dense(dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_dense_2")(x)
     return x
 
 
@@ -57,16 +59,25 @@ def dinov3_transformer_block(
     block_idx,
     rope_cos,
     rope_sin,
+    query_bias=True,
+    key_bias=False,
+    value_bias=True,
+    hidden_act="gelu",
+    mlp_bias=True,
+    layer_norm_eps=1e-5,
 ):
     """DINOv3 transformer block with 2D-RoPE self-attention + MLP."""
     x = layers.LayerNormalization(
-        epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
+        epsilon=layer_norm_eps, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
     attn = DinoV3Attention(
         dim=dim,
         num_heads=num_heads,
         num_prefix_tokens=num_prefix_tokens,
         rope_theta=rope_theta,
+        query_bias=query_bias,
+        key_bias=key_bias,
+        value_bias=value_bias,
         block_prefix=f"blocks_{block_idx}",
     )
     attn.set_rope_cache(rope_cos, rope_sin)
@@ -78,12 +89,12 @@ def dinov3_transformer_block(
     x = layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
 
     y = layers.LayerNormalization(
-        epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_2"
+        epsilon=layer_norm_eps, axis=-1, name=f"blocks_{block_idx}_layernorm_2"
     )(x)
     if use_swiglu:
-        y = dinov3_swiglu_ffn(y, dim, mlp_hidden_dim, block_idx)
+        y = dinov3_swiglu_ffn(y, dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias)
     else:
-        y = dinov3_mlp_block(y, dim, mlp_hidden_dim, block_idx)
+        y = dinov3_mlp_block(y, dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias)
     if init_values is not None:
         y = LayerScale(
             init_values=init_values, name=f"blocks_{block_idx}_layerscale_2"
@@ -147,6 +158,12 @@ class DinoV3ViTBackbone(BaseModel):
             "num_register_tokens": hf_config.get("num_register_tokens", 4),
             "init_values": hf_config.get("layerscale_value", 1.0),
             "rope_theta": hf_config.get("rope_theta", 100.0),
+            "query_bias": hf_config.get("query_bias", True),
+            "key_bias": hf_config.get("key_bias", False),
+            "value_bias": hf_config.get("value_bias", True),
+            "hidden_act": hf_config.get("hidden_act", "gelu"),
+            "mlp_bias": hf_config.get("mlp_bias", True),
+            "layer_norm_eps": hf_config.get("layer_norm_eps", 1e-5),
         }
 
     @classmethod
@@ -164,6 +181,12 @@ class DinoV3ViTBackbone(BaseModel):
         num_register_tokens=4,
         init_values=1.0,
         rope_theta=100.0,
+        query_bias=True,
+        key_bias=False,
+        value_bias=True,
+        hidden_act="gelu",
+        mlp_bias=True,
+        layer_norm_eps=1e-5,
         include_normalization=True,
         normalization_mode="imagenet",
         input_shape=None,
@@ -198,10 +221,7 @@ class DinoV3ViTBackbone(BaseModel):
         rope_cos = ops.convert_to_tensor(rope_cos_np)
         rope_sin = ops.convert_to_tensor(rope_sin_np)
 
-        if use_swiglu:
-            mlp_hidden_dim = int(8 * dim / 3)
-        else:
-            mlp_hidden_dim = int(dim * mlp_ratio)
+        mlp_hidden_dim = int(dim * mlp_ratio)
 
         x = (
             ImageNormalizationLayer(mode=normalization_mode)(img_input)
@@ -237,11 +257,17 @@ class DinoV3ViTBackbone(BaseModel):
                 block_idx=i,
                 rope_cos=rope_cos,
                 rope_sin=rope_sin,
+                query_bias=query_bias,
+                key_bias=key_bias,
+                value_bias=value_bias,
+                hidden_act=hidden_act,
+                mlp_bias=mlp_bias,
+                layer_norm_eps=layer_norm_eps,
             )
             features.append(x)
         # Final LayerNorm applied to last feature
         features[-1] = layers.LayerNormalization(
-            epsilon=1e-6, axis=-1, name="final_layernorm"
+            epsilon=layer_norm_eps, axis=-1, name="final_layernorm"
         )(features[-1])
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
@@ -255,6 +281,12 @@ class DinoV3ViTBackbone(BaseModel):
         self.num_register_tokens = num_register_tokens
         self.init_values = init_values
         self.rope_theta = rope_theta
+        self.query_bias = query_bias
+        self.key_bias = key_bias
+        self.value_bias = value_bias
+        self.hidden_act = hidden_act
+        self.mlp_bias = mlp_bias
+        self.layer_norm_eps = layer_norm_eps
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self._input_shape_val = input_shape
@@ -273,6 +305,12 @@ class DinoV3ViTBackbone(BaseModel):
                 "num_register_tokens": self.num_register_tokens,
                 "init_values": self.init_values,
                 "rope_theta": self.rope_theta,
+                "query_bias": self.query_bias,
+                "key_bias": self.key_bias,
+                "value_bias": self.value_bias,
+                "hidden_act": self.hidden_act,
+                "mlp_bias": self.mlp_bias,
+                "layer_norm_eps": self.layer_norm_eps,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self._input_shape_val,

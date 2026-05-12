@@ -145,6 +145,9 @@ class DinoV3Attention(layers.Layer):
         proj_drop=0.0,
         num_prefix_tokens=5,
         rope_theta=100.0,
+        query_bias=True,
+        key_bias=False,
+        value_bias=True,
         block_prefix=None,
         **kwargs,
     ):
@@ -159,10 +162,17 @@ class DinoV3Attention(layers.Layer):
         self.scale = self.head_dim**-0.5
         self.num_prefix_tokens = num_prefix_tokens
         self.rope_theta = rope_theta
+        self.query_bias = query_bias
+        self.key_bias = key_bias
+        self.value_bias = value_bias
 
-        self.q_proj = layers.Dense(dim, use_bias=True, name=prefix + "attn_q_proj")
-        self.k_proj = layers.Dense(dim, use_bias=False, name=prefix + "attn_k_proj")
-        self.v_proj = layers.Dense(dim, use_bias=True, name=prefix + "attn_v_proj")
+        self.q_proj = layers.Dense(
+            dim, use_bias=query_bias, name=prefix + "attn_q_proj"
+        )
+        self.k_proj = layers.Dense(dim, use_bias=key_bias, name=prefix + "attn_k_proj")
+        self.v_proj = layers.Dense(
+            dim, use_bias=value_bias, name=prefix + "attn_v_proj"
+        )
         self.attn_drop = layers.Dropout(attn_drop)
         self.proj = layers.Dense(dim, name=prefix + "attn_proj")
         self.proj_drop = layers.Dropout(proj_drop)
@@ -234,6 +244,9 @@ class DinoV3Attention(layers.Layer):
                 "proj_drop": self.proj_drop.rate,
                 "num_prefix_tokens": self.num_prefix_tokens,
                 "rope_theta": self.rope_theta,
+                "query_bias": self.query_bias,
+                "key_bias": self.key_bias,
+                "value_bias": self.value_bias,
                 "block_prefix": self.block_prefix,
             }
         )
