@@ -62,12 +62,19 @@ print(len(features), features[-1].shape)  # 13, (1, 257, 384)
 
 ## Loading HF fine-tunes (DINOv2)
 
-Any HF repo whose `model_type` is `"dinov2"` (the official `facebook/dinov2-*` checkpoints or any user fine-tune) can be loaded directly with `from_hf`. The class reads ViT dims, depth, num heads, and LayerScale value straight from the HF config; position embeddings are bicubically resampled if your `input_shape` differs from HF's training resolution.
+Any HF repo whose `model_type` is `"dinov2"` (the official `facebook/dinov2-*` checkpoints or any user fine-tune) can be loaded directly with `from_hf`. The class reads ViT dims, depth, num heads, and LayerScale value straight from the HF config; position embeddings are bicubically resampled if your `input_shape` differs from HF's training resolution. The backbone's last feature map matches HF's `last_hidden_state` (the final LayerNorm is included). For `Dinov2For*` task-head wrappers, the `dinov2.` prefix on state-dict keys is stripped automatically and any classifier head is dropped.
 
 ```python
 from kmodels.models.dino_v2 import DinoV2Backbone
 
+# Canonical
 model = DinoV2Backbone.from_hf("facebook/dinov2-base")
+
+# User fine-tune at a different resolution
+model = DinoV2Backbone.from_hf(
+    "Jayanth2002/dinov2-base-finetuned-SkinDisease",
+    input_shape=(518, 518, 3),
+)
 ```
 
 ## Building a Classification Model on Top

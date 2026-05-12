@@ -125,11 +125,21 @@ class DinoV3ViTBackbone(BaseModel):
         depth: Number of transformer encoder layers.
         num_heads: Number of attention heads per layer.
         mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
-        use_swiglu: Whether to use SwiGLU FFN instead of GELU MLP.
-            Defaults to ``False``.
+        use_swiglu: Whether to use a gated MLP (GeGLU / SwiGLU)
+            instead of the standard two-layer MLP. Defaults to ``False``.
         num_register_tokens: Number of register tokens. Defaults to ``4``.
         init_values: LayerScale init value. Defaults to ``1.0``.
         rope_theta: 2D-RoPE frequency base. Defaults to ``100.0``.
+        query_bias: Whether the attention Q projection uses bias.
+            Defaults to ``True`` (canonical DINOv3 setting).
+        key_bias: Whether the attention K projection uses bias.
+            Defaults to ``False`` (canonical DINOv3 setting).
+        value_bias: Whether the attention V projection uses bias.
+            Defaults to ``True`` (canonical DINOv3 setting).
+        hidden_act: MLP activation name (``"gelu"`` or ``"silu"``).
+            Defaults to ``"gelu"``.
+        mlp_bias: Whether MLP Dense layers use bias. Defaults to ``True``.
+        layer_norm_eps: Epsilon for LayerNorm layers. Defaults to ``1e-5``.
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.

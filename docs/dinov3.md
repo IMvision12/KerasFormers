@@ -47,6 +47,7 @@ Before the first call:
 - **2D RoPE:** ViT variants use 2D Rotary Position Embeddings applied to patch tokens only (CLS and register tokens are excluded).
 - **Register tokens:** 4 learnable register tokens inserted between CLS and patch tokens improve attention map quality.
 - **HF passthrough:** `from_hf("hf:facebook/dinov3-...")` also works for arbitrary fine-tunes whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"`.
+- **Fine-tune compatibility:** `query_bias`, `key_bias`, `value_bias`, `hidden_act`, `mlp_bias`, and `layer_norm_eps` are read from the HF config — fine-tunes that change these from the canonical DINOv3 settings (including gated-MLP variants) load correctly.
 
 ## Basic Usage
 

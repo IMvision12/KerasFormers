@@ -121,9 +121,10 @@ class DinoV3Attention(layers.Layer):
     """
     Multi-head self-attention with 2D Rotary Position Embeddings (RoPE).
 
-    Uses separate Q, K, V projections following the DINOv3 convention:
-    Q and V have bias, K does not. 2D RoPE is applied to Q and K patch
-    tokens only; CLS and register tokens are excluded from positional encoding.
+    Uses separate Q, K, V projections. Per-projection bias is configurable
+    via ``query_bias`` / ``key_bias`` / ``value_bias`` — defaults match the
+    canonical DINOv3 convention (Q+V biased, K unbiased). 2D RoPE is applied
+    to Q and K patch tokens only; CLS and register tokens are excluded.
 
     Args:
         dim: Integer, total embedding dimension.
@@ -133,6 +134,9 @@ class DinoV3Attention(layers.Layer):
         num_prefix_tokens: Integer, number of non-patch tokens (CLS + registers)
             excluded from RoPE. Defaults to ``5``.
         rope_theta: Float, RoPE frequency base. Defaults to ``100.0``.
+        query_bias: Whether the Q projection uses bias. Defaults to ``True``.
+        key_bias: Whether the K projection uses bias. Defaults to ``False``.
+        value_bias: Whether the V projection uses bias. Defaults to ``True``.
         block_prefix: String, prefix for layer naming. If None, uses ``"blocks"``.
         **kwargs: Additional keyword arguments passed to the base ``Layer``.
     """
