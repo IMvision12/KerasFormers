@@ -28,20 +28,13 @@ jobs:
     name: Test the code (${{ matrix.backend }})
     needs: lint-and-format
     runs-on: ubuntu-latest
-    # JAX traces every model on first call, so the JAX matrix entry needs
-    # noticeably more wall-clock than torch / tensorflow. Bumping the
-    # timeout to 120 min covers the full 60-model integration sweep.
-    timeout-minutes: ${{ matrix.backend == 'jax' && 120 || 60 }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         backend: [torch, tensorflow, jax]
     env:
       KERAS_BACKEND: ${{ matrix.backend }}
-      # Keep JAX's XLA cache + memory footprint reasonable across the
-      # parametrized integration sweep.
-      XLA_PYTHON_CLIENT_PREALLOCATE: "false"
-      JAX_PLATFORMS: cpu
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
