@@ -1,13 +1,12 @@
 import gc
 import re
-from typing import Dict, List, Tuple, Type
+from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
 import torch
 from tqdm import tqdm
 
-from kmodels.models import dino
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -18,14 +17,6 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_attention_weights,
     transfer_weights,
 )
-
-DINO_TORCH_HUB = {
-    "DinoViTSmall16": "dino_vits16",
-    "DinoViTSmall8": "dino_vits8",
-    "DinoViTBase16": "dino_vitb16",
-    "DinoViTBase8": "dino_vitb8",
-    "DinoResNet50": "dino_resnet50",
-}
 
 VIT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -57,58 +48,17 @@ RESNET_NAME_MAPPING: Dict[str, str] = {
     "moving.variance": "running_var",
 }
 
-DINO_WEIGHTS_CONFIG: List[Tuple[Type[keras.Model], str, str, int, str]] = [
-    (dino.DinoViTSmall16, "DinoViTSmall16", "vit", 224, "dino_vits16"),
-    (dino.DinoViTSmall8, "DinoViTSmall8", "vit", 224, "dino_vits8"),
-    (dino.DinoViTBase16, "DinoViTBase16", "vit", 224, "dino_vitb16"),
-    (dino.DinoViTBase8, "DinoViTBase8", "vit", 224, "dino_vitb8"),
-    (dino.DinoResNet50, "DinoResNet50", "resnet", 224, "dino_resnet50"),
-]
 
-for keras_model_cls, hub_key, kind, resolution, save_name in DINO_WEIGHTS_CONFIG:
-    torch_hub_name = DINO_TORCH_HUB[hub_key]
-    input_shape = [resolution, resolution, 3]
-
-    print(f"\n{'=' * 60}")
-    print(f"Converting: {hub_key}  (torch.hub: {torch_hub_name})")
-    print(f"{'=' * 60}")
-
-    torch_model: torch.nn.Module = torch.hub.load(
-        "facebookresearch/dino:main", torch_hub_name, pretrained=True
-    ).eval()
-
-    trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-        torch_model
-    )
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
-
-    keras_model: keras.Model = keras_model_cls(
-        include_top=False,
-        include_normalization=False,
-        input_shape=input_shape,
-        pooling="avg" if kind == "resnet" else None,
-        weights=None,
-    )
-
-    trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
-        keras_model
-    )
-
-    name_mapping = VIT_NAME_MAPPING if kind == "vit" else RESNET_NAME_MAPPING
-
+def _transfer_weights(keras_model, torch_state_dict, name_mapping, is_vit):
+    trainable, non_trainable = split_model_weights(keras_model)
     for keras_weight, keras_weight_name in tqdm(
-        trainable_keras_weights + non_trainable_keras_weights,
-        total=len(trainable_keras_weights + non_trainable_keras_weights),
-        desc="Transferring weights",
+        trainable + non_trainable, desc="Transferring DINO weights"
     ):
         torch_weight_name: str = keras_weight_name
         for old, new in name_mapping.items():
             torch_weight_name = torch_weight_name.replace(old, new)
 
-        if kind == "vit":
+        if is_vit:
             torch_weight_name = re.sub(
                 r"pos_embed_variable_\d+$", "pos_embed", torch_weight_name
             )
@@ -118,14 +68,14 @@ for keras_model_cls, hub_key, kind, resolution, save_name in DINO_WEIGHTS_CONFIG
 
             if "attention" in torch_weight_name:
                 transfer_attention_weights(
-                    keras_weight_name, keras_weight, torch_weights_dict
+                    keras_weight_name, keras_weight, torch_state_dict
                 )
                 continue
 
-        if torch_weight_name not in torch_weights_dict:
+        if torch_weight_name not in torch_state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
 
-        torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
+        torch_weight = torch_state_dict[torch_weight_name]
 
         if torch_weight_name in ("cls_token", "pos_embed"):
             keras_weight.assign(torch_weight)
@@ -143,33 +93,132 @@ for keras_model_cls, hub_key, kind, resolution, save_name in DINO_WEIGHTS_CONFIG
 
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    h, w, c = input_shape
-    rng = np.random.default_rng(0)
-    x = rng.standard_normal((1, c, h, w)).astype(np.float32)
 
-    with torch.no_grad():
-        t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
+def transfer_dino_vit_weights(
+    keras_model: keras.Model, torch_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer DINO V1 ViT weights from a torch.hub state-dict."""
+    _transfer_weights(keras_model, torch_state_dict, VIT_NAME_MAPPING, is_vit=True)
 
-    k_in = np.transpose(x, (0, 2, 3, 1))
-    k_raw = keras_model(k_in, training=False)
-    k_out = (
-        k_raw.detach().cpu().numpy() if hasattr(k_raw, "detach") else np.asarray(k_raw)
-    )
 
-    if kind == "vit":
-        k_out = k_out[:, 0]
+def transfer_dino_resnet_weights(
+    keras_model: keras.Model, torch_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer DINO V1 ResNet weights from a torch.hub state-dict."""
+    _transfer_weights(keras_model, torch_state_dict, RESNET_NAME_MAPPING, is_vit=False)
 
-    diff = float(np.abs(k_out - t_out).max())
-    assert diff < 1e-3, f"{hub_key}: max diff {diff:.2e}"
-    print(f"  Verification OK (max diff = {diff:.2e})")
 
-    model_filename = f"{save_name}.weights.h5"
-    keras_model.save_weights(model_filename)
-    print(f"  Saved -> {model_filename}")
+DINO_VIT_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+    ("dino_vits16", "dino_vits16"),
+    ("dino_vits8", "dino_vits8"),
+    ("dino_vitb16", "dino_vitb16"),
+    ("dino_vitb8", "dino_vitb8"),
+]
 
-    del keras_model, torch_model, torch_weights_dict
-    del trainable_torch_weights, non_trainable_torch_weights
-    del trainable_keras_weights, non_trainable_keras_weights
-    keras.backend.clear_session()
-    gc.collect()
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+DINO_RESNET_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+    ("dino_resnet50", "dino_resnet50"),
+]
+
+
+if __name__ == "__main__":
+    from kmodels.models.dino import DinoResNetBackbone, DinoViTBackbone
+
+    for variant, torch_hub_name in DINO_VIT_CONVERSION_CONFIG:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  (torch.hub: {torch_hub_name})")
+        print(f"{'=' * 60}")
+
+        torch_model = torch.hub.load(
+            "facebookresearch/dino:main", torch_hub_name, pretrained=True
+        ).eval()
+        trainable_torch, non_trainable_torch, _ = split_model_weights(torch_model)
+        torch_state_dict = {
+            k: v.cpu().numpy() if hasattr(v, "cpu") else v
+            for k, v in {**trainable_torch, **non_trainable_torch}.items()
+        }
+
+        keras_model = DinoViTBackbone.from_weights(
+            variant,
+            load_weights=False,
+            input_shape=(224, 224, 3),
+            include_normalization=False,
+        )
+
+        transfer_dino_vit_weights(keras_model, torch_state_dict)
+
+        rng = np.random.default_rng(0)
+        x = rng.standard_normal((1, 3, 224, 224)).astype(np.float32)
+        with torch.no_grad():
+            t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
+        k_in = np.transpose(x, (0, 2, 3, 1))
+        k_raw = keras_model(k_in, training=False)
+        # Backbone output is a list of intermediate features; take last block's CLS token
+        last = k_raw[-1]
+        last = (
+            last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
+        )
+        k_out = last[:, 0]  # CLS token
+        diff = float(np.abs(k_out - t_out).max())
+        if diff > 1e-3:
+            raise ValueError(f"{variant}: max diff {diff:.2e}")
+        print(f"  Verification OK (max diff = {diff:.2e})")
+
+        model_filename = f"{variant}.weights.h5"
+        keras_model.save_weights(model_filename)
+        print(f"  Saved -> {model_filename}")
+
+        del keras_model, torch_model, torch_state_dict
+        keras.backend.clear_session()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    for variant, torch_hub_name in DINO_RESNET_CONVERSION_CONFIG:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  (torch.hub: {torch_hub_name})")
+        print(f"{'=' * 60}")
+
+        torch_model = torch.hub.load(
+            "facebookresearch/dino:main", torch_hub_name, pretrained=True
+        ).eval()
+        trainable_torch, non_trainable_torch, _ = split_model_weights(torch_model)
+        torch_state_dict = {
+            k: v.cpu().numpy() if hasattr(v, "cpu") else v
+            for k, v in {**trainable_torch, **non_trainable_torch}.items()
+        }
+
+        keras_model = DinoResNetBackbone.from_weights(
+            variant,
+            load_weights=False,
+            input_shape=(224, 224, 3),
+            include_normalization=False,
+        )
+
+        transfer_dino_resnet_weights(keras_model, torch_state_dict)
+
+        rng = np.random.default_rng(0)
+        x = rng.standard_normal((1, 3, 224, 224)).astype(np.float32)
+        with torch.no_grad():
+            t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
+        k_in = np.transpose(x, (0, 2, 3, 1))
+        k_raw = keras_model(k_in, training=False)
+        # Backbone output is a list of stage features; pool the last (C5) to match torch
+        last = k_raw[-1]
+        last = (
+            last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
+        )
+        k_out = last.mean(axis=(1, 2))
+        diff = float(np.abs(k_out - t_out).max())
+        if diff > 1e-3:
+            raise ValueError(f"{variant}: max diff {diff:.2e}")
+        print(f"  Verification OK (max diff = {diff:.2e})")
+
+        model_filename = f"{variant}.weights.h5"
+        keras_model.save_weights(model_filename)
+        print(f"  Saved -> {model_filename}")
+
+        del keras_model, torch_model, torch_state_dict
+        keras.backend.clear_session()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

@@ -51,6 +51,18 @@ def test_model_forward_pass(model_name):
                 assert output[key].shape == shape, (
                     f"{model_name}[{key}]: expected {shape}, got {output[key].shape}"
                 )
+    elif isinstance(expected, list):
+        assert isinstance(output, (list, tuple)), (
+            f"{model_name}: expected list output, got {type(output)}"
+        )
+        assert len(output) == len(expected), (
+            f"{model_name}: expected {len(expected)} outputs, got {len(output)}"
+        )
+        for i, shape in enumerate(expected):
+            if shape is not None:
+                assert output[i].shape == shape, (
+                    f"{model_name}[{i}]: expected {shape}, got {output[i].shape}"
+                )
     else:
         assert output.shape == expected, (
             f"{model_name}: expected {expected}, got {output.shape}"
@@ -70,6 +82,10 @@ def test_model_no_nans(model_name):
         for key, value in output.items():
             has_nans = bool(ops.any(ops.isnan(value)))
             assert not has_nans, f"{model_name}[{key}] contains NaN values"
+    elif isinstance(output, (list, tuple)):
+        for i, value in enumerate(output):
+            has_nans = bool(ops.any(ops.isnan(value)))
+            assert not has_nans, f"{model_name}[{i}] contains NaN values"
     else:
         has_nans = bool(ops.any(ops.isnan(output)))
         assert not has_nans, f"{model_name} output contains NaN values"

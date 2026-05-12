@@ -7,106 +7,83 @@ DINO (self-**DI**stillation with **NO** labels) is a self-supervised learning me
 
 DINOv2 improves on DINO with a larger curated dataset (LVD-142M), LayerScale, and stronger training recipe, producing state-of-the-art visual features.
 
-## Model Variants
+DINO and DINOv2 are pure feature extractors — no classification head. Three backbone classes are exposed:
 
-### DINO
+- `DinoViTBackbone` — DINO V1 ViT (4 variants).
+- `DinoResNetBackbone` — DINO V1 ResNet-50.
+- `DinoV2Backbone` — DINOv2 ViT (3 variants). Supports `from_hf` for HF Hub fine-tunes.
 
-- **DinoViTSmall16** -- ViT-S/16 (~21 M params, 16x16 patches)
-- **DinoViTSmall8** -- ViT-S/8 (~21 M params, 8x8 patches)
-- **DinoViTBase16** -- ViT-B/16 (~85 M params, 16x16 patches)
-- **DinoViTBase8** -- ViT-B/8 (~85 M params, 8x8 patches)
-- **DinoResNet50** -- ResNet-50 (~23 M params)
-
-### DINOv2
-
-- **DinoV2Small14** -- ViT-S/14 (~22 M params, 14x14 patches)
-- **DinoV2Base14** -- ViT-B/14 (~86 M params, 14x14 patches)
-- **DinoV2Large14** -- ViT-L/14 (~300 M params, 14x14 patches)
+All three return a list of intermediate feature maps from each block / stage, suitable for feeding into detection / segmentation / depth necks.
 
 ## Available Weights
 
-### DINO
+Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Backbone` also supports `from_hf(hf_id)` for arbitrary HF fine-tunes whose `model_type` is `"dinov2"`.
 
-| Variant | dino |
-|---------|:----:|
-| DinoViTSmall16 | ✅ |
-| DinoViTSmall8 | ✅ |
-| DinoViTBase16 | ✅ |
-| DinoViTBase8 | ✅ |
-| DinoResNet50 | ✅ |
+### DINO V1 (`DinoViTBackbone` and `DinoResNetBackbone`)
 
-### DINOv2
+| Variant            | Class                | Backbone   | Patch | Parameters |
+|--------------------|----------------------|------------|------:|-----------:|
+| `dino_vits16`      | `DinoViTBackbone`    | ViT-S/16   |    16 |     ~21 M  |
+| `dino_vits8`       | `DinoViTBackbone`    | ViT-S/8    |     8 |     ~21 M  |
+| `dino_vitb16`      | `DinoViTBackbone`    | ViT-B/16   |    16 |     ~85 M  |
+| `dino_vitb8`       | `DinoViTBackbone`    | ViT-B/8    |     8 |     ~85 M  |
+| `dino_resnet50`    | `DinoResNetBackbone` | ResNet-50  |     — |     ~23 M  |
 
-| Variant | dinov2 |
-|---------|:------:|
-| DinoV2Small14 | ✅ |
-| DinoV2Base14 | ✅ |
-| DinoV2Large14 | ✅ |
+### DINOv2 (`DinoV2Backbone`)
 
-## Features and Capabilities
-
-- **Self-Supervised Features:** Trained without labels, producing general-purpose visual representations.
-- **Backbone Mode:** `as_backbone=True` returns intermediate feature maps for dense prediction tasks (segmentation, detection).
-- **Fine-Tuning Support:** `include_top=True` adds a classification head (randomly initialized) for fine-tuning on custom datasets.
-- **Flexible Input:** Supports variable input resolutions (position embeddings are interpolated automatically for DINOv2).
+| Variant           | Backbone   | Patch | Parameters |
+|-------------------|------------|------:|-----------:|
+| `dinov2_vits14`   | ViT-S/14   |    14 |     ~22 M  |
+| `dinov2_vitb14`   | ViT-B/14   |    14 |     ~86 M  |
+| `dinov2_vitl14`   | ViT-L/14   |    14 |    ~300 M  |
 
 ## Basic Usage
 
-### Feature Extraction (default)
-
 ```python
 import numpy as np
-from kmodels.models.dino import DinoViTSmall16
-from kmodels.models.dino_v2 import DinoV2Small14
+from kmodels.models.dino import DinoViTBackbone, DinoResNetBackbone
+from kmodels.models.dino_v2 import DinoV2Backbone
 
-# DINO v1 -- returns token sequence (B, N, 384)
-model = DinoViTSmall16(weights="dino")
+# DINO V1 ViT — returns 13 intermediate feature maps (embed + 12 blocks)
+model = DinoViTBackbone.from_weights("dino_vits16")
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
-print(features.shape)  # (1, 197, 384)
+print(len(features), features[-1].shape)  # 13, (1, 197, 384)
 
-# DINOv2 -- returns token sequence (B, N, 384)
-model = DinoV2Small14(weights="dinov2")
+# DINO V1 ResNet — returns 5 stage feature maps
+model = DinoResNetBackbone.from_weights("dino_resnet50")
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
-print(features.shape)  # (1, 257, 384)
+print(len(features), features[-1].shape)  # 5, (1, 7, 7, 2048)
+
+# DINOv2 — returns 13 intermediate feature maps
+model = DinoV2Backbone.from_weights("dinov2_vits14")
+features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
+print(len(features), features[-1].shape)  # 13, (1, 257, 384)
 ```
 
-### Intermediate Features for Dense Prediction
+## Loading HF fine-tunes (DINOv2)
+
+Any HF repo whose `model_type` is `"dinov2"` (the official `facebook/dinov2-*` checkpoints or any user fine-tune) can be loaded directly with `from_hf`. The class reads ViT dims, depth, num heads, and LayerScale value straight from the HF config; position embeddings are bicubically resampled if your `input_shape` differs from HF's training resolution.
 
 ```python
-from kmodels.models.dino_v2 import DinoV2Base14
+from kmodels.models.dino_v2 import DinoV2Backbone
 
-model = DinoV2Base14(weights="dinov2", as_backbone=True)
-feature_maps = model(np.random.rand(1, 224, 224, 3).astype("float32"))
-print(len(feature_maps))  # 13 feature maps (1 after embedding + 12 blocks)
+model = DinoV2Backbone.from_hf("facebook/dinov2-base")
 ```
 
-### Fine-Tuning with Classification Head
+## Building a Classification Model on Top
 
 ```python
-from kmodels.models.dino_v2 import DinoV2Small14
+import keras
+from kmodels.models.dino_v2 import DinoV2Backbone
 
-model = DinoV2Small14(
-    weights="dinov2",
-    include_top=True,
-    num_classes=10,
-)
-# Freeze backbone, train head
-for layer in model.layers[:-1]:
-    layer.trainable = False
-```
+backbone = DinoV2Backbone.from_weights("dinov2_vits14")
+# Take the last feature map and CLS token, then add a head
+inputs = backbone.input
+features = backbone.output  # list
+cls_token = features[-1][:, 0]
+logits = keras.layers.Dense(10, activation="softmax")(cls_token)
+model = keras.Model(inputs=inputs, outputs=logits)
 
-### Using ResNet Backbone (DINO v1)
-
-```python
-from kmodels.models.dino import DinoResNet50
-
-# Spatial feature map (B, H, W, 2048)
-model = DinoResNet50(weights="dino")
-features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
-print(features.shape)  # (1, 7, 7, 2048)
-
-# Pooled features (B, 2048)
-model = DinoResNet50(weights="dino", pooling="avg")
-features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
-print(features.shape)  # (1, 2048)
+# Freeze the backbone, train only the head
+backbone.trainable = False
 ```
