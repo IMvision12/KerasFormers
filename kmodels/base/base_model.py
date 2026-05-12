@@ -197,28 +197,49 @@ class BaseModel(keras.Model):
                     f"No release weights configured for variant '{variant}'. "
                     f"Pass load_weights=False to build an untrained model."
                 )
-            url = cls.KMODELS_WEIGHTS[variant]
-            if isinstance(url, dict):
-                url = url.get("url")
-            if not url:
-                raise ValueError(
-                    f"Release weights URL for variant '{variant}' is empty."
-                )
-            if url.lower().endswith(".json"):
-                json_path = download_file(url)
-                with open(json_path, "r") as f:
-                    index = json.load(f)
-                if "weight_map" not in index:
-                    raise ValueError(
-                        f"Sharded weights index '{url}' must contain 'weight_map'."
-                    )
-                base_url = "/".join(url.split("/")[:-1])
-                for shard_file in sorted(set(index["weight_map"].values())):
-                    download_file(f"{base_url}/{shard_file}")
-                model.load_weights(json_path)
+            entry = cls.KMODELS_WEIGHTS[variant]
+            if isinstance(entry, dict):
+                hf_id = entry.get("hf_id")
+                gated = entry.get("gated", False)
+                url = entry.get("url")
             else:
-                weights_path = download_file(url)
-                model.load_weights(weights_path)
+                hf_id = None
+                gated = False
+                url = entry
+
+            if hf_id:
+                from kmodels.weight_utils.hf_gated_weight_download import (
+                    load_and_convert_from_hf,
+                )
+
+                load_and_convert_from_hf(
+                    model=model,
+                    model_name=variant,
+                    hf_model_id=hf_id,
+                    transfer_fn=cls.transfer_from_hf,
+                    is_gated=gated,
+                )
+            elif url:
+                if url.lower().endswith(".json"):
+                    json_path = download_file(url)
+                    with open(json_path, "r") as f:
+                        index = json.load(f)
+                    if "weight_map" not in index:
+                        raise ValueError(
+                            f"Sharded weights index '{url}' must contain 'weight_map'."
+                        )
+                    base_url = "/".join(url.split("/")[:-1])
+                    for shard_file in sorted(set(index["weight_map"].values())):
+                        download_file(f"{base_url}/{shard_file}")
+                    model.load_weights(json_path)
+                else:
+                    weights_path = download_file(url)
+                    model.load_weights(weights_path)
+            else:
+                raise ValueError(
+                    f"Release weights entry for variant '{variant}' has "
+                    f"neither 'url' nor 'hf_id'."
+                )
 
         return model
 

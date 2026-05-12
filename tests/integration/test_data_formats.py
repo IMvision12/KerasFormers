@@ -60,6 +60,11 @@ def test_channels_last(model_name):
                 assert not bool(ops.any(ops.isnan(value))), (
                     f"{model_name}[{key}] has NaNs in channels_last"
                 )
+        elif isinstance(output, (list, tuple)):
+            for i, value in enumerate(output):
+                assert not bool(ops.any(ops.isnan(value))), (
+                    f"{model_name}[{i}] has NaNs in channels_last"
+                )
         else:
             assert not bool(ops.any(ops.isnan(output))), (
                 f"{model_name} has NaNs in channels_last"
@@ -100,6 +105,11 @@ def test_channels_first(model_name):
             for key, value in output.items():
                 assert not bool(ops.any(ops.isnan(value))), (
                     f"{model_name}[{key}] has NaNs in channels_first"
+                )
+        elif isinstance(output, (list, tuple)):
+            for i, value in enumerate(output):
+                assert not bool(ops.any(ops.isnan(value))), (
+                    f"{model_name}[{i}] has NaNs in channels_first"
                 )
         else:
             assert not bool(ops.any(ops.isnan(output))), (

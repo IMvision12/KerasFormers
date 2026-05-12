@@ -1,5 +1,5 @@
-DINOV3_VIT_MODEL_CONFIG = {
-    "DinoV3ViTSmall16": {
+DINOV3_VIT_CONFIG = {
+    "dinov3_vits16": {
         "patch_size": 16,
         "dim": 384,
         "depth": 12,
@@ -10,7 +10,7 @@ DINOV3_VIT_MODEL_CONFIG = {
         "init_values": 1.0,
         "rope_theta": 100.0,
     },
-    "DinoV3ViTBase16": {
+    "dinov3_vitb16": {
         "patch_size": 16,
         "dim": 768,
         "depth": 12,
@@ -21,7 +21,7 @@ DINOV3_VIT_MODEL_CONFIG = {
         "init_values": 1.0,
         "rope_theta": 100.0,
     },
-    "DinoV3ViTLarge16": {
+    "dinov3_vitl16": {
         "patch_size": 16,
         "dim": 1024,
         "depth": 24,
@@ -34,21 +34,55 @@ DINOV3_VIT_MODEL_CONFIG = {
     },
 }
 
-DINOV3_CONVNEXT_MODEL_CONFIG = {
-    "DinoV3ConvNeXtTiny": {
+DINOV3_VIT_WEIGHTS = {
+    "dinov3_vits16": {
+        "hf_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
+        "gated": True,
+    },
+    "dinov3_vitb16": {
+        "hf_id": "facebook/dinov3-vitb16-pretrain-lvd1689m",
+        "gated": True,
+    },
+    "dinov3_vitl16": {
+        "hf_id": "facebook/dinov3-vitl16-pretrain-lvd1689m",
+        "gated": True,
+    },
+}
+
+DINOV3_CONVNEXT_CONFIG = {
+    "dinov3_convnext_tiny": {
         "depths": [3, 3, 9, 3],
         "projection_dims": [96, 192, 384, 768],
     },
-    "DinoV3ConvNeXtSmall": {
+    "dinov3_convnext_small": {
         "depths": [3, 3, 27, 3],
         "projection_dims": [96, 192, 384, 768],
     },
-    "DinoV3ConvNeXtBase": {
+    "dinov3_convnext_base": {
         "depths": [3, 3, 27, 3],
         "projection_dims": [128, 256, 512, 1024],
     },
-    "DinoV3ConvNeXtLarge": {
+    "dinov3_convnext_large": {
         "depths": [3, 3, 27, 3],
         "projection_dims": [192, 384, 768, 1536],
+    },
+}
+
+DINOV3_CONVNEXT_WEIGHTS = {
+    "dinov3_convnext_tiny": {
+        "hf_id": "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
+        "gated": True,
+    },
+    "dinov3_convnext_small": {
+        "hf_id": "facebook/dinov3-convnext-small-pretrain-lvd1689m",
+        "gated": True,
+    },
+    "dinov3_convnext_base": {
+        "hf_id": "facebook/dinov3-convnext-base-pretrain-lvd1689m",
+        "gated": True,
+    },
+    "dinov3_convnext_large": {
+        "hf_id": "facebook/dinov3-convnext-large-pretrain-lvd1689m",
+        "gated": True,
     },
 }

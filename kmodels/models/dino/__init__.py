@@ -1,7 +1,6 @@
-from kmodels.models.dino.dino_model import (
-    DinoResNet50,
-    DinoViTBase8,
-    DinoViTBase16,
-    DinoViTSmall8,
-    DinoViTSmall16,
-)
+from .dino_model import DinoResNetBackbone, DinoViTBackbone
+
+__all__ = [
+    "DinoViTBackbone",
+    "DinoResNetBackbone",
+]

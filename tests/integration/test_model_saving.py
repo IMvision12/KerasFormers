@@ -25,6 +25,15 @@ def _assert_outputs_close(original, loaded, model_name, rtol=1e-5, atol=1e-5):
                 atol=atol,
                 err_msg=f"{model_name}[{key}] output mismatch after save/load",
             )
+    elif isinstance(original, (list, tuple)):
+        for i in range(len(original)):
+            np.testing.assert_allclose(
+                _to_numpy(original[i]),
+                _to_numpy(loaded[i]),
+                rtol=rtol,
+                atol=atol,
+                err_msg=f"{model_name}[{i}] output mismatch after save/load",
+            )
     else:
         np.testing.assert_allclose(
             _to_numpy(original),

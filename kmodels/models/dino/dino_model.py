@@ -1,336 +1,222 @@
-from kmodels.model_registry import register_model
+import keras
+from keras import layers
+
+from kmodels.base import BaseModel
 from kmodels.models.resnet.resnet_model import ResNet, bottleneck_block
 from kmodels.models.vit.vit_model import VisionTransformer
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import (
-    DINO_RESNET_MODEL_CONFIG,
-    DINO_VIT_MODEL_CONFIG,
-    DINO_WEIGHTS_CONFIG,
+    DINO_RESNET_CONFIG,
+    DINO_RESNET_WEIGHTS,
+    DINO_VIT_CONFIG,
+    DINO_VIT_WEIGHTS,
 )
 
 
-def DinoViT(
-    model_name,
-    include_top,
-    as_backbone,
-    include_normalization,
-    normalization_mode,
-    weights,
-    input_tensor,
-    input_shape,
-    pooling,
-    num_classes,
-    classifier_activation,
-    name,
-    **kwargs,
-):
-    """Instantiates a DINO Vision Transformer backbone.
+@keras.saving.register_keras_serializable(package="kmodels")
+class DinoViTBackbone(BaseModel):
+    """DINO Vision Transformer backbone.
 
-    Builds a standard ViT pretrained with the DINO self-supervised method.
+    Standard ViT pretrained with the DINO self-supervised method.
+    Returns the list of intermediate feature maps from each
+    transformer block, suitable for feeding into detection /
+    segmentation / depth necks.
 
     Reference:
-    - [Emerging Properties in Self-Supervised Vision Transformers](https://arxiv.org/abs/2104.14294)
+        - `Emerging Properties in Self-Supervised Vision Transformers
+          <https://arxiv.org/abs/2104.14294>`_
 
     Args:
-        model_name: String, key into ``DINO_VIT_MODEL_CONFIG`` selecting the
-            variant (e.g. ``"DinoViTSmall16"``).
-        include_top: Boolean, whether to include a classification head.
-            Defaults to ``False``.
-        as_backbone: Boolean, whether to return intermediate feature maps.
-            When True, returns a list of feature maps at different stages.
-            Defaults to ``False``.
-        include_normalization: Boolean, whether to include normalization layers
-            at the start of the network. When True, input images should be in
-            uint8 format with values in [0, 255]. Defaults to ``True``.
-        normalization_mode: String, specifying the normalization mode to use.
-            Defaults to ``"imagenet"``.
-        weights: String, one of ``"dino"`` (pretrained) or a filepath to
-            custom weights. Set to ``None`` for random initialization.
-        input_tensor: Optional Keras tensor to use as input.
-        input_shape: Optional tuple specifying the input shape.
-            Defaults to ``(224, 224, 3)``.
-        pooling: Optional pooling mode when ``include_top=False``:
-            - ``None``: output is the token sequence ``(B, N, dim)``
-            - ``"avg"``: global average pooling
-            - ``"max"``: global max pooling
-        num_classes: Integer, number of output classes when ``include_top=True``.
-        classifier_activation: String or callable, activation for the
-            classification head. Defaults to ``"softmax"``.
-        name: String, the name of the model.
-
-    Returns:
-        A Keras ``Model`` instance.
+        patch_size: ViT patch size (8 or 16).
+        dim: Hidden dimension.
+        depth: Number of transformer encoder layers.
+        num_heads: Number of attention heads per layer.
+        mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
+        qkv_bias: Whether to use bias in QKV projections. Defaults to
+            ``True``.
+        qk_norm: Whether to use QK normalization. Defaults to ``False``.
+        drop_rate: Dropout rate. Defaults to ``0.0``.
+        attn_drop_rate: Attention dropout rate. Defaults to ``0.0``.
+        include_normalization: Whether to prepend
+            :class:`ImageNormalizationLayer`.
+        normalization_mode: Normalization preset.
+        input_shape: Image input shape excluding batch dim. Defaults
+            to ``(224, 224, 3)``.
+        input_tensor: Optional pre-existing Keras input tensor.
+        name: Model name.
     """
-    if include_top and num_classes is None:
-        num_classes = 1000
 
-    if input_shape is None and input_tensor is None:
-        input_shape = (224, 224, 3)
+    KMODELS_CONFIG = DINO_VIT_CONFIG
+    KMODELS_WEIGHTS = DINO_VIT_WEIGHTS
+    HF_MODEL_TYPE = None
 
-    model = VisionTransformer(
-        **DINO_VIT_MODEL_CONFIG[model_name],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=None,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+    def __init__(
+        self,
+        patch_size=16,
+        dim=384,
+        depth=12,
+        num_heads=6,
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        qk_norm=False,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="DinoViTBackbone",
         **kwargs,
-    )
+    ):
+        if input_shape is None and input_tensor is None:
+            input_shape = (224, 224, 3)
 
-    if weights in get_all_weight_names(DINO_WEIGHTS_CONFIG):
-        load_weights_from_config(model_name, weights, model, DINO_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        base = VisionTransformer(
+            patch_size=patch_size,
+            dim=dim,
+            depth=depth,
+            num_heads=num_heads,
+            mlp_ratio=mlp_ratio,
+            qkv_bias=qkv_bias,
+            qk_norm=qk_norm,
+            drop_rate=drop_rate,
+            attn_drop_rate=attn_drop_rate,
+            include_top=False,
+            as_backbone=True,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            weights=None,
+            input_tensor=input_tensor,
+            input_shape=input_shape,
+            name=f"{name}_vit",
+        )
+        features = list(base.output)
+        final_ln = layers.LayerNormalization(
+            epsilon=1e-6, axis=-1, name="final_layernorm"
+        )
+        features[-1] = final_ln(features[-1])
 
-    return model
+        super().__init__(inputs=base.input, outputs=features, name=name, **kwargs)
+
+        self.patch_size = patch_size
+        self.dim = dim
+        self.depth = depth
+        self.num_heads = num_heads
+        self.mlp_ratio = mlp_ratio
+        self.qkv_bias = qkv_bias
+        self.qk_norm = qk_norm
+        self.drop_rate = drop_rate
+        self.attn_drop_rate = attn_drop_rate
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self._input_shape_val = input_shape
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "dim": self.dim,
+                "depth": self.depth,
+                "num_heads": self.num_heads,
+                "mlp_ratio": self.mlp_ratio,
+                "qkv_bias": self.qkv_bias,
+                "qk_norm": self.qk_norm,
+                "drop_rate": self.drop_rate,
+                "attn_drop_rate": self.attn_drop_rate,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self._input_shape_val,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
-def DinoResNet(
-    model_name,
-    include_top,
-    as_backbone,
-    include_normalization,
-    normalization_mode,
-    weights,
-    input_tensor,
-    input_shape,
-    pooling,
-    num_classes,
-    classifier_activation,
-    name,
-    **kwargs,
-):
-    """Instantiates a DINO ResNet backbone.
+@keras.saving.register_keras_serializable(package="kmodels")
+class DinoResNetBackbone(BaseModel):
+    """DINO ResNet backbone.
 
-    Builds a ResNet-50 pretrained with the DINO self-supervised method.
+    ResNet-50 pretrained with the DINO self-supervised method. Returns
+    the list of intermediate feature maps from each ResNet stage.
 
     Reference:
-    - [Emerging Properties in Self-Supervised Vision Transformers](https://arxiv.org/abs/2104.14294)
+        - `Emerging Properties in Self-Supervised Vision Transformers
+          <https://arxiv.org/abs/2104.14294>`_
 
     Args:
-        model_name: String, key into ``DINO_RESNET_MODEL_CONFIG`` selecting
-            the variant (e.g. ``"DinoResNet50"``).
-        include_top: Boolean, whether to include a classification head.
-            Defaults to ``False``.
-        as_backbone: Boolean, whether to return intermediate feature maps.
-            When True, returns a list of feature maps at different stages.
-            Defaults to ``False``.
-        include_normalization: Boolean, whether to include normalization layers
-            at the start of the network. When True, input images should be in
-            uint8 format with values in [0, 255]. Defaults to ``True``.
-        normalization_mode: String, specifying the normalization mode to use.
-            Defaults to ``"imagenet"``.
-        weights: String, one of ``"dino"`` (pretrained) or a filepath to
-            custom weights. Set to ``None`` for random initialization.
-        input_tensor: Optional Keras tensor to use as input.
-        input_shape: Optional tuple specifying the input shape.
-        pooling: Optional pooling mode when ``include_top=False``:
-            - ``None``: output is the spatial feature map ``(B, H, W, C)``
-            - ``"avg"``: global average pooling ``(B, C)``
-            - ``"max"``: global max pooling ``(B, C)``
-        num_classes: Integer, number of output classes when ``include_top=True``.
-        classifier_activation: String or callable, activation for the
-            classification head. Defaults to ``"softmax"``.
-        name: String, the name of the model.
-
-    Returns:
-        A Keras ``Model`` instance.
+        block_repeats: Per-stage block counts.
+        filters: Per-stage filter counts.
+        include_normalization: Whether to prepend
+            :class:`ImageNormalizationLayer`.
+        normalization_mode: Normalization preset.
+        input_shape: Image input shape excluding batch dim.
+        input_tensor: Optional pre-existing Keras input tensor.
+        name: Model name.
     """
-    if include_top and num_classes is None:
-        num_classes = 1000
 
-    model = ResNet(
-        block_fn=bottleneck_block,
-        block_repeats=DINO_RESNET_MODEL_CONFIG[model_name]["block_repeats"],
-        filters=DINO_RESNET_MODEL_CONFIG[model_name]["filters"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=None,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+    KMODELS_CONFIG = DINO_RESNET_CONFIG
+    KMODELS_WEIGHTS = DINO_RESNET_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    def __init__(
+        self,
+        block_repeats=None,
+        filters=None,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="DinoResNetBackbone",
         **kwargs,
-    )
+    ):
+        if block_repeats is None:
+            block_repeats = [3, 4, 6, 3]
+        if filters is None:
+            filters = [64, 128, 256, 512]
 
-    if weights in get_all_weight_names(DINO_WEIGHTS_CONFIG):
-        load_weights_from_config(model_name, weights, model, DINO_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        base = ResNet(
+            block_fn=bottleneck_block,
+            block_repeats=block_repeats,
+            filters=filters,
+            include_top=False,
+            as_backbone=True,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            weights=None,
+            input_tensor=input_tensor,
+            input_shape=input_shape,
+            name=f"{name}_resnet",
+        )
 
-    return model
+        super().__init__(inputs=base.input, outputs=base.output, name=name, **kwargs)
 
+        self.block_repeats = list(block_repeats)
+        self.filters = list(filters)
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self._input_shape_val = input_shape
+        self.input_tensor = input_tensor
 
-@register_model
-def DinoViTSmall16(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dino",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoViTSmall16",
-    **kwargs,
-):
-    return DinoViT(
-        "DinoViTSmall16",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "block_repeats": self.block_repeats,
+                "filters": self.filters,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self._input_shape_val,
+                "name": self.name,
+            }
+        )
+        return config
 
-
-@register_model
-def DinoViTSmall8(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dino",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoViTSmall8",
-    **kwargs,
-):
-    return DinoViT(
-        "DinoViTSmall8",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoViTBase16(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dino",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoViTBase16",
-    **kwargs,
-):
-    return DinoViT(
-        "DinoViTBase16",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoViTBase8(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dino",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoViTBase8",
-    **kwargs,
-):
-    return DinoViT(
-        "DinoViTBase8",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def DinoResNet50(
-    include_top=False,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="dino",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=None,
-    classifier_activation="softmax",
-    name="DinoResNet50",
-    **kwargs,
-):
-    return DinoResNet(
-        "DinoResNet50",
-        include_top,
-        as_backbone,
-        include_normalization,
-        normalization_mode,
-        weights,
-        input_tensor,
-        input_shape,
-        pooling,
-        num_classes,
-        classifier_activation,
-        name,
-        **kwargs,
-    )
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
