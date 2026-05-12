@@ -1,4 +1,3 @@
-from kmodels.weight_utils.cross_class_copy import copy_weights_by_path_suffix
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -16,6 +15,7 @@ from kmodels.weight_utils.model_weights_util import (
 from kmodels.weight_utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
+    copy_weights_by_path_suffix,
     transfer_attention_weights,
     transfer_weights,
 )
