@@ -42,8 +42,9 @@ gather + lerp, so the model is numerically consistent across `torch`,
 
 ## Available Weights
 
-Pretrained weights are loaded via `from_weights(variant_id)` (or
-`from_hf(hf_id)` for arbitrary HF fine-tunes).
+Pretrained weights are loaded via `from_weights(variant_id)` for
+kmodels releases, or `from_weights("hf:<repo>")` for arbitrary HF
+fine-tunes.
 
 ### Relative Depth
 
@@ -225,15 +226,16 @@ model = DepthAnythingV2DepthEstimation.from_weights(
 
 Any HF repo whose `model_type` is `"depth_anything"` (the official V1/V2
 checkpoints, the metric variants, or arbitrary user fine-tunes built on
-those architectures) can be loaded directly with `from_hf`. The class
-reads backbone dims, neck/fusion sizes, reassemble factors,
-`depth_estimation_type`, and `max_depth` straight from the HF config.
+those architectures) can be loaded directly via
+`from_weights("hf:<repo>")`. The class reads backbone dims, neck/fusion
+sizes, reassemble factors, `depth_estimation_type`, and `max_depth`
+straight from the HF config.
 
 ```python
 from kmodels.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
 
-model = DepthAnythingV2DepthEstimation.from_hf(
-    "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
+model = DepthAnythingV2DepthEstimation.from_weights(
+    "hf:depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
     input_shape=(518, 518, 3),
 )
 ```

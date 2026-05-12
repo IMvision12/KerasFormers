@@ -20,7 +20,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `SAMPromptableSegment.from_weights(variant_id)` (or `from_hf(hf_id)` for arbitrary HF fine-tunes).
+Pretrained weights are loaded via `SAMPromptableSegment.from_weights(variant_id)` for kmodels releases, or `SAMPromptableSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant         | Parameters | Backbone   |
 |-----------------|-----------:|------------|
@@ -53,10 +53,10 @@ model_init = SAMPromptableSegment.from_weights(
 
 ### Loading HF fine-tunes
 
-Any HF repo whose `model_type` is `"sam"` (the official `facebook/sam-vit-*` checkpoints or any user fine-tune built on the same architecture) can be loaded directly with `from_hf`. The class reads ViT dims, MLP dim, and global-attention indices straight from the HF config.
+Any HF repo whose `model_type` is `"sam"` (the official `facebook/sam-vit-*` checkpoints or any user fine-tune built on the same architecture) can be loaded directly via `from_weights("hf:<repo>")`. The class reads ViT dims, MLP dim, and global-attention indices straight from the HF config.
 
 ```python
-model = SAMPromptableSegment.from_hf("facebook/sam-vit-base")
+model = SAMPromptableSegment.from_weights("hf:facebook/sam-vit-base")
 ```
 
 ## Model Inputs

@@ -17,7 +17,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `EoMTUniversalSegment.from_weights(variant_id)` (or `from_hf(hf_id)` for arbitrary HF fine-tunes).
+Pretrained weights are loaded via `EoMTUniversalSegment.from_weights(variant_id)` for kmodels releases, or `EoMTUniversalSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant                              | Size  | Dataset            | Classes | Queries | Input    |
 |--------------------------------------|-------|--------------------|--------:|--------:|----------|
@@ -48,11 +48,11 @@ custom = EoMTUniversalSegment.from_weights(
 
 ### Loading HF fine-tunes
 
-Any HF repo whose `model_type` is `"eomt"` (the official `tue-mps/...` checkpoints or arbitrary user fine-tunes) can be loaded directly with `from_hf`. The class reads hidden size, num layers, queries, num labels, and image size straight from the HF config.
+Any HF repo whose `model_type` is `"eomt"` (the official `tue-mps/...` checkpoints or arbitrary user fine-tunes) can be loaded directly via `from_weights("hf:<repo>")`. The class reads hidden size, num layers, queries, num labels, and image size straight from the HF config.
 
 ```python
-model = EoMTUniversalSegment.from_hf(
-    "tue-mps/coco_panoptic_eomt_large_640"
+model = EoMTUniversalSegment.from_weights(
+    "hf:tue-mps/coco_panoptic_eomt_large_640"
 )
 ```
 

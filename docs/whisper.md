@@ -18,16 +18,16 @@ loop run unmodified on TensorFlow / Torch / JAX backends — no
 
 ## Model Variants
 
-| Variant | Params | Layers (enc / dec) | d_model | Heads | Mel bins | Vocab | Tokenizer |
+| Variant id | Params | Layers (enc / dec) | d_model | Heads | Mel bins | Vocab | Tokenizer |
 |---|---|---|---|---|---|---|---|
-| `WhisperTiny` | 39 M | 4 / 4 | 384 | 6 | 80 | 51 865 | v1 |
-| `WhisperBase` | 74 M | 6 / 6 | 512 | 8 | 80 | 51 865 | v1 |
-| `WhisperSmall` | 244 M | 12 / 12 | 768 | 12 | 80 | 51 865 | v1 |
-| `WhisperMedium` | 769 M | 24 / 24 | 1024 | 16 | 80 | 51 865 | v1 |
-| `WhisperLarge` | 1 550 M | 32 / 32 | 1280 | 20 | 80 | 51 865 | v1 |
-| `WhisperLargeV2` | 1 550 M | 32 / 32 | 1280 | 20 | 80 | 51 865 | v1 |
-| `WhisperLargeV3` | 1 550 M | 32 / 32 | 1280 | 20 | **128** | 51 866 | v3 |
-| `WhisperLargeV3Turbo` | 809 M | 32 / **4** | 1280 | 20 | 128 | 51 866 | v3 |
+| `whisper_tiny` | 39 M | 4 / 4 | 384 | 6 | 80 | 51 865 | v1 |
+| `whisper_base` | 74 M | 6 / 6 | 512 | 8 | 80 | 51 865 | v1 |
+| `whisper_small` | 244 M | 12 / 12 | 768 | 12 | 80 | 51 865 | v1 |
+| `whisper_medium` | 769 M | 24 / 24 | 1024 | 16 | 80 | 51 865 | v1 |
+| `whisper_large` | 1 550 M | 32 / 32 | 1280 | 20 | 80 | 51 865 | v1 |
+| `whisper_large_v2` | 1 550 M | 32 / 32 | 1280 | 20 | 80 | 51 865 | v1 |
+| `whisper_large_v3` | 1 550 M | 32 / 32 | 1280 | 20 | **128** | 51 866 | v3 |
+| `whisper_large_v3_turbo` | 809 M | 32 / **4** | 1280 | 20 | 128 | 51 866 | v3 |
 
 **v1** (51 865) covers tiny → large-v2; **v3** (51 866) covers
 large-v3 + large-v3-turbo (one extra Cantonese language id and 128 mel
@@ -42,28 +42,35 @@ under the kmodels
 [`whisper`](https://github.com/IMvision12/keras-models/releases/tag/whisper)
 release tag and downloaded on first use, then cached locally.
 
-| Variant | `openai` |
-|---|:-:|
-| `WhisperTiny` | ✅ |
-| `WhisperBase` | ✅ |
-| `WhisperSmall` | ✅ |
-| `WhisperMedium` | ✅ |
-| `WhisperLarge` | ✅ |
-| `WhisperLargeV2` | ✅ |
-| `WhisperLargeV3` | ✅ |
-| `WhisperLargeV3Turbo` | ✅ |
+Variant ids for `WhisperModel.from_weights`:
+
+| Variant id | Params | Source |
+|---|---|---|
+| `whisper_tiny` | 39 M | `openai/whisper-tiny` |
+| `whisper_base` | 74 M | `openai/whisper-base` |
+| `whisper_small` | 244 M | `openai/whisper-small` |
+| `whisper_medium` | 769 M | `openai/whisper-medium` |
+| `whisper_large` | 1 550 M | `openai/whisper-large` |
+| `whisper_large_v2` | 1 550 M | `openai/whisper-large-v2` |
+| `whisper_large_v3` | 1 550 M | `openai/whisper-large-v3` |
+| `whisper_large_v3_turbo` | 809 M | `openai/whisper-large-v3-turbo` |
 
 ## Model
 
-Every variant factory (`WhisperTiny`, `WhisperBase`, ...) returns a
-`Whisper` — a `keras.Model` Functional subclass that wires the
+`WhisperModel` is a `BaseModel` (Functional) subclass that wires the
 encoder and decoder into a single graph. The encoder and decoder are
 exposed as attributes for inference / generation paths:
 
 ```python
-from kmodels.models.whisper import WhisperTiny
+from kmodels.models.whisper import WhisperModel
 
-model = WhisperTiny(weights="openai")        # Whisper instance
+# kmodels release variant
+model = WhisperModel.from_weights("whisper_tiny")
+
+# Any HF Hub repo whose model_type is "whisper" — original openai checkpoints
+# or any community fine-tune sharing the same architecture
+model = WhisperModel.from_weights("hf:openai/whisper-tiny")
+model = WhisperModel.from_weights("hf:aware-ai/whisper-tiny-german")
 
 model.encoder        # keras.Model: input_features -> (B, T, d_model)
 model.decoder        # keras.Model: {decoder_input_ids, encoder_hidden_states} -> logits
@@ -83,15 +90,35 @@ The class is also constructable directly with custom hyperparameters
 for from-scratch training:
 
 ```python
-from kmodels.models.whisper import Whisper
+from kmodels.models.whisper import WhisperModel
 
-model = Whisper(
+model = WhisperModel(
     d_model=384,
     encoder_layers=4, decoder_layers=4,
     encoder_attention_heads=6, decoder_attention_heads=6,
     encoder_ffn_dim=1536, decoder_ffn_dim=1536,
     num_mel_bins=80, vocab_size=51865,
+    activation_function="gelu",   # also accepts "gelu_new", "relu", "silu"
+    layer_norm_eps=1e-5,
+    scale_embedding=False,
 )
+```
+
+## Loading HF Fine-tunes
+
+Any HF repo whose `model_type` is `"whisper"` can be loaded directly
+via `WhisperModel.from_weights("hf:<repo>")` — the class reads d_model, depth, head count,
+activation, and `scale_embedding` straight from the HF config. The
+converter normalizes both `WhisperForConditionalGeneration`
+(`model.encoder.*` prefix) and `WhisperModel` (`encoder.*` prefix)
+state-dict layouts.
+
+```python
+from kmodels.models.whisper import WhisperGenerate, WhisperProcessor
+
+model = WhisperGenerate.from_weights("hf:aware-ai/whisper-tiny-german")
+processor = WhisperProcessor(variant="v1")
+text = model.transcribe(audio, processor, language="de", task="transcribe")
 ```
 
 ## Features and Capabilities
@@ -100,34 +127,39 @@ model = Whisper(
   (adds Cantonese).
 - **Speech-to-text translation**: any supported language to English via
   the `<|translate|>` task token.
-- **High-level wrapper**: `WhisperGenerate` for one-call ASR /
-  translation (audio in, text out).
+- **Generation in the model class**: `WhisperGenerate` extends
+  `WhisperModel` and adds `.generate()` / `.transcribe()` — mirrors HF's
+  `WhisperForConditionalGeneration` (model class + `.generate()` method).
 - **Single processor entry point**: `WhisperProcessor` bundles the
   feature extractor, tokenizer, and `forced_decoder_ids` builder —
   matches the HF API surface so port code is one-liner equivalent.
 - **Pure Keras 3**: feature extractor uses `keras.ops.stft` and runs on
   any backend; tokenizer is a Rust-backed
   `tokenizers.Tokenizer` (no `transformers`).
+- **HF passthrough**: `WhisperModel.from_weights("hf:org/repo")` also
+  works for arbitrary community fine-tunes whose `model_type` is
+  `"whisper"`, including the bare `WhisperModel` (no LM head) variant.
+- **Fine-tune compatibility**: `activation_function`, `layer_norm_eps`,
+  and `scale_embedding` are read from the HF config — fine-tunes that
+  swap GELU for another activation or enable embedding scaling load
+  correctly.
 - **Fine-tunable**: every variable in the encoder + decoder is
   trainable; gradients flow through the tied LM head.
 
 ## Basic Usage
 
-The shortest path is `WhisperGenerate` — one callable that wraps
-encoder + decoder + processor + greedy decoding.
+The shortest path is `WhisperGenerate` — same model graph as `WhisperModel`
+plus `.generate()` (token-id output) and `.transcribe()` (end-to-end
+audio → text using the processor).
 
 ```python
-from kmodels.models.whisper import (
-    WhisperTiny, WhisperProcessor, WhisperGenerate,
-)
+from kmodels.models.whisper import WhisperGenerate, WhisperProcessor
 
-model = WhisperTiny(weights="openai")
+model = WhisperGenerate.from_weights("whisper_tiny")
 processor = WhisperProcessor(variant="v1")    # 51865 vocab, 80 mels
 
-generator = WhisperGenerate(model, processor)
-
 # raw_audio: 1-D float32 in [-1, 1] at 16 kHz
-text = generator(raw_audio, language="en", task="transcribe")
+text = model.transcribe(raw_audio, processor, language="en", task="transcribe")
 print(text)        # ['hello world']
 ```
 
@@ -156,22 +188,19 @@ os.environ["KERAS_BACKEND"] = "torch"
 
 import soundfile as sf
 
-from kmodels.models.whisper import (
-    WhisperBase, WhisperProcessor, WhisperGenerate,
-)
+from kmodels.models.whisper import WhisperGenerate, WhisperProcessor
 
-# Build model + processor + greedy generator
-model = WhisperBase(weights="openai")
+# Build model + processor
+model = WhisperGenerate.from_weights("whisper_base")
 processor = WhisperProcessor(variant="v1")
-generator = WhisperGenerate(model, processor)
 
 # Load a 16 kHz mono float32 waveform
 audio, sr = sf.read("assets/librispeech_sample.wav")
 assert sr == 16000
 
-# Transcribe — `WhisperGenerate` runs feature extraction, encoder,
+# Transcribe — `.transcribe` runs feature extraction, encoder,
 # greedy decoding, and detokenization in one call.
-text = generator(audio, language="en", task="transcribe", max_new_tokens=224)
+text = model.transcribe(audio, processor, language="en", task="transcribe", max_new_tokens=224)
 print(text[0])
 ```
 
@@ -188,11 +217,11 @@ once you normalize.
 
 ### Translation to English
 
-Swap `task="transcribe"` for `task="translate"` — `WhisperGenerate`
-looks up the right token ids internally:
+Swap `task="transcribe"` for `task="translate"` — `transcribe` looks
+up the right token ids internally:
 
 ```python
-text = generator(wave, language="fr", task="translate", max_new_tokens=224)
+text = model.transcribe(wave, processor, language="fr", task="translate", max_new_tokens=224)
 ```
 
 ### Auto language detection
@@ -201,13 +230,13 @@ Pass `language=None` to drop the language slot from the prompt — the
 decoder picks the language from its own logits at position 1.
 
 ```python
-text = generator(wave, language=None, task="transcribe")
+text = model.transcribe(wave, processor, language=None, task="transcribe")
 ```
 
 ### Returning token ids instead of text
 
 ```python
-ids = generator(wave, language="en", return_ids=True)   # List[List[int]]
+ids = model.transcribe(wave, processor, language="en", return_ids=True)   # List[List[int]]
 ```
 
 ### Using the lower-level API directly
@@ -229,14 +258,14 @@ enc_out = model.encoder(inputs["input_features"])
 
 ### Large-v3 / large-v3-turbo
 
-`WhisperLargeV3` and `WhisperLargeV3Turbo` use **128 mel bins** and the
-**v3 tokenizer** (vocab 51 866 — adds Cantonese `yue`). The processor
-handles both via constructor kwargs:
+`whisper_large_v3` and `whisper_large_v3_turbo` use **128 mel bins** and
+the **v3 tokenizer** (vocab 51 866 — adds Cantonese `yue`). The
+processor handles both via constructor kwargs:
 
 ```python
-from kmodels.models.whisper import WhisperLargeV3Turbo, WhisperProcessor
+from kmodels.models.whisper import WhisperModel, WhisperProcessor
 
-model = WhisperLargeV3Turbo(weights="openai")
+model = WhisperModel.from_weights("whisper_large_v3_turbo")
 processor = WhisperProcessor(variant="v3", n_mels=128)
 
 # Cantonese transcription
@@ -353,7 +382,7 @@ use.
 
 ## Generation
 
-The greedy decoding loop is bundled into :class:`WhisperGenerate`
+The greedy decoding loop is a method on :class:`WhisperGenerate`
 (matches HF's default Whisper generate). It supports the same logit
 processors:
 
@@ -369,9 +398,8 @@ processors:
 ```python
 from kmodels.models.whisper.config import WHISPER_SUPPRESS_TOKENS
 
-generator = WhisperGenerate(model, processor)
-text = generator(
-    wave,
+text = model.transcribe(
+    wave, processor,
     language="en", task="transcribe",
     max_new_tokens=224,
     suppress_tokens=WHISPER_SUPPRESS_TOKENS,   # default when None
@@ -392,9 +420,9 @@ text path is what feeds the label tensor:
 
 ```python
 import keras
-from kmodels.models.whisper import WhisperTiny, WhisperProcessor
+from kmodels.models.whisper import WhisperModel, WhisperProcessor
 
-model = WhisperTiny(weights="openai")
+model = WhisperModel.from_weights("whisper_tiny")
 encoder, decoder = model.encoder, model.decoder
 processor = WhisperProcessor(variant="v1")
 
