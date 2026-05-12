@@ -187,29 +187,5 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
         super().__init__(*args, name=name, **kwargs)
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        if variant not in cls.KMODELS_CONFIG:
-            available = sorted(cls.KMODELS_CONFIG.keys())
-            raise ValueError(
-                f"Unknown variant '{variant}' for {cls.__name__}. "
-                f"Available variants: {available}"
-            )
-        full = cls.KMODELS_CONFIG[variant]
-        config = {k: v for k, v in full.items() if k in cls._RELEASE_CONFIG_KEYS}
-        config.update(kwargs)
-        model = cls(**config)
-
-        if load_weights:
-            src = SigLIP2Model.from_weights(variant)
-
-            def _key(w):
-                return "/".join(w.path.split("/")[-2:])
-
-            src_map = {_key(w): w for w in src.weights}
-            for dst_w in model.weights:
-                src_w = src_map.get(_key(dst_w))
-                if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
-                    dst_w.assign(src_w)
-            del src
-
-        return model
+    def _release_warm_start_cls(cls):
+        return SigLIP2Model

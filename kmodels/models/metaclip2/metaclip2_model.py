@@ -8,6 +8,7 @@ from kmodels.models.clip.clip_layers import (
     TextModelEmbedding,
     VisionModelEmbedding,
 )
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import METACLIP2_CONFIG, METACLIP2_WEIGHTS
 from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
@@ -648,61 +649,24 @@ class MetaClip2ImageClassify(BaseModel):
     KMODELS_WEIGHTS = METACLIP2_WEIGHTS
     HF_MODEL_TYPE = "metaclip_2"
 
-    _RELEASE_CONFIG_KEYS = (
-        "image_resolution",
-        "vision_layers",
-        "vision_width",
-        "vision_patch_size",
-        "vision_heads",
-        "vision_mlp_ratio",
-        "hidden_act",
-    )
-
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
-        if variant not in cls.KMODELS_CONFIG:
-            available = sorted(cls.KMODELS_CONFIG.keys())
-            raise ValueError(
-                f"Unknown variant '{variant}' for {cls.__name__}. "
-                f"Available variants: {available}"
-            )
-        full = cls.KMODELS_CONFIG[variant]
-        config = {k: v for k, v in full.items() if k in cls._RELEASE_CONFIG_KEYS}
-        config.update(kwargs)
-        model = cls(**config)
-
+        model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = MetaClip2Model.from_weights(variant)
-
-            def _key(w):
-                return "/".join(w.path.split("/")[-2:])
-
-            src_map = {_key(w): w for w in src.weights}
-            for dst_w in model.weights:
-                src_w = src_map.get(_key(dst_w))
-                if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
-                    dst_w.assign(src_w)
+            copy_weights_by_path_suffix(src, model)
             del src
-
         return model
 
     @classmethod
     def config_from_hf(cls, hf_config):
         from kmodels.base.base_model import hf_num_labels
 
-        vc = hf_config["vision_config"]
-        config = {
-            "image_resolution": vc.get("image_size", 224),
-            "vision_layers": vc["num_hidden_layers"],
-            "vision_width": vc["hidden_size"],
-            "vision_patch_size": vc["patch_size"],
-            "vision_mlp_ratio": vc["intermediate_size"] / vc["hidden_size"],
-            "hidden_act": vc.get("hidden_act", "gelu"),
-        }
+        config = MetaClip2Model.config_from_hf(hf_config)
         try:
             config["num_labels"] = hf_num_labels(hf_config)
         except KeyError:
-            config["num_labels"] = 1000
+            pass
         return config
 
     @classmethod
@@ -728,6 +692,18 @@ class MetaClip2ImageClassify(BaseModel):
         name="MetaClip2ImageClassify",
         **kwargs,
     ):
+        for k in (
+            "embed_dim",
+            "context_length",
+            "vocab_size",
+            "transformer_width",
+            "transformer_heads",
+            "transformer_layers",
+            "text_mlp_ratio",
+            "eos_token_id",
+        ):
+            kwargs.pop(k, None)
+
         if vision_heads is None:
             vision_heads = vision_width // 64
         data_format = keras.backend.image_data_format()

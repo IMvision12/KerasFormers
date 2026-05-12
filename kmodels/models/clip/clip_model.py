@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kmodels.base import BaseModel
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .clip_layers import (
     CLIPAttention,
@@ -10,6 +11,10 @@ from .clip_layers import (
     VisionModelEmbedding,
 )
 from .config import CLIP_CONFIG, CLIP_WEIGHTS
+from .convert_clip_torch_to_keras import (
+    transfer_clip_image_classify_weights,
+    transfer_clip_weights,
+)
 
 
 def quick_gelu(x):
@@ -541,10 +546,6 @@ class CLIPZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kmodels.models.clip.convert_clip_torch_to_keras import (
-            transfer_clip_weights,
-        )
-
         transfer_clip_weights(keras_model, hf_state_dict)
 
     def __init__(
@@ -685,78 +686,28 @@ class CLIPImageClassify(BaseModel):
     KMODELS_WEIGHTS = CLIP_WEIGHTS
     HF_MODEL_TYPE = "clip"
 
-    _RELEASE_CONFIG_KEYS = (
-        "image_resolution",
-        "vision_layers",
-        "vision_width",
-        "vision_patch_size",
-        "vision_mlp_ratio",
-        "hidden_act",
-        "layer_norm_eps",
-    )
-
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
-        """Build CLIPImageClassify from a kmodels CLIP variant.
-
-        The release ``.weights.h5`` is the full dual-encoder checkpoint;
-        we materialize a temporary :class:`CLIPModel`, load it from that
-        file, then copy the matching vision-encoder layer weights into
-        the new image-classify graph. The classifier head stays randomly
-        initialized.
-        """
-        if variant not in cls.KMODELS_CONFIG:
-            available = sorted(cls.KMODELS_CONFIG.keys())
-            raise ValueError(
-                f"Unknown variant '{variant}' for {cls.__name__}. "
-                f"Available variants: {available}"
-            )
-        full = cls.KMODELS_CONFIG[variant]
-        config = {k: v for k, v in full.items() if k in cls._RELEASE_CONFIG_KEYS}
-        config.update(kwargs)
-        model = cls(**config)
-
+        model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = CLIPModel.from_weights(variant)
-
-            def _key(w):
-                return "/".join(w.path.split("/")[-2:])
-
-            src_map = {_key(w): w for w in src.weights}
-            for dst_w in model.weights:
-                src_w = src_map.get(_key(dst_w))
-                if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
-                    dst_w.assign(src_w)
+            copy_weights_by_path_suffix(src, model)
             del src
-
         return model
 
     @classmethod
     def config_from_hf(cls, hf_config):
         from kmodels.base.base_model import hf_num_labels
 
-        vc = hf_config["vision_config"]
-        config = {
-            "image_resolution": vc.get("image_size", 224),
-            "vision_layers": vc["num_hidden_layers"],
-            "vision_width": vc["hidden_size"],
-            "vision_patch_size": vc["patch_size"],
-            "vision_mlp_ratio": vc["intermediate_size"] / vc["hidden_size"],
-            "hidden_act": vc.get("hidden_act", "quick_gelu"),
-            "layer_norm_eps": vc.get("layer_norm_eps", 1e-5),
-        }
+        config = CLIPModel.config_from_hf(hf_config)
         try:
             config["num_labels"] = hf_num_labels(hf_config)
         except KeyError:
-            config["num_labels"] = 1000
+            pass
         return config
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kmodels.models.clip.convert_clip_torch_to_keras import (
-            transfer_clip_image_classify_weights,
-        )
-
         transfer_clip_image_classify_weights(keras_model, hf_state_dict)
 
     def __init__(
@@ -774,6 +725,17 @@ class CLIPImageClassify(BaseModel):
         name="CLIPImageClassify",
         **kwargs,
     ):
+        for k in (
+            "embed_dim",
+            "context_length",
+            "vocab_size",
+            "transformer_width",
+            "transformer_heads",
+            "transformer_layers",
+            "text_mlp_ratio",
+        ):
+            kwargs.pop(k, None)
+
         vision_heads = vision_width // 64
         data_format = keras.backend.image_data_format()
 

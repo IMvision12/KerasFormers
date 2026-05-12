@@ -2,6 +2,7 @@ import keras
 from keras import initializers, layers, ops
 
 from kmodels.base import BaseModel
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import SIGLIP_CONFIG, SIGLIP_WEIGHTS
 from .siglip_layers import (
@@ -874,60 +875,33 @@ class SigLIPImageClassify(BaseModel):
     KMODELS_WEIGHTS = SIGLIP_WEIGHTS
     HF_MODEL_TYPE = "siglip"
 
-    _RELEASE_CONFIG_KEYS = (
-        "image_resolution",
-        "patch_size",
-        "vision_hidden_dim",
-        "vision_num_layers",
-        "vision_num_heads",
-        "vision_intermediate_dim",
-    )
+    @classmethod
+    def _release_warm_start_cls(cls):
+        """Base model class to warm-start the vision encoder from.
+
+        Subclasses (e.g. :class:`SigLIP2ImageClassify`) override this to
+        point at their matching encoder-only model.
+        """
+        return SigLIPModel
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
-        if variant not in cls.KMODELS_CONFIG:
-            available = sorted(cls.KMODELS_CONFIG.keys())
-            raise ValueError(
-                f"Unknown variant '{variant}' for {cls.__name__}. "
-                f"Available variants: {available}"
-            )
-        full = cls.KMODELS_CONFIG[variant]
-        config = {k: v for k, v in full.items() if k in cls._RELEASE_CONFIG_KEYS}
-        config.update(kwargs)
-        model = cls(**config)
-
+        model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = SigLIPModel.from_weights(variant)
-
-            def _key(w):
-                return "/".join(w.path.split("/")[-2:])
-
-            src_map = {_key(w): w for w in src.weights}
-            for dst_w in model.weights:
-                src_w = src_map.get(_key(dst_w))
-                if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
-                    dst_w.assign(src_w)
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
             del src
-
         return model
 
     @classmethod
     def config_from_hf(cls, hf_config):
         from kmodels.base.base_model import hf_num_labels
 
-        vc = hf_config["vision_config"]
-        config = {
-            "image_resolution": vc.get("image_size", 224),
-            "patch_size": vc.get("patch_size", 16),
-            "vision_hidden_dim": vc.get("hidden_size", 768),
-            "vision_num_layers": vc.get("num_hidden_layers", 12),
-            "vision_num_heads": vc.get("num_attention_heads", 12),
-            "vision_intermediate_dim": vc.get("intermediate_size", 3072),
-        }
+        config = SigLIPModel.config_from_hf(hf_config)
         try:
             config["num_labels"] = hf_num_labels(hf_config)
         except KeyError:
-            config["num_labels"] = 1000
+            pass
         return config
 
     @classmethod
@@ -952,6 +926,17 @@ class SigLIPImageClassify(BaseModel):
         name="SigLIPImageClassify",
         **kwargs,
     ):
+        for k in (
+            "vocabulary_size",
+            "embed_dim",
+            "text_hidden_dim",
+            "text_num_layers",
+            "text_num_heads",
+            "text_intermediate_dim",
+            "max_sequence_length",
+        ):
+            kwargs.pop(k, None)
+
         data_format = keras.backend.image_data_format()
         image_input_shape, image_size = _siglip_resolve_image_shape(
             input_shape, image_resolution, data_format

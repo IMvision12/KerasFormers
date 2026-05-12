@@ -1,3 +1,4 @@
+from kmodels.weight_utils.cross_class_copy import copy_weights_by_path_suffix
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
