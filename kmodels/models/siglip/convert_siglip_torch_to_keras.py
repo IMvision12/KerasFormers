@@ -1,12 +1,15 @@
-import re
+"""HuggingFace SigLIP -> Keras weight transfer.
+
+Splits the conversion into a callable :func:`transfer_siglip_weights`
+that takes a Keras :class:`~kmodels.models.siglip.SigLIPModel` and an
+HF state dict (numpy values), plus a ``__main__`` block that runs the
+google -> kmodels conversion for every variant.
+"""
+
 from typing import Dict
 
-import keras
-import torch
-from tqdm import tqdm
-from transformers import SiglipModel
+import numpy as np
 
-from kmodels.models import siglip
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -18,7 +21,7 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-weight_name_mapping = {
+WEIGHT_NAME_MAPPING = {
     "_": ".",
     "vision.model": "vision_model",
     "text.model": "text_model",
@@ -39,7 +42,7 @@ weight_name_mapping = {
     "bias": "bias",
 }
 
-attn_name_replace = {
+ATTN_NAME_REPLACE = {
     "_": ".",
     "self.attn": "self_attn",
     "vision.model": "vision_model",
@@ -55,95 +58,170 @@ attn_name_replace = {
     "bias": "bias",
 }
 
-keras_model: keras.Model = siglip.SigLIPBaseP16(weights=None, input_shape=(224, 224, 3))
-torch_model: torch.nn.Module = SiglipModel.from_pretrained(
-    "google/siglip-base-patch16-224"
-).eval()
 
-trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-    torch_model
-)
-trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
+def transfer_siglip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer HuggingFace SigLIP / SigLIP-2 weights into a Keras model.
 
-for keras_weight, keras_weight_name in tqdm(
-    trainable_keras_weights + non_trainable_keras_weights,
-    total=len(trainable_keras_weights + non_trainable_keras_weights),
-    desc="Transferring weights",
-):
-    torch_weight_name: str = keras_weight_name
-    for keras_name_part, torch_name_part in weight_name_mapping.items():
-        torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
+    Args:
+        keras_model: A :class:`SigLIPModel` or :class:`SigLIPZeroShotClassify`
+            instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``SiglipModel.state_dict()``.
+    """
+    trainable, non_trainable = split_model_weights(keras_model)
 
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
 
-    if "attention" in torch_weight_name:
-        if "in_proj" in keras_weight.path:
-            if "kernel" in keras_weight.path:
-                torch_in_proj_weight = (
-                    torch_model.vision_model.head.attention.in_proj_weight.detach()
-                    .numpy()
-                    .T
-                )
-                keras_weight.assign(torch_in_proj_weight)
-            else:
-                torch_in_proj_bias = torch_model.vision_model.head.attention.in_proj_bias.detach().numpy()
-                keras_weight.assign(torch_in_proj_bias)
+        if "attention" in torch_weight_name:
+            if "in_proj" in keras_weight.path:
+                if "kernel" in keras_weight.path:
+                    keras_weight.assign(
+                        np.transpose(
+                            hf_state_dict["vision_model.head.attention.in_proj_weight"]
+                        )
+                    )
+                else:
+                    keras_weight.assign(
+                        hf_state_dict["vision_model.head.attention.in_proj_bias"]
+                    )
+                continue
+            transfer_attention_weights(
+                keras_weight_name, keras_weight, hf_state_dict, ATTN_NAME_REPLACE
+            )
             continue
-        transfer_attention_weights(
-            keras_weight_name, keras_weight, torch_weights_dict, attn_name_replace
-        )
-        continue
 
-    # Handle probe weights
-    if "probe" in torch_weight_name:
-        keras_weight.assign(torch_model.vision_model.head.probe.detach().cpu().numpy())
-        continue
+        if "probe" in torch_weight_name:
+            keras_weight.assign(hf_state_dict["vision_model.head.probe"])
+            continue
 
-    if "logit" in torch_weight_name:
-        if torch_weight_name.split(".")[-1] == "scale":
-            torch_weight_name = re.sub(
-                r"logit.scale.bias.\d+.logit.scale", "logit_scale", torch_weight_name
+        if "logit" in torch_weight_name:
+            if torch_weight_name.split(".")[-1] == "scale":
+                keras_weight.assign(hf_state_dict["logit_scale"].reshape(()))
+            else:
+                keras_weight.assign(hf_state_dict["logit_bias"].reshape(()))
+            continue
+
+        if "position.ids" in torch_weight_name:
+            if "vision_model" in torch_weight_name:
+                key = "vision_model.embeddings.position_ids"
+            else:
+                key = "text_model.embeddings.position_ids"
+            if key in hf_state_dict:
+                keras_weight.assign(hf_state_dict[key])
+            continue
+
+        if "head.attention" in torch_weight_name:
+            continue
+
+        if torch_weight_name not in hf_state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = hf_state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
             )
-            keras_weight.assign(torch_model.logit_scale[0].detach().cpu().numpy())
-        else:
-            torch_weight_name = re.sub(
-                r"logit.bias.\d+.logit.bias", "logit_bias", torch_weight_name
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+
+def transfer_siglip_image_classify_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer HuggingFace ``SiglipForImageClassification`` weights.
+
+    Loads the SigLIP vision encoder (no text encoder, no attention
+    pooling, no ``logit_scale``/``logit_bias`` — none of those exist in
+    the Keras :class:`SigLIPImageClassify` graph) plus the final
+    ``classifier`` Dense head. If the source is a base SigLIP checkpoint
+    without classifier weights, the head stays randomly initialized.
+    """
+    has_classifier = (
+        "classifier.weight" in hf_state_dict and "classifier.bias" in hf_state_dict
+    )
+    trainable, non_trainable = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        if keras_weight_name in ("classifier_kernel", "classifier_bias"):
+            if not has_classifier:
+                continue
+            if "kernel" in keras_weight.path:
+                keras_weight.assign(np.transpose(hf_state_dict["classifier.weight"]))
+            else:
+                keras_weight.assign(hf_state_dict["classifier.bias"])
+            continue
+
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
+
+        if "attention" in torch_weight_name:
+            transfer_attention_weights(
+                keras_weight_name, keras_weight, hf_state_dict, ATTN_NAME_REPLACE
             )
-            keras_weight.assign(torch_model.logit_bias[0].detach().cpu().numpy())
-        continue
+            continue
 
-    if "position.ids" in torch_weight_name:
-        if "vision_model" in torch_weight_name:
-            keras_weight.assign(
-                torch_model.vision_model.embeddings.position_ids.detach().cpu().numpy()
+        if "position.ids" in torch_weight_name:
+            key = "vision_model.embeddings.position_ids"
+            if key in hf_state_dict:
+                keras_weight.assign(hf_state_dict[key])
+            continue
+
+        if torch_weight_name not in hf_state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = hf_state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
             )
-        elif "text_model" in torch_weight_name:
-            keras_weight.assign(
-                torch_model.text_model.embeddings.position_ids.detach().cpu().numpy()
-            )
-        continue
-
-    if "head.attention" in torch_weight_name:
-        continue
-
-    if torch_weight_name not in torch_weights_dict:
-        raise WeightMappingError(keras_weight_name, torch_weight_name)
-
-    torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
-    if not compare_keras_torch_names(
-        keras_weight_name, keras_weight, torch_weight_name, torch_weight
-    ):
-        raise WeightShapeMismatchError(
-            keras_weight_name, keras_weight.shape, torch_weight_name, torch_weight.shape
-        )
-
-    transfer_weights(keras_weight_name, keras_weight, torch_weight)
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-# Save the model
-weight_name = f"{keras_model.name.lower()}_{list(siglip.config.SigLIP_WEIGHTS_CONFIG[keras_model.name].keys())[0]}.weights.h5"
-keras_model.save_weights(weight_name)  # use max_shard_size if >2GB
+if __name__ == "__main__":
+    import gc
+
+    import keras
+    from transformers import SiglipModel
+
+    from kmodels.models.siglip import SigLIPZeroShotClassify
+
+    SIGLIP_CONVERSION_CONFIG = [
+        ("siglip_base_p16_224", "google/siglip-base-patch16-224"),
+        ("siglip_base_p16_256", "google/siglip-base-patch16-256"),
+        ("siglip_base_p16_384", "google/siglip-base-patch16-384"),
+        ("siglip_base_p16_512", "google/siglip-base-patch16-512"),
+        ("siglip_large_p16_256", "google/siglip-large-patch16-256"),
+        ("siglip_large_p16_384", "google/siglip-large-patch16-384"),
+    ]
+
+    for variant, hf_id in SIGLIP_CONVERSION_CONFIG:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  {hf_id}")
+        print(f"{'=' * 60}")
+
+        hf_model = SiglipModel.from_pretrained(hf_id).eval()
+        state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
+
+        keras_model = SigLIPZeroShotClassify.from_weights(variant, load_weights=False)
+        transfer_siglip_weights(keras_model, state)
+
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
+
+        del keras_model, hf_model, state
+        keras.backend.clear_session()
+        gc.collect()

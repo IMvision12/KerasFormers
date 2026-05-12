@@ -209,13 +209,6 @@ def _run_siglip(data_format):
     return ours, hf
 
 
-def _run_siglip2(data_format):
-    pytest.skip(
-        "HF Siglip2ImageProcessor is NaFlex-only; our processor emits a "
-        "square image tensor. Not directly comparable."
-    )
-
-
 def _run_metaclip2(data_format):
     processor = MetaClip2ImageProcessor(data_format=data_format)
     ours = _as_numpy(processor(ASSET_PATH)["pixel_values"])
@@ -282,7 +275,6 @@ PROCESSORS = {
     "sam2": (_run_sam2, 5e-2),
     "clip": (_run_clip, 5e-2),
     "siglip": (_run_siglip, 5e-2),
-    "siglip2": (_run_siglip2, 0.0),
     "metaclip2": (_run_metaclip2, 5e-2),
     "depth_anything_v1": (_run_depth_anything_v1, 5e-1),
     "depth_anything_v2": (_run_depth_anything_v2, 5e-1),

@@ -1,5 +1,5 @@
-METACLIP2_MODEL_CONFIG = {
-    "MetaClip2WorldwideS16": {
+METACLIP2_CONFIG = {
+    "metaclip2_worldwide_s16_224": {
         "embed_dim": 384,
         "image_resolution": 224,
         "vision_layers": 12,
@@ -15,7 +15,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideS16_384": {
+    "metaclip2_worldwide_s16_384": {
         "embed_dim": 384,
         "image_resolution": 384,
         "vision_layers": 12,
@@ -31,7 +31,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideM16": {
+    "metaclip2_worldwide_m16_224": {
         "embed_dim": 512,
         "image_resolution": 224,
         "vision_layers": 12,
@@ -47,7 +47,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideM16_384": {
+    "metaclip2_worldwide_m16_384": {
         "embed_dim": 512,
         "image_resolution": 384,
         "vision_layers": 12,
@@ -63,7 +63,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideB16": {
+    "metaclip2_worldwide_b16_224": {
         "embed_dim": 512,
         "image_resolution": 224,
         "vision_layers": 12,
@@ -79,7 +79,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideB16_384": {
+    "metaclip2_worldwide_b16_384": {
         "embed_dim": 512,
         "image_resolution": 384,
         "vision_layers": 12,
@@ -95,7 +95,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideB32": {
+    "metaclip2_worldwide_b32_224": {
         "embed_dim": 512,
         "image_resolution": 224,
         "vision_layers": 12,
@@ -111,7 +111,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideB32_384": {
+    "metaclip2_worldwide_b32_384": {
         "embed_dim": 512,
         "image_resolution": 384,
         "vision_layers": 12,
@@ -127,7 +127,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideL14": {
+    "metaclip2_worldwide_l14_224": {
         "embed_dim": 768,
         "image_resolution": 224,
         "vision_layers": 24,
@@ -143,7 +143,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideHugeQuickgelu": {
+    "metaclip2_worldwide_huge_quickgelu": {
         "embed_dim": 1024,
         "image_resolution": 224,
         "vision_layers": 32,
@@ -159,7 +159,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "quick_gelu",
     },
-    "MetaClip2WorldwideHuge378": {
+    "metaclip2_worldwide_huge_378": {
         "embed_dim": 1024,
         "image_resolution": 378,
         "vision_layers": 32,
@@ -175,7 +175,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 4.0,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideGiant": {
+    "metaclip2_worldwide_giant_224": {
         "embed_dim": 1280,
         "image_resolution": 224,
         "vision_layers": 48,
@@ -191,7 +191,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 5120 / 1280,
         "hidden_act": "gelu",
     },
-    "MetaClip2WorldwideGiant378": {
+    "metaclip2_worldwide_giant_378": {
         "embed_dim": 1280,
         "image_resolution": 378,
         "vision_layers": 48,
@@ -207,7 +207,7 @@ METACLIP2_MODEL_CONFIG = {
         "text_mlp_ratio": 5120 / 1280,
         "hidden_act": "gelu",
     },
-    "MetaClip2Mt5WorldwideS16": {
+    "metaclip2_mt5_worldwide_s16_224": {
         "embed_dim": 384,
         "image_resolution": 224,
         "vision_layers": 12,
@@ -224,7 +224,7 @@ METACLIP2_MODEL_CONFIG = {
         "hidden_act": "gelu",
         "eos_token_id": 1,
     },
-    "MetaClip2Mt5WorldwideM16": {
+    "metaclip2_mt5_worldwide_m16_224": {
         "embed_dim": 512,
         "image_resolution": 224,
         "vision_layers": 12,
@@ -241,7 +241,7 @@ METACLIP2_MODEL_CONFIG = {
         "hidden_act": "gelu",
         "eos_token_id": 1,
     },
-    "MetaClip2Mt5WorldwideB32": {
+    "metaclip2_mt5_worldwide_b32_224": {
         "embed_dim": 512,
         "image_resolution": 224,
         "vision_layers": 12,
@@ -260,79 +260,47 @@ METACLIP2_MODEL_CONFIG = {
     },
 }
 
-
-METACLIP2_WEIGHTS_CONFIG = {
-    "MetaClip2WorldwideS16": {
-        "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwides16_worldwide_224.weights.h5",
-        },
+METACLIP2_WEIGHTS = {
+    "metaclip2_worldwide_s16_224": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwides16_worldwide_224.weights.h5",
     },
-    "MetaClip2WorldwideS16_384": {
-        "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwides16_384_worldwide_384.weights.h5",
-        },
+    "metaclip2_worldwide_s16_384": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwides16_384_worldwide_384.weights.h5",
     },
-    "MetaClip2WorldwideM16": {
-        "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_worldwide_224.weights.json",
-        },
+    "metaclip2_worldwide_m16_224": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_worldwide_224.weights.json",
     },
-    "MetaClip2WorldwideM16_384": {
-        "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_384_worldwide_384.weights.json",
-        },
+    "metaclip2_worldwide_m16_384": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_384_worldwide_384.weights.json",
     },
-    "MetaClip2WorldwideB16": {
-        "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_worldwide_224.weights.json",
-        },
+    "metaclip2_worldwide_b16_224": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_worldwide_224.weights.json",
     },
-    "MetaClip2WorldwideB16_384": {
-        "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_384_worldwide_384.weights.json",
-        },
+    "metaclip2_worldwide_b16_384": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_384_worldwide_384.weights.json",
     },
-    "MetaClip2WorldwideB32": {
-        "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_worldwide_224.weights.json",
-        },
+    "metaclip2_worldwide_b32_224": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_worldwide_224.weights.json",
     },
-    "MetaClip2WorldwideB32_384": {
-        "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_384_worldwide_384.weights.json",
-        },
+    "metaclip2_worldwide_b32_384": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_384_worldwide_384.weights.json",
     },
-    "MetaClip2Mt5WorldwideS16": {
-        "mt5_worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwides16_mt5_worldwide_224.weights.h5",
-        },
+    "metaclip2_worldwide_l14_224": {"hf_id": "facebook/metaclip-2-worldwide-l14"},
+    "metaclip2_worldwide_huge_quickgelu": {
+        "hf_id": "facebook/metaclip-2-worldwide-huge-quickgelu"
     },
-    "MetaClip2Mt5WorldwideM16": {
-        "mt5_worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwidem16_mt5_worldwide_224.weights.h5",
-        },
+    "metaclip2_worldwide_huge_378": {"hf_id": "facebook/metaclip-2-worldwide-huge-378"},
+    "metaclip2_worldwide_giant_224": {"hf_id": "facebook/metaclip-2-worldwide-giant"},
+    "metaclip2_worldwide_giant_378": {
+        "hf_id": "facebook/metaclip-2-worldwide-giant-378"
     },
-    "MetaClip2Mt5WorldwideB32": {
-        "mt5_worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwideb32_mt5_worldwide_224.weights.h5",
-        },
+    "metaclip2_mt5_worldwide_s16_224": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwides16_mt5_worldwide_224.weights.h5",
     },
-}
-
-
-METACLIP2_HF_CONVERT_VARIANTS = {
-    "MetaClip2WorldwideL14": "facebook/metaclip-2-worldwide-l14",
-    "MetaClip2WorldwideHugeQuickgelu": "facebook/metaclip-2-worldwide-huge-quickgelu",
-    "MetaClip2WorldwideHuge378": "facebook/metaclip-2-worldwide-huge-378",
-    "MetaClip2WorldwideGiant": "facebook/metaclip-2-worldwide-giant",
-    "MetaClip2WorldwideGiant378": "facebook/metaclip-2-worldwide-giant-378",
-}
-
-
-METACLIP2_HF_CONVERT_DEFAULT_ALIAS = {
-    "MetaClip2WorldwideL14": "worldwide_224",
-    "MetaClip2WorldwideHugeQuickgelu": "worldwide_224",
-    "MetaClip2WorldwideHuge378": "worldwide_378",
-    "MetaClip2WorldwideGiant": "worldwide_224",
-    "MetaClip2WorldwideGiant378": "worldwide_378",
+    "metaclip2_mt5_worldwide_m16_224": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwidem16_mt5_worldwide_224.weights.h5",
+    },
+    "metaclip2_mt5_worldwide_b32_224": {
+        "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwideb32_mt5_worldwide_224.weights.h5",
+    },
 }

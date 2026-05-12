@@ -1,10 +1,10 @@
 import keras
 from keras import initializers, layers, ops
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.base import BaseModel
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import SigLIP_MODEL_CONFIG, SigLIP_WEIGHTS_CONFIG
+from .config import SIGLIP_CONFIG, SIGLIP_WEIGHTS
 from .siglip_layers import (
     LogitScaleBias,
     PositionEmbedding,
@@ -252,7 +252,7 @@ def siglip_vision_embedding(
     return outputs
 
 
-def siglip_vision_encoder(
+def siglip_vision_features(
     inputs,
     patch_size,
     hidden_dim,
@@ -262,51 +262,13 @@ def siglip_vision_encoder(
     layer_norm_epsilon=1e-6,
     data_format=None,
 ):
-    """
-    Creates a complete SigLIP vision encoder for processing images.
+    """Pre-pool SigLIP vision encoder output.
 
-    This function implements the full SigLIP vision encoder pipeline that transforms
-    input images into dense visual representations. The architecture consists of:
-    1. Vision embedding layer (patch extraction and positional encoding)
-    2. Stack of transformer encoder layers with self-attention
-    3. Final layer normalization
-    4. Attention pooling to aggregate patch representations into a single vector
-
-    Args:
-        inputs: Input image tensor. Shape depends on data_format:
-               - If data_format="channels_last": (batch_size, height, width, channels)
-               - If data_format="channels_first": (batch_size, channels, height, width)
-               Images must be square (height == width).
-        patch_size (int): Size of each square patch for patch-based processing.
-                         Image dimensions must be divisible by patch_size.
-        hidden_dim (int): Dimension of the hidden/embedding space throughout the encoder.
-                         Must be divisible by num_heads.
-        num_layers (int): Number of transformer encoder layers to stack.
-        num_heads (int): Number of attention heads in each transformer layer.
-        intermediate_dim (int): Dimension of the feed-forward intermediate layer
-                               in each transformer block.
-        layer_norm_epsilon (float, optional): Epsilon value for layer normalization
-                                            layers. Defaults to 1e-6.
-        data_format (str, optional): Data format for the input tensor.
-                                   Either "channels_last" or "channels_first".
-                                   If None, uses the default Keras data format.
-
-    Returns:
-        Tensor: Dense visual representation of shape (batch_size, hidden_dim).
-               This is a single vector per image that encodes the visual content
-               suitable for multimodal tasks like vision-language matching.
-
-    Raises:
-        ValueError: If the input height and width are not equal (non-square images).
-
-    Note:
-        The encoder follows the standard Vision Transformer (ViT) architecture adapted
-        for SigLIP. The attention pooling at the end aggregates information from all
-        patch tokens into a single representation, making it suitable for contrastive
-        learning with text embeddings.
+    Returns the full token sequence ``(B, num_patches, hidden_dim)`` after
+    the post-LN, before any pooling. Matches HF
+    ``SiglipVisionModel.last_hidden_state``.
     """
     input_shape = inputs.shape
-
     if data_format == "channels_last":
         height, width = input_shape[1], input_shape[2]
     else:
@@ -314,9 +276,10 @@ def siglip_vision_encoder(
 
     if height != width:
         raise ValueError(
-            "`siglip_vision_encoder` expects the height and width to be the "
+            "`siglip_vision_features` expects the height and width to be the "
             f"same in input shape. Received: input_shape={input_shape}"
         )
+
     x = siglip_vision_embedding(
         inputs,
         hidden_dim=hidden_dim,
@@ -334,10 +297,37 @@ def siglip_vision_encoder(
             layer_norm_epsilon=layer_norm_epsilon,
             name=f"vision_model_encoder_layers_{i}",
         )
-    x = layers.LayerNormalization(
+    return layers.LayerNormalization(
         epsilon=layer_norm_epsilon, name="vision_model_final_layernorm"
     )(x)
-    x = siglip_attention_pooling(
+
+
+def siglip_vision_encoder(
+    inputs,
+    patch_size,
+    hidden_dim,
+    num_layers,
+    num_heads,
+    intermediate_dim,
+    layer_norm_epsilon=1e-6,
+    data_format=None,
+):
+    """Full SigLIP vision encoder: features + attention pooling.
+
+    Returns the pooled vector ``(B, hidden_dim)`` ready for the
+    contrastive head. Matches HF ``SiglipVisionModel.pooler_output``.
+    """
+    x = siglip_vision_features(
+        inputs,
+        patch_size=patch_size,
+        hidden_dim=hidden_dim,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        intermediate_dim=intermediate_dim,
+        layer_norm_epsilon=layer_norm_epsilon,
+        data_format=data_format,
+    )
+    return siglip_attention_pooling(
         x,
         hidden_dim,
         intermediate_dim,
@@ -345,8 +335,6 @@ def siglip_vision_encoder(
         layer_norm_epsilon,
         name="vision_model_head",
     )
-
-    return x
 
 
 def siglip_text_embedding(
@@ -554,94 +542,87 @@ def siglip_head(vision_embedding, text_embedding):
     return image_logits, text_logits
 
 
+def _siglip_resolve_image_shape(input_shape, image_resolution, data_format):
+    if input_shape is not None:
+        if data_format == "channels_first":
+            channels = input_shape[0] if len(input_shape) == 3 else 3
+            image_size = (
+                min(input_shape[1], input_shape[2])
+                if len(input_shape) == 3
+                else input_shape[0]
+            )
+        else:
+            if len(input_shape) >= 2:
+                image_size = min(input_shape[0], input_shape[1])
+            else:
+                image_size = input_shape[0]
+            channels = input_shape[2] if len(input_shape) == 3 else 3
+    else:
+        image_size, channels = image_resolution, 3
+    return (
+        [channels, image_size, image_size]
+        if data_format == "channels_first"
+        else [image_size, image_size, channels]
+    ), image_size
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class SigLIPModel(keras.Model):
+class SigLIPModel(BaseModel):
+    """SigLIP / SigLIP2 dual encoder (no contrastive head).
+
+    Returns the projected vision + text embeddings; use
+    :class:`SigLIPZeroShotClassify` for the standard sigmoid-similarity
+    head, or :class:`SigLIPImageClassify` for supervised classification.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({"images": ..., "token_ids": ...})
+        out["image_embeddings"]   # (B, vision_hidden_dim)
+        out["text_embeddings"]    # (B, embed_dim)
+
+    Construction:
+
+    >>> SigLIPModel.from_weights("siglip_base_p16_224")
+    >>> SigLIPModel.from_weights("hf:google/siglip-base-patch16-224")
     """
-    SigLIP/SigLIP2 (Sigmoid Loss for Language Image Pre-training) model implementation.
 
-    This class implements the full SigLIP and SigLIP2 architecture for vision-language
-    contrastive learning. The model consists of separate vision and text encoders that
-    produce embeddings, which are then compared using a contrastive head to compute
-    similarity logits. The architecture enables joint training on image-text pairs for
-    tasks like image-text retrieval, zero-shot classification, and multimodal understanding.
+    KMODELS_CONFIG = SIGLIP_CONFIG
+    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    HF_MODEL_TYPE = "siglip"
 
-    SigLIP2 builds upon the original SigLIP with architectural improvements and enhanced
-    training strategies for better vision-language alignment and performance.
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config["vision_config"]
+        tc = hf_config["text_config"]
+        return {
+            "image_resolution": vc.get("image_size", 224),
+            "patch_size": vc.get("patch_size", 16),
+            "vision_hidden_dim": vc.get("hidden_size", 768),
+            "vision_num_layers": vc.get("num_hidden_layers", 12),
+            "vision_num_heads": vc.get("num_attention_heads", 12),
+            "vision_intermediate_dim": vc.get("intermediate_size", 3072),
+            "vocabulary_size": tc.get("vocab_size", 32000),
+            "embed_dim": tc.get("hidden_size", 768),
+            "text_hidden_dim": tc.get("hidden_size", 768),
+            "text_num_layers": tc.get("num_hidden_layers", 12),
+            "text_num_heads": tc.get("num_attention_heads", 12),
+            "text_intermediate_dim": tc.get("intermediate_size", 3072),
+            "max_sequence_length": tc.get("max_position_embeddings", 64),
+        }
 
-    The model architecture includes:
-    - Vision encoder: Patch-based image processing with transformer layers
-    - Text encoder: Token-based text processing with transformer layers
-    - Contrastive head: Computes similarity logits between vision and text embeddings
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.siglip.convert_siglip_torch_to_keras import (
+            transfer_siglip_weights,
+        )
 
-    Args:
-        embed_dim (int, optional): Dimension of the embedding space. Defaults to 768.
-        input_shape (tuple, optional): Shape of input images. Can be (height, width) for
-                                     grayscale or (height, width, channels) for color images.
-                                     Defaults to (224, 224, 3).
-        patch_size (int, optional): Size of image patches for vision encoder. Defaults to 16.
-        vision_hidden_dim (int, optional): Hidden dimension for vision transformer layers.
-                                         Defaults to 768.
-        vision_num_layers (int, optional): Number of transformer layers in vision encoder.
-                                         Defaults to 12.
-        vision_num_heads (int, optional): Number of attention heads in vision encoder.
-                                        Defaults to 12.
-        vision_intermediate_dim (int, optional): Intermediate dimension in vision encoder
-                                               feed-forward layers. Defaults to 3072.
-        vocabulary_size (int, optional): Size of text vocabulary. Defaults to 32000.
-        text_hidden_dim (int, optional): Hidden dimension for text transformer layers.
-                                       Defaults to 768.
-        text_num_layers (int, optional): Number of transformer layers in text encoder.
-                                       Defaults to 12.
-        text_num_heads (int, optional): Number of attention heads in text encoder.
-                                      Defaults to 12.
-        text_intermediate_dim (int, optional): Intermediate dimension in text encoder
-                                             feed-forward layers. Defaults to 3072.
-        input_tensor (dict, optional): Dictionary containing pre-defined input tensors
-                                     with keys "images" and "token_ids". If None, creates
-                                     new input tensors. Defaults to None.
-        name (str, optional): Name of the model. Defaults to "SigLIPModel".
-        **kwargs: Additional keyword arguments passed to keras.Model.
-
-    Inputs:
-        The model expects a dictionary with two keys:
-        - "images": Image tensor of shape (batch_size, height, width, channels)
-        - "token_ids": Token ID tensor of shape (batch_size, sequence_length)
-
-    Outputs:
-        Dictionary containing:
-        - "image_logits": Similarity logits from vision perspective, shape (batch_size, batch_size)
-        - "text_logits": Similarity logits from text perspective, shape (batch_size, batch_size)
-
-    Example:
-        >>> # Create a SigLIP/SigLIP2 model
-        >>> model = SigLIPModel(
-        ...     embed_dim=512,
-        ...     input_shape=(224, 224, 3),
-        ...     patch_size=16,
-        ...     vision_num_layers=12,
-        ...     text_num_layers=6,
-        ...     vocabulary_size=50000
-        ... )
-        >>>
-        >>> # Prepare inputs
-        >>> images = tf.random.normal((8, 224, 224, 3))
-        >>> token_ids = tf.random.uniform((8, 32), maxval=50000, dtype=tf.int32)
-        >>> inputs = {"images": images, "token_ids": token_ids}
-        >>>
-        >>> # Forward pass
-        >>> outputs = model(inputs)
-        >>> print(outputs["image_logits"].shape)  # (8, 8)
-        >>> print(outputs["text_logits"].shape)    # (8, 8)
-
-    Note:
-        The model uses contrastive learning where positive pairs (matching image-text)
-        should have high similarity scores on the diagonal of the logit matrices, while
-        negative pairs (non-matching) should have low scores on off-diagonal elements.
-    """
+        transfer_siglip_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
-        input_shape=(224, 224, 3),
+        image_resolution=224,
         patch_size=16,
         vision_hidden_dim=768,
         vision_num_layers=12,
@@ -654,49 +635,15 @@ class SigLIPModel(keras.Model):
         text_num_heads=12,
         text_intermediate_dim=3072,
         max_sequence_length=64,
+        input_shape=None,
         input_tensor=None,
-        weights="google_224",
         name="SigLIPModel",
         **kwargs,
     ):
         data_format = keras.backend.image_data_format()
-
-        if input_shape is not None:
-            if data_format == "channels_first":
-                if len(input_shape) == 3:
-                    channels = input_shape[0]
-                    image_size = min(input_shape[1], input_shape[2])
-                else:
-                    channels = 3
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
-            else:
-                if len(input_shape) >= 2:
-                    image_size = min(input_shape[0], input_shape[1])
-                else:
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
-
-                if len(input_shape) == 3:
-                    channels = input_shape[2]
-                else:
-                    channels = 3
-        else:
-            if weights:
-                if "512" in weights:
-                    image_size = 512
-                elif "384" in weights:
-                    image_size = 384
-                elif "256" in weights:
-                    image_size = 256
-                else:
-                    image_size = 224
-            else:
-                image_size = 224
-            channels = 3
-
-        if data_format == "channels_first":
-            image_input_shape = [channels, image_size, image_size]
-        else:
-            image_input_shape = [image_size, image_size, channels]
+        image_input_shape, image_size = _siglip_resolve_image_shape(
+            input_shape, image_resolution, data_format
+        )
 
         if isinstance(input_tensor, dict):
             images_input = input_tensor.get("images") or layers.Input(
@@ -730,22 +677,15 @@ class SigLIPModel(keras.Model):
             max_sequence_length=max_sequence_length,
         )
 
-        # Apply projection head
-        image_logits, text_logits = siglip_head(vision_embeddings, text_embeddings)
-
         outputs = {
-            "image_logits": image_logits,
-            "text_logits": text_logits,
+            "image_embeddings": vision_embeddings,
+            "text_embeddings": text_embeddings,
         }
-
-        inputs = {
-            "images": images_input,
-            "token_ids": token_ids_input,
-        }
+        inputs = {"images": images_input, "token_ids": token_ids_input}
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
-        # Store model parameters
+        self.image_resolution = image_size
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
@@ -762,15 +702,14 @@ class SigLIPModel(keras.Model):
 
     def get_config(self):
         config = super().get_config()
-
-        image_shape_with_batch = self.input_shape[0]
+        image_shape_with_batch = self.input_shape["images"]
         if image_shape_with_batch[0] is None:
             image_input_shape = image_shape_with_batch[1:]
         else:
             image_input_shape = image_shape_with_batch
-
         config.update(
             {
+                "image_resolution": self.image_resolution,
                 "input_shape": image_input_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
@@ -786,7 +725,6 @@ class SigLIPModel(keras.Model):
                 "max_sequence_length": self.max_sequence_length,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -796,96 +734,265 @@ class SigLIPModel(keras.Model):
         return cls(**config)
 
 
-@register_model
-def SigLIPBaseP16(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIPBaseP16",
-    **kwargs,
-):
-    custom_config = SigLIP_MODEL_CONFIG["SigLIPBaseP16"].copy()
-    if weights:
-        if "multilingual" in weights:
-            custom_config["vocabulary_size"] = 250000
+@keras.saving.register_keras_serializable(package="kmodels")
+class SigLIPZeroShotClassify(BaseModel):
+    """SigLIP + sigmoid-similarity head for zero-shot classification / retrieval.
 
-    model = SigLIPModel(
-        **custom_config,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
+    Composes the same vision + text encoders as :class:`SigLIPModel` and
+    adds the standard SigLIP head — L2-normalize both sides, then a
+    learnable ``logit_scale`` and ``logit_bias``. Output is the
+    ``(B, B)`` image-vs-text similarity logits.
 
-    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("SigLIPBaseP16", weights, model, SigLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    >>> SigLIPZeroShotClassify.from_weights("siglip_base_p16_224")
+    >>> SigLIPZeroShotClassify.from_weights("hf:google/siglip-base-patch16-224")
+    """
 
-    return model
+    KMODELS_CONFIG = SIGLIP_CONFIG
+    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    HF_MODEL_TYPE = "siglip"
 
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return SigLIPModel.config_from_hf(hf_config)
 
-@register_model
-def SigLIPLargeP16(
-    weights="google_256",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIPLargeP16",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP_MODEL_CONFIG["SigLIPLargeP16"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIPLargeP16", weights, model, SigLIP_WEIGHTS_CONFIG
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.siglip.convert_siglip_torch_to_keras import (
+            transfer_siglip_weights,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        transfer_siglip_weights(keras_model, hf_state_dict)
 
-
-@register_model
-def SigLIPSo400mP14(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIPSo400mP14",
-    **kwargs,
-):
-    custom_config = SigLIP_MODEL_CONFIG["SigLIPSo400mP14"].copy()
-    if weights:
-        if "384" in weights:
-            custom_config["max_sequence_length"] = 64
-
-    model = SigLIPModel(
-        **custom_config,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
+    def __init__(
+        self,
+        image_resolution=224,
+        patch_size=16,
+        vision_hidden_dim=768,
+        vision_num_layers=12,
+        vision_num_heads=12,
+        vision_intermediate_dim=3072,
+        vocabulary_size=32000,
+        embed_dim=768,
+        text_hidden_dim=768,
+        text_num_layers=12,
+        text_num_heads=12,
+        text_intermediate_dim=3072,
+        max_sequence_length=64,
+        input_shape=None,
+        input_tensor=None,
+        name="SigLIPZeroShotClassify",
         **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIPSo400mP14", weights, model, SigLIP_WEIGHTS_CONFIG
+    ):
+        base = SigLIPModel(
+            image_resolution=image_resolution,
+            patch_size=patch_size,
+            vision_hidden_dim=vision_hidden_dim,
+            vision_num_layers=vision_num_layers,
+            vision_num_heads=vision_num_heads,
+            vision_intermediate_dim=vision_intermediate_dim,
+            vocabulary_size=vocabulary_size,
+            embed_dim=embed_dim,
+            text_hidden_dim=text_hidden_dim,
+            text_num_layers=text_num_layers,
+            text_num_heads=text_num_heads,
+            text_intermediate_dim=text_intermediate_dim,
+            max_sequence_length=max_sequence_length,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_base",
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        image_logits, text_logits = siglip_head(
+            base.output["image_embeddings"], base.output["text_embeddings"]
+        )
 
-    return model
+        super().__init__(
+            inputs=base.input,
+            outputs={"image_logits": image_logits, "text_logits": text_logits},
+            name=name,
+            **kwargs,
+        )
+
+        self.image_resolution = image_resolution
+        self.patch_size = patch_size
+        self.vision_hidden_dim = vision_hidden_dim
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
+        self.vision_intermediate_dim = vision_intermediate_dim
+        self.vocabulary_size = vocabulary_size
+        self.embed_dim = embed_dim
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_layers = text_num_layers
+        self.text_num_heads = text_num_heads
+        self.text_intermediate_dim = text_intermediate_dim
+        self.max_sequence_length = max_sequence_length
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape["images"]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "patch_size": self.patch_size,
+                "vision_hidden_dim": self.vision_hidden_dim,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_num_heads": self.vision_num_heads,
+                "vision_intermediate_dim": self.vision_intermediate_dim,
+                "vocabulary_size": self.vocabulary_size,
+                "embed_dim": self.embed_dim,
+                "text_hidden_dim": self.text_hidden_dim,
+                "text_num_layers": self.text_num_layers,
+                "text_num_heads": self.text_num_heads,
+                "text_intermediate_dim": self.text_intermediate_dim,
+                "max_sequence_length": self.max_sequence_length,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class SigLIPImageClassify(BaseModel):
+    """SigLIP vision encoder + linear image-classification head.
+
+    Mirrors HF's ``SiglipForImageClassification``: uses **only the SigLIP
+    vision encoder** (no text encoder, no attention pooling, no
+    ``logit_scale`` / ``logit_bias``), mean-pools the patch tokens, and
+    applies a single linear classifier producing ``num_labels`` logits.
+    """
+
+    KMODELS_CONFIG = SIGLIP_CONFIG
+    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    HF_MODEL_TYPE = "siglip"
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        """Base model class to warm-start the vision encoder from.
+
+        Subclasses (e.g. :class:`SigLIP2ImageClassify`) override this to
+        point at their matching encoder-only model.
+        """
+        return SigLIPModel
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        from kmodels.base.base_model import hf_num_labels
+
+        config = SigLIPModel.config_from_hf(hf_config)
+        try:
+            config["num_labels"] = hf_num_labels(hf_config)
+        except KeyError:
+            pass
+        return config
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.siglip.convert_siglip_torch_to_keras import (
+            transfer_siglip_image_classify_weights,
+        )
+
+        transfer_siglip_image_classify_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        num_labels=1000,
+        image_resolution=224,
+        patch_size=16,
+        vision_hidden_dim=768,
+        vision_num_layers=12,
+        vision_num_heads=12,
+        vision_intermediate_dim=3072,
+        input_shape=None,
+        input_tensor=None,
+        name="SigLIPImageClassify",
+        **kwargs,
+    ):
+        for k in (
+            "vocabulary_size",
+            "embed_dim",
+            "text_hidden_dim",
+            "text_num_layers",
+            "text_num_heads",
+            "text_intermediate_dim",
+            "max_sequence_length",
+        ):
+            kwargs.pop(k, None)
+
+        data_format = keras.backend.image_data_format()
+        image_input_shape, image_size = _siglip_resolve_image_shape(
+            input_shape, image_resolution, data_format
+        )
+
+        if input_tensor is None:
+            images_input = layers.Input(shape=image_input_shape, name="images")
+        else:
+            images_input = input_tensor
+
+        encoded = siglip_vision_features(
+            images_input,
+            patch_size=patch_size,
+            hidden_dim=vision_hidden_dim,
+            num_layers=vision_num_layers,
+            num_heads=vision_num_heads,
+            intermediate_dim=vision_intermediate_dim,
+            data_format=data_format,
+        )
+        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(encoded)
+        logits = layers.Dense(num_labels, name="classifier")(pooled)
+
+        super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
+
+        self.num_labels = num_labels
+        self.image_resolution = image_size
+        self.patch_size = patch_size
+        self.vision_hidden_dim = vision_hidden_dim
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
+        self.vision_intermediate_dim = vision_intermediate_dim
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "num_labels": self.num_labels,
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "patch_size": self.patch_size,
+                "vision_hidden_dim": self.vision_hidden_dim,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_num_heads": self.vision_num_heads,
+                "vision_intermediate_dim": self.vision_intermediate_dim,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

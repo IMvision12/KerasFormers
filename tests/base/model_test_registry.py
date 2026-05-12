@@ -735,21 +735,6 @@ MODEL_TEST_CONFIGS = {
             "text_logits": (2, 2),
         },
     },
-    "SigLIP2BaseP16": {
-        "module": "kmodels.models.siglip2",
-        "model_cls": "SigLIP2BaseP16",
-        "model_type": "vlm",
-        "init_kwargs": {
-            "weights": None,
-            "input_shape": (64, 64, 3),
-        },
-        "input_factory": "siglip_input",
-        "input_factory_kwargs": {"image_size": 64},
-        "expected_output_shape": {
-            "image_logits": (2, 2),
-            "text_logits": (2, 2),
-        },
-    },
     "MetaClip2WorldwideS16": {
         "module": "kmodels.models.metaclip2",
         "model_cls": "MetaClip2WorldwideS16",

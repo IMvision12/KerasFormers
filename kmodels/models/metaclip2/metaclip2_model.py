@@ -1,21 +1,16 @@
 import keras
 from keras import layers, ops
 
-from kmodels.model_registry import register_model
+from kmodels.base import BaseModel
 from kmodels.models.clip.clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
     TextModelEmbedding,
     VisionModelEmbedding,
 )
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import (
-    METACLIP2_HF_CONVERT_DEFAULT_ALIAS,
-    METACLIP2_HF_CONVERT_VARIANTS,
-    METACLIP2_MODEL_CONFIG,
-    METACLIP2_WEIGHTS_CONFIG,
-)
+from .config import METACLIP2_CONFIG, METACLIP2_WEIGHTS
 from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
 
 
@@ -108,18 +103,23 @@ def metaclip2_encoder(
     return x
 
 
-def metaclip2_image_encoder(
+def metaclip2_vision_features(
     inputs,
     input_resolution=224,
     patch_size=16,
     width=768,
     num_layers=12,
     heads=12,
-    output_dim=512,
     vision_mlp_ratio=4.0,
     hidden_act="gelu",
     data_format="channels_last",
 ):
+    """MetaCLIP 2 vision encoder up through the transformer blocks.
+
+    Returns the full token sequence ``(B, 1 + num_patches, width)`` (CLS
+    + patch tokens) before any projection or pooling. Matches HF's
+    ``MetaClip2VisionModel.last_hidden_state``.
+    """
     patch_embeddings = keras.layers.Conv2D(
         filters=width,
         kernel_size=patch_size,
@@ -137,7 +137,7 @@ def metaclip2_image_encoder(
     x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_1")(
         embeddings
     )
-    encoded = metaclip2_encoder(
+    return metaclip2_encoder(
         x,
         width=width,
         num_layers=num_layers,
@@ -147,16 +147,39 @@ def metaclip2_image_encoder(
         hidden_act=hidden_act,
     )
 
+
+def metaclip2_image_encoder(
+    inputs,
+    input_resolution=224,
+    patch_size=16,
+    width=768,
+    num_layers=12,
+    heads=12,
+    output_dim=512,
+    vision_mlp_ratio=4.0,
+    hidden_act="gelu",
+    data_format="channels_last",
+):
+    """Full MetaCLIP 2 vision encoder used by the contrastive head — features
+    -> CLS token -> post-LN -> visual projection."""
+    encoded = metaclip2_vision_features(
+        inputs,
+        input_resolution=input_resolution,
+        patch_size=patch_size,
+        width=width,
+        num_layers=num_layers,
+        heads=heads,
+        vision_mlp_ratio=vision_mlp_ratio,
+        hidden_act=hidden_act,
+        data_format=data_format,
+    )
     class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
         encoded
     )
     x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_2")(
         class_token
     )
-    outputs = keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(
-        x
-    )
-    return outputs
+    return keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(x)
 
 
 def metaclip2_text_encoder(
@@ -233,9 +256,38 @@ def metaclip2_head(image_embeddings, text_embeddings):
     return image_logits, text_logits
 
 
+def _metaclip2_resolve_image_shape(input_shape, image_resolution, data_format):
+    if input_shape is not None:
+        if data_format == "channels_first":
+            if len(input_shape) == 3:
+                channels = input_shape[0]
+                image_size = min(input_shape[1], input_shape[2])
+            else:
+                channels = 3
+                image_size = input_shape[0] if len(input_shape) >= 1 else 224
+        else:
+            if len(input_shape) >= 2:
+                image_size = min(input_shape[0], input_shape[1])
+            else:
+                image_size = input_shape[0] if len(input_shape) >= 1 else 224
+            channels = input_shape[2] if len(input_shape) == 3 else 3
+    else:
+        image_size, channels = image_resolution, 3
+    return (
+        [channels, image_size, image_size]
+        if data_format == "channels_first"
+        else [image_size, image_size, channels]
+    ), image_size
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class MetaClip2Model(keras.Model):
+class MetaClip2Model(BaseModel):
     """MetaCLIP 2 (multilingual / worldwide) contrastive vision-language model.
+
+    Returns the projected vision + text embeddings (no head). Use
+    :class:`MetaClip2ZeroShotClassify` for the contrastive similarity
+    head or :class:`MetaClip2ImageClassify` for supervised image
+    classification.
 
     MetaCLIP 2 is Meta's 2nd-generation CLIP, trained on multilingual data with
     the XLM-R tokenizer (vocab 901629). Architecturally it is identical to
@@ -250,6 +302,40 @@ class MetaClip2Model(keras.Model):
       - https://arxiv.org/abs/2507.22062 ("MetaCLIP 2")
       - https://huggingface.co/docs/transformers/model_doc/metaclip_2
     """
+
+    KMODELS_CONFIG = METACLIP2_CONFIG
+    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    HF_MODEL_TYPE = "metaclip_2"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config["vision_config"]
+        tc = hf_config["text_config"]
+        return {
+            "embed_dim": hf_config["projection_dim"],
+            "image_resolution": vc.get("image_size", 224),
+            "vision_layers": vc["num_hidden_layers"],
+            "vision_width": vc["hidden_size"],
+            "vision_patch_size": vc["patch_size"],
+            "vision_heads": vc.get("num_attention_heads"),
+            "context_length": tc.get("max_position_embeddings", 77),
+            "vocab_size": tc["vocab_size"],
+            "transformer_width": tc["hidden_size"],
+            "transformer_heads": tc["num_attention_heads"],
+            "transformer_layers": tc["num_hidden_layers"],
+            "vision_mlp_ratio": vc["intermediate_size"] / vc["hidden_size"],
+            "text_mlp_ratio": tc["intermediate_size"] / tc["hidden_size"],
+            "hidden_act": vc.get("hidden_act", "gelu"),
+            "eos_token_id": tc.get("eos_token_id", METACLIP2_EOS_TOKEN_ID),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.metaclip2.convert_metaclip2_hf_to_keras import (
+            transfer_metaclip2_weights,
+        )
+
+        transfer_metaclip2_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
@@ -270,7 +356,6 @@ class MetaClip2Model(keras.Model):
         eos_token_id=METACLIP2_EOS_TOKEN_ID,
         input_shape=None,
         input_tensor=None,
-        weights="worldwide_224",
         name="MetaClip2Model",
         **kwargs,
     ):
@@ -345,9 +430,10 @@ class MetaClip2Model(keras.Model):
             eos_token_id=eos_token_id,
         )
 
-        image_logits, text_logits = metaclip2_head(image_embeddings, text_embeddings)
-
-        outputs = {"image_logits": image_logits, "text_logits": text_logits}
+        outputs = {
+            "image_embeddings": image_embeddings,
+            "text_embeddings": text_embeddings,
+        }
         inputs = {
             "images": images_input,
             "token_ids": token_ids_input,
@@ -410,331 +496,278 @@ class MetaClip2Model(keras.Model):
         return cls(**config)
 
 
-def _create_metaclip2(
-    variant,
-    weights,
-    input_tensor,
-    input_shape,
-    name,
-    **kwargs,
-):
-    cfg = {**METACLIP2_MODEL_CONFIG[variant], **kwargs}
-    model = MetaClip2Model(
-        **cfg,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        name=name,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class MetaClip2ZeroShotClassify(BaseModel):
+    """MetaCLIP 2 + contrastive similarity head for zero-shot classification / retrieval.
 
-    if (
-        variant in METACLIP2_HF_CONVERT_VARIANTS
-        and weights == METACLIP2_HF_CONVERT_DEFAULT_ALIAS.get(variant)
-    ):
+    Composes the same vision + text encoders as :class:`MetaClip2Model`
+    and adds the standard CLIP-style head — L2-normalize both sides,
+    then a learnable ``logit_scale`` temperature on the cosine-similarity
+    matrix. Output is the ``(B, B)`` image-vs-text similarity logits.
+
+    >>> MetaClip2ZeroShotClassify.from_weights("metaclip2_worldwide_b32_224")
+    >>> MetaClip2ZeroShotClassify.from_weights("hf:facebook/metaclip-2-worldwide-b32")
+    """
+
+    KMODELS_CONFIG = METACLIP2_CONFIG
+    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    HF_MODEL_TYPE = "metaclip_2"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return MetaClip2Model.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
         from kmodels.models.metaclip2.convert_metaclip2_hf_to_keras import (
             transfer_metaclip2_weights,
         )
-        from kmodels.weight_utils.hf_gated_weight_download import (
-            load_and_convert_from_hf,
+
+        transfer_metaclip2_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        embed_dim=512,
+        image_resolution=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=32,
+        vision_heads=None,
+        context_length=77,
+        vocab_size=901629,
+        transformer_width=512,
+        transformer_heads=8,
+        transformer_layers=12,
+        vision_mlp_ratio=4.0,
+        text_mlp_ratio=4.0,
+        hidden_act="gelu",
+        eos_token_id=METACLIP2_EOS_TOKEN_ID,
+        input_shape=None,
+        input_tensor=None,
+        name="MetaClip2ZeroShotClassify",
+        **kwargs,
+    ):
+        base = MetaClip2Model(
+            embed_dim=embed_dim,
+            image_resolution=image_resolution,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
+            vision_heads=vision_heads,
+            context_length=context_length,
+            vocab_size=vocab_size,
+            transformer_width=transformer_width,
+            transformer_heads=transformer_heads,
+            transformer_layers=transformer_layers,
+            vision_mlp_ratio=vision_mlp_ratio,
+            text_mlp_ratio=text_mlp_ratio,
+            hidden_act=hidden_act,
+            eos_token_id=eos_token_id,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_base",
+        )
+        image_logits, text_logits = metaclip2_head(
+            base.output["image_embeddings"], base.output["text_embeddings"]
         )
 
-        load_and_convert_from_hf(
-            model=model,
-            model_name=variant.lower(),
-            hf_model_id=METACLIP2_HF_CONVERT_VARIANTS[variant],
-            transfer_fn=transfer_metaclip2_weights,
+        super().__init__(
+            inputs=base.input,
+            outputs={"image_logits": image_logits, "text_logits": text_logits},
+            name=name,
+            **kwargs,
         )
-    elif weights in get_all_weight_names(METACLIP2_WEIGHTS_CONFIG):
-        load_weights_from_config(variant, weights, model, METACLIP2_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
 
-    return model
+        self.embed_dim = embed_dim
+        self.image_resolution = image_resolution
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_heads = (
+            vision_heads if vision_heads is not None else vision_width // 64
+        )
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+        self.transformer_width = transformer_width
+        self.transformer_heads = transformer_heads
+        self.transformer_layers = transformer_layers
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.text_mlp_ratio = text_mlp_ratio
+        self.hidden_act = hidden_act
+        self.eos_token_id = eos_token_id
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape["images"]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "embed_dim": self.embed_dim,
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_heads": self.vision_heads,
+                "context_length": self.context_length,
+                "vocab_size": self.vocab_size,
+                "transformer_width": self.transformer_width,
+                "transformer_heads": self.transformer_heads,
+                "transformer_layers": self.transformer_layers,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "text_mlp_ratio": self.text_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "eos_token_id": self.eos_token_id,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
-@register_model
-def MetaClip2WorldwideS16(
-    weights="worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideS16",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideS16",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
+@keras.saving.register_keras_serializable(package="kmodels")
+class MetaClip2ImageClassify(BaseModel):
+    """MetaCLIP 2 vision encoder + linear image-classification head.
+
+    Mirrors HF's ``MetaClip2ForImageClassification``: uses **only the
+    vision encoder** (no text encoder, no visual projection, no post-LN,
+    no ``logit_scale``), drops the CLS token, mean-pools the patch
+    tokens, and applies a single linear classifier producing
+    ``num_labels`` logits.
+    """
+
+    KMODELS_CONFIG = METACLIP2_CONFIG
+    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    HF_MODEL_TYPE = "metaclip_2"
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = MetaClip2Model.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        from kmodels.base.base_model import hf_num_labels
+
+        config = MetaClip2Model.config_from_hf(hf_config)
+        try:
+            config["num_labels"] = hf_num_labels(hf_config)
+        except KeyError:
+            pass
+        return config
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.metaclip2.convert_metaclip2_hf_to_keras import (
+            transfer_metaclip2_image_classify_weights,
+        )
+
+        transfer_metaclip2_image_classify_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        num_labels=1000,
+        image_resolution=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=16,
+        vision_heads=None,
+        vision_mlp_ratio=4.0,
+        hidden_act="gelu",
+        input_shape=None,
+        input_tensor=None,
+        name="MetaClip2ImageClassify",
         **kwargs,
-    )
+    ):
+        for k in (
+            "embed_dim",
+            "context_length",
+            "vocab_size",
+            "transformer_width",
+            "transformer_heads",
+            "transformer_layers",
+            "text_mlp_ratio",
+            "eos_token_id",
+        ):
+            kwargs.pop(k, None)
 
+        if vision_heads is None:
+            vision_heads = vision_width // 64
+        data_format = keras.backend.image_data_format()
+        image_input_shape, image_size = _metaclip2_resolve_image_shape(
+            input_shape, image_resolution, data_format
+        )
 
-@register_model
-def MetaClip2WorldwideS16_384(
-    weights="worldwide_384",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideS16_384",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideS16_384",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
+        if input_tensor is None:
+            images_input = layers.Input(shape=image_input_shape, name="images")
+        else:
+            images_input = input_tensor
 
+        encoded = metaclip2_vision_features(
+            images_input,
+            input_resolution=image_size,
+            patch_size=vision_patch_size,
+            width=vision_width,
+            num_layers=vision_layers,
+            heads=vision_heads,
+            vision_mlp_ratio=vision_mlp_ratio,
+            hidden_act=hidden_act,
+            data_format=data_format,
+        )
 
-@register_model
-def MetaClip2WorldwideM16(
-    weights="worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideM16",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideM16",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
+        patches = layers.Lambda(lambda t: t[:, 1:, :], name="drop_cls")(encoded)
+        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(patches)
+        logits = layers.Dense(num_labels, name="classifier")(pooled)
 
+        super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
-@register_model
-def MetaClip2WorldwideM16_384(
-    weights="worldwide_384",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideM16_384",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideM16_384",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
+        self.num_labels = num_labels
+        self.image_resolution = image_size
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_heads = vision_heads
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.hidden_act = hidden_act
+        self.input_tensor = input_tensor
 
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "num_labels": self.num_labels,
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_heads": self.vision_heads,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
 
-@register_model
-def MetaClip2WorldwideB16(
-    weights="worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideB16",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideB16",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideB16_384(
-    weights="worldwide_384",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideB16_384",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideB16_384",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideB32(
-    weights="worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideB32",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideB32",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideB32_384(
-    weights="worldwide_384",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideB32_384",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideB32_384",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideL14(
-    weights="worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideL14",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideL14",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideHugeQuickgelu(
-    weights="worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideHugeQuickgelu",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideHugeQuickgelu",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideHuge378(
-    weights="worldwide_378",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideHuge378",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideHuge378",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideGiant(
-    weights="worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideGiant",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideGiant",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2WorldwideGiant378(
-    weights="worldwide_378",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2WorldwideGiant378",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2WorldwideGiant378",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2Mt5WorldwideS16(
-    weights="mt5_worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2Mt5WorldwideS16",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2Mt5WorldwideS16",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2Mt5WorldwideM16(
-    weights="mt5_worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2Mt5WorldwideM16",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2Mt5WorldwideM16",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
-
-
-@register_model
-def MetaClip2Mt5WorldwideB32(
-    weights="mt5_worldwide_224",
-    input_tensor=None,
-    input_shape=None,
-    name="MetaClip2Mt5WorldwideB32",
-    **kwargs,
-):
-    return _create_metaclip2(
-        "MetaClip2Mt5WorldwideB32",
-        weights,
-        input_tensor,
-        input_shape,
-        name,
-        **kwargs,
-    )
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
