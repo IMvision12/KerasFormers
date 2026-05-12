@@ -5,7 +5,7 @@ from kmodels.models.depth_anything_v1.depth_anything_v1_model import (
     DepthAnythingV1Model,
 )
 
-from .config import DA_V2_CONFIG, DA_V2_WEIGHTS
+from .config import DEPTHANYTHINGV2_CONFIG, DEPTHANYTHINGV2_WEIGHTS
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -21,7 +21,7 @@ class DepthAnythingV2Model(DepthAnythingV1Model):
         - `Depth Anything V2 <https://arxiv.org/abs/2406.09414>`_
     """
 
-    KMODELS_CONFIG = DA_V2_CONFIG
+    KMODELS_CONFIG = DEPTHANYTHINGV2_CONFIG
     KMODELS_WEIGHTS = None
     HF_MODEL_TYPE = "depth_anything"
 
@@ -46,8 +46,8 @@ class DepthAnythingV2DepthEstimation(DepthAnythingV1DepthEstimation):
         - `Depth Anything V2 <https://arxiv.org/abs/2406.09414>`_
     """
 
-    KMODELS_CONFIG = DA_V2_CONFIG
-    KMODELS_WEIGHTS = DA_V2_WEIGHTS
+    KMODELS_CONFIG = DEPTHANYTHINGV2_CONFIG
+    KMODELS_WEIGHTS = DEPTHANYTHINGV2_WEIGHTS
     HF_MODEL_TYPE = "depth_anything"
 
     def __init__(self, name="DepthAnythingV2DepthEstimation", **kwargs):

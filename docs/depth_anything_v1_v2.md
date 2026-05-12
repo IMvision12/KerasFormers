@@ -11,9 +11,13 @@ scales up the teacher model to produce noticeably sharper and more robust
 depth maps. The V2 release also ships metric-depth variants fine-tuned for
 indoor and outdoor scenes.
 
-Both versions share the same Keras implementation — the `DepthAnythingV1`
-class hosts the architecture, and `DepthAnythingV2*` factories instantiate it
-with the V2 per-variant hyperparameters and weights.
+Both versions share the same Keras implementation. Two classes are exposed
+per version:
+
+- `DepthAnythingV{1,2}Model` — backbone + DPT neck only (no head). Use as a
+  feature extractor or to attach a custom head.
+- `DepthAnythingV{1,2}DepthEstimation` — full monocular depth estimator
+  with the depth head. This is what you instantiate to predict depth.
 
 ## Architecture
 
@@ -36,48 +40,34 @@ gather + lerp, so the model is numerically consistent across `torch`,
 `jax`, and `tensorflow` backends and respects
 `keras.config.image_data_format()` end-to-end.
 
-## Available Models
+## Available Weights
 
-### Relative Depth (V1 and V2)
+Pretrained weights are loaded via `from_weights(variant_id)` (or
+`from_hf(hf_id)` for arbitrary HF fine-tunes).
 
-| Variant                | Parameters | Backbone       | Description                              |
-|------------------------|-----------:|----------------|------------------------------------------|
-| `DepthAnythingV1Small` |     ~24 M  | DINOv2 ViT-S/14 | Smallest / fastest relative-depth model |
-| `DepthAnythingV1Base`  |     ~97 M  | DINOv2 ViT-B/14 | Balanced speed / accuracy                |
-| `DepthAnythingV1Large` |    ~335 M  | DINOv2 ViT-L/14 | Most accurate V1 relative-depth model    |
-| `DepthAnythingV2Small` |     ~24 M  | DINOv2 ViT-S/14 | V2 retrained small variant               |
-| `DepthAnythingV2Base`  |     ~97 M  | DINOv2 ViT-B/14 | V2 retrained base variant                |
-| `DepthAnythingV2Large` |    ~335 M  | DINOv2 ViT-L/14 | V2 retrained large variant               |
+### Relative Depth
+
+| Variant                   | Class                            | Parameters | Backbone        |
+|---------------------------|----------------------------------|-----------:|-----------------|
+| `depth_anything_small`    | `DepthAnythingV1DepthEstimation` |     ~24 M  | DINOv2 ViT-S/14 |
+| `depth_anything_base`     | `DepthAnythingV1DepthEstimation` |     ~97 M  | DINOv2 ViT-B/14 |
+| `depth_anything_large`    | `DepthAnythingV1DepthEstimation` |    ~335 M  | DINOv2 ViT-L/14 |
+| `depth_anything_v2_small` | `DepthAnythingV2DepthEstimation` |     ~24 M  | DINOv2 ViT-S/14 |
+| `depth_anything_v2_base`  | `DepthAnythingV2DepthEstimation` |     ~97 M  | DINOv2 ViT-B/14 |
+| `depth_anything_v2_large` | `DepthAnythingV2DepthEstimation` |    ~335 M  | DINOv2 ViT-L/14 |
 
 ### Metric Depth (V2 only)
 
-| Variant                              | Max depth | Description                            |
-|--------------------------------------|----------:|----------------------------------------|
-| `DepthAnythingV2MetricIndoorSmall`   |    20 m   | Indoor metric depth (NYUv2 fine-tuned) |
-| `DepthAnythingV2MetricIndoorBase`    |    20 m   | Indoor metric depth                    |
-| `DepthAnythingV2MetricIndoorLarge`   |    20 m   | Indoor metric depth                    |
-| `DepthAnythingV2MetricOutdoorSmall`  |    80 m   | Outdoor metric depth (KITTI-style)     |
-| `DepthAnythingV2MetricOutdoorBase`   |    80 m   | Outdoor metric depth                   |
-| `DepthAnythingV2MetricOutdoorLarge`  |    80 m   | Outdoor metric depth                   |
+| Variant                                         | Max depth | Description                            |
+|-------------------------------------------------|----------:|----------------------------------------|
+| `depth_anything_v2_metric_indoor_small`         |    20 m   | Indoor metric depth (NYUv2 fine-tuned) |
+| `depth_anything_v2_metric_indoor_base`          |    20 m   | Indoor metric depth                    |
+| `depth_anything_v2_metric_indoor_large`         |    20 m   | Indoor metric depth                    |
+| `depth_anything_v2_metric_outdoor_small`        |    80 m   | Outdoor metric depth (KITTI-style)     |
+| `depth_anything_v2_metric_outdoor_base`         |    80 m   | Outdoor metric depth                   |
+| `depth_anything_v2_metric_outdoor_large`        |    80 m   | Outdoor metric depth                   |
 
 All variants default to a 518×518 input (37x37 DINOv2 patch grid).
-
-## Available Weights
-
-| Variant                             | da_v1 | da_v2 |
-|-------------------------------------|:-----:|:-----:|
-| `DepthAnythingV1Small`              |  ✅   |       |
-| `DepthAnythingV1Base`               |  ✅   |       |
-| `DepthAnythingV1Large`              |  ✅   |       |
-| `DepthAnythingV2Small`              |       |  ✅   |
-| `DepthAnythingV2Base`               |       |  ✅   |
-| `DepthAnythingV2Large`              |       |  ✅   |
-| `DepthAnythingV2MetricIndoorSmall`  |       |  ✅   |
-| `DepthAnythingV2MetricIndoorBase`   |       |  ✅   |
-| `DepthAnythingV2MetricIndoorLarge`  |       |  ✅   |
-| `DepthAnythingV2MetricOutdoorSmall` |       |  ✅   |
-| `DepthAnythingV2MetricOutdoorBase`  |       |  ✅   |
-| `DepthAnythingV2MetricOutdoorLarge` |       |  ✅   |
 
 ## Image Processor
 
@@ -99,13 +89,12 @@ bilinearly interpolated to the new grid when weights are loaded, so
 non-518 inputs work as long as the model was built with the same shape.
 
 ```python
-import numpy as np
 from kmodels.models.depth_anything_v1 import (
-    DepthAnythingV1Small,
+    DepthAnythingV1DepthEstimation,
     DepthAnythingV1ImageProcessor,
 )
 
-model = DepthAnythingV1Small(weights="da_v1")
+model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_small")
 processor = DepthAnythingV1ImageProcessor()
 inputs = processor("photo.jpg")
 depth = model(inputs["pixel_values"])
@@ -119,7 +108,7 @@ print(depth_full.shape)  # (1, orig_h, orig_w)
 
 ### Relative Depth with V1
 
-End-to-end example that loads an image, runs `DepthAnythingV1Small`, and
+End-to-end example that loads an image, runs the small V1 model, and
 saves a side-by-side RGB + depth visualization:
 
 ```python
@@ -129,12 +118,12 @@ from PIL import Image
 import matplotlib.cm as cm
 
 from kmodels.models.depth_anything_v1 import (
-    DepthAnythingV1Small,
+    DepthAnythingV1DepthEstimation,
     DepthAnythingV1ImageProcessor,
 )
 
 # 1) build model + load pretrained weights
-model = DepthAnythingV1Small(weights="da_v1")
+model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_small")
 
 # 2) preprocess the image (stretches to 518x518, ImageNet-normalized)
 processor = DepthAnythingV1ImageProcessor()
@@ -164,7 +153,7 @@ Output (horse + dog in snow — closer objects are brighter):
 
 ### Relative Depth with V2
 
-Same API as V1 — swap the module and the factory name. V2 uses the same
+Same API as V1 — swap the module and the variant name. V2 uses the same
 processor / post-processor contract, just with sharper and more robust
 depth thanks to its synthetic-data training set.
 
@@ -175,28 +164,21 @@ from PIL import Image
 import matplotlib.cm as cm
 
 from kmodels.models.depth_anything_v2 import (
-    DepthAnythingV2Base,
+    DepthAnythingV2DepthEstimation,
     DepthAnythingV2ImageProcessor,
 )
 
-# 1) build model + load pretrained weights
-model = DepthAnythingV2Base(weights="da_v2")
-
-# 2) preprocess the image
+model = DepthAnythingV2DepthEstimation.from_weights("depth_anything_v2_base")
 processor = DepthAnythingV2ImageProcessor()
 inputs = processor("assets/valley.png")
 orig_h, orig_w = inputs["original_size"]
 
-# 3) forward pass — raw depth at model resolution
 raw_depth = model(inputs["pixel_values"], training=False)
-
-# 4) resample depth back to the original image size
 depth = processor.post_process_depth_estimation(
     raw_depth, original_size=(orig_h, orig_w)
 )
 depth = keras.ops.convert_to_numpy(depth)[0]
 
-# 5) visualize: normalize + apply inferno colormap, save side-by-side
 dn = (depth - depth.min()) / max(depth.max() - depth.min(), 1e-8)
 depth_color = (cm.inferno(dn)[..., :3] * 255).astype(np.uint8)
 rgb = np.array(Image.open("assets/valley.png").convert("RGB").resize((orig_w, orig_h)))
@@ -212,11 +194,13 @@ Output (mountain valley — crisp ridges and foreground detail):
 
 ```python
 from kmodels.models.depth_anything_v2 import (
-    DepthAnythingV2MetricIndoorLarge,
+    DepthAnythingV2DepthEstimation,
     DepthAnythingV2ImageProcessor,
 )
 
-model = DepthAnythingV2MetricIndoorLarge(weights="da_v2")
+model = DepthAnythingV2DepthEstimation.from_weights(
+    "depth_anything_v2_metric_indoor_large"
+)
 processor = DepthAnythingV2ImageProcessor()
 inputs = processor("room.jpg")
 depth = model(inputs["pixel_values"])
@@ -229,12 +213,29 @@ depth_full = processor.post_process_depth_estimation(
 ### Metric Outdoor Depth (V2)
 
 ```python
-from kmodels.models.depth_anything_v2 import (
-    DepthAnythingV2MetricOutdoorLarge,
-)
+from kmodels.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
 
-model = DepthAnythingV2MetricOutdoorLarge(weights="da_v2")
+model = DepthAnythingV2DepthEstimation.from_weights(
+    "depth_anything_v2_metric_outdoor_large"
+)
 # ... same processor + post-process flow, depth bounded to [0, 80]
+```
+
+### Loading HF fine-tunes
+
+Any HF repo whose `model_type` is `"depth_anything"` (the official V1/V2
+checkpoints, the metric variants, or arbitrary user fine-tunes built on
+those architectures) can be loaded directly with `from_hf`. The class
+reads backbone dims, neck/fusion sizes, reassemble factors,
+`depth_estimation_type`, and `max_depth` straight from the HF config.
+
+```python
+from kmodels.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
+
+model = DepthAnythingV2DepthEstimation.from_hf(
+    "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
+    input_shape=(518, 518, 3),
+)
 ```
 
 ## Non-518 Input Shapes
@@ -248,17 +249,16 @@ each instance is locked to the shape you pick at build time.
 
 ```python
 from kmodels.models.depth_anything_v2 import (
-    DepthAnythingV2Small,
+    DepthAnythingV2DepthEstimation,
     DepthAnythingV2ImageProcessor,
 )
 
 # Non-square 392x784 (28x56 patch grid) with pretrained weights
-model = DepthAnythingV2Small(
+model = DepthAnythingV2DepthEstimation.from_weights(
+    "depth_anything_v2_small",
     input_shape=(392, 784, 3),
-    weights="da_v2",
 )
-processor = DepthAnythingV2ImageProcessor(target_size=(392, 784)
-)
+processor = DepthAnythingV2ImageProcessor(target_size=(392, 784))
 inputs = processor("photo.jpg")
 depth = model(inputs["pixel_values"])
 ```
@@ -275,8 +275,8 @@ transposes.
 import keras
 keras.config.set_image_data_format("channels_first")
 
-from kmodels.models.depth_anything_v1 import DepthAnythingV1Small
-model = DepthAnythingV1Small(weights="da_v1")
+from kmodels.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
+model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_small")
 # model input: (B, 3, 518, 518)  /  output: (B, 1, 518, 518)
 ```
 

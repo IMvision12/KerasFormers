@@ -1,4 +1,4 @@
-DA_V1_CONFIG = {
+DEPTHANYTHINGV1_CONFIG = {
     "depth_anything_small": {
         "backbone_dim": 384,
         "backbone_depth": 12,
@@ -32,7 +32,7 @@ _V1_BASE_URL = (
     "https://github.com/IMvision12/keras-models/releases/download/depth-anything-v1"
 )
 
-DA_V1_WEIGHTS = {
+DEPTHANYTHINGV1_WEIGHTS = {
     "depth_anything_small": {"url": f"{_V1_BASE_URL}/depth_anything_small.weights.h5"},
     "depth_anything_base": {"url": f"{_V1_BASE_URL}/depth_anything_base.weights.h5"},
     "depth_anything_large": {"url": f"{_V1_BASE_URL}/depth_anything_large.weights.h5"},

@@ -9,7 +9,7 @@ from kmodels.models.vit.vit_layers import (
     MultiHeadSelfAttention,
 )
 
-from .config import DA_V1_CONFIG, DA_V1_WEIGHTS
+from .config import DEPTHANYTHINGV1_CONFIG, DEPTHANYTHINGV1_WEIGHTS
 
 
 def depth_anything_v1_aligned_bilinear_resize(x, target_h, target_w, data_format):
@@ -633,7 +633,7 @@ class DepthAnythingV1Model(BaseModel):
           Unlabeled Data <https://arxiv.org/abs/2401.10891>`_
     """
 
-    KMODELS_CONFIG = DA_V1_CONFIG
+    KMODELS_CONFIG = DEPTHANYTHINGV1_CONFIG
     KMODELS_WEIGHTS = None
     HF_MODEL_TYPE = "depth_anything"
 
@@ -767,8 +767,8 @@ class DepthAnythingV1DepthEstimation(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DA_V1_CONFIG
-    KMODELS_WEIGHTS = DA_V1_WEIGHTS
+    KMODELS_CONFIG = DEPTHANYTHINGV1_CONFIG
+    KMODELS_WEIGHTS = DEPTHANYTHINGV1_WEIGHTS
     HF_MODEL_TYPE = "depth_anything"
 
     @classmethod
