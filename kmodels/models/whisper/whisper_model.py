@@ -288,8 +288,8 @@ class WhisperModel(BaseModel):
     >>> out["logits"]                  # (B, L, vocab_size)
 
     This is the teacher-forced training path. For autoregressive
-    inference use :class:`WhisperGenerate`, which subclasses this and
-    adds ``.generate()`` / ``.transcribe()`` methods.
+    inference use :class:`WhisperSpeechToText`, which subclasses this
+    and adds a ``.generate(audio, processor, ...)`` method.
 
     Construction:
 
@@ -472,18 +472,15 @@ class WhisperModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class WhisperGenerate(WhisperModel):
-    """Whisper + autoregressive generation for ASR / translation.
+class WhisperSpeechToText(WhisperModel):
+    """Whisper speech-to-text model (transcription + translation).
 
     Composes the same encoder + decoder + tied LM head Functional graph as
     :class:`WhisperModel` (so it loads the same weights and is a drop-in
-    replacement for teacher-forced training and forward passes), and adds:
-
-    * :meth:`generate` — HF-style greedy decoding given pre-extracted
-      ``input_features``. Returns token-id arrays.
-    * :meth:`transcribe` — end-to-end audio → text helper that pulls in
-      a :class:`~kmodels.models.whisper.WhisperProcessor` for feature
-      extraction, prompt construction, and detokenization.
+    replacement for teacher-forced training and forward passes), and adds
+    :meth:`generate` — an end-to-end audio → text method that pulls in a
+    :class:`~kmodels.models.whisper.WhisperProcessor` for feature
+    extraction, prompt construction, and detokenization.
 
     This mirrors the HuggingFace pattern (``WhisperModel`` is the bare
     encoder/decoder, ``WhisperForConditionalGeneration`` adds the LM head
@@ -492,59 +489,69 @@ class WhisperGenerate(WhisperModel):
 
     .. code-block:: python
 
-        model = WhisperGenerate.from_weights("whisper_tiny")
+        model = WhisperSpeechToText.from_weights("whisper_tiny")
         processor = WhisperProcessor(variant="v1")
-        text = model.transcribe(audio, processor, language="en", task="transcribe")
+        text = model.generate(audio, processor, language="en", task="transcribe")
     """
 
     def generate(
         self,
-        input_features,
-        decoder_start_token_id: int,
-        eos_token_id: int,
-        forced_decoder_ids: Optional[dict] = None,
+        audio,
+        processor,
+        language: Optional[str] = "en",
+        task: str = "transcribe",
+        no_timestamps: bool = True,
         max_new_tokens: int = 224,
+        sampling_rate: int = 16000,
+        return_ids: bool = False,
         suppress_tokens: Optional[List[int]] = None,
         begin_suppress_tokens: Optional[List[int]] = None,
-    ) -> np.ndarray:
-        """Greedy autoregressive decoding from pre-extracted mel features.
+    ) -> Union[List[str], List[List[int]]]:
+        """End-to-end audio → text using a :class:`WhisperProcessor`.
+
+        Runs feature extraction, encoder, autoregressive greedy decoding
+        with the standard Whisper logit processors, and detokenization.
 
         Mirrors the key logit processors used by HF Whisper generate:
 
-        * ``forced_decoder_ids`` (a ``{position: token_id}`` dict): at
-          decoded position ``k``, force the output to a specific id —
-          typically ``{1: lang_id, 2: task_id, 3: 50363}`` for English
+        * ``forced_decoder_ids`` (built by the processor): at decoded
+          position ``k``, force the output to a specific id — typically
+          ``{1: lang_id, 2: task_id, 3: <|notimestamps|>}`` for English
           no-timestamps transcription.
         * ``suppress_tokens``: permanently forbid this set of token ids.
         * ``begin_suppress_tokens``: suppress these only at the very
           first generated step (e.g. blank / silent tokens).
 
         Args:
-            input_features: Mel-spectrogram tensor of shape
-                ``(B, num_mel_bins, T)`` from
-                :class:`WhisperFeatureExtractor`.
-            decoder_start_token_id: Token id placed at position 0 (the
-                BOS / ``<|startoftranscript|>`` token).
-            eos_token_id: Token id that ends generation when emitted.
-            forced_decoder_ids: ``{position: token_id}`` mapping (default
-                ``None`` — free-form decoding from position 1).
-            max_new_tokens: Maximum decoded tokens after the start token.
+            audio: 1-D waveform or list / batched array of waveforms at
+                ``sampling_rate`` Hz.
+            processor: A :class:`WhisperProcessor` matching this model's
+                tokenizer variant + mel bin count.
+            language: Either a 2-3 char ISO code (``"en"``, ``"fr"``,
+                ``"yue"``), the full special token (``"<|en|>"``), or
+                ``None`` to let the decoder auto-detect.
+            task: ``"transcribe"`` (same-language) or ``"translate"``
+                (any language to English).
+            no_timestamps: When ``True`` (default), forces the
+                ``<|notimestamps|>`` token so the output is raw text.
+            max_new_tokens: Maximum decoded tokens after the prompt.
+            sampling_rate: Must match the processor's configured rate
+                (default ``16000``).
+            return_ids: When ``True``, return the raw token-id lists
+                instead of decoded strings.
             suppress_tokens: Token ids forbidden at every step. ``None``
                 falls back to OpenAI's default 88-token list.
             begin_suppress_tokens: Token ids forbidden only at the first
                 generated step. ``None`` falls back to ``[220, 50257]``.
-
-        Returns:
-            Numpy ``int32`` array of shape ``(B, L)`` containing
-            generated token ids including ``decoder_start_token_id`` at
-            position 0.
         """
-        if forced_decoder_ids is None:
-            forced = {}
-        elif isinstance(forced_decoder_ids, dict):
-            forced = forced_decoder_ids
-        else:
-            forced = dict(forced_decoder_ids)
+        inputs = processor(audio=audio, sampling_rate=sampling_rate)
+        forced = dict(
+            processor.get_decoder_prompt_ids(
+                language=language, task=task, no_timestamps=no_timestamps
+            )
+        )
+        decoder_start_token_id = processor.decoder_start_token_id
+        eos_token_id = processor.tokenizer.eos_token_id
 
         suppress_set = set(
             suppress_tokens if suppress_tokens is not None else WHISPER_SUPPRESS_TOKENS
@@ -555,7 +562,7 @@ class WhisperGenerate(WhisperModel):
             else WHISPER_BEGIN_SUPPRESS_TOKENS
         )
 
-        enc_out = self.encoder(input_features)
+        enc_out = self.encoder(inputs["input_features"])
         enc_np = (
             ops.convert_to_numpy(enc_out)
             if not isinstance(enc_out, np.ndarray)
@@ -589,60 +596,6 @@ class WhisperGenerate(WhisperModel):
             done = done | (next_ids == eos_token_id)
             if done.all():
                 break
-
-        return generated
-
-    def transcribe(
-        self,
-        audio,
-        processor,
-        language: Optional[str] = "en",
-        task: str = "transcribe",
-        no_timestamps: bool = True,
-        max_new_tokens: int = 224,
-        sampling_rate: int = 16000,
-        return_ids: bool = False,
-        suppress_tokens: Optional[List[int]] = None,
-        begin_suppress_tokens: Optional[List[int]] = None,
-    ) -> Union[List[str], List[List[int]]]:
-        """End-to-end audio → text using a :class:`WhisperProcessor`.
-
-        Args:
-            audio: 1-D waveform or list / batched array of waveforms at
-                ``sampling_rate`` Hz.
-            processor: A :class:`WhisperProcessor` matching this model's
-                tokenizer variant + mel bin count.
-            language: Either a 2-3 char ISO code (``"en"``, ``"fr"``,
-                ``"yue"``), the full special token (``"<|en|>"``), or
-                ``None`` to let the decoder auto-detect.
-            task: ``"transcribe"`` (same-language) or ``"translate"``
-                (any language to English).
-            no_timestamps: When ``True`` (default), forces the
-                ``<|notimestamps|>`` token so the output is raw text.
-            max_new_tokens: Maximum decoded tokens after the prompt.
-            sampling_rate: Must match the processor's configured rate
-                (default ``16000``).
-            return_ids: When ``True``, return the raw token-id lists
-                instead of decoded strings.
-            suppress_tokens / begin_suppress_tokens: Lists of token ids
-                to mask out. ``None`` keeps OpenAI's defaults.
-        """
-        inputs = processor(audio=audio, sampling_rate=sampling_rate)
-        forced = dict(
-            processor.get_decoder_prompt_ids(
-                language=language, task=task, no_timestamps=no_timestamps
-            )
-        )
-
-        generated = self.generate(
-            input_features=inputs["input_features"],
-            decoder_start_token_id=processor.decoder_start_token_id,
-            eos_token_id=processor.tokenizer.eos_token_id,
-            forced_decoder_ids=forced,
-            max_new_tokens=max_new_tokens,
-            suppress_tokens=suppress_tokens,
-            begin_suppress_tokens=begin_suppress_tokens,
-        )
 
         ids = [list(row) for row in generated]
         if return_ids:

@@ -17,6 +17,31 @@ implementation. The processor, encoder, decoder, and greedy `generate`
 loop run unmodified on TensorFlow / Torch / JAX backends — no
 `transformers` or `torch` runtime dependency.
 
+## Classes
+
+Three classes are exposed, mirroring HF's `Whisper*` hierarchy:
+
+| Class | HF equivalent | Purpose |
+|---|---|---|
+| `WhisperModel` | `WhisperModel` / `WhisperForConditionalGeneration` | Encoder + decoder + tied LM head. Functional graph for teacher-forced training and forward passes. |
+| `WhisperSpeechToText` | `WhisperForConditionalGeneration` + `.generate()` | Subclass of `WhisperModel` that adds an end-to-end `.generate(audio, processor, ...)` method for ASR / translation. |
+| `WhisperAudioClassify` | `WhisperForAudioClassification` | Encoder + projector + linear classifier head. Decoder is **not** built. For language id, keyword spotting, music-genre, etc. |
+
+All three are loaded the same way:
+
+```python
+from kmodels.models.whisper import WhisperSpeechToText
+
+# kmodels release variant
+model = WhisperSpeechToText.from_weights("whisper_tiny")
+
+# Any HF Hub repo whose model_type is "whisper"
+model = WhisperSpeechToText.from_weights("hf:openai/whisper-tiny")
+model = WhisperAudioClassify.from_weights(
+    "hf:sanchit-gandhi/whisper-tiny-ft-keyword-spotting"
+)
+```
+
 ## Model Variants
 
 | Variant id | Params | Layers (enc / dec) | d_model | Heads | Mel bins | Vocab | Tokenizer |
@@ -115,11 +140,11 @@ converter normalizes both `WhisperForConditionalGeneration`
 state-dict layouts.
 
 ```python
-from kmodels.models.whisper import WhisperGenerate, WhisperProcessor
+from kmodels.models.whisper import WhisperSpeechToText, WhisperProcessor
 
-model = WhisperGenerate.from_weights("hf:aware-ai/whisper-tiny-german")
+model = WhisperSpeechToText.from_weights("hf:aware-ai/whisper-tiny-german")
 processor = WhisperProcessor(variant="v1")
-text = model.transcribe(audio, processor, language="de", task="transcribe")
+text = model.generate(audio, processor, language="de", task="transcribe")
 ```
 
 ## Features and Capabilities
@@ -128,9 +153,10 @@ text = model.transcribe(audio, processor, language="de", task="transcribe")
   (adds Cantonese).
 - **Speech-to-text translation**: any supported language to English via
   the `<|translate|>` task token.
-- **Generation in the model class**: `WhisperGenerate` extends
-  `WhisperModel` and adds `.generate()` / `.transcribe()` — mirrors HF's
-  `WhisperForConditionalGeneration` (model class + `.generate()` method).
+- **Generation in the model class**: `WhisperSpeechToText` extends
+  `WhisperModel` and adds an end-to-end `.generate(audio, processor, ...)`
+  method — mirrors HF's `WhisperForConditionalGeneration` (model class +
+  `.generate()` method).
 - **Audio classification**: `WhisperAudioClassify` mirrors HF's
   `WhisperForAudioClassification` — encoder + projector + linear head
   for tasks like language id, keyword spotting, or music-genre
@@ -154,18 +180,18 @@ text = model.transcribe(audio, processor, language="de", task="transcribe")
 
 ## Basic Usage
 
-The shortest path is `WhisperGenerate` — same model graph as `WhisperModel`
-plus `.generate()` (token-id output) and `.transcribe()` (end-to-end
-audio → text using the processor).
+The shortest path is `WhisperSpeechToText` — same model graph as
+`WhisperModel` plus an end-to-end `.generate(audio, processor, ...)`
+method (audio in, text out).
 
 ```python
-from kmodels.models.whisper import WhisperGenerate, WhisperProcessor
+from kmodels.models.whisper import WhisperSpeechToText, WhisperProcessor
 
-model = WhisperGenerate.from_weights("whisper_tiny")
+model = WhisperSpeechToText.from_weights("whisper_tiny")
 processor = WhisperProcessor(variant="v1")    # 51865 vocab, 80 mels
 
 # raw_audio: 1-D float32 in [-1, 1] at 16 kHz
-text = model.transcribe(raw_audio, processor, language="en", task="transcribe")
+text = model.generate(raw_audio, processor, language="en", task="transcribe")
 print(text)        # ['hello world']
 ```
 
@@ -194,19 +220,19 @@ os.environ["KERAS_BACKEND"] = "torch"
 
 import soundfile as sf
 
-from kmodels.models.whisper import WhisperGenerate, WhisperProcessor
+from kmodels.models.whisper import WhisperSpeechToText, WhisperProcessor
 
 # Build model + processor
-model = WhisperGenerate.from_weights("whisper_base")
+model = WhisperSpeechToText.from_weights("whisper_base")
 processor = WhisperProcessor(variant="v1")
 
 # Load a 16 kHz mono float32 waveform
 audio, sr = sf.read("assets/librispeech_sample.wav")
 assert sr == 16000
 
-# Transcribe — `.transcribe` runs feature extraction, encoder,
+# Transcribe — `.generate` runs feature extraction, encoder,
 # greedy decoding, and detokenization in one call.
-text = model.transcribe(audio, processor, language="en", task="transcribe", max_new_tokens=224)
+text = model.generate(audio, processor, language="en", task="transcribe", max_new_tokens=224)
 print(text[0])
 ```
 
@@ -223,11 +249,11 @@ once you normalize.
 
 ### Translation to English
 
-Swap `task="transcribe"` for `task="translate"` — `transcribe` looks
+Swap `task="transcribe"` for `task="translate"` — `.generate` looks
 up the right token ids internally:
 
 ```python
-text = model.transcribe(wave, processor, language="fr", task="translate", max_new_tokens=224)
+text = model.generate(wave, processor, language="fr", task="translate", max_new_tokens=224)
 ```
 
 ### Auto language detection
@@ -236,13 +262,13 @@ Pass `language=None` to drop the language slot from the prompt — the
 decoder picks the language from its own logits at position 1.
 
 ```python
-text = model.transcribe(wave, processor, language=None, task="transcribe")
+text = model.generate(wave, processor, language=None, task="transcribe")
 ```
 
 ### Returning token ids instead of text
 
 ```python
-ids = model.transcribe(wave, processor, language="en", return_ids=True)   # List[List[int]]
+ids = model.generate(wave, processor, language="en", return_ids=True)   # List[List[int]]
 ```
 
 ### Using the lower-level API directly
@@ -388,7 +414,7 @@ use.
 
 ## Generation
 
-The greedy decoding loop is a method on :class:`WhisperGenerate`
+The greedy decoding loop is a method on :class:`WhisperSpeechToText`
 (matches HF's default Whisper generate). It supports the same logit
 processors:
 
@@ -404,7 +430,7 @@ processors:
 ```python
 from kmodels.models.whisper.config import WHISPER_SUPPRESS_TOKENS
 
-text = model.transcribe(
+text = model.generate(
     wave, processor,
     language="en", task="transcribe",
     max_new_tokens=224,
