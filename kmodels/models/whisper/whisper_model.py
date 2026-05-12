@@ -16,6 +16,7 @@ from .whisper_layers import (
     LearnedPositionEmbedding,
     SinusoidalPositionEmbedding,
     WhisperAttention,
+    WhisperLayerWeights,
 )
 
 _ACTIVATION_ALIASES = {
@@ -137,9 +138,16 @@ def whisper_encoder(
     encoder_ffn_dim,
     activation=_gelu,
     layer_norm_eps=1e-5,
+    output_all_hidden_states=False,
     name="encoder",
 ):
-    """Build the Whisper encoder as a Functional :class:`keras.Model`."""
+    """Build the Whisper encoder as a Functional :class:`keras.Model`.
+
+    When ``output_all_hidden_states=True`` the model returns the list of
+    ``encoder_layers + 1`` hidden states (post-embedding through
+    final-LN) instead of just the last one. Used by
+    :class:`WhisperAudioClassify` with weighted layer sum.
+    """
     mel = layers.Input(shape=(num_mel_bins, None), name="input_features")
     x = layers.Permute((2, 1), name="encoder_permute_in")(mel)
 
@@ -168,6 +176,7 @@ def whisper_encoder(
         name="encoder_embed_positions",
     )(x)
 
+    all_hidden = [x]
     for i in range(encoder_layers):
         x = whisper_encoder_block(
             x,
@@ -178,8 +187,13 @@ def whisper_encoder(
             activation=activation,
             layer_norm_eps=layer_norm_eps,
         )
+        all_hidden.append(x)
 
     x = layers.LayerNormalization(epsilon=layer_norm_eps, name="encoder_layer_norm")(x)
+
+    if output_all_hidden_states:
+        all_hidden[-1] = x
+        return keras.Model(inputs=mel, outputs=all_hidden, name=name)
     return keras.Model(inputs=mel, outputs=x, name=name)
 
 
@@ -634,3 +648,156 @@ class WhisperGenerate(WhisperModel):
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class WhisperAudioClassify(BaseModel):
+    """Whisper encoder + linear classifier for audio classification.
+
+    Mirrors HF's ``WhisperForAudioClassification``: uses **only the
+    Whisper encoder** (no decoder), then a per-frame ``projector`` Dense,
+    a mean pool over time, and a final linear classifier producing
+    ``num_labels`` logits.
+
+    When ``use_weighted_layer_sum=True``, all encoder hidden states
+    (post-embedding through final LayerNorm) are stacked and combined
+    by a learnable softmax weighting before the projector — matching
+    the SUPERB-style classification head used by HF.
+
+    .. code-block:: python
+
+        model = WhisperAudioClassify.from_weights(
+            "hf:sanchit-gandhi/whisper-tiny-ft-keyword-spotting"
+        )
+        processor = WhisperFeatureExtractor()
+        mel = processor(audio)
+        logits = model(mel)              # (B, num_labels)
+
+    Args:
+        d_model: Encoder hidden dimension.
+        encoder_layers: Number of encoder transformer blocks.
+        encoder_attention_heads: Encoder self-attention head count.
+        encoder_ffn_dim: Encoder MLP intermediate dim.
+        num_mel_bins: Mel bin count of the input log-mel spectrogram.
+        max_source_positions: Max encoder position. Always ``1500``.
+        num_labels: Number of output classes.
+        classifier_proj_size: Projector hidden dim. Defaults to ``256``.
+        use_weighted_layer_sum: Combine all encoder hidden states via a
+            learnable softmax. Defaults to ``False``.
+        activation_function: MLP activation. Defaults to ``"gelu"``.
+        layer_norm_eps: Epsilon for every LayerNorm. Defaults to ``1e-5``.
+        name: Model name.
+    """
+
+    KMODELS_CONFIG = None
+    KMODELS_WEIGHTS = None
+    HF_MODEL_TYPE = "whisper"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        from kmodels.base.base_model import hf_num_labels
+
+        return {
+            "d_model": hf_config["d_model"],
+            "encoder_layers": hf_config["encoder_layers"],
+            "encoder_attention_heads": hf_config["encoder_attention_heads"],
+            "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
+            "num_mel_bins": hf_config.get("num_mel_bins", 80),
+            "max_source_positions": hf_config.get("max_source_positions", 1500),
+            "num_labels": hf_num_labels(hf_config),
+            "classifier_proj_size": hf_config.get("classifier_proj_size", 256),
+            "use_weighted_layer_sum": hf_config.get("use_weighted_layer_sum", False),
+            "activation_function": hf_config.get("activation_function", "gelu"),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.whisper.convert_whisper_torch_to_keras import (
+            transfer_whisper_audio_classify_weights,
+        )
+
+        transfer_whisper_audio_classify_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        d_model=384,
+        encoder_layers=4,
+        encoder_attention_heads=6,
+        encoder_ffn_dim=1536,
+        num_mel_bins=80,
+        max_source_positions=1500,
+        num_labels=2,
+        classifier_proj_size=256,
+        use_weighted_layer_sum=False,
+        activation_function="gelu",
+        layer_norm_eps=1e-5,
+        name="WhisperAudioClassify",
+        **kwargs,
+    ):
+        activation_fn = _resolve_activation(activation_function)
+
+        encoder = whisper_encoder(
+            d_model=d_model,
+            num_mel_bins=num_mel_bins,
+            max_source_positions=max_source_positions,
+            encoder_layers=encoder_layers,
+            encoder_attention_heads=encoder_attention_heads,
+            encoder_ffn_dim=encoder_ffn_dim,
+            activation=activation_fn,
+            layer_norm_eps=layer_norm_eps,
+            output_all_hidden_states=use_weighted_layer_sum,
+            name=f"{name}_encoder",
+        )
+
+        input_features = layers.Input(shape=(num_mel_bins, None), name="input_features")
+        encoder_out = encoder(input_features)
+
+        if use_weighted_layer_sum:
+            x = WhisperLayerWeights(
+                num_layers=encoder_layers + 1, name="layer_weights"
+            )(encoder_out)
+        else:
+            x = encoder_out
+
+        x = layers.Dense(classifier_proj_size, name="projector")(x)
+        x = layers.GlobalAveragePooling1D(name="audio_pool")(x)
+        logits = layers.Dense(num_labels, name="classifier")(x)
+
+        super().__init__(inputs=input_features, outputs=logits, name=name, **kwargs)
+
+        self.encoder = encoder
+        self.d_model = d_model
+        self.encoder_layers = encoder_layers
+        self.encoder_attention_heads = encoder_attention_heads
+        self.encoder_ffn_dim = encoder_ffn_dim
+        self.num_mel_bins = num_mel_bins
+        self.max_source_positions = max_source_positions
+        self.num_labels = num_labels
+        self.classifier_proj_size = classifier_proj_size
+        self.use_weighted_layer_sum = use_weighted_layer_sum
+        self.activation_function = activation_function
+        self.layer_norm_eps = layer_norm_eps
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "d_model": self.d_model,
+                "encoder_layers": self.encoder_layers,
+                "encoder_attention_heads": self.encoder_attention_heads,
+                "encoder_ffn_dim": self.encoder_ffn_dim,
+                "num_mel_bins": self.num_mel_bins,
+                "max_source_positions": self.max_source_positions,
+                "num_labels": self.num_labels,
+                "classifier_proj_size": self.classifier_proj_size,
+                "use_weighted_layer_sum": self.use_weighted_layer_sum,
+                "activation_function": self.activation_function,
+                "layer_norm_eps": self.layer_norm_eps,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

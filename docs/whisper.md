@@ -3,7 +3,8 @@
 **Paper**: [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356)
 
 Whisper is OpenAI's encoder-decoder transformer for multilingual speech
-recognition and translation. The encoder ingests an 80- or 128-channel
+recognition, translation, and (with a classification head on the
+encoder side) audio classification. The encoder ingests an 80- or 128-channel
 log-mel spectrogram (30 s, 16 kHz, padded) through a 2-layer conv stem
 (stride 1 + stride 2) and a stack of pre-LN transformer blocks; the
 decoder generates byte-level BPE token ids autoregressively, attending
@@ -130,6 +131,11 @@ text = model.transcribe(audio, processor, language="de", task="transcribe")
 - **Generation in the model class**: `WhisperGenerate` extends
   `WhisperModel` and adds `.generate()` / `.transcribe()` — mirrors HF's
   `WhisperForConditionalGeneration` (model class + `.generate()` method).
+- **Audio classification**: `WhisperAudioClassify` mirrors HF's
+  `WhisperForAudioClassification` — encoder + projector + linear head
+  for tasks like language id, keyword spotting, or music-genre
+  classification. Supports `use_weighted_layer_sum` over all encoder
+  hidden states.
 - **Single processor entry point**: `WhisperProcessor` bundles the
   feature extractor, tokenizer, and `forced_decoder_ids` builder —
   matches the HF API surface so port code is one-liner equivalent.
@@ -411,6 +417,45 @@ text = model.transcribe(
 "encoder_hidden_states": enc_out})` are also exposed directly for
 custom decoding loops (beam search, prefix scoring, KV-cache
 implementations, etc.).
+
+## Audio Classification
+
+`WhisperAudioClassify` mirrors HF's `WhisperForAudioClassification`:
+the Whisper encoder feeds a per-frame `projector` Dense, a mean pool
+over time, and a final linear classifier head producing `num_labels`
+logits. The decoder is **not** used. Use it for downstream
+classification tasks like language identification, keyword spotting,
+or music-genre prediction.
+
+```python
+from kmodels.models.whisper import WhisperAudioClassify, WhisperFeatureExtractor
+
+# Public Whisper-tiny fine-tuned on Google Speech Commands (12 classes)
+model = WhisperAudioClassify.from_weights(
+    "hf:sanchit-gandhi/whisper-tiny-ft-keyword-spotting"
+)
+feat = WhisperFeatureExtractor(n_mels=80)
+mel = feat(raw_audio)                # (B, 80, 3000)
+logits = model(mel)                  # (B, 12)
+pred = logits.argmax(axis=-1)
+```
+
+Construct from scratch for fine-tuning on a new dataset:
+
+```python
+model = WhisperAudioClassify(
+    d_model=384, encoder_layers=4, encoder_attention_heads=6,
+    encoder_ffn_dim=1536, num_mel_bins=80,
+    num_labels=10,                   # e.g. GTZAN music genre
+    classifier_proj_size=256,
+    use_weighted_layer_sum=False,    # set True for SUPERB-style head
+)
+```
+
+With `use_weighted_layer_sum=True`, a learnable softmax combines all
+encoder hidden states (post-embedding through final LayerNorm) before
+the projector — matches the HF config flag and weight key
+`layer_weights`.
 
 ## Fine-tuning
 

@@ -224,6 +224,37 @@ def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
     _transfer_decoder(keras_model.decoder, state, keras_model.decoder_layers)
 
 
+def transfer_whisper_audio_classify_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer HuggingFace ``WhisperForAudioClassification`` weights.
+
+    Loads the encoder (encoder only — no decoder), the optional
+    learnable ``layer_weights`` vector for weighted-layer-sum, the
+    ``projector`` Dense, and the final linear ``classifier`` head.
+
+    Args:
+        keras_model: A :class:`WhisperAudioClassify` instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``WhisperForAudioClassification.state_dict()``.
+    """
+    state = _strip_model_prefix(hf_state_dict)
+    _transfer_encoder(keras_model.encoder, state, keras_model.encoder_layers)
+
+    if keras_model.use_weighted_layer_sum:
+        keras_model.get_layer("layer_weights").layer_weights.assign(
+            state["layer_weights"]
+        )
+
+    projector = keras_model.get_layer("projector")
+    projector.kernel.assign(np.transpose(state["projector.weight"]))
+    transfer_weights("projector.bias", projector.bias, state["projector.bias"])
+
+    classifier = keras_model.get_layer("classifier")
+    classifier.kernel.assign(np.transpose(state["classifier.weight"]))
+    transfer_weights("classifier.bias", classifier.bias, state["classifier.bias"])
+
+
 if __name__ == "__main__":
     from keras import ops
     from transformers import WhisperForConditionalGeneration
