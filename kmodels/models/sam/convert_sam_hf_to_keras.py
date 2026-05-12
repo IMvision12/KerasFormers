@@ -7,7 +7,6 @@ import torch
 from tqdm import tqdm
 from transformers import SamModel
 
-from kmodels.models.sam import SAMPromptableSegment
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -270,6 +269,8 @@ SAM_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    from kmodels.models.sam import SAMPromptableSegment
+
     for variant, hf_id in SAM_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")
