@@ -645,9 +645,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 64, 64, 21),
     },
-    "EoMTSegment": {
+    "EoMTUniversalSegment": {
         "module": "kmodels.models.eomt",
-        "model_cls": "EoMTSegment",
+        "model_cls": "EoMTUniversalSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "hidden_size": 384,

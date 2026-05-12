@@ -207,7 +207,7 @@ class EoMTModel(BaseModel):
     ``num_blocks`` encoder layers. Returns the post-LayerNorm sequence
     output of shape
     ``(batch, num_queries + num_prefix + num_patches, hidden_size)``.
-    Pair with :class:`EoMTSegment` to get the full universal-
+    Pair with :class:`EoMTUniversalSegment` to get the full universal-
     segmentation outputs (class logits + mask logits).
 
     Reference:
@@ -333,7 +333,7 @@ class EoMTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class EoMTSegment(BaseModel):
+class EoMTUniversalSegment(BaseModel):
     """EoMT full universal-segmentation model (encoder + class + mask heads).
 
     Composes :class:`EoMTModel` and adds the class-prediction head, the
@@ -406,7 +406,7 @@ class EoMTSegment(BaseModel):
         layer_norm_eps=1e-6,
         input_shape=None,
         input_tensor=None,
-        name="EoMTSegment",
+        name="EoMTUniversalSegment",
         **kwargs,
     ):
         if input_shape is None:

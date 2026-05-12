@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import EomtForUniversalSegmentation
 
-from kmodels.models.eomt import EoMTSegment
+from kmodels.models.eomt import EoMTUniversalSegment
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -31,7 +31,7 @@ def transfer_eomt_weights(
     (V1 and V2 share architecture).
 
     Args:
-        keras_model: An ``EoMTSegment`` instance.
+        keras_model: An ``EoMTUniversalSegment`` instance.
         hf_state_dict: Mapping of HF weight names to numpy arrays from
             ``EomtForUniversalSegmentation.state_dict()``.
     """
@@ -163,7 +163,9 @@ if __name__ == "__main__":
         print(f"Converting: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
-        keras_model: keras.Model = EoMTSegment.from_weights(variant, load_weights=False)
+        keras_model: keras.Model = EoMTUniversalSegment.from_weights(
+            variant, load_weights=False
+        )
         hf_model = EomtForUniversalSegmentation.from_pretrained(hf_id).eval()
         hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
