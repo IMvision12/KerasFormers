@@ -2,10 +2,9 @@ import keras
 import numpy as np
 from keras import layers, utils
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import load_weights_from_config
+from kmodels.base import BaseModel
 
-from .config import SAM2_MODEL_CONFIG, SAM2_WEIGHTS_CONFIG
+from .config import SAM2_CONFIG, SAM2_WEIGHTS
 from .sam2_layers import (
     SAM2HieraPositionEmbedding,
     SAM2ImagePositionalEmbeddings,
@@ -153,7 +152,7 @@ def sam2_mask_embedding(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SAM2(keras.Model):
+class Sam2Model(BaseModel):
     """Segment Anything Model 2 (SAM2) for promptable image segmentation.
 
     SAM2 treats image segmentation as a promptable task, producing
@@ -172,6 +171,11 @@ class SAM2(keras.Model):
        then predicts multiple segmentation masks, IoU quality scores,
        and object-presence scores via hypernetwork MLPs. High-resolution
        feature skip connections from the FPN improve mask quality.
+
+    Construction:
+
+    >>> Sam2Model.from_weights("sam2_hiera_tiny")              # kmodels release
+    >>> Sam2Model.from_weights("hf:facebook/sam2-hiera-tiny")  # HF passthrough
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -250,6 +254,38 @@ class SAM2(keras.Model):
     DYNAMIC_MULTIMASK_STABILITY_DELTA = 0.05
     DYNAMIC_MULTIMASK_STABILITY_THRESH = 0.98
 
+    KMODELS_CONFIG = SAM2_CONFIG
+    KMODELS_WEIGHTS = SAM2_WEIGHTS
+    # HF's facebook/sam2-hiera-* repos are Sam2VideoModel checkpoints
+    # (model_type="sam2_video"); image-only sam2 repos use "sam2".
+    # Both share the image-side weights, so we accept either.
+    HF_MODEL_TYPE = ("sam2", "sam2_video")
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config["vision_config"]
+        bc = vc["backbone_config"]
+        config = {
+            "hidden_size": bc["hidden_size"],
+            "blocks_per_stage": bc["blocks_per_stage"],
+            "embed_dim_per_stage": bc["embed_dim_per_stage"],
+            "num_attention_heads_per_stage": bc["num_attention_heads_per_stage"],
+            "window_size_per_stage": bc.get("window_size_per_stage", [8, 4, 14, 7]),
+            "global_attention_blocks": bc["global_attention_blocks"],
+            "backbone_channel_list": vc["backbone_channel_list"],
+        }
+        if "window_pos_embed_bg_size" in bc:
+            config["window_pos_embed_bg_size"] = bc["window_pos_embed_bg_size"]
+        return config
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.sam2.convert_sam2_hf_to_keras import (
+            transfer_sam2_weights,
+        )
+
+        transfer_sam2_weights(keras_model, hf_state_dict)
+
     def __init__(
         self,
         hidden_size=96,
@@ -266,7 +302,7 @@ class SAM2(keras.Model):
         multimask_output=True,
         input_shape=None,
         input_tensor=None,
-        name="SAM2",
+        name="Sam2Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -733,149 +769,3 @@ class SAM2(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-def create_sam2_model(
-    variant,
-    input_shape=None,
-    input_tensor=None,
-    weights=None,
-    **kwargs,
-):
-    """Factory function for creating SAM2 model variants.
-
-    Looks up the architecture configuration for the given variant
-    name, instantiates a ``SAM2`` model, and optionally loads
-    pretrained weights from the configured URL or a local file
-    path.
-
-    Args:
-        variant: String, model variant name (e.g.,
-            ``"Sam2Tiny"``).
-        input_shape: Optional tuple of integers specifying the
-            input shape ``(H, W, C)``.
-        input_tensor: Optional Keras tensor to use as the model
-            input.
-        weights: String, one of ``None`` (random initialization),
-            a weight identifier from the config, or a path to a
-            weights file.
-        **kwargs: Additional keyword arguments passed to the
-            ``SAM2`` constructor.
-
-    Returns:
-        A configured ``SAM2`` model instance.
-    """
-    config = SAM2_MODEL_CONFIG[variant]
-
-    valid_model_weights = []
-    if variant in SAM2_WEIGHTS_CONFIG:
-        valid_model_weights = list(SAM2_WEIGHTS_CONFIG[variant].keys())
-
-    valid_weights = [None] + valid_model_weights
-
-    if weights not in valid_weights and not isinstance(weights, str):
-        raise ValueError(
-            f"Invalid weights: {weights}. "
-            f"Supported weights for {variant} are "
-            f"{', '.join([str(w) for w in valid_weights])}, "
-            "a path to a weights file, or None."
-        )
-
-    if input_shape is None:
-        image_size = SAM2.IMAGE_SIZE
-        df = keras.config.image_data_format()
-        if df == "channels_first":
-            input_shape = (3, image_size, image_size)
-        else:
-            input_shape = (image_size, image_size, 3)
-        print(f"Using default input shape {input_shape}.")
-
-    model = SAM2(
-        hidden_size=config["hidden_size"],
-        blocks_per_stage=config["blocks_per_stage"],
-        embed_dim_per_stage=config["embed_dim_per_stage"],
-        num_attention_heads_per_stage=config["num_attention_heads_per_stage"],
-        window_size_per_stage=config["window_size_per_stage"],
-        global_attention_blocks=config["global_attention_blocks"],
-        backbone_channel_list=config["backbone_channel_list"],
-        window_pos_embed_bg_size=config.get("window_pos_embed_bg_size"),
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=variant,
-        **kwargs,
-    )
-
-    if weights in valid_model_weights:
-        print(f"Loading {weights} weights for {variant}.")
-        load_weights_from_config(variant, weights, model, SAM2_WEIGHTS_CONFIG)
-    elif weights is not None and isinstance(weights, str):
-        print(f"Loading weights from file: {weights}")
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def Sam2Tiny(
-    input_shape=None,
-    input_tensor=None,
-    weights="sav",
-    **kwargs,
-):
-    return create_sam2_model(
-        "Sam2Tiny",
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        **kwargs,
-    )
-
-
-@register_model
-def Sam2Small(
-    input_shape=None,
-    input_tensor=None,
-    weights="sav",
-    **kwargs,
-):
-    return create_sam2_model(
-        "Sam2Small",
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        **kwargs,
-    )
-
-
-@register_model
-def Sam2BasePlus(
-    input_shape=None,
-    input_tensor=None,
-    weights="sav",
-    **kwargs,
-):
-    return create_sam2_model(
-        "Sam2BasePlus",
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        **kwargs,
-    )
-
-
-@register_model
-def Sam2Large(
-    input_shape=None,
-    input_tensor=None,
-    weights="sav",
-    **kwargs,
-):
-    return create_sam2_model(
-        "Sam2Large",
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        **kwargs,
-    )

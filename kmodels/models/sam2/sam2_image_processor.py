@@ -303,10 +303,10 @@ def Sam2GenerateMasks(
     deduplicates across crops via NMS on those boxes.
 
     Args:
-        model: A built :class:`kmodels.models.sam2.SAM2` instance.
+        model: A built :class:`kmodels.models.sam2.Sam2Model` instance.
             Must expose ``vision_encoder_model`` and
             ``prompt_decoder_model`` (both are attached automatically
-            in :meth:`SAM2.__init__`). The model should be built with
+            in :meth:`Sam2Model.__init__`). The model should be built with
             the default ``include_box_input=False``,
             ``include_mask_input=False`` flags so the decoder
             sub-model accepts the point-only prompt interface used
@@ -352,9 +352,9 @@ def Sam2GenerateMasks(
 
     Example:
         ```python
-        from kmodels.models.sam2 import Sam2Tiny, Sam2GenerateMasks
+        from kmodels.models.sam2 import Sam2Model, Sam2GenerateMasks
 
-        model = Sam2Tiny(weights="sav")
+        model = Sam2Model.from_weights("sam2_hiera_tiny")
         out = Sam2GenerateMasks(model, "photo.jpg", points_per_side=16)
         print(len(out["masks"]), "masks found")
         ```
