@@ -633,24 +633,28 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": (2, 42, 42, 1),
     },
-    "DeepLabV3ResNet50": {
+    "DeepLabV3Segment": {
         "module": "kmodels.models.deeplabv3",
-        "model_cls": "DeepLabV3ResNet50",
+        "model_cls": "DeepLabV3Segment",
         "model_type": "segmentation",
         "init_kwargs": {
-            "weights": None,
+            "backbone_variant": "ResNet50",
             "input_shape": (64, 64, 3),
             "num_classes": 21,
         },
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 64, 64, 21),
     },
-    "EoMTSmall": {
+    "EoMTSegment": {
         "module": "kmodels.models.eomt",
-        "model_cls": "EoMTSmall",
+        "model_cls": "EoMTSegment",
         "model_type": "segmentation",
         "init_kwargs": {
-            "weights": None,
+            "hidden_size": 384,
+            "num_hidden_layers": 12,
+            "num_attention_heads": 6,
+            "num_blocks": 3,
+            "layerscale_value": 1.0,
             "input_shape": (64, 64, 3),
             "num_queries": 100,
             "num_labels": 133,
@@ -661,12 +665,11 @@ MODEL_TEST_CONFIGS = {
             "mask_logits": (2, 100, 16, 16),
         },
     },
-    "SegFormerB0": {
+    "SegFormerSegment": {
         "module": "kmodels.models.segformer",
-        "model_cls": "SegFormerB0",
+        "model_cls": "SegFormerSegment",
         "model_type": "segmentation",
         "init_kwargs": {
-            "weights": None,
             "input_shape": (32, 32, 3),
             "num_classes": 150,
         },

@@ -1,4 +1,5 @@
-from typing import Dict, List, Union
+import gc
+from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
@@ -6,7 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import EomtForUniversalSegmentation
 
-from kmodels.models.eomt.eomt_model import EoMTBase, EoMTLarge, EoMTSmall
+from kmodels.models.eomt import EoMTSegment
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -18,64 +19,23 @@ weight_name_mapping: Dict[str, str] = {
     "beta": "bias",
 }
 
-model_configs: List[Dict[str, Union[type, str, int]]] = [
-    {
-        "keras_model_cls": EoMTSmall,
-        "hf_model_name": "tue-mps/coco_panoptic_eomt_small_640_2x",
-        "input_shape": (640, 640, 3),
-        "num_queries": 200,
-        "num_labels": 133,
-    },
-    {
-        "keras_model_cls": EoMTBase,
-        "hf_model_name": "tue-mps/coco_panoptic_eomt_base_640_2x",
-        "input_shape": (640, 640, 3),
-        "num_queries": 200,
-        "num_labels": 133,
-    },
-    {
-        "keras_model_cls": EoMTLarge,
-        "hf_model_name": "tue-mps/coco_panoptic_eomt_large_640",
-        "input_shape": (640, 640, 3),
-        "num_queries": 200,
-        "num_labels": 133,
-    },
-    {
-        "keras_model_cls": EoMTLarge,
-        "hf_model_name": "tue-mps/coco_instance_eomt_large_640",
-        "input_shape": (640, 640, 3),
-        "num_queries": 200,
-        "num_labels": 80,
-    },
-    {
-        "keras_model_cls": EoMTLarge,
-        "hf_model_name": "tue-mps/ade20k_semantic_eomt_large_512",
-        "input_shape": (512, 512, 3),
-        "num_queries": 100,
-        "num_labels": 150,
-    },
-]
 
-for model_config in model_configs:
-    print(f"\n{'=' * 60}")
-    print(f"Converting {model_config['hf_model_name']}...")
-    print(f"{'=' * 60}")
+def transfer_eomt_weights(
+    keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer EoMT weights from a HuggingFace state-dict.
 
-    keras_model: keras.Model = model_config["keras_model_cls"](
-        num_queries=model_config["num_queries"],
-        num_labels=model_config["num_labels"],
-        input_shape=model_config["input_shape"],
-        weights=None,
-    )
+    Walks the embeddings, transformer encoder layers, query injection,
+    final ``LayerNormalization``, class predictor, mask head, and
+    upscale blocks. Works for both relative and metric checkpoints
+    (V1 and V2 share architecture).
 
-    hf_model: torch.nn.Module = EomtForUniversalSegmentation.from_pretrained(
-        model_config["hf_model_name"]
-    ).eval()
-
-    hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
-
+    Args:
+        keras_model: An ``EoMTSegment`` instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``EomtForUniversalSegmentation.state_dict()``.
+    """
     emb = keras_model.get_layer("embeddings")
-
     transfer_weights(
         "conv_kernel",
         emb.patch_embeddings.projection.weights[0],
@@ -84,10 +44,8 @@ for model_config in model_configs:
     emb.patch_embeddings.projection.weights[1].assign(
         hf_state_dict["embeddings.patch_embeddings.projection.bias"]
     )
-
     emb.cls_token.assign(hf_state_dict["embeddings.cls_token"])
     emb.register_tokens.assign(hf_state_dict["embeddings.register_tokens"])
-
     pos_emb = hf_state_dict["embeddings.position_embeddings.weight"]
     emb.position_embeddings.assign(np.expand_dims(pos_emb, axis=0))
 
@@ -96,7 +54,7 @@ for model_config in model_configs:
 
     num_layers = keras_model.num_hidden_layers
     use_swiglu = keras_model.use_swiglu_ffn
-    for i in tqdm(range(num_layers), desc="Transferring transformer layers"):
+    for i in tqdm(range(num_layers), desc="Transferring EoMT layers"):
         hf_prefix = f"layers.{i}"
         k_prefix = f"layers_{i}"
 
@@ -122,16 +80,12 @@ for model_config in model_configs:
         if not use_swiglu:
             fc1 = keras_model.get_layer(f"{k_prefix}_mlp_fc1")
             transfer_weights(
-                "kernel",
-                fc1.weights[0],
-                hf_state_dict[f"{hf_prefix}.mlp.fc1.weight"],
+                "kernel", fc1.weights[0], hf_state_dict[f"{hf_prefix}.mlp.fc1.weight"]
             )
             fc1.weights[1].assign(hf_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
             fc2 = keras_model.get_layer(f"{k_prefix}_mlp_fc2")
             transfer_weights(
-                "kernel",
-                fc2.weights[0],
-                hf_state_dict[f"{hf_prefix}.mlp.fc2.weight"],
+                "kernel", fc2.weights[0], hf_state_dict[f"{hf_prefix}.mlp.fc2.weight"]
             )
             fc2.weights[1].assign(hf_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
         else:
@@ -159,18 +113,14 @@ for model_config in model_configs:
 
     class_pred = keras_model.get_layer("class_predictor")
     transfer_weights(
-        "kernel",
-        class_pred.weights[0],
-        hf_state_dict["class_predictor.weight"],
+        "kernel", class_pred.weights[0], hf_state_dict["class_predictor.weight"]
     )
     class_pred.weights[1].assign(hf_state_dict["class_predictor.bias"])
 
     for fc_name in ["fc1", "fc2", "fc3"]:
         fc = keras_model.get_layer(f"mask_head_{fc_name}")
         transfer_weights(
-            "kernel",
-            fc.weights[0],
-            hf_state_dict[f"mask_head.{fc_name}.weight"],
+            "kernel", fc.weights[0], hf_state_dict[f"mask_head.{fc_name}.weight"]
         )
         fc.weights[1].assign(hf_state_dict[f"mask_head.{fc_name}.bias"])
 
@@ -197,44 +147,59 @@ for model_config in model_configs:
         ln.weights[0].assign(hf_state_dict[f"{hf_block_prefix}.layernorm2d.weight"])
         ln.weights[1].assign(hf_state_dict[f"{hf_block_prefix}.layernorm2d.bias"])
 
-    print("\nVerifying model equivalence...")
-    np.random.seed(42)
-    input_shape = model_config["input_shape"]
-    test_input = np.random.rand(1, *input_shape).astype(np.float32)
 
-    mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
-    std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
-    normalized_input = (test_input - mean) / std
+EOMT_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+    ("eomt_small_coco_panoptic_640", "tue-mps/coco_panoptic_eomt_small_640_2x"),
+    ("eomt_base_coco_panoptic_640", "tue-mps/coco_panoptic_eomt_base_640_2x"),
+    ("eomt_large_coco_panoptic_640", "tue-mps/coco_panoptic_eomt_large_640"),
+    ("eomt_large_coco_instance_640", "tue-mps/coco_instance_eomt_large_640"),
+    ("eomt_large_ade20k_semantic_512", "tue-mps/ade20k_semantic_eomt_large_512"),
+]
 
-    hf_input = torch.tensor(normalized_input).permute(0, 3, 1, 2).float()
-    with torch.no_grad():
-        hf_output = hf_model(pixel_values=hf_input)
-        hf_class_logits = hf_output.class_queries_logits.numpy()
-        hf_mask_logits = hf_output.masks_queries_logits.numpy()
 
-    keras_output = keras_model(normalized_input.astype(np.float32), training=False)
-    keras_class_logits = keras.ops.convert_to_numpy(keras_output["class_logits"])
-    keras_mask_logits = keras.ops.convert_to_numpy(keras_output["mask_logits"])
+if __name__ == "__main__":
+    for variant, hf_id in EOMT_CONVERSION_CONFIG:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  {hf_id}")
+        print(f"{'=' * 60}")
 
-    class_diff = np.max(np.abs(hf_class_logits - keras_class_logits))
-    mask_diff = np.max(np.abs(hf_mask_logits - keras_mask_logits))
+        keras_model: keras.Model = EoMTSegment.from_weights(variant, load_weights=False)
+        hf_model = EomtForUniversalSegmentation.from_pretrained(hf_id).eval()
+        hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-    print(f"Max class logits diff: {class_diff:.6f}")
-    print(f"Max mask logits diff:  {mask_diff:.6f}")
+        transfer_eomt_weights(keras_model, hf_state_dict)
 
-    if class_diff > 1e-3 or mask_diff > 5e-3:
-        raise ValueError(
-            f"Model equivalence test failed "
-            f"(class: {class_diff:.6f}, mask: {mask_diff:.6f})"
-        )
+        np.random.seed(42)
+        input_shape = keras_model._input_shape_val
+        test_input = np.random.rand(1, *input_shape).astype(np.float32)
+        mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
+        std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
+        normalized_input = (test_input - mean) / std
 
-    print("Model equivalence test passed!")
+        hf_input = torch.tensor(normalized_input).permute(0, 3, 1, 2).float()
+        with torch.no_grad():
+            hf_output = hf_model(pixel_values=hf_input)
+            hf_class_logits = hf_output.class_queries_logits.numpy()
+            hf_mask_logits = hf_output.masks_queries_logits.numpy()
 
-    model_filename = (
-        model_config["hf_model_name"].split("/")[-1].replace("-", "_") + ".weights.h5"
-    )
-    keras_model.save_weights(model_filename)
-    print(f"Model saved successfully as {model_filename}")
+        keras_output = keras_model(normalized_input.astype(np.float32), training=False)
+        keras_class_logits = keras.ops.convert_to_numpy(keras_output["class_logits"])
+        keras_mask_logits = keras.ops.convert_to_numpy(keras_output["mask_logits"])
 
-    del keras_model, hf_model, hf_state_dict
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        class_diff = float(np.max(np.abs(hf_class_logits - keras_class_logits)))
+        mask_diff = float(np.max(np.abs(hf_mask_logits - keras_mask_logits)))
+        print(f"  Max class logits diff: {class_diff:.6f}")
+        print(f"  Max mask logits diff:  {mask_diff:.6f}")
+        if class_diff > 1e-3 or mask_diff > 5e-3:
+            raise ValueError(f"{variant}: class {class_diff:.6f}, mask {mask_diff:.6f}")
+        print("  Verification OK")
+
+        model_filename = f"{variant}.weights.h5"
+        keras_model.save_weights(model_filename)
+        print(f"  Saved -> {model_filename}")
+
+        del keras_model, hf_model, hf_state_dict
+        keras.backend.clear_session()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

@@ -1,4 +1,5 @@
-from typing import Dict, List
+import gc
+from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
@@ -6,7 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import SegformerForSemanticSegmentation
 
-from kmodels.models import segformer
+from kmodels.models.segformer import SegFormerSegment
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -18,7 +19,7 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-weight_name_mapping = {
+weight_name_mapping: Dict[str, str] = {
     "_": ".",
     "block": "segformer.encoder.block",
     "patch.embed": "segformer.encoder.patch_embeddings",
@@ -40,7 +41,7 @@ weight_name_mapping = {
     "predictions": "classifier",
 }
 
-attn_name_replace = {
+attn_name_replace: Dict[str, str] = {
     "block": "segformer.encoder.block",
     "attn.q": "attention.self.query",
     "attn.k": "attention.self.key",
@@ -50,176 +51,46 @@ attn_name_replace = {
     "attn.norm": "attention.self.layer_norm",
 }
 
-SEGFORMER_WEIGHTS_CONFIG: List[Dict] = [
-    # SegFormerB0
-    {
-        "keras_cls": segformer.SegFormerB0,
-        "hf_name": "nvidia/segformer-b0-finetuned-cityscapes-1024-1024",
-        "variant_name": "SegFormerB0",
-        "input_shape": (1024, 1024, 3),
-        "num_classes": 19,
-        "output": "SegFormer_B0_city_1024.weights.h5",
-    },
-    {
-        "keras_cls": segformer.SegFormerB0,
-        "hf_name": "nvidia/segformer-b0-finetuned-cityscapes-768-768",
-        "variant_name": "SegFormerB0",
-        "input_shape": (768, 768, 3),
-        "num_classes": 19,
-        "output": "SegFormer_B0_city_768.weights.h5",
-    },
-    {
-        "keras_cls": segformer.SegFormerB0,
-        "hf_name": "nvidia/segformer-b0-finetuned-ade-512-512",
-        "variant_name": "SegFormerB0",
-        "input_shape": (512, 512, 3),
-        "num_classes": 150,
-        "output": "SegFormer_B0_ade.weights.h5",
-    },
-    # SegFormerB1
-    {
-        "keras_cls": segformer.SegFormerB1,
-        "hf_name": "nvidia/segformer-b1-finetuned-cityscapes-1024-1024",
-        "variant_name": "SegFormerB1",
-        "input_shape": (1024, 1024, 3),
-        "num_classes": 19,
-        "output": "SegFormer_B1_city_1024.weights.h5",
-    },
-    {
-        "keras_cls": segformer.SegFormerB1,
-        "hf_name": "nvidia/segformer-b1-finetuned-ade-512-512",
-        "variant_name": "SegFormerB1",
-        "input_shape": (512, 512, 3),
-        "num_classes": 150,
-        "output": "SegFormer_B1_ade.weights.h5",
-    },
-    # SegFormerB2
-    {
-        "keras_cls": segformer.SegFormerB2,
-        "hf_name": "nvidia/segformer-b2-finetuned-cityscapes-1024-1024",
-        "variant_name": "SegFormerB2",
-        "input_shape": (1024, 1024, 3),
-        "num_classes": 19,
-        "output": "SegFormer_B2_city_1024.weights.h5",
-    },
-    {
-        "keras_cls": segformer.SegFormerB2,
-        "hf_name": "nvidia/segformer-b2-finetuned-ade-512-512",
-        "variant_name": "SegFormerB2",
-        "input_shape": (512, 512, 3),
-        "num_classes": 150,
-        "output": "SegFormer_B2_ade.weights.h5",
-    },
-    # SegFormerB3
-    {
-        "keras_cls": segformer.SegFormerB3,
-        "hf_name": "nvidia/segformer-b3-finetuned-cityscapes-1024-1024",
-        "variant_name": "SegFormerB3",
-        "input_shape": (1024, 1024, 3),
-        "num_classes": 19,
-        "output": "SegFormer_B3_city_1024.weights.h5",
-    },
-    {
-        "keras_cls": segformer.SegFormerB3,
-        "hf_name": "nvidia/segformer-b3-finetuned-ade-512-512",
-        "variant_name": "SegFormerB3",
-        "input_shape": (512, 512, 3),
-        "num_classes": 150,
-        "output": "SegFormer_B3_ade.weights.h5",
-    },
-    # SegFormerB4
-    {
-        "keras_cls": segformer.SegFormerB4,
-        "hf_name": "nvidia/segformer-b4-finetuned-cityscapes-1024-1024",
-        "variant_name": "SegFormerB4",
-        "input_shape": (1024, 1024, 3),
-        "num_classes": 19,
-        "output": "SegFormer_B4_city_1024.weights.h5",
-    },
-    {
-        "keras_cls": segformer.SegFormerB4,
-        "hf_name": "nvidia/segformer-b4-finetuned-ade-512-512",
-        "variant_name": "SegFormerB4",
-        "input_shape": (512, 512, 3),
-        "num_classes": 150,
-        "output": "SegFormer_B4_ade.weights.h5",
-    },
-    # SegFormerB5
-    {
-        "keras_cls": segformer.SegFormerB5,
-        "hf_name": "nvidia/segformer-b5-finetuned-cityscapes-1024-1024",
-        "variant_name": "SegFormerB5",
-        "input_shape": (1024, 1024, 3),
-        "num_classes": 19,
-        "output": "SegFormer_B5_city_1024.weights.h5",
-    },
-    {
-        "keras_cls": segformer.SegFormerB5,
-        "hf_name": "nvidia/segformer-b5-finetuned-ade-640-640",
-        "variant_name": "SegFormerB5",
-        "input_shape": (640, 640, 3),
-        "num_classes": 150,
-        "output": "SegFormer_B5_ade.weights.h5",
-    },
-]
 
-for config in SEGFORMER_WEIGHTS_CONFIG:
-    keras_cls = config["keras_cls"]
-    hf_name = config["hf_name"]
-    variant_name = config["variant_name"]
-    input_shape = config["input_shape"]
-    num_classes = config["num_classes"]
-    output_file = config["output"]
+def transfer_segformer_weights(
+    keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer SegFormer weights from a HuggingFace state-dict.
 
-    print(f"\n{'=' * 60}")
-    print(f"Converting {variant_name} from {hf_name}")
-    print(f"  input_shape={input_shape}, num_classes={num_classes}")
-    print(f"  output={output_file}")
-    print(f"{'=' * 60}")
+    Walks the MiT backbone weights and translates names from the
+    HF convention to ours, then transfers the four decode-head
+    projections, the fusion conv + batch-norm, and the final
+    classifier.
 
-    keras_model: keras.Model = keras_cls(
-        weights=None,
-        num_classes=num_classes,
-        input_shape=input_shape,
-        backbone=None,
-    )
-    torch_model: torch.nn.Module = SegformerForSemanticSegmentation.from_pretrained(
-        hf_name
-    ).eval()
-    trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-        torch_model
-    )
-    trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
-        keras_model.backbone
-    )
+    Args:
+        keras_model: A ``SegFormerSegment`` instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``SegformerForSemanticSegmentation.state_dict()``.
+    """
+    backbone_weights = list(split_model_weights(keras_model.backbone))
+    trainable, non_trainable = backbone_weights
 
     for keras_weight, keras_weight_name in tqdm(
-        trainable_keras_weights + non_trainable_keras_weights,
-        total=len(trainable_keras_weights + non_trainable_keras_weights),
-        desc=f"Transferring backbone weights ({variant_name})",
+        trainable + non_trainable,
+        desc="Transferring SegFormer backbone weights",
     ):
         torch_weight_name: str = keras_weight_name
-        for keras_name_part, torch_name_part in weight_name_mapping.items():
-            torch_weight_name = torch_weight_name.replace(
-                keras_name_part, torch_name_part
-            )
-
-        torch_weights_dict: Dict[str, torch.Tensor] = {
-            **trainable_torch_weights,
-            **non_trainable_torch_weights,
-        }
+        for keras_part, torch_part in weight_name_mapping.items():
+            torch_weight_name = torch_weight_name.replace(keras_part, torch_part)
 
         if "attention" in torch_weight_name:
             transfer_attention_weights(
-                keras_weight_name, keras_weight, torch_weights_dict, attn_name_replace
+                keras_weight_name,
+                keras_weight,
+                hf_state_dict,
+                attn_name_replace,
             )
             continue
 
-        if torch_weight_name not in torch_weights_dict:
+        if torch_weight_name not in hf_state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
 
-        torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
+        torch_weight = hf_state_dict[torch_weight_name]
         if not compare_keras_torch_names(
             keras_weight_name, keras_weight, torch_weight_name, torch_weight
         ):
@@ -229,104 +100,108 @@ for config in SEGFORMER_WEIGHTS_CONFIG:
                 torch_weight_name,
                 torch_weight.shape,
             )
-
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    pytorch_state_dict = torch_model.state_dict()
-
-    # Linear C1 projection
-    keras_model.get_layer(f"{variant_name}_head_linear_c1").weights[0].assign(
-        pytorch_state_dict["decode_head.linear_c.0.proj.weight"].cpu().numpy().T
-    )
-    keras_model.get_layer(f"{variant_name}_head_linear_c1").weights[1].assign(
-        pytorch_state_dict["decode_head.linear_c.0.proj.bias"].cpu().numpy()
-    )
-
-    # Linear C2 projection
-    keras_model.get_layer(f"{variant_name}_head_linear_c2").weights[0].assign(
-        pytorch_state_dict["decode_head.linear_c.1.proj.weight"].cpu().numpy().T
-    )
-    keras_model.get_layer(f"{variant_name}_head_linear_c2").weights[1].assign(
-        pytorch_state_dict["decode_head.linear_c.1.proj.bias"].cpu().numpy()
-    )
-
-    # Linear C3 projection
-    keras_model.get_layer(f"{variant_name}_head_linear_c3").weights[0].assign(
-        pytorch_state_dict["decode_head.linear_c.2.proj.weight"].cpu().numpy().T
-    )
-    keras_model.get_layer(f"{variant_name}_head_linear_c3").weights[1].assign(
-        pytorch_state_dict["decode_head.linear_c.2.proj.bias"].cpu().numpy()
-    )
-
-    # Linear C4 projection
-    keras_model.get_layer(f"{variant_name}_head_linear_c4").weights[0].assign(
-        pytorch_state_dict["decode_head.linear_c.3.proj.weight"].cpu().numpy().T
-    )
-    keras_model.get_layer(f"{variant_name}_head_linear_c4").weights[1].assign(
-        pytorch_state_dict["decode_head.linear_c.3.proj.bias"].cpu().numpy()
-    )
-
-    # Conv2D (linear fuse conv)
-    conv_weight = pytorch_state_dict["decode_head.linear_fuse.weight"].cpu().numpy()
-    conv_weight = np.transpose(conv_weight, (2, 3, 1, 0))
-    keras_model.get_layer(f"{variant_name}_head_fusion_conv").weights[0].assign(
-        conv_weight
-    )
-
-    # Batch Normalization
-    bn_layer = keras_model.get_layer(f"{variant_name}_head_fusion_bn")
-    bn_layer.weights[0].assign(
-        pytorch_state_dict["decode_head.batch_norm.weight"].cpu().numpy()
-    )
-    bn_layer.weights[1].assign(
-        pytorch_state_dict["decode_head.batch_norm.bias"].cpu().numpy()
-    )
-    bn_layer.weights[2].assign(
-        pytorch_state_dict["decode_head.batch_norm.running_mean"].cpu().numpy()
-    )
-    bn_layer.weights[3].assign(
-        pytorch_state_dict["decode_head.batch_norm.running_var"].cpu().numpy()
-    )
-
-    # Final Conv Layer
-    final_conv_weight = (
-        pytorch_state_dict["decode_head.classifier.weight"].cpu().numpy()
-    )
-    final_conv_weight = np.transpose(final_conv_weight, (2, 3, 1, 0))
-    keras_model.get_layer(f"{variant_name}_head_classifier").weights[0].assign(
-        final_conv_weight
-    )
-    keras_model.get_layer(f"{variant_name}_head_classifier").weights[1].assign(
-        pytorch_state_dict["decode_head.classifier.bias"].cpu().numpy()
-    )
-
-    # Verify equivalence (compare at classifier level before final upsample,
-    # since Keras upsamples to input size but HF outputs at 1/4 resolution)
-    print("Verifying model equivalence...")
-    np.random.seed(42)
-    test_input = np.random.rand(1, *input_shape).astype(np.float32)
-    hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
-
-    with torch.no_grad():
-        hf_output = torch_model(pixel_values=hf_input).logits.numpy()
-    hf_output = np.transpose(hf_output, (0, 2, 3, 1))
-
-    classifier_layer = keras_model.get_layer(f"{variant_name}_head_classifier")
-    sub_model = keras.Model(keras_model.input, classifier_layer.output)
-    keras_output = np.array(sub_model.predict(test_input, verbose=0))
-
-    max_diff = np.max(np.abs(hf_output - keras_output))
-    print(f"Max logits diff: {max_diff:.6f}")
-
-    if max_diff > 1e-3:
-        raise ValueError(
-            f"Equivalence test failed for {variant_name} - max diff {max_diff:.6f} > 1e-3"
+    for i in range(4):
+        layer = keras_model.get_layer(f"head_linear_c{i + 1}")
+        layer.weights[0].assign(
+            hf_state_dict[f"decode_head.linear_c.{i}.proj.weight"].T
         )
-    print("Model equivalence test passed!")
+        layer.weights[1].assign(hf_state_dict[f"decode_head.linear_c.{i}.proj.bias"])
 
-    # Save the model
-    keras_model.save_weights(output_file)
-    print(f"Saved {output_file}")
+    fusion_conv = keras_model.get_layer("head_fusion_conv")
+    fusion_conv.weights[0].assign(
+        np.transpose(hf_state_dict["decode_head.linear_fuse.weight"], (2, 3, 1, 0))
+    )
 
-    del keras_model, torch_model
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    bn = keras_model.get_layer("head_fusion_bn")
+    bn.weights[0].assign(hf_state_dict["decode_head.batch_norm.weight"])
+    bn.weights[1].assign(hf_state_dict["decode_head.batch_norm.bias"])
+    bn.weights[2].assign(hf_state_dict["decode_head.batch_norm.running_mean"])
+    bn.weights[3].assign(hf_state_dict["decode_head.batch_norm.running_var"])
+
+    classifier = keras_model.get_layer("head_classifier")
+    classifier.weights[0].assign(
+        np.transpose(hf_state_dict["decode_head.classifier.weight"], (2, 3, 1, 0))
+    )
+    classifier.weights[1].assign(hf_state_dict["decode_head.classifier.bias"])
+
+
+SEGFORMER_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+    (
+        "segformer_b0_cityscapes_1024",
+        "nvidia/segformer-b0-finetuned-cityscapes-1024-1024",
+    ),
+    ("segformer_b0_cityscapes_768", "nvidia/segformer-b0-finetuned-cityscapes-768-768"),
+    ("segformer_b0_ade_512", "nvidia/segformer-b0-finetuned-ade-512-512"),
+    (
+        "segformer_b1_cityscapes_1024",
+        "nvidia/segformer-b1-finetuned-cityscapes-1024-1024",
+    ),
+    ("segformer_b1_ade_512", "nvidia/segformer-b1-finetuned-ade-512-512"),
+    (
+        "segformer_b2_cityscapes_1024",
+        "nvidia/segformer-b2-finetuned-cityscapes-1024-1024",
+    ),
+    ("segformer_b2_ade_512", "nvidia/segformer-b2-finetuned-ade-512-512"),
+    (
+        "segformer_b3_cityscapes_1024",
+        "nvidia/segformer-b3-finetuned-cityscapes-1024-1024",
+    ),
+    ("segformer_b3_ade_512", "nvidia/segformer-b3-finetuned-ade-512-512"),
+    (
+        "segformer_b4_cityscapes_1024",
+        "nvidia/segformer-b4-finetuned-cityscapes-1024-1024",
+    ),
+    ("segformer_b4_ade_512", "nvidia/segformer-b4-finetuned-ade-512-512"),
+    (
+        "segformer_b5_cityscapes_1024",
+        "nvidia/segformer-b5-finetuned-cityscapes-1024-1024",
+    ),
+    ("segformer_b5_ade_640", "nvidia/segformer-b5-finetuned-ade-640-640"),
+]
+
+
+if __name__ == "__main__":
+    for variant, hf_id in SEGFORMER_CONVERSION_CONFIG:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  {hf_id}")
+        print(f"{'=' * 60}")
+
+        keras_model: keras.Model = SegFormerSegment.from_weights(
+            variant, load_weights=False
+        )
+        hf_model = SegformerForSemanticSegmentation.from_pretrained(hf_id).eval()
+        hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+
+        transfer_segformer_weights(keras_model, hf_state_dict)
+
+        np.random.seed(42)
+        input_shape = keras_model._input_shape_val
+        test_input = np.random.rand(1, *input_shape).astype(np.float32)
+        hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
+        with torch.no_grad():
+            hf_output = hf_model(pixel_values=hf_input).logits.numpy()
+        hf_output = np.transpose(hf_output, (0, 2, 3, 1))
+
+        classifier_layer = keras_model.get_layer("head_classifier")
+        sub_model = keras.Model(keras_model.input, classifier_layer.output)
+        keras_output = np.array(sub_model.predict(test_input, verbose=0))
+
+        max_diff = float(np.max(np.abs(hf_output - keras_output)))
+        print(f"  Max logits diff: {max_diff:.6f}")
+        if max_diff > 1e-3:
+            raise ValueError(
+                f"{variant}: max diff {max_diff:.6f} exceeds 1e-3 tolerance"
+            )
+        print("  Verification OK")
+
+        model_filename = f"{variant}.weights.h5"
+        keras_model.save_weights(model_filename)
+        print(f"  Saved -> {model_filename}")
+
+        del keras_model, hf_model, hf_state_dict
+        keras.backend.clear_session()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
