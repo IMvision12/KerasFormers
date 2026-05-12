@@ -2,48 +2,67 @@
 
 **Paper**: [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
-EoMT (Encoder-only Mask Transformer) is a panoptic segmentation model that simplifies the standard encoder-decoder mask transformer pipeline by using only an encoder architecture. This approach reduces complexity while maintaining competitive segmentation performance.
+EoMT (Encoder-only Mask Transformer) is a universal segmentation model that simplifies the standard encoder-decoder mask transformer pipeline by using only an encoder architecture. Learned object queries are injected into the final `num_blocks` encoder layers, enabling joint self-attention between image patch tokens and query tokens; after the encoder, query tokens are projected to class logits and mask logits are computed as a bilinear product of query mask embeddings and spatially upscaled patch features.
+
+Two classes are exposed:
+
+- `EoMTModel` — DINOv2-style ViT encoder with the query-injection stack (no task heads). Outputs the post-LayerNorm sequence.
+- `EoMTUniversalSegment` — full universal-segmentation model that adds the class predictor, mask head, and mask-feature upscale stack. Output is a dict with `class_logits` and `mask_logits`.
 
 ## Architecture Highlights
 
-- **Encoder-Only Design:** Simplifies the standard encode-decode vision pipeline by utilizing an highly efficient encoder-only design for panoptic segmentation.
+- **Encoder-Only Design:** Simplifies the standard encode-decode vision pipeline by utilizing a highly efficient encoder-only design for universal segmentation.
 - **Unified Segmentation Modeling:** Simultaneously excels at semantic, instance, and panoptic segmentation under one streamlined framework.
 - **High Efficiency:** Eliminates the heavyweight decoder yielding drastically improved computational overhead and low latency.
-- **Top-Tier Panoptic Processing:** Delivers strong dense prediction accuracy across varied visual domains and complex overlapping imagery.
 
-## Available Models
+## Available Weights
 
-| Model Variant | Supported Pre-trained Weights | Description |
-|---------------|-------------------------------|-------------|
-| `EoMTSmall`  | `coco_panoptic_640`           | Lightweight variant for panoptic segmentation |
-| `EoMTBase`   | `coco_panoptic_640`           | Standard base variant for panoptic segmentation |
-| `EoMTLarge`  | `coco_panoptic_640`, `coco_instance_640`, `ade20k_semantic_512` | Large variant supporting Panoptic, Instance, and Semantic segmentation |
+Pretrained weights are loaded via `EoMTUniversalSegment.from_weights(variant_id)` (or `from_hf(hf_id)` for arbitrary HF fine-tunes).
 
-*Note: `coco_panoptic_640` weights are pretrained on the COCO panoptic dataset at 640x640 resolution. `coco_instance_640` brings COCO instance segmentation capability. `ade20k_semantic_512` provides rigorous semantic segmentation trained on the ADE20K dataset natively working at 512x512 resolution.*
+| Variant                              | Size  | Dataset            | Classes | Queries | Input    |
+|--------------------------------------|-------|--------------------|--------:|--------:|----------|
+| `eomt_small_coco_panoptic_640`       | Small | COCO panoptic      |     133 |     200 | 640×640  |
+| `eomt_base_coco_panoptic_640`        | Base  | COCO panoptic      |     133 |     200 | 640×640  |
+| `eomt_large_coco_panoptic_640`       | Large | COCO panoptic      |     133 |     200 | 640×640  |
+| `eomt_large_coco_instance_640`       | Large | COCO instance      |      80 |     200 | 640×640  |
+| `eomt_large_ade20k_semantic_512`     | Large | ADE20K semantic    |     150 |     100 | 512×512  |
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.eomt import EoMTUniversalSegment
 
-# Small Variant
-model = kmodels.models.eomt.EoMTSmall(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+# Small variant (panoptic, COCO)
+model = EoMTUniversalSegment.from_weights("eomt_small_coco_panoptic_640")
 
-# Large Variant with Instance Weights
-model_large = kmodels.models.eomt.EoMTLarge(weights="coco_instance_640", input_shape=(640, 640, 3))
+# Large variant for instance segmentation
+model_large = EoMTUniversalSegment.from_weights("eomt_large_coco_instance_640")
 
-# Without pre-trained weights
-model_custom = kmodels.models.eomt.EoMTBase(weights=None, input_shape=(640, 640, 3))
+# Build untrained model for fine-tuning
+custom = EoMTUniversalSegment.from_weights(
+    "eomt_large_ade20k_semantic_512",
+    load_weights=False,
+    num_labels=12,
+)
+```
+
+### Loading HF fine-tunes
+
+Any HF repo whose `model_type` is `"eomt"` (the official `tue-mps/...` checkpoints or arbitrary user fine-tunes) can be loaded directly with `from_hf`. The class reads hidden size, num layers, queries, num labels, and image size straight from the HF config.
+
+```python
+model = EoMTUniversalSegment.from_hf(
+    "tue-mps/coco_panoptic_eomt_large_640"
+)
 ```
 
 ## Inference Example
 
 ```python
-import kmodels
-from kmodels.models.eomt import EoMTImageProcessor
+from kmodels.models.eomt import EoMTUniversalSegment, EoMTImageProcessor
 from PIL import Image
 
-model = kmodels.models.eomt.EoMTLarge(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+model = EoMTUniversalSegment.from_weights("eomt_large_coco_panoptic_640")
 
 image = Image.open("image.jpg").convert("RGB")
 original_h, original_w = image.size[1], image.size[0]
@@ -138,9 +157,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.eomt import EoMTLarge, EoMTImageProcessor
+from kmodels.models.eomt import EoMTUniversalSegment, EoMTImageProcessor
 
-model = EoMTLarge(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+model = EoMTUniversalSegment.from_weights("eomt_large_coco_panoptic_640")
 
 img = Image.open("image.jpg").convert("RGB")
 original_h, original_w = img.size[1], img.size[0]

@@ -4,62 +4,73 @@
 
 SegFormer is a simple, efficient yet powerful semantic segmentation framework which unifies Transformers with lightweight multilayer perceptron (MLP) decoders. It comprises a hierarchically structured Transformer encoder which outputs multiscale features, and a lightweight All-MLP decoder which aggregates information from different layers.
 
-## Model Variants
+Two classes are exposed:
 
-- **SegFormerB0** — Lightweight (embed_dim: 256, dropout_rate: 0.1)
-- **SegFormerB1** — Small (embed_dim: 256, dropout_rate: 0.1)
-- **SegFormerB2** — Medium (embed_dim: 768, dropout_rate: 0.1)
-- **SegFormerB3** — Large (embed_dim: 768, dropout_rate: 0.1)
-- **SegFormerB4** — Extra Large (embed_dim: 768, dropout_rate: 0.1)
-- **SegFormerB5** — XXL (embed_dim: 768, dropout_rate: 0.1)
+- `SegFormerModel` — MiT hierarchical Transformer backbone (no decode head). Use as a feature extractor or to attach a custom head.
+- `SegFormerSegment` — full semantic-segmentation model with the all-MLP decode head + classifier + bilinear upsample. This is what you instantiate to predict masks.
 
 ## Available Weights
 
-| Variant | cityscapes_1024 | cityscapes_768 | ade20k_512 |
-|---------|:-:|:-:|:-:|
-| SegFormerB0 | ✅ | ✅ | ✅ |
-| SegFormerB1 | ✅ | | ✅ |
-| SegFormerB2 | ✅ | | ✅ |
-| SegFormerB3 | ✅ | | ✅ |
-| SegFormerB4 | ✅ | | ✅ |
-| SegFormerB5 | ✅ | | ✅ |
+Pretrained weights are loaded via `SegFormerSegment.from_weights(variant_id)` (or `from_hf(hf_id)` for arbitrary HF fine-tunes).
+
+| Variant                          | Backbone | Dataset    | Classes | Input    |
+|----------------------------------|----------|------------|--------:|----------|
+| `segformer_b0_cityscapes_1024`   | MiT-B0   | Cityscapes |      19 | 1024×1024|
+| `segformer_b0_cityscapes_768`    | MiT-B0   | Cityscapes |      19 | 768×768  |
+| `segformer_b0_ade_512`           | MiT-B0   | ADE20K     |     150 | 512×512  |
+| `segformer_b1_cityscapes_1024`   | MiT-B1   | Cityscapes |      19 | 1024×1024|
+| `segformer_b1_ade_512`           | MiT-B1   | ADE20K     |     150 | 512×512  |
+| `segformer_b2_cityscapes_1024`   | MiT-B2   | Cityscapes |      19 | 1024×1024|
+| `segformer_b2_ade_512`           | MiT-B2   | ADE20K     |     150 | 512×512  |
+| `segformer_b3_cityscapes_1024`   | MiT-B3   | Cityscapes |      19 | 1024×1024|
+| `segformer_b3_ade_512`           | MiT-B3   | ADE20K     |     150 | 512×512  |
+| `segformer_b4_cityscapes_1024`   | MiT-B4   | Cityscapes |      19 | 1024×1024|
+| `segformer_b4_ade_512`           | MiT-B4   | ADE20K     |     150 | 512×512  |
+| `segformer_b5_cityscapes_1024`   | MiT-B5   | Cityscapes |      19 | 1024×1024|
+| `segformer_b5_ade_640`           | MiT-B5   | ADE20K     |     150 | 640×640  |
 
 ## Basic Usage
 
 ```python
-import kmodels
+from kmodels.models.segformer import SegFormerSegment
 
-# Pre-Trained weights (cityscapes or ade20k or mit(in1k))
-# ade20k and cityscapes can be used for fine-tuning by giving custom `num_classes`
-# If `num_classes` is not specified by default for ade20k it will be 150 and for cityscapes it will be 19
-model = kmodels.models.segformer.SegFormerB0(weights="ade20k", input_shape=(512,512,3))
-model = kmodels.models.segformer.SegFormerB0(weights="cityscapes", input_shape=(512,512,3))
-
-# Fine-Tune using `MiT` backbone (This will load `in1k` weights)
-model = kmodels.models.segformer.SegFormerB0(weights="mit", input_shape=(512,512,3))
+model = SegFormerSegment.from_weights("segformer_b0_ade_512")
 ```
 
-## Custom Backbone Support
+Build an untrained model (architecture only) for fine-tuning from scratch:
 
 ```python
-import kmodels
-
-# With no backbone weights
-backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights=None, include_top=False, input_shape=(224,224,3))
-segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
-
-# With backbone weights
-backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
-segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+model = SegFormerSegment.from_weights(
+    "segformer_b0_ade_512", load_weights=False
+)
 ```
 
-## Example Inference
+Override any per-variant default (e.g. `num_classes` for fine-tuning):
 
 ```python
-import kmodels
-from kmodels.models.segformer import SegFormerImageProcessor
+model = SegFormerSegment.from_weights(
+    "segformer_b0_ade_512",
+    load_weights=False,
+    num_classes=10,
+)
+```
 
-model = kmodels.models.segformer.SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
+### Loading HF fine-tunes
+
+Any HF repo whose `model_type` is `"segformer"` (the official NVIDIA checkpoints or arbitrary user fine-tunes) can be loaded directly with `from_hf`. The class reads MiT dims, decoder dim, num classes, and image size straight from the HF config.
+
+```python
+model = SegFormerSegment.from_hf(
+    "nvidia/segformer-b0-finetuned-ade-512-512"
+)
+```
+
+## Inference Example
+
+```python
+from kmodels.models.segformer import SegFormerSegment, SegFormerImageProcessor
+
+model = SegFormerSegment.from_weights("segformer_b0_ade_512")
 
 processor = SegFormerImageProcessor(size={"height": 512, "width": 512})
 inputs = processor("image.jpg")
@@ -102,9 +113,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.segformer import SegFormerB0, SegFormerImageProcessor
+from kmodels.models.segformer import SegFormerSegment, SegFormerImageProcessor
 
-model = SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
+model = SegFormerSegment.from_weights("segformer_b0_ade_512")
 
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
