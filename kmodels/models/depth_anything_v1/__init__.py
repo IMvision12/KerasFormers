@@ -1,13 +1,11 @@
 from .depth_anything_v1_image_processor import DepthAnythingV1ImageProcessor
 from .depth_anything_v1_model import (
-    DepthAnythingV1Base,
-    DepthAnythingV1Large,
-    DepthAnythingV1Small,
+    DepthAnythingV1DepthEstimation,
+    DepthAnythingV1Model,
 )
 
 __all__ = [
-    "DepthAnythingV1Small",
-    "DepthAnythingV1Base",
-    "DepthAnythingV1Large",
+    "DepthAnythingV1Model",
+    "DepthAnythingV1DepthEstimation",
     "DepthAnythingV1ImageProcessor",
 ]

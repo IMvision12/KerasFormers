@@ -1,16 +1,15 @@
 import keras
 from keras import layers, ops
 
+from kmodels.base import BaseModel
 from kmodels.layers import LayerScale
-from kmodels.model_registry import register_model
 from kmodels.models.vit.vit_layers import (
     AddPositionEmbs,
     ClassDistToken,
     MultiHeadSelfAttention,
 )
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
-from .config import DEPTH_ANYTHING_V1_MODEL_CONFIG, DEPTH_ANYTHING_V1_WEIGHTS_CONFIG
+from .config import DA_V1_CONFIG, DA_V1_WEIGHTS
 
 
 def depth_anything_v1_aligned_bilinear_resize(x, target_h, target_w, data_format):
@@ -529,88 +528,114 @@ def depth_anything_v1_head(
     return x
 
 
-@keras.saving.register_keras_serializable(package="kmodels")
-class DepthAnythingV1(keras.Model):
-    """Instantiates the Depth Anything V1 architecture for monocular depth estimation.
+PATCH_SIZE = 14
+IMAGE_SIZE = 518
+MLP_RATIO = 4.0
+HEAD_HIDDEN_SIZE = 32
 
-    Depth Anything V1 combines a DINOv2 ViT backbone with the DPT
-    (Dense Prediction Transformer) neck and head, trained on a mix of
-    labeled and large-scale pseudo-labeled images to produce strong
-    relative-depth predictions. The same class also hosts the metric
-    variants, where a ``sigmoid`` + scale replaces the final ReLU.
 
-    The model is built functionally from three composable components:
-    ``depth_anything_v1_dino_backbone`` (patch embed + ViT blocks +
-    shared LayerNorm), ``depth_anything_v1_neck`` (DPT reassemble +
-    project + bottom-up fusion), and ``depth_anything_v1_head`` (three
-    convs with an aligned-corners bilinear upsample to the input
-    resolution).
+def depth_anything_v1_functional(
+    inputs,
+    backbone_dim,
+    backbone_depth,
+    backbone_num_heads,
+    out_indices,
+    neck_hidden_sizes,
+    fusion_hidden_size,
+    reassemble_factors,
+    height,
+    width,
+):
+    """Build the Depth Anything V1 backbone + neck graph (no depth head).
 
-    References:
-    - [Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data](https://arxiv.org/abs/2401.10891)
+    Top-level orchestrator wiring the two stages that are shared
+    between the relative and metric variants:
+
+    1. :func:`depth_anything_v1_dino_backbone` — DINOv2 ViT backbone
+       producing multi-scale patch token sequences at the layers
+       listed in ``out_indices``.
+    2. :func:`depth_anything_v1_neck` — DPT reassemble + project +
+       bottom-up fusion producing a single fused feature map at the
+       finest pyramid level.
+
+    The depth-prediction head is intentionally not built here — it is
+    added by :class:`DepthAnythingV1DepthEstimation`, which composes
+    :class:`DepthAnythingV1Model` around this graph. This separation
+    means fine-tuning hyperparameters (``depth_estimation_type``,
+    ``max_depth``) live on the head class, not the backbone class.
 
     Args:
-        backbone_dim: Integer, embedding dimension of the DINOv2
-            backbone. Defaults to ``384`` (Small variant).
-        backbone_depth: Integer, number of transformer blocks in the
-            backbone. Defaults to ``12``.
-        backbone_num_heads: Integer, number of attention heads per
-            block. Defaults to ``6``.
-        out_indices: Optional list of 1-indexed block numbers whose
-            outputs feed the neck. When ``None`` defaults to
-            ``[9, 10, 11, 12]`` (the last four blocks of the Small /
-            Base variants).
-        neck_hidden_sizes: Optional list of 4 per-stage channel counts
-            used by the neck reassemble projections. When ``None``
-            defaults to ``[48, 96, 192, 384]`` (Small variant).
-        fusion_hidden_size: Integer, shared channel count used after
-            the project stage and throughout fusion and the head.
-            Defaults to ``64``.
-        reassemble_factors: Optional list of 4 up/down-sampling factors
-            used by the neck reassemble stage. When ``None`` defaults
-            to ``[4, 2, 1, 0.5]``.
-        depth_estimation_type: Either ``"relative"`` (final ReLU,
-            non-negative disparity-style depth) or ``"metric"``
-            (final ``sigmoid * max_depth``, bounded metric depth).
-            Defaults to ``"relative"``.
-        max_depth: Float, metric-depth scale factor applied only when
-            ``depth_estimation_type == "metric"``. Defaults to ``1.0``.
-        input_shape: Optional tuple specifying the shape of the input
-            image. When ``None``, defaults to ``(518, 518, 3)`` for
-            ``channels_last`` or ``(3, 518, 518)`` for
-            ``channels_first``. Both dims must be multiples of
-            ``PATCH_SIZE`` (``14``).
-        input_tensor: Optional Keras tensor (i.e. output of
-            ``layers.Input``) to use as model input.
-        name: String, the name of the model. Defaults to
-            ``"DepthAnythingV1"``.
+        inputs: Keras input tensor.
+        backbone_dim: ViT backbone hidden dimension.
+        backbone_depth: Number of ViT transformer blocks.
+        backbone_num_heads: Attention heads per block.
+        out_indices: 1-indexed block IDs whose outputs feed the neck.
+        neck_hidden_sizes: Per-stage channel counts in the reassemble
+            projections.
+        fusion_hidden_size: Channel count used across the project
+            stage and fusion blocks.
+        reassemble_factors: Up/down-sampling factors per stage in the
+            reassemble step.
+        height: Input image height in pixels.
+        width: Input image width in pixels.
 
     Returns:
-        A Keras ``Model`` instance that maps a preprocessed image
-        tensor to a predicted depth tensor.
+        Fused feature map at the finest pyramid level.
+    """
+    data_format = keras.config.image_data_format()
+    patch_h = height // PATCH_SIZE
+    patch_w = width // PATCH_SIZE
 
-    Example:
-        ```python
-        from kmodels.models.depth_anything_v1 import (
-            DepthAnythingV1Small,
-            DepthAnythingV1ImageProcessor,
-            depth_anything_v1_post_process_depth,
-        )
+    backbone_features = depth_anything_v1_dino_backbone(
+        inputs,
+        backbone_dim=backbone_dim,
+        backbone_depth=backbone_depth,
+        backbone_num_heads=backbone_num_heads,
+        out_indices=out_indices,
+        patch_size=PATCH_SIZE,
+        patch_h=patch_h,
+        patch_w=patch_w,
+        mlp_ratio=MLP_RATIO,
+        data_format=data_format,
+        name="backbone",
+    )
 
-        model = DepthAnythingV1Small(weights="da_v1")
-        proc = DepthAnythingV1ImageProcessor()
-        inputs = proc("photo.jpg")
-        depth = model(inputs["pixel_values"])
-        depth_full = depth_anything_v1_post_process_depth(
-            depth, original_size=inputs["original_size"]
-        )
-        ```
+    fused = depth_anything_v1_neck(
+        backbone_features,
+        reassemble_factors=reassemble_factors,
+        neck_hidden_sizes=neck_hidden_sizes,
+        fusion_hidden_size=fusion_hidden_size,
+        patch_h=patch_h,
+        patch_w=patch_w,
+        data_format=data_format,
+        name="neck",
+    )
+
+    return fused
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class DepthAnythingV1Model(BaseModel):
+    """Depth Anything V1 backbone + DPT neck (no depth-prediction head).
+
+    Wraps the functional graph built by
+    :func:`depth_anything_v1_functional`: a DINOv2 ViT backbone and a
+    DPT reassemble + fusion neck. Outputs the fused feature map at
+    the finest pyramid level — the same tensor that
+    :class:`DepthAnythingV1DepthEstimation` then feeds into the depth head.
+
+    Use this class when you want the backbone+neck features (e.g. for
+    a custom head). Use :class:`DepthAnythingV1DepthEstimation` when you want
+    the full monocular depth estimator.
+
+    Reference:
+        - `Depth Anything: Unleashing the Power of Large-Scale
+          Unlabeled Data <https://arxiv.org/abs/2401.10891>`_
     """
 
-    PATCH_SIZE = 14
-    IMAGE_SIZE = 518
-    MLP_RATIO = 4.0
-    HEAD_HIDDEN_SIZE = 32
+    KMODELS_CONFIG = DA_V1_CONFIG
+    KMODELS_WEIGHTS = None
+    HF_MODEL_TYPE = "depth_anything"
 
     def __init__(
         self,
@@ -621,11 +646,9 @@ class DepthAnythingV1(keras.Model):
         neck_hidden_sizes=None,
         fusion_hidden_size=64,
         reassemble_factors=None,
-        depth_estimation_type="relative",
-        max_depth=1.0,
         input_shape=None,
         input_tensor=None,
-        name="DepthAnythingV1",
+        name="DepthAnythingV1Model",
         **kwargs,
     ):
         if out_indices is None:
@@ -636,12 +659,11 @@ class DepthAnythingV1(keras.Model):
             reassemble_factors = [4, 2, 1, 0.5]
 
         data_format = keras.config.image_data_format()
-
         if input_shape is None:
             if data_format == "channels_first":
-                input_shape = (3, self.IMAGE_SIZE, self.IMAGE_SIZE)
+                input_shape = (3, IMAGE_SIZE, IMAGE_SIZE)
             else:
-                input_shape = (self.IMAGE_SIZE, self.IMAGE_SIZE, 3)
+                input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3)
 
         if input_tensor is not None:
             if not keras.utils.is_keras_tensor(input_tensor):
@@ -658,52 +680,20 @@ class DepthAnythingV1(keras.Model):
         else:
             height, width = input_shape[0], input_shape[1]
 
-        patch_h = height // self.PATCH_SIZE
-        patch_w = width // self.PATCH_SIZE
-
-        backbone_features = depth_anything_v1_dino_backbone(
+        fused = depth_anything_v1_functional(
             pixel_values,
             backbone_dim=backbone_dim,
             backbone_depth=backbone_depth,
             backbone_num_heads=backbone_num_heads,
             out_indices=out_indices,
-            patch_size=self.PATCH_SIZE,
-            patch_h=patch_h,
-            patch_w=patch_w,
-            mlp_ratio=self.MLP_RATIO,
-            data_format=data_format,
-            name="backbone",
-        )
-
-        fused = depth_anything_v1_neck(
-            backbone_features,
-            reassemble_factors=reassemble_factors,
             neck_hidden_sizes=neck_hidden_sizes,
             fusion_hidden_size=fusion_hidden_size,
-            patch_h=patch_h,
-            patch_w=patch_w,
-            data_format=data_format,
-            name="neck",
-        )
-
-        predicted_depth = depth_anything_v1_head(
-            fused,
+            reassemble_factors=reassemble_factors,
             height=height,
             width=width,
-            fusion_hidden_size=fusion_hidden_size,
-            head_hidden_size=self.HEAD_HIDDEN_SIZE,
-            depth_estimation_type=depth_estimation_type,
-            max_depth=max_depth,
-            data_format=data_format,
-            name="head",
         )
 
-        super().__init__(
-            inputs=pixel_values,
-            outputs=predicted_depth,
-            name=name,
-            **kwargs,
-        )
+        super().__init__(inputs=pixel_values, outputs=fused, name=name, **kwargs)
 
         self.backbone_dim = backbone_dim
         self.backbone_depth = backbone_depth
@@ -712,6 +702,164 @@ class DepthAnythingV1(keras.Model):
         self.neck_hidden_sizes = list(neck_hidden_sizes)
         self.fusion_hidden_size = fusion_hidden_size
         self.reassemble_factors = list(reassemble_factors)
+        self._input_shape_val = input_shape
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "backbone_dim": self.backbone_dim,
+                "backbone_depth": self.backbone_depth,
+                "backbone_num_heads": self.backbone_num_heads,
+                "out_indices": self.out_indices,
+                "neck_hidden_sizes": self.neck_hidden_sizes,
+                "fusion_hidden_size": self.fusion_hidden_size,
+                "reassemble_factors": self.reassemble_factors,
+                "input_shape": self._input_shape_val,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class DepthAnythingV1DepthEstimation(BaseModel):
+    """Depth Anything V1 full monocular depth estimator (backbone + neck + head).
+
+    Composes :class:`DepthAnythingV1Model` and adds the DPT depth
+    head. Maps a preprocessed image to a single-channel depth map at
+    the original input resolution.
+
+    Two head modes are supported via ``depth_estimation_type``:
+
+    - ``"relative"``: final ReLU, non-negative disparity-style depth.
+      Used by the official Depth Anything V1 release.
+    - ``"metric"``: final ``sigmoid * max_depth``, bounded metric
+      depth in ``[0, max_depth]`` meters. Used by fine-tuned metric
+      variants (e.g. Depth Anything V2 indoor/outdoor checkpoints).
+
+    Reference:
+        - `Depth Anything: Unleashing the Power of Large-Scale
+          Unlabeled Data <https://arxiv.org/abs/2401.10891>`_
+
+    Args:
+        backbone_dim: ViT backbone hidden dimension.
+        backbone_depth: Number of ViT transformer blocks.
+        backbone_num_heads: Attention heads per block.
+        out_indices: 1-indexed block IDs whose outputs feed the neck.
+        neck_hidden_sizes: Per-stage channel counts in the reassemble
+            projections.
+        fusion_hidden_size: Channel count shared across project,
+            fusion, and head.
+        reassemble_factors: Up/down-sampling factors per stage in the
+            reassemble step.
+        depth_estimation_type: ``"relative"`` or ``"metric"`` (fine-tune
+            switch — the metric variants use ``"metric"``).
+        max_depth: Metric-depth scale factor; only used when
+            ``depth_estimation_type == "metric"``.
+        input_shape: Image input shape excluding batch dim.
+        input_tensor: Optional pre-existing Keras input tensor.
+        name: Model name.
+    """
+
+    KMODELS_CONFIG = DA_V1_CONFIG
+    KMODELS_WEIGHTS = DA_V1_WEIGHTS
+    HF_MODEL_TYPE = "depth_anything"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        bb = hf_config["backbone_config"]
+        out_indices = list(bb["out_indices"])
+        return {
+            "backbone_dim": bb["hidden_size"],
+            "backbone_depth": bb.get("num_hidden_layers", max(out_indices)),
+            "backbone_num_heads": bb["num_attention_heads"],
+            "out_indices": out_indices,
+            "neck_hidden_sizes": list(hf_config["neck_hidden_sizes"]),
+            "fusion_hidden_size": hf_config["fusion_hidden_size"],
+            "reassemble_factors": list(hf_config["reassemble_factors"]),
+            "depth_estimation_type": hf_config.get("depth_estimation_type", "relative"),
+            "max_depth": float(hf_config.get("max_depth", 1.0)),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.depth_anything_v1.convert_depth_anything_v1_hf_to_keras import (
+            transfer_depth_anything_weights,
+        )
+
+        transfer_depth_anything_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        backbone_dim=384,
+        backbone_depth=12,
+        backbone_num_heads=6,
+        out_indices=None,
+        neck_hidden_sizes=None,
+        fusion_hidden_size=64,
+        reassemble_factors=None,
+        depth_estimation_type="relative",
+        max_depth=1.0,
+        input_shape=None,
+        input_tensor=None,
+        name="DepthAnythingV1DepthEstimation",
+        **kwargs,
+    ):
+        data_format = keras.config.image_data_format()
+        if input_shape is None:
+            if data_format == "channels_first":
+                input_shape = (3, IMAGE_SIZE, IMAGE_SIZE)
+            else:
+                input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3)
+
+        base = DepthAnythingV1Model(
+            backbone_dim=backbone_dim,
+            backbone_depth=backbone_depth,
+            backbone_num_heads=backbone_num_heads,
+            out_indices=out_indices,
+            neck_hidden_sizes=neck_hidden_sizes,
+            fusion_hidden_size=fusion_hidden_size,
+            reassemble_factors=reassemble_factors,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_model",
+        )
+        fused = base.output
+
+        if data_format == "channels_first":
+            height, width = input_shape[1], input_shape[2]
+        else:
+            height, width = input_shape[0], input_shape[1]
+
+        predicted_depth = depth_anything_v1_head(
+            fused,
+            height=height,
+            width=width,
+            fusion_hidden_size=fusion_hidden_size,
+            head_hidden_size=HEAD_HIDDEN_SIZE,
+            depth_estimation_type=depth_estimation_type,
+            max_depth=max_depth,
+            data_format=data_format,
+            name="head",
+        )
+
+        super().__init__(
+            inputs=base.input, outputs=predicted_depth, name=name, **kwargs
+        )
+
+        self.backbone_dim = backbone_dim
+        self.backbone_depth = backbone_depth
+        self.backbone_num_heads = backbone_num_heads
+        self.out_indices = list(base.out_indices)
+        self.neck_hidden_sizes = list(base.neck_hidden_sizes)
+        self.fusion_hidden_size = fusion_hidden_size
+        self.reassemble_factors = list(base.reassemble_factors)
         self.depth_estimation_type = depth_estimation_type
         self.max_depth = max_depth
         self._input_shape_val = input_shape
@@ -731,6 +879,7 @@ class DepthAnythingV1(keras.Model):
                 "depth_estimation_type": self.depth_estimation_type,
                 "max_depth": self.max_depth,
                 "input_shape": self._input_shape_val,
+                "name": self.name,
             }
         )
         return config
@@ -738,96 +887,3 @@ class DepthAnythingV1(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-def create_depth_anything_v1(variant, input_shape, input_tensor, weights, **kwargs):
-    """Factory helper that wires a named variant into ``DepthAnythingV1``.
-
-    Looks up the variant entry in ``DEPTH_ANYTHING_V1_MODEL_CONFIG``,
-    builds a ``DepthAnythingV1`` instance with those hyperparameters,
-    and optionally loads pretrained weights via the keras-models
-    weights config (when ``weights`` matches a registered preset) or
-    from a local path (anything else).
-
-    Args:
-        variant: String, variant name matching a key in
-            ``DEPTH_ANYTHING_V1_MODEL_CONFIG`` (e.g.
-            ``"DepthAnythingV1Small"``).
-        input_shape: Optional input shape forwarded to
-            ``DepthAnythingV1``. When ``None``, defaults to the
-            1024-equivalent ``(518, 518, 3)`` / ``(3, 518, 518)``.
-        input_tensor: Optional Keras tensor to use as model input.
-        weights: Either ``None`` (random init), a registered preset
-            name from ``DEPTH_ANYTHING_V1_WEIGHTS_CONFIG``, or a path
-            to a local ``.weights.h5`` file.
-        **kwargs: Additional keyword arguments forwarded to
-            ``DepthAnythingV1``.
-
-    Returns:
-        A built ``DepthAnythingV1`` model with weights loaded when
-        requested.
-    """
-    config = DEPTH_ANYTHING_V1_MODEL_CONFIG[variant]
-
-    if input_shape is None:
-        df = keras.config.image_data_format()
-        if df == "channels_first":
-            input_shape = (3, DepthAnythingV1.IMAGE_SIZE, DepthAnythingV1.IMAGE_SIZE)
-        else:
-            input_shape = (
-                DepthAnythingV1.IMAGE_SIZE,
-                DepthAnythingV1.IMAGE_SIZE,
-                3,
-            )
-
-    model = DepthAnythingV1(
-        backbone_dim=config["backbone_dim"],
-        backbone_depth=config["backbone_depth"],
-        backbone_num_heads=config["backbone_num_heads"],
-        out_indices=config["out_indices"],
-        neck_hidden_sizes=config["neck_hidden_sizes"],
-        fusion_hidden_size=config["fusion_hidden_size"],
-        reassemble_factors=config["reassemble_factors"],
-        depth_estimation_type=config.get("depth_estimation_type", "relative"),
-        max_depth=config.get("max_depth", 1.0),
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=variant,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(DEPTH_ANYTHING_V1_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            variant, weights, model, DEPTH_ANYTHING_V1_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def DepthAnythingV1Small(
-    input_shape=None, input_tensor=None, weights="da_v1", **kwargs
-):
-    return create_depth_anything_v1(
-        "DepthAnythingV1Small", input_shape, input_tensor, weights, **kwargs
-    )
-
-
-@register_model
-def DepthAnythingV1Base(input_shape=None, input_tensor=None, weights="da_v1", **kwargs):
-    return create_depth_anything_v1(
-        "DepthAnythingV1Base", input_shape, input_tensor, weights, **kwargs
-    )
-
-
-@register_model
-def DepthAnythingV1Large(
-    input_shape=None, input_tensor=None, weights="da_v1", **kwargs
-):
-    return create_depth_anything_v1(
-        "DepthAnythingV1Large", input_shape, input_tensor, weights, **kwargs
-    )

@@ -28,86 +28,46 @@ _V2_LARGE_BASE = {
     "reassemble_factors": [4, 2, 1, 0.5],
 }
 
-DEPTH_ANYTHING_V2_MODEL_CONFIG = {
-    "DepthAnythingV2Small": {**_V2_SMALL_BASE},
-    "DepthAnythingV2Base": {**_V2_BASE_BASE},
-    "DepthAnythingV2Large": {**_V2_LARGE_BASE},
-    "DepthAnythingV2MetricIndoorSmall": {
+DA_V2_CONFIG = {
+    "depth_anything_v2_small": {**_V2_SMALL_BASE},
+    "depth_anything_v2_base": {**_V2_BASE_BASE},
+    "depth_anything_v2_large": {**_V2_LARGE_BASE},
+    "depth_anything_v2_metric_indoor_small": {
         **_V2_SMALL_BASE,
         "depth_estimation_type": "metric",
         "max_depth": 20.0,
     },
-    "DepthAnythingV2MetricIndoorBase": {
+    "depth_anything_v2_metric_indoor_base": {
         **_V2_BASE_BASE,
         "depth_estimation_type": "metric",
         "max_depth": 20.0,
     },
-    "DepthAnythingV2MetricIndoorLarge": {
+    "depth_anything_v2_metric_indoor_large": {
         **_V2_LARGE_BASE,
         "depth_estimation_type": "metric",
         "max_depth": 20.0,
     },
-    "DepthAnythingV2MetricOutdoorSmall": {
+    "depth_anything_v2_metric_outdoor_small": {
         **_V2_SMALL_BASE,
         "depth_estimation_type": "metric",
         "max_depth": 80.0,
     },
-    "DepthAnythingV2MetricOutdoorBase": {
+    "depth_anything_v2_metric_outdoor_base": {
         **_V2_BASE_BASE,
         "depth_estimation_type": "metric",
         "max_depth": 80.0,
     },
-    "DepthAnythingV2MetricOutdoorLarge": {
+    "depth_anything_v2_metric_outdoor_large": {
         **_V2_LARGE_BASE,
         "depth_estimation_type": "metric",
         "max_depth": 80.0,
     },
 }
 
-DEPTH_ANYTHING_V2_WEIGHTS_CONFIG = {
-    "DepthAnythingV2Small": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_small.weights.h5",
-        },
-    },
-    "DepthAnythingV2Base": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_base.weights.h5",
-        },
-    },
-    "DepthAnythingV2Large": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_large.weights.h5",
-        },
-    },
-    "DepthAnythingV2MetricIndoorSmall": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_indoor_small.weights.h5",
-        },
-    },
-    "DepthAnythingV2MetricIndoorBase": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_indoor_base.weights.h5",
-        },
-    },
-    "DepthAnythingV2MetricIndoorLarge": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_indoor_large.weights.h5",
-        },
-    },
-    "DepthAnythingV2MetricOutdoorSmall": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_outdoor_small.weights.h5",
-        },
-    },
-    "DepthAnythingV2MetricOutdoorBase": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_outdoor_base.weights.h5",
-        },
-    },
-    "DepthAnythingV2MetricOutdoorLarge": {
-        "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_outdoor_large.weights.h5",
-        },
-    },
+_BASE_URL = (
+    "https://github.com/IMvision12/keras-models/releases/download/depth-anything-v2"
+)
+
+DA_V2_WEIGHTS = {
+    name: {"url": f"{_BASE_URL}/{name}.weights.h5"} for name in DA_V2_CONFIG
 }

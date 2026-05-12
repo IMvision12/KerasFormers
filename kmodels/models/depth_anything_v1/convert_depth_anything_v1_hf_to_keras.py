@@ -1,6 +1,6 @@
 import gc
 import re
-from typing import Dict, List, Tuple, Type
+from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
@@ -8,11 +8,7 @@ import torch
 from tqdm import tqdm
 from transformers import DepthAnythingForDepthEstimation
 
-from kmodels.models.depth_anything_v1.depth_anything_v1_model import (
-    DepthAnythingV1Base,
-    DepthAnythingV1Large,
-    DepthAnythingV1Small,
-)
+from kmodels.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
 from kmodels.weight_utils.custom_exception import WeightMappingError
 from kmodels.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
@@ -40,6 +36,52 @@ def _transfer_attention(path: str, keras_weight, hf_sd: Dict[str, np.ndarray]) -
     transfer_weights(suffix, keras_weight, torch_weight)
 
 
+def transfer_depth_anything_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer Depth Anything (V1 or V2) weights from a HF state_dict.
+
+    Works for both the relative and metric Depth Anything checkpoints
+    (V1 and V2 share the same backbone/neck/head architecture and the
+    same HF ``model_type``). Used by both the converter ``__main__``
+    block and the ``transfer_from_hf`` classmethod for loading
+    arbitrary user fine-tunes from the HF Hub.
+
+    Args:
+        keras_model: A ``DepthAnythingV1DepthEstimation`` or
+            ``DepthAnythingV2DepthEstimation`` instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``DepthAnythingForDepthEstimation.state_dict()``.
+    """
+    all_weights = [w for layer in keras_model.layers for w in layer.weights]
+    for w in tqdm(all_weights, desc="Transferring weights"):
+        path = w.path
+
+        if "_attn/" in path:
+            _transfer_attention(path, w, hf_state_dict)
+            continue
+
+        m = re.match(r"backbone_block_(\d+)_ls(\d+)/variable(?:_\d+)?$", path)
+        if m:
+            layer_idx, ls_idx = m.group(1), m.group(2)
+            torch_key = (
+                f"backbone.encoder.layer.{layer_idx}.layer_scale{ls_idx}.lambda1"
+            )
+            w.assign(hf_state_dict[torch_key])
+            continue
+
+        torch_key = path
+        for old, new in weight_name_mapping.items():
+            torch_key = torch_key.replace(old, new)
+
+        if torch_key not in hf_state_dict:
+            raise WeightMappingError(path, torch_key)
+
+        torch_weight = hf_state_dict[torch_key]
+        keras_name = "conv_kernel" if len(w.shape) == 4 else path
+        transfer_weights(keras_name, w, torch_weight)
+
+
 weight_name_mapping: Dict[str, str] = {
     "/": ".",
     "_": ".",
@@ -61,26 +103,13 @@ weight_name_mapping: Dict[str, str] = {
     ".beta": ".bias",
 }
 
-DEPTH_ANYTHING_V1_CONVERSION_CONFIG: List[Tuple[Type[keras.Model], str, str]] = [
-    (
-        DepthAnythingV1Small,
-        "LiheYoung/depth-anything-small-hf",
-        "depth_anything_v1_small",
-    ),
-    (
-        DepthAnythingV1Base,
-        "LiheYoung/depth-anything-base-hf",
-        "depth_anything_v1_base",
-    ),
-    (
-        DepthAnythingV1Large,
-        "LiheYoung/depth-anything-large-hf",
-        "depth_anything_v1_large",
-    ),
+DEPTH_ANYTHING_V1_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+    ("depth_anything_small", "LiheYoung/depth-anything-small-hf"),
+    ("depth_anything_base", "LiheYoung/depth-anything-base-hf"),
+    ("depth_anything_large", "LiheYoung/depth-anything-large-hf"),
 ]
 
-for keras_ctor, hf_id, save_name in DEPTH_ANYTHING_V1_CONVERSION_CONFIG:
-    variant = keras_ctor.__name__
+for variant, hf_id in DEPTH_ANYTHING_V1_CONVERSION_CONFIG:
     print(f"\n{'=' * 60}")
     print(f"Converting: {variant}  <-  {hf_id}")
     print(f"{'=' * 60}")
@@ -88,35 +117,11 @@ for keras_ctor, hf_id, save_name in DEPTH_ANYTHING_V1_CONVERSION_CONFIG:
     hf_model = DepthAnythingForDepthEstimation.from_pretrained(hf_id).eval()
     hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-    keras_model: keras.Model = keras_ctor(input_shape=(518, 518, 3), weights=None)
+    keras_model: keras.Model = DepthAnythingV1DepthEstimation.from_weights(
+        variant, load_weights=False, input_shape=(518, 518, 3)
+    )
 
-    all_weights = [w for layer in keras_model.layers for w in layer.weights]
-    for w in tqdm(all_weights, desc="Transferring weights"):
-        path = w.path
-
-        if "_attn/" in path:
-            _transfer_attention(path, w, hf_sd)
-            continue
-
-        m = re.match(r"backbone_block_(\d+)_ls(\d+)/variable(?:_\d+)?$", path)
-        if m:
-            layer_idx, ls_idx = m.group(1), m.group(2)
-            torch_key = (
-                f"backbone.encoder.layer.{layer_idx}.layer_scale{ls_idx}.lambda1"
-            )
-            w.assign(hf_sd[torch_key])
-            continue
-
-        torch_key = path
-        for old, new in weight_name_mapping.items():
-            torch_key = torch_key.replace(old, new)
-
-        if torch_key not in hf_sd:
-            raise WeightMappingError(path, torch_key)
-
-        torch_weight = hf_sd[torch_key]
-        keras_name = "conv_kernel" if len(w.shape) == 4 else path
-        transfer_weights(keras_name, w, torch_weight)
+    transfer_depth_anything_weights(keras_model, hf_sd)
 
     np.random.seed(42)
     test_image = np.random.rand(1, 518, 518, 3).astype(np.float32)
@@ -135,7 +140,7 @@ for keras_ctor, hf_id, save_name in DEPTH_ANYTHING_V1_CONVERSION_CONFIG:
         raise ValueError(f"{variant}: depth diff {max_diff:.2e} exceeds tolerance")
     print("  Verification OK")
 
-    model_filename = f"{save_name}.weights.h5"
+    model_filename = f"{variant}.weights.h5"
     keras_model.save_weights(model_filename)
     print(f"  Saved -> {model_filename}")
 
