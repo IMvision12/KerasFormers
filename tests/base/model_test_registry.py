@@ -676,12 +676,11 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 32, 32, 150),
     },
-    "SAMViTBase": {
+    "SAMPromptableSegment": {
         "module": "kmodels.models.sam",
-        "model_cls": "SAMViTBase",
+        "model_cls": "SAMPromptableSegment",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
-            "weights": None,
             "input_shape": (64, 64, 3),
         },
         "input_factory": "sam_input",
