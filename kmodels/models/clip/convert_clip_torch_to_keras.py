@@ -1,11 +1,15 @@
+"""HuggingFace CLIP -> Keras weight transfer.
+
+Splits the conversion into a callable :func:`transfer_clip_weights`
+that takes a Keras :class:`~kmodels.models.clip.CLIPModel` and an HF
+state dict (numpy values), plus a ``__main__`` block that runs the
+openai -> kmodels conversion for every variant.
+"""
+
 from typing import Dict
 
-import keras
-import torch
-from tqdm import tqdm
-from transformers import AutoModel
+import numpy as np
 
-from kmodels.models import clip
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -17,7 +21,7 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-weight_name_mapping = {
+WEIGHT_NAME_MAPPING = {
     "_": ".",
     "vision.model": "vision_model",
     "text.model": "text_model",
@@ -42,7 +46,7 @@ weight_name_mapping = {
     "bias": "bias",
 }
 
-attn_name_replace = {
+ATTN_NAME_REPLACE = {
     "text.model": "text_model",
     "vision.model": "vision_model",
     "encoder": "encoder.layers",
@@ -53,77 +57,176 @@ attn_name_replace = {
     "out.proj": "out_proj",
 }
 
-input_shape = (224, 224, 3)
-keras_model: keras.Model = clip.ClipVitBase16(weights=None, input_shape=input_shape)
-torch_model: torch.nn.Module = AutoModel.from_pretrained(
-    "openai/clip-vit-base-patch16"
-).eval()
 
-trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-    torch_model
-)
-trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
+def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+    """Strip the ``model.`` prefix from HF keys when present.
 
-for keras_weight, keras_weight_name in tqdm(
-    trainable_keras_weights + non_trainable_keras_weights,
-    total=len(trainable_keras_weights + non_trainable_keras_weights),
-    desc="Transferring weights",
-):
-    torch_weight_name: str = keras_weight_name
-    for keras_name_part, torch_name_part in weight_name_mapping.items():
-        torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
+    Task-wrapper classes (e.g. ``CLIPForImageClassification``) wrap a
+    raw ``CLIPModel`` under a top-level ``model`` submodule. We
+    normalize to the un-prefixed layout so the transfer code only has
+    to handle one shape.
+    """
+    if not any(k.startswith("model.") for k in state_dict):
+        return state_dict
+    out = {}
+    for k, v in state_dict.items():
+        if k.startswith("model."):
+            out[k[len("model.") :]] = v
+        else:
+            out[k] = v
+    return out
 
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
 
-    if "attention" in torch_weight_name:
-        transfer_attention_weights(
-            keras_weight_name, keras_weight, torch_weights_dict, attn_name_replace
-        )
-        continue
+def transfer_clip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer HuggingFace CLIP weights into a Keras :class:`CLIPModel`.
 
-    if keras_weight_name == "text_model_embedding_embeddings":
-        if "token_embedding" in keras_weight.path:
-            torch_token_embedding = (
-                torch_model.text_model.embeddings.token_embedding.weight
+    Args:
+        keras_model: A :class:`CLIPModel` instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``CLIPModel.state_dict()`` or a task-wrapper variant.
+    """
+    state = _strip_model_prefix(hf_state_dict)
+    trainable, non_trainable = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        torch_weight_name: str = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
+
+        if "attention" in torch_weight_name:
+            transfer_attention_weights(
+                keras_weight_name, keras_weight, state, ATTN_NAME_REPLACE
             )
-            keras_weight.assign(torch_token_embedding.detach().cpu().numpy())
-            continue
-        elif "positional_embedding" in keras_weight.path:
-            torch_position_embedding = (
-                torch_model.text_model.embeddings.position_embedding.weight
-            )
-            keras_weight.assign(torch_position_embedding.detach().cpu().numpy())
             continue
 
-    if keras_weight_name == "logit_scale_logit_scale":
-        torch_logit_scale = torch_model.logit_scale
-        keras_weight.assign(torch_logit_scale.detach().cpu().numpy())
-        continue
+        if keras_weight_name == "text_model_embedding_embeddings":
+            if "token_embedding" in keras_weight.path:
+                keras_weight.assign(
+                    state["text_model.embeddings.token_embedding.weight"]
+                )
+                continue
+            if "positional_embedding" in keras_weight.path:
+                keras_weight.assign(
+                    state["text_model.embeddings.position_embedding.weight"]
+                )
+                continue
 
-    if keras_weight_name == "vision_model_embeddings_pos_embed":
-        torch_pos_embed = torch_model.vision_model.embeddings.position_embedding.weight
-        torch_pos_embed_expanded = torch_pos_embed.unsqueeze(0)
-        keras_weight.assign(torch_pos_embed_expanded.detach().cpu().numpy())
-        continue
+        if keras_weight_name == "logit_scale_logit_scale":
+            keras_weight.assign(state["logit_scale"])
+            continue
 
-    if torch_weight_name not in torch_weights_dict:
-        raise WeightMappingError(keras_weight_name, torch_weight_name)
+        if keras_weight_name == "vision_model_embeddings_pos_embed":
+            pos = state["vision_model.embeddings.position_embedding.weight"]
+            keras_weight.assign(np.expand_dims(pos, 0))
+            continue
 
-    torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
+        if torch_weight_name not in state:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
 
-    if not compare_keras_torch_names(
-        keras_weight_name, keras_weight, torch_weight_name, torch_weight
-    ):
-        raise WeightShapeMismatchError(
-            keras_weight_name, keras_weight.shape, torch_weight_name, torch_weight.shape
-        )
+        torch_weight = state[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+def transfer_clip_image_classify_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer HuggingFace ``CLIPForImageClassification`` weights.
+
+    Loads the CLIP vision encoder (no text encoder, no visual
+    projection, no post-LN — none of those exist in the Keras
+    :class:`CLIPImageClassify` graph) plus the final ``classifier``
+    Dense head.
+
+    Args:
+        keras_model: A :class:`CLIPImageClassify` instance.
+        hf_state_dict: Mapping of HF weight names to numpy arrays from
+            ``CLIPForImageClassification.state_dict()``.
+    """
+    state = _strip_model_prefix(hf_state_dict)
+    trainable, non_trainable = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        # `classifier` head is the only weight outside the vision encoder.
+        if keras_weight_name in ("classifier_kernel", "classifier_bias"):
+            if "kernel" in keras_weight.path:
+                keras_weight.assign(np.transpose(state["classifier.weight"]))
+            else:
+                keras_weight.assign(state["classifier.bias"])
+            continue
+
+        torch_weight_name: str = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
+
+        if "attention" in torch_weight_name:
+            transfer_attention_weights(
+                keras_weight_name, keras_weight, state, ATTN_NAME_REPLACE
+            )
+            continue
+
+        if keras_weight_name == "vision_model_embeddings_pos_embed":
+            pos = state["vision_model.embeddings.position_embedding.weight"]
+            keras_weight.assign(np.expand_dims(pos, 0))
+            continue
+
+        if torch_weight_name not in state:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = state[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-# Save the model
-weight_name = f"{keras_model.name.lower()}_{list(clip.config.CLIP_WEIGHTS_CONFIG[keras_model.name].keys())[0]}.weights.h5"
-keras_model.save_weights(weight_name)  # use max_shard_size if >2GB
+if __name__ == "__main__":
+    import gc
+
+    import keras
+    from transformers import AutoModel
+
+    from kmodels.models.clip import CLIPZeroShotClassify
+
+    CLIP_CONVERSION_CONFIG = [
+        ("clip_vit_base_16", "openai/clip-vit-base-patch16"),
+        ("clip_vit_base_32", "openai/clip-vit-base-patch32"),
+        ("clip_vit_large_14", "openai/clip-vit-large-patch14"),
+        ("clip_vit_large_14_336", "openai/clip-vit-large-patch14-336"),
+    ]
+
+    # Convert into CLIPZeroShotClassify so saved .weights.h5 includes both the
+    # encoders *and* the contrastive head's logit_scale. CLIPModel can still
+    # load the same file (the extra logit_scale is silently ignored).
+    for variant, hf_id in CLIP_CONVERSION_CONFIG:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  {hf_id}")
+        print(f"{'=' * 60}")
+
+        hf_model = AutoModel.from_pretrained(hf_id).eval()
+        state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
+
+        keras_model = CLIPZeroShotClassify.from_weights(variant, load_weights=False)
+        transfer_clip_weights(keras_model, state)
+
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
+
+        del keras_model, hf_model, state
+        keras.backend.clear_session()
+        gc.collect()

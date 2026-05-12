@@ -1,8 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.base import BaseModel
 
 from .clip_layers import (
     CLIPAttention,
@@ -10,24 +9,18 @@ from .clip_layers import (
     TextModelEmbedding,
     VisionModelEmbedding,
 )
-from .config import CLIP_MODEL_CONFIG, CLIP_WEIGHTS_CONFIG
+from .config import CLIP_CONFIG, CLIP_WEIGHTS
 
 
 def quick_gelu(x):
-    """Applies the Quick GELU activation function to the input tensor.
-
-    This is an approximation of the GELU (Gaussian Error Linear Unit)
-    activation function that uses the sigmoid function for more efficient
-    computation. It's used in the CLIP model as a replacement for the
-    standard GELU activation.
-
-    Args:
-        x: Input tensor.
-
-    Returns:
-        Tensor with Quick GELU activation applied.
-    """
+    """Quick GELU approximation used by OpenAI CLIP — ``x * sigmoid(1.702 * x)``."""
     return x * ops.sigmoid(1.702 * x)
+
+
+def _activation_layer(hidden_act):
+    if hidden_act == "quick_gelu":
+        return keras.layers.Lambda(quick_gelu)
+    return keras.layers.Activation(hidden_act)
 
 
 def residual_attention_block(
@@ -39,36 +32,14 @@ def residual_attention_block(
     causal_attention_mask=None,
     attention_mask=None,
     mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
 ):
-    """Creates a residual attention block used in the CLIP transformer encoder.
-
-    This function implements a standard transformer block consisting of multi-head
-    self-attention followed by a feed-forward MLP block, with layer normalization
-    and residual connections. The same architecture is used in both the vision and
-    text encoders of the CLIP model.
-
-    Args:
-        x: Input tensor of shape (batch_size, sequence_length, proj_dim).
-        proj_dim: Integer, dimensionality of the projection space (hidden size).
-        num_heads: Integer, number of attention heads.
-        layer_name_prefix: String, prefix for naming layers (e.g., "text_model_encoder"
-            or "vision_model_encoder").
-        layer_idx: Integer, index of the current layer in the encoder.
-        causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length)
-            used for causal (autoregressive) attention in the text encoder.
-        attention_mask: Optional tensor used to mask padding tokens in text processing.
-        mlp_ratio: Optional float, ratio of the MLP hidden dimension to the embedding
-            dimension. The MLP expands the representation by this factor in its hidden
-            layer. If None, defaults to 4.0.
-
-    Returns:
-        Output tensor of shape (batch_size, sequence_length, proj_dim).
-
-    """
+    """Pre-LN transformer block shared by CLIP's vision and text encoders."""
     layer_prefix = f"{layer_name_prefix}_{layer_idx}"
 
     ln_1_output = keras.layers.LayerNormalization(
-        epsilon=1e-5, name=f"{layer_prefix}_layernorm_1"
+        epsilon=layer_norm_eps, name=f"{layer_prefix}_layernorm_1"
     )(x)
 
     mask = None
@@ -90,21 +61,19 @@ def residual_attention_block(
 
     residual_1 = keras.layers.Add()([x, attention_output])
     ln_2_output = keras.layers.LayerNormalization(
-        epsilon=1e-5, name=f"{layer_prefix}_layernorm_2"
+        epsilon=layer_norm_eps, name=f"{layer_prefix}_layernorm_2"
     )(residual_1)
 
     mlp_intermediate_size = int(proj_dim * mlp_ratio)
     mlp_output = keras.layers.Dense(
         mlp_intermediate_size, name=f"{layer_prefix}_dense_1"
     )(ln_2_output)
-    mlp_output = keras.layers.Lambda(quick_gelu)(mlp_output)
+    mlp_output = _activation_layer(hidden_act)(mlp_output)
     mlp_output = keras.layers.Dense(proj_dim, name=f"{layer_prefix}_dense_2")(
         mlp_output
     )
 
-    output = keras.layers.Add()([residual_1, mlp_output])
-
-    return output
+    return keras.layers.Add()([residual_1, mlp_output])
 
 
 def clip_encoder(
@@ -116,40 +85,11 @@ def clip_encoder(
     causal_attention_mask=None,
     attention_mask=None,
     mlp_ratio=None,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
 ):
-    """Creates a transformer encoder used in both vision and text components of CLIP.
-
-    This function implements a standard transformer encoder architecture that is shared
-    between the vision and text branches of CLIP, with minor differences handled through
-    parameters. The encoder consists of a sequence of residual attention blocks, each
-    containing multi-head self-attention followed by an MLP block with layer normalization
-    and residual connections.
-
-    Args:
-        inputs: Tensor of shape (batch_size, sequence_length, width) containing the
-            embedded input sequence (either text tokens or image patches).
-        width: Integer, dimensionality of the transformer's hidden representations.
-        num_layers: Integer, number of transformer layers in the encoder.
-        heads: Integer, number of attention heads in each transformer layer. Should
-            typically be width / 64 for optimal performance.
-        layer_prefix: Optional string, prefix for naming layers to distinguish between
-            vision and text encoders when sharing the same architecture.
-        causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length)
-            used for causal (autoregressive) attention in the text encoder. Set to None
-            for the vision encoder.
-        attention_mask: Optional tensor used to mask padding tokens in text processing.
-            Set to None for the vision encoder.
-        mlp_ratio: Optional float, ratio of the MLP hidden dimension to the embedding
-            dimension. The MLP expands the representation by this factor in its hidden
-            layer. If None, defaults to 4.0.
-
-    Returns:
-        A tensor of shape (batch_size, sequence_length, width) containing the encoded
-        representations of the input sequence.
-
-    """
+    """Stack of CLIP transformer blocks."""
     x = inputs
-
     for i in range(num_layers):
         x = residual_attention_block(
             x,
@@ -160,53 +100,29 @@ def clip_encoder(
             causal_attention_mask=causal_attention_mask,
             attention_mask=attention_mask,
             mlp_ratio=mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
         )
-
     return x
 
 
-def clip_image_encoder(
+def clip_vision_features(
     inputs,
     input_resolution=224,
     patch_size=16,
     width=768,
     num_layers=12,
     heads=12,
-    output_dim=512,
     vision_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
     data_format="channels_last",
 ):
-    """Creates a CLIP image encoder based on Vision Transformer (ViT) architecture.
+    """CLIP vision encoder up through the transformer blocks.
 
-    This function implements the vision component of the CLIP model, which processes
-    images using a Vision Transformer (ViT) architecture. The encoder divides the input
-    image into fixed-size patches, linearly embeds each patch, adds position embeddings,
-    and processes the resulting sequence with a transformer encoder. The final
-    representation is obtained from the class token and projected to the joint
-    embedding space.
-
-    Args:
-        inputs: Tensor of shape (batch_size, height, width, channels) containing the
-            input images.
-        input_resolution: Integer, resolution of input images (both height and width).
-            Images are expected to be square with this resolution.
-        patch_size: Integer, size of image patches. The image will be divided into
-            patches of this size, which determines the sequence length for the transformer.
-        width: Integer, dimensionality of the transformer's hidden representations.
-        num_layers: Integer, number of transformer layers in the vision encoder.
-        heads: Integer, number of attention heads in each transformer layer.
-        output_dim: Integer, dimensionality of the final image embedding output that
-            matches the joint embedding space.
-        vision_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
-            dimension in the vision transformer. The MLP expands the representation
-            by this factor in its hidden layer. Default is 4.0.
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-
-    Returns:
-        A tensor of shape (batch_size, output_dim) containing the image embeddings
-        that can be compared with text embeddings in the joint embedding space.
-
+    Returns the full token sequence ``(B, num_patches + 1, width)``
+    (CLS token + patch tokens) before any projection or pooling.
+    Matches HF's ``CLIPVisionModel.last_hidden_state``.
     """
     patch_embeddings = keras.layers.Conv2D(
         filters=width,
@@ -222,29 +138,56 @@ def clip_image_encoder(
         width, input_resolution, patch_size, data_format, name="vision_model_embeddings"
     )(patch_embeddings)
 
-    x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_1")(
-        embeddings
-    )
-    encoded = clip_encoder(
+    x = keras.layers.LayerNormalization(
+        epsilon=layer_norm_eps, name="vision_model_layernorm_1"
+    )(embeddings)
+    return clip_encoder(
         x,
         width=width,
         num_layers=num_layers,
         heads=heads,
         layer_prefix="vision_model_encoder",
         mlp_ratio=vision_mlp_ratio,
+        hidden_act=hidden_act,
+        layer_norm_eps=layer_norm_eps,
+    )
+
+
+def clip_image_encoder(
+    inputs,
+    input_resolution=224,
+    patch_size=16,
+    width=768,
+    num_layers=12,
+    heads=12,
+    output_dim=512,
+    vision_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    data_format="channels_last",
+):
+    """CLIP ViT image encoder used by the contrastive head — features
+    -> CLS token -> post-LN -> visual projection."""
+    encoded = clip_vision_features(
+        inputs,
+        input_resolution=input_resolution,
+        patch_size=patch_size,
+        width=width,
+        num_layers=num_layers,
+        heads=heads,
+        vision_mlp_ratio=vision_mlp_ratio,
+        hidden_act=hidden_act,
+        layer_norm_eps=layer_norm_eps,
+        data_format=data_format,
     )
 
     class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
         encoded
     )
-    x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_2")(
-        class_token
-    )
-    outputs = keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(
-        x
-    )
-
-    return outputs
+    x = keras.layers.LayerNormalization(
+        epsilon=layer_norm_eps, name="vision_model_layernorm_2"
+    )(class_token)
+    return keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(x)
 
 
 def clip_text_encoder(
@@ -257,36 +200,10 @@ def clip_text_encoder(
     embed_dim,
     context_length,
     text_mlp_ratio,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
 ):
-    """Creates a CLIP text encoder for processing tokenized text inputs.
-
-    This function implements the text encoder component of the CLIP architecture,
-    which consists of a transformer model with token embeddings, positional
-    embeddings, masked self-attention, and a final projection to the joint
-    embedding space. The text encoder processes tokenized text inputs and
-    produces embeddings that can be compared with image embeddings.
-
-    Args:
-        inputs: Tensor of shape (batch_size, context_length) containing tokenized
-            text sequences with padding as needed.
-        attention_mask: Tensor of shape (batch_size, context_length) containing
-            1s for non-padding tokens and 0s for padding tokens.
-        transformer_width: Integer, dimensionality of the transformer's hidden
-            representations.
-        transformer_layers: Integer, number of transformer layers in the text encoder.
-        transformer_heads: Integer, number of attention heads in each transformer layer.
-        vocab_size: Integer, size of the token vocabulary.
-        embed_dim: Integer, dimensionality of the final text embedding output.
-        context_length: Integer, maximum length of input text sequences.
-        text_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
-            dimension in the text transformer. The MLP expands the representation
-            by this factor in its hidden layer. Default is 4.0.
-
-    Returns:
-        A tensor of shape (batch_size, embed_dim) containing the text embeddings
-        that can be compared with image embeddings in the joint embedding space.
-
-    """
+    """CLIP text encoder with causal attention."""
     x = TextModelEmbedding(
         vocab_size=vocab_size,
         context_length=context_length,
@@ -295,8 +212,8 @@ def clip_text_encoder(
     )(inputs)
 
     causal_attention_mask = ops.cast(
-        ops.triu(ops.ones((context_length, context_length))), "float32"
-    )
+        ops.triu(ops.ones((context_length, context_length)), k=1), "float32"
+    ) * (-1e8)
 
     attention_mask_float = ops.cast(attention_mask, dtype="float32")
     expanded_mask = ops.reshape(attention_mask_float, (-1, 1, 1, context_length))
@@ -312,14 +229,15 @@ def clip_text_encoder(
         attention_mask=expanded_mask,
         mlp_ratio=text_mlp_ratio,
         layer_prefix="text_model_encoder",
+        hidden_act=hidden_act,
+        layer_norm_eps=layer_norm_eps,
     )
 
-    layer_norm = keras.layers.LayerNormalization(name="text_model_layernorm")(
-        encoded_output
-    )
+    layer_norm = keras.layers.LayerNormalization(
+        epsilon=layer_norm_eps, name="text_model_layernorm"
+    )(encoded_output)
 
     indices = ops.argmax(inputs, axis=-1)
-
     one_hot_indices = ops.one_hot(indices, context_length)
     selected_features = ops.einsum("bi,bij->bj", one_hot_indices, layer_norm)
     selected_features = ops.expand_dims(selected_features, axis=1)
@@ -328,112 +246,108 @@ def clip_text_encoder(
         embed_dim, name="text_projection", use_bias=False
     )(selected_features)
 
-    output = ops.squeeze(text_features, axis=1)
-    return output
+    return ops.squeeze(text_features, axis=1)
 
 
 def clip_head(image_embeddings, text_embeddings):
-    """Creates the CLIP model head that processes embedded image and text features.
-
-    This function performs normalization of the image and text embeddings and applies
-    a learned temperature parameter (logit scale) to control the sharpness of the
-    similarity distribution. The normalization ensures that similarity is measured
-    by cosine distance, while the temperature scaling helps with training stability
-    and convergence.
-
-    Args:
-        image_embeddings: Tensor of shape (batch_size, embed_dim) containing the
-            output features from the image encoder.
-        text_embeddings: Tensor of shape (batch_size, embed_dim) containing the
-            output features from the text encoder.
-
-    Returns:
-        A tuple of (image_logits, text_logits):
-            - image_logits: Normalized and scaled image embeddings of shape
-              (batch_size, embed_dim)
-            - text_logits: Normalized and scaled text embeddings of shape
-              (batch_size, embed_dim)
-
-    """
-    normalize_image_features = ops.sqrt(
-        ops.sum(ops.power(image_embeddings, 2), keepdims=True)
+    """L2-normalize embeddings (per-sample) and apply learnable logit scale."""
+    image_embeddings = image_embeddings / ops.sqrt(
+        ops.sum(ops.power(image_embeddings, 2), axis=-1, keepdims=True)
     )
-    normalize_text_features = ops.sqrt(
-        ops.sum(ops.power(text_embeddings, 2), keepdims=True)
+    text_embeddings = text_embeddings / ops.sqrt(
+        ops.sum(ops.power(text_embeddings, 2), axis=-1, keepdims=True)
     )
-    image_embeddings = image_embeddings / normalize_image_features
-    text_embeddings = text_embeddings / normalize_text_features
     logit_scale_layer = CLIPLogitScale(initial_value=0.07, name="logit_scale")
-    image_logits, text_logits = logit_scale_layer([image_embeddings, text_embeddings])
-    return image_logits, text_logits
+    return logit_scale_layer([image_embeddings, text_embeddings])
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class CLIPModel(keras.Model):
-    """Instantiates the Contrastive Language-Image Pre-training (CLIP) architecture.
+class CLIPModel(BaseModel):
+    """Contrastive Language-Image Pre-training (CLIP) dual encoder.
 
-    CLIP is a neural network trained on a variety of (image, text) pairs. It can be used
-    for zero-shot image classification, image-text similarity ranking, and other
-    multimodal tasks. This implementation follows the original paper architecture.
+    Joint vision + text encoder pair projecting to a shared embedding
+    space. Returns the projected embeddings on each side — *no*
+    similarity / logit-scale head is applied; use
+    :class:`CLIPZeroShotClassify` for the standard contrastive head,
+    or call :meth:`CLIPModel` and compute similarity yourself.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({"images": ..., "token_ids": ..., "padding_mask": ...})
+        out["image_embeddings"]   # (B, embed_dim)
+        out["text_embeddings"]    # (B, embed_dim)
+
+    Construction:
+
+    >>> CLIPModel.from_weights("clip_vit_base_16")             # kmodels release
+    >>> CLIPModel.from_weights("hf:openai/clip-vit-base-patch16")
+    >>> CLIPModel.from_weights("hf:laion/CLIP-ViT-B-16-laion2B-s34B-b88K")
 
     Reference:
-    - [Learning Transferable Visual Models From Natural Language Supervision](
-        https://arxiv.org/abs/2103.00020) (Radford et al., ICML 2021)
-    - [Improving Vision-Language Pre-training with Large-scale Caption Annotations](
-        https://arxiv.org/abs/2111.08735)
-    - [OpenAI CLIP GitHub Repository](https://github.com/openai/CLIP)
-
-    The model consists of two main components:
-    1. A vision transformer (ViT) that encodes images
-    2. A text transformer that encodes text
-
-    These encoders project images and text into a shared embedding space where
-    similarity is computed using cosine similarity.
+        - `Learning Transferable Visual Models From Natural Language
+          Supervision <https://arxiv.org/abs/2103.00020>`_
 
     Args:
-        embed_dim: Integer, dimensionality of the final joint embedding space where
-            image and text features are projected.
-        image_resolution: Integer, resolution of input images (both height and width).
-            Images will be resized to this resolution before processing.
-        vision_layers: Integer, number of transformer layers in the vision model.
-            Deeper models generally perform better but require more computation.
-        vision_width: Integer, width/dimensionality of the vision transformer's hidden
-            representations.
-        vision_patch_size: Integer, size of patches for the vision transformer. The image
-            will be divided into patches of this size before processing.
-        context_length: Integer, maximum length of input text sequences. Longer sequences
-            will be truncated.
-        vocab_size: Integer, size of the token vocabulary for text processing.
-        transformer_width: Integer, width/dimensionality of the text transformer's hidden
-            representations.
-        transformer_heads: Integer, number of attention heads in the text transformer.
-            Should typically be transformer_width / 64.
-        transformer_layers: Integer, number of transformer layers in the text transformer.
-        vision_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
-            dimension in the vision transformer. The MLP expands the representation
-            by this factor in its hidden layer. Default is 4.0.
-        text_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
-            dimension in the text transformer. The MLP expands the representation
-            by this factor in its hidden layer. Default is 4.0.
-        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as
-            the model's input. If not provided, new input tensors are created.
-        name: String, the name of the model. Defaults to `"CLIPModel"`.
-        **kwargs: Additional keyword arguments passed to the base class.
-
-    Returns:
-        A Keras `Model` instance with image and text inputs, and embedding outputs.
-
-    Note:
-        - Both image and text features are L2-normalized before output
-        - The model can be used for zero-shot classification by comparing image
-          embeddings with text embeddings of class descriptions
-        - For best performance with pretrained weights, use the same preprocessing
-          as was used during training
+        embed_dim: Shared embedding dim (= HF ``projection_dim``).
+        image_resolution: Input image size (height = width).
+        vision_layers: ViT encoder depth.
+        vision_width: ViT hidden dim.
+        vision_patch_size: ViT patch size.
+        context_length: Text input length.
+        vocab_size: Tokenizer vocab size.
+        transformer_width: Text encoder hidden dim.
+        transformer_heads: Text encoder head count.
+        transformer_layers: Text encoder depth.
+        vision_mlp_ratio: MLP expansion ratio in vision blocks.
+        text_mlp_ratio: MLP expansion ratio in text blocks.
+        hidden_act: MLP activation. ``"quick_gelu"`` for canonical
+            OpenAI CLIP; ``"gelu"`` / ``"gelu_new"`` for LAION /
+            community variants.
+        layer_norm_eps: Epsilon for every LayerNorm. Defaults to ``1e-5``.
+        input_shape: Optional image input shape override.
+        input_tensor: Optional dict of pre-existing input tensors.
+        name: Model name.
     """
+
+    KMODELS_CONFIG = CLIP_CONFIG
+    KMODELS_WEIGHTS = CLIP_WEIGHTS
+    HF_MODEL_TYPE = "clip"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config["vision_config"]
+        tc = hf_config["text_config"]
+        return {
+            "embed_dim": hf_config["projection_dim"],
+            "image_resolution": vc.get("image_size", 224),
+            "vision_layers": vc["num_hidden_layers"],
+            "vision_width": vc["hidden_size"],
+            "vision_patch_size": vc["patch_size"],
+            "context_length": tc.get("max_position_embeddings", 77),
+            "vocab_size": tc["vocab_size"],
+            "transformer_width": tc["hidden_size"],
+            "transformer_heads": tc["num_attention_heads"],
+            "transformer_layers": tc["num_hidden_layers"],
+            "vision_mlp_ratio": vc["intermediate_size"] / vc["hidden_size"],
+            "text_mlp_ratio": tc["intermediate_size"] / tc["hidden_size"],
+            "hidden_act": vc.get("hidden_act", "quick_gelu"),
+            "layer_norm_eps": vc.get("layer_norm_eps", 1e-5),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.clip.convert_clip_torch_to_keras import (
+            transfer_clip_weights,
+        )
+
+        transfer_clip_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
         embed_dim=512,
+        image_resolution=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=32,
@@ -444,9 +358,10 @@ class CLIPModel(keras.Model):
         transformer_layers=12,
         vision_mlp_ratio=4.0,
         text_mlp_ratio=4.0,
+        hidden_act="quick_gelu",
+        layer_norm_eps=1e-5,
         input_shape=None,
         input_tensor=None,
-        weights="openai_224",
         name="CLIPModel",
         **kwargs,
     ):
@@ -455,24 +370,20 @@ class CLIPModel(keras.Model):
 
         if input_shape is not None:
             if data_format == "channels_first":
-                if len(input_shape) == 3:
-                    channels = input_shape[0]
-                    image_size = min(input_shape[1], input_shape[2])
-                else:
-                    channels = 3
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
+                channels = input_shape[0] if len(input_shape) == 3 else 3
+                image_size = (
+                    min(input_shape[1], input_shape[2])
+                    if len(input_shape) == 3
+                    else input_shape[0]
+                )
             else:
                 if len(input_shape) >= 2:
                     image_size = min(input_shape[0], input_shape[1])
                 else:
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
-
-                if len(input_shape) == 3:
-                    channels = input_shape[2]
-                else:
-                    channels = 3
+                    image_size = input_shape[0]
+                channels = input_shape[2] if len(input_shape) == 3 else 3
         else:
-            image_size = 336 if weights and "336" in weights else 224
+            image_size = image_resolution
             channels = 3
 
         if data_format == "channels_first":
@@ -506,6 +417,8 @@ class CLIPModel(keras.Model):
             heads=vision_heads,
             output_dim=embed_dim,
             vision_mlp_ratio=vision_mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
             data_format=data_format,
         )
 
@@ -519,18 +432,14 @@ class CLIPModel(keras.Model):
             embed_dim=embed_dim,
             text_mlp_ratio=text_mlp_ratio,
             context_length=context_length,
-        )
-
-        image_logits, text_logits = clip_head(
-            image_embeddings,
-            text_embeddings,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
         )
 
         outputs = {
-            "image_logits": image_logits,
-            "text_logits": text_logits,
+            "image_embeddings": image_embeddings,
+            "text_embeddings": text_embeddings,
         }
-
         inputs = {
             "images": images_input,
             "token_ids": token_ids_input,
@@ -539,8 +448,8 @@ class CLIPModel(keras.Model):
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
-        # Store model parameters
         self.embed_dim = embed_dim
+        self.image_resolution = image_size
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -551,20 +460,21 @@ class CLIPModel(keras.Model):
         self.transformer_layers = transformer_layers
         self.vision_mlp_ratio = vision_mlp_ratio
         self.text_mlp_ratio = text_mlp_ratio
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
         self.input_tensor = input_tensor
 
     def get_config(self):
         config = super().get_config()
-
-        image_shape_with_batch = self.input_shape[0]
+        image_shape_with_batch = self.input_shape["images"]
         if image_shape_with_batch[0] is None:
             image_input_shape = image_shape_with_batch[1:]
         else:
             image_input_shape = image_shape_with_batch
-
         config.update(
             {
                 "embed_dim": self.embed_dim,
+                "image_resolution": self.image_resolution,
                 "input_shape": image_input_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
@@ -576,9 +486,10 @@ class CLIPModel(keras.Model):
                 "transformer_layers": self.transformer_layers,
                 "vision_mlp_ratio": self.vision_mlp_ratio,
                 "text_mlp_ratio": self.text_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -588,136 +499,318 @@ class CLIPModel(keras.Model):
         return cls(**config)
 
 
-@register_model
-def ClipVitBase16(
-    weights="openai_224",
-    input_tensor=None,
-    input_shape=None,
-    name="ClipVitBase16",
-    **kwargs,
-):
-    model = CLIPModel(
-        **CLIP_MODEL_CONFIG["ClipVitBase16"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
+@keras.saving.register_keras_serializable(package="kmodels")
+class CLIPZeroShotClassify(BaseModel):
+    """CLIP + contrastive similarity head for zero-shot classification / retrieval.
+
+    Composes the same vision + text encoders as :class:`CLIPModel` and
+    adds the standard CLIP head — L2-normalize both sides, then a
+    learnable ``logit_scale`` temperature on the cosine-similarity
+    matrix. Output is the ``(B, B)`` image-vs-text similarity logits,
+    which softmax to zero-shot class probabilities when ``text_*``
+    inputs are class-name prompts.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({"images": ..., "token_ids": ..., "padding_mask": ...})
+        out["image_logits"]   # (B, B) — image[i] vs text[j], scaled
+        out["text_logits"]    # (B, B) — transpose of image_logits
+
+    Construction:
+
+    >>> CLIPZeroShotClassify.from_weights("clip_vit_base_16")
+    >>> CLIPZeroShotClassify.from_weights("hf:openai/clip-vit-base-patch16")
+
+    Args (identical to :class:`CLIPModel`):
+        embed_dim, image_resolution, vision_layers, vision_width,
+        vision_patch_size, context_length, vocab_size, transformer_width,
+        transformer_heads, transformer_layers, vision_mlp_ratio,
+        text_mlp_ratio, hidden_act, layer_norm_eps, input_shape,
+        input_tensor, name.
+    """
+
+    KMODELS_CONFIG = CLIP_CONFIG
+    KMODELS_WEIGHTS = CLIP_WEIGHTS
+    HF_MODEL_TYPE = "clip"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return CLIPModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.clip.convert_clip_torch_to_keras import (
+            transfer_clip_weights,
+        )
+
+        transfer_clip_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        embed_dim=512,
+        image_resolution=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=32,
+        context_length=77,
+        vocab_size=49408,
+        transformer_width=512,
+        transformer_heads=8,
+        transformer_layers=12,
+        vision_mlp_ratio=4.0,
+        text_mlp_ratio=4.0,
+        hidden_act="quick_gelu",
+        layer_norm_eps=1e-5,
+        input_shape=None,
+        input_tensor=None,
+        name="CLIPZeroShotClassify",
         **kwargs,
-    )
+    ):
+        base = CLIPModel(
+            embed_dim=embed_dim,
+            image_resolution=image_resolution,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
+            context_length=context_length,
+            vocab_size=vocab_size,
+            transformer_width=transformer_width,
+            transformer_heads=transformer_heads,
+            transformer_layers=transformer_layers,
+            vision_mlp_ratio=vision_mlp_ratio,
+            text_mlp_ratio=text_mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_base",
+        )
 
-    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("ClipVitBase16", weights, model, CLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        image_embeddings = base.output["image_embeddings"]
+        text_embeddings = base.output["text_embeddings"]
+        image_logits, text_logits = clip_head(image_embeddings, text_embeddings)
 
-    return model
+        super().__init__(
+            inputs=base.input,
+            outputs={"image_logits": image_logits, "text_logits": text_logits},
+            name=name,
+            **kwargs,
+        )
+
+        self.embed_dim = embed_dim
+        self.image_resolution = image_resolution
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+        self.transformer_width = transformer_width
+        self.transformer_heads = transformer_heads
+        self.transformer_layers = transformer_layers
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.text_mlp_ratio = text_mlp_ratio
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape["images"]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "embed_dim": self.embed_dim,
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "context_length": self.context_length,
+                "vocab_size": self.vocab_size,
+                "transformer_width": self.transformer_width,
+                "transformer_heads": self.transformer_heads,
+                "transformer_layers": self.transformer_layers,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "text_mlp_ratio": self.text_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
-@register_model
-def ClipVitBase32(
-    weights="openai_224",
-    input_tensor=None,
-    input_shape=None,
-    name="ClipVitBase32",
-    **kwargs,
-):
-    model = CLIPModel(
-        **CLIP_MODEL_CONFIG["ClipVitBase32"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        name=name,
+@keras.saving.register_keras_serializable(package="kmodels")
+class CLIPImageClassify(BaseModel):
+    """CLIP vision encoder + linear image-classification head.
+
+    Mirrors HF's ``CLIPForImageClassification``: uses **only the CLIP
+    vision encoder** (no text encoder, no visual projection), then
+    mean-pools the patch tokens (excluding CLS) and applies a single
+    linear classifier producing ``num_labels`` logits.
+
+    .. code-block:: python
+
+        model = CLIPImageClassify.from_weights(
+            "hf:<user>/clip-finetune-imagenet"
+        )
+        logits = model(images)              # (B, num_labels)
+
+    Args:
+        num_labels: Number of output classes.
+        image_resolution: Input image size.
+        vision_layers: ViT encoder depth.
+        vision_width: ViT hidden dim.
+        vision_patch_size: ViT patch size.
+        vision_mlp_ratio: MLP expansion ratio in vision blocks.
+        hidden_act: MLP activation. ``"quick_gelu"`` for OpenAI,
+            ``"gelu"`` / ``"gelu_new"`` for community variants.
+        layer_norm_eps: Epsilon for every LayerNorm. Defaults to ``1e-5``.
+        input_shape: Optional override (defaults to ``image_resolution``).
+        input_tensor: Optional pre-existing input tensor.
+        name: Model name.
+    """
+
+    KMODELS_CONFIG = None
+    KMODELS_WEIGHTS = None
+    HF_MODEL_TYPE = "clip"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        from kmodels.base.base_model import hf_num_labels
+
+        vc = hf_config["vision_config"]
+        return {
+            "num_labels": hf_num_labels(hf_config),
+            "image_resolution": vc.get("image_size", 224),
+            "vision_layers": vc["num_hidden_layers"],
+            "vision_width": vc["hidden_size"],
+            "vision_patch_size": vc["patch_size"],
+            "vision_mlp_ratio": vc["intermediate_size"] / vc["hidden_size"],
+            "hidden_act": vc.get("hidden_act", "quick_gelu"),
+            "layer_norm_eps": vc.get("layer_norm_eps", 1e-5),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.clip.convert_clip_torch_to_keras import (
+            transfer_clip_image_classify_weights,
+        )
+
+        transfer_clip_image_classify_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        num_labels=1000,
+        image_resolution=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=16,
+        vision_mlp_ratio=4.0,
+        hidden_act="quick_gelu",
+        layer_norm_eps=1e-5,
+        input_shape=None,
+        input_tensor=None,
+        name="CLIPImageClassify",
         **kwargs,
-    )
+    ):
+        vision_heads = vision_width // 64
+        data_format = keras.backend.image_data_format()
 
-    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        if input_shape is not None:
+            if data_format == "channels_first":
+                channels = input_shape[0] if len(input_shape) == 3 else 3
+                image_size = (
+                    min(input_shape[1], input_shape[2])
+                    if len(input_shape) == 3
+                    else input_shape[0]
+                )
+            else:
+                image_size = (
+                    min(input_shape[0], input_shape[1])
+                    if len(input_shape) >= 2
+                    else input_shape[0]
+                )
+                channels = input_shape[2] if len(input_shape) == 3 else 3
+        else:
+            image_size = image_resolution
+            channels = 3
 
-    return model
+        if data_format == "channels_first":
+            image_input_shape = [channels, image_size, image_size]
+        else:
+            image_input_shape = [image_size, image_size, channels]
 
+        if input_tensor is None:
+            images_input = layers.Input(shape=image_input_shape, name="images")
+        else:
+            images_input = input_tensor
 
-@register_model
-def ClipVitLarge14(
-    weights="openai_224",
-    input_tensor=None,
-    input_shape=None,
-    name="ClipVitLarge14",
-    **kwargs,
-):
-    model = CLIPModel(
-        **CLIP_MODEL_CONFIG["ClipVitLarge14"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        name=name,
-        **kwargs,
-    )
+        # Vision encoder, full last_hidden_state output
+        encoded = clip_vision_features(
+            images_input,
+            input_resolution=image_size,
+            patch_size=vision_patch_size,
+            width=vision_width,
+            num_layers=vision_layers,
+            heads=vision_heads,
+            vision_mlp_ratio=vision_mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            data_format=data_format,
+        )
 
-    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("ClipVitLarge14", weights, model, CLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        # Mean-pool patch tokens (drop CLS at index 0)
+        patches = layers.Lambda(lambda t: t[:, 1:, :], name="drop_cls")(encoded)
+        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(patches)
+        logits = layers.Dense(num_labels, name="classifier")(pooled)
 
-    return model
+        super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
+        self.num_labels = num_labels
+        self.image_resolution = image_size
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.input_tensor = input_tensor
 
-@register_model
-def ClipVitG14(
-    weights="laion2b_s12B_b42K_224",
-    input_tensor=None,
-    input_shape=None,
-    name="ClipVitG14",
-    **kwargs,
-):
-    model = CLIPModel(
-        **CLIP_MODEL_CONFIG["ClipVitG14"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        name=name,
-        **kwargs,
-    )
+    def get_config(self):
+        config = super().get_config()
+        image_shape_with_batch = self.input_shape
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+        config.update(
+            {
+                "num_labels": self.num_labels,
+                "image_resolution": self.image_resolution,
+                "input_shape": image_input_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
 
-    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("ClipVitG14", weights, model, CLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ClipVitBigG14(
-    weights="laion2b_39B_b160k_224",
-    input_tensor=None,
-    input_shape=None,
-    name="ClipVitBigG14",
-    **kwargs,
-):
-    model = CLIPModel(
-        **CLIP_MODEL_CONFIG["ClipVitBigG14"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        name=name,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("ClipVitBigG14", weights, model, CLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

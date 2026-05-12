@@ -1,10 +1,9 @@
 import keras
 from keras import initializers, layers, ops
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.base import BaseModel
 
-from .config import SigLIP_MODEL_CONFIG, SigLIP_WEIGHTS_CONFIG
+from .config import SIGLIP_CONFIG, SIGLIP_WEIGHTS
 from .siglip_layers import (
     LogitScaleBias,
     PositionEmbedding,
@@ -555,7 +554,7 @@ def siglip_head(vision_embedding, text_embedding):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SigLIPModel(keras.Model):
+class SigLIPModel(BaseModel):
     """
     SigLIP/SigLIP2 (Sigmoid Loss for Language Image Pre-training) model implementation.
 
@@ -639,9 +638,41 @@ class SigLIPModel(keras.Model):
         negative pairs (non-matching) should have low scores on off-diagonal elements.
     """
 
+    KMODELS_CONFIG = SIGLIP_CONFIG
+    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    HF_MODEL_TYPE = ("siglip", "siglip2")
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config["vision_config"]
+        tc = hf_config["text_config"]
+        return {
+            "image_resolution": vc.get("image_size", 224),
+            "patch_size": vc["patch_size"],
+            "vision_hidden_dim": vc["hidden_size"],
+            "vision_num_layers": vc["num_hidden_layers"],
+            "vision_num_heads": vc["num_attention_heads"],
+            "vision_intermediate_dim": vc["intermediate_size"],
+            "vocabulary_size": tc["vocab_size"],
+            "embed_dim": tc["hidden_size"],
+            "text_hidden_dim": tc["hidden_size"],
+            "text_num_layers": tc["num_hidden_layers"],
+            "text_num_heads": tc["num_attention_heads"],
+            "text_intermediate_dim": tc["intermediate_size"],
+            "max_sequence_length": tc.get("max_position_embeddings", 64),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kmodels.models.siglip.convert_siglip_torch_to_keras import (
+            transfer_siglip_weights,
+        )
+
+        transfer_siglip_weights(keras_model, hf_state_dict)
+
     def __init__(
         self,
-        input_shape=(224, 224, 3),
+        image_resolution=224,
         patch_size=16,
         vision_hidden_dim=768,
         vision_num_layers=12,
@@ -654,8 +685,8 @@ class SigLIPModel(keras.Model):
         text_num_heads=12,
         text_intermediate_dim=3072,
         max_sequence_length=64,
+        input_shape=None,
         input_tensor=None,
-        weights="google_224",
         name="SigLIPModel",
         **kwargs,
     ):
@@ -663,34 +694,20 @@ class SigLIPModel(keras.Model):
 
         if input_shape is not None:
             if data_format == "channels_first":
-                if len(input_shape) == 3:
-                    channels = input_shape[0]
-                    image_size = min(input_shape[1], input_shape[2])
-                else:
-                    channels = 3
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
+                channels = input_shape[0] if len(input_shape) == 3 else 3
+                image_size = (
+                    min(input_shape[1], input_shape[2])
+                    if len(input_shape) == 3
+                    else input_shape[0]
+                )
             else:
                 if len(input_shape) >= 2:
                     image_size = min(input_shape[0], input_shape[1])
                 else:
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
-
-                if len(input_shape) == 3:
-                    channels = input_shape[2]
-                else:
-                    channels = 3
+                    image_size = input_shape[0]
+                channels = input_shape[2] if len(input_shape) == 3 else 3
         else:
-            if weights:
-                if "512" in weights:
-                    image_size = 512
-                elif "384" in weights:
-                    image_size = 384
-                elif "256" in weights:
-                    image_size = 256
-                else:
-                    image_size = 224
-            else:
-                image_size = 224
+            image_size = image_resolution
             channels = 3
 
         if data_format == "channels_first":
@@ -746,6 +763,7 @@ class SigLIPModel(keras.Model):
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
         # Store model parameters
+        self.image_resolution = image_size
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
@@ -762,15 +780,14 @@ class SigLIPModel(keras.Model):
 
     def get_config(self):
         config = super().get_config()
-
-        image_shape_with_batch = self.input_shape[0]
+        image_shape_with_batch = self.input_shape["images"]
         if image_shape_with_batch[0] is None:
             image_input_shape = image_shape_with_batch[1:]
         else:
             image_input_shape = image_shape_with_batch
-
         config.update(
             {
+                "image_resolution": self.image_resolution,
                 "input_shape": image_input_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
@@ -786,7 +803,6 @@ class SigLIPModel(keras.Model):
                 "max_sequence_length": self.max_sequence_length,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -794,98 +810,3 @@ class SigLIPModel(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-@register_model
-def SigLIPBaseP16(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIPBaseP16",
-    **kwargs,
-):
-    custom_config = SigLIP_MODEL_CONFIG["SigLIPBaseP16"].copy()
-    if weights:
-        if "multilingual" in weights:
-            custom_config["vocabulary_size"] = 250000
-
-    model = SigLIPModel(
-        **custom_config,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("SigLIPBaseP16", weights, model, SigLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def SigLIPLargeP16(
-    weights="google_256",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIPLargeP16",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP_MODEL_CONFIG["SigLIPLargeP16"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIPLargeP16", weights, model, SigLIP_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def SigLIPSo400mP14(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIPSo400mP14",
-    **kwargs,
-):
-    custom_config = SigLIP_MODEL_CONFIG["SigLIPSo400mP14"].copy()
-    if weights:
-        if "384" in weights:
-            custom_config["max_sequence_length"] = 64
-
-    model = SigLIPModel(
-        **custom_config,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIPSo400mP14", weights, model, SigLIP_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
