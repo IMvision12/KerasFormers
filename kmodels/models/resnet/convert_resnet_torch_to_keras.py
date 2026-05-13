@@ -1,23 +1,25 @@
-from typing import Dict, List, Union
+"""timm ResNet -> Keras weight transfer.
 
-import keras
-import timm
-import torch
-from tqdm import tqdm
+Exposes :func:`transfer_resnet_weights` for both the offline conversion
+``__main__`` block (timm checkpoints -> kmodels release files) and the
+runtime ``ResNet.from_weights("timm:...")`` path.
+"""
 
-from kmodels.models import resnet
+from typing import Dict
+
+import numpy as np
+
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
 from kmodels.weight_utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
 )
 
-weight_name_mapping: Dict[str, str] = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "resnet_layer": "layer",
     "_": ".",
     "downsample.conv": "downsample.0",
@@ -35,77 +37,62 @@ weight_name_mapping: Dict[str, str] = {
     "predictions": "fc",
 }
 
-model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": resnet.ResNet50,
-    "torch_model_name": "resnet50.a1_in1k",
-    "input_shape": [224, 224, 3],
-    "num_classes": 1000,
-    "include_top": True,
-    "include_normalization": False,
-    "classifier_activation": "linear",
-}
+
+def transfer_resnet_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer a timm ResNet state-dict into a Keras :class:`ResNet`.
+
+    Args:
+        keras_model: A built :class:`ResNet` instance.
+        state_dict: Mapping of timm weight names to numpy arrays (e.g.
+            from ``timm.create_model(...).state_dict()`` with each
+            tensor moved to CPU + ``.numpy()``).
+    """
+    trainable, non_trainable = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
+
+        if torch_weight_name not in state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-keras_model: keras.Model = model_config["keras_model_cls"](
-    include_top=model_config["include_top"],
-    input_shape=model_config["input_shape"],
-    classifier_activation=model_config["classifier_activation"],
-    num_classes=model_config["num_classes"],
-    include_normalization=model_config["include_normalization"],
-    weights=None,
-)
+if __name__ == "__main__":
+    import gc
 
-torch_model: torch.nn.Module = timm.create_model(
-    model_config["torch_model_name"], pretrained=True
-).eval()
+    import keras
 
-trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-    torch_model
-)
-trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
+    from kmodels.base.base_model import load_hf_state_dict
+    from kmodels.models.resnet import ResNet
+    from kmodels.models.resnet.config import RESNET_CONFIG
 
-for keras_weight, keras_weight_name in tqdm(
-    trainable_keras_weights + non_trainable_keras_weights,
-    total=len(trainable_keras_weights + non_trainable_keras_weights),
-    desc="Transferring weights",
-):
-    torch_weight_name: str = keras_weight_name
-    for keras_name_part, torch_name_part in weight_name_mapping.items():
-        torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
+    for variant, cfg in RESNET_CONFIG.items():
+        timm_id = cfg["timm_id"]
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  timm/{timm_id}")
+        print(f"{'=' * 60}")
 
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
+        state = load_hf_state_dict(f"timm/{timm_id}")
+        keras_model = ResNet.from_weights(variant, load_weights=False)
+        transfer_resnet_weights(keras_model, state)
 
-    if torch_weight_name not in torch_weights_dict:
-        raise WeightMappingError(keras_weight_name, torch_weight_name)
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
 
-    torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
-    if not compare_keras_torch_names(
-        keras_weight_name, keras_weight, torch_weight_name, torch_weight
-    ):
-        raise WeightShapeMismatchError(
-            keras_weight_name, keras_weight.shape, torch_weight_name, torch_weight.shape
-        )
-
-    transfer_weights(keras_weight_name, keras_weight, torch_weight)
-
-results = verify_cls_model_equivalence(
-    model_a=torch_model,
-    model_b=keras_model,
-    input_shape=(224, 224, 3),
-    output_specs={"num_classes": 1000},
-    run_performance=False,
-)
-
-
-if not results["standard_input"]:
-    raise ValueError(
-        "Model equivalence test failed - model outputs do not match for standard input"
-    )
-
-model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.weights.h5"
-keras_model.save_weights(model_filename)
-print(f"Model saved successfully as {model_filename}")
+        del keras_model, state
+        keras.backend.clear_session()
+        gc.collect()

@@ -1,23 +1,20 @@
-from typing import Dict, List, Union
+"""timm Res2Net -> Keras weight transfer."""
 
-import keras
-import timm
-import torch
-from tqdm import tqdm
+from typing import Dict
 
-from kmodels.models import res2net
+import numpy as np
+
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
 from kmodels.weight_utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
 )
 
-weight_name_mapping: Dict[str, str] = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "batchnorm.1": "bn1",
     "batchnorm.s": "bns",
@@ -34,78 +31,55 @@ weight_name_mapping: Dict[str, str] = {
     "predictions": "fc",
 }
 
-model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": res2net.Res2Net50_26w_4s,
-    "torch_model_name": "res2net50_26w_4s",
-    "input_shape": [224, 224, 3],
-    "num_classes": 1000,
-    "include_top": True,
-    "include_normalization": False,
-    "classifier_activation": "linear",
-}
+
+def transfer_res2net_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer a timm Res2Net state-dict into a Keras :class:`Res2Net`."""
+    trainable, non_trainable = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
+
+        if torch_weight_name not in state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-keras_model: keras.Model = model_config["keras_model_cls"](
-    include_top=model_config["include_top"],
-    input_shape=model_config["input_shape"],
-    classifier_activation=model_config["classifier_activation"],
-    num_classes=model_config["num_classes"],
-    include_normalization=model_config["include_normalization"],
-    weights=None,
-)
+if __name__ == "__main__":
+    import gc
 
-torch_model: torch.nn.Module = timm.create_model(
-    model_config["torch_model_name"], pretrained=True
-).eval()
+    import keras
 
+    from kmodels.base.base_model import load_hf_state_dict
+    from kmodels.models.res2net import Res2Net
+    from kmodels.models.res2net.config import RES2NET_CONFIG
 
-trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-    torch_model
-)
-trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
+    for variant, cfg in RES2NET_CONFIG.items():
+        timm_id = cfg["timm_id"]
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  timm/{timm_id}")
+        print(f"{'=' * 60}")
 
-for keras_weight, keras_weight_name in tqdm(
-    trainable_keras_weights + non_trainable_keras_weights,
-    total=len(trainable_keras_weights + non_trainable_keras_weights),
-    desc="Transferring weights",
-):
-    torch_weight_name: str = keras_weight_name
-    for keras_name_part, torch_name_part in weight_name_mapping.items():
-        torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
+        state = load_hf_state_dict(f"timm/{timm_id}")
+        keras_model = Res2Net.from_weights(variant, load_weights=False)
+        transfer_res2net_weights(keras_model, state)
 
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
 
-    if torch_weight_name not in torch_weights_dict:
-        raise WeightMappingError(keras_weight_name, torch_weight_name)
-
-    torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
-    if not compare_keras_torch_names(
-        keras_weight_name, keras_weight, torch_weight_name, torch_weight
-    ):
-        raise WeightShapeMismatchError(
-            keras_weight_name, keras_weight.shape, torch_weight_name, torch_weight.shape
-        )
-
-    transfer_weights(keras_weight_name, keras_weight, torch_weight)
-
-results = verify_cls_model_equivalence(
-    model_a=torch_model,
-    model_b=keras_model,
-    input_shape=(224, 224, 3),
-    output_specs={"num_classes": 1000},
-    run_performance=False,
-    atol=1e-5,
-    rtol=1e-5,
-)
-
-
-if results["standard_input"]:
-    model_filename: str = (
-        f"{model_config['torch_model_name'].replace('.', '_')}.weights.h5"
-    )
-    keras_model.save_weights(model_filename)
-    print(f"Model saved successfully as {model_filename}")
+        del keras_model, state
+        keras.backend.clear_session()
+        gc.collect()

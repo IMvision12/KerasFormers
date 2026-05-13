@@ -1,6 +1,3 @@
-from kmodels.models.senet.senet_model import (
-    SEResNet50,
-    SEResNeXt50_32x4d,
-    SEResNeXt101_32x4d,
-    SEResNeXt101_32x8d,
-)
+from kmodels.models.senet.senet_model import SENet, SENetBackbone
+
+__all__ = ["SENet", "SENetBackbone"]

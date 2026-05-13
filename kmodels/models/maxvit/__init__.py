@@ -1,7 +1,3 @@
-from kmodels.models.maxvit.maxvit_model import (
-    MaxViTBase,
-    MaxViTLarge,
-    MaxViTSmall,
-    MaxViTTiny,
-    MaxViTXLarge,
-)
+from kmodels.models.maxvit.maxvit_model import MaxViT, MaxViTBackbone
+
+__all__ = ["MaxViT", "MaxViTBackbone"]

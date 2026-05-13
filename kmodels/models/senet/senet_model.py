@@ -1,202 +1,62 @@
-from kmodels.model_registry import register_model
-from kmodels.models.resnet.resnet_model import ResNet
+import keras
+
+from kmodels.models.resnet.resnet_model import (
+    ResNet,
+    ResNetBackbone,
+    bottleneck_block,
+)
 from kmodels.models.resnext.resnext_model import resnext_block
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
-from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_CONFIG
+from .config import SENET_CONFIG, SENET_WEIGHTS
 
-__all__ = [
-    "resnext_block",
-    "SEResNet50",
-    "SEResNeXt50_32x4d",
-    "SEResNeXt101_32x4d",
-    "SEResNeXt101_32x8d",
-]
+_BLOCK_FN_LOOKUP = {
+    "bottleneck_block": bottleneck_block,
+    "resnext_block": resnext_block,
+}
 
 
-# SE-resent and SE-ResNext
-@register_model
-def SEResNet50(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="a1_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SEResNet50",
-    **kwargs,
-):
-    model = ResNet(
-        block_repeats=SENET_MODEL_CONFIG["SEResNet50"]["block_repeats"],
-        filters=SENET_MODEL_CONFIG["SEResNet50"]["filters"],
-        senet=SENET_MODEL_CONFIG["SEResNet50"]["senet"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SENET_WEIGHTS_CONFIG):
-        load_weights_from_config("SEResNet50", weights, model, SENET_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+def _resolve_block_fn(kwargs):
+    """Convert a ``block_fn_name`` string (from the variant config) to a
+    callable. Subclass __init__s call this to support both SE-ResNet
+    (``bottleneck_block``) and SE-ResNeXt (``resnext_block``) variants.
+    """
+    name = kwargs.pop("block_fn_name", None)
+    if name is not None:
+        kwargs["block_fn"] = _BLOCK_FN_LOOKUP[name]
 
 
-@register_model
-def SEResNeXt50_32x4d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="gluon_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SEResNeXt50_32x4d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["block_fn"]],
-        block_repeats=SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["block_repeats"],
-        filters=SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["filters"],
-        groups=SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["groups"],
-        width_factor=SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["width_factor"],
-        senet=SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["senet"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class SENet(ResNet):
+    """Squeeze-and-Excitation ResNet / ResNeXt classifier.
 
-    if weights in get_all_weight_names(SENET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SEResNeXt50_32x4d", weights, model, SENET_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    Covers both ``seresnet*`` (bottleneck block) and ``seresnext*``
+    (grouped block) variants — block_fn is selected per-variant via the
+    ``block_fn_name`` key in :data:`SENET_CONFIG`.
 
-    return model
+    >>> SENet.from_weights("seresnet50_a1_in1k")
+    >>> SENet.from_weights("seresnext50_32x4d_racm_in1k")
+    >>> SENet.from_weights("timm:timm/seresnet50.a1_in1k")
+    """
+
+    KMODELS_CONFIG = SENET_CONFIG
+    KMODELS_WEIGHTS = SENET_WEIGHTS
+
+    def __init__(self, senet=True, name="SENet", **kwargs):
+        _resolve_block_fn(kwargs)
+        super().__init__(senet=senet, name=name, **kwargs)
 
 
-@register_model
-def SEResNeXt101_32x4d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="gluon_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SEResNeXt101_32x4d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["block_fn"]],
-        block_repeats=SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["block_repeats"],
-        filters=SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["filters"],
-        groups=SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["groups"],
-        width_factor=SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["width_factor"],
-        senet=SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["senet"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class SENetBackbone(ResNetBackbone):
+    """SE-ResNet / SE-ResNeXt feature extractor (no classifier head)."""
 
-    if weights in get_all_weight_names(SENET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SEResNeXt101_32x4d", weights, model, SENET_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    KMODELS_CONFIG = SENET_CONFIG
+    KMODELS_WEIGHTS = SENET_WEIGHTS
 
-    return model
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return SENet
 
-
-@register_model
-def SEResNeXt101_32x8d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="ah_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SEResNeXt101_32x8d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["block_fn"]],
-        block_repeats=SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["block_repeats"],
-        filters=SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["filters"],
-        groups=SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["groups"],
-        width_factor=SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["width_factor"],
-        senet=SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["senet"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SENET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SEResNeXt101_32x8d", weights, model, SENET_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+    def __init__(self, senet=True, name="SENetBackbone", **kwargs):
+        _resolve_block_fn(kwargs)
+        super().__init__(senet=senet, name=name, **kwargs)

@@ -1,134 +1,53 @@
-from kmodels.model_registry import register_model
-from kmodels.models.vit.vit_model import VisionTransformer
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+"""FlexiViT as a thin :class:`ViT` subclass (timm-ported)."""
 
-from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_CONFIG
+import keras
 
+from kmodels.models.vit.convert_vit_torch_to_keras import transfer_vit_weights
+from kmodels.models.vit.vit_model import ViT, ViTBackbone
 
-@register_model
-def FlexiViTSmall(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="1200ep_in1k",
-    input_tensor=None,
-    input_shape=(240, 240, 3),
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="FlexiViTSmall",
-    **kwargs,
-):
-    model = VisionTransformer(
-        **FLEXIVIT_MODEL_CONFIG["FlexiViTSmall"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(FLEXIVIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "FlexiViTSmall", weights, model, FLEXIVIT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+from .config import FLEXIVIT_CONFIG, FLEXIVIT_WEIGHTS
 
 
-@register_model
-def FlexiViTBase(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="1200ep_in1k",
-    input_tensor=None,
-    input_shape=(240, 240, 3),
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="FlexiViTBase",
-    **kwargs,
-):
-    model = VisionTransformer(
-        **FLEXIVIT_MODEL_CONFIG["FlexiViTBase"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class FlexiViT(ViT):
+    """FlexiViT classifier (no_embed_class=True for flexible patch sizes).
 
-    if weights in get_all_weight_names(FLEXIVIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "FlexiViTBase", weights, model, FLEXIVIT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    Reference:
+    - [FlexiViT: One Model for All Patch Sizes](https://arxiv.org/abs/2212.08013)
 
-    return model
+    Construction:
+
+    >>> FlexiViT.from_weights("flexivit_base_1200ep_in1k")
+    >>> FlexiViT.from_weights("timm:timm/flexivit_base.1200ep_in1k")
+    """
+
+    KMODELS_CONFIG = FLEXIVIT_CONFIG
+    KMODELS_WEIGHTS = FLEXIVIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_vit_weights(keras_model, state_dict)
+
+    def __init__(self, name="FlexiViT", **kwargs):
+        super().__init__(name=name, **kwargs)
 
 
-@register_model
-def FlexiViTLarge(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="1200ep_in1k",
-    input_tensor=None,
-    input_shape=(240, 240, 3),
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="FlexiViTLarge",
-    **kwargs,
-):
-    model = VisionTransformer(
-        **FLEXIVIT_MODEL_CONFIG["FlexiViTLarge"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class FlexiViTBackbone(ViTBackbone):
+    """FlexiViT feature extractor (no classifier head). Returns final encoder tokens."""
 
-    if weights in get_all_weight_names(FLEXIVIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "FlexiViTLarge", weights, model, FLEXIVIT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    KMODELS_CONFIG = FLEXIVIT_CONFIG
+    KMODELS_WEIGHTS = FLEXIVIT_WEIGHTS
+    HF_MODEL_TYPE = None
 
-    return model
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return FlexiViT
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_vit_weights(keras_model, state_dict)
+
+    def __init__(self, name="FlexiViTBackbone", **kwargs):
+        super().__init__(name=name, **kwargs)

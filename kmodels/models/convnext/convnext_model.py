@@ -3,21 +3,17 @@ import numpy as np
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
-from kmodels.model_registry import register_model
 from kmodels.models.convnext.convnext_layers import GlobalResponseNorm
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_CONFIG
+from .config import CONVNEXT_CONFIG, CONVNEXT_WEIGHTS
+from .convert_convnext_torch_to_keras import transfer_convnext_weights
 
 
 def _spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):
-    """Apply LayerNormalization over channels for spatial (4D) feature maps.
-
-    PyTorch's layer_norm only supports normalizing over trailing dimensions,
-    so for channels_first (B, C, H, W) we permute to (B, H, W, C), normalize
-    over the last axis, then permute back.
-    """
+    """LayerNorm over channels for spatial feature maps."""
     if data_format == "channels_first":
         x = layers.Permute((2, 3, 1), name=f"{name}_to_cl" if name else None)(x)
     x = layers.LayerNormalization(axis=-1, epsilon=epsilon, name=name)(x)
@@ -37,28 +33,7 @@ def convnext_block(
     use_grn=False,
     use_conv=False,
 ):
-    """
-    Implements a ConvNeXt block, consisting of depthwise convolution, layer normalization,
-    pointwise convolutions, GELU activation, optional LayerScale, and Stochastic Depth.
-
-    Args:
-        inputs: Input tensor or layer to the block.
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        projection_dim: Number of filters for the convolutions (also known as the projection dimension).
-        channel_axis: axis along which the channels are defined in the input tensor.
-        drop_path_rate: Drop path rate for Stochastic Depth regularization. Default is 0.0.
-        layer_scale_init_value: Initial value for LayerScale scaling factor.
-            If None, LayerScale is not applied. Default is 1e-6.
-        name: Base name for all layers in the block. Default is None.
-        use_grn: Whether to use Global Response Normalization (GRN). Default is False.
-        use_conv: Whether to apply convolution in the block. Default is False.
-
-    Returns:
-        Output tensor for the block.
-    """
+    """ConvNeXt block: DWConv -> LN -> (Conv|Dense) -> GELU -> (GRN) -> (Conv|Dense)."""
     x = layers.DepthwiseConv2D(
         kernel_size=7,
         padding="same",
@@ -92,230 +67,160 @@ def convnext_block(
     return layers.Add(name=name + "_add")([inputs, x])
 
 
+def _convnext_features(
+    inputs,
+    *,
+    depths,
+    projection_dims,
+    drop_path_rate,
+    layer_scale_init_value,
+    use_conv,
+    use_grn,
+    data_format,
+    channels_axis,
+):
+    """ConvNeXt stem + 4 stages, returns ``[stem, s1, s2, s3, s4]``."""
+    features = []
+    x = layers.Conv2D(
+        projection_dims[0],
+        kernel_size=4,
+        strides=4,
+        data_format=data_format,
+        name="stem_conv",
+    )(inputs)
+    x = _spatial_layer_norm(x, data_format, epsilon=1e-6, name="stem_layernorm")
+    features.append(x)
+
+    depth_drop_rates = np.linspace(0.0, drop_path_rate, sum(depths))
+    cur = 0
+    for i in range(len(depths)):
+        if i > 0:
+            x = _spatial_layer_norm(
+                x,
+                data_format,
+                epsilon=1e-6,
+                name=f"stages_{i}_downsampling_layernorm",
+            )
+            x = layers.Conv2D(
+                projection_dims[i],
+                kernel_size=2,
+                strides=2,
+                data_format=data_format,
+                name=f"stages_{i}_downsampling_conv",
+            )(x)
+        for j in range(depths[i]):
+            x = convnext_block(
+                x,
+                projection_dim=projection_dims[i],
+                drop_path_rate=depth_drop_rates[cur + j],
+                layer_scale_init_value=layer_scale_init_value,
+                use_grn=use_grn,
+                use_conv=use_conv,
+                channels_axis=channels_axis,
+                data_format=data_format,
+                name=f"stages_{i}_blocks_{j}",
+            )
+        features.append(x)
+        cur += depths[i]
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class ConvNeXt(keras.Model):
-    """Instantiates the ConvNeXt architecture.
+class ConvNeXt(BaseModel):
+    """ConvNeXt classifier (timm-ported).
 
     Reference:
-    - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545) (CVPR 2022)
+    - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545)
 
-    Args:
-        depths: List of integers, specifying the number of blocks in each stage
-            of the model.
-        projection_dims: List of integers, specifying the number of output channels
-            for each stage of the model.
-        drop_path_rate: Float, the drop path rate for stochastic depth regularization.
-            Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for the layer scale parameter
-            to stabilize training. Defaults to `1e-6`.
-        use_conv: Boolean, whether to replace fully-connected layers with convolutional layers.
-            Defaults to `False`.
-        use_grn: Boolean, whether to use Global Response Normalization (GRN) in the model.
-            Defaults to `False`.
-        include_top: Boolean, whether to include the classification head at the top
-            of the network. Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_shape: Optional tuple specifying the shape of the input data. If not
-            specified, it defaults to `(224, 224, 3)` when `include_top=True`.
-        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as
-            the model's input. If not provided, a new input tensor is created based
-            on `input_shape`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification.
-            Defaults to `1000`.
-        classifier_activation: String or callable, activation function for the top
-            layer. Set to `None` to return logits. Defaults to `"linear"`.
-        name: String, the name of the model. Defaults to `"ConvNeXt"`.
+    Construction:
 
-    Returns:
-        A Keras `Model` instance.
+    >>> ConvNeXt.from_weights("convnext_base_fb_in22k_ft_in1k")
+    >>> ConvNeXt.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
     """
+
+    KMODELS_CONFIG = CONVNEXT_CONFIG
+    KMODELS_WEIGHTS = CONVNEXT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_convnext_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        depths,
-        projection_dims,
+        depths=(3, 3, 9, 3),
+        projection_dims=(96, 192, 384, 768),
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         use_conv=False,
         use_grn=False,
-        include_top=True,
-        as_backbone=False,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="in1k",
         input_shape=None,
         input_tensor=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
+        classifier_activation="linear",
         name="ConvNeXt",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
-
-        if (
-            include_top
-            and weights is not None
-            and weights == "fb_in22k"
-            and num_classes != 21841
-        ):
-            raise ValueError(
-                f"When using 'fb_in22k' weights, num_classes must be 21841. "
-                f"Received num_classes: {num_classes}"
-            )
-
-        if (
-            include_top
-            and weights is not None
-            and weights.endswith(("in1k", "ft_in1k"))
-            and num_classes != 1000
-        ):
-            raise ValueError(
-                f"When using {weights}, num_classes must be 1000. "
-                f"Received num_classes: {num_classes}"
-            )
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        default_input_shape = (
-            384
-            if weights and "384" in weights
-            else 512
-            if weights and "512" in weights
-            else 224
-        )
-
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=default_input_shape,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
-        # Stem block
-        x = layers.Conv2D(
-            projection_dims[0],
-            kernel_size=4,
-            strides=4,
+        features = _convnext_features(
+            x,
+            depths=depths,
+            projection_dims=projection_dims,
+            drop_path_rate=drop_path_rate,
+            layer_scale_init_value=layer_scale_init_value,
+            use_conv=use_conv,
+            use_grn=use_grn,
             data_format=data_format,
-            name="stem_conv",
+            channels_axis=channels_axis,
+        )
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernorm")(x)
+        x = layers.Dense(
+            num_classes, activation=classifier_activation, name="predictions"
         )(x)
-        x = _spatial_layer_norm(x, data_format, epsilon=1e-6, name="stem_layernorm")
-        features.append(x)
 
-        depth_drop_rates = np.linspace(0.0, drop_path_rate, sum(depths))
-        cur = 0
-        for i in range(len(depths)):
-            if i > 0:
-                x = _spatial_layer_norm(
-                    x,
-                    data_format,
-                    epsilon=1e-6,
-                    name=f"stages_{i}_downsampling_layernorm",
-                )
-                x = layers.Conv2D(
-                    projection_dims[i],
-                    kernel_size=2,
-                    strides=2,
-                    data_format=data_format,
-                    name=f"stages_{i}_downsampling_conv",
-                )(x)
-            for j in range(depths[i]):
-                x = convnext_block(
-                    x,
-                    projection_dim=projection_dims[i],
-                    drop_path_rate=depth_drop_rates[cur + j],
-                    layer_scale_init_value=layer_scale_init_value,
-                    use_grn=use_grn,
-                    use_conv=use_conv,
-                    channels_axis=channels_axis,
-                    data_format=data_format,
-                    name=f"stages_{i}_blocks_{j}",
-                )
-                if j == depths[i] - 1:
-                    features.append(x)
-            cur += depths[i]
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        # Head
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            x = layers.LayerNormalization(
-                axis=-1, epsilon=1e-6, name="final_layernorm"
-            )(x)
-            x = layers.Dense(
-                num_classes, activation=classifier_activation, name="predictions"
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
-
-        self.depths = depths
-        self.projection_dims = projection_dims
+        self.depths = list(depths)
+        self.projection_dims = list(projection_dims)
         self.drop_path_rate = drop_path_rate
         self.layer_scale_init_value = layer_scale_init_value
         self.use_conv = use_conv
         self.use_grn = use_grn
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -329,17 +234,14 @@ class ConvNeXt(keras.Model):
                 "layer_scale_init_value": self.layer_scale_init_value,
                 "use_conv": self.use_conv,
                 "use_grn": self.use_grn,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -349,415 +251,119 @@ class ConvNeXt(keras.Model):
         return cls(**config)
 
 
-@register_model
-def ConvNeXtAtto(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="d2_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtAtto",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["atto"],
-        use_conv=True,
+@keras.saving.register_keras_serializable(package="kmodels")
+class ConvNeXtBackbone(BaseModel):
+    """ConvNeXt feature extractor. Returns ``[stem, s1, s2, s3, s4]``."""
+
+    KMODELS_CONFIG = CONVNEXT_CONFIG
+    KMODELS_WEIGHTS = CONVNEXT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return ConvNeXt
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_convnext_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths=(3, 3, 9, 3),
+        projection_dims=(96, 192, 384, 768),
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+        use_conv=False,
+        use_grn=False,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="ConvNeXtBackbone",
         **kwargs,
-    )
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
 
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtAtto", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
-    return model
-
-
-@register_model
-def ConvNeXtFemto(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="d1_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtFemto",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["femto"],
-        use_conv=True,
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtFemto", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtPico(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="d1_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtPico",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["pico"],
-        use_conv=True,
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtPico", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtNano(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="d1h_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtNano",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["nano"],
-        use_conv=True,
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtNano", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtTiny(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fb_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtTiny",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["tiny"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtTiny", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtSmall(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fb_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtSmall",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["small"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtSmall", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtBase(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fb_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtBase",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["base"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtBase", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtLarge(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fb_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtLarge",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["large"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtLarge", weights, model, CONVNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtXLarge(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fb_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtXLarge",
-    **kwargs,
-):
-    if weights == "in1k":
-        raise ValueError(
-            "The 'in1k' weight variant is not available for ConvNeXtLarge."
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
         )
 
-    model = ConvNeXt(
-        **CONVNEXT_MODEL_CONFIG["xlarge"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtXLarge", weights, model, CONVNEXT_WEIGHTS_CONFIG
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        features = _convnext_features(
+            x,
+            depths=depths,
+            projection_dims=projection_dims,
+            drop_path_rate=drop_path_rate,
+            layer_scale_init_value=layer_scale_init_value,
+            use_conv=use_conv,
+            use_grn=use_grn,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
 
-    return model
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.depths = list(depths)
+        self.projection_dims = list(projection_dims)
+        self.drop_path_rate = drop_path_rate
+        self.layer_scale_init_value = layer_scale_init_value
+        self.use_conv = use_conv
+        self.use_grn = use_grn
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "projection_dims": self.projection_dims,
+                "drop_path_rate": self.drop_path_rate,
+                "layer_scale_init_value": self.layer_scale_init_value,
+                "use_conv": self.use_conv,
+                "use_grn": self.use_grn,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

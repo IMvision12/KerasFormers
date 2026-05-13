@@ -1,3 +1,5 @@
+"""EfficientNetV2 variant registry (timm-ported)."""
+
 EFFICIENTNETV2_BLOCK_CONFIG = {
     "EfficientNetV2S": [
         # Stage 1: Initial stage
@@ -289,7 +291,7 @@ EFFICIENTNETV2_BLOCK_CONFIG = {
             "conv_type": 0,
         },
     ],
-    # For all B variants B0, B1, B2, B3
+    # Shared block config for all B variants (B0, B1, B2, B3)
     "EfficientNetV2B": [
         # Stage 1: Initial stage
         {
@@ -357,49 +359,6 @@ EFFICIENTNETV2_BLOCK_CONFIG = {
     ],
 }
 
-EFFICIENTNETV2_MODEL_CONFIG = {
-    "EfficientNetV2S": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 300,
-    },
-    "EfficientNetV2M": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-    },
-    "EfficientNetV2L": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-    },
-    "EfficientNetV2B0": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 192,
-    },
-    "EfficientNetV2B1": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.1,
-        "default_size": 192,
-    },
-    "EfficientNetV2B2": {
-        "width_coefficient": 1.1,
-        "depth_coefficient": 1.2,
-        "default_size": 208,
-    },
-    "EfficientNetV2B3": {
-        "width_coefficient": 1.2,
-        "depth_coefficient": 1.4,
-        "default_size": 240,
-    },
-    "EfficientNetV2XL": {  # only for 21k pretraining
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-    },
-}
-
 CONV_KERNEL_INITIALIZER = {
     "class_name": "VarianceScaling",
     "config": {
@@ -418,69 +377,122 @@ DENSE_KERNEL_INITIALIZER = {
     },
 }
 
-EFFICIENTNETV2_WEIGHTS_CONFIG = {
-    "EfficientNetV2S": {
-        "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_s_in21k_ft_in1k.weights.h5",
-        },
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_s_in1k.weights.h5",
-        },
-        "in21k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_s_in21k.weights.h5",
-        },
-    },
-    "EfficientNetV2M": {
-        "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_m_in21k_ft_in1k.weights.h5",
-        },
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_m_in1k.weights.h5",
-        },
-        "in21k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_m_in21k.weights.h5",
-        },
-    },
-    "EfficientNetV2L": {
-        "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_l_in21k_ft_in1k.weights.h5",
-        },
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_l_in1k.weights.h5",
-        },
-        "in21k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_l_in21k.weights.h5",
-        },
-    },
-    "EfficientNetV2XL": {
-        "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_xl_in21k_ft_in1k.weights.h5",
-        },
-        "in21k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_xl_in21k.weights.h5",
-        },
-    },
-    "EfficientNetV2B0": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_b0_in1k.weights.h5",
-        },
-    },
-    "EfficientNetV2B1": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_b1_in1k.weights.h5",
-        },
-    },
-    "EfficientNetV2B2": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_b2_in1k.weights.h5",
-        },
-    },
-    "EfficientNetV2B3": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_b3_in1k.weights.h5",
-        },
-        "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.2/tf_efficientnetv2_b3_in21k_ft_in1k.weights.h5",
-        },
-    },
+
+# Architecture kwargs per family (size/coefficients/block_arch_key/head_filters).
+_S = {
+    "width_coefficient": 1.0,
+    "depth_coefficient": 1.0,
+    "default_size": 300,
+    "block_arch": "EfficientNetV2S",
+    "head_filters": 1280,
+}
+_M = {
+    "width_coefficient": 1.0,
+    "depth_coefficient": 1.0,
+    "default_size": 384,
+    "block_arch": "EfficientNetV2M",
+    "head_filters": 1280,
+}
+_L = {
+    "width_coefficient": 1.0,
+    "depth_coefficient": 1.0,
+    "default_size": 384,
+    "block_arch": "EfficientNetV2L",
+    "head_filters": 1280,
+}
+_XL = {
+    "width_coefficient": 1.0,
+    "depth_coefficient": 1.0,
+    "default_size": 384,
+    "block_arch": "EfficientNetV2XL",
+    "head_filters": 1280,
+}
+_B0 = {
+    "width_coefficient": 1.0,
+    "depth_coefficient": 1.0,
+    "default_size": 192,
+    "block_arch": "EfficientNetV2B",
+    "head_filters": 1280,
+}
+_B1 = {
+    "width_coefficient": 1.0,
+    "depth_coefficient": 1.1,
+    "default_size": 192,
+    "block_arch": "EfficientNetV2B",
+    "head_filters": 1280,
+}
+_B2 = {
+    "width_coefficient": 1.1,
+    "depth_coefficient": 1.2,
+    "default_size": 208,
+    "block_arch": "EfficientNetV2B",
+    "head_filters": 1408,
+}
+_B3 = {
+    "width_coefficient": 1.2,
+    "depth_coefficient": 1.4,
+    "default_size": 240,
+    "block_arch": "EfficientNetV2B",
+    "head_filters": 1536,
+}
+
+
+def _v(arch, timm_id, image_size, num_classes=1000):
+    return {
+        **arch,
+        "timm_id": timm_id,
+        "image_size": image_size,
+        "num_classes": num_classes,
+    }
+
+
+EFFICIENTNETV2_CONFIG = {
+    # S
+    "tf_efficientnetv2_s_in1k": _v(_S, "tf_efficientnetv2_s.in1k", 300),
+    "tf_efficientnetv2_s_in21k": _v(
+        _S, "tf_efficientnetv2_s.in21k", 300, num_classes=21843
+    ),
+    "tf_efficientnetv2_s_in21k_ft_in1k": _v(
+        _S, "tf_efficientnetv2_s.in21k_ft_in1k", 300
+    ),
+    # M
+    "tf_efficientnetv2_m_in1k": _v(_M, "tf_efficientnetv2_m.in1k", 384),
+    "tf_efficientnetv2_m_in21k": _v(
+        _M, "tf_efficientnetv2_m.in21k", 384, num_classes=21843
+    ),
+    "tf_efficientnetv2_m_in21k_ft_in1k": _v(
+        _M, "tf_efficientnetv2_m.in21k_ft_in1k", 384
+    ),
+    # L
+    "tf_efficientnetv2_l_in1k": _v(_L, "tf_efficientnetv2_l.in1k", 384),
+    "tf_efficientnetv2_l_in21k": _v(
+        _L, "tf_efficientnetv2_l.in21k", 384, num_classes=21843
+    ),
+    "tf_efficientnetv2_l_in21k_ft_in1k": _v(
+        _L, "tf_efficientnetv2_l.in21k_ft_in1k", 384
+    ),
+    # XL
+    "tf_efficientnetv2_xl_in21k": _v(
+        _XL, "tf_efficientnetv2_xl.in21k", 384, num_classes=21843
+    ),
+    "tf_efficientnetv2_xl_in21k_ft_in1k": _v(
+        _XL, "tf_efficientnetv2_xl.in21k_ft_in1k", 384
+    ),
+    # B0
+    "tf_efficientnetv2_b0_in1k": _v(_B0, "tf_efficientnetv2_b0.in1k", 192),
+    # B1
+    "tf_efficientnetv2_b1_in1k": _v(_B1, "tf_efficientnetv2_b1.in1k", 192),
+    # B2
+    "tf_efficientnetv2_b2_in1k": _v(_B2, "tf_efficientnetv2_b2.in1k", 208),
+    # B3
+    "tf_efficientnetv2_b3_in1k": _v(_B3, "tf_efficientnetv2_b3.in1k", 240),
+    "tf_efficientnetv2_b3_in21k_ft_in1k": _v(
+        _B3, "tf_efficientnetv2_b3.in21k_ft_in1k", 240
+    ),
+}
+
+_BASE_URL = "https://github.com/IMvision12/keras-models/releases/download/v0.2"
+EFFICIENTNETV2_WEIGHTS = {
+    variant: {"url": f"{_BASE_URL}/{variant}.weights.h5"}
+    for variant in EFFICIENTNETV2_CONFIG
 }

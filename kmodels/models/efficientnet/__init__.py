@@ -1,12 +1,6 @@
 from kmodels.models.efficientnet.efficientnet_model import (
-    EfficientNetB0,
-    EfficientNetB1,
-    EfficientNetB2,
-    EfficientNetB3,
-    EfficientNetB4,
-    EfficientNetB5,
-    EfficientNetB6,
-    EfficientNetB7,
-    EfficientNetB8,
-    EfficientNetL2,
+    EfficientNet,
+    EfficientNetBackbone,
 )
+
+__all__ = ["EfficientNet", "EfficientNetBackbone"]

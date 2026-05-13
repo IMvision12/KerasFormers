@@ -1,1 +1,3 @@
-from kmodels.models.mlp_mixer.mlp_mixer_model import MLPMixerB16, MLPMixerL16
+from kmodels.models.mlp_mixer.mlp_mixer_model import MLPMixer, MLPMixerBackbone
+
+__all__ = ["MLPMixer", "MLPMixerBackbone"]

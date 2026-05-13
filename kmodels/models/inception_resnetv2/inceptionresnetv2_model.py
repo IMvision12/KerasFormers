@@ -3,11 +3,14 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import INCEPTIONRESNETV2_WEIGHTS_CONFIG
+from .config import INCEPTION_RESNET_V2_CONFIG, INCEPTION_RESNET_V2_WEIGHTS
+from .convert_inceptionresnetv2_torch_to_keras import (
+    transfer_inception_resnet_v2_weights,
+)
 
 
 def conv_block(
@@ -20,20 +23,7 @@ def conv_block(
     padding="valid",
     name="conv2d_block",
 ):
-    """
-    Creates a convolutional block with batch normalization and ReLU activation.
-    Args:
-        inputs: Input tensor
-        filters: Number of output filters
-        kernel_size: Size of the convolution kernel
-        strides: Stride length of the convolution
-        bn_momentum: Momentum for batch normalization
-        bn_epsilon: Epsilon value for batch normalization
-        padding: Padding type ("valid", "same", or None)
-        name: Name prefix for the layers
-    Returns:
-        Output tensor for the block.
-    """
+    """Conv -> BatchNorm -> ReLU with optional asymmetric ZeroPadding."""
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     x = inputs
@@ -77,6 +67,7 @@ def conv_block(
 
 
 def mixed_5b_block(inputs, name="mixed_5b"):
+    """Stem-end Mixed-5b block (1x1, 5x5, double-3x3, avg-pool)."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 96, 1, name=f"{name}_branch0")
@@ -102,6 +93,7 @@ def mixed_5b_block(inputs, name="mixed_5b"):
 
 
 def block35(inputs, scale=1.0, name="repeat_0"):
+    """Inception-ResNet-A residual block."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 32, 1, name=f"{name}_branch0")
@@ -123,6 +115,7 @@ def block35(inputs, scale=1.0, name="repeat_0"):
 
 
 def mixed_6a_block(inputs, name="mixed_6a"):
+    """Reduction-A block."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(
@@ -141,6 +134,7 @@ def mixed_6a_block(inputs, name="mixed_6a"):
 
 
 def block17(inputs, scale=1.0, name="repeat_1_0"):
+    """Inception-ResNet-B residual block."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 192, 1, name=f"{name}_branch0")
@@ -159,6 +153,7 @@ def block17(inputs, scale=1.0, name="repeat_1_0"):
 
 
 def mixed_7a_block(inputs, name="mixed_7a"):
+    """Reduction-B block."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 256, 1, name=f"{name}_branch0_0")
@@ -185,6 +180,7 @@ def mixed_7a_block(inputs, name="mixed_7a"):
 
 
 def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
+    """Inception-ResNet-C residual block."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 192, 1, name=f"{name}_branch0")
@@ -203,152 +199,111 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
     return x
 
 
+def _inception_resnet_v2_features(inputs, *, data_format):
+    """InceptionResNetV2 full backbone, returns a list of stage feature maps."""
+    features = []
+
+    x = conv_block(inputs, 32, 3, strides=2, padding="valid", name="conv2d_1a")
+    x = conv_block(x, 32, 3, padding="valid", name="conv2d_2a")
+    x = conv_block(x, 64, 3, padding="same", name="conv2d_2b")
+    x = layers.MaxPooling2D(3, strides=2)(x)
+    x = conv_block(x, 80, 1, name="conv2d_3b")
+    x = conv_block(x, 192, 3, padding="valid", name="conv2d_4a")
+    x = layers.MaxPooling2D(3, strides=2)(x)
+    features.append(x)
+
+    x = mixed_5b_block(x, name="mixed_5b")
+    for i in range(10):
+        x = block35(x, scale=0.17, name=f"repeat_{i}")
+    features.append(x)
+
+    x = mixed_6a_block(x, name="mixed_6a")
+    for i in range(20):
+        x = block17(x, scale=0.10, name=f"repeats_1_{i}")
+    features.append(x)
+
+    x = mixed_7a_block(x, name="mixed_7a")
+    for i in range(9):
+        x = block8(x, scale=0.20, name=f"repeats_2_{i}")
+    x = block8(x, activation=False, name="block8")
+    x = conv_block(x, 1536, 1, name="conv2d_7b")
+    features.append(x)
+
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class InceptionResNetV2Main(keras.Model):
-    """
-    Instantiates the Inception-ResNet-v2 architecture.
+class InceptionResNetV2(BaseModel):
+    """Inception-ResNet-v2 classifier (timm-ported).
 
     Reference:
     - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
 
-    Args:
-        include_top: Boolean, whether to include the fully-connected classification layer at the top of the model.
-            Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to False.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as the model's input.
-            If not provided, a new input tensor is created based on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. If not specified, defaults to `(299, 299, 3)`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification. Defaults to `1000`.
-            Only applicable if `include_top=True`.
-        classifier_activation: String or callable, activation function for the classification layer.
-            Set to `None` to return logits. Defaults to `"softmax"`.
-        name: String, name of the model. Defaults to `"InceptionResNetV2"`.
+    Construction:
 
-    Returns:
-        A Keras `Model` instance.
+    >>> InceptionResNetV2.from_weights("inception_resnet_v2_tf_in1k")
+    >>> InceptionResNetV2.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
     """
+
+    KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_RESNET_V2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inception_resnet_v2_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        include_top=True,
-        as_backbone=False,
+        image_size=299,
         include_normalization=True,
         normalization_mode="inception",
-        weights="tf_ens_adv_in1k",
         input_shape=None,
         input_tensor=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
+        classifier_activation="linear",
         name="InceptionResNetV2",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
+        kwargs.pop("timm_id", None)
 
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        data_format = keras.config.image_data_format()
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=299,
+            default_size=image_size,
             min_size=75,
-            data_format=keras.config.image_data_format(),
-            require_flatten=include_top,
-            weights=weights,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
+        features = _inception_resnet_v2_features(x, data_format=data_format)
+        x = layers.GlobalAveragePooling2D(name="avg_pool")(features[-1])
+        x = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
 
-        x = conv_block(x, 32, 3, strides=2, padding="valid", name="conv2d_1a")
-        x = conv_block(x, 32, 3, padding="valid", name="conv2d_2a")
-        x = conv_block(x, 64, 3, padding="same", name="conv2d_2b")
-        x = layers.MaxPooling2D(3, strides=2)(x)
-        x = conv_block(x, 80, 1, name="conv2d_3b")
-        x = conv_block(x, 192, 3, padding="valid", name="conv2d_4a")
-        x = layers.MaxPooling2D(3, strides=2)(x)
-        features.append(x)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        x = mixed_5b_block(x, name="mixed_5b")
-
-        for i in range(10):
-            x = block35(x, scale=0.17, name=f"repeat_{i}")
-        features.append(x)
-
-        x = mixed_6a_block(x, name="mixed_6a")
-
-        for i in range(20):
-            x = block17(x, scale=0.10, name=f"repeats_1_{i}")
-        features.append(x)
-
-        x = mixed_7a_block(x, name="mixed_7a")
-
-        for i in range(9):
-            x = block8(x, scale=0.20, name=f"repeats_2_{i}")
-
-        x = block8(x, activation=False, name="block8")
-
-        x = conv_block(x, 1536, 1, name="conv2d_7b")
-        features.append(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
-
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -356,17 +311,14 @@ class InceptionResNetV2Main(keras.Model):
         config = super().get_config()
         config.update(
             {
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -376,42 +328,90 @@ class InceptionResNetV2Main(keras.Model):
         return cls(**config)
 
 
-@register_model
-def InceptionResNetV2(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="inception",
-    num_classes=1000,
-    weights="tf_ens_adv_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    classifier_activation="softmax",
-    name="InceptionResNetV2",
-    **kwargs,
-):
-    model = InceptionResNetV2Main(
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(INCEPTIONRESNETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "InceptionResNetV2", weights, model, INCEPTIONRESNETV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+@keras.saving.register_keras_serializable(package="kmodels")
+class InceptionResNetV2Backbone(BaseModel):
+    """InceptionResNetV2 feature extractor (4 stage maps)."""
 
-    return model
+    KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_RESNET_V2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return InceptionResNetV2
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inception_resnet_v2_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        image_size=299,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        name="InceptionResNetV2Backbone",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=75,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _inception_resnet_v2_features(x, data_format=data_format)
+
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update(
+            {
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

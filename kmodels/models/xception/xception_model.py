@@ -2,11 +2,12 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import XCEPTION_WEIGHTS_CONFIG
+from .config import XCEPTION_CONFIG, XCEPTION_WEIGHTS
+from .convert_xception_org_keras_to_keras import transfer_xception_weights
 
 
 def conv_block(
@@ -20,23 +21,7 @@ def conv_block(
     use_preactivation=False,
     use_bias=False,
 ):
-    """
-    Applies a convolutional block with batch normalization and optional activation.
-
-    Args:
-        x: Input tensor
-        filters: Number of output filters
-        kernel_size: Size of the convolution kernel
-        strides: Stride dimensions for the convolution
-        padding: Padding mode ('same' or 'valid')
-        separable: Whether to use separable convolution
-        use_activation: Whether to apply ReLU activation after convolution
-        use_preactivation: Whether to apply ReLU activation before convolution
-        use_bias: Whether to include a bias vector (True by default)
-
-    Returns:
-        Processed tensor
-    """
+    """Standard or separable Conv -> BatchNorm with optional pre / post ReLU."""
     data_format = keras.config.image_data_format()
     channels_axis = -1 if data_format == "channels_last" else 1
 
@@ -58,17 +43,12 @@ def conv_block(
 
 
 def entry_flow(x):
-    """
-    Entry flow of the Xception architecture
-    Contains blocks 1-4
-    """
-    # Block 1
+    """Entry flow (blocks 1-4)."""
     x = conv_block(x, 32, (3, 3), strides=(2, 2), padding="valid")
     x = conv_block(x, 64, (3, 3), padding="valid")
 
     residual = conv_block(x, 128, (1, 1), strides=(2, 2), use_activation=False)
 
-    # Block 2
     x = conv_block(x, 128, (3, 3), separable=True)
     x = conv_block(x, 128, (3, 3), separable=True, use_activation=False)
     x = layers.MaxPooling2D(
@@ -79,7 +59,6 @@ def entry_flow(x):
     )(x)
     x = layers.add([x, residual])
 
-    # Block 3
     residual = conv_block(
         x, 256, (1, 1), strides=(2, 2), use_bias=False, use_activation=False
     )
@@ -93,7 +72,6 @@ def entry_flow(x):
     )(x)
     x = layers.add([x, residual])
 
-    # Block 4
     residual = conv_block(x, 728, (1, 1), strides=(2, 2), use_activation=False)
     x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
     x = conv_block(x, 728, (3, 3), separable=True, use_activation=False)
@@ -109,28 +87,20 @@ def entry_flow(x):
 
 
 def middle_flow(x):
-    """
-    Middle flow of the Xception architecture
-    Contains blocks 5-12 (8 repeated blocks)
-    """
+    """Middle flow (8 repeated 728-channel blocks)."""
     for i in range(8):
         residual = x
         x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
         x = conv_block(x, 728, (3, 3), separable=True)
         x = conv_block(x, 728, (3, 3), separable=True, use_activation=False)
         x = layers.add([x, residual])
-
     return x
 
 
 def exit_flow(x):
-    """
-    Exit flow of the Xception architecture
-    Contains blocks 13-14 and the final classification layers
-    """
+    """Exit flow (blocks 13-14)."""
     residual = conv_block(x, 1024, (1, 1), strides=(2, 2), use_activation=False)
 
-    # Block 13
     x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
     x = conv_block(x, 1024, (3, 3), separable=True, use_activation=False)
     x = layers.MaxPooling2D(
@@ -141,143 +111,100 @@ def exit_flow(x):
     )(x)
     x = layers.add([x, residual])
 
-    # Block 14
     x = conv_block(x, 1536, (3, 3), separable=True)
     x = conv_block(x, 2048, (3, 3), separable=True)
 
     return x
 
 
+def _xception_features(inputs):
+    """Xception entry / middle / exit flows, returns ``[entry, middle, exit]``."""
+    features = []
+    x = entry_flow(inputs)
+    features.append(x)
+    x = middle_flow(x)
+    features.append(x)
+    x = exit_flow(x)
+    features.append(x)
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class XceptionMain(keras.Model):
-    """
-    Instantiates the Xception architecture.
+class Xception(BaseModel):
+    """Original-Keras Xception classifier.
 
     Reference:
     - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357) (CVPR 2017)
 
-    Args:
-        include_top: Boolean, whether to include the fully-connected classification layer at the top of the model.
-            Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as the model's input.
-            If not provided, a new input tensor is created based on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. If not specified, defaults to `(299, 299, 3)`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification. Defaults to `1000`.
-            Only applicable if `include_top=True`.
-        classifier_activation: String or callable, activation function for the classification layer.
-            Set to `None` to return logits. Defaults to `"linear"`.
-        name: String, name of the model. Defaults to `"Xception"`.
+    Note: This is the *original* Keras Xception (Chollet 2017), warm-started
+    from ``keras.applications.Xception``. timm's xception41/65/71 families
+    use a different *Aligned Xception* backbone that is not implemented
+    in this module.
 
-    Returns:
-        A Keras `Model` instance.
+    Construction:
+
+    >>> Xception.from_weights("xception_in1k")
     """
+
+    KMODELS_CONFIG = XCEPTION_CONFIG
+    KMODELS_WEIGHTS = XCEPTION_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_xception_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        include_top=True,
-        as_backbone=False,
+        image_size=299,
         include_normalization=True,
-        normalization_mode="imagenet",
-        weights=None,
-        input_tensor=None,
+        normalization_mode="inception",
         input_shape=None,
-        pooling=None,
+        input_tensor=None,
         num_classes=1000,
-        classifier_activation="softmax",
-        name="xception",
+        classifier_activation="linear",
+        name="Xception",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=299,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
-        x = entry_flow(x)
-        features.append(x)
+        features = _xception_features(x)
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        x = layers.Dense(
+            num_classes, activation=classifier_activation, name="predictions"
+        )(x)
 
-        x = middle_flow(x)
-        features.append(x)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        x = exit_flow(x)
-        features.append(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            x = layers.Dense(
-                num_classes, activation=classifier_activation, name="predictions"
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
-
-        # Store configuration
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -285,17 +212,14 @@ class XceptionMain(keras.Model):
         config = super().get_config()
         config.update(
             {
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -305,41 +229,90 @@ class XceptionMain(keras.Model):
         return cls(**config)
 
 
-@register_model
-def Xception(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="inception",
-    num_classes=1000,
-    weights="imagenet",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    classifier_activation="softmax",
-    name="Xception",
-    **kwargs,
-):
-    model = XceptionMain(
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class XceptionBackbone(BaseModel):
+    """Xception feature extractor. Returns ``[entry, middle, exit]`` (3 maps)."""
+
+    KMODELS_CONFIG = XCEPTION_CONFIG
+    KMODELS_WEIGHTS = XCEPTION_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return Xception
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_xception_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        image_size=299,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        name="XceptionBackbone",
         **kwargs,
-    )
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
 
-    if weights in get_all_weight_names(XCEPTION_WEIGHTS_CONFIG):
-        load_weights_from_config("Xception", weights, model, XCEPTION_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        data_format = keras.config.image_data_format()
 
-    return model
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _xception_features(x)
+
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update(
+            {
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

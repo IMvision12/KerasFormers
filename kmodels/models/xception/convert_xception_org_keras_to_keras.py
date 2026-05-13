@@ -1,51 +1,54 @@
-import keras
+"""Xception weight transfer.
 
-from kmodels.models import xception
-from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
+The kmodels :class:`Xception` model implements the *original* Keras
+(Chollet 2017) Xception architecture, not timm's *aligned* Xception
+family (``xception41``/``65``/``71``). timm does not host weights for
+the original architecture, so this module exposes a
+``transfer_xception_weights`` shim that raises ``NotImplementedError``
+to make the mismatch explicit, and a ``__main__`` block that
+reproduces the legacy ``keras.applications.Xception`` -> kmodels
+conversion that produced the release file in ``XCEPTION_WEIGHTS``.
+"""
 
-model_config = {
-    "input_shape": (299, 299, 3),
-    "include_top": True,
-    "include_normalization": False,
-    "classifier_activation": "linear",
-}
+from typing import Dict
 
-original_model = keras.applications.Xception(
-    input_shape=model_config["input_shape"],
-    classifier_activation=model_config["classifier_activation"],
-    weights="imagenet",
-    include_top=model_config["include_top"],
-)
-
-custom_model = xception.Xception(
-    weights=None,
-    input_shape=model_config["input_shape"],
-    include_top=model_config["include_top"],
-    include_normalization=model_config["include_normalization"],
-    classifier_activation=model_config["classifier_activation"],
-)
-
-if not original_model or not custom_model:
-    raise ValueError("Failed to create one or both models")
+import numpy as np
 
 
-original_weights = original_model.get_weights()
-custom_model.set_weights(original_weights)
+def transfer_xception_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer a timm Xception state-dict into a kmodels Xception (unsupported).
 
-results = verify_cls_model_equivalence(
-    original_model,
-    custom_model,
-    input_shape=(299, 299, 3),
-    output_specs={"num_classes": 1000},
-    comparison_type="keras_to_keras",
-    run_performance=False,
-)
-
-if not results["standard_input"]:
-    raise ValueError(
-        "Model equivalence test failed - model outputs do not match for standard input"
+    Raises:
+        NotImplementedError: kmodels' Xception is the original Keras
+            architecture; timm's Xception family is the Aligned Xception
+            variant with a different block layout. No 1:1 weight mapping
+            exists. Use the kmodels release weight via
+            :meth:`Xception.from_weights("xception_in1k")` instead.
+    """
+    raise NotImplementedError(
+        "transfer_xception_weights: kmodels.Xception is the original-Keras "
+        "(Chollet 2017) Xception. timm's xception41/65/71/p families are "
+        "Aligned Xception variants with a different block layout. There is "
+        "no 1:1 weight mapping. Use Xception.from_weights('xception_in1k') "
+        "for the converted keras.applications checkpoint."
     )
 
-model_filename: str = "keras_org_xception.weights.h5"
-custom_model.save_weights(model_filename)
-print(f"Model saved successfully as {model_filename}")
+
+if __name__ == "__main__":
+    # Re-create the kmodels release ``keras_org_xception.weights.h5`` from
+    # ``keras.applications.Xception``. Run once to regenerate the release.
+    import keras
+
+    from kmodels.models.xception import Xception
+
+    original_model = keras.applications.Xception(
+        input_shape=(299, 299, 3),
+        classifier_activation="linear",
+        weights="imagenet",
+        include_top=True,
+    )
+
+    custom_model = Xception.from_weights("xception_in1k", load_weights=False)
+    custom_model.set_weights(original_model.get_weights())
+    custom_model.save_weights("xception_in1k.weights.h5")
+    print("Saved -> xception_in1k.weights.h5")

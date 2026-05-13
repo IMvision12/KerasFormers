@@ -2,11 +2,12 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import VGG_MODEL_CONFIG, VGG_WEIGHTS_CONFIG
+from .config import VGG_CONFIG, VGG_WEIGHTS
+from .convert_vgg_torch_to_keras import transfer_vgg_weights
 
 
 def vgg_block(
@@ -16,22 +17,11 @@ def vgg_block(
     data_format,
     batch_norm=False,
 ):
-    """
+    """Stack of Conv2D / [BN] / ReLU and MaxPool layers per the VGG recipe.
 
-    Args:
-        inputs: Input tensor or layer.
-        num_filters: List of filter specifications. Integer values
-            specify the number of filters in Conv2D layers, while "M" indicates a MaxPooling2D
-            layer should be inserted.
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        batch_norm: Whether to include batch normalization layers
-            after each convolution. Defaults to False.
-
-    Returns:
-        Tuple of (output tensor, list of intermediate feature tensors).
+    ``num_filters`` is a list mixing ints (filter counts) and ``"M"`` markers
+    for MaxPooling. Returns ``(x, features)`` where ``features`` is the list of
+    tensors collected at each "M" boundary (i.e. before each MaxPool).
     """
     x = inputs
     layer_idx = 0
@@ -72,151 +62,124 @@ def vgg_block(
     return x, features
 
 
+def _vgg_features(
+    inputs,
+    *,
+    num_filters,
+    batch_norm,
+    data_format,
+    channels_axis,
+):
+    """Convolutional stack + classification-head pre-logit convs.
+
+    Returns ``[feat_at_each_M..., post_pre_logits]``.
+    """
+    x, features = vgg_block(
+        inputs,
+        num_filters,
+        batch_norm=batch_norm,
+        channels_axis=channels_axis,
+        data_format=data_format,
+    )
+
+    x = layers.Conv2D(4096, 7, data_format=data_format, name="conv_fc1")(x)
+    x = layers.ReLU(name="relu_fc1")(x)
+    x = layers.Dropout(0.5, name="dropout_fc1")(x)
+    x = layers.Conv2D(4096, 1, data_format=data_format, name="conv_fc2")(x)
+    x = layers.ReLU(name="relu_fc2")(x)
+    x = layers.Dropout(0.5, name="dropout_fc2")(x)
+
+    features.append(x)
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class VGG(keras.Model):
-    """Instantiates the VGG architecture with optional batch normalization.
+class VGG(BaseModel):
+    """VGG classifier (timm-ported).
 
     Reference:
-        - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556) (ICLR 2015)
+    - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556) (ICLR 2015)
 
-    Args:
-        num_filters: List of integers specifying the number of filters for each convolutional block.
-        batch_norm: Boolean, whether to include batch normalization after each convolutional layer.
-            Defaults to `False`.
-        include_top: Boolean, whether to include the fully-connected classification layers at the top of the network.
-            Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, path to pretrained weights or one of the available options in `keras-vision`.
-        input_tensor: Optional Keras tensor to use as the input to the model. If not provided, a new input tensor is created
-            based on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. Only required if `include_top=False`. Defaults to `None`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification. Defaults to `1000`.
-            Only applicable if `include_top=True`.
-        classifier_activation: String or callable, activation function for the classifier layer. Set to `None` to return logits.
-            Defaults to `"softmax"`.
-        name: String, the name of the model. Defaults to `"VGG"`.
+    Construction:
 
-    Returns:
-        A Keras `Model` instance.
+    >>> VGG.from_weights("vgg16_tv_in1k")
+    >>> VGG.from_weights("timm:timm/vgg16.tv_in1k")
     """
+
+    KMODELS_CONFIG = VGG_CONFIG
+    KMODELS_WEIGHTS = VGG_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_vgg_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        num_filters,
+        num_filters=None,
         batch_norm=False,
-        include_top=True,
-        as_backbone=False,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="tv_in1k",
         input_shape=None,
         input_tensor=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
+        classifier_activation="linear",
         name="VGG",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
+        kwargs.pop("timm_id", None)
 
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        if num_filters is None:
+            raise ValueError("`num_filters` must be provided.")
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=224,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
-
-        x, features_extracted = vgg_block(
+        features = _vgg_features(
             x,
-            num_filters,
+            num_filters=num_filters,
             batch_norm=batch_norm,
-            channels_axis=channels_axis,
             data_format=data_format,
+            channels_axis=channels_axis,
         )
-        features = features_extracted
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        x = layers.Dropout(rate=0, name="dropout")(x)
+        x = layers.Dense(
+            num_classes, activation=classifier_activation, name="predictions"
+        )(x)
 
-        # Pre-logit layers
-        x = layers.Conv2D(4096, 7, data_format=data_format, name="conv_fc1")(x)
-        x = layers.ReLU(name="relu_fc1")(x)
-        x = layers.Dropout(0.5, name="dropout_fc1")(x)
-        x = layers.Conv2D(4096, 1, data_format=data_format, name="conv_fc2")(x)
-        x = layers.ReLU(name="relu_fc2")(x)
-        x = layers.Dropout(0.5, name="dropout_fc2")(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            x = layers.Dropout(rate=0, name="dropout")(x)
-            x = layers.Dense(
-                num_classes, activation=classifier_activation, name="predictions"
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.num_filters = num_filters
         self.batch_norm = batch_norm
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -226,17 +189,14 @@ class VGG(keras.Model):
             {
                 "num_filters": self.num_filters,
                 "batch_norm": self.batch_norm,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -246,167 +206,106 @@ class VGG(keras.Model):
         return cls(**config)
 
 
-@register_model
-def VGG16(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    num_classes=1000,
-    weights="tv_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    classifier_activation="softmax",
-    name="VGG16",
-    **kwargs,
-):
-    model = VGG(
-        num_filters=VGG_MODEL_CONFIG["VGG16"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class VGGBackbone(BaseModel):
+    """VGG feature extractor. Returns ``[stage1..stage5, post_pre_logits]`` maps."""
+
+    KMODELS_CONFIG = VGG_CONFIG
+    KMODELS_WEIGHTS = VGG_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return VGG
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_vgg_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        num_filters=None,
+        batch_norm=False,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="VGGBackbone",
         **kwargs,
-    )
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
 
-    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
-        load_weights_from_config("VGG16", weights, model, VGG_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        if num_filters is None:
+            raise ValueError("`num_filters` must be provided.")
 
-    return model
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
 
-@register_model
-def VGG19(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    num_classes=1000,
-    weights="tv_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    classifier_activation="softmax",
-    name="VGG19",
-    **kwargs,
-):
-    model = VGG(
-        num_filters=VGG_MODEL_CONFIG["VGG19"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
-        load_weights_from_config("VGG19", weights, model, VGG_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _vgg_features(
+            x,
+            num_filters=num_filters,
+            batch_norm=batch_norm,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
 
-    return model
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
+        self.num_filters = num_filters
+        self.batch_norm = batch_norm
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
 
-@register_model
-def VGG16_BN(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    num_classes=1000,
-    weights="tv_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    classifier_activation="softmax",
-    name="VGG16_BN",
-    **kwargs,
-):
-    model = VGG(
-        num_filters=VGG_MODEL_CONFIG["VGG16"],
-        batch_norm=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "num_filters": self.num_filters,
+                "batch_norm": self.batch_norm,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
 
-    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
-        load_weights_from_config("VGG16_BN", weights, model, VGG_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def VGG19_BN(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    num_classes=1000,
-    weights="tv_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    classifier_activation="softmax",
-    name="VGG19_BN",
-    **kwargs,
-):
-    model = VGG(
-        num_filters=VGG_MODEL_CONFIG["VGG19"],
-        batch_norm=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
-        load_weights_from_config("VGG19_BN", weights, model, VGG_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

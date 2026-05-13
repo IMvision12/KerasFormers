@@ -2,11 +2,12 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer, LayerScale
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import INCEPTION_NEXT_MODEL_CONFIG, INCEPTION_NEXT_WEIGHTS_CONFIG
+from .config import INCEPTION_NEXT_CONFIG, INCEPTION_NEXT_WEIGHTS
+from .convert_inception_next_torch_to_keras import transfer_inception_next_weights
 
 
 def inception_dwconv2d(
@@ -18,26 +19,7 @@ def inception_dwconv2d(
     channels_axis=None,
     name="token_mixer",
 ):
-    """Implements the InceptionNeXt token mixer with parallel convolutional pathways.
-
-    Args:
-        x: Input tensor.
-        square_kernel_size: Integer, size of the square kernel for local spatial mixing.
-            Defaults to 3.
-        band_kernel_size: Integer, size of the band kernels (horizontal and vertical)
-            for capturing wide-range spatial dependencies. Defaults to 11.
-        branch_ratio: Float, ratio determining the number of channels allocated to each
-            specialized convolution branch. Defaults to 0.125.
-        data_format: String, either 'channels_last' or 'channels_first'.
-            Specifies the input data format.
-        channels_axis: Integer, axis along which the channels are defined.
-            (-1 for 'channels_last', 1 for 'channels_first')
-        name: String, prefix for naming the layers. Defaults to "token_mixer".
-
-    Returns:
-        Tensor with same shape as input after applying parallel convolutions
-        and concatenating results.
-    """
+    """Inception-style token mixer: square + band depthwise convs over channel splits."""
     input_channels = x.shape[channels_axis]
     branch_channels = int(input_channels * branch_ratio)
     split_sizes = [input_channels - 3 * branch_channels] + [branch_channels] * 3
@@ -62,9 +44,9 @@ def inception_dwconv2d(
 
     x = [
         layers.DepthwiseConv2D(
-            kernel, use_bias=True, data_format=data_format, name=name
-        )(layers.ZeroPadding2D(padding)(x))
-        for (kernel, padding, name), x in zip(conv_configs, x_branches)
+            kernel, use_bias=True, data_format=data_format, name=lname
+        )(layers.ZeroPadding2D(padding)(branch_input))
+        for (kernel, padding, lname), branch_input in zip(conv_configs, x_branches)
     ]
 
     return layers.Concatenate(axis=channels_axis)([x_id, *x])
@@ -82,29 +64,7 @@ def inception_next_block(
     channels_axis=None,
     name="blocks",
 ):
-    """Applies a complete InceptionNeXt block combining token mixing and channel mixing.
-
-    Args:
-        x: Input tensor.
-        num_filter: Integer, number of output filters for the block.
-        mlp_ratio: Float, expansion ratio for the MLP hidden dimension.
-            Defaults to 4.0.
-        dropout_rate: Float between 0 and 1, dropout rate applied after
-            each dense layer. Defaults to 0.0.
-        layer_scale_init_value: Float, initial value for the layer scale
-            parameter. Helps stabilize training of deep networks.
-            Defaults to 1e-6.
-        data_format: String, either 'channels_last' or 'channels_first'.
-            Specifies the input data format.
-        channels_axis: Integer, axis along which the channels are defined.
-            (-1 for 'channels_last', 1 for 'channels_first')
-        name: String, prefix for naming the layers. Defaults to "blocks".
-
-    Returns:
-        Output tensor after applying the complete InceptionNeXt block.
-        Shape is same as input tensor.
-
-    """
+    """InceptionNeXt block: token mixer -> BN -> Conv MLP -> LayerScale -> residual."""
     x_input = x
 
     x = inception_dwconv2d(
@@ -140,206 +100,164 @@ def inception_next_block(
     return x
 
 
+def _inception_next_features(
+    inputs,
+    *,
+    depths,
+    num_filters,
+    mlp_ratios,
+    band_kernel_size,
+    branch_ratio,
+    data_format,
+    channels_axis,
+):
+    """InceptionNeXt stem + 4 stages, returns ``[stem, s1, s2, s3, s4]``."""
+    features = []
+
+    x = layers.Conv2D(
+        num_filters[0],
+        4,
+        4,
+        use_bias=True,
+        data_format=data_format,
+        name="stem_conv",
+    )(inputs)
+    x = layers.BatchNormalization(
+        axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_batchnorm"
+    )(x)
+    features.append(x)
+
+    for i in range(len(depths)):
+        strides = 2 if i > 0 else 1
+        if strides > 1:
+            x = layers.BatchNormalization(
+                axis=channels_axis,
+                momentum=0.9,
+                epsilon=1e-5,
+                name=f"stages_{i}_downsample_batchnorm",
+            )(x)
+            x = layers.Conv2D(
+                num_filters[i],
+                2,
+                strides,
+                use_bias=True,
+                data_format=data_format,
+                name=f"stages_{i}_downsample_conv",
+            )(x)
+
+        for j in range(depths[i]):
+            x = inception_next_block(
+                x,
+                num_filter=num_filters[i],
+                mlp_ratio=mlp_ratios[i],
+                band_kernel_size=band_kernel_size,
+                branch_ratio=branch_ratio,
+                data_format=data_format,
+                channels_axis=channels_axis,
+                name=f"stages_{i}_blocks_{j}",
+            )
+        features.append(x)
+
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class InceptionNeXt(keras.Model):
-    """Instantiates the InceptionNeXt architecture.
+class InceptionNext(BaseModel):
+    """InceptionNeXt classifier (timm-ported).
 
     Reference:
-    - [InceptionNeXt: When Inception Meets ConvNeXt](
-        https://arxiv.org/abs/2303.16900)
+    - [InceptionNeXt: When Inception Meets ConvNeXt](https://arxiv.org/abs/2303.16900)
 
-    Args:
-        depths: List of integers, specifying the number of blocks in each stage.
-            Defaults to [3, 3, 9, 3].
-        num_filters: List of integers, specifying the number of filters for each stage.
-            Defaults to [96, 192, 384, 768].
-        mlp_ratios: List of integers, specifying the MLP ratio for each stage.
-            Defaults to [4, 4, 4, 3].
-        include_top: Boolean, whether to include the classification head at the top
-            of the network. Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as
-            the model's input. If not provided, a new input tensor is created based
-            on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. If not
-            specified, it defaults to `(224, 224, 3)` when `include_top=True`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification.
-            Defaults to `1000`.
-        classifier_activation: String or callable, activation function for the top
-            layer. Set to `None` to return logits. Defaults to `"softmax"`.
-        name: String, the name of the model. Defaults to `"InceptionNeXt"`.
+    Construction:
 
-    Returns:
-        A Keras `Model` instance.
-
-    The InceptionNeXt architecture combines design principles from the Inception family
-    and ConvNeXt models. It introduces an efficient token mixer that processes spatial
-    information through parallel pathways with different receptive fields, enabling
-    better feature extraction at multiple scales. The model maintains computational
-    efficiency while achieving strong performance on image classification tasks.
+    >>> InceptionNext.from_weights("inception_next_tiny_sail_in1k")
+    >>> InceptionNext.from_weights("timm:timm/inception_next_tiny.sail_in1k")
     """
+
+    KMODELS_CONFIG = INCEPTION_NEXT_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inception_next_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        depths=[3, 3, 9, 3],
-        num_filters=[96, 192, 384, 768],
-        mlp_ratios=[4, 4, 4, 3],
+        depths=(3, 3, 9, 3),
+        num_filters=(96, 192, 384, 768),
+        mlp_ratios=(4, 4, 4, 3),
         band_kernel_size=11,
         branch_ratio=0.125,
-        include_top=True,
-        as_backbone=False,
+        image_size=224,
         include_normalization=True,
-        normalization_mode="inceptioon",
-        weights="sail_in1k",
+        normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
-        name="InceptionNeXt",
+        classifier_activation="linear",
+        name="InceptionNext",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=224,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
-
-        # Stem
-        x = layers.Conv2D(
-            num_filters[0],
-            4,
-            4,
-            use_bias=True,
+        features = _inception_next_features(
+            x,
+            depths=depths,
+            num_filters=num_filters,
+            mlp_ratios=mlp_ratios,
+            band_kernel_size=band_kernel_size,
+            branch_ratio=branch_ratio,
             data_format=data_format,
-            name="stem_conv",
+            channels_axis=channels_axis,
+        )
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        x = layers.Dense(int(num_filters[-1] * 3.0), use_bias=True, name="head_fc")(x)
+        x = layers.Activation("gelu")(x)
+        x = layers.LayerNormalization(epsilon=1e-6, name="head_batchnorm")(x)
+        x = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
         )(x)
-        x = layers.BatchNormalization(
-            axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_batchnorm"
-        )(x)
-        features.append(x)
 
-        current_stride = 4
-        for i in range(len(depths)):
-            strides = 2 if i > 0 else 1
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-            if strides > 1:
-                x = layers.BatchNormalization(
-                    axis=channels_axis,
-                    momentum=0.9,
-                    epsilon=1e-5,
-                    name=f"stages_{i}_downsample_batchnorm",
-                )(x)
-                x = layers.Conv2D(
-                    num_filters[i],
-                    2,
-                    strides,
-                    use_bias=True,
-                    data_format=data_format,
-                    name=f"stages_{i}_downsample_conv",
-                )(x)
-
-            for j in range(depths[i]):
-                x = inception_next_block(
-                    x,
-                    num_filter=num_filters[i],
-                    mlp_ratio=mlp_ratios[i],
-                    band_kernel_size=band_kernel_size,
-                    branch_ratio=branch_ratio,
-                    data_format=data_format,
-                    channels_axis=channels_axis,
-                    name=f"stages_{i}_blocks_{j}",
-                )
-
-            current_stride *= strides
-            features.append(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            x = layers.Dense(int(num_filters[-1] * 3.0), use_bias=True, name="head_fc")(
-                x
-            )
-            x = layers.Activation("gelu")(x)
-            x = layers.LayerNormalization(epsilon=1e-6, name="head_batchnorm")(x)
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
-
-        self.depths = depths
-        self.num_filters = num_filters
-        self.mlp_ratios = mlp_ratios
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.depths = list(depths)
+        self.num_filters = list(num_filters)
+        self.mlp_ratios = list(mlp_ratios)
+        self.band_kernel_size = band_kernel_size
+        self.branch_ratio = branch_ratio
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -350,17 +268,16 @@ class InceptionNeXt(keras.Model):
                 "depths": self.depths,
                 "num_filters": self.num_filters,
                 "mlp_ratios": self.mlp_ratios,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "band_kernel_size": self.band_kernel_size,
+                "branch_ratio": self.branch_ratio,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -370,173 +287,115 @@ class InceptionNeXt(keras.Model):
         return cls(**config)
 
 
-@register_model
-def InceptionNeXtAtto(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="inception",
-    weights="sail_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="InceptionNeXtAtto",
-    **kwargs,
-):
-    model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtAtto"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class InceptionNextBackbone(BaseModel):
+    """InceptionNeXt feature extractor. Returns ``[stem, s1, s2, s3, s4]``."""
+
+    KMODELS_CONFIG = INCEPTION_NEXT_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return InceptionNext
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inception_next_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths=(3, 3, 9, 3),
+        num_filters=(96, 192, 384, 768),
+        mlp_ratios=(4, 4, 4, 3),
+        band_kernel_size=11,
+        branch_ratio=0.125,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        name="InceptionNextBackbone",
         **kwargs,
-    )
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
 
-    if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "InceptionNeXtAtto", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-
-@register_model
-def InceptionNeXtTiny(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="inception",
-    weights="sail_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="InceptionNeXtTiny",
-    **kwargs,
-):
-    model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtTiny"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "InceptionNeXtTiny", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def InceptionNeXtSmall(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="inception",
-    weights="sail_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="InceptionNeXtSmall",
-    **kwargs,
-):
-    model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtSmall"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "InceptionNeXtSmall", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+        features = _inception_next_features(
+            x,
+            depths=depths,
+            num_filters=num_filters,
+            mlp_ratios=mlp_ratios,
+            band_kernel_size=band_kernel_size,
+            branch_ratio=branch_ratio,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
+        self.depths = list(depths)
+        self.num_filters = list(num_filters)
+        self.mlp_ratios = list(mlp_ratios)
+        self.band_kernel_size = band_kernel_size
+        self.branch_ratio = branch_ratio
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
 
-@register_model
-def InceptionNeXtBase(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="inception",
-    weights="sail_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="InceptionNeXtBase",
-    **kwargs,
-):
-    model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtBase"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "InceptionNeXtBase", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "num_filters": self.num_filters,
+                "mlp_ratios": self.mlp_ratios,
+                "band_kernel_size": self.band_kernel_size,
+                "branch_ratio": self.branch_ratio,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        return config
 
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

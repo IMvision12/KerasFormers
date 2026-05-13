@@ -7,6 +7,7 @@ from huggingface_hub.utils import EntryNotFoundError
 from kmodels.weight_utils import download_file
 
 _HF_PREFIX = "hf:"
+_TIMM_PREFIX = "timm:"
 
 
 def hf_num_labels(hf_config):
@@ -156,15 +157,27 @@ class BaseModel(keras.Model):
         """Build a model and (optionally) load pretrained weights.
 
         Args:
-            identifier: Either a kmodels variant string (e.g.
-                ``"owlvit-base-patch32"``) which resolves against
-                ``cls.KMODELS_CONFIG`` / ``cls.KMODELS_WEIGHTS``, or an
-                ``"hf:<org>/<repo>"`` string which pulls config and
-                weights from HuggingFace.
+            identifier: One of three forms:
+
+                * a kmodels variant string (e.g. ``"resnet50_a1_in1k"``)
+                  — resolves against ``cls.KMODELS_CONFIG`` /
+                  ``cls.KMODELS_WEIGHTS``.
+                * ``"hf:<org>/<repo>"`` — pulls config and weights from
+                  HuggingFace transformers-style repos. Requires the
+                  class to implement ``config_from_hf`` /
+                  ``transfer_from_hf``.
+                * ``"timm:<org>/<repo>"`` — pulls a timm-style
+                  safetensors checkpoint from HuggingFace and converts
+                  it on the fly. Requires the class to implement
+                  ``from_timm``. Pass ``variant=<kmodels_variant_id>``
+                  via kwargs to select the architecture (auto-inferred
+                  from the timm repo name when omitted).
+
             load_weights: If ``False``, only the architecture is built
                 (random init). For HF ids, ``config.json`` is still
                 fetched to size the model; the weight files are not.
-            **kwargs: Forwarded to the model constructor.
+            **kwargs: Forwarded to the model constructor (or to
+                ``from_hf`` / ``from_timm`` when applicable).
 
         Returns:
             An initialized model instance.
@@ -172,7 +185,64 @@ class BaseModel(keras.Model):
         if identifier.startswith(_HF_PREFIX):
             hf_id = identifier[len(_HF_PREFIX) :]
             return cls.from_hf(hf_id, load_weights=load_weights, **kwargs)
+        if identifier.startswith(_TIMM_PREFIX):
+            timm_id = identifier[len(_TIMM_PREFIX) :]
+            return cls.from_timm(timm_id, load_weights=load_weights, **kwargs)
         return cls.from_release(identifier, load_weights=load_weights, **kwargs)
+
+    @classmethod
+    def from_timm(cls, timm_id, variant=None, load_weights=True, **kwargs):
+        """Load a timm-style checkpoint from HuggingFace and convert.
+
+        Builds the model from ``cls.KMODELS_CONFIG[variant]`` and then
+        applies the timm state-dict via ``cls.transfer_from_timm``.
+        Subclasses opt in by setting ``KMODELS_CONFIG`` and overriding
+        ``transfer_from_timm``.
+
+        Args:
+            timm_id: HuggingFace Hub id of a timm-style safetensors
+                checkpoint (e.g., ``"timm/resnet50.a1_in1k"`` or a user
+                fine-tune of one).
+            variant: kmodels variant id (e.g., ``"resnet50_a1_in1k"``)
+                whose ``KMODELS_CONFIG`` entry sizes the model. If
+                ``None``, inferred from the trailing segment of
+                ``timm_id`` (``timm/resnet50.a1_in1k`` →
+                ``resnet50_a1_in1k``).
+            load_weights: If ``False``, only the architecture is built.
+            **kwargs: Forwarded to the model constructor.
+        """
+        if variant is None:
+            tail = timm_id.split("/")[-1]
+            stem = tail.replace(".", "_")
+            for candidate in cls.KMODELS_CONFIG or {}:
+                if stem == candidate or stem.startswith(candidate + "_"):
+                    variant = candidate
+                    break
+            if variant is None:
+                raise ValueError(
+                    f"Cannot infer kmodels variant from timm_id '{timm_id}'. "
+                    f"Pass `variant=` explicitly. Available variants: "
+                    f"{sorted(cls.KMODELS_CONFIG or {})}"
+                )
+        model = cls.from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            state_dict = load_hf_state_dict(timm_id)
+            cls.transfer_from_timm(model, state_dict)
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        """Map a timm state-dict onto ``keras_model``'s weights.
+
+        Default raises :class:`NotImplementedError`. Subclasses opt in
+        by implementing the per-family timm-name → keras-weight mapping
+        (typically delegating to a module-level
+        ``transfer_<family>_weights`` function).
+        """
+        raise NotImplementedError(
+            f"{cls.__name__} does not support `timm:` loading. "
+            f"Implement `transfer_from_timm` to enable it."
+        )
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):

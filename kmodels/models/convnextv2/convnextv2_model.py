@@ -1,378 +1,55 @@
-from kmodels.model_registry import register_model
-from kmodels.models.convnext.convnext_model import ConvNeXt
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+"""ConvNeXtV2 as thin :class:`ConvNeXt` subclasses (timm-ported)."""
 
-from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHTS_CONFIG
+import keras
 
+from kmodels.models.convnext.convert_convnext_torch_to_keras import (
+    transfer_convnext_weights,
+)
+from kmodels.models.convnext.convnext_model import ConvNeXt, ConvNeXtBackbone
 
-# ConvNeXt V2
-@register_model
-def ConvNeXtV2Atto(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Atto",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["atto"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        use_conv=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Atto", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+from .config import CONVNEXTV2_CONFIG, CONVNEXTV2_WEIGHTS
 
 
-@register_model
-def ConvNeXtV2Femto(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Femto",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["femto"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        use_conv=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class ConvNeXtV2(ConvNeXt):
+    """ConvNeXtV2 classifier (GRN + post-FCMAE finetune).
 
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Femto", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    Reference:
+    - [ConvNeXt V2](https://arxiv.org/abs/2301.00808)
 
-    return model
+    Construction:
+
+    >>> ConvNeXtV2.from_weights("convnextv2_base_fcmae_ft_in22k_in1k")
+    >>> ConvNeXtV2.from_weights("timm:timm/convnextv2_base.fcmae_ft_in22k_in1k")
+    """
+
+    KMODELS_CONFIG = CONVNEXTV2_CONFIG
+    KMODELS_WEIGHTS = CONVNEXTV2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_convnext_weights(keras_model, state_dict)
+
+    def __init__(self, name="ConvNeXtV2", **kwargs):
+        super().__init__(name=name, **kwargs)
 
 
-@register_model
-def ConvNeXtV2Pico(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Pico",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["pico"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        use_conv=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class ConvNeXtV2Backbone(ConvNeXtBackbone):
+    """ConvNeXtV2 feature extractor."""
 
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Pico", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    KMODELS_CONFIG = CONVNEXTV2_CONFIG
+    KMODELS_WEIGHTS = CONVNEXTV2_WEIGHTS
+    HF_MODEL_TYPE = None
 
-    return model
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return ConvNeXtV2
 
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_convnext_weights(keras_model, state_dict)
 
-@register_model
-def ConvNeXtV2Nano(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in22k_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Nano",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["nano"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        use_conv=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Nano", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtV2Tiny(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in22k_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Tiny",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["tiny"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Tiny", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtV2Base(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in22k_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Base",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["base"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Base", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtV2Large(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in22k_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Large",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["large"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Large", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ConvNeXtV2Huge(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fcmae_ft_in22k_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ConvNeXtV2Huge",
-    **kwargs,
-):
-    model = ConvNeXt(
-        **CONVNEXTV2_MODEL_CONFIG["huge"],
-        drop_path_rate=0.0,
-        layer_scale_init_value=None,
-        use_grn=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtV2Huge", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+    def __init__(self, name="ConvNeXtV2Backbone", **kwargs):
+        super().__init__(name=name, **kwargs)
