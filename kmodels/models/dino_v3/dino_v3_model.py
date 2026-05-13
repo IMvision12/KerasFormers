@@ -3,7 +3,7 @@ from keras import layers, ops, utils
 
 from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer, LayerScale
-from kmodels.models.convnext.convnext_model import ConvNeXt
+from kmodels.models.convnext.convnext_model import ConvNeXtBackbone
 from kmodels.models.dino_v3.convert_dino_v3_hf_to_keras import (
     transfer_dinov3_convnext_weights,
     transfer_dinov3_vit_weights,
@@ -395,18 +395,15 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         if input_shape is None and input_tensor is None:
             input_shape = (224, 224, 3)
 
-        base = ConvNeXt(
+        base = ConvNeXtBackbone(
             depths=depths,
             projection_dims=projection_dims,
             drop_path_rate=0.0,
             layer_scale_init_value=1e-6,
             use_grn=False,
             use_conv=True,
-            include_top=False,
-            as_backbone=True,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            weights=None,
             input_tensor=input_tensor,
             input_shape=input_shape,
             name=f"{name}_convnext",
