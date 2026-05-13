@@ -3,42 +3,17 @@ import numpy as np
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from kmodels.layers import (
-    ImageNormalizationLayer,
-    StochasticDepth,
-)
-from kmodels.model_registry import register_model
+from kmodels.base import BaseModel
+from kmodels.layers import ImageNormalizationLayer, StochasticDepth
 from kmodels.models.mit.mit_layers import EfficientMultiheadSelfAttention
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_CONFIG
+from .config import MIT_CONFIG, MIT_WEIGHTS
+from .convert_mit_torch_to_keras import transfer_mit_weights
 
 
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
-    """
-    Implements an MLP block with a spatial depth-wise convolution in between.
-
-    This function creates a block that processes the input tensor through a dense layer,
-    reshapes it to apply a depth-wise convolution to capture spatial information,
-    applies GELU activation, and projects it back through another dense layer.
-
-    Args:
-        x: Input tensor of shape [batch_size, H*W, input_channels]
-        H: Height of the feature map
-        W: Width of the feature map
-        channels: Number of output channels for the final projection
-        mid_channels: Number of channels for the intermediate dense layer
-        data_format: Data format for the convolution ('channels_last' or 'channels_first')
-        name_prefix: Prefix string for naming the layers
-
-    Returns:
-        Processed tensor of shape [batch_size, H*W, channels]
-
-    Note:
-        The function assumes input in a sequence format (H*W, C) and internally
-        converts to spatial format (H, W, C) for the depth-wise convolution.
-    """
-
+    """Dense -> spatial DWConv -> GELU -> Dense (the MiT Mix-FFN)."""
     x = layers.Dense(mid_channels, name=f"{name_prefix}_dense_1")(x)
 
     input_shape = ops.shape(x)
@@ -57,9 +32,7 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
 
     x = layers.Reshape((H * W, input_shape[-1]))(x)
     x = layers.Activation("gelu")(x)
-
     x = layers.Dense(channels, name=f"{name_prefix}_dense_2")(x)
-
     return x
 
 
@@ -72,34 +45,7 @@ def overlap_patch_embedding_block(
     stride=4,
     stage_idx=1,
 ):
-    """
-    Creates an overlapping patch embedding block for vision transformers/MLP-mixers.
-
-    This function implements the initial patch embedding stage commonly used in vision
-    transformer architectures. It extracts overlapping patches from the input image,
-    projects them to the desired dimension, and reshapes the output for subsequent
-    transformer/MLP blocks.
-
-    Args:
-        x: Input tensor, typically an image with shape [batch_size, H, W, C]
-        channels_axis: Axis index for the channels dimension for normalization
-        data_format: Data format for the convolution ('channels_last' or 'channels_first')
-        out_channels: Number of output channels for the projection (default: 32)
-        patch_size: Size of the patch for convolution kernel (default: 7)
-        stride: Stride of the convolution (default: 4)
-        stage_idx: Index of the stage in the network, used for naming (default: 1)
-
-    Returns:
-        tuple: (
-            reshaped tensor of shape [batch_size, H*W, out_channels],
-            output feature map height H,
-            output feature map width W
-        )
-
-    Note:
-        The function uses PyTorch-style 0-indexed naming convention internally
-        while maintaining a 1-indexed interface.
-    """
+    """Overlapping patch embedding: ZeroPad -> Conv2D(patch_size, stride) -> Reshape -> LN."""
     pytorch_stage_idx = stage_idx - 1
 
     x = keras.layers.ZeroPadding2D(padding=(patch_size // 2, patch_size // 2))(x)
@@ -139,35 +85,7 @@ def hierarchical_transformer_encoder_block(
     sr_ratio=1,
     drop_prob=0.0,
 ):
-    """
-    Implements a hierarchical transformer encoder block with efficient self-attention.
-
-    This function creates a transformer encoder block that combines multi-head self-attention
-    with an MLP block containing spatial depth-wise convolution. It follows the typical
-    transformer architecture with residual connections, normalization, and optional
-    stochastic depth for regularization.
-
-    Args:
-        x: Input tensor of shape [batch_size, H*W, project_dim]
-        H: Height of the feature map
-        W: Width of the feature map
-        project_dim: Dimension of the token embeddings
-        num_heads: Number of attention heads
-        stage_idx: Index of the hierarchical stage (1-indexed)
-        block_idx: Index of the block within the stage
-        channels_axis: Axis index for the channels dimension for normalization
-        data_format: Data format for the convolution operations ('channels_last' or 'channels_first')
-        qkv_bias: Whether to include bias in query, key, value projections (default: False)
-        sr_ratio: Spatial reduction ratio for efficient attention (default: 1)
-        drop_prob: Drop path probability for stochastic depth regularization (default: 0.0)
-
-    Returns:
-        Processed tensor of shape [batch_size, H*W, project_dim]
-
-    Note:
-        The function uses PyTorch-style 0-indexed naming convention internally
-        while maintaining a 1-indexed interface for stage_idx.
-    """
+    """LN -> efficient self-attn -> Add -> LN -> Mix-FFN -> Add."""
     pytorch_stage_idx = stage_idx - 1
     drop_path_layer = StochasticDepth(drop_prob)
 
@@ -206,224 +124,164 @@ def hierarchical_transformer_encoder_block(
     )
 
     mlp_out = drop_path_layer(mlp_out)
-    out = layers.Add()([add1, mlp_out])
+    return layers.Add()([add1, mlp_out])
 
-    return out
+
+def _mit_features(
+    inputs,
+    *,
+    embed_dims,
+    depths,
+    drop_path_rate,
+    data_format,
+    channels_axis,
+):
+    """MiT 4-stage encoder. Returns a list of four spatial feature maps."""
+    num_stages = 4
+    blockwise_num_heads = [1, 2, 5, 8]
+    blockwise_sr_ratios = [8, 4, 2, 1]
+
+    total_blocks = sum(depths)
+    dpr = [x.item() for x in np.linspace(0.0, drop_path_rate, total_blocks)]
+
+    x = inputs
+    features = []
+    cur_block = 0
+
+    for i in range(num_stages):
+        x, H, W = overlap_patch_embedding_block(
+            x,
+            out_channels=embed_dims[i],
+            channels_axis=channels_axis,
+            data_format=data_format,
+            patch_size=7 if i == 0 else 3,
+            stride=4 if i == 0 else 2,
+            stage_idx=i + 1,
+        )
+
+        for j in range(depths[i]):
+            x = hierarchical_transformer_encoder_block(
+                x,
+                H,
+                W,
+                project_dim=embed_dims[i],
+                num_heads=blockwise_num_heads[i],
+                stage_idx=i + 1,
+                block_idx=j,
+                sr_ratio=blockwise_sr_ratios[i],
+                drop_prob=dpr[cur_block],
+                qkv_bias=True,
+                channels_axis=channels_axis,
+                data_format=data_format,
+            )
+            cur_block += 1
+
+        x = layers.LayerNormalization(
+            name=f"final_layernorm_{i}", axis=-1, epsilon=1e-5
+        )(x)
+        if data_format == "channels_first":
+            x = layers.Reshape((embed_dims[i], H, W))(x)
+        else:
+            x = layers.Reshape((H, W, embed_dims[i]))(x)
+        features.append(x)
+
+    return features
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MixTransformer(keras.Model):
-    """Instantiates the Mix Transformer (MiT) architecture from the SegFormer paper.
+class MiT(BaseModel):
+    """Mix Transformer (SegFormer encoder) classifier.
 
-    The Mix Transformer (MiT) serves as the backbone of the SegFormer architecture,
-    featuring hierarchical transformer blocks with efficient local attention and
-    progressive reduction of sequence length.
+    Reference:
+    - [SegFormer](https://arxiv.org/abs/2105.15203)
 
-    References:
-    - [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers]
-        (https://arxiv.org/abs/2105.15203)
+    Construction:
 
-    Args:
-        embed_dims: List of integers, specifying the embedding dimensions for each stage
-            of the network. For example, [32, 64, 160, 256] creates a hierarchical
-            structure with increasing channel dimensions.
-        depths: List of integers, specifying the number of transformer blocks in each
-            stage. Must have the same length as embed_dims. For example, [2, 2, 2, 2]
-            creates 2 transformer blocks per stage.
-        include_top: Boolean, whether to include the classification head at the top
-            of the network. Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the
-            start of the network. When True, input images should be in uint8 format
-            with values in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be
-            one of: 'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one',
-            or 'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String or None, specifying the path to pretrained weights or one of
-            the available options. Defaults to None.
-        input_shape: Optional tuple specifying the shape of the input data.
-            Should be (height, width, channels). If None, defaults to (224, 224, 3).
-        input_tensor: Optional Keras tensor to use as model input. Useful for
-            connecting the model to other Keras components.
-        pooling: Optional pooling mode when `include_top=False`:
-            - `None`: Return the sequence of feature maps from each stage
-            - `"avg"`: Apply global average pooling to each feature map
-            - `"max"`: Apply global max pooling to each feature map
-        num_classes: Integer, number of classes for classification when
-            include_top=True. Defaults to 1000.
-        classifier_activation: String or callable, the activation function to use
-            for the classification head. Set to None to return logits.
-            Defaults to "softmax".
-        name: String, name of the model. Defaults to "MixTransformer".
-
-    Returns:
-        A Keras Model instance.
-
-    Example:
-        ```python
-        # Create a typical MiT-B0 backbone
-        model = MixTransformer(
-            embed_dims=[32, 64, 160, 256],
-            depths=[2, 2, 2, 2],
-            include_top=True,
-            input_shape=(224, 224, 3)
-        )
-
-        # Create a deeper MiT-B2 backbone
-        model = MixTransformer(
-            embed_dims=[64, 128, 320, 512],
-            depths=[3, 4, 6, 3],
-            include_top=False,
-            pooling="avg"
-        )
-        ```
-
-    The MixTransformer architecture includes several key features:
-    1. Hierarchical structure with progressively increasing channel dimensions
-    2. Efficient local attention mechanism
-    3. Overlapped patch embedding
-    4. Mix-FFN for better feature representation
-    5. Progressive reduction of sequence length for computational efficiency
+    >>> MiT.from_weights("mit_b0_in1k")              # kmodels release
+    >>> MiT.from_weights("hf:nvidia/mit-b0")         # direct from HF
     """
+
+    KMODELS_CONFIG = MIT_CONFIG
+    KMODELS_WEIGHTS = MIT_WEIGHTS
+    HF_MODEL_TYPE = "segformer"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "embed_dims": hf_config["hidden_sizes"],
+            "depths": hf_config["depths"],
+            "num_classes": hf_config.get("num_labels", 1000),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        transfer_mit_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        embed_dims,
-        depths,
-        include_top=True,
-        as_backbone=False,
+        embed_dims=(32, 64, 160, 256),
+        depths=(2, 2, 2, 2),
+        drop_path_rate=0.1,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="in1k",
         input_tensor=None,
         input_shape=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
-        name="MixTransformer",
+        classifier_activation="linear",
+        name="MiT",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        kwargs.pop("hf_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=224,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        drop_path_rate = 0.1
-        num_stages = 4
-        blockwise_num_heads = [1, 2, 5, 8]
-        blockwise_sr_ratios = [8, 4, 2, 1]
-
-        total_blocks = sum(depths)
-        dpr = [x.item() for x in np.linspace(0.0, drop_path_rate, total_blocks)]
-
-        x = img_input
-        features = []
-
-        cur_block = 0
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(x)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else x
+            else img_input
         )
-
-        for i in range(num_stages):
-            x, H, W = overlap_patch_embedding_block(
-                x,
-                out_channels=embed_dims[i],
-                channels_axis=channels_axis,
-                data_format=data_format,
-                patch_size=7 if i == 0 else 3,
-                stride=4 if i == 0 else 2,
-                stage_idx=i + 1,
-            )
-
-            for j in range(depths[i]):
-                x = hierarchical_transformer_encoder_block(
-                    x,
-                    H,
-                    W,
-                    project_dim=embed_dims[i],
-                    num_heads=blockwise_num_heads[i],
-                    stage_idx=i + 1,
-                    block_idx=j,
-                    sr_ratio=blockwise_sr_ratios[i],
-                    drop_prob=dpr[cur_block],
-                    qkv_bias=True,
-                    channels_axis=channels_axis,
-                    data_format=data_format,
-                )
-                cur_block += 1
-
-            x = layers.LayerNormalization(
-                name=f"final_layernorm_{i}", axis=-1, epsilon=1e-5
-            )(x)
-            if data_format == "channels_first":
-                x = layers.Reshape((embed_dims[i], H, W))(x)
-            else:
-                x = layers.Reshape((H, W, embed_dims[i]))(x)
-            features.append(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
+        features = _mit_features(
+            x,
+            embed_dims=embed_dims,
+            depths=depths,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        x = layers.Dense(
+            num_classes, activation=classifier_activation, name="predictions"
+        )(x)
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.embed_dims = embed_dims
-        self.depths = depths
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.embed_dims = list(embed_dims)
+        self.depths = list(depths)
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -433,17 +291,15 @@ class MixTransformer(keras.Model):
             {
                 "embed_dims": self.embed_dims,
                 "depths": self.depths,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -453,247 +309,114 @@ class MixTransformer(keras.Model):
         return cls(**config)
 
 
-@register_model
-def MiT_B0(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="MiT_B0",
-    **kwargs,
-):
-    model = MixTransformer(
-        **MIT_MODEL_CONFIG["MiT_B0"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class MiTBackbone(BaseModel):
+    """MiT feature extractor (used as the SegFormer encoder). Returns 4 stage feature maps."""
+
+    KMODELS_CONFIG = MIT_CONFIG
+    KMODELS_WEIGHTS = MIT_WEIGHTS
+    HF_MODEL_TYPE = "segformer"
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return MiT
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "embed_dims": hf_config["hidden_sizes"],
+            "depths": hf_config["depths"],
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        transfer_mit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        embed_dims=(32, 64, 160, 256),
+        depths=(2, 2, 2, 2),
+        drop_path_rate=0.1,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_tensor=None,
+        input_shape=None,
+        name="MiTBackbone",
         **kwargs,
-    )
+    ):
+        for k in ("num_classes", "classifier_activation", "hf_id"):
+            kwargs.pop(k, None)
 
-    if weights in get_all_weight_names(MIT_WEIGHTS_CONFIG):
-        load_weights_from_config("MiT_B0", weights, model, MIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
-    return model
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
 
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-@register_model
-def MiT_B1(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="MiT_B1",
-    **kwargs,
-):
-    model = MixTransformer(
-        **MIT_MODEL_CONFIG["MiT_B1"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _mit_features(
+            x,
+            embed_dims=embed_dims,
+            depths=depths,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
 
-    if weights in get_all_weight_names(MIT_WEIGHTS_CONFIG):
-        load_weights_from_config("MiT_B1", weights, model, MIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
-    return model
+        self.embed_dims = list(embed_dims)
+        self.depths = list(depths)
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
 
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "embed_dims": self.embed_dims,
+                "depths": self.depths,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
 
-@register_model
-def MiT_B2(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="MiT_B2",
-    **kwargs,
-):
-    model = MixTransformer(
-        **MIT_MODEL_CONFIG["MiT_B2"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(MIT_WEIGHTS_CONFIG):
-        load_weights_from_config("MiT_B2", weights, model, MIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def MiT_B3(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="MiT_B3",
-    **kwargs,
-):
-    model = MixTransformer(
-        **MIT_MODEL_CONFIG["MiT_B3"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(MIT_WEIGHTS_CONFIG):
-        load_weights_from_config("MiT_B3", weights, model, MIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def MiT_B4(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="MiT_B4",
-    **kwargs,
-):
-    model = MixTransformer(
-        **MIT_MODEL_CONFIG["MiT_B4"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(MIT_WEIGHTS_CONFIG):
-        load_weights_from_config("MiT_B4", weights, model, MIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def MiT_B5(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="MiT_B5",
-    **kwargs,
-):
-    model = MixTransformer(
-        **MIT_MODEL_CONFIG["MiT_B5"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(MIT_WEIGHTS_CONFIG):
-        load_weights_from_config("MiT_B5", weights, model, MIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

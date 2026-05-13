@@ -3,7 +3,7 @@ from keras import layers
 
 from kmodels.base import BaseModel
 from kmodels.base.base_model import hf_num_labels
-from kmodels.models.mit.mit_model import MixTransformer
+from kmodels.models.mit.mit_model import MiTBackbone
 
 from .config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS
 
@@ -138,15 +138,12 @@ class SegFormerModel(BaseModel):
         if input_shape is None:
             input_shape = (512, 512, 3)
 
-        backbone = MixTransformer(
+        backbone = MiTBackbone(
             embed_dims=embed_dims,
             depths=depths,
-            include_top=False,
-            as_backbone=True,
             include_normalization=False,
             input_shape=input_shape,
             input_tensor=input_tensor,
-            weights=None,
             name=f"{name}_backbone",
         )
 

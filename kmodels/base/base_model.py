@@ -272,10 +272,14 @@ class BaseModel(keras.Model):
                 hf_id = entry.get("hf_id")
                 gated = entry.get("gated", False)
                 url = entry.get("url")
+                hf_model_cls = entry.get("hf_model_cls")
+                hf_kwargs = entry.get("hf_kwargs")
             else:
                 hf_id = None
                 gated = False
                 url = entry
+                hf_model_cls = None
+                hf_kwargs = None
 
             if hf_id:
                 from kmodels.weight_utils.hf_gated_weight_download import (
@@ -288,6 +292,8 @@ class BaseModel(keras.Model):
                     hf_model_id=hf_id,
                     transfer_fn=cls.transfer_from_hf,
                     is_gated=gated,
+                    hf_model_cls=hf_model_cls,
+                    hf_kwargs=hf_kwargs,
                 )
             elif url:
                 if url.lower().endswith(".json"):

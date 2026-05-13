@@ -46,7 +46,6 @@ from kmodels.models import (
     rt_detr_v2,
     sam,
     sam2,
-    sam2_video,
     sam3,
     segformer,
     senet,

@@ -1,10 +1,10 @@
 import keras
+import numpy as np
 from keras import layers, ops, utils
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils.hf_gated_weight_download import load_gated_weights_from_hf
+from kmodels.base import BaseModel
 
-from .config import SAM3_HF_MODEL_ID, SAM3_MODEL_CONFIG
+from .config import SAM3_CONFIG, SAM3_WEIGHTS
 from .sam3_clip_tokenizer import SAM3_VOCAB_SIZE
 from .sam3_layers import (
     CLIPCausalMask,
@@ -20,8 +20,13 @@ from .sam3_layers import (
 )
 from .sam3_utils import (
     box_cxcywh_to_xyxy,
+    compute_scores,
     compute_sine_pos_encoding,
     inverse_sigmoid,
+    resize_mask,
+    resize_masks_batch,
+    scale_boxes,
+    sigmoid,
     sine_encode_boxes,
 )
 
@@ -917,7 +922,7 @@ def sam3_mask_decoder(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SAM3Main(keras.Model):
+class Sam3(BaseModel):
     """SAM3: unified open-vocabulary detector, segmenter, and promptable model.
 
     Builds the complete detection pipeline as a functional graph:
@@ -925,6 +930,16 @@ class SAM3Main(keras.Model):
     refinement, dot-product scoring, and mask decoder. Supports both
     ``"channels_last"`` and ``"channels_first"`` via
     ``keras.config.image_data_format()``.
+
+    Weights are gated on HuggingFace (``facebook/sam3``). On first use
+    with ``Sam3.from_weights("sam3_saco")``, the model is downloaded
+    from HuggingFace, converted to Keras format, and cached locally at
+    ``~/.cache/kmodels/sam3_saco/``.
+
+    Construction:
+
+    >>> Sam3.from_weights("sam3_saco")
+    >>> Sam3.from_weights("sam3_saco", load_weights=False)  # random init
 
     Args:
         vit_hidden_size (int): ViT hidden dimension. Defaults to ``1024``.
@@ -964,6 +979,16 @@ class SAM3Main(keras.Model):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
+    KMODELS_CONFIG = SAM3_CONFIG
+    KMODELS_WEIGHTS = SAM3_WEIGHTS
+    HF_MODEL_TYPE = "sam3"
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_sam3_hf_to_keras import transfer_sam3_weights
+
+        transfer_sam3_weights(keras_model, hf_state_dict)
+
     def __init__(
         self,
         vit_hidden_size=1024,
@@ -996,7 +1021,7 @@ class SAM3Main(keras.Model):
         text_projection_dim=512,
         input_shape=None,
         input_tensor=None,
-        name="SAM3Main",
+        name="Sam3",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -1162,6 +1187,8 @@ class SAM3Main(keras.Model):
         self._input_shape_val = input_shape
         self.input_tensor = input_tensor
         self._data_format = data_format
+        self._tokenizer = None
+        self._submodel_cache = {}
 
     def build_decoder_model(self):
         """Build a decoder-only sub-model from pre-computed FPN features.
@@ -1262,7 +1289,7 @@ class SAM3Main(keras.Model):
 
         orig_weights = {w.path: w.numpy() for w in self.weights}
         for w in decoder_model.weights:
-            path = w.path.replace("SAM3_decoder/", "SAM3Main/")
+            path = w.path.replace("SAM3_decoder/", f"{self.name}/")
             if path in orig_weights and w.shape == orig_weights[path].shape:
                 w.assign(orig_weights[path])
 
@@ -1285,6 +1312,507 @@ class SAM3Main(keras.Model):
             outputs=outputs,
             name="SAM3_vision",
         )
+
+    # ------------------------------------------------------------------
+    # Inference API: tokenizer, encoders, and the three task entrypoints
+    # ------------------------------------------------------------------
+
+    @property
+    def tokenizer(self):
+        """Lazily-instantiated :class:`SAM3CLIPTokenizer` for text prompts."""
+        if self._tokenizer is None:
+            from .sam3_clip_tokenizer import SAM3CLIPTokenizer
+
+            self._tokenizer = SAM3CLIPTokenizer()
+        return self._tokenizer
+
+    def _vision_geo_submodel(self):
+        """Sub-model returning the 1x FPN feature map + projected text.
+
+        Used during box-prompt inference to compute geometry-encoder
+        features from the box prompts. Cached on the instance.
+        """
+        sub = self._submodel_cache.get("vision_geo")
+        if sub is None:
+            fpn_1x = self.get_layer("fpn_level_2_proj2")
+            text_proj = self.get_layer("text_projection")
+            sub = keras.Model(
+                inputs=self.input,
+                outputs={"fpn_1x": fpn_1x.output, "text_projected": text_proj.output},
+                name=f"{self.name}_vision_geo",
+            )
+            self._submodel_cache["vision_geo"] = sub
+        return sub
+
+    def _vision_submodel(self):
+        """Cached full vision sub-model (fpn_0..3 + text_projected)."""
+        sub = self._submodel_cache.get("vision")
+        if sub is None:
+            sub = self.build_vision_model()
+            self._submodel_cache["vision"] = sub
+        return sub
+
+    def _decoder_submodel(self):
+        """Cached decoder sub-model accepting precomputed FPN + text features."""
+        sub = self._submodel_cache.get("decoder")
+        if sub is None:
+            sub = self.build_decoder_model()
+            self._submodel_cache["decoder"] = sub
+        return sub
+
+    def _identity_text_decoder(self):
+        """Cached copy of the full model with an identity text projection.
+
+        Used in the box-prompt path so pre-projected ``(text + geo)``
+        features (already at the encoder's hidden size) can be fed
+        through the model without re-projecting.
+        """
+        sub = self._submodel_cache.get("identity_text_decoder")
+        if sub is None:
+            cfg = self.get_config()
+            sub = Sam3(
+                input_shape=self._input_shape_val,
+                text_hidden_size=cfg["detr_encoder_hidden_size"],
+                **{
+                    k: v
+                    for k, v in cfg.items()
+                    if k
+                    not in (
+                        "input_shape",
+                        "text_hidden_size",
+                        "name",
+                        "input_tensor",
+                    )
+                },
+                name="SAM3_decoder",
+            )
+            orig_weights = {w.path: w.numpy() for w in self.weights}
+            for w in sub.weights:
+                path = w.path.replace("SAM3_decoder/", f"{self.name}/")
+                if path in orig_weights and w.shape == orig_weights[path].shape:
+                    w.assign(orig_weights[path])
+
+            tp = sub.get_layer("text_projection")
+            hidden = cfg["detr_encoder_hidden_size"]
+            tp.kernel.assign(np.eye(hidden, dtype=np.float32))
+            tp.bias.assign(np.zeros(hidden, dtype=np.float32))
+
+            self._submodel_cache["identity_text_decoder"] = sub
+        return sub
+
+    def encode_image(self, image):
+        """Pre-compute vision features for a single image.
+
+        Use this when you intend to run multiple prompts on the same
+        image — it avoids re-running the ViT backbone + FPN for each
+        call. Pass the returned dict as ``vision_embeds`` to
+        :meth:`detect` / :meth:`segment_instances` / :meth:`segment_semantic`.
+        """
+        from .sam3_processor import preprocess_image
+
+        pixel_values, original_size = preprocess_image(image)
+        vision_model = self._vision_submodel()
+        # Decoder is built here so it is ready when the call uses
+        # ``vision_embeds``. Dummy text inputs are fine — the vision
+        # outputs do not depend on them.
+        self._decoder_submodel()
+        dummy_text = np.zeros((1, 1, self.text_hidden_size), dtype=np.float32)
+        dummy_mask = np.ones((1, 1), dtype=np.float32)
+        vis_out = vision_model.predict(
+            {
+                "pixel_values": pixel_values,
+                "text_features": dummy_text,
+                "text_attention_mask": dummy_mask,
+            },
+            verbose=0,
+        )
+        return {
+            "fpn_0": vis_out["fpn_0"],
+            "fpn_1": vis_out["fpn_1"],
+            "fpn_2": vis_out["fpn_2"],
+            "fpn_3": vis_out["fpn_3"],
+            "text_projected": vis_out["text_projected"],
+            "original_size": original_size,
+        }
+
+    def encode_text(self, text):
+        """Pre-compute text features for a prompt.
+
+        Returned dict can be passed as ``text_embeds`` to the predict
+        methods to skip tokenization + text encoding on subsequent
+        calls with the same prompt.
+        """
+        from .sam3_processor import preprocess_text_with_encoder
+
+        text_features, text_attention_mask = preprocess_text_with_encoder(
+            text, self.text_encoder, self.tokenizer
+        )
+        return {
+            "text_features": text_features,
+            "text_attention_mask": text_attention_mask,
+        }
+
+    def _resolve_text_for_batch(self, texts, input_boxes, batch_size):
+        """Normalize prompt selection, defaulting unset entries to ``"visual"``.
+
+        Implements the three SAM3 prompt modes: text-only, box-only
+        (text → ``"visual"``), or hybrid.
+        """
+        if isinstance(texts, str):
+            texts = [texts] * batch_size
+
+        if texts is None:
+            if input_boxes is not None:
+                texts = []
+                for i in range(batch_size):
+                    bi = input_boxes[i] if i < len(input_boxes) else None
+                    texts.append("visual" if bi is not None else None)
+            else:
+                raise ValueError("Provide text, text_embeds, or input_boxes.")
+        else:
+            texts = list(texts)
+            for i in range(batch_size):
+                if texts[i] is None:
+                    bi = (
+                        input_boxes[i] if input_boxes and i < len(input_boxes) else None
+                    )
+                    texts[i] = "visual" if bi is not None else None
+            if any(t is None for t in texts):
+                raise ValueError(
+                    "Each image must have either a text prompt or input_boxes."
+                )
+        return texts
+
+    def _run_inference(
+        self,
+        images=None,
+        text=None,
+        input_boxes=None,
+        input_boxes_labels=None,
+        vision_embeds=None,
+        text_embeds=None,
+    ):
+        """Run the full SAM3 inference pipeline.
+
+        Returns ``(raw_outputs, original_sizes)`` where ``raw_outputs``
+        is a dict with the model's logits / boxes / masks / semantic
+        outputs and ``original_sizes`` is a list of ``(H, W)`` tuples.
+
+        Supports the three prompt modes (text-only, box-only, hybrid)
+        and the precomputed ``vision_embeds`` / ``text_embeds`` paths
+        used by :meth:`encode_image` and :meth:`encode_text`.
+        """
+        from .sam3_processor import (
+            preprocess_boxes,
+            preprocess_image,
+            preprocess_text_with_encoder,
+        )
+
+        if vision_embeds is not None:
+            pixel_values = None
+            original_sizes = [vision_embeds["original_size"]]
+            batch_size = 1
+        else:
+            single = not isinstance(images, (list, tuple))
+            if single:
+                images = [images]
+
+            all_pixels = []
+            original_sizes = []
+            for img in images:
+                pv, orig = preprocess_image(img)
+                all_pixels.append(pv[0])
+                original_sizes.append(orig)
+            pixel_values = np.stack(all_pixels)
+            batch_size = len(images)
+
+        if input_boxes is not None and not isinstance(input_boxes, list):
+            input_boxes = [input_boxes]
+        if input_boxes_labels is not None and not isinstance(input_boxes_labels, list):
+            input_boxes_labels = [input_boxes_labels]
+
+        if text_embeds is None:
+            text = self._resolve_text_for_batch(text, input_boxes, batch_size)
+            text_features, text_attention_mask = preprocess_text_with_encoder(
+                text if batch_size > 1 else text[0],
+                self.text_encoder,
+                self.tokenizer,
+            )
+        else:
+            text_features = text_embeds["text_features"]
+            text_attention_mask = text_embeds["text_attention_mask"]
+            if text_features.shape[0] == 1 and batch_size > 1:
+                text_features = np.tile(text_features, (batch_size, 1, 1))
+                text_attention_mask = np.tile(text_attention_mask, (batch_size, 1))
+
+        has_any_boxes = input_boxes is not None and any(
+            b is not None and len(b) > 0 for b in input_boxes if b is not None
+        )
+
+        if not has_any_boxes:
+            if vision_embeds is None:
+                raw = self.predict(
+                    {
+                        "pixel_values": pixel_values,
+                        "text_features": text_features,
+                        "text_attention_mask": text_attention_mask,
+                    },
+                    verbose=0,
+                )
+            else:
+                tp_layer = self.get_layer("text_projection")
+                text_proj = ops.convert_to_numpy(
+                    tp_layer(ops.convert_to_tensor(text_features))
+                )
+                raw = self._decoder_submodel().predict(
+                    {
+                        "fpn_0": vision_embeds["fpn_0"],
+                        "fpn_1": vision_embeds["fpn_1"],
+                        "fpn_2": vision_embeds["fpn_2"],
+                        "fpn_3": vision_embeds["fpn_3"],
+                        "text_projected": text_proj,
+                        "text_attention_mask": text_attention_mask,
+                    },
+                    verbose=0,
+                )
+                raw.pop("fpn_05x", None)
+            return raw, original_sizes
+
+        if self.geometry_encoder is None:
+            raise ValueError(
+                "geometry_encoder is required for box prompts, but this Sam3 "
+                "instance was built without one."
+            )
+
+        all_combined = []
+        all_combined_mask = []
+        vision_geo = self._vision_geo_submodel()
+
+        for i in range(batch_size):
+            pv_i = pixel_values[i : i + 1]
+            tf_i = text_features[i : i + 1]
+            tm_i = text_attention_mask[i : i + 1]
+
+            boxes_i = input_boxes[i] if input_boxes and i < len(input_boxes) else None
+            labels_i = (
+                input_boxes_labels[i]
+                if input_boxes_labels and i < len(input_boxes_labels)
+                else None
+            )
+
+            fpn_out = vision_geo.predict(
+                {
+                    "pixel_values": pv_i,
+                    "text_features": tf_i,
+                    "text_attention_mask": tm_i,
+                },
+                verbose=0,
+            )
+            text_projected = fpn_out["text_projected"]
+
+            if boxes_i is None or (isinstance(boxes_i, list) and len(boxes_i) == 0):
+                all_combined.append(text_projected)
+                all_combined_mask.append(tm_i)
+                continue
+
+            if not isinstance(boxes_i[0], (list, tuple)):
+                boxes_i = [boxes_i]
+            if labels_i is None:
+                labels_i = [1] * len(boxes_i)
+            if not isinstance(labels_i, (list, tuple)):
+                labels_i = [labels_i]
+
+            boxes_cxcywh, box_labels, box_mask = preprocess_boxes(
+                [boxes_i], [labels_i], [original_sizes[i]]
+            )
+
+            df = self._data_format
+            fpn_1x = fpn_out["fpn_1x"]
+            if df == "channels_first":
+                enc_h = fpn_1x.shape[2]
+                fpn_1x_nhwc = np.transpose(fpn_1x, (0, 2, 3, 1))
+            else:
+                enc_h = fpn_1x.shape[1]
+                fpn_1x_nhwc = fpn_1x
+            vision_flat = fpn_1x_nhwc.reshape(1, enc_h * enc_h, -1)
+
+            pos = compute_sine_pos_encoding(enc_h, enc_h, 128, normalize=True)
+            pos_flat = ops.convert_to_numpy(pos).reshape(1, enc_h * enc_h, -1)
+
+            geo_features, geo_mask = self.geometry_encoder(
+                boxes_cxcywh,
+                box_labels,
+                box_mask,
+                vision_flat,
+                pos_flat,
+                vision_features_spatial=fpn_1x,
+                data_format=df,
+            )
+            geo_features = ops.convert_to_numpy(ops.stop_gradient(geo_features))
+            geo_mask = ops.convert_to_numpy(ops.stop_gradient(geo_mask))
+
+            combined = np.concatenate([text_projected, geo_features], axis=1)
+            cmask = np.concatenate([tm_i, geo_mask], axis=1)
+            all_combined.append(combined)
+            all_combined_mask.append(cmask)
+
+        max_seq = max(c.shape[1] for c in all_combined)
+        feat_dim = all_combined[0].shape[2]
+        padded_feats = np.zeros((batch_size, max_seq, feat_dim), dtype=np.float32)
+        padded_masks = np.zeros((batch_size, max_seq), dtype=np.float32)
+        for i, (feat, mask) in enumerate(zip(all_combined, all_combined_mask)):
+            seq_len = feat.shape[1]
+            padded_feats[i, :seq_len, :] = feat[0]
+            padded_masks[i, :seq_len] = mask[0]
+
+        raw = self._identity_text_decoder().predict(
+            {
+                "pixel_values": pixel_values,
+                "text_features": padded_feats,
+                "text_attention_mask": padded_masks,
+            },
+            verbose=0,
+        )
+        return raw, original_sizes
+
+    def detect(
+        self,
+        images=None,
+        text=None,
+        input_boxes=None,
+        input_boxes_labels=None,
+        threshold=0.3,
+        vision_embeds=None,
+        text_embeds=None,
+    ):
+        """Run open-vocabulary object detection.
+
+        Args:
+            images: single image or list of images
+                (``PIL.Image``, ``np.ndarray``, or file path). Ignored
+                when ``vision_embeds`` is provided.
+            text: string or list of strings. Defaults to ``"visual"``
+                for any image that has ``input_boxes`` but no text.
+            input_boxes: list of ``[x1, y1, x2, y2]`` boxes (one image)
+                or list-of-lists (batch).
+            input_boxes_labels: matching ``0`` / ``1`` labels per box.
+            threshold: confidence threshold.
+            vision_embeds: dict returned by :meth:`encode_image`.
+            text_embeds: dict returned by :meth:`encode_text`.
+
+        Returns:
+            List of dicts (one per image) with ``"scores"`` ``(N,)`` and
+            ``"boxes"`` ``(N, 4)`` in ``[x1, y1, x2, y2]`` pixel coords.
+        """
+        raw, original_sizes = self._run_inference(
+            images=images,
+            text=text,
+            input_boxes=input_boxes,
+            input_boxes_labels=input_boxes_labels,
+            vision_embeds=vision_embeds,
+            text_embeds=text_embeds,
+        )
+
+        pred_logits = np.asarray(raw["pred_logits"])
+        pred_boxes = np.asarray(raw["pred_boxes"])
+        presence = raw.get("presence_logits")
+        batch_scores = compute_scores(pred_logits, presence)
+
+        results = []
+        for idx in range(pred_logits.shape[0]):
+            scores = batch_scores[idx]
+            boxes = scale_boxes(pred_boxes[idx], original_sizes[idx])
+            keep = scores > threshold
+            results.append({"scores": scores[keep], "boxes": boxes[keep]})
+        return results
+
+    def segment_instances(
+        self,
+        images=None,
+        text=None,
+        input_boxes=None,
+        input_boxes_labels=None,
+        threshold=0.3,
+        mask_threshold=0.5,
+        vision_embeds=None,
+        text_embeds=None,
+    ):
+        """Run open-vocabulary instance segmentation.
+
+        Returns a list of dicts per image, each with ``"scores"``,
+        ``"boxes"``, and ``"masks"`` ``(N, H, W)`` int32 binary masks
+        at the original image resolution.
+        """
+        raw, original_sizes = self._run_inference(
+            images=images,
+            text=text,
+            input_boxes=input_boxes,
+            input_boxes_labels=input_boxes_labels,
+            vision_embeds=vision_embeds,
+            text_embeds=text_embeds,
+        )
+
+        pred_logits = np.asarray(raw["pred_logits"])
+        pred_boxes = np.asarray(raw["pred_boxes"])
+        pred_masks = np.asarray(raw["pred_masks"])
+        presence = raw.get("presence_logits")
+        batch_scores = compute_scores(pred_logits, presence)
+        batch_masks = sigmoid(pred_masks)
+
+        results = []
+        for idx in range(pred_logits.shape[0]):
+            h, w = original_sizes[idx]
+            scores = batch_scores[idx]
+            boxes = scale_boxes(pred_boxes[idx], original_sizes[idx])
+            masks = batch_masks[idx]
+
+            keep = scores > threshold
+            scores = scores[keep]
+            boxes = boxes[keep]
+            masks = masks[keep]
+
+            if len(masks) > 0:
+                masks = resize_masks_batch(masks, h, w)
+            masks = (masks > mask_threshold).astype(np.int32)
+
+            results.append({"scores": scores, "boxes": boxes, "masks": masks})
+        return results
+
+    def segment_semantic(
+        self,
+        images=None,
+        text=None,
+        input_boxes=None,
+        input_boxes_labels=None,
+        threshold=0.5,
+        vision_embeds=None,
+        text_embeds=None,
+    ):
+        """Run open-vocabulary semantic segmentation.
+
+        Returns a list of ``(H, W)`` int32 binary masks, one per image,
+        at the original image resolution.
+        """
+        raw, original_sizes = self._run_inference(
+            images=images,
+            text=text,
+            input_boxes=input_boxes,
+            input_boxes_labels=input_boxes_labels,
+            vision_embeds=vision_embeds,
+            text_embeds=text_embeds,
+        )
+
+        semantic = np.asarray(raw["semantic_seg"])
+        probs = sigmoid(semantic)
+
+        results = []
+        for idx in range(semantic.shape[0]):
+            h, w = original_sizes[idx]
+            mask = np.squeeze(probs[idx], axis=-1)
+            mask = resize_mask(mask, h, w)
+            mask = (mask > threshold).astype(np.int32)
+            results.append(mask)
+        return results
 
     def get_config(self):
         config = super().get_config()
@@ -1326,6 +1854,85 @@ class SAM3Main(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
+
+class _SAM3Task:
+    """Task-specific wrapper around a :class:`Sam3` model.
+
+    Holds a single ``Sam3`` instance (created lazily on first use if
+    none is supplied) and exposes ``predict`` along with the shared
+    ``encode_image`` / ``encode_text`` shortcuts.
+
+    Subclasses implement task-specific post-processing by delegating
+    to one of the ``Sam3`` inference methods (``detect`` /
+    ``segment_instances`` / ``segment_semantic``).
+    """
+
+    _METHOD: str = ""
+
+    def __init__(self, model=None, variant="sam3_saco", load_weights=True):
+        if model is None:
+            model = Sam3.from_weights(variant, load_weights=load_weights)
+        if not isinstance(model, Sam3):
+            raise TypeError(
+                f"`model` must be a Sam3 instance, got {type(model).__name__}"
+            )
+        self.model = model
+
+    @property
+    def tokenizer(self):
+        return self.model.tokenizer
+
+    def encode_image(self, image):
+        return self.model.encode_image(image)
+
+    def encode_text(self, text):
+        return self.model.encode_text(text)
+
+    def predict(self, images=None, **kwargs):
+        return getattr(self.model, self._METHOD)(images=images, **kwargs)
+
+
+class SAM3Detect(_SAM3Task):
+    """SAM3 open-vocabulary object detector.
+
+    Thin wrapper around :meth:`Sam3.detect`. Holds a ``Sam3`` instance
+    (auto-loaded from ``"sam3_saco"`` on first use unless ``model`` is
+    passed explicitly) and exposes ``predict`` that returns one
+    ``{"scores", "boxes"}`` dict per image.
+
+    Example::
+
+        from kmodels.models.sam3 import SAM3Detect
+
+        detector = SAM3Detect()
+        results = detector.predict("cat.jpg", text="cat")
+        for r in results:
+            print(r["scores"], r["boxes"])
+    """
+
+    _METHOD = "detect"
+
+
+class SAM3InstanceSegment(_SAM3Task):
+    """SAM3 open-vocabulary instance segmenter.
+
+    Thin wrapper around :meth:`Sam3.segment_instances`. Returns
+    ``{"scores", "boxes", "masks"}`` per image, with ``masks`` as
+    ``(N, H, W)`` int32 binary masks at the original resolution.
+    """
+
+    _METHOD = "segment_instances"
+
+
+class SAM3SemanticSegment(_SAM3Task):
+    """SAM3 open-vocabulary semantic segmenter.
+
+    Thin wrapper around :meth:`Sam3.segment_semantic`. Returns a list
+    of ``(H, W)`` int32 binary masks, one per image.
+    """
+
+    _METHOD = "segment_semantic"
 
 
 def sam3_clip_encoder_layer(
@@ -1454,64 +2061,5 @@ def build_text_encoder(
 
     if weights_path is not None:
         model.load_weights(weights_path)
-
-    return model
-
-
-@register_model
-def SAM3(input_shape=None, input_tensor=None, weights="saco", **kwargs):
-    """SAM3 open-vocabulary detector, segmenter, and promptable model.
-
-    Factory function that builds the full SAM3 model including ViT-L
-    backbone, FPN, DETR encoder/decoder, CLIP text encoder, geometry
-    encoder, and mask decoder. Supports 839M parameters.
-
-    SAM3 weights are distributed under Meta's SAM License and require
-    accepting the license at https://huggingface.co/facebook/sam3.
-    On first use with ``weights="saco"``, the model is downloaded from
-    HuggingFace, converted to Keras format, and cached locally at
-    ``~/.cache/kmodels/sam3/``.
-
-    Args:
-        input_shape (tuple or None): Input image shape. Defaults to
-            ``(1008, 1008, 3)`` for channels_last.
-        input_tensor: Optional input tensor.
-        weights (str or None): ``"saco"`` to download and convert from
-            HuggingFace (cached after first run), ``None`` for random
-            init, or a file path to a ``.weights.h5`` file. ``"saco"``
-            denotes the SA-Co training dataset
-            (Segment Anything with Concepts).
-        **kwargs: Additional keyword arguments.
-
-    Returns:
-        ``SAM3Main`` instance.
-
-    References:
-        - SAM 3: https://arxiv.org/abs/2511.16719
-    """
-    config = SAM3_MODEL_CONFIG["SAM3"]
-
-    model = SAM3Main(
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        **config,
-        **kwargs,
-    )
-
-    if weights == "saco":
-        from .convert_sam3_hf_to_keras import transfer_sam3_weights
-
-        load_gated_weights_from_hf(
-            model=model,
-            model_name="sam3",
-            hf_model_id=SAM3_HF_MODEL_ID,
-            transfer_fn=transfer_sam3_weights,
-            hf_model_cls="Sam3Model",
-            hf_kwargs={"attn_implementation": "eager"},
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
     return model

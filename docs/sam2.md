@@ -6,8 +6,6 @@ SAM2 (Segment Anything Model 2) is the next generation of the Segment Anything M
 
 **Reference:** [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) (Ravi et al., 2024)
 
-For temporal video tracking with memory attention, see [SAM2 Video](sam2_video.md).
-
 ## Architecture Highlights
 
 - **Hiera Backbone:** Hierarchical vision transformer with windowed / global attention, query pooling at stage transitions, and an FPN neck that emits multi-scale features (64×64, 128×128, 256×256).

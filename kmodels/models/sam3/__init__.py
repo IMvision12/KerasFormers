@@ -1,13 +1,13 @@
-from .sam3_downstream import (
-    SAM3InstanceSegmentation,
-    SAM3ObjectDetection,
-    SAM3SemanticSegmentation,
+from .sam3_model import (
+    Sam3,
+    SAM3Detect,
+    SAM3InstanceSegment,
+    SAM3SemanticSegment,
 )
-from .sam3_model import SAM3
 
 __all__ = [
-    "SAM3",
-    "SAM3ObjectDetection",
-    "SAM3InstanceSegmentation",
-    "SAM3SemanticSegmentation",
+    "Sam3",
+    "SAM3Detect",
+    "SAM3InstanceSegment",
+    "SAM3SemanticSegment",
 ]
