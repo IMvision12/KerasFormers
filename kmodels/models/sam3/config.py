@@ -1,40 +1,57 @@
-SAM3_MODEL_CONFIG = {
-    "SAM3": {
-        "vit_hidden_size": 1024,
-        "vit_intermediate_size": 4736,
-        "vit_num_hidden_layers": 32,
-        "vit_num_attention_heads": 16,
-        "vit_image_size": 1008,
-        "vit_patch_size": 14,
-        "vit_window_size": 24,
-        "vit_global_attn_indexes": [7, 15, 23, 31],
-        "vit_rope_theta": 10000.0,
-        "vit_pretrain_image_size": 336,
-        "fpn_hidden_size": 256,
-        "fpn_scale_factors": [4.0, 2.0, 1.0, 0.5],
-        "geometry_hidden_size": 256,
-        "geometry_num_layers": 3,
-        "geometry_num_attention_heads": 8,
-        "geometry_intermediate_size": 2048,
-        "geometry_dropout": 0.1,
-        "geometry_roi_size": 7,
-        "detr_encoder_hidden_size": 256,
-        "detr_encoder_num_layers": 6,
-        "detr_encoder_num_attention_heads": 8,
-        "detr_encoder_intermediate_size": 2048,
-        "detr_encoder_dropout": 0.1,
-        "detr_decoder_hidden_size": 256,
-        "detr_decoder_num_layers": 6,
-        "detr_decoder_num_queries": 200,
-        "detr_decoder_num_attention_heads": 8,
-        "detr_decoder_intermediate_size": 2048,
-        "detr_decoder_dropout": 0.1,
-        "mask_decoder_hidden_size": 256,
-        "mask_decoder_num_upsampling_stages": 3,
-        "mask_decoder_num_attention_heads": 8,
-        "text_hidden_size": 1024,
-        "text_projection_dim": 512,
-    },
+"""SAM3 variant registry.
+
+Weights are gated on HuggingFace (``facebook/sam3``). Loading requires
+accepting the license at https://huggingface.co/facebook/sam3 and
+authenticating with ``huggingface-cli login`` or ``HF_TOKEN``.
+"""
+
+_SAM3 = {
+    "vit_hidden_size": 1024,
+    "vit_intermediate_size": 4736,
+    "vit_num_hidden_layers": 32,
+    "vit_num_attention_heads": 16,
+    "vit_image_size": 1008,
+    "vit_patch_size": 14,
+    "vit_window_size": 24,
+    "vit_global_attn_indexes": [7, 15, 23, 31],
+    "vit_rope_theta": 10000.0,
+    "vit_pretrain_image_size": 336,
+    "fpn_hidden_size": 256,
+    "fpn_scale_factors": [4.0, 2.0, 1.0, 0.5],
+    "geometry_hidden_size": 256,
+    "geometry_num_layers": 3,
+    "geometry_num_attention_heads": 8,
+    "geometry_intermediate_size": 2048,
+    "geometry_dropout": 0.1,
+    "geometry_roi_size": 7,
+    "detr_encoder_hidden_size": 256,
+    "detr_encoder_num_layers": 6,
+    "detr_encoder_num_attention_heads": 8,
+    "detr_encoder_intermediate_size": 2048,
+    "detr_encoder_dropout": 0.1,
+    "detr_decoder_hidden_size": 256,
+    "detr_decoder_num_layers": 6,
+    "detr_decoder_num_queries": 200,
+    "detr_decoder_num_attention_heads": 8,
+    "detr_decoder_intermediate_size": 2048,
+    "detr_decoder_dropout": 0.1,
+    "mask_decoder_hidden_size": 256,
+    "mask_decoder_num_upsampling_stages": 3,
+    "mask_decoder_num_attention_heads": 8,
+    "text_hidden_size": 1024,
+    "text_projection_dim": 512,
 }
 
-SAM3_HF_MODEL_ID = "facebook/sam3"
+
+SAM3_CONFIG = {
+    "sam3_saco": _SAM3,
+}
+
+SAM3_WEIGHTS = {
+    "sam3_saco": {
+        "hf_id": "facebook/sam3",
+        "gated": True,
+        "hf_model_cls": "Sam3Model",
+        "hf_kwargs": {"attn_implementation": "eager"},
+    },
+}

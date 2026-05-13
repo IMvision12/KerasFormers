@@ -1,9 +1,7 @@
 import os
 
 from tqdm import tqdm
-from transformers import Sam3Model
 
-from kmodels.models.sam3.sam3_model import SAM3
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -347,8 +345,12 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
 
 
 if __name__ == "__main__":
+    from transformers import Sam3Model
+
+    from kmodels.models.sam3 import Sam3
+
     HF_TOKEN = os.environ.get("HF_TOKEN")
-    OUTPUT = "sam3.weights.h5"
+    OUTPUT = "sam3_saco.weights.h5"
 
     print("Loading HF Sam3Model...")
     hf_model = Sam3Model.from_pretrained(
@@ -358,8 +360,8 @@ if __name__ == "__main__":
     print(f"HF: {len(hf)} keys")
     del hf_model
 
-    print("\nBuilding Keras SAM3...")
-    sam3 = SAM3(input_shape=(1008, 1008, 3), weights=None)
+    print("\nBuilding Keras Sam3...")
+    sam3 = Sam3.from_weights("sam3_saco", load_weights=False)
 
     print("\nTransferring detector weights...")
     transfer_sam3_weights(sam3, hf)
