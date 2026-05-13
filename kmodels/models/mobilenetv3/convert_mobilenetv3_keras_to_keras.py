@@ -132,7 +132,7 @@ if __name__ == "__main__":
 
     import keras
 
-    from kmodels.base.base_model import load_hf_state_dict
+    from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.mobilenetv3 import MobileNetV3
     from kmodels.models.mobilenetv3.config import MOBILENETV3_CONFIG
 
@@ -142,7 +142,7 @@ if __name__ == "__main__":
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
-        state = load_hf_state_dict(f"timm/{timm_id}")
+        state = download_hf_state_dict(f"timm/{timm_id}")
         keras_model = MobileNetV3.from_weights(variant, load_weights=False)
         transfer_mobilenetv3_weights(keras_model, state)
 
