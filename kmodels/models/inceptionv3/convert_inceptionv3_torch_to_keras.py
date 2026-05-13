@@ -69,7 +69,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.inceptionv3 import InceptionV3
+    from kmodels.models.inceptionv3 import InceptionV3Classify
     from kmodels.models.inceptionv3.config import INCEPTIONV3_CONFIG
 
     for variant, cfg in INCEPTIONV3_CONFIG.items():
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = InceptionV3.from_weights(variant, load_weights=False)
+        keras_model = InceptionV3Classify.from_weights(variant, load_weights=False)
         transfer_inceptionv3_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

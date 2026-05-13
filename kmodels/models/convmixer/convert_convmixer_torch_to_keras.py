@@ -1,4 +1,4 @@
-"""timm ConvMixer -> Keras weight transfer."""
+"""timm ConvMixerClassify -> Keras weight transfer."""
 
 from typing import Dict
 
@@ -34,7 +34,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_convmixer_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm ConvMixer state-dict into a Keras :class:`ConvMixer`."""
+    """Transfer a timm ConvMixerClassify state-dict into a Keras :class:`ConvMixerClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.convmixer import ConvMixer
+    from kmodels.models.convmixer import ConvMixerClassify
     from kmodels.models.convmixer.config import CONVMIXER_CONFIG
 
     for variant, cfg in CONVMIXER_CONFIG.items():
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ConvMixer.from_weights(variant, load_weights=False)
+        keras_model = ConvMixerClassify.from_weights(variant, load_weights=False)
         transfer_convmixer_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

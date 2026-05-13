@@ -1,6 +1,7 @@
 from kmodels.models.inception_next.inception_next_model import (
-    InceptionNext,
     InceptionNextBackbone,
+    InceptionNextClassify,
+    InceptionNextModel,
 )
 
-__all__ = ["InceptionNext", "InceptionNextBackbone"]
+__all__ = ["InceptionNextBackbone", "InceptionNextClassify", "InceptionNextModel"]

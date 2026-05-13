@@ -1,15 +1,15 @@
-"""DeiT and DeiT3 as thin :class:`ViT` subclasses (timm-ported)."""
+"""DeiT and DeiT3 as thin :class:`ViTClassify` subclasses (timm-ported)."""
 
 import keras
 
-from kmodels.models.vit.vit_model import ViT, ViTBackbone
+from kmodels.models.vit.vit_model import ViTBackbone, ViTClassify, ViTModel
 
 from .config import DEIT_CONFIG, DEIT_WEIGHTS
 from .convert_deit_torch_to_keras import transfer_deit_weights
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DeiT(ViT):
+class DeiTClassify(ViTClassify):
     """Data-efficient Image Transformer / DeiT3 classifier.
 
     Reference:
@@ -18,8 +18,8 @@ class DeiT(ViT):
 
     Construction:
 
-    >>> DeiT.from_weights("deit3_base_patch16_224_fb_in22k_ft_in1k")
-    >>> DeiT.from_weights("timm:timm/deit_tiny_distilled_patch16_224.fb_in1k")
+    >>> DeiTClassify.from_weights("deit3_base_patch16_224_fb_in22k_ft_in1k")
+    >>> DeiTClassify.from_weights("timm:timm/deit_tiny_distilled_patch16_224.fb_in1k")
     """
 
     KMODELS_CONFIG = DEIT_CONFIG
@@ -30,7 +30,7 @@ class DeiT(ViT):
     def transfer_from_timm(cls, keras_model, state_dict):
         transfer_deit_weights(keras_model, state_dict)
 
-    def __init__(self, name="DeiT", **kwargs):
+    def __init__(self, name="DeiTClassify", **kwargs):
         super().__init__(name=name, **kwargs)
 
 
@@ -44,11 +44,31 @@ class DeiTBackbone(ViTBackbone):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return DeiT
+        return DeiTClassify
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
         transfer_deit_weights(keras_model, state_dict)
 
     def __init__(self, name="DeiTBackbone", **kwargs):
+        super().__init__(name=name, **kwargs)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class DeiTModel(ViTModel):
+    """DeiT trunk returning the final feature as a 4D map."""
+
+    KMODELS_CONFIG = DEIT_CONFIG
+    KMODELS_WEIGHTS = DEIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return DeiTClassify
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_deit_weights(keras_model, state_dict)
+
+    def __init__(self, name="DeiTModel", **kwargs):
         super().__init__(name=name, **kwargs)

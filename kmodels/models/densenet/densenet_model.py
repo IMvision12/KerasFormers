@@ -159,7 +159,7 @@ def _densenet_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DenseNet(BaseModel):
+class DenseNetClassify(BaseModel):
     """DenseNet classifier (timm-ported).
 
     Reference:
@@ -167,8 +167,8 @@ class DenseNet(BaseModel):
 
     Construction:
 
-    >>> DenseNet.from_weights("densenet121_tv_in1k")
-    >>> DenseNet.from_weights("timm:timm/densenet121.tv_in1k")
+    >>> DenseNetClassify.from_weights("densenet121_tv_in1k")
+    >>> DenseNetClassify.from_weights("timm:timm/densenet121.tv_in1k")
     """
 
     KMODELS_CONFIG = DENSENET_CONFIG
@@ -191,7 +191,7 @@ class DenseNet(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="DenseNet",
+        name="DenseNetClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -274,6 +274,112 @@ class DenseNet(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
+class DenseNetModel(BaseModel):
+    """DenseNet trunk returning the final feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = DENSENET_CONFIG
+    KMODELS_WEIGHTS = DENSENET_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return DenseNetClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_densenet_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        num_blocks=(6, 12, 24, 16),
+        growth_rate=32,
+        initial_filter=64,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="DenseNetModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _densenet_features(
+            x,
+            num_blocks=num_blocks,
+            growth_rate=growth_rate,
+            initial_filter=initial_filter,
+            channels_axis=channels_axis,
+            data_format=data_format,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+
+        self.num_blocks = num_blocks
+        self.growth_rate = growth_rate
+        self.initial_filter = initial_filter
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "num_blocks": self.num_blocks,
+                "growth_rate": self.growth_rate,
+                "initial_filter": self.initial_filter,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
 class DenseNetBackbone(BaseModel):
     """DenseNet feature extractor. Returns ``[stem, b1..bN]`` feature maps."""
 
@@ -283,7 +389,7 @@ class DenseNetBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return DenseNet
+        return DenseNetClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):

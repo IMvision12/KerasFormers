@@ -429,7 +429,7 @@ def _swinv2_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SwinV2(BaseModel):
+class SwinV2Classify(BaseModel):
     """Swin Transformer V2 classifier (timm-ported).
 
     Reference:
@@ -437,8 +437,8 @@ class SwinV2(BaseModel):
 
     Construction:
 
-    >>> SwinV2.from_weights("swinv2_base_window8_256_ms_in1k")
-    >>> SwinV2.from_weights("timm:timm/swinv2_base_window8_256.ms_in1k")
+    >>> SwinV2Classify.from_weights("swinv2_base_window8_256_ms_in1k")
+    >>> SwinV2Classify.from_weights("timm:timm/swinv2_base_window8_256.ms_in1k")
     """
 
     KMODELS_CONFIG = SWINV2_CONFIG
@@ -466,7 +466,7 @@ class SwinV2(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="SwinV2",
+        name="SwinV2Classify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -572,7 +572,7 @@ class SwinV2Backbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return SwinV2
+        return SwinV2Classify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -647,6 +647,132 @@ class SwinV2Backbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.pretrain_size = pretrain_size
+        self.window_size = window_size
+        self.embed_dim = embed_dim
+        self.depths = depths
+        self.num_heads = num_heads
+        self.pretrained_window_size = pretrained_window_size
+        self.dropout_rate = dropout_rate
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "pretrain_size": self.pretrain_size,
+                "window_size": self.window_size,
+                "embed_dim": self.embed_dim,
+                "depths": self.depths,
+                "num_heads": self.num_heads,
+                "pretrained_window_size": self.pretrained_window_size,
+                "dropout_rate": self.dropout_rate,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class SwinV2Model(BaseModel):
+    """SwinV2 trunk returning the final stage feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = SWINV2_CONFIG
+    KMODELS_WEIGHTS = SWINV2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return SwinV2Classify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_swinv2_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        pretrain_size=256,
+        window_size=8,
+        embed_dim=96,
+        depths=(2, 2, 6, 2),
+        num_heads=(3, 6, 12, 24),
+        pretrained_window_size=0,
+        dropout_rate=0.0,
+        drop_path_rate=0.1,
+        image_size=256,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="SwinV2Model",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _swinv2_features(
+            x,
+            pretrain_size=pretrain_size,
+            window_size=window_size,
+            embed_dim=embed_dim,
+            depths=depths,
+            num_heads=num_heads,
+            pretrained_window_size=pretrained_window_size,
+            dropout_rate=dropout_rate,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 
         self.pretrain_size = pretrain_size
         self.window_size = window_size

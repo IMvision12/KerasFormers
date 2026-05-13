@@ -1,3 +1,7 @@
-from kmodels.models.densenet.densenet_model import DenseNet, DenseNetBackbone
+from kmodels.models.densenet.densenet_model import (
+    DenseNetBackbone,
+    DenseNetClassify,
+    DenseNetModel,
+)
 
-__all__ = ["DenseNet", "DenseNetBackbone"]
+__all__ = ["DenseNetBackbone", "DenseNetClassify", "DenseNetModel"]

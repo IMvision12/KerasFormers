@@ -340,7 +340,7 @@ def _maxvit_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MaxViT(BaseModel):
+class MaxViTClassify(BaseModel):
     """MaxViT classifier (timm-ported).
 
     Reference:
@@ -377,7 +377,7 @@ class MaxViT(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MaxViT",
+        name="MaxViTClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -477,6 +477,133 @@ class MaxViT(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
+class MaxViTModel(BaseModel):
+    """MaxViT trunk returning the final stage feature map (B, H, W, C)."""
+
+    KMODELS_CONFIG = MAXVIT_CONFIG
+    KMODELS_WEIGHTS = MAXVIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return MaxViTClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_maxvit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        stem_width=64,
+        depths=(2, 2, 5, 2),
+        embed_dim=(64, 128, 256, 512),
+        num_heads=(2, 4, 8, 16),
+        window_size=7,
+        mlp_ratio=4.0,
+        se_ratio=0.0625,
+        expand_ratio=4,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="MaxViTModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _maxvit_features(
+            x,
+            stem_width=stem_width,
+            depths=depths,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            window_size=window_size,
+            mlp_ratio=mlp_ratio,
+            se_ratio=se_ratio,
+            expand_ratio=expand_ratio,
+            image_size=image_size,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+
+        self.stem_width = stem_width
+        self.depths = list(depths)
+        self.embed_dim = list(embed_dim)
+        self.num_heads = list(num_heads)
+        self.window_size = window_size
+        self.mlp_ratio = mlp_ratio
+        self.se_ratio = se_ratio
+        self.expand_ratio = expand_ratio
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "stem_width": self.stem_width,
+                "depths": self.depths,
+                "embed_dim": self.embed_dim,
+                "num_heads": self.num_heads,
+                "window_size": self.window_size,
+                "mlp_ratio": self.mlp_ratio,
+                "se_ratio": self.se_ratio,
+                "expand_ratio": self.expand_ratio,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
 class MaxViTBackbone(BaseModel):
     """MaxViT feature extractor. Returns ``[stem, s1, s2, s3, s4]``."""
 
@@ -486,7 +613,7 @@ class MaxViTBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return MaxViT
+        return MaxViTClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):

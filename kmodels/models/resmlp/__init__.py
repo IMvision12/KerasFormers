@@ -1,3 +1,7 @@
-from kmodels.models.resmlp.resmlp_model import ResMLP, ResMLPBackbone
+from kmodels.models.resmlp.resmlp_model import (
+    ResMLPBackbone,
+    ResMLPClassify,
+    ResMLPModel,
+)
 
-__all__ = ["ResMLP", "ResMLPBackbone"]
+__all__ = ["ResMLPClassify", "ResMLPModel", "ResMLPBackbone"]

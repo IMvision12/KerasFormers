@@ -1,4 +1,4 @@
-"""timm SENet -> Keras weight transfer.
+"""timm SENetClassify -> Keras weight transfer.
 
 Re-uses :func:`transfer_resnet_weights` (the timm naming is identical
 across resnet / resnext / senet families).
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.senet import SENet
+    from kmodels.models.senet import SENetClassify
     from kmodels.models.senet.config import SENET_CONFIG
 
     for variant, cfg in SENET_CONFIG.items():
@@ -24,7 +24,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = SENet.from_weights(variant, load_weights=False)
+        keras_model = SENetClassify.from_weights(variant, load_weights=False)
         transfer_senet_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

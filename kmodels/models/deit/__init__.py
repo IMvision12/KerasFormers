@@ -1,3 +1,3 @@
-from kmodels.models.deit.deit_model import DeiT, DeiTBackbone
+from kmodels.models.deit.deit_model import DeiTBackbone, DeiTClassify, DeiTModel
 
-__all__ = ["DeiT", "DeiTBackbone"]
+__all__ = ["DeiTClassify", "DeiTModel", "DeiTBackbone"]

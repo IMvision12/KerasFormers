@@ -1,3 +1,7 @@
-from kmodels.models.xception.xception_model import Xception, XceptionBackbone
+from kmodels.models.xception.xception_model import (
+    XceptionBackbone,
+    XceptionClassify,
+    XceptionModel,
+)
 
-__all__ = ["Xception", "XceptionBackbone"]
+__all__ = ["XceptionBackbone", "XceptionClassify", "XceptionModel"]

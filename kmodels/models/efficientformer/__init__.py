@@ -1,6 +1,11 @@
 from kmodels.models.efficientformer.efficientformer_model import (
-    EfficientFormer,
     EfficientFormerBackbone,
+    EfficientFormerClassify,
+    EfficientFormerModel,
 )
 
-__all__ = ["EfficientFormer", "EfficientFormerBackbone"]
+__all__ = [
+    "EfficientFormerClassify",
+    "EfficientFormerModel",
+    "EfficientFormerBackbone",
+]

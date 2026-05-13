@@ -1,3 +1,7 @@
-from kmodels.models.flexivit.flexivit_model import FlexiViT, FlexiViTBackbone
+from kmodels.models.flexivit.flexivit_model import (
+    FlexiViTBackbone,
+    FlexiViTClassify,
+    FlexiViTModel,
+)
 
-__all__ = ["FlexiViT", "FlexiViTBackbone"]
+__all__ = ["FlexiViTClassify", "FlexiViTModel", "FlexiViTBackbone"]

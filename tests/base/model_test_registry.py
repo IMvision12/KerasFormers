@@ -145,7 +145,7 @@ MODEL_TEST_CONFIGS = {
     },
     "InceptionResNetV2": {
         "module": "kmodels.models.inception_resnetv2",
-        "model_cls": "InceptionResNetV2",
+        "model_cls": "InceptionResNetV2Classify",
         "model_type": "backbone",
         "init_kwargs": {
             "weights": None,
@@ -157,7 +157,7 @@ MODEL_TEST_CONFIGS = {
     },
     "InceptionV3": {
         "module": "kmodels.models.inceptionv3",
-        "model_cls": "InceptionV3",
+        "model_cls": "InceptionV3Classify",
         "model_type": "backbone",
         "init_kwargs": {
             "weights": None,
@@ -169,7 +169,7 @@ MODEL_TEST_CONFIGS = {
     },
     "InceptionV4": {
         "module": "kmodels.models.inceptionv4",
-        "model_cls": "InceptionV4",
+        "model_cls": "InceptionV4Classify",
         "model_type": "backbone",
         "init_kwargs": {
             "weights": None,

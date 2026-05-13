@@ -82,7 +82,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.efficientnetv2 import EfficientNetV2
+    from kmodels.models.efficientnetv2 import EfficientNetV2Classify
     from kmodels.models.efficientnetv2.config import EFFICIENTNETV2_CONFIG
 
     for variant, cfg in EFFICIENTNETV2_CONFIG.items():
@@ -92,7 +92,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientNetV2.from_weights(variant, load_weights=False)
+        keras_model = EfficientNetV2Classify.from_weights(variant, load_weights=False)
         transfer_efficientnetv2_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

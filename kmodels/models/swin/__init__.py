@@ -1,3 +1,3 @@
-from kmodels.models.swin.swin_model import Swin, SwinBackbone
+from kmodels.models.swin.swin_model import SwinBackbone, SwinClassify, SwinModel
 
-__all__ = ["Swin", "SwinBackbone"]
+__all__ = ["SwinBackbone", "SwinClassify", "SwinModel"]

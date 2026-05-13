@@ -130,7 +130,7 @@ def _xception_features(inputs):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class Xception(BaseModel):
+class XceptionClassify(BaseModel):
     """Original-Keras Xception classifier.
 
     Reference:
@@ -143,7 +143,7 @@ class Xception(BaseModel):
 
     Construction:
 
-    >>> Xception.from_weights("xception_in1k")
+    >>> XceptionClassify.from_weights("xception_in1k")
     """
 
     KMODELS_CONFIG = XCEPTION_CONFIG
@@ -163,7 +163,7 @@ class Xception(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="Xception",
+        name="XceptionClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -230,6 +230,95 @@ class Xception(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
+class XceptionModel(BaseModel):
+    """Xception trunk returning the final feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = XCEPTION_CONFIG
+    KMODELS_WEIGHTS = XCEPTION_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return XceptionClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_xception_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        image_size=299,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        name="XceptionModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _xception_features(x)
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update(
+            {
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
 class XceptionBackbone(BaseModel):
     """Xception feature extractor. Returns ``[entry, middle, exit]`` (3 maps)."""
 
@@ -239,7 +328,7 @@ class XceptionBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return Xception
+        return XceptionClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):

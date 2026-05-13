@@ -91,7 +91,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.mobilevit import MobileViT
+    from kmodels.models.mobilevit import MobileViTClassify as MobileViT
     from kmodels.models.mobilevit.config import MOBILEVIT_CONFIG
 
     for variant, cfg in MOBILEVIT_CONFIG.items():

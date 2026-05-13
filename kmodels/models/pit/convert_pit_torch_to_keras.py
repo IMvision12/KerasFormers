@@ -41,7 +41,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_pit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm PiT state-dict into a Keras :class:`PiT`."""
+    """Transfer a timm PiT state-dict into a Keras :class:`PiTClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.pit import PiT
+    from kmodels.models.pit import PiTClassify
     from kmodels.models.pit.config import PIT_CONFIG
 
     for variant, cfg in PIT_CONFIG.items():
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = PiT.from_weights(variant, load_weights=False)
+        keras_model = PiTClassify.from_weights(variant, load_weights=False)
         transfer_pit_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

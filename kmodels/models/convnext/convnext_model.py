@@ -126,7 +126,7 @@ def _convnext_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ConvNeXt(BaseModel):
+class ConvNeXtClassify(BaseModel):
     """ConvNeXt classifier (timm-ported).
 
     Reference:
@@ -134,8 +134,8 @@ class ConvNeXt(BaseModel):
 
     Construction:
 
-    >>> ConvNeXt.from_weights("convnext_base_fb_in22k_ft_in1k")
-    >>> ConvNeXt.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
+    >>> ConvNeXtClassify.from_weights("convnext_base_fb_in22k_ft_in1k")
+    >>> ConvNeXtClassify.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
     """
 
     KMODELS_CONFIG = CONVNEXT_CONFIG
@@ -161,7 +161,7 @@ class ConvNeXt(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ConvNeXt",
+        name="ConvNeXtClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -261,7 +261,7 @@ class ConvNeXtBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return ConvNeXt
+        return ConvNeXtClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -332,6 +332,124 @@ class ConvNeXtBackbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.depths = list(depths)
+        self.projection_dims = list(projection_dims)
+        self.drop_path_rate = drop_path_rate
+        self.layer_scale_init_value = layer_scale_init_value
+        self.use_conv = use_conv
+        self.use_grn = use_grn
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "projection_dims": self.projection_dims,
+                "drop_path_rate": self.drop_path_rate,
+                "layer_scale_init_value": self.layer_scale_init_value,
+                "use_conv": self.use_conv,
+                "use_grn": self.use_grn,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class ConvNeXtModel(BaseModel):
+    """ConvNeXt trunk returning the final stage feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = CONVNEXT_CONFIG
+    KMODELS_WEIGHTS = CONVNEXT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return ConvNeXtClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_convnext_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths=(3, 3, 9, 3),
+        projection_dims=(96, 192, 384, 768),
+        drop_path_rate=0.0,
+        layer_scale_init_value=1e-6,
+        use_conv=False,
+        use_grn=False,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="ConvNeXtModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _convnext_features(
+            x,
+            depths=depths,
+            projection_dims=projection_dims,
+            drop_path_rate=drop_path_rate,
+            layer_scale_init_value=layer_scale_init_value,
+            use_conv=use_conv,
+            use_grn=use_grn,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 
         self.depths = list(depths)
         self.projection_dims = list(projection_dims)

@@ -30,7 +30,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_vgg_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm VGG state-dict into a Keras :class:`VGG`."""
+    """Transfer a timm VGG state-dict into a Keras :class:`VGGClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.vgg import VGG
+    from kmodels.models.vgg import VGGClassify
     from kmodels.models.vgg.config import VGG_CONFIG
 
     for variant, cfg in VGG_CONFIG.items():
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = VGG.from_weights(variant, load_weights=False)
+        keras_model = VGGClassify.from_weights(variant, load_weights=False)
         transfer_vgg_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

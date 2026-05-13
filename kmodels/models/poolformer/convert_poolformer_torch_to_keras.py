@@ -68,7 +68,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.poolformer import PoolFormer
+    from kmodels.models.poolformer import PoolFormerClassify
     from kmodels.models.poolformer.config import POOLFORMER_CONFIG
 
     for variant, cfg in POOLFORMER_CONFIG.items():
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = PoolFormer.from_weights(variant, load_weights=False)
+        keras_model = PoolFormerClassify.from_weights(variant, load_weights=False)
         transfer_poolformer_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

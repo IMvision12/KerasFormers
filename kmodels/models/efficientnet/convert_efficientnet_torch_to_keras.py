@@ -80,7 +80,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.efficientnet import EfficientNet
+    from kmodels.models.efficientnet import EfficientNetClassify
     from kmodels.models.efficientnet.config import EFFICIENTNET_CONFIG
 
     for variant, cfg in EFFICIENTNET_CONFIG.items():
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientNet.from_weights(variant, load_weights=False)
+        keras_model = EfficientNetClassify.from_weights(variant, load_weights=False)
         transfer_efficientnet_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"
