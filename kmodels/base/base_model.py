@@ -31,7 +31,7 @@ def hf_num_labels(hf_config):
     )
 
 
-def load_hf_state_dict(hf_id):
+def download_hf_state_dict(hf_id):
     """Download HF model weights and return a flat ``{name: numpy_array}`` dict.
 
     Tries (in order):
@@ -226,7 +226,7 @@ class BaseModel(keras.Model):
                 )
         model = cls.from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            state_dict = load_hf_state_dict(timm_id)
+            state_dict = download_hf_state_dict(timm_id)
             cls.transfer_from_timm(model, state_dict)
         return model
 
@@ -328,7 +328,7 @@ class BaseModel(keras.Model):
         kmodels_kwargs.update(kwargs)
         model = cls(**kmodels_kwargs)
         if load_weights:
-            state_dict = load_hf_state_dict(hf_id)
+            state_dict = download_hf_state_dict(hf_id)
             cls.transfer_from_hf(model, state_dict)
         return model
 

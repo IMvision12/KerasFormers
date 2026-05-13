@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
     import keras
 
-    from kmodels.base.base_model import load_hf_state_dict
+    from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.efficientformer import EfficientFormer
     from kmodels.models.efficientformer.config import EFFICIENTFORMER_CONFIG
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
-        state = load_hf_state_dict(f"timm/{timm_id}")
+        state = download_hf_state_dict(f"timm/{timm_id}")
         keras_model = EfficientFormer.from_weights(variant, load_weights=False)
         transfer_efficientformer_weights(keras_model, state)
 
