@@ -1,24 +1,19 @@
-from typing import Dict, List, Union
+"""timm MaxViT -> Keras weight transfer."""
 
-import keras
+from typing import Dict
+
 import numpy as np
-import timm
-import torch
-from tqdm import tqdm
 
-from kmodels.models import maxvit
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
-from kmodels.weight_utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
 )
 
-weight_name_mapping: Dict[str, str] = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "relative_position_bias_table": "RPBT",
     "moving_variance": "MOVVAR",
     "moving_mean": "MOVMEAN",
@@ -57,120 +52,69 @@ weight_name_mapping: Dict[str, str] = {
     "beta": "bias",
 }
 
-_WS = {224: 7, 384: 12, 512: 16}
 
+def transfer_maxvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer a timm MaxViT state-dict into a Keras :class:`MaxViT`."""
+    all_keras_weights = []
+    for layer in keras_model.layers:
+        for w in layer.weights:
+            path = w.path
+            parts = path.split("/")
+            layer_name = parts[-2] if len(parts) >= 2 else parts[0]
+            weight_suffix = parts[-1]
+            keras_weight_name = f"{layer_name}_{weight_suffix}"
+            all_keras_weights.append((w, keras_weight_name))
 
-def _cfg(cls, torch_name, res, num_classes=1000):
-    return {
-        "keras_cls": cls,
-        "torch_name": torch_name,
-        "input_shape": [res, res, 3],
-        "num_classes": num_classes,
-        "window_size": _WS[res],
-    }
+    for keras_weight, keras_weight_name in all_keras_weights:
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
 
+        if torch_weight_name not in state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
 
-model_configs: List[Dict[str, Union[type, str, list, int]]] = [
-    _cfg(maxvit.MaxViTXLarge, "maxvit_xlarge_tf_384.in21k_ft_in1k", 384),
-    _cfg(maxvit.MaxViTXLarge, "maxvit_xlarge_tf_512.in21k_ft_in1k", 512),
-]
+        torch_weight = state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+
+        transfer_name = keras_weight_name
+        if "conv2_kxk" in keras_weight_name:
+            transfer_name = "dwconv_" + keras_weight_name
+        elif "se_fc" in keras_weight_name:
+            transfer_name = "conv_" + keras_weight_name
+        transfer_weights(transfer_name, keras_weight, torch_weight)
+
 
 if __name__ == "__main__":
-    for model_config in model_configs:
-        torch_model_name: str = model_config["torch_name"]
+    import gc
+
+    import keras
+
+    from kmodels.base.base_model import load_hf_state_dict
+    from kmodels.models.maxvit import MaxViT
+    from kmodels.models.maxvit.config import MAXVIT_CONFIG
+
+    for variant, cfg in MAXVIT_CONFIG.items():
+        timm_id = cfg["timm_id"]
         print(f"\n{'=' * 60}")
-        print(f"Converting {torch_model_name}...")
+        print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
-        keras_model: keras.Model = model_config["keras_cls"](
-            include_top=True,
-            input_shape=model_config["input_shape"],
-            classifier_activation="linear",
-            num_classes=model_config["num_classes"],
-            include_normalization=False,
-            weights=None,
-            window_size=model_config["window_size"],
-        )
+        state = load_hf_state_dict(f"timm/{timm_id}")
+        keras_model = MaxViT.from_weights(variant, load_weights=False)
+        transfer_maxvit_weights(keras_model, state)
 
-        torch_model: torch.nn.Module = timm.create_model(
-            torch_model_name, pretrained=True
-        ).eval()
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
 
-        trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-            torch_model
-        )
-        trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
-            keras_model
-        )
-
-        torch_weights_dict: Dict[str, "np.ndarray"] = {}
-        for k, v in {**trainable_torch_weights, **non_trainable_torch_weights}.items():
-            torch_weights_dict[k] = (
-                v.detach().cpu().numpy() if isinstance(v, torch.Tensor) else v
-            )
-
-        all_keras_weights = []
-        for layer in keras_model.layers:
-            for w in layer.weights:
-                path = w.path
-                parts = path.split("/")
-                layer_name = parts[-2] if len(parts) >= 2 else parts[0]
-                weight_suffix = parts[-1]
-                keras_weight_name = f"{layer_name}_{weight_suffix}"
-                all_keras_weights.append((w, keras_weight_name))
-
-        for keras_weight, keras_weight_name in tqdm(
-            all_keras_weights,
-            total=len(all_keras_weights),
-            desc="Transferring weights",
-        ):
-            torch_weight_name: str = keras_weight_name
-            for keras_name_part, torch_name_part in weight_name_mapping.items():
-                torch_weight_name = torch_weight_name.replace(
-                    keras_name_part, torch_name_part
-                )
-
-            if torch_weight_name not in torch_weights_dict:
-                raise WeightMappingError(keras_weight_name, torch_weight_name)
-
-            torch_weight = torch_weights_dict[torch_weight_name]
-
-            if not compare_keras_torch_names(
-                keras_weight_name, keras_weight, torch_weight_name, torch_weight
-            ):
-                raise WeightShapeMismatchError(
-                    keras_weight_name,
-                    keras_weight.shape,
-                    torch_weight_name,
-                    torch_weight.shape,
-                )
-
-            transfer_name = keras_weight_name
-            if "conv2_kxk" in keras_weight_name:
-                transfer_name = "dwconv_" + keras_weight_name
-            elif "se_fc" in keras_weight_name:
-                transfer_name = "conv_" + keras_weight_name
-            transfer_weights(transfer_name, keras_weight, torch_weight)
-
-        results = verify_cls_model_equivalence(
-            model_a=torch_model,
-            model_b=keras_model,
-            input_shape=tuple(model_config["input_shape"]),
-            output_specs={"num_classes": model_config["num_classes"]},
-            run_performance=False,
-            atol=1e-3,
-            rtol=1e-3,
-        )
-
-        if not results["standard_input"]:
-            raise ValueError(
-                f"Model equivalence test failed for {torch_model_name} - "
-                "model outputs do not match for standard input"
-            )
-
-        model_filename: str = f"{torch_model_name.replace('.', '_')}.weights.h5"
-        keras_model.save_weights(model_filename)
-        print(f"Model saved successfully as {model_filename}")
-
-        del keras_model, torch_model
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        del keras_model, state
+        keras.backend.clear_session()
+        gc.collect()

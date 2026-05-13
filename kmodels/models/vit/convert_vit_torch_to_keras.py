@@ -1,18 +1,14 @@
-import gc
+"""timm ViT -> Keras weight transfer."""
+
 import re
-from typing import Dict, List, Tuple, Type
+from typing import Dict
 
-import keras
-import timm
-import torch
-from tqdm import tqdm
+import numpy as np
 
-from kmodels.models import vit
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
 from kmodels.weight_utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
@@ -20,7 +16,7 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-weight_name_mapping = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "conv1": "patch_embed.proj",
     "pos.embed.pos.embed": "pos_embed",
@@ -38,87 +34,15 @@ weight_name_mapping = {
     "predictions": "head",
 }
 
-# (keras_model_cls, timm_base_name, variant_key, resolution, num_classes)
-VIT_WEIGHTS_CONFIG: List[Tuple[Type[keras.Model], str, str, int, int]] = [
-    # ViTTiny16
-    (vit.ViTTiny16, "vit_tiny_patch16", "augreg_in21k_ft_in1k", 224, 1000),
-    (vit.ViTTiny16, "vit_tiny_patch16", "augreg_in21k_ft_in1k", 384, 1000),
-    (vit.ViTTiny16, "vit_tiny_patch16", "augreg_in21k", 224, 21843),
-    # ViTSmall16
-    (vit.ViTSmall16, "vit_small_patch16", "augreg_in21k_ft_in1k", 224, 1000),
-    (vit.ViTSmall16, "vit_small_patch16", "augreg_in21k_ft_in1k", 384, 1000),
-    (vit.ViTSmall16, "vit_small_patch16", "augreg_in1k", 224, 1000),
-    (vit.ViTSmall16, "vit_small_patch16", "augreg_in1k", 384, 1000),
-    (vit.ViTSmall16, "vit_small_patch16", "augreg_in21k", 224, 21843),
-    # ViTSmall32
-    (vit.ViTSmall32, "vit_small_patch32", "augreg_in21k_ft_in1k", 224, 1000),
-    (vit.ViTSmall32, "vit_small_patch32", "augreg_in21k_ft_in1k", 384, 1000),
-    (vit.ViTSmall32, "vit_small_patch32", "augreg_in21k", 224, 21843),
-    # ViTBase16
-    (vit.ViTBase16, "vit_base_patch16", "augreg_in21k_ft_in1k", 224, 1000),
-    (vit.ViTBase16, "vit_base_patch16", "augreg_in21k_ft_in1k", 384, 1000),
-    (vit.ViTBase16, "vit_base_patch16", "orig_in21k_ft_in1k", 224, 1000),
-    (vit.ViTBase16, "vit_base_patch16", "orig_in21k_ft_in1k", 384, 1000),
-    (vit.ViTBase16, "vit_base_patch16", "augreg_in1k", 224, 1000),
-    (vit.ViTBase16, "vit_base_patch16", "augreg_in1k", 384, 1000),
-    (vit.ViTBase16, "vit_base_patch16", "augreg_in21k", 224, 21843),
-    # ViTBase32
-    (vit.ViTBase32, "vit_base_patch32", "augreg_in21k_ft_in1k", 224, 1000),
-    (vit.ViTBase32, "vit_base_patch32", "augreg_in21k_ft_in1k", 384, 1000),
-    (vit.ViTBase32, "vit_base_patch32", "augreg_in1k", 224, 1000),
-    (vit.ViTBase32, "vit_base_patch32", "augreg_in1k", 384, 1000),
-    (vit.ViTBase32, "vit_base_patch32", "augreg_in21k", 224, 21843),
-    # ViTLarge16
-    (vit.ViTLarge16, "vit_large_patch16", "augreg_in21k_ft_in1k", 224, 1000),
-    (vit.ViTLarge16, "vit_large_patch16", "augreg_in21k_ft_in1k", 384, 1000),
-    (vit.ViTLarge16, "vit_large_patch16", "augreg_in21k", 224, 21843),
-    # ViTLarge32
-    (vit.ViTLarge32, "vit_large_patch32", "orig_in21k_ft_in1k", 384, 1000),
-]
 
-for keras_model_cls, timm_base, variant, resolution, num_classes in VIT_WEIGHTS_CONFIG:
-    torch_model_name = f"{timm_base}_{resolution}.{variant}"
-    print(f"\n{'=' * 60}")
-    print(f"Converting: {torch_model_name}")
-    print(f"{'=' * 60}")
+def transfer_vit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer a timm ViT state-dict into a Keras :class:`ViT`."""
+    trainable, non_trainable = split_model_weights(keras_model)
 
-    input_shape = [resolution, resolution, 3]
-
-    keras_model: keras.Model = keras_model_cls(
-        include_top=True,
-        input_shape=input_shape,
-        classifier_activation="linear",
-        num_classes=num_classes,
-        include_normalization=False,
-        weights=None,
-    )
-
-    torch_model: torch.nn.Module = timm.create_model(
-        torch_model_name, pretrained=True
-    ).eval()
-
-    trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-        torch_model
-    )
-    trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
-        keras_model
-    )
-
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
-
-    for keras_weight, keras_weight_name in tqdm(
-        trainable_keras_weights + non_trainable_keras_weights,
-        total=len(trainable_keras_weights + non_trainable_keras_weights),
-        desc="Transferring weights",
-    ):
-        torch_weight_name: str = keras_weight_name
-        for keras_name_part, torch_name_part in weight_name_mapping.items():
-            torch_weight_name = torch_weight_name.replace(
-                keras_name_part, torch_name_part
-            )
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
         torch_weight_name = re.sub(
             r"pos_embed_variable_\d+$", "pos_embed", torch_weight_name
         )
@@ -127,15 +51,13 @@ for keras_model_cls, timm_base, variant, resolution, num_classes in VIT_WEIGHTS_
         )
 
         if "attention" in torch_weight_name:
-            transfer_attention_weights(
-                keras_weight_name, keras_weight, torch_weights_dict
-            )
+            transfer_attention_weights(keras_weight_name, keras_weight, state_dict)
             continue
 
-        if torch_weight_name not in torch_weights_dict:
+        if torch_weight_name not in state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
 
-        torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
+        torch_weight = state_dict[torch_weight_name]
 
         if torch_weight_name == "cls_token":
             keras_weight.assign(torch_weight)
@@ -159,29 +81,30 @@ for keras_model_cls, timm_base, variant, resolution, num_classes in VIT_WEIGHTS_
 
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    results = verify_cls_model_equivalence(
-        model_a=torch_model,
-        model_b=keras_model,
-        input_shape=tuple(input_shape),
-        output_specs={"num_classes": num_classes},
-        run_performance=False,
-        atol=1e-4,
-        rtol=1e-4,
-    )
 
-    if not results["standard_input"]:
-        raise ValueError(
-            f"Model equivalence test failed for {torch_model_name} - "
-            "model outputs do not match for standard input"
-        )
+if __name__ == "__main__":
+    import gc
 
-    model_filename: str = f"{torch_model_name.replace('.', '_')}.weights.h5"
-    keras_model.save_weights(model_filename)
-    print(f"Model saved successfully as {model_filename}")
+    import keras
 
-    del keras_model, torch_model, torch_weights_dict
-    del trainable_torch_weights, non_trainable_torch_weights
-    del trainable_keras_weights, non_trainable_keras_weights
-    keras.backend.clear_session()
-    gc.collect()
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    from kmodels.base.base_model import load_hf_state_dict
+    from kmodels.models.vit import ViT
+    from kmodels.models.vit.config import VIT_CONFIG
+
+    for variant, cfg in VIT_CONFIG.items():
+        timm_id = cfg["timm_id"]
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  timm/{timm_id}")
+        print(f"{'=' * 60}")
+
+        state = load_hf_state_dict(f"timm/{timm_id}")
+        keras_model = ViT.from_weights(variant, load_weights=False)
+        transfer_vit_weights(keras_model, state)
+
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
+
+        del keras_model, state
+        keras.backend.clear_session()
+        gc.collect()

@@ -2,31 +2,40 @@ import keras
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import (
     ImageNormalizationLayer,
     StochasticDepth,
 )
-from kmodels.model_registry import register_model
 from kmodels.models.swin.swin_layers import (
     RollLayer,
     WindowAttention,
     WindowPartition,
 )
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHTS_CONFIG
+from .config import SWIN_CONFIG, SWIN_WEIGHTS
+from .convert_swin_torch_to_keras import transfer_swin_weights
 
 
 def _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
-    """LayerNorm over channels for spatial feature maps.
-
-    For channels_first, permutes to NHWC, normalizes, then permutes back.
-    """
+    """LayerNorm over channels for spatial feature maps."""
     if data_format == "channels_first":
         x = layers.Permute((2, 3, 1), name=f"{name}_to_cl" if name else None)(x)
     x = layers.LayerNormalization(axis=-1, epsilon=epsilon, name=name)(x)
     if data_format == "channels_first":
         x = layers.Permute((3, 1, 2), name=f"{name}_to_cf" if name else None)(x)
+    return x
+
+
+def mlp_block(inputs, dropout=0.0, name="mlp"):
+    """MLP block (channels_last input)."""
+    channels = inputs.shape[-1]
+    x = layers.Dense(int(channels * 4.0), name=f"{name}_dense_1")(inputs)
+    x = layers.Activation("gelu")(x)
+    x = layers.Dropout(dropout, name=f"{name}_dropout_1")(x)
+    x = layers.Dense(channels, name=f"{name}_dense_2")(x)
+    x = layers.Dropout(dropout, name=f"{name}_dropout_2")(x)
     return x
 
 
@@ -44,25 +53,7 @@ def swin_block(
     drop_path_rate=0.0,
     name="swin_block",
 ):
-    """Swin Transformer block with shifted window self-attention.
-
-    Args:
-        inputs: Input tensor.
-        shift_size: int, shift size for shifted window attention.
-        window_size: int, local window size.
-        relative_index: Tensor, relative position indices.
-        attention_mask: Tensor, attention mask for shifted windows.
-        num_heads: int, number of attention heads.
-        bias_table_window_size: int, relative position bias table size.
-        channels_axis: int, channel axis index.
-        data_format: string, image data format.
-        dropout_rate: float, dropout rate. Default 0.0.
-        drop_path_rate: float, stochastic depth rate. Default 0.0.
-        name: string, layer name prefix. Default ``"swin_block"``.
-
-    Returns:
-        Output tensor.
-    """
+    """Swin Transformer block with shifted window self-attention."""
     cf = data_format == "channels_first"
     h_ax, w_ax = (2, 3) if cf else (1, 2)
     feature_dim = ops.shape(inputs)[1] if cf else ops.shape(inputs)[-1]
@@ -70,10 +61,7 @@ def swin_block(
     img_width = ops.shape(inputs)[w_ax]
 
     x = _spatial_layer_norm(
-        inputs,
-        data_format,
-        epsilon=1.001e-5,
-        name=f"{name}_layernorm_1",
+        inputs, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_1"
     )
 
     height_padding = int((window_size - img_height % window_size) % window_size)
@@ -112,10 +100,7 @@ def swin_block(
     skip_x1 = inputs + dropout_layer(trimmed_x)
 
     normalized_x = _spatial_layer_norm(
-        skip_x1,
-        data_format,
-        epsilon=1.001e-5,
-        name=f"{name}_layernorm_2",
+        skip_x1, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_2"
     )
 
     if cf:
@@ -126,44 +111,11 @@ def swin_block(
     if cf:
         mlp_x = ops.transpose(mlp_x, [0, 3, 1, 2])
 
-    skip_x2 = skip_x1 + dropout_layer(mlp_x)
-    return skip_x2
-
-
-def mlp_block(inputs, dropout=0.0, name="mlp"):
-    """MLP block with two Dense layers and GELU activation.
-
-    Operates on the last dimension (channels_last layout expected).
-
-    Args:
-        inputs: Input tensor of shape ``(B, H, W, C)``.
-        dropout: float, dropout rate. Default 0.0.
-        name: string, layer name prefix. Default ``"mlp"``.
-
-    Returns:
-        Output tensor.
-    """
-    channels = inputs.shape[-1]
-    x = layers.Dense(int(channels * 4.0), name=f"{name}_dense_1")(inputs)
-    x = layers.Activation("gelu")(x)
-    x = layers.Dropout(dropout, name=f"{name}_dropout_1")(x)
-    x = layers.Dense(channels, name=f"{name}_dense_2")(x)
-    x = layers.Dropout(dropout, name=f"{name}_dropout_2")(x)
-    return x
+    return skip_x1 + dropout_layer(mlp_x)
 
 
 def patch_merging(inputs, channels_axis, data_format, name="patch_merging"):
-    """Patch merging layer that halves spatial dims and doubles channels.
-
-    Args:
-        inputs: Input tensor.
-        channels_axis: int, channel axis index.
-        data_format: string, image data format.
-        name: string, layer name prefix. Default ``"patch_merging"``.
-
-    Returns:
-        Output tensor with halved spatial dimensions and doubled channels.
-    """
+    """Halve spatial dims, double channels."""
     cf = data_format == "channels_first"
     channels = inputs.shape[1] if cf else inputs.shape[-1]
     h_ax, w_ax = (2, 3) if cf else (1, 2)
@@ -206,10 +158,7 @@ def patch_merging(inputs, channels_axis, data_format, name="patch_merging"):
     x = ops.reshape(x, (-1, h, w, 4 * channels))
 
     x = layers.LayerNormalization(
-        epsilon=1.001e-5,
-        name=f"{name}_pm_layernorm",
-        dtype=inputs.dtype,
-        axis=-1,
+        epsilon=1.001e-5, name=f"{name}_pm_layernorm", dtype=inputs.dtype, axis=-1
     )(x)
     x = layers.Dense(
         channels * 2, use_bias=False, name=f"{name}_pm_dense", dtype=inputs.dtype
@@ -233,23 +182,7 @@ def swin_stage(
     drop_path_rate=0.0,
     name="swin_stage",
 ):
-    """Swin Transformer stage with multiple blocks.
-
-    Args:
-        inputs: Input tensor.
-        depth: int, number of Swin blocks.
-        num_heads: int, number of attention heads.
-        window_size: int, local window size.
-        bias_table_window_size: int, relative position bias table size.
-        channels_axis: int, channel axis index.
-        data_format: string, image data format.
-        dropout_rate: float, dropout rate. Default 0.0.
-        drop_path_rate: float or list, stochastic depth rate. Default 0.0.
-        name: string, layer name prefix. Default ``"swin_stage"``.
-
-    Returns:
-        Output tensor.
-    """
+    """Swin Transformer stage (multiple blocks with alternating shifts)."""
     cf = data_format == "channels_first"
     h_ax, w_ax = (2, 3) if cf else (1, 2)
 
@@ -280,17 +213,12 @@ def swin_stage(
 
     dtype = keras.backend.floatx()
     partitioner = WindowPartition(
-        window_size=win_size,
-        fused=False,
-        data_format="channels_last",
+        window_size=win_size, fused=False, data_format="channels_last"
     )
 
     ones = ops.ones((1, h, w, 1), dtype="int32")
     pad_mask = ops.pad(ones, [[0, 0], [0, pad_h - h], [0, pad_w - w], [0, 0]])
-    mask_wins = ops.squeeze(
-        partitioner(pad_mask, height=pad_h, width=pad_w),
-        axis=-1,
-    )
+    mask_wins = ops.squeeze(partitioner(pad_mask, height=pad_h, width=pad_w), axis=-1)
     win_diffs = mask_wins[:, None] - mask_wins[:, :, None]
 
     id_mask = ops.where(
@@ -320,8 +248,7 @@ def swin_stage(
             axis=1,
         )
         shift_wins = ops.squeeze(
-            partitioner(shift_base[None, ..., None], height=pad_h, width=pad_w),
-            axis=-1,
+            partitioner(shift_base[None, ..., None], height=pad_h, width=pad_w), axis=-1
         )
         shift_diffs = shift_wins[:, None] - shift_wins[:, :, None]
         shift_mask = ops.where(
@@ -361,195 +288,153 @@ def swin_stage(
     return x
 
 
+def _swin_features(
+    inputs,
+    *,
+    pretrain_size,
+    window_size,
+    embed_dim,
+    depths,
+    num_heads,
+    dropout_rate,
+    drop_path_rate,
+    data_format,
+    channels_axis,
+):
+    """Swin stem + 4 stages, returning ``[stem, s1, s2, s3, s4]`` (pre-final-norm)."""
+    features = []
+    x = layers.Conv2D(
+        embed_dim,
+        kernel_size=4,
+        strides=4,
+        padding="same",
+        data_format=data_format,
+        name="stem_conv",
+    )(inputs)
+    x = _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name="stem_norm")
+    x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
+    features.append(x)
+
+    path_drops = ops.convert_to_numpy(ops.linspace(0.0, drop_path_rate, sum(depths)))
+    scale_factors = 2 ** ops.arange(2, 6)
+    pretrain_windows = pretrain_size // scale_factors
+    bias_table_window_size = ops.minimum(window_size, pretrain_windows)
+
+    for i in range(len(depths)):
+        start_idx = sum(depths[:i])
+        end_idx = sum(depths[: i + 1])
+        path_drop_values = path_drops[start_idx:end_idx].tolist()
+        x = swin_stage(
+            x,
+            depth=depths[i],
+            num_heads=num_heads[i],
+            window_size=window_size,
+            bias_table_window_size=bias_table_window_size[i],
+            channels_axis=channels_axis,
+            data_format=data_format,
+            dropout_rate=dropout_rate,
+            drop_path_rate=path_drop_values,
+            name=f"layers_{i}",
+        )
+        if i != len(depths) - 1:
+            x = patch_merging(
+                x,
+                channels_axis=channels_axis,
+                data_format=data_format,
+                name=f"layers_{i + 1}_downsample",
+            )
+        features.append(x)
+
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class SwinTransformer(keras.Model):
-    """Instantiates the Swin Transformer architecture.
+class Swin(BaseModel):
+    """Swin Transformer classifier (timm-ported).
 
     Reference:
-    - [Swin Transformer: Hierarchical Vision Transformer using Shifted
-      Windows](https://arxiv.org/abs/2103.14030)
+    - [Swin Transformer](https://arxiv.org/abs/2103.14030)
 
-    Args:
-        pretrain_size: int, input image size used during pretraining.
-        window_size: int, local window size for self-attention.
-        embed_dim: int, initial embedding dimension.
-        depths: List of integers, number of blocks per stage.
-        num_heads: List of integers, attention heads per stage.
-        dropout_rate: float, dropout rate. Defaults to ``0.0``.
-        drop_path_rate: float, stochastic depth rate. Defaults to ``0.1``.
-        include_top: bool, whether to include the classification head.
-            Defaults to ``True``.
-        as_backbone: bool, whether to output intermediate feature maps.
-            Defaults to ``False``.
-        include_normalization: bool, whether to include input normalization.
-            Defaults to ``True``.
-        normalization_mode: string, normalization mode. Defaults to ``"imagenet"``.
-        weights: string, path to pretrained weights or weight identifier.
-        input_shape: Optional tuple, input shape.
-        input_tensor: Optional Keras tensor as model input.
-        pooling: Optional string, pooling mode when ``include_top=False``.
-        num_classes: int, number of output classes. Defaults to ``1000``.
-        classifier_activation: string or callable, activation for the head.
-            Defaults to ``"softmax"``.
-        name: string, model name. Defaults to ``"SwinTransformer"``.
+    Construction:
 
-    Returns:
-        A Keras ``Model`` instance.
+    >>> Swin.from_weights("swin_base_patch4_window7_224_ms_in22k_ft_in1k")
+    >>> Swin.from_weights("timm:timm/swin_tiny_patch4_window7_224.ms_in1k")
     """
+
+    KMODELS_CONFIG = SWIN_CONFIG
+    KMODELS_WEIGHTS = SWIN_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_swin_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        pretrain_size,
-        window_size,
-        embed_dim,
-        depths,
-        num_heads,
+        pretrain_size=224,
+        window_size=7,
+        embed_dim=96,
+        depths=(2, 2, 6, 2),
+        num_heads=(3, 6, 12, 24),
         dropout_rate=0.0,
         drop_path_rate=0.1,
-        include_top=True,
-        as_backbone=False,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="ms_in1k",
         input_shape=None,
         input_tensor=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
-        name="SwinTransformer",
+        classifier_activation="linear",
+        name="Swin",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
-
-        if weights and "in22k" in weights and "ft" not in weights:
-            if num_classes != 21841:
-                raise ValueError(
-                    "When using 'ms_in22k' weights, num_classes must be 21841. "
-                    f"Received num_classes: {num_classes}"
-                )
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=pretrain_size,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
-
-        x = layers.Conv2D(
-            embed_dim,
-            kernel_size=4,
-            strides=4,
-            padding="same",
+        features = _swin_features(
+            x,
+            pretrain_size=pretrain_size,
+            window_size=window_size,
+            embed_dim=embed_dim,
+            depths=depths,
+            num_heads=num_heads,
+            dropout_rate=dropout_rate,
+            drop_path_rate=drop_path_rate,
             data_format=data_format,
-            name="stem_conv",
+            channels_axis=channels_axis,
+        )
+        x = _spatial_layer_norm(
+            features[-1], data_format, epsilon=1.001e-5, name="final_norm"
+        )
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+        x = layers.Dense(
+            num_classes, activation=classifier_activation, name="predictions"
         )(x)
-        x = _spatial_layer_norm(
-            x,
-            data_format,
-            epsilon=1.001e-5,
-            name="stem_norm",
-        )
-        x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
-        features.append(x)
 
-        path_drops = ops.convert_to_numpy(
-            ops.linspace(0.0, drop_path_rate, sum(depths))
-        )
-        scale_factors = 2 ** ops.arange(2, 6)
-        pretrain_windows = pretrain_size // scale_factors
-        bias_table_window_size = ops.minimum(window_size, pretrain_windows)
-
-        for i in range(len(depths)):
-            start_idx = sum(depths[:i])
-            end_idx = sum(depths[: i + 1])
-            path_drop_values = path_drops[start_idx:end_idx].tolist()
-            not_last = i != len(depths) - 1
-
-            x = swin_stage(
-                x,
-                depth=depths[i],
-                num_heads=num_heads[i],
-                window_size=window_size,
-                bias_table_window_size=bias_table_window_size[i],
-                channels_axis=channels_axis,
-                data_format=data_format,
-                dropout_rate=dropout_rate,
-                drop_path_rate=path_drop_values,
-                name=f"layers_{i}",
-            )
-            if not_last:
-                x = patch_merging(
-                    x,
-                    channels_axis=channels_axis,
-                    data_format=data_format,
-                    name=f"layers_{i + 1}_downsample",
-                )
-            features.append(x)
-
-        x = _spatial_layer_norm(
-            x,
-            data_format,
-            epsilon=1.001e-5,
-            name="final_norm",
-        )
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(
-                data_format=data_format,
-                name="avg_pool",
-            )(x)
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format,
-                    name="avg_pool",
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(
-                    data_format=data_format,
-                    name="max_pool",
-                )(x)
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.pretrain_size = pretrain_size
         self.window_size = window_size
@@ -558,12 +443,10 @@ class SwinTransformer(keras.Model):
         self.num_heads = num_heads
         self.dropout_rate = dropout_rate
         self.drop_path_rate = drop_path_rate
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -578,17 +461,14 @@ class SwinTransformer(keras.Model):
                 "num_heads": self.num_heads,
                 "dropout_rate": self.dropout_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -598,235 +478,123 @@ class SwinTransformer(keras.Model):
         return cls(**config)
 
 
-@register_model
-def SwinTinyP4W7(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="ms_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SwinTinyP4W7",
-    **kwargs,
-):
-    model = SwinTransformer(
-        **SWIN_MODEL_CONFIG["SwinTinyP4W7"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class SwinBackbone(BaseModel):
+    """Swin Transformer feature extractor. Returns ``[stem, s1, s2, s3, s4]``."""
+
+    KMODELS_CONFIG = SWIN_CONFIG
+    KMODELS_WEIGHTS = SWIN_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return Swin
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_swin_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        pretrain_size=224,
+        window_size=7,
+        embed_dim=96,
+        depths=(2, 2, 6, 2),
+        num_heads=(3, 6, 12, 24),
+        dropout_rate=0.0,
+        drop_path_rate=0.1,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="SwinBackbone",
         **kwargs,
-    )
-    if weights in get_all_weight_names(SWIN_WEIGHTS_CONFIG):
-        load_weights_from_config("SwinTinyP4W7", weights, model, SWIN_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-    return model
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
 
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
-@register_model
-def SwinSmallP4W7(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="ms_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SwinSmallP4W7",
-    **kwargs,
-):
-    model = SwinTransformer(
-        **SWIN_MODEL_CONFIG["SwinSmallP4W7"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(SWIN_WEIGHTS_CONFIG):
-        load_weights_from_config("SwinSmallP4W7", weights, model, SWIN_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-    return model
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
 
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-@register_model
-def SwinBaseP4W7(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="ms_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SwinBaseP4W7",
-    **kwargs,
-):
-    model = SwinTransformer(
-        **SWIN_MODEL_CONFIG["SwinBaseP4W7"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(SWIN_WEIGHTS_CONFIG):
-        load_weights_from_config("SwinBaseP4W7", weights, model, SWIN_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-    return model
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _swin_features(
+            x,
+            pretrain_size=pretrain_size,
+            window_size=window_size,
+            embed_dim=embed_dim,
+            depths=depths,
+            num_heads=num_heads,
+            dropout_rate=dropout_rate,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
 
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
-@register_model
-def SwinBaseP4W12(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="ms_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SwinBaseP4W12",
-    **kwargs,
-):
-    model = SwinTransformer(
-        **SWIN_MODEL_CONFIG["SwinBaseP4W12"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(SWIN_WEIGHTS_CONFIG):
-        load_weights_from_config("SwinBaseP4W12", weights, model, SWIN_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-    return model
+        self.pretrain_size = pretrain_size
+        self.window_size = window_size
+        self.embed_dim = embed_dim
+        self.depths = depths
+        self.num_heads = num_heads
+        self.dropout_rate = dropout_rate
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
 
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "pretrain_size": self.pretrain_size,
+                "window_size": self.window_size,
+                "embed_dim": self.embed_dim,
+                "depths": self.depths,
+                "num_heads": self.num_heads,
+                "dropout_rate": self.dropout_rate,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
 
-@register_model
-def SwinLargeP4W7(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="ms_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SwinLargeP4W7",
-    **kwargs,
-):
-    model = SwinTransformer(
-        **SWIN_MODEL_CONFIG["SwinLargeP4W7"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(SWIN_WEIGHTS_CONFIG):
-        load_weights_from_config("SwinLargeP4W7", weights, model, SWIN_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-    return model
-
-
-@register_model
-def SwinLargeP4W12(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="ms_in22k_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="SwinLargeP4W12",
-    **kwargs,
-):
-    model = SwinTransformer(
-        **SWIN_MODEL_CONFIG["SwinLargeP4W12"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(SWIN_WEIGHTS_CONFIG):
-        load_weights_from_config("SwinLargeP4W12", weights, model, SWIN_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

@@ -1,16 +1,13 @@
-from typing import Dict, List, Union
+"""timm NextViT -> Keras weight transfer."""
 
-import keras
-import timm
-import torch
-from tqdm import tqdm
+from typing import Dict
 
-from kmodels.models.nextvit.nextvit_model import NextViTBase, NextViTLarge, NextViTSmall
+import numpy as np
+
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
 from kmodels.weight_utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
@@ -18,7 +15,7 @@ from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-weight_name_mapping = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "e.mhsa": "e_mhsa",
     "group.conv3x3": "group_conv3x3",
@@ -30,141 +27,31 @@ weight_name_mapping = {
     "beta": "bias",
 }
 
-e_mhsa_name_replacements: Dict[str, str] = {
-    "e.mhsa": "e_mhsa",
-}
+_E_MHSA_NAME_REPLACEMENTS: Dict[str, str] = {"e.mhsa": "e_mhsa"}
 
-model_configs: List[Dict[str, Union[str, type]]] = [
-    {
-        "keras_cls": NextViTSmall,
-        "torch_name": "nextvit_small.bd_in1k",
-        "input_shape": [224, 224, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTBase,
-        "torch_name": "nextvit_base.bd_in1k",
-        "input_shape": [224, 224, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTLarge,
-        "torch_name": "nextvit_large.bd_in1k",
-        "input_shape": [224, 224, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTSmall,
-        "torch_name": "nextvit_small.bd_in1k_384",
-        "input_shape": [384, 384, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTBase,
-        "torch_name": "nextvit_base.bd_in1k_384",
-        "input_shape": [384, 384, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTLarge,
-        "torch_name": "nextvit_large.bd_in1k_384",
-        "input_shape": [384, 384, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTSmall,
-        "torch_name": "nextvit_small.bd_ssld_6m_in1k",
-        "input_shape": [224, 224, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTBase,
-        "torch_name": "nextvit_base.bd_ssld_6m_in1k",
-        "input_shape": [224, 224, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTLarge,
-        "torch_name": "nextvit_large.bd_ssld_6m_in1k",
-        "input_shape": [224, 224, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTSmall,
-        "torch_name": "nextvit_small.bd_ssld_6m_in1k_384",
-        "input_shape": [384, 384, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTBase,
-        "torch_name": "nextvit_base.bd_ssld_6m_in1k_384",
-        "input_shape": [384, 384, 3],
-        "num_classes": 1000,
-    },
-    {
-        "keras_cls": NextViTLarge,
-        "torch_name": "nextvit_large.bd_ssld_6m_in1k_384",
-        "input_shape": [384, 384, 3],
-        "num_classes": 1000,
-    },
-]
 
-for model_config in model_configs:
-    torch_model_name: str = model_config["torch_name"]
-    print(f"\n{'=' * 60}")
-    print(f"Converting {torch_model_name}...")
-    print(f"{'=' * 60}")
+def transfer_nextvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer a timm NextViT state-dict into a Keras :class:`NextViT`."""
+    trainable, non_trainable = split_model_weights(keras_model)
 
-    keras_model: keras.Model = model_config["keras_cls"](
-        include_top=True,
-        input_shape=model_config["input_shape"],
-        classifier_activation="linear",
-        num_classes=model_config["num_classes"],
-        include_normalization=False,
-        weights=None,
-    )
-
-    torch_model: torch.nn.Module = timm.create_model(
-        torch_model_name, pretrained=True
-    ).eval()
-
-    trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-        torch_model
-    )
-    trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
-        keras_model
-    )
-
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
-
-    for keras_weight, keras_weight_name in tqdm(
-        trainable_keras_weights + non_trainable_keras_weights,
-        total=len(trainable_keras_weights + non_trainable_keras_weights),
-        desc="Transferring weights",
-    ):
-        torch_weight_name: str = keras_weight_name
-        for keras_name_part, torch_name_part in weight_name_mapping.items():
-            torch_weight_name = torch_weight_name.replace(
-                keras_name_part, torch_name_part
-            )
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
 
         if "e_mhsa" in keras_weight_name:
             transfer_attention_weights(
                 keras_weight_name,
                 keras_weight,
-                torch_weights_dict,
-                name_replacements=e_mhsa_name_replacements,
+                state_dict,
+                name_replacements=_E_MHSA_NAME_REPLACEMENTS,
             )
             continue
 
-        if torch_weight_name not in torch_weights_dict:
+        if torch_weight_name not in state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
 
-        torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
+        torch_weight = state_dict[torch_weight_name]
         if not compare_keras_torch_names(
             keras_weight_name, keras_weight, torch_weight_name, torch_weight
         ):
@@ -179,23 +66,30 @@ for model_config in model_configs:
             transfer_name = "conv_" + keras_weight_name
         transfer_weights(transfer_name, keras_weight, torch_weight)
 
-    results = verify_cls_model_equivalence(
-        model_a=torch_model,
-        model_b=keras_model,
-        input_shape=tuple(model_config["input_shape"]),
-        output_specs={"num_classes": model_config["num_classes"]},
-        run_performance=False,
-    )
 
-    if not results["standard_input"]:
-        raise ValueError(
-            f"Model equivalence test failed for {torch_model_name} - "
-            "model outputs do not match for standard input"
-        )
+if __name__ == "__main__":
+    import gc
 
-    model_filename: str = f"{torch_model_name.replace('.', '_')}.weights.h5"
-    keras_model.save_weights(model_filename)
-    print(f"Model saved successfully as {model_filename}")
+    import keras
 
-    del keras_model, torch_model
-    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    from kmodels.base.base_model import load_hf_state_dict
+    from kmodels.models.nextvit import NextViT
+    from kmodels.models.nextvit.config import NEXTVIT_CONFIG
+
+    for variant, cfg in NEXTVIT_CONFIG.items():
+        timm_id = cfg["timm_id"]
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  timm/{timm_id}")
+        print(f"{'=' * 60}")
+
+        state = load_hf_state_dict(f"timm/{timm_id}")
+        keras_model = NextViT.from_weights(variant, load_weights=False)
+        transfer_nextvit_weights(keras_model, state)
+
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
+
+        del keras_model, state
+        keras.backend.clear_session()
+        gc.collect()

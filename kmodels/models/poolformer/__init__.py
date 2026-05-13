@@ -1,7 +1,3 @@
-from kmodels.models.poolformer.poolformer_model import (
-    PoolFormerM36,
-    PoolFormerM48,
-    PoolFormerS12,
-    PoolFormerS24,
-    PoolFormerS36,
-)
+from kmodels.models.poolformer.poolformer_model import PoolFormer, PoolFormerBackbone
+
+__all__ = ["PoolFormer", "PoolFormerBackbone"]

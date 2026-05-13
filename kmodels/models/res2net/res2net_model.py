@@ -2,11 +2,12 @@ import keras
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHTS_CONFIG
+from .config import RES2NET_CONFIG, RES2NET_WEIGHTS
+from .convert_res2net_torch_to_keras import transfer_res2net_weights
 
 
 def conv_block(
@@ -194,8 +195,71 @@ def bottle2neck_block(
     return out
 
 
+def _res2net_features(
+    inputs,
+    depth,
+    base_width,
+    scale,
+    cardinality,
+    channels_axis,
+    data_format,
+):
+    """Res2Net stem + stages, returning a list of feature maps.
+
+    Shared by :class:`Res2Net` (which pools + classifies) and
+    :class:`Res2NetBackbone` (which exposes the full list).
+    """
+    features = []
+    x = layers.ZeroPadding2D(padding=3, data_format=data_format)(inputs)
+    x = layers.Conv2D(
+        64,
+        kernel_size=7,
+        strides=2,
+        padding="valid",
+        use_bias=False,
+        data_format=data_format,
+        name="conv1",
+    )(x)
+    x = layers.BatchNormalization(
+        axis=channels_axis, epsilon=1e-5, momentum=0.1, name="bn1"
+    )(x)
+    x = layers.ReLU()(x)
+    x = layers.ZeroPadding2D(data_format=data_format, padding=(1, 1))(x)
+    x = layers.MaxPooling2D(
+        pool_size=3, strides=2, padding="valid", data_format=data_format
+    )(x)
+    features.append(x)
+
+    filters = [64, 128, 256, 512]
+    for i, (blocks, filter_size) in enumerate(zip(depth, filters)):
+        stride = 1 if i == 0 else 2
+        x = bottle2neck_block(
+            x,
+            filter_size,
+            f"layer{i + 1}_0",
+            stride=stride,
+            downsample=True,
+            base_width=base_width,
+            cardinality=cardinality,
+            scale=scale,
+            data_format=data_format,
+        )
+        for j in range(1, blocks):
+            x = bottle2neck_block(
+                x,
+                filter_size,
+                f"layer{i + 1}_{j}",
+                base_width=base_width,
+                cardinality=cardinality,
+                scale=scale,
+                data_format=data_format,
+            )
+        features.append(x)
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class Res2Net(keras.Model):
+class Res2Net(BaseModel):
     """
     Instantiates the Res2Net architecture, which introduces a novel building block for
     CNNs that constructs hierarchical residual-like connections within a single residual block.
@@ -253,36 +317,30 @@ class Res2Net(keras.Model):
     - Maintains computational efficiency while increasing feature expressiveness
     """
 
+    KMODELS_CONFIG = RES2NET_CONFIG
+    KMODELS_WEIGHTS = RES2NET_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_res2net_weights(keras_model, state_dict)
+
     def __init__(
         self,
-        depth,
+        depth=(3, 4, 6, 3),
         base_width=26,
         scale=4,
         cardinality=1,
-        include_top=True,
-        as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="in1k",
         input_tensor=None,
         input_shape=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
+        classifier_activation="linear",
         name="Res2Net",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
@@ -292,115 +350,47 @@ class Res2Net(keras.Model):
             default_size=224,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
-
-        x = layers.ZeroPadding2D(padding=3, data_format=data_format)(x)
-        x = layers.Conv2D(
-            64,
-            kernel_size=7,
-            strides=2,
-            padding="valid",
-            use_bias=False,
+        features = _res2net_features(
+            x,
+            depth=depth,
+            base_width=base_width,
+            scale=scale,
+            cardinality=cardinality,
+            channels_axis=channels_axis,
             data_format=data_format,
-            name="conv1",
+        )
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        x = layers.Dense(
+            num_classes, activation=classifier_activation, name="predictions"
         )(x)
-        x = layers.BatchNormalization(
-            axis=channels_axis,
-            epsilon=1e-5,
-            momentum=0.1,
-            name="bn1",
-        )(x)
-        x = layers.ReLU()(x)
-        x = layers.ZeroPadding2D(data_format=data_format, padding=(1, 1))(x)
-        x = layers.MaxPooling2D(
-            pool_size=3,
-            strides=2,
-            padding="valid",
-            data_format=data_format,
-        )(x)
-        features.append(x)
 
-        filters = [64, 128, 256, 512]
-        for i, (blocks, filter_size) in enumerate(zip(depth, filters)):
-            stride = 1 if i == 0 else 2
-            x = bottle2neck_block(
-                x,
-                filter_size,
-                f"layer{i + 1}_0",
-                stride=stride,
-                downsample=True,
-                base_width=base_width,
-                cardinality=cardinality,
-                scale=scale,
-                data_format=data_format,
-            )
-
-            for j in range(1, blocks):
-                x = bottle2neck_block(
-                    x,
-                    filter_size,
-                    f"layer{i + 1}_{j}",
-                    base_width=base_width,
-                    cardinality=cardinality,
-                    scale=scale,
-                    data_format=data_format,
-                )
-            features.append(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format,
-                    name="avg_pool",
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(
-                    data_format=data_format,
-                    name="max_pool",
-                )(x)
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.depth = depth
         self.base_width = base_width
         self.scale = scale
         self.cardinality = cardinality
-        self.include_top = include_top
-        self.as_backbone = as_backbone
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -412,13 +402,10 @@ class Res2Net(keras.Model):
                 "base_width": self.base_width,
                 "scale": self.scale,
                 "cardinality": self.cardinality,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
@@ -432,300 +419,109 @@ class Res2Net(keras.Model):
         return cls(**config)
 
 
-@register_model
-def Res2Net50_26w_4s(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="Res2Net50_26w_4s",
-    **kwargs,
-):
-    model = Res2Net(
-        **RES2NET_MODEL_CONFIG["Res2Net50_26w_4s"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+@keras.saving.register_keras_serializable(package="kmodels")
+class Res2NetBackbone(BaseModel):
+    """Res2Net feature extractor (no classifier head).
 
-    if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "Res2Net50_26w_4s", weights, model, RES2NET_WEIGHTS_CONFIG
+    Returns a list ``[stem, stage1, stage2, stage3, stage4]`` of feature
+    maps. Use as a backbone for detection / segmentation downstream.
+    """
+
+    KMODELS_CONFIG = RES2NET_CONFIG
+    KMODELS_WEIGHTS = RES2NET_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = Res2Net.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_res2net_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depth=(3, 4, 6, 3),
+        base_width=26,
+        scale=4,
+        cardinality=1,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_tensor=None,
+        input_shape=None,
+        name="Res2NetBackbone",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=224,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-
-@register_model
-def Res2Net101_26w_4s(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="Res2Net101_26w_4s",
-    **kwargs,
-):
-    model = Res2Net(
-        **RES2NET_MODEL_CONFIG["Res2Net101_26w_4s"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "Res2Net101_26w_4s", weights, model, RES2NET_WEIGHTS_CONFIG
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def Res2Net50_26w_6s(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="Res2Net50_26w_6s",
-    **kwargs,
-):
-    model = Res2Net(
-        **RES2NET_MODEL_CONFIG["Res2Net50_26w_6s"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "Res2Net50_26w_6s", weights, model, RES2NET_WEIGHTS_CONFIG
+        features = _res2net_features(
+            x,
+            depth=depth,
+            base_width=base_width,
+            scale=scale,
+            cardinality=cardinality,
+            channels_axis=channels_axis,
+            data_format=data_format,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
+        self.depth = depth
+        self.base_width = base_width
+        self.scale = scale
+        self.cardinality = cardinality
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
 
-@register_model
-def Res2Net50_26w_8s(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="Res2Net50_26w_8s",
-    **kwargs,
-):
-    model = Res2Net(
-        **RES2NET_MODEL_CONFIG["Res2Net50_26w_8s"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "Res2Net50_26w_8s", weights, model, RES2NET_WEIGHTS_CONFIG
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depth": self.depth,
+                "base_width": self.base_width,
+                "scale": self.scale,
+                "cardinality": self.cardinality,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        return config
 
-    return model
-
-
-@register_model
-def Res2Net50_48w_2s(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="Res2Net50_48w_2s",
-    **kwargs,
-):
-    model = Res2Net(
-        **RES2NET_MODEL_CONFIG["Res2Net50_48w_2s"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "Res2Net50_48w_2s", weights, model, RES2NET_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def Res2Net50_14w_8s(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="Res2Net50_14w_8s",
-    **kwargs,
-):
-    model = Res2Net(
-        **RES2NET_MODEL_CONFIG["Res2Net50_14w_8s"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "Res2Net50_14w_8s", weights, model, RES2NET_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def Res2Next50(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="Res2Next50",
-    **kwargs,
-):
-    model = Res2Net(
-        **RES2NET_MODEL_CONFIG["Res2Next50"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config("Res2Next50", weights, model, RES2NET_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

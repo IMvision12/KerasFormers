@@ -1,9 +1,10 @@
 import keras
-from keras import layers
+from keras import layers, utils
 
 from kmodels.base import BaseModel
-from kmodels.models.resnet.resnet_model import ResNet, bottleneck_block
-from kmodels.models.vit.vit_model import VisionTransformer
+from kmodels.layers import ImageNormalizationLayer
+from kmodels.models.resnet.resnet_model import _resnet_features, bottleneck_block
+from kmodels.models.vit.vit_model import _vit_features
 
 from .config import (
     DINO_RESNET_CONFIG,
@@ -71,7 +72,22 @@ class DinoViTBackbone(BaseModel):
         if input_shape is None and input_tensor is None:
             input_shape = (224, 224, 3)
 
-        base = VisionTransformer(
+        data_format = keras.config.image_data_format()
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _vit_features(
+            x,
             patch_size=patch_size,
             dim=dim,
             depth=depth,
@@ -81,22 +97,19 @@ class DinoViTBackbone(BaseModel):
             qk_norm=qk_norm,
             drop_rate=drop_rate,
             attn_drop_rate=attn_drop_rate,
-            include_top=False,
-            as_backbone=True,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
-            weights=None,
-            input_tensor=input_tensor,
-            input_shape=input_shape,
-            name=f"{name}_vit",
+            no_embed_class=False,
+            use_distillation=False,
+            init_values=None,
+            image_size=input_shape[0] if input_shape else 224,
+            data_format=data_format,
+            return_intermediates=True,
         )
-        features = list(base.output)
         final_ln = layers.LayerNormalization(
             epsilon=1e-6, axis=-1, name="final_layernorm"
         )
         features[-1] = final_ln(features[-1])
 
-        super().__init__(inputs=base.input, outputs=features, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.dim = dim
@@ -179,22 +192,37 @@ class DinoResNetBackbone(BaseModel):
             block_repeats = [3, 4, 6, 3]
         if filters is None:
             filters = [64, 128, 256, 512]
+        if input_shape is None and input_tensor is None:
+            input_shape = (224, 224, 3)
 
-        base = ResNet(
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _resnet_features(
+            x,
             block_fn=bottleneck_block,
             block_repeats=block_repeats,
             filters=filters,
-            include_top=False,
-            as_backbone=True,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
-            weights=None,
-            input_tensor=input_tensor,
-            input_shape=input_shape,
-            name=f"{name}_resnet",
+            channels_axis=channels_axis,
+            data_format=data_format,
+            groups=1,
+            senet=False,
+            width_factor=1,
         )
 
-        super().__init__(inputs=base.input, outputs=base.output, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
         self.block_repeats = list(block_repeats)
         self.filters = list(filters)

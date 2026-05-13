@@ -3,11 +3,12 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import INCEPTIONV4_WEIGHTS_CONFIG
+from .config import INCEPTIONV4_CONFIG, INCEPTIONV4_WEIGHTS
+from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
 
 
 def conv_block(
@@ -20,23 +21,7 @@ def conv_block(
     padding="valid",
     name="conv2d_block",
 ):
-    """
-    Creates a convolutional block with batch normalization and ReLU activation.
-
-    Args:
-        inputs: Input tensor
-        filters: Number of output filters
-        kernel_size: Size of the convolution kernel
-        strides: Stride length of the convolution
-        bn_momentum: Momentum for batch normalization
-        bn_epsilon: Epsilon value for batch normalization
-        padding: Padding type ("valid", "same", or None)
-        name: Name prefix for the layers
-
-    Returns:
-        Output tensor for the block.
-    """
-
+    """Conv -> BatchNorm -> ReLU with optional asymmetric ZeroPadding."""
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
@@ -80,16 +65,7 @@ def conv_block(
 
 
 def stem_blocks(x, conv_block):
-    """
-    Implements the stem block of InceptionV4 which processes the input before the main inception blocks.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-
-    Returns:
-        Output tensor for the stem block
-    """
+    """InceptionV4 stem: 3 conv layers before the Mixed blocks."""
     x = conv_block(x, 32, kernel_size=3, strides=2, name="features_0")
     x = conv_block(x, 32, kernel_size=3, name="features_1")
     x = conv_block(x, 64, kernel_size=3, padding=None, name="features_2")
@@ -97,17 +73,7 @@ def stem_blocks(x, conv_block):
 
 
 def mixed3a(x, conv_block, name="features_3"):
-    """
-    Implements the Mixed3a block which combines max pooling and convolution operations.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        name: Name prefix for the layers
-
-    Returns:
-        Output tensor for the block
-    """
+    """Mixed3a: MaxPool || strided 3x3 conv."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     maxpool = layers.MaxPooling2D(
         3, strides=2, data_format=keras.config.image_data_format()
@@ -117,17 +83,7 @@ def mixed3a(x, conv_block, name="features_3"):
 
 
 def mixed4a(x, conv_block, name="features_4"):
-    """
-    Implements the Mixed4a block with parallel paths including 1x7 and 7x1 factorized convolutions.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        name: Name prefix for the layers
-
-    Returns:
-        Output tensor for the block
-    """
+    """Mixed4a: parallel paths with 1x7 + 7x1 factorized convs."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     branch0 = conv_block(x, 64, kernel_size=1, strides=1, name=f"{name}_branch0_0")
     branch0 = conv_block(
@@ -159,17 +115,7 @@ def mixed4a(x, conv_block, name="features_4"):
 
 
 def mixed5a(x, conv_block, name="features_5"):
-    """
-    Implements the Mixed5a block which combines strided convolution with max pooling.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        name: Name prefix for the layers
-
-    Returns:
-        Output tensor for the block
-    """
+    """Mixed5a: strided 3x3 conv || maxpool."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     conv = conv_block(x, 192, kernel_size=3, strides=2, name=f"{name}_conv")
     maxpool = layers.MaxPooling2D(
@@ -179,20 +125,7 @@ def mixed5a(x, conv_block, name="features_5"):
 
 
 def inception_a(x, conv_block, block_idx):
-    """
-    Implements Inception-A block with four parallel paths.
-
-    The block includes 1x1 convolutions, 3x3 convolutions, double 3x3 convolutions,
-    and a pooling path, all concatenated at the end.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        block_idx: Integer index for naming the block
-
-    Returns:
-        Output tensor for the Inception-A block
-    """
+    """Inception-A block (4 parallel branches)."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     name = f"features_{block_idx}"
 
@@ -224,20 +157,7 @@ def inception_a(x, conv_block, block_idx):
 
 
 def reduction_a(x, conv_block, name="features_10"):
-    """
-    Implements Reduction-A block which reduces the spatial dimensions of the input.
-
-    The block includes three parallel paths: a strided 3x3 convolution,
-    a 1x1 -> 3x3 -> 3x3 convolution path with stride 2, and a max pooling path.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        name: Name prefix for the layers
-
-    Returns:
-        Output tensor for the Reduction-A block
-    """
+    """Reduction-A: spatial downsampling stage."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     branch0 = conv_block(x, 384, kernel_size=3, strides=2, name=f"{name}_branch0")
 
@@ -259,21 +179,7 @@ def reduction_a(x, conv_block, name="features_10"):
 
 
 def inception_b(x, conv_block, block_idx):
-    """
-    Implements Inception-B block with four parallel paths including 1x7 and 7x1
-    factorized convolutions.
-
-    The block includes a 1x1 convolution path, two paths with factorized convolutions,
-    and an average pooling path.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        block_idx: Integer index for naming the block
-
-    Returns:
-        Output tensor for the Inception-B block
-    """
+    """Inception-B block with 1x7 and 7x1 factorized convolutions."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     name = f"features_{block_idx}"
 
@@ -344,20 +250,7 @@ def inception_b(x, conv_block, block_idx):
 
 
 def reduction_b(x, conv_block, name="features_18"):
-    """
-    Implements Reduction-B block which reduces the spatial dimensions of the input.
-
-    The block includes three parallel paths: two paths with strided convolutions
-    (one with additional factorized convolutions) and a max pooling path.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        name: Name prefix for the layers
-
-    Returns:
-        Output tensor for the Reduction-B block
-    """
+    """Reduction-B: spatial downsampling stage."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     branch0 = conv_block(x, 192, kernel_size=1, strides=1, name=f"{name}_branch0_0")
     branch0 = conv_block(
@@ -395,20 +288,7 @@ def reduction_b(x, conv_block, name="features_18"):
 
 
 def inception_c(x, conv_block, block_idx):
-    """
-    Implements Inception-C block with four parallel paths and split convolutions.
-
-    The block includes a 1x1 convolution path, two paths with split convolutions
-    into parallel 1x3 and 3x1 operations, and an average pooling path.
-
-    Args:
-        x: Input tensor
-        conv_block: Function that creates a convolutional block
-        block_idx: Integer index for naming the block
-
-    Returns:
-        Output tensor for the Inception-C block
-    """
+    """Inception-C block with split 1x3 and 3x1 parallel convolutions."""
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     name = f"features_{block_idx}"
 
@@ -480,156 +360,111 @@ def inception_c(x, conv_block, block_idx):
     )
 
 
+def _inceptionv4_features(inputs, *, data_format):
+    """InceptionV4 full backbone, returns list of stage feature maps."""
+    features = []
+
+    x = stem_blocks(inputs, conv_block)
+    features.append(x)
+
+    x = mixed3a(x, conv_block)
+    features.append(x)
+
+    x = mixed4a(x, conv_block)
+    x = mixed5a(x, conv_block)
+    features.append(x)
+
+    for i in range(4):
+        x = inception_a(x, conv_block, block_idx=6 + i)
+    features.append(x)
+
+    x = reduction_a(x, conv_block)
+    for i in range(7):
+        x = inception_b(x, conv_block, block_idx=11 + i)
+    features.append(x)
+
+    x = reduction_b(x, conv_block)
+    for i in range(3):
+        x = inception_c(x, conv_block, block_idx=19 + i)
+    features.append(x)
+
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class InceptionV4Main(keras.Model):
-    """
-    Instantiates the InceptionV4 architecture.
+class InceptionV4(BaseModel):
+    """InceptionV4 classifier (timm-ported).
 
     Reference:
-    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning]
-            (https://arxiv.org/abs/1602.07261) (AAAI 2017)
+    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
 
-    Args:
-        include_top: Boolean, whether to include the fully-connected classification layer at the top of the model.
-            Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to False.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as the model's input.
-            If not provided, a new input tensor is created based on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. If not specified, defaults to `(299, 299, 3)`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification. Defaults to `1000`.
-            Only applicable if `include_top=True`.
-        classifier_activation: String or callable, activation function for the classification layer.
-            Set to `None` to return logits. Defaults to `"softmax"`.
-        name: String, name of the model. Defaults to `"InceptionV4"`.
+    Construction:
 
-    Returns:
-        A Keras `Model` instance.
-
+    >>> InceptionV4.from_weights("inception_v4_tf_in1k")
+    >>> InceptionV4.from_weights("timm:timm/inception_v4.tf_in1k")
     """
+
+    KMODELS_CONFIG = INCEPTIONV4_CONFIG
+    KMODELS_WEIGHTS = INCEPTIONV4_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inceptionv4_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        include_top=True,
-        as_backbone=False,
+        image_size=299,
         include_normalization=True,
         normalization_mode="inception",
-        weights="tf_in1k",
         input_shape=None,
         input_tensor=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
+        classifier_activation="linear",
         name="InceptionV4",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
+        kwargs.pop("timm_id", None)
 
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
         data_format = keras.config.image_data_format()
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=299,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
+        features = _inceptionv4_features(x, data_format=data_format)
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        x = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
 
-        x = stem_blocks(x, conv_block)
-        features.append(x)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        x = mixed3a(x, conv_block)
-        features.append(x)
-
-        x = mixed4a(x, conv_block)
-        x = mixed5a(x, conv_block)
-        features.append(x)
-
-        for i in range(4):
-            x = inception_a(x, conv_block, block_idx=6 + i)
-        features.append(x)
-
-        x = reduction_a(x, conv_block)
-
-        for i in range(7):
-            x = inception_b(x, conv_block, block_idx=11 + i)
-        features.append(x)
-
-        x = reduction_b(x, conv_block)
-
-        for i in range(3):
-            x = inception_c(x, conv_block, block_idx=19 + i)
-        features.append(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
-
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -637,17 +472,14 @@ class InceptionV4Main(keras.Model):
         config = super().get_config()
         config.update(
             {
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -657,43 +489,90 @@ class InceptionV4Main(keras.Model):
         return cls(**config)
 
 
-@register_model
-def InceptionV4(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="inception",
-    num_classes=1000,
-    weights="tf_in1k",
-    input_shape=None,
-    input_tensor=None,
-    pooling=None,
-    classifier_activation="softmax",
-    name="InceptionV4",
-    **kwargs,
-):
-    model = InceptionV4Main(
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        name=name,
-        weights=weights,
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class InceptionV4Backbone(BaseModel):
+    """InceptionV4 feature extractor (6 stage maps)."""
+
+    KMODELS_CONFIG = INCEPTIONV4_CONFIG
+    KMODELS_WEIGHTS = INCEPTIONV4_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return InceptionV4
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inceptionv4_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        image_size=299,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        name="InceptionV4Backbone",
         **kwargs,
-    )
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
 
-    if weights in get_all_weight_names(INCEPTIONV4_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "InceptionV4", weights, model, INCEPTIONV4_WEIGHTS_CONFIG
+        data_format = keras.config.image_data_format()
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _inceptionv4_features(x, data_format=data_format)
+
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

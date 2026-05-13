@@ -1,1 +1,3 @@
-from kmodels.models.resnet.resnet_model import ResNet50, ResNet101, ResNet152
+from kmodels.models.resnet.resnet_model import ResNet, ResNetBackbone
+
+__all__ = ["ResNet", "ResNetBackbone"]

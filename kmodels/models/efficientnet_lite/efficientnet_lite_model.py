@@ -5,39 +5,22 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
+from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import (
     CONV_KERNEL_INITIALIZER,
     DEFAULT_BLOCKS_ARGS,
     DENSE_KERNEL_INITIALIZER,
-    EFFICIENTNET_LITE_MODEL_CONFIG,
-    EFFICIENTNET_LITE_WEIGHTS_CONFIG,
+    EFFICIENTNET_LITE_CONFIG,
+    EFFICIENTNET_LITE_WEIGHTS,
 )
+from .convert_efficientnet_lite_torch_to_keras import transfer_efficientnet_lite_weights
 
 
 def round_filters(filters, width_coefficient, divisor=8):
-    """
-    Rounds number of filters based on width coefficient according to EfficientNet scaling.
-
-    This function calculates the scaled number of filters and ensures it is divisible
-    by the divisor (default=8) for hardware efficiency. If the rounded value is less than
-    90% of the scaled filters, it adds one more divisor unit.
-
-    Args:
-        filters (int): The original number of filters/channels
-        width_coefficient (float): The coefficient for scaling network width (typically > 1.0)
-        divisor (int, optional): Ensures the filters are divisible by this number. Defaults to 8.
-
-    Returns:
-        int: The rounded number of filters that is divisible by divisor
-
-    Example:
-        >>> round_filters(32, 1.2)  # Scale 32 filters by 1.2x
-        40  # Rounded to nearest multiple of 8
-    """
+    """Round filter count by ``width_coefficient`` and snap to a multiple of ``divisor``."""
     filters *= width_coefficient
     new_filters = max(divisor, int(filters + divisor / 2) // divisor * divisor)
     if new_filters < 0.9 * filters:
@@ -46,24 +29,6 @@ def round_filters(filters, width_coefficient, divisor=8):
 
 
 def round_repeats(repeats, depth_coefficient):
-    """
-    Rounds number of repeats based on depth coefficient according to EfficientNet scaling.
-
-    This function calculates the number of repeated layers in a block after applying
-    the depth scaling factor. The result is always rounded up to ensure sufficient
-    network depth.
-
-    Args:
-        repeats (int): The original number of layer repetitions
-        depth_coefficient (float): The coefficient for scaling network depth
-
-    Returns:
-        int: The rounded number of repeats after scaling
-
-    Example:
-        >>> round_repeats(3, 1.2)  # Scale 3 repeats by 1.2x
-        4  # Rounded up from 3.6
-    """
     return int(math.ceil(depth_coefficient * repeats))
 
 
@@ -80,31 +45,7 @@ def efficientnetlite_block(
     expand_ratio=1,
     id_skip=True,
 ):
-    """
-    Implements a mobile inverted residual block (MBConv) optimized for EfficientNet-Lite architecture.
-    This block performs channel expansion, depthwise separable convolution, and projection while being
-    memory and compute efficient. Unlike standard EfficientNet blocks, it omits squeeze-and-excitation
-    to reduce model complexity.
-
-    Args:
-        inputs: Input tensor to the block.
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        drop_rate: Dropout rate applied before the residual connection. Default is 0.0.
-        name: Base name for all layers in the block. Default is "".
-        filters_in: Number of input channels to the block. Default is 32.
-        filters_out: Number of output channels from the block. Default is 16.
-        kernel_size: Size of the depthwise convolution kernel. Default is 3.
-        strides: Stride size for the depthwise convolution. Default is 1.
-        expand_ratio: Channel expansion ratio for the MBConv block. Default is 1.
-        id_skip: Whether to include a residual connection. Default is True.
-
-    Returns:
-        Output tensor for the block.
-
-    """
+    """MBConv-Lite block (no SE, ReLU6)."""
     filters = filters_in * expand_ratio
     if expand_ratio != 1:
         x = layers.Conv2D(
@@ -161,214 +102,170 @@ def efficientnetlite_block(
     return x
 
 
+def _efficientnet_lite_features(
+    inputs,
+    *,
+    width_coefficient,
+    depth_coefficient,
+    drop_connect_rate,
+    data_format,
+    channels_axis,
+):
+    """EfficientNet-Lite stem + stages + head conv."""
+    features = []
+    x = layers.ZeroPadding2D(
+        padding=imagenet_utils.correct_pad(inputs, 3),
+        data_format=data_format,
+        name="stem_conv_pad",
+    )(inputs)
+    x = layers.Conv2D(
+        32,
+        3,
+        strides=2,
+        padding="valid",
+        use_bias=False,
+        kernel_initializer=CONV_KERNEL_INITIALIZER,
+        data_format=data_format,
+        name="conv_stem",
+    )(x)
+    x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_1")(x)
+    x = layers.ReLU(max_value=6, name="stem_activation")(x)
+    features.append(x)
+
+    blocks_args = copy.deepcopy(DEFAULT_BLOCKS_ARGS)
+    b = 0
+    blocks = float(sum(args["repeats"] for args in DEFAULT_BLOCKS_ARGS))
+
+    for i, args in enumerate(blocks_args):
+        args["filters_in"] = round_filters(args["filters_in"], width_coefficient)
+        args["filters_out"] = round_filters(args["filters_out"], width_coefficient)
+        if i == 0 or i == (len(blocks_args) - 1):
+            repeats = args.pop("repeats")
+        else:
+            repeats = round_repeats(args.pop("repeats"), depth_coefficient)
+
+        for j in range(repeats):
+            if j > 0:
+                args["strides"] = 1
+                args["filters_in"] = args["filters_out"]
+            x = efficientnetlite_block(
+                x,
+                channels_axis,
+                data_format,
+                drop_connect_rate * b / blocks,
+                name=f"blocks_{i}_{j}_",
+                **args,
+            )
+            b += 1
+        features.append(x)
+
+    x = layers.Conv2D(
+        1280,
+        1,
+        padding="same",
+        use_bias=False,
+        kernel_initializer=CONV_KERNEL_INITIALIZER,
+        data_format=data_format,
+        name="conv_head",
+    )(x)
+    x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_2")(x)
+    x = layers.ReLU(max_value=6, name="top_activation")(x)
+    features.append(x)
+    return features
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
-class EfficientNetLite(keras.Model):
+class EfficientNetLite(BaseModel):
+    """EfficientNet-Lite classifier (timm-ported).
+
+    Construction:
+
+    >>> EfficientNetLite.from_weights("tf_efficientnet_lite0_in1k")
+    >>> EfficientNetLite.from_weights("timm:timm/tf_efficientnet_lite0.in1k")
     """
-    Instantiates the EfficientNet-Lite architecture, a lighter variant of the original EfficientNet
-    designed for mobile and edge devices.
 
-    Reference:
-    - [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946) (ICML 2019)
+    KMODELS_CONFIG = EFFICIENTNET_LITE_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTNET_LITE_WEIGHTS
+    HF_MODEL_TYPE = None
 
-    Args:
-        width_coefficient: Float, scaling coefficient for the network width
-            (number of channels).
-        depth_coefficient: Float, scaling coefficient for the network depth
-            (number of layers).
-        dropout_rate: Float, dropout rate used in the final classification layer.
-        default_size: Integer, default resolution of input images.
-        include_top: Boolean, whether to include the classification head at the
-            top of the network. Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use
-            as the model's input. If not provided, a new input tensor is created
-            based on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. If
-            not specified, it is derived from `default_size`. Typically defaults
-            to `(default_size, default_size, 3)`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, specifying the number of output classes for classification.
-            Defaults to `1000`. Only applicable if `include_top=True`.
-        classifier_activation: String or callable, specifying the activation function
-            for the classification layer. Set to `None` to return logits. Defaults to `"linear"`.
-        name: String, specifying the name of the model. Defaults to `"EfficientNet"`.
-
-    Returns:
-        A Keras `Model` instance.
-    """
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_efficientnet_lite_weights(keras_model, state_dict)
 
     def __init__(
         self,
-        width_coefficient,
-        depth_coefficient,
-        default_size,
+        width_coefficient=1.0,
+        depth_coefficient=1.0,
+        default_size=224,
         dropout_rate=0.2,
         drop_connect_rate=0.2,
-        include_top=True,
-        as_backbone=False,
-        normalization_mode="imagenet",
+        image_size=224,
         include_normalization=True,
-        weights="in1k",
+        normalization_mode="imagenet",
         input_tensor=None,
         input_shape=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
-        name="EfficientNet",
+        classifier_activation="linear",
+        name="EfficientNetLite",
         **kwargs,
     ):
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=default_size,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
-
-        inputs = img_input
-        features = []
+            img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
             if include_normalization
-            else inputs
+            else img_input
         )
-
-        x = layers.ZeroPadding2D(
-            padding=imagenet_utils.correct_pad(x, 3),
+        features = _efficientnet_lite_features(
+            x,
+            width_coefficient=width_coefficient,
+            depth_coefficient=depth_coefficient,
+            drop_connect_rate=drop_connect_rate,
             data_format=data_format,
-            name="stem_conv_pad",
+            channels_axis=channels_axis,
+        )
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            features[-1]
+        )
+        if dropout_rate > 0:
+            x = layers.Dropout(dropout_rate, name="dropout")(x)
+        x = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            kernel_initializer=DENSE_KERNEL_INITIALIZER,
+            name="predictions",
         )(x)
-        x = layers.Conv2D(
-            32,
-            3,
-            strides=2,
-            padding="valid",
-            use_bias=False,
-            kernel_initializer=CONV_KERNEL_INITIALIZER,
-            data_format=data_format,
-            name="conv_stem",
-        )(x)
-        x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_1")(x)
-        x = layers.ReLU(max_value=6, name="stem_activation")(x)
-        features.append(x)
 
-        blocks_args = copy.deepcopy(DEFAULT_BLOCKS_ARGS)
-        b = 0
-        blocks = float(sum(args["repeats"] for args in DEFAULT_BLOCKS_ARGS))
-
-        for i, args in enumerate(blocks_args):
-            assert args["repeats"] > 0
-            args["filters_in"] = round_filters(args["filters_in"], width_coefficient)
-            args["filters_out"] = round_filters(args["filters_out"], width_coefficient)
-
-            if i == 0 or i == (len(blocks_args) - 1):
-                repeats = args.pop("repeats")
-            else:
-                repeats = round_repeats(args.pop("repeats"), depth_coefficient)
-
-            for j in range(repeats):
-                if j > 0:
-                    args["strides"] = 1
-                    args["filters_in"] = args["filters_out"]
-                x = efficientnetlite_block(
-                    x,
-                    channels_axis,
-                    data_format,
-                    drop_connect_rate * b / blocks,
-                    name="blocks_{}_{}_".format(i, j),
-                    **args,
-                )
-
-                b += 1
-
-            features.append(x)
-
-        x = layers.Conv2D(
-            1280,
-            1,
-            padding="same",
-            use_bias=False,
-            kernel_initializer=CONV_KERNEL_INITIALIZER,
-            data_format=data_format,
-            name="conv_head",
-        )(x)
-        x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_2")(x)
-        x = layers.ReLU(max_value=6, name="top_activation")(x)
-
-        if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
-            if dropout_rate > 0:
-                x = layers.Dropout(dropout_rate, name="dropout")(x)
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                kernel_initializer=DENSE_KERNEL_INITIALIZER,
-                name="predictions",
-            )(x)
-        elif as_backbone:
-            x = features
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.width_coefficient = width_coefficient
         self.depth_coefficient = depth_coefficient
         self.default_size = default_size
         self.dropout_rate = dropout_rate
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.drop_connect_rate = drop_connect_rate
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -380,17 +277,15 @@ class EfficientNetLite(keras.Model):
                 "depth_coefficient": self.depth_coefficient,
                 "default_size": self.default_size,
                 "dropout_rate": self.dropout_rate,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "drop_connect_rate": self.drop_connect_rate,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -400,211 +295,113 @@ class EfficientNetLite(keras.Model):
         return cls(**config)
 
 
-@register_model
-def EfficientNetLite0(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="EfficientNetLite0",
-    **kwargs,
-):
-    model = EfficientNetLite(
-        **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite0"],
-        name=name,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class EfficientNetLiteBackbone(BaseModel):
+    """EfficientNet-Lite feature extractor."""
+
+    KMODELS_CONFIG = EFFICIENTNET_LITE_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTNET_LITE_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return EfficientNetLite
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_efficientnet_lite_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        width_coefficient=1.0,
+        depth_coefficient=1.0,
+        default_size=224,
+        dropout_rate=0.2,
+        drop_connect_rate=0.2,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_tensor=None,
+        input_shape=None,
+        name="EfficientNetLiteBackbone",
         **kwargs,
-    )
-    if weights in get_all_weight_names(EFFICIENTNET_LITE_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "EfficientNetLite0", weights, model, EFFICIENTNET_LITE_WEIGHTS_CONFIG
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-
-@register_model
-def EfficientNetLite1(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="EfficientNetLite1",
-    **kwargs,
-):
-    model = EfficientNetLite(
-        **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite1"],
-        name=name,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(EFFICIENTNET_LITE_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "EfficientNetLite1", weights, model, EFFICIENTNET_LITE_WEIGHTS_CONFIG
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def EfficientNetLite2(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="EfficientNetLite2",
-    **kwargs,
-):
-    model = EfficientNetLite(
-        **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite2"],
-        name=name,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(EFFICIENTNET_LITE_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "EfficientNetLite2", weights, model, EFFICIENTNET_LITE_WEIGHTS_CONFIG
+        features = _efficientnet_lite_features(
+            x,
+            width_coefficient=width_coefficient,
+            depth_coefficient=depth_coefficient,
+            drop_connect_rate=drop_connect_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
 
-    return model
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
+        self.width_coefficient = width_coefficient
+        self.depth_coefficient = depth_coefficient
+        self.default_size = default_size
+        self.dropout_rate = dropout_rate
+        self.drop_connect_rate = drop_connect_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
 
-@register_model
-def EfficientNetLite3(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="EfficientNetLite3",
-    **kwargs,
-):
-    model = EfficientNetLite(
-        **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite3"],
-        name=name,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(EFFICIENTNET_LITE_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "EfficientNetLite3", weights, model, EFFICIENTNET_LITE_WEIGHTS_CONFIG
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "width_coefficient": self.width_coefficient,
+                "depth_coefficient": self.depth_coefficient,
+                "default_size": self.default_size,
+                "dropout_rate": self.dropout_rate,
+                "drop_connect_rate": self.drop_connect_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        return config
 
-    return model
-
-
-@register_model
-def EfficientNetLite4(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="EfficientNetLite4",
-    **kwargs,
-):
-    model = EfficientNetLite(
-        **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite4"],
-        name=name,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(EFFICIENTNET_LITE_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "EfficientNetLite4", weights, model, EFFICIENTNET_LITE_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

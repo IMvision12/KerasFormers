@@ -1,3 +1,5 @@
+"""EfficientNet-Lite variant registry (timm-ported)."""
+
 DEFAULT_BLOCKS_ARGS = [
     {
         "kernel_size": 3,
@@ -74,63 +76,29 @@ DENSE_KERNEL_INITIALIZER = {
     "config": {"scale": 1.0 / 3.0, "mode": "fan_out", "distribution": "uniform"},
 }
 
-EFFICIENTNET_LITE_MODEL_CONFIG = {
-    "EfficientNetLite0": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 224,
-        "dropout_rate": 0.2,
-    },
-    "EfficientNetLite1": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.1,
-        "default_size": 240,
-        "dropout_rate": 0.2,
-    },
-    "EfficientNetLite2": {
-        "width_coefficient": 1.1,
-        "depth_coefficient": 1.2,
-        "default_size": 260,
-        "dropout_rate": 0.3,
-    },
-    "EfficientNetLite3": {
-        "width_coefficient": 1.2,
-        "depth_coefficient": 1.4,
-        "default_size": 300,
-        "dropout_rate": 0.3,
-    },
-    "EfficientNetLite4": {
-        "width_coefficient": 1.4,
-        "depth_coefficient": 1.8,
-        "default_size": 380,
-        "dropout_rate": 0.3,
-    },
+
+def _v(width, depth, dropout, image_size, timm_id, num_classes=1000):
+    return {
+        "width_coefficient": width,
+        "depth_coefficient": depth,
+        "dropout_rate": dropout,
+        "default_size": image_size,
+        "image_size": image_size,
+        "timm_id": timm_id,
+        "num_classes": num_classes,
+    }
+
+
+EFFICIENTNET_LITE_CONFIG = {
+    "tf_efficientnet_lite0_in1k": _v(1.0, 1.0, 0.2, 224, "tf_efficientnet_lite0.in1k"),
+    "tf_efficientnet_lite1_in1k": _v(1.0, 1.1, 0.2, 240, "tf_efficientnet_lite1.in1k"),
+    "tf_efficientnet_lite2_in1k": _v(1.1, 1.2, 0.3, 260, "tf_efficientnet_lite2.in1k"),
+    "tf_efficientnet_lite3_in1k": _v(1.2, 1.4, 0.3, 300, "tf_efficientnet_lite3.in1k"),
+    "tf_efficientnet_lite4_in1k": _v(1.4, 1.8, 0.3, 380, "tf_efficientnet_lite4.in1k"),
 }
 
-EFFICIENTNET_LITE_WEIGHTS_CONFIG = {
-    "EfficientNetLite0": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/tf_efficientnet_lite0_in1k.weights.h5",
-        }
-    },
-    "EfficientNetLite1": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/tf_efficientnet_lite1_in1k.weights.h5",
-        },
-    },
-    "EfficientNetLite2": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/tf_efficientnet_lite2_in1k.weights.h5",
-        },
-    },
-    "EfficientNetLite3": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/tf_efficientnet_lite3_in1k.weights.h5",
-        },
-    },
-    "EfficientNetLite4": {
-        "in1k": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/tf_efficientnet_lite4_in1k.weights.h5",
-        },
-    },
+_BASE_URL = "https://github.com/IMvision12/keras-models/releases/download/v0.1"
+EFFICIENTNET_LITE_WEIGHTS = {
+    variant: {"url": f"{_BASE_URL}/{variant}.weights.h5"}
+    for variant in EFFICIENTNET_LITE_CONFIG
 }

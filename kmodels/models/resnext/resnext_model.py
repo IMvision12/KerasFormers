@@ -1,16 +1,16 @@
 from typing import Optional
 
+import keras
 from keras import layers
 
-from kmodels.model_registry import register_model
 from kmodels.models.resnet.resnet_model import (
     ResNet,
+    ResNetBackbone,
     conv_block,
     squeeze_excitation_block,
 )
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
-from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHTS_CONFIG
+from .config import RESNEXT_CONFIG, RESNEXT_WEIGHTS
 
 
 def resnext_block(
@@ -110,236 +110,69 @@ def resnext_block(
     return x
 
 
-# ResNeXt Variants
-@register_model
-def ResNeXt50_32x4d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="a1_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNeXt50_32x4d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[RESNEXT_MODEL_CONFIG["ResNeXt50_32x4d"]["block_fn"]],
-        block_repeats=RESNEXT_MODEL_CONFIG["ResNeXt50_32x4d"]["block_repeats"],
-        filters=RESNEXT_MODEL_CONFIG["ResNeXt50_32x4d"]["filters"],
-        groups=RESNEXT_MODEL_CONFIG["ResNeXt50_32x4d"]["groups"],
-        width_factor=RESNEXT_MODEL_CONFIG["ResNeXt50_32x4d"]["width_factor"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class ResNeXt(ResNet):
+    """ResNeXt (grouped-convolution ResNet) classifier.
+
+    Same skeleton as :class:`ResNet` but with :func:`resnext_block` and
+    cardinality knobs (``groups`` / ``width_factor``). Variant ids and
+    release weights live in :data:`RESNEXT_CONFIG` / :data:`RESNEXT_WEIGHTS`.
+
+    >>> ResNeXt.from_weights("resnext50_32x4d_a1_in1k")
+    >>> ResNeXt.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
+    """
+
+    KMODELS_CONFIG = RESNEXT_CONFIG
+    KMODELS_WEIGHTS = RESNEXT_WEIGHTS
+
+    def __init__(
+        self,
+        block_fn=resnext_block,
+        block_repeats=[3, 4, 6, 3],
+        filters=[64, 128, 256, 512],
+        groups=32,
+        width_factor=2,
+        name="ResNeXt",
         **kwargs,
-    )
-
-    if weights in get_all_weight_names(RESNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResNeXt50_32x4d", weights, model, RESNEXT_WEIGHTS_CONFIG
+    ):
+        super().__init__(
+            block_fn=block_fn,
+            block_repeats=block_repeats,
+            filters=filters,
+            groups=groups,
+            width_factor=width_factor,
+            name=name,
+            **kwargs,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
 
 
-@register_model
-def ResNeXt101_32x4d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="gluon_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNeXt101_32x4d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[RESNEXT_MODEL_CONFIG["ResNeXt101_32x4d"]["block_fn"]],
-        block_repeats=RESNEXT_MODEL_CONFIG["ResNeXt101_32x4d"]["block_repeats"],
-        filters=RESNEXT_MODEL_CONFIG["ResNeXt101_32x4d"]["filters"],
-        groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x4d"]["groups"],
-        width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x4d"]["width_factor"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class ResNeXtBackbone(ResNetBackbone):
+    """ResNeXt feature extractor (no classifier head)."""
+
+    KMODELS_CONFIG = RESNEXT_CONFIG
+    KMODELS_WEIGHTS = RESNEXT_WEIGHTS
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return ResNeXt
+
+    def __init__(
+        self,
+        block_fn=resnext_block,
+        block_repeats=[3, 4, 6, 3],
+        filters=[64, 128, 256, 512],
+        groups=32,
+        width_factor=2,
+        name="ResNeXtBackbone",
         **kwargs,
-    )
-
-    if weights in get_all_weight_names(RESNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResNeXt101_32x4d", weights, model, RESNEXT_WEIGHTS_CONFIG
+    ):
+        super().__init__(
+            block_fn=block_fn,
+            block_repeats=block_repeats,
+            filters=filters,
+            groups=groups,
+            width_factor=width_factor,
+            name=name,
+            **kwargs,
         )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNeXt101_32x8d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="tv_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNeXt101_32x8d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[RESNEXT_MODEL_CONFIG["ResNeXt101_32x8d"]["block_fn"]],
-        block_repeats=RESNEXT_MODEL_CONFIG["ResNeXt101_32x8d"]["block_repeats"],
-        filters=RESNEXT_MODEL_CONFIG["ResNeXt101_32x8d"]["filters"],
-        groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x8d"]["groups"],
-        width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x8d"]["width_factor"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RESNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResNeXt101_32x8d", weights, model, RESNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNeXt101_32x16d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fb_wsl_ig1b_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNeXt101_32x16d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[RESNEXT_MODEL_CONFIG["ResNeXt101_32x16d"]["block_fn"]],
-        block_repeats=RESNEXT_MODEL_CONFIG["ResNeXt101_32x16d"]["block_repeats"],
-        filters=RESNEXT_MODEL_CONFIG["ResNeXt101_32x16d"]["filters"],
-        groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x16d"]["groups"],
-        width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x16d"]["width_factor"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(RESNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResNeXt101_32x16d", weights, model, RESNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNeXt101_32x32d(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="fb_wsl_ig1b_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNeXt101_32x16d",
-    **kwargs,
-):
-    model = ResNet(
-        block_fn=globals()[RESNEXT_MODEL_CONFIG["ResNeXt101_32x32d"]["block_fn"]],
-        block_repeats=RESNEXT_MODEL_CONFIG["ResNeXt101_32x32d"]["block_repeats"],
-        filters=RESNEXT_MODEL_CONFIG["ResNeXt101_32x32d"]["filters"],
-        groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x32d"]["groups"],
-        width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x32d"]["width_factor"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(RESNEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResNeXt101_32x32d", weights, model, RESNEXT_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model

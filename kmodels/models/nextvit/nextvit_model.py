@@ -2,27 +2,17 @@ import keras
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from kmodels.model_registry import register_model
-from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
+from kmodels.base import BaseModel
+from kmodels.layers import ImageNormalizationLayer
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHTS_CONFIG
+from .config import NEXTVIT_CONFIG, NEXTVIT_WEIGHTS
+from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
 from .nextvit_layers import EfficientAttention
 
 
 def nextvit_conv_attention(x, out_chs, head_dim, channels_axis, data_format, prefix=""):
-    """Multi-Head Convolutional Attention (MHCA).
-
-    Args:
-        x: Input tensor.
-        out_chs: int, number of output channels.
-        head_dim: int, dimension per head (determines number of groups).
-        channels_axis: int, axis for the channel dimension.
-        data_format: string, image data format.
-        prefix: string, name prefix for all sub-layers.
-
-    Returns:
-        Output tensor.
-    """
+    """Multi-Head Convolutional Attention (MHCA)."""
     num_groups = out_chs // head_dim
     out = layers.Conv2D(
         out_chs,
@@ -96,20 +86,7 @@ def _get_stage_block_types(depths):
 def conv_mlp(
     x, in_features, hidden_features, out_features, channels_axis, data_format, prefix=""
 ):
-    """ConvMlp block with two 1x1 convolutions and ReLU activation.
-
-    Args:
-        x: Input tensor.
-        in_features: int, number of input channels.
-        hidden_features: int, number of hidden channels.
-        out_features: int, number of output channels.
-        channels_axis: int, axis for the channel dimension.
-        data_format: string, image data format.
-        prefix: string, name prefix for layers.
-
-    Returns:
-        Output tensor.
-    """
+    """ConvMlp block with two 1x1 convolutions and ReLU activation."""
     x = layers.Conv2D(
         hidden_features,
         1,
@@ -131,20 +108,7 @@ def conv_mlp(
 def patch_embed_block(
     x, in_chs, out_chs, use_pool, channels_axis, data_format, prefix=""
 ):
-    """Patch embedding with optional average pooling and 1x1 projection.
-
-    Args:
-        x: Input tensor.
-        in_chs: int, input channels.
-        out_chs: int, output channels.
-        use_pool: bool, whether to apply 2x2 average pooling.
-        channels_axis: int, axis for the channel dimension.
-        data_format: string, image data format.
-        prefix: string, name prefix for layers.
-
-    Returns:
-        Output tensor.
-    """
+    """Patch embedding with optional average pooling and 1x1 projection."""
     if use_pool:
         x = layers.AveragePooling2D(
             pool_size=2,
@@ -182,23 +146,7 @@ def next_conv_block(
     data_format,
     prefix="",
 ):
-    """NextConvBlock with patch embedding, MHCA, and ConvMLP.
-
-    Args:
-        x: Input tensor.
-        in_chs: int, input channels.
-        out_chs: int, output channels.
-        stride: int, stride for patch embedding (1 or 2).
-        drop_path_rate: float, drop path rate for stochastic depth.
-        head_dim: int, head dimension for MHCA groups.
-        mlp_ratio: float, MLP expansion ratio.
-        channels_axis: int, axis for the channel dimension.
-        data_format: string, image data format.
-        prefix: string, name prefix for layers.
-
-    Returns:
-        Output tensor.
-    """
+    """NextConvBlock with patch embedding, MHCA, and ConvMLP."""
     use_pool = stride == 2
     x = patch_embed_block(
         x, in_chs, out_chs, use_pool, channels_axis, data_format, prefix=prefix
@@ -242,28 +190,7 @@ def next_transformer_block(
     data_format,
     prefix="",
 ):
-    """NextTransformerBlock with E-MHSA and MHCA branches.
-
-    Splits output channels between an E-MHSA branch and an MHCA branch using
-    mix_block_ratio, then concatenates and applies ConvMLP with residual.
-
-    Args:
-        x: Input tensor.
-        in_chs: int, input channels.
-        out_chs: int, output channels.
-        stride: int, stride for patch embedding.
-        drop_path_rate: float, drop path rate.
-        head_dim: int, head dimension.
-        sr_ratio: int, spatial reduction ratio for E-MHSA.
-        mix_block_ratio: float, channel split ratio between MHSA and MHCA.
-        mlp_ratio: float, MLP expansion ratio.
-        channels_axis: int, axis for the channel dimension.
-        data_format: string, image data format.
-        prefix: string, name prefix for layers.
-
-    Returns:
-        Output tensor.
-    """
+    """NextTransformerBlock with E-MHSA and MHCA branches."""
     mhsa_out_chs = _make_divisible(int(out_chs * mix_block_ratio), 32)
     mhca_out_chs = out_chs - mhsa_out_chs
 
@@ -350,46 +277,135 @@ def next_transformer_block(
     return x
 
 
-@keras.saving.register_keras_serializable(package="kmodels")
-class NextViT(keras.Model):
-    """Instantiates the NextViT architecture.
+def _nextvit_features(
+    inputs,
+    *,
+    depths,
+    stem_chs,
+    head_dim,
+    mix_block_ratio,
+    sr_ratios,
+    drop_path_rate,
+    data_format,
+    channels_axis,
+):
+    """Stem + 4 stages + final BN, returning ``[stem, s1..s4]`` (5 maps)."""
+    features = []
 
-    A hybrid CNN-Transformer that combines convolutional attention (MHCA)
-    blocks with efficient multi-head self-attention (E-MHSA) blocks.
+    x = inputs
+    stem_configs = [
+        (3, stem_chs[0], 2),
+        (stem_chs[0], stem_chs[1], 1),
+        (stem_chs[1], stem_chs[2], 1),
+        (stem_chs[2], stem_chs[2], 2),
+    ]
+    for i, (in_c, out_c, stride) in enumerate(stem_configs):
+        if stride == 2:
+            x = layers.ZeroPadding2D(
+                padding=1,
+                data_format=data_format,
+                name=f"stem_{i}_pad",
+            )(x)
+        x = layers.Conv2D(
+            out_c,
+            3,
+            strides=stride,
+            padding="valid" if stride == 2 else "same",
+            use_bias=False,
+            data_format=data_format,
+            name=f"stem_{i}_conv",
+        )(x)
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=1e-5,
+            momentum=0.9,
+            name=f"stem_{i}_norm",
+        )(x)
+        x = layers.Activation("relu", name=f"stem_{i}_act")(x)
+    features.append(x)
+
+    stage_out_chs = _get_stage_out_chs(depths)
+    stage_block_types = _get_stage_block_types(depths)
+    dpr = _calculate_drop_path_rates(drop_path_rate, depths)
+    strides = [1, 2, 2, 2]
+
+    in_chs = stem_chs[-1]
+
+    for stage_idx in range(4):
+        block_chs = stage_out_chs[stage_idx]
+        block_types = stage_block_types[stage_idx]
+
+        for block_idx in range(depths[stage_idx]):
+            stride = strides[stage_idx] if block_idx == 0 else 1
+            out_chs = block_chs[block_idx]
+            block_type = block_types[block_idx]
+            dp_rate = dpr[stage_idx][block_idx]
+            prefix = f"stages_{stage_idx}_blocks_{block_idx}_"
+
+            if block_type == "conv":
+                x = next_conv_block(
+                    x,
+                    in_chs,
+                    out_chs,
+                    stride,
+                    dp_rate,
+                    head_dim,
+                    3.0,
+                    channels_axis,
+                    data_format,
+                    prefix=prefix,
+                )
+            else:
+                x = next_transformer_block(
+                    x,
+                    in_chs,
+                    out_chs,
+                    stride,
+                    dp_rate,
+                    head_dim,
+                    sr_ratios[stage_idx],
+                    mix_block_ratio,
+                    2.0,
+                    channels_axis,
+                    data_format,
+                    prefix=prefix,
+                )
+            in_chs = out_chs
+        features.append(x)
+
+    x = layers.BatchNormalization(
+        axis=channels_axis,
+        epsilon=1e-5,
+        momentum=0.9,
+        name="norm",
+    )(x)
+    features[-1] = x
+
+    return features
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class NextViT(BaseModel):
+    """NextViT classifier (timm-ported).
+
+    A hybrid CNN-Transformer combining MHCA blocks with E-MHSA blocks.
 
     Reference:
-    - [Next-ViT: Next Generation Vision Transformer for Efficient Deployment
-      in Realistic Industrial Scenarios](https://arxiv.org/abs/2207.05501)
+    - [Next-ViT](https://arxiv.org/abs/2207.05501)
 
-    Args:
-        depths: List of integers, number of blocks per stage.
-        stem_chs: List of 3 integers, channel dimensions for the stem.
-        head_dim: int, dimension per attention head. Defaults to ``32``.
-        mix_block_ratio: float, channel split ratio in TransformerBlocks.
-            Defaults to ``0.75``.
-        sr_ratios: List of integers, spatial reduction ratios per stage.
-            Defaults to ``[8, 4, 2, 1]``.
-        drop_path_rate: float, maximum drop path rate. Defaults to ``0.1``.
-        include_top: bool, whether to include the classification head.
-            Defaults to ``True``.
-        as_backbone: bool, whether to output intermediate feature maps.
-            Defaults to ``False``.
-        include_normalization: bool, whether to include input normalization.
-            Defaults to ``True``.
-        normalization_mode: string, normalization mode. Defaults to ``"imagenet"``.
-        weights: string, path to pretrained weights or weight identifier.
-        input_shape: Optional tuple, shape of the input data.
-        input_tensor: Optional Keras tensor to use as model input.
-        pooling: Optional string, pooling mode when ``include_top=False``:
-            ``None``, ``"avg"``, or ``"max"``.
-        num_classes: int, number of output classes. Defaults to ``1000``.
-        classifier_activation: string or callable, activation for the
-            classification head. Defaults to ``"softmax"``.
-        name: string, model name. Defaults to ``"NextViT"``.
+    Construction:
 
-    Returns:
-        A Keras ``Model`` instance.
+    >>> NextViT.from_weights("nextvit_small_bd_in1k")
+    >>> NextViT.from_weights("timm:timm/nextvit_small.bd_in1k")
     """
+
+    KMODELS_CONFIG = NEXTVIT_CONFIG
+    KMODELS_WEIGHTS = NEXTVIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_nextvit_weights(keras_model, state_dict)
 
     def __init__(
         self,
@@ -399,176 +415,64 @@ class NextViT(keras.Model):
         mix_block_ratio=0.75,
         sr_ratios=(8, 4, 2, 1),
         drop_path_rate=0.1,
-        include_top=True,
-        as_backbone=False,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights=None,
         input_shape=None,
         input_tensor=None,
-        pooling=None,
         num_classes=1000,
-        classifier_activation="softmax",
+        classifier_activation="linear",
         name="NextViT",
         **kwargs,
     ):
-        if include_top and num_classes is None:
-            raise ValueError(
-                "If `include_top` is True, `num_classes` must be specified. "
-                f"Received: {num_classes}"
-            )
-
-        if include_top and as_backbone:
-            raise ValueError(
-                "Cannot use `as_backbone=True` with `include_top=True`. "
-                f"Received: as_backbone={as_backbone}, include_top={include_top}"
-            )
-
-        if pooling is not None and pooling not in ["avg", "max"]:
-            raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
-            )
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=224,
+            default_size=image_size,
             min_size=32,
             data_format=data_format,
-            require_flatten=include_top,
-            weights=weights,
+            require_flatten=True,
+            weights=None,
         )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
-            if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-            else:
-                img_input = input_tensor
+            img_input = input_tensor
 
-        inputs = img_input
-
-        if include_normalization:
-            from kmodels.layers import ImageNormalizationLayer
-
-            x = ImageNormalizationLayer(mode=normalization_mode)(inputs)
-        else:
-            x = inputs
-
-        stem_configs = [
-            (3, stem_chs[0], 2),
-            (stem_chs[0], stem_chs[1], 1),
-            (stem_chs[1], stem_chs[2], 1),
-            (stem_chs[2], stem_chs[2], 2),
-        ]
-        for i, (in_c, out_c, stride) in enumerate(stem_configs):
-            if stride == 2:
-                x = layers.ZeroPadding2D(
-                    padding=1,
-                    data_format=data_format,
-                    name=f"stem_{i}_pad",
-                )(x)
-            x = layers.Conv2D(
-                out_c,
-                3,
-                strides=stride,
-                padding="valid" if stride == 2 else "same",
-                use_bias=False,
-                data_format=data_format,
-                name=f"stem_{i}_conv",
-            )(x)
-            x = layers.BatchNormalization(
-                axis=channels_axis,
-                epsilon=1e-5,
-                momentum=0.9,
-                name=f"stem_{i}_norm",
-            )(x)
-            x = layers.Activation("relu", name=f"stem_{i}_act")(x)
-
-        stage_out_chs = _get_stage_out_chs(depths)
-        stage_block_types = _get_stage_block_types(depths)
-        dpr = _calculate_drop_path_rates(drop_path_rate, depths)
-        strides = [1, 2, 2, 2]
-
-        in_chs = stem_chs[-1]
-
-        for stage_idx in range(4):
-            block_chs = stage_out_chs[stage_idx]
-            block_types = stage_block_types[stage_idx]
-
-            for block_idx in range(depths[stage_idx]):
-                stride = strides[stage_idx] if block_idx == 0 else 1
-                out_chs = block_chs[block_idx]
-                block_type = block_types[block_idx]
-                dp_rate = dpr[stage_idx][block_idx]
-                prefix = f"stages_{stage_idx}_blocks_{block_idx}_"
-
-                if block_type == "conv":
-                    x = next_conv_block(
-                        x,
-                        in_chs,
-                        out_chs,
-                        stride,
-                        dp_rate,
-                        head_dim,
-                        3.0,
-                        channels_axis,
-                        data_format,
-                        prefix=prefix,
-                    )
-                else:
-                    x = next_transformer_block(
-                        x,
-                        in_chs,
-                        out_chs,
-                        stride,
-                        dp_rate,
-                        head_dim,
-                        sr_ratios[stage_idx],
-                        mix_block_ratio,
-                        2.0,
-                        channels_axis,
-                        data_format,
-                        prefix=prefix,
-                    )
-                in_chs = out_chs
-
-        x = layers.BatchNormalization(
-            axis=channels_axis,
-            epsilon=1e-5,
-            momentum=0.9,
-            name="norm",
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _nextvit_features(
+            x,
+            depths=depths,
+            stem_chs=stem_chs,
+            head_dim=head_dim,
+            mix_block_ratio=mix_block_ratio,
+            sr_ratios=sr_ratios,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+        x = layers.GlobalAveragePooling2D(
+            data_format=data_format,
+            name="head_global_pool",
+        )(features[-1])
+        x = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="head_fc",
         )(x)
 
-        if include_top:
-            x = layers.GlobalAveragePooling2D(
-                data_format=data_format,
-                name="head_global_pool",
-            )(x)
-            x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="head_fc",
-            )(x)
-        elif as_backbone:
-            pass
-        else:
-            if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(
-                    data_format=data_format,
-                    name="avg_pool",
-                )(x)
-            elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(
-                    data_format=data_format,
-                    name="max_pool",
-                )(x)
-
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.depths = list(depths)
         self.stem_chs = list(stem_chs)
@@ -576,12 +480,10 @@ class NextViT(keras.Model):
         self.mix_block_ratio = mix_block_ratio
         self.sr_ratios = list(sr_ratios)
         self.drop_path_rate = drop_path_rate
-        self.include_top = include_top
-        self.as_backbone = as_backbone
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
-        self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
 
@@ -595,17 +497,14 @@ class NextViT(keras.Model):
                 "mix_block_ratio": self.mix_block_ratio,
                 "sr_ratios": self.sr_ratios,
                 "drop_path_rate": self.drop_path_rate,
-                "include_top": self.include_top,
-                "as_backbone": self.as_backbone,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
-                "pooling": self.pooling,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
-                "trainable": self.trainable,
             }
         )
         return config
@@ -615,121 +514,119 @@ class NextViT(keras.Model):
         return cls(**config)
 
 
-@register_model
-def NextViTSmall(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="bd_in1k_224",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="NextViTSmall",
-    **kwargs,
-):
-    model = NextViT(
-        **NEXTVIT_MODEL_CONFIG["NextViTSmall"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
+@keras.saving.register_keras_serializable(package="kmodels")
+class NextViTBackbone(BaseModel):
+    """NextViT feature extractor. Returns ``[stem, s1..s4]`` (5 maps)."""
+
+    KMODELS_CONFIG = NEXTVIT_CONFIG
+    KMODELS_WEIGHTS = NEXTVIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return NextViT
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_nextvit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths=(3, 4, 10, 3),
+        stem_chs=(64, 32, 64),
+        head_dim=32,
+        mix_block_ratio=0.75,
+        sr_ratios=(8, 4, 2, 1),
+        drop_path_rate=0.1,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="NextViTBackbone",
         **kwargs,
-    )
-    if weights in get_all_weight_names(NEXTVIT_WEIGHTS_CONFIG):
-        load_weights_from_config("NextViTSmall", weights, model, NEXTVIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
 
-    return model
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
 
-@register_model
-def NextViTBase(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="bd_in1k_224",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="NextViTBase",
-    **kwargs,
-):
-    model = NextViT(
-        **NEXTVIT_MODEL_CONFIG["NextViTBase"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(NEXTVIT_WEIGHTS_CONFIG):
-        load_weights_from_config("NextViTBase", weights, model, NEXTVIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
 
-    return model
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _nextvit_features(
+            x,
+            depths=depths,
+            stem_chs=stem_chs,
+            head_dim=head_dim,
+            mix_block_ratio=mix_block_ratio,
+            sr_ratios=sr_ratios,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
 
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
-@register_model
-def NextViTLarge(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="bd_in1k_224",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="NextViTLarge",
-    **kwargs,
-):
-    model = NextViT(
-        **NEXTVIT_MODEL_CONFIG["NextViTLarge"],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights in get_all_weight_names(NEXTVIT_WEIGHTS_CONFIG):
-        load_weights_from_config("NextViTLarge", weights, model, NEXTVIT_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+        self.depths = list(depths)
+        self.stem_chs = list(stem_chs)
+        self.head_dim = head_dim
+        self.mix_block_ratio = mix_block_ratio
+        self.sr_ratios = list(sr_ratios)
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
 
-    return model
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "stem_chs": self.stem_chs,
+                "head_dim": self.head_dim,
+                "mix_block_ratio": self.mix_block_ratio,
+                "sr_ratios": self.sr_ratios,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
