@@ -1,15 +1,15 @@
-"""FlexiViT as a thin :class:`ViT` subclass (timm-ported)."""
+"""FlexiViT as a thin :class:`ViTClassify` subclass (timm-ported)."""
 
 import keras
 
 from kmodels.models.vit.convert_vit_torch_to_keras import transfer_vit_weights
-from kmodels.models.vit.vit_model import ViT, ViTBackbone
+from kmodels.models.vit.vit_model import ViTBackbone, ViTClassify, ViTModel
 
 from .config import FLEXIVIT_CONFIG, FLEXIVIT_WEIGHTS
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class FlexiViT(ViT):
+class FlexiViTClassify(ViTClassify):
     """FlexiViT classifier (no_embed_class=True for flexible patch sizes).
 
     Reference:
@@ -17,8 +17,8 @@ class FlexiViT(ViT):
 
     Construction:
 
-    >>> FlexiViT.from_weights("flexivit_base_1200ep_in1k")
-    >>> FlexiViT.from_weights("timm:timm/flexivit_base.1200ep_in1k")
+    >>> FlexiViTClassify.from_weights("flexivit_base_1200ep_in1k")
+    >>> FlexiViTClassify.from_weights("timm:timm/flexivit_base.1200ep_in1k")
     """
 
     KMODELS_CONFIG = FLEXIVIT_CONFIG
@@ -29,7 +29,7 @@ class FlexiViT(ViT):
     def transfer_from_timm(cls, keras_model, state_dict):
         transfer_vit_weights(keras_model, state_dict)
 
-    def __init__(self, name="FlexiViT", **kwargs):
+    def __init__(self, name="FlexiViTClassify", **kwargs):
         super().__init__(name=name, **kwargs)
 
 
@@ -43,11 +43,31 @@ class FlexiViTBackbone(ViTBackbone):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return FlexiViT
+        return FlexiViTClassify
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
         transfer_vit_weights(keras_model, state_dict)
 
     def __init__(self, name="FlexiViTBackbone", **kwargs):
+        super().__init__(name=name, **kwargs)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class FlexiViTModel(ViTModel):
+    """FlexiViT trunk returning the final feature as a 4D map."""
+
+    KMODELS_CONFIG = FLEXIVIT_CONFIG
+    KMODELS_WEIGHTS = FLEXIVIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return FlexiViTClassify
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_vit_weights(keras_model, state_dict)
+
+    def __init__(self, name="FlexiViTModel", **kwargs):
         super().__init__(name=name, **kwargs)

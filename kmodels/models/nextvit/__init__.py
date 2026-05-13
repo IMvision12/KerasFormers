@@ -1,3 +1,7 @@
-from kmodels.models.nextvit.nextvit_model import NextViT, NextViTBackbone
+from kmodels.models.nextvit.nextvit_model import (
+    NextViTBackbone,
+    NextViTClassify,
+    NextViTModel,
+)
 
-__all__ = ["NextViT", "NextViTBackbone"]
+__all__ = ["NextViTClassify", "NextViTModel", "NextViTBackbone"]

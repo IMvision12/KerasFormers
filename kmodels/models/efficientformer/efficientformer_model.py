@@ -263,7 +263,7 @@ def _efficientformer_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class EfficientFormer(BaseModel):
+class EfficientFormerClassify(BaseModel):
     """EfficientFormer classifier (timm-ported).
 
     Reference:
@@ -271,8 +271,8 @@ class EfficientFormer(BaseModel):
 
     Construction:
 
-    >>> EfficientFormer.from_weights("efficientformer_l1_snap_dist_in1k")
-    >>> EfficientFormer.from_weights("timm:timm/efficientformer_l1.snap_dist_in1k")
+    >>> EfficientFormerClassify.from_weights("efficientformer_l1_snap_dist_in1k")
+    >>> EfficientFormerClassify.from_weights("timm:timm/efficientformer_l1.snap_dist_in1k")
     """
 
     KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
@@ -300,7 +300,7 @@ class EfficientFormer(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="EfficientFormer",
+        name="EfficientFormerClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -421,7 +421,7 @@ class EfficientFormerBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return EfficientFormer
+        return EfficientFormerClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -506,6 +506,152 @@ class EfficientFormerBackbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.depths = depths
+        self.embed_dims = embed_dims
+        self.num_vit = num_vit
+        self.mlp_ratio = mlp_ratio
+        self.pool_size = pool_size
+        self.drop_rate = drop_rate
+        self.drop_path_rate = drop_path_rate
+        self.layer_scale_init_value = layer_scale_init_value
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "embed_dims": self.embed_dims,
+                "num_vit": self.num_vit,
+                "mlp_ratio": self.mlp_ratio,
+                "pool_size": self.pool_size,
+                "drop_rate": self.drop_rate,
+                "drop_path_rate": self.drop_path_rate,
+                "layer_scale_init_value": self.layer_scale_init_value,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class EfficientFormerModel(BaseModel):
+    """EfficientFormer trunk returning the final feature map ``(B, H, W, C)``.
+
+    If the final stage contains transformer blocks, the 1D token sequence is
+    reshaped back to a 4D grid before being returned.
+    """
+
+    KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return EfficientFormerClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_efficientformer_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths,
+        embed_dims,
+        num_vit=1,
+        mlp_ratio=4.0,
+        pool_size=3,
+        drop_rate=0.0,
+        drop_path_rate=0.0,
+        layer_scale_init_value=1e-5,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="EfficientFormerModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if data_format == "channels_last":
+            image_h = input_shape[0]
+        else:
+            image_h = input_shape[1]
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _efficientformer_features(
+            x,
+            depths=depths,
+            embed_dims=embed_dims,
+            num_vit=num_vit,
+            mlp_ratio=mlp_ratio,
+            pool_size=pool_size,
+            drop_rate=drop_rate,
+            drop_path_rate=drop_path_rate,
+            layer_scale_init_value=layer_scale_init_value,
+            image_h=image_h,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        last = features[-1]
+        # If last stage is 1D (transformer tokens), reshape back to (B, H, W, C).
+        if len(last.shape) == 3:
+            num_stages = len(depths)
+            grid = image_h // (4 * (2 ** (num_stages - 1)))
+            ch = embed_dims[-1]
+            last = layers.Reshape((grid, grid, ch), name="final_unflatten")(last)
+            if data_format == "channels_first":
+                last = layers.Permute((3, 1, 2), name="final_to_cf")(last)
+
+        super().__init__(inputs=img_input, outputs=last, name=name, **kwargs)
 
         self.depths = depths
         self.embed_dims = embed_dims

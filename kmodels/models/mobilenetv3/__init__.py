@@ -1,6 +1,7 @@
 from kmodels.models.mobilenetv3.mobilenetv3_model import (
-    MobileNetV3,
     MobileNetV3Backbone,
+    MobileNetV3Classify,
+    MobileNetV3Model,
 )
 
-__all__ = ["MobileNetV3", "MobileNetV3Backbone"]
+__all__ = ["MobileNetV3Backbone", "MobileNetV3Classify", "MobileNetV3Model"]

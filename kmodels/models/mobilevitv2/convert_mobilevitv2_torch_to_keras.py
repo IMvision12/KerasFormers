@@ -87,7 +87,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.mobilevitv2 import MobileViTV2
+    from kmodels.models.mobilevitv2 import MobileViTV2Classify as MobileViTV2
     from kmodels.models.mobilevitv2.config import MOBILEVITV2_CONFIG
 
     for variant, cfg in MOBILEVITV2_CONFIG.items():

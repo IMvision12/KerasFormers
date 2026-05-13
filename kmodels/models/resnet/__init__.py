@@ -1,3 +1,7 @@
-from kmodels.models.resnet.resnet_model import ResNet, ResNetBackbone
+from kmodels.models.resnet.resnet_model import (
+    ResNetBackbone,
+    ResNetClassify,
+    ResNetModel,
+)
 
-__all__ = ["ResNet", "ResNetBackbone"]
+__all__ = ["ResNetBackbone", "ResNetClassify", "ResNetModel"]

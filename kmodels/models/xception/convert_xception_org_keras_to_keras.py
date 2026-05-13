@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # ``keras.applications.Xception``. Run once to regenerate the release.
     import keras
 
-    from kmodels.models.xception import Xception
+    from kmodels.models.xception import XceptionClassify
 
     original_model = keras.applications.Xception(
         input_shape=(299, 299, 3),
@@ -48,7 +48,7 @@ if __name__ == "__main__":
         include_top=True,
     )
 
-    custom_model = Xception.from_weights("xception_in1k", load_weights=False)
+    custom_model = XceptionClassify.from_weights("xception_in1k", load_weights=False)
     custom_model.set_weights(original_model.get_weights())
     custom_model.save_weights("xception_in1k.weights.h5")
     print("Saved -> xception_in1k.weights.h5")

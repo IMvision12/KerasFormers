@@ -73,7 +73,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.nextvit import NextViT
+    from kmodels.models.nextvit import NextViTClassify as NextViT
     from kmodels.models.nextvit.config import NEXTVIT_CONFIG
 
     for variant, cfg in NEXTVIT_CONFIG.items():

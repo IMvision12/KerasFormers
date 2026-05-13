@@ -385,7 +385,7 @@ def _nextvit_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class NextViT(BaseModel):
+class NextViTClassify(BaseModel):
     """NextViT classifier (timm-ported).
 
     A hybrid CNN-Transformer combining MHCA blocks with E-MHSA blocks.
@@ -422,7 +422,7 @@ class NextViT(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="NextViT",
+        name="NextViTClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -515,6 +515,124 @@ class NextViT(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
+class NextViTModel(BaseModel):
+    """NextViT trunk returning the final stage feature map (B, H, W, C)."""
+
+    KMODELS_CONFIG = NEXTVIT_CONFIG
+    KMODELS_WEIGHTS = NEXTVIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return NextViTClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_nextvit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths=(3, 4, 10, 3),
+        stem_chs=(64, 32, 64),
+        head_dim=32,
+        mix_block_ratio=0.75,
+        sr_ratios=(8, 4, 2, 1),
+        drop_path_rate=0.1,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="NextViTModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _nextvit_features(
+            x,
+            depths=depths,
+            stem_chs=stem_chs,
+            head_dim=head_dim,
+            mix_block_ratio=mix_block_ratio,
+            sr_ratios=sr_ratios,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+
+        self.depths = list(depths)
+        self.stem_chs = list(stem_chs)
+        self.head_dim = head_dim
+        self.mix_block_ratio = mix_block_ratio
+        self.sr_ratios = list(sr_ratios)
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "stem_chs": self.stem_chs,
+                "head_dim": self.head_dim,
+                "mix_block_ratio": self.mix_block_ratio,
+                "sr_ratios": self.sr_ratios,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
 class NextViTBackbone(BaseModel):
     """NextViT feature extractor. Returns ``[stem, s1..s4]`` (5 maps)."""
 
@@ -524,7 +642,7 @@ class NextViTBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return NextViT
+        return NextViTClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):

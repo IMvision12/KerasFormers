@@ -77,7 +77,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.resmlp import ResMLP
+    from kmodels.models.resmlp import ResMLPClassify
     from kmodels.models.resmlp.config import RESMLP_CONFIG
 
     for variant, cfg in RESMLP_CONFIG.items():
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ResMLP.from_weights(variant, load_weights=False)
+        keras_model = ResMLPClassify.from_weights(variant, load_weights=False)
         transfer_resmlp_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

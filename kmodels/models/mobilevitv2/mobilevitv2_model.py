@@ -330,7 +330,7 @@ def _mobilevitv2_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MobileViTV2(BaseModel):
+class MobileViTV2Classify(BaseModel):
     """MobileViTV2 classifier (timm-ported).
 
     Reference:
@@ -361,7 +361,7 @@ class MobileViTV2(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MobileViTV2",
+        name="MobileViTV2Classify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -438,6 +438,104 @@ class MobileViTV2(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
+class MobileViTV2Model(BaseModel):
+    """MobileViTV2 trunk returning the final stage feature map."""
+
+    KMODELS_CONFIG = MOBILEVITV2_CONFIG
+    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return MobileViTV2Classify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_mobilevitv2_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        multiplier=1.0,
+        image_size=256,
+        include_normalization=True,
+        normalization_mode="zero_to_one",
+        input_shape=None,
+        input_tensor=None,
+        name="MobileViTV2Model",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _mobilevitv2_features(
+            x,
+            multiplier=multiplier,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+
+        self.multiplier = multiplier
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "multiplier": self.multiplier,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
 class MobileViTV2Backbone(BaseModel):
     """MobileViTV2 feature extractor (no classifier head)."""
 
@@ -447,7 +545,7 @@ class MobileViTV2Backbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return MobileViTV2
+        return MobileViTV2Classify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):

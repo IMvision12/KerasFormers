@@ -1,7 +1,13 @@
 from kmodels.models.resnext.resnext_model import (
-    ResNeXt,
     ResNeXtBackbone,
+    ResNeXtClassify,
+    ResNeXtModel,
     resnext_block,
 )
 
-__all__ = ["ResNeXt", "ResNeXtBackbone", "resnext_block"]
+__all__ = [
+    "ResNeXtBackbone",
+    "ResNeXtClassify",
+    "ResNeXtModel",
+    "resnext_block",
+]

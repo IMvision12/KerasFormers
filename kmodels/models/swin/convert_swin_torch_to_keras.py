@@ -36,7 +36,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_swin_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm Swin state-dict into a Keras :class:`Swin`."""
+    """Transfer a timm Swin state-dict into a Keras :class:`SwinClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.swin import Swin
+    from kmodels.models.swin import SwinClassify
     from kmodels.models.swin.config import SWIN_CONFIG
 
     for variant, cfg in SWIN_CONFIG.items():
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = Swin.from_weights(variant, load_weights=False)
+        keras_model = SwinClassify.from_weights(variant, load_weights=False)
         transfer_swin_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

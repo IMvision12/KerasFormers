@@ -1,4 +1,4 @@
-"""timm ConvNeXtV2 -> Keras weight transfer (shares ConvNeXt mapping)."""
+"""timm ConvNeXtV2Classify -> Keras weight transfer (shares ConvNeXt mapping)."""
 
 from kmodels.models.convnext.convert_convnext_torch_to_keras import (
     transfer_convnext_weights as transfer_convnextv2_weights,
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.convnextv2 import ConvNeXtV2
+    from kmodels.models.convnextv2 import ConvNeXtV2Classify
     from kmodels.models.convnextv2.config import CONVNEXTV2_CONFIG
 
     for variant, cfg in CONVNEXTV2_CONFIG.items():
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ConvNeXtV2.from_weights(variant, load_weights=False)
+        keras_model = ConvNeXtV2Classify.from_weights(variant, load_weights=False)
         transfer_convnextv2_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

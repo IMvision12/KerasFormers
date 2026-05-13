@@ -165,7 +165,7 @@ def _cait_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class CaiT(BaseModel):
+class CaiTClassify(BaseModel):
     """Class-Attention in Image Transformers classifier (timm-ported).
 
     Reference:
@@ -173,8 +173,8 @@ class CaiT(BaseModel):
 
     Construction:
 
-    >>> CaiT.from_weights("cait_s24_224_fb_dist_in1k")
-    >>> CaiT.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
+    >>> CaiTClassify.from_weights("cait_s24_224_fb_dist_in1k")
+    >>> CaiTClassify.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
     """
 
     KMODELS_CONFIG = CAIT_CONFIG
@@ -199,7 +199,7 @@ class CaiT(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="CaiT",
+        name="CaiTClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -292,7 +292,7 @@ class CaiTBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return CaiT
+        return CaiTClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -360,6 +360,136 @@ class CaiTBackbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
+
+        self.patch_size = patch_size
+        self.embed_dim = embed_dim
+        self.depth = depth
+        self.num_heads = num_heads
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "embed_dim": self.embed_dim,
+                "depth": self.depth,
+                "num_heads": self.num_heads,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class CaiTModel(BaseModel):
+    """CaiT trunk returning the final feature as a 4D map.
+
+    Drops the cls token from the final encoder output and reshapes the
+    remaining patch tokens to ``(B, H, W, D)``. For raw tokens use
+    :class:`CaiTBackbone`; for class logits use :class:`CaiTClassify`.
+    """
+
+    KMODELS_CONFIG = CAIT_CONFIG
+    KMODELS_WEIGHTS = CAIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return CaiTClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_cait_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        patch_size=16,
+        embed_dim=192,
+        depth=24,
+        num_heads=4,
+        drop_path_rate=0.0,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="CaiTModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        if data_format == "channels_first":
+            _, h_in, w_in = input_shape
+        else:
+            h_in, w_in, _ = input_shape
+        grid_h = h_in // patch_size
+        grid_w = w_in // patch_size
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        x = _cait_features(
+            x,
+            patch_size=patch_size,
+            embed_dim=embed_dim,
+            depth=depth,
+            num_heads=num_heads,
+            drop_path_rate=drop_path_rate,
+            image_size=image_size,
+            data_format=data_format,
+        )
+
+        patches = layers.Lambda(lambda v: v[:, 1:], name="drop_prefix_tokens")(x)
+        feat = layers.Reshape((grid_h, grid_w, embed_dim), name="tokens_to_grid")(
+            patches
+        )
+
+        super().__init__(inputs=img_input, outputs=feat, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.embed_dim = embed_dim

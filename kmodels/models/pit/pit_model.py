@@ -100,12 +100,15 @@ def _pit_features(
     image_size,
     data_format,
     return_stages=False,
+    return_final_spatial=False,
 ):
     """PiT stem + pooling-attention stages.
 
     Returns the final pre-norm tokens (cls + dist if distilled), already
     sliced to the class/dist tokens. When ``return_stages=True``, returns
-    a list ``[stem, stage1, stage2, ..., stageN, cls_dist_norm]``.
+    a list ``[stem, stage1, stage2, ..., stageN, cls_dist_norm]``. When
+    ``return_final_spatial=True``, returns the final stage's spatial feature
+    map of shape ``(B, H, W, C)`` (or channels_first equivalent).
     """
     if data_format == "channels_first":
         _, height, width = inputs.shape[1:]
@@ -168,6 +171,18 @@ def _pit_features(
     cls_dist = x[:, : 2 if distilled else 1]
     cls_dist = layers.LayerNormalization(epsilon=1e-6, axis=-1, name="norm")(cls_dist)
 
+    if return_final_spatial:
+        nb_tokens = 2 if distilled else 1
+        final_channels = embed_dim[-1]
+        spatial = x[:, nb_tokens:]
+        spatial = layers.Reshape(
+            (input_size[0], input_size[1], final_channels),
+            name="final_spatial_reshape",
+        )(spatial)
+        if data_format == "channels_first":
+            spatial = layers.Permute((3, 1, 2), name="final_spatial_to_cf")(spatial)
+        return spatial
+
     if return_stages:
         stages.append(cls_dist)
         return stages
@@ -175,7 +190,7 @@ def _pit_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class PiT(BaseModel):
+class PiTClassify(BaseModel):
     """Pooling-based Vision Transformer classifier (timm-ported).
 
     Reference:
@@ -183,8 +198,8 @@ class PiT(BaseModel):
 
     Construction:
 
-    >>> PiT.from_weights("pit_b_224_in1k")
-    >>> PiT.from_weights("timm:timm/pit_b_224.in1k")
+    >>> PiTClassify.from_weights("pit_b_224_in1k")
+    >>> PiTClassify.from_weights("timm:timm/pit_b_224.in1k")
     """
 
     KMODELS_CONFIG = PIT_CONFIG
@@ -212,7 +227,7 @@ class PiT(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="PiT",
+        name="PiTClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -333,7 +348,7 @@ class PiTBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return PiT
+        return PiTClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -407,6 +422,132 @@ class PiTBackbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=cls_dist, name=name, **kwargs)
+
+        self.patch_size = patch_size
+        self.stride = stride
+        self.embed_dim = embed_dim
+        self.depth = depth
+        self.heads = heads
+        self.mlp_ratio = mlp_ratio
+        self.distilled = distilled
+        self.drop_rate = drop_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "stride": self.stride,
+                "embed_dim": self.embed_dim,
+                "depth": self.depth,
+                "heads": self.heads,
+                "mlp_ratio": self.mlp_ratio,
+                "distilled": self.distilled,
+                "drop_rate": self.drop_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class PiTModel(BaseModel):
+    """PiT trunk returning the final stage spatial feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = PIT_CONFIG
+    KMODELS_WEIGHTS = PIT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return PiTClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_pit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        patch_size=16,
+        stride=8,
+        embed_dim=(64, 128, 256),
+        depth=(2, 6, 4),
+        heads=(2, 4, 8),
+        mlp_ratio=4.0,
+        distilled=False,
+        drop_rate=0.0,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_tensor=None,
+        input_shape=None,
+        name="PiTModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        spatial = _pit_features(
+            x,
+            patch_size=patch_size,
+            stride=stride,
+            embed_dim=embed_dim,
+            depth=depth,
+            heads=heads,
+            mlp_ratio=mlp_ratio,
+            distilled=distilled,
+            drop_rate=drop_rate,
+            image_size=image_size,
+            data_format=data_format,
+            return_final_spatial=True,
+        )
+
+        super().__init__(inputs=img_input, outputs=spatial, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.stride = stride

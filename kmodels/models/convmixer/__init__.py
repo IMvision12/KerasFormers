@@ -1,3 +1,7 @@
-from kmodels.models.convmixer.convmixer_model import ConvMixer, ConvMixerBackbone
+from kmodels.models.convmixer.convmixer_model import (
+    ConvMixerBackbone,
+    ConvMixerClassify,
+    ConvMixerModel,
+)
 
-__all__ = ["ConvMixer", "ConvMixerBackbone"]
+__all__ = ["ConvMixerClassify", "ConvMixerModel", "ConvMixerBackbone"]

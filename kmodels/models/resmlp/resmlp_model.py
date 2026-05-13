@@ -132,7 +132,7 @@ def _resmlp_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ResMLP(BaseModel):
+class ResMLPClassify(BaseModel):
     """ResMLP classifier (timm-ported).
 
     Reference:
@@ -141,8 +141,8 @@ class ResMLP(BaseModel):
 
     Construction:
 
-    >>> ResMLP.from_weights("resmlp_12_224_fb_in1k")
-    >>> ResMLP.from_weights("timm:timm/resmlp_12_224.fb_in1k")
+    >>> ResMLPClassify.from_weights("resmlp_12_224_fb_in1k")
+    >>> ResMLPClassify.from_weights("timm:timm/resmlp_12_224.fb_in1k")
     """
 
     KMODELS_CONFIG = RESMLP_CONFIG
@@ -169,7 +169,7 @@ class ResMLP(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ResMLP",
+        name="ResMLPClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -269,7 +269,7 @@ class ResMLPBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return ResMLP
+        return ResMLPClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -340,6 +340,138 @@ class ResMLPBackbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.patch_size = patch_size
+        self.embed_dim = embed_dim
+        self.depth = depth
+        self.mlp_ratio = mlp_ratio
+        self.init_values = init_values
+        self.drop_rate = drop_rate
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "embed_dim": self.embed_dim,
+                "depth": self.depth,
+                "mlp_ratio": self.mlp_ratio,
+                "init_values": self.init_values,
+                "drop_rate": self.drop_rate,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class ResMLPModel(BaseModel):
+    """ResMLP trunk returning the final token grid as ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = RESMLP_CONFIG
+    KMODELS_WEIGHTS = RESMLP_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return ResMLPClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_resmlp_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        patch_size=16,
+        embed_dim=384,
+        depth=12,
+        mlp_ratio=4,
+        init_values=1e-4,
+        drop_rate=0.0,
+        drop_path_rate=0.0,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        name="ResMLPModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _resmlp_features(
+            x,
+            patch_size=patch_size,
+            embed_dim=embed_dim,
+            depth=depth,
+            mlp_ratio=mlp_ratio,
+            init_values=init_values,
+            drop_path_rate=drop_path_rate,
+            input_shape=input_shape,
+            data_format=data_format,
+        )
+
+        if data_format == "channels_first":
+            height, width = input_shape[1], input_shape[2]
+        else:
+            height, width = input_shape[0], input_shape[1]
+        grid_h = height // patch_size
+        grid_w = width // patch_size
+        out = layers.Reshape((grid_h, grid_w, embed_dim), name="final_unflatten")(
+            features[-1]
+        )
+        if data_format == "channels_first":
+            out = layers.Permute((3, 1, 2), name="final_to_cf")(out)
+
+        super().__init__(inputs=img_input, outputs=out, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.embed_dim = embed_dim

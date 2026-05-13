@@ -98,7 +98,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.maxvit import MaxViT
+    from kmodels.models.maxvit import MaxViTClassify as MaxViT
     from kmodels.models.maxvit.config import MAXVIT_CONFIG
 
     for variant, cfg in MAXVIT_CONFIG.items():

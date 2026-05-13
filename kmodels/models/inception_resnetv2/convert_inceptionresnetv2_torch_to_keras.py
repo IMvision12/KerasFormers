@@ -111,7 +111,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.inception_resnetv2 import InceptionResNetV2
+    from kmodels.models.inception_resnetv2 import InceptionResNetV2Classify
     from kmodels.models.inception_resnetv2.config import INCEPTION_RESNET_V2_CONFIG
 
     for variant, cfg in INCEPTION_RESNET_V2_CONFIG.items():
@@ -121,7 +121,9 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = InceptionResNetV2.from_weights(variant, load_weights=False)
+        keras_model = InceptionResNetV2Classify.from_weights(
+            variant, load_weights=False
+        )
         transfer_inception_resnet_v2_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

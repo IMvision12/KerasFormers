@@ -1,3 +1,7 @@
-from kmodels.models.senet.senet_model import SENet, SENetBackbone
+from kmodels.models.senet.senet_model import (
+    SENetBackbone,
+    SENetClassify,
+    SENetModel,
+)
 
-__all__ = ["SENet", "SENetBackbone"]
+__all__ = ["SENetBackbone", "SENetClassify", "SENetModel"]

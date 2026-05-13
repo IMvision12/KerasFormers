@@ -1,3 +1,3 @@
-from kmodels.models.mit.mit_model import MiT, MiTBackbone
+from kmodels.models.mit.mit_model import MiTBackbone, MiTClassify, MiTModel
 
-__all__ = ["MiT", "MiTBackbone"]
+__all__ = ["MiTBackbone", "MiTClassify", "MiTModel"]

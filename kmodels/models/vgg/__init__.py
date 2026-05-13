@@ -1,3 +1,3 @@
-from kmodels.models.vgg.vgg_model import VGG, VGGBackbone
+from kmodels.models.vgg.vgg_model import VGGBackbone, VGGClassify, VGGModel
 
-__all__ = ["VGG", "VGGBackbone"]
+__all__ = ["VGGBackbone", "VGGClassify", "VGGModel"]

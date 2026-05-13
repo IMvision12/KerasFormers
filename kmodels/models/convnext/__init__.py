@@ -1,3 +1,7 @@
-from kmodels.models.convnext.convnext_model import ConvNeXt, ConvNeXtBackbone
+from kmodels.models.convnext.convnext_model import (
+    ConvNeXtBackbone,
+    ConvNeXtClassify,
+    ConvNeXtModel,
+)
 
-__all__ = ["ConvNeXt", "ConvNeXtBackbone"]
+__all__ = ["ConvNeXtClassify", "ConvNeXtModel", "ConvNeXtBackbone"]

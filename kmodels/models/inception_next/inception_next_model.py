@@ -162,7 +162,7 @@ def _inception_next_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class InceptionNext(BaseModel):
+class InceptionNextClassify(BaseModel):
     """InceptionNeXt classifier (timm-ported).
 
     Reference:
@@ -170,8 +170,8 @@ class InceptionNext(BaseModel):
 
     Construction:
 
-    >>> InceptionNext.from_weights("inception_next_tiny_sail_in1k")
-    >>> InceptionNext.from_weights("timm:timm/inception_next_tiny.sail_in1k")
+    >>> InceptionNextClassify.from_weights("inception_next_tiny_sail_in1k")
+    >>> InceptionNextClassify.from_weights("timm:timm/inception_next_tiny.sail_in1k")
     """
 
     KMODELS_CONFIG = INCEPTION_NEXT_CONFIG
@@ -196,7 +196,7 @@ class InceptionNext(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="InceptionNext",
+        name="InceptionNextClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -297,7 +297,7 @@ class InceptionNextBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return InceptionNext
+        return InceptionNextClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -366,6 +366,123 @@ class InceptionNextBackbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.depths = list(depths)
+        self.num_filters = list(num_filters)
+        self.mlp_ratios = list(mlp_ratios)
+        self.band_kernel_size = band_kernel_size
+        self.branch_ratio = branch_ratio
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "num_filters": self.num_filters,
+                "mlp_ratios": self.mlp_ratios,
+                "band_kernel_size": self.band_kernel_size,
+                "branch_ratio": self.branch_ratio,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class InceptionNextModel(BaseModel):
+    """InceptionNeXt trunk returning the final stage feature map.
+
+    Output shape: ``(B, H, W, C)`` — unpooled, head-free.
+    """
+
+    KMODELS_CONFIG = INCEPTION_NEXT_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return InceptionNextClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inception_next_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths=(3, 3, 9, 3),
+        num_filters=(96, 192, 384, 768),
+        mlp_ratios=(4, 4, 4, 3),
+        band_kernel_size=11,
+        branch_ratio=0.125,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        name="InceptionNextModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _inception_next_features(
+            x,
+            depths=depths,
+            num_filters=num_filters,
+            mlp_ratios=mlp_ratios,
+            band_kernel_size=band_kernel_size,
+            branch_ratio=branch_ratio,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 
         self.depths = list(depths)
         self.num_filters = list(num_filters)

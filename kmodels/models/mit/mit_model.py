@@ -189,7 +189,7 @@ def _mit_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MiT(BaseModel):
+class MiTClassify(BaseModel):
     """Mix Transformer (SegFormer encoder) classifier.
 
     Reference:
@@ -197,8 +197,8 @@ class MiT(BaseModel):
 
     Construction:
 
-    >>> MiT.from_weights("mit_b0_in1k")              # kmodels release
-    >>> MiT.from_weights("hf:nvidia/mit-b0")         # direct from HF
+    >>> MiTClassify.from_weights("mit_b0_in1k")              # kmodels release
+    >>> MiTClassify.from_weights("hf:nvidia/mit-b0")         # direct from HF
     """
 
     KMODELS_CONFIG = MIT_CONFIG
@@ -229,7 +229,7 @@ class MiT(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MiT",
+        name="MiTClassify",
         **kwargs,
     ):
         kwargs.pop("hf_id", None)
@@ -319,7 +319,7 @@ class MiTBackbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return MiT
+        return MiTClassify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -391,6 +391,119 @@ class MiTBackbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.embed_dims = list(embed_dims)
+        self.depths = list(depths)
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "embed_dims": self.embed_dims,
+                "depths": self.depths,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class MiTModel(BaseModel):
+    """MiT trunk returning the final stage spatial feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = MIT_CONFIG
+    KMODELS_WEIGHTS = MIT_WEIGHTS
+    HF_MODEL_TYPE = "segformer"
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return MiTClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "embed_dims": hf_config["hidden_sizes"],
+            "depths": hf_config["depths"],
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        transfer_mit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        embed_dims=(32, 64, 160, 256),
+        depths=(2, 2, 2, 2),
+        drop_path_rate=0.1,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_tensor=None,
+        input_shape=None,
+        name="MiTModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "hf_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _mit_features(
+            x,
+            embed_dims=embed_dims,
+            depths=depths,
+            drop_path_rate=drop_path_rate,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 
         self.embed_dims = list(embed_dims)
         self.depths = list(depths)

@@ -1,3 +1,7 @@
-from kmodels.models.mobilevit.mobilevit_model import MobileViT, MobileViTBackbone
+from kmodels.models.mobilevit.mobilevit_model import (
+    MobileViTBackbone,
+    MobileViTClassify,
+    MobileViTModel,
+)
 
-__all__ = ["MobileViT", "MobileViTBackbone"]
+__all__ = ["MobileViTClassify", "MobileViTModel", "MobileViTBackbone"]

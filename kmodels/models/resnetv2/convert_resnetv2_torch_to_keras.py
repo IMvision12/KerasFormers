@@ -71,7 +71,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.resnetv2 import ResNetV2
+    from kmodels.models.resnetv2 import ResNetV2Classify
     from kmodels.models.resnetv2.config import RESNETV2_CONFIG
 
     for variant, cfg in RESNETV2_CONFIG.items():
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ResNetV2.from_weights(variant, load_weights=False)
+        keras_model = ResNetV2Classify.from_weights(variant, load_weights=False)
         transfer_resnetv2_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

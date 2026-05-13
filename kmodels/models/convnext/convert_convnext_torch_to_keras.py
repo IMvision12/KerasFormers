@@ -68,7 +68,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.convnext import ConvNeXt
+    from kmodels.models.convnext import ConvNeXtClassify
     from kmodels.models.convnext.config import CONVNEXT_CONFIG
 
     for variant, cfg in CONVNEXT_CONFIG.items():
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ConvNeXt.from_weights(variant, load_weights=False)
+        keras_model = ConvNeXtClassify.from_weights(variant, load_weights=False)
         transfer_convnext_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

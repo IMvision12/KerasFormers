@@ -4,8 +4,9 @@ import keras
 from keras import layers
 
 from kmodels.models.resnet.resnet_model import (
-    ResNet,
     ResNetBackbone,
+    ResNetClassify,
+    ResNetModel,
     conv_block,
     squeeze_excitation_block,
 )
@@ -111,15 +112,15 @@ def resnext_block(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ResNeXt(ResNet):
+class ResNeXtClassify(ResNetClassify):
     """ResNeXt (grouped-convolution ResNet) classifier.
 
-    Same skeleton as :class:`ResNet` but with :func:`resnext_block` and
-    cardinality knobs (``groups`` / ``width_factor``). Variant ids and
+    Same skeleton as :class:`ResNetClassify` but with :func:`resnext_block`
+    and cardinality knobs (``groups`` / ``width_factor``). Variant ids and
     release weights live in :data:`RESNEXT_CONFIG` / :data:`RESNEXT_WEIGHTS`.
 
-    >>> ResNeXt.from_weights("resnext50_32x4d_a1_in1k")
-    >>> ResNeXt.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
+    >>> ResNeXtClassify.from_weights("resnext50_32x4d_a1_in1k")
+    >>> ResNeXtClassify.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
     """
 
     KMODELS_CONFIG = RESNEXT_CONFIG
@@ -132,7 +133,39 @@ class ResNeXt(ResNet):
         filters=[64, 128, 256, 512],
         groups=32,
         width_factor=2,
-        name="ResNeXt",
+        name="ResNeXtClassify",
+        **kwargs,
+    ):
+        super().__init__(
+            block_fn=block_fn,
+            block_repeats=block_repeats,
+            filters=filters,
+            groups=groups,
+            width_factor=width_factor,
+            name=name,
+            **kwargs,
+        )
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class ResNeXtModel(ResNetModel):
+    """ResNeXt trunk returning the final stage feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = RESNEXT_CONFIG
+    KMODELS_WEIGHTS = RESNEXT_WEIGHTS
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return ResNeXtClassify
+
+    def __init__(
+        self,
+        block_fn=resnext_block,
+        block_repeats=[3, 4, 6, 3],
+        filters=[64, 128, 256, 512],
+        groups=32,
+        width_factor=2,
+        name="ResNeXtModel",
         **kwargs,
     ):
         super().__init__(
@@ -155,7 +188,7 @@ class ResNeXtBackbone(ResNetBackbone):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return ResNeXt
+        return ResNeXtClassify
 
     def __init__(
         self,

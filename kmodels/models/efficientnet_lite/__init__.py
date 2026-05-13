@@ -1,6 +1,11 @@
 from kmodels.models.efficientnet_lite.efficientnet_lite_model import (
-    EfficientNetLite,
     EfficientNetLiteBackbone,
+    EfficientNetLiteClassify,
+    EfficientNetLiteModel,
 )
 
-__all__ = ["EfficientNetLite", "EfficientNetLiteBackbone"]
+__all__ = [
+    "EfficientNetLiteBackbone",
+    "EfficientNetLiteClassify",
+    "EfficientNetLiteModel",
+]

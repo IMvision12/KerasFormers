@@ -259,7 +259,7 @@ def _res2net_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class Res2Net(BaseModel):
+class Res2NetClassify(BaseModel):
     """Res2Net classifier with multi-scale residual blocks.
 
     Reference:
@@ -267,8 +267,8 @@ class Res2Net(BaseModel):
 
     Construction:
 
-    >>> Res2Net.from_weights("res2net50_26w_4s_in1k")
-    >>> Res2Net.from_weights("timm:timm/res2net50_26w_4s.in1k")
+    >>> Res2NetClassify.from_weights("res2net50_26w_4s_in1k")
+    >>> Res2NetClassify.from_weights("timm:timm/res2net50_26w_4s.in1k")
 
     Use :class:`Res2NetBackbone` for the per-stage feature maps.
 
@@ -287,7 +287,7 @@ class Res2Net(BaseModel):
         num_classes: Int, number of output classes. Default ``1000``.
         classifier_activation: Activation for the head. ``None`` returns
             logits. Default ``"linear"``.
-        name: Model name. Default ``"Res2Net"``.
+        name: Model name. Default ``"Res2NetClassify"``.
 
     Returns:
         A Keras :class:`Model` instance.
@@ -313,7 +313,7 @@ class Res2Net(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="Res2Net",
+        name="Res2NetClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -396,6 +396,114 @@ class Res2Net(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
+class Res2NetModel(BaseModel):
+    """Res2Net trunk returning the final stage feature map ``(B, H, W, C)``."""
+
+    KMODELS_CONFIG = RES2NET_CONFIG
+    KMODELS_WEIGHTS = RES2NET_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return Res2NetClassify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_res2net_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depth=(3, 4, 6, 3),
+        base_width=26,
+        scale=4,
+        cardinality=1,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_tensor=None,
+        input_shape=None,
+        name="Res2NetModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=224,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _res2net_features(
+            x,
+            depth=depth,
+            base_width=base_width,
+            scale=scale,
+            cardinality=cardinality,
+            channels_axis=channels_axis,
+            data_format=data_format,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+
+        self.depth = depth
+        self.base_width = base_width
+        self.scale = scale
+        self.cardinality = cardinality
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depth": self.depth,
+                "base_width": self.base_width,
+                "scale": self.scale,
+                "cardinality": self.cardinality,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
 class Res2NetBackbone(BaseModel):
     """Res2Net feature extractor (no classifier head).
 
@@ -408,10 +516,14 @@ class Res2NetBackbone(BaseModel):
     HF_MODEL_TYPE = None
 
     @classmethod
+    def _release_warm_start_cls(cls):
+        return Res2NetClassify
+
+    @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = Res2Net.from_weights(variant)
+            src = cls._release_warm_start_cls().from_weights(variant)
             copy_weights_by_path_suffix(src, model)
             del src
         return model

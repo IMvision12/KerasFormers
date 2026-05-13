@@ -340,7 +340,7 @@ def _efficientnetv2_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class EfficientNetV2(BaseModel):
+class EfficientNetV2Classify(BaseModel):
     """EfficientNetV2 classifier (timm-ported).
 
     Reference:
@@ -348,8 +348,8 @@ class EfficientNetV2(BaseModel):
 
     Construction:
 
-    >>> EfficientNetV2.from_weights("tf_efficientnetv2_s_in21k_ft_in1k")
-    >>> EfficientNetV2.from_weights("timm:timm/tf_efficientnetv2_s.in21k_ft_in1k")
+    >>> EfficientNetV2Classify.from_weights("tf_efficientnetv2_s_in21k_ft_in1k")
+    >>> EfficientNetV2Classify.from_weights("timm:timm/tf_efficientnetv2_s.in21k_ft_in1k")
     """
 
     KMODELS_CONFIG = EFFICIENTNETV2_CONFIG
@@ -374,7 +374,7 @@ class EfficientNetV2(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="EfficientNetV2",
+        name="EfficientNetV2Classify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -474,7 +474,7 @@ class EfficientNetV2Backbone(BaseModel):
 
     @classmethod
     def _release_warm_start_cls(cls):
-        return EfficientNetV2
+        return EfficientNetV2Classify
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -542,6 +542,119 @@ class EfficientNetV2Backbone(BaseModel):
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+
+        self.width_coefficient = width_coefficient
+        self.depth_coefficient = depth_coefficient
+        self.default_size = default_size
+        self.block_arch = block_arch
+        self.head_filters = head_filters
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "width_coefficient": self.width_coefficient,
+                "depth_coefficient": self.depth_coefficient,
+                "default_size": self.default_size,
+                "block_arch": self.block_arch,
+                "head_filters": self.head_filters,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class EfficientNetV2Model(BaseModel):
+    """EfficientNetV2 trunk returning the final stage feature map."""
+
+    KMODELS_CONFIG = EFFICIENTNETV2_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTNETV2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return EfficientNetV2Classify
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_efficientnetv2_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        width_coefficient=1.0,
+        depth_coefficient=1.0,
+        default_size=300,
+        block_arch="EfficientNetV2S",
+        head_filters=1280,
+        image_size=300,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        name="EfficientNetV2Model",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = _efficientnetv2_features(
+            x,
+            width_coefficient=width_coefficient,
+            depth_coefficient=depth_coefficient,
+            block_arch=block_arch,
+            head_filters=head_filters,
+            data_format=data_format,
+            channels_axis=channels_axis,
+        )
+
+        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 
         self.width_coefficient = width_coefficient
         self.depth_coefficient = depth_coefficient
