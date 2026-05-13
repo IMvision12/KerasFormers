@@ -260,61 +260,37 @@ def _res2net_features(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Res2Net(BaseModel):
-    """
-    Instantiates the Res2Net architecture, which introduces a novel building block for
-    CNNs that constructs hierarchical residual-like connections within a single residual block.
+    """Res2Net classifier with multi-scale residual blocks.
 
     Reference:
     - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
 
+    Construction:
+
+    >>> Res2Net.from_weights("res2net50_26w_4s_in1k")
+    >>> Res2Net.from_weights("timm:timm/res2net50_26w_4s.in1k")
+
+    Use :class:`Res2NetBackbone` for the per-stage feature maps.
+
     Args:
-        depth: List of integers, number of blocks to include in each stage of the network.
-        base_width: Integer, the base width of the Res2Net block. Controls the number of
-            channels in each scale. Defaults to `26`.
-        scale: Integer, the number of scales in each Res2Net block. Higher values create
-            more hierarchical feature representations. Defaults to `4`.
-        cardinality: Integer, the size of the set of transformations in each block.
-            Similar to ResNeXt's cardinality parameter. Defaults to `1`.
-        include_top: Boolean, whether to include the fully-connected classification
-            layer at the top. Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_tensor: Optional Keras tensor to use as the model's input. If not provided,
-            a new input tensor is created based on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. If not
-            specified, defaults to `(224, 224, 3)`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification. Defaults to `1000`.
-            Only applicable if `include_top=True`.
-        classifier_activation: String or callable, activation function for the
-            classifier layer. Defaults to `"softmax"`.
-        name: String, the name of the model. Defaults to `"Res2Net"`.
+        depth: List of ints, number of blocks per stage.
+        base_width: Int, base channel width per scale. Default ``26``.
+        scale: Int, number of scales per Res2Net block. Default ``4``.
+        cardinality: Int, group count for grouped convolution. Default ``1``.
+        include_normalization: Bool, whether to prepend an
+            :class:`ImageNormalizationLayer`. Default ``True``.
+        normalization_mode: One of ``"imagenet"``, ``"inception"``, ``"dpn"``,
+            ``"clip"``, ``"zero_to_one"``, ``"minus_one_to_one"``. Default
+            ``"imagenet"``.
+        input_shape: Optional ``(H, W, C)``. Default ``(224, 224, 3)``.
+        input_tensor: Optional pre-existing Keras input tensor.
+        num_classes: Int, number of output classes. Default ``1000``.
+        classifier_activation: Activation for the head. ``None`` returns
+            logits. Default ``"linear"``.
+        name: Model name. Default ``"Res2Net"``.
 
     Returns:
-        A Keras `Model` instance.
-
-    The Res2Net architecture enhances multi-scale feature learning by introducing a hierarchical
-    residual-like connection within each residual block. This design allows the network to
-    represent features at multiple scales, making it particularly effective for tasks that
-    require understanding both fine and coarse patterns in images.
-
-    Key features of Res2Net:
-    - Hierarchical residual connections that enable multi-scale feature learning
-    - Flexible scale parameter that controls the granularity of feature hierarchies
-    - Compatible with various CNN architectures as a drop-in replacement for ResNet blocks
-    - Maintains computational efficiency while increasing feature expressiveness
+        A Keras :class:`Model` instance.
     """
 
     KMODELS_CONFIG = RES2NET_CONFIG

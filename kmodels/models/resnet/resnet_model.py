@@ -292,59 +292,41 @@ def _resnet_features(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResNet(BaseModel):
-    """
-    Instantiates the ResNet architecture with support for ResNeXt and SE-ResNet/SE-ResNeXt configurations.
-
-    Construction:
-
-    >>> ResNet.from_weights("resnet50_a1_in1k")               # kmodels release
-    >>> ResNet.from_weights("timm:user/my-resnet50-finetune", variant="resnet50_a1_in1k")
-    >>> ResNet.from_weights("resnet50_a1_in1k", as_backbone=True, include_top=False)
+    """ResNet classifier (also covers ResNeXt and SE-ResNet/SE-ResNeXt).
 
     Reference:
     - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016)
 
+    Construction:
+
+    >>> ResNet.from_weights("resnet50_a1_in1k")                 # kmodels release
+    >>> ResNet.from_weights("timm:timm/resnet50.a1_in1k")       # direct from timm
+
+    Use :class:`ResNetBackbone` to obtain the per-stage feature maps instead
+    of the classifier output.
+
     Args:
-        block_fn: Callable, the block function to use for residual blocks. Should accept parameters:
-            (x, filters, strides=1, downsample=False, block_name=None)
-        block_repeats: List of integers, number of blocks to repeat at each stage.
-        filters: List of integers, number of filters for each stage.
-        groups: Integer, number of groups for group convolutions in ResNeXt blocks.
-            Default is `32`.
-        senet: Boolean, whether to include Squeeze-and-Excitation (SE) blocks for improved feature recalibration.
-            Default is `False`.
-        width_factor: Integer, scaling factor for the width of ResNeXt blocks.
-            Default is `2`.
-        include_top: Boolean, whether to include the fully-connected classification
-            layer at the top. Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_tensor: Optional Keras tensor to use as the model's input. If not provided,
-            a new input tensor is created based on `input_shape`.
-        input_shape: Optional tuple specifying the shape of the input data. If not
-            specified, defaults to `(224, 224, 3)`.
-        pooling: Optional pooling mode for feature extraction when `include_top=False`:
-            - `None` (default): the output is the 4D tensor from the last convolutional block.
-            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
-            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
-        num_classes: Integer, the number of output classes for classification. Defaults to `1000`.
-            Only applicable if `include_top=True`.
-        classifier_activation: String or callable, activation function for the
-            classifier layer. Set to `None` to return logits.
-            Defaults to `"linear"`.
-        name: String, the name of the model. Defaults to `"ResNet"`.
+        block_fn: Callable, the block function to use for residual blocks.
+            Should accept ``(x, filters, strides=1, downsample=False, block_name=None)``.
+        block_repeats: List of ints, number of blocks per stage.
+        filters: List of ints, filter counts per stage.
+        groups: Int, number of groups for grouped convolutions (ResNeXt). Default ``32``.
+        senet: Bool, whether to apply Squeeze-and-Excitation. Default ``False``.
+        width_factor: Int, width scaling factor (ResNeXt). Default ``2``.
+        include_normalization: Bool, whether to prepend an
+            :class:`ImageNormalizationLayer`. Default ``True``.
+        normalization_mode: One of ``"imagenet"``, ``"inception"``, ``"dpn"``,
+            ``"clip"``, ``"zero_to_one"``, ``"minus_one_to_one"``. Default
+            ``"imagenet"``.
+        input_shape: Optional ``(H, W, C)``. Default ``(224, 224, 3)``.
+        input_tensor: Optional pre-existing Keras input tensor.
+        num_classes: Int, number of output classes. Default ``1000``.
+        classifier_activation: Activation for the head. ``None`` returns
+            logits. Default ``"linear"``.
+        name: Model name. Default ``"ResNet"``.
 
     Returns:
-        A Keras `Model` instance.
+        A Keras :class:`Model` instance.
     """
 
     KMODELS_CONFIG = RESNET_CONFIG
