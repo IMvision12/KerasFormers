@@ -3,6 +3,7 @@
 import keras
 
 from kmodels.models.vit.vit_model import ViTBackbone, ViTClassify, ViTModel
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import DEIT_CONFIG, DEIT_WEIGHTS
 from .convert_deit_torch_to_keras import transfer_deit_weights
@@ -43,8 +44,13 @@ class DeiTBackbone(ViTBackbone):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return DeiTClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = DeiTClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
@@ -63,8 +69,13 @@ class DeiTModel(ViTModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return DeiTClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = DeiTClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):

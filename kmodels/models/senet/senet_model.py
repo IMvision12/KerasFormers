@@ -7,6 +7,7 @@ from kmodels.models.resnet.resnet_model import (
     bottleneck_block,
 )
 from kmodels.models.resnext.resnext_model import resnext_block
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import SENET_CONFIG, SENET_WEIGHTS
 
@@ -55,8 +56,13 @@ class SENetModel(ResNetModel):
     KMODELS_WEIGHTS = SENET_WEIGHTS
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return SENetClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = SENetClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     def __init__(self, senet=True, name="SENetModel", **kwargs):
         _resolve_block_fn(kwargs)
@@ -71,8 +77,13 @@ class SENetBackbone(ResNetBackbone):
     KMODELS_WEIGHTS = SENET_WEIGHTS
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return SENetClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = SENetClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     def __init__(self, senet=True, name="SENetBackbone", **kwargs):
         _resolve_block_fn(kwargs)

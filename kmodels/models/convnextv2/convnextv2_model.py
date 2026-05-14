@@ -10,6 +10,7 @@ from kmodels.models.convnext.convnext_model import (
     ConvNeXtClassify,
     ConvNeXtModel,
 )
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import CONVNEXTV2_CONFIG, CONVNEXTV2_WEIGHTS
 
@@ -48,8 +49,13 @@ class ConvNeXtV2Backbone(ConvNeXtBackbone):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return ConvNeXtV2Classify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = ConvNeXtV2Classify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
@@ -68,8 +74,13 @@ class ConvNeXtV2Model(ConvNeXtModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return ConvNeXtV2Classify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = ConvNeXtV2Classify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
