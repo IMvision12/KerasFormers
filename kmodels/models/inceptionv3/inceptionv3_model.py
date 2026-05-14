@@ -254,7 +254,7 @@ def inception_blocke(inputs, name="inception_block_e"):
     )
 
 
-def _inceptionv3_features(inputs, *, data_format):
+def inceptionv3_backbone_feature(inputs, *, data_format):
     """InceptionV3 stem + 5-block backbone, returns ``[stem, s2, s3, s4, s5]``."""
     features = []
 
@@ -348,7 +348,7 @@ class InceptionV3Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inceptionv3_features(x, data_format=data_format)
+        features = inceptionv3_backbone_feature(x, data_format=data_format)
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
             features[-1]
         )
@@ -445,7 +445,7 @@ class InceptionV3Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inceptionv3_features(x, data_format=data_format)
+        features = inceptionv3_backbone_feature(x, data_format=data_format)
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
@@ -534,7 +534,7 @@ class InceptionV3Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inceptionv3_features(x, data_format=data_format)
+        features = inceptionv3_backbone_feature(x, data_format=data_format)
 
         super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 

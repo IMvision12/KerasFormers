@@ -62,7 +62,7 @@ def convmixer_block(
     return x
 
 
-def _convmixer_features(
+def convmixer_backbone_feature(
     inputs,
     *,
     dim,
@@ -171,7 +171,7 @@ class ConvMixerClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _convmixer_features(
+        features = convmixer_backbone_feature(
             x,
             dim=dim,
             depth=depth,
@@ -293,7 +293,7 @@ class ConvMixerBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _convmixer_features(
+        features = convmixer_backbone_feature(
             x,
             dim=dim,
             depth=depth,
@@ -403,7 +403,7 @@ class ConvMixerModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _convmixer_features(
+        features = convmixer_backbone_feature(
             x,
             dim=dim,
             depth=depth,

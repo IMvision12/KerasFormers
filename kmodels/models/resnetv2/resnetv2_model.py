@@ -123,7 +123,7 @@ def preact_bottleneck(
     return x
 
 
-def _resnetv2_features(
+def resnetv2_backbone_feature(
     inputs,
     block_repeats,
     filters,
@@ -249,7 +249,7 @@ class ResNetV2Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resnetv2_features(
+        features = resnetv2_backbone_feature(
             x,
             block_repeats=block_repeats,
             filters=filters,
@@ -377,7 +377,7 @@ class ResNetV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resnetv2_features(
+        features = resnetv2_backbone_feature(
             x,
             block_repeats=block_repeats,
             filters=filters,
@@ -498,7 +498,7 @@ class ResNetV2Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resnetv2_features(
+        features = resnetv2_backbone_feature(
             x,
             block_repeats=block_repeats,
             filters=filters,

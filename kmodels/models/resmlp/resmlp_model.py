@@ -70,7 +70,7 @@ def resmlp_block(
     return x
 
 
-def _resmlp_features(
+def resmlp_backbone_feature(
     inputs,
     *,
     patch_size,
@@ -197,7 +197,7 @@ class ResMLPClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resmlp_features(
+        features = resmlp_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -323,7 +323,7 @@ class ResMLPBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resmlp_features(
+        features = resmlp_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -439,7 +439,7 @@ class ResMLPModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resmlp_features(
+        features = resmlp_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,

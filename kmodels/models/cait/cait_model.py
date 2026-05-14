@@ -31,7 +31,7 @@ def mlp_block(x, hidden_dim, out_dim, drop_rate=0.0, block_prefix=None):
     return x
 
 
-def _layer_scale_talking_head_block(
+def layer_scale_talking_head_block(
     x,
     embed_dim,
     num_heads,
@@ -68,7 +68,7 @@ def _layer_scale_talking_head_block(
     return layers.Add(name=f"{block_prefix}_add_2")([x, mlp])
 
 
-def _layer_scale_class_attn_block(
+def layer_scale_class_attn_block(
     cls_token,
     x,
     embed_dim,
@@ -104,7 +104,7 @@ def _layer_scale_class_attn_block(
     return layers.Add(name=f"{block_prefix}_add_2")([cls_token, mlp])
 
 
-def _cait_features(
+def cait_backbone_feature(
     inputs,
     *,
     patch_size,
@@ -140,7 +140,7 @@ def _cait_features(
 
     dpr = list(ops.linspace(0.0, drop_path_rate, depth))
     for i in range(depth):
-        x = _layer_scale_talking_head_block(
+        x = layer_scale_talking_head_block(
             x,
             embed_dim=embed_dim,
             num_heads=num_heads,
@@ -151,7 +151,7 @@ def _cait_features(
 
     cls_token = ClassDistToken(name="cls_token")(x)
     for i in range(depth_token_only):
-        cls_token = _layer_scale_class_attn_block(
+        cls_token = layer_scale_class_attn_block(
             cls_token,
             x,
             embed_dim=embed_dim,
@@ -227,7 +227,7 @@ class CaiTClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        x = _cait_features(
+        x = cait_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -344,7 +344,7 @@ class CaiTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        x = _cait_features(
+        x = cait_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -465,7 +465,7 @@ class CaiTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        x = _cait_features(
+        x = cait_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,

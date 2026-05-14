@@ -102,7 +102,7 @@ def efficientnetlite_block(
     return x
 
 
-def _efficientnet_lite_features(
+def efficientnet_lite_backbone_feature(
     inputs,
     *,
     width_coefficient,
@@ -235,7 +235,7 @@ class EfficientNetLiteClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnet_lite_features(
+        features = efficientnet_lite_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,
@@ -358,7 +358,7 @@ class EfficientNetLiteBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnet_lite_features(
+        features = efficientnet_lite_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,
@@ -466,7 +466,7 @@ class EfficientNetLiteModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnet_lite_features(
+        features = efficientnet_lite_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,

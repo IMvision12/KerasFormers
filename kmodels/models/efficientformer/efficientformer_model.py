@@ -139,7 +139,7 @@ def meta_block_1d(
     return outputs
 
 
-def _efficientformer_features(
+def efficientformer_backbone_feature(
     inputs,
     *,
     depths,
@@ -334,7 +334,7 @@ class EfficientFormerClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientformer_features(
+        features = efficientformer_backbone_feature(
             x,
             depths=depths,
             embed_dims=embed_dims,
@@ -486,7 +486,7 @@ class EfficientFormerBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientformer_features(
+        features = efficientformer_backbone_feature(
             x,
             depths=depths,
             embed_dims=embed_dims,
@@ -618,7 +618,7 @@ class EfficientFormerModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientformer_features(
+        features = efficientformer_backbone_feature(
             x,
             depths=depths,
             embed_dims=embed_dims,

@@ -199,7 +199,7 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
     return x
 
 
-def _inception_resnet_v2_features(inputs, *, data_format):
+def inception_resnet_v2_backbone_feature(inputs, *, data_format):
     """InceptionResNetV2 full backbone, returns a list of stage feature maps."""
     features = []
 
@@ -290,7 +290,7 @@ class InceptionResNetV2Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inception_resnet_v2_features(x, data_format=data_format)
+        features = inception_resnet_v2_backbone_feature(x, data_format=data_format)
         x = layers.GlobalAveragePooling2D(name="avg_pool")(features[-1])
         x = layers.Dense(
             num_classes,
@@ -385,7 +385,7 @@ class InceptionResNetV2Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inception_resnet_v2_features(x, data_format=data_format)
+        features = inception_resnet_v2_backbone_feature(x, data_format=data_format)
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
@@ -473,7 +473,7 @@ class InceptionResNetV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inception_resnet_v2_features(x, data_format=data_format)
+        features = inception_resnet_v2_backbone_feature(x, data_format=data_format)
 
         super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 

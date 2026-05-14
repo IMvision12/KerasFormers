@@ -243,7 +243,7 @@ def maxvit_partition_attn_block(
     return x
 
 
-def _maxvit_features(
+def maxvit_backbone_feature(
     inputs,
     *,
     stem_width,
@@ -406,7 +406,7 @@ class MaxViTClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _maxvit_features(
+        features = maxvit_backbone_feature(
             x,
             stem_width=stem_width,
             depths=depths,
@@ -542,7 +542,7 @@ class MaxViTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _maxvit_features(
+        features = maxvit_backbone_feature(
             x,
             stem_width=stem_width,
             depths=depths,
@@ -665,7 +665,7 @@ class MaxViTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _maxvit_features(
+        features = maxvit_backbone_feature(
             x,
             stem_width=stem_width,
             depths=depths,

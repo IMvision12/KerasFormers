@@ -86,7 +86,7 @@ def conv_pooling(
     return output, (new_height, new_width)
 
 
-def _pit_features(
+def pit_backbone_feature(
     inputs,
     *,
     patch_size,
@@ -255,7 +255,7 @@ class PiTClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        cls_dist = _pit_features(
+        cls_dist = pit_backbone_feature(
             x,
             patch_size=patch_size,
             stride=stride,
@@ -403,7 +403,7 @@ class PiTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        cls_dist = _pit_features(
+        cls_dist = pit_backbone_feature(
             x,
             patch_size=patch_size,
             stride=stride,
@@ -524,7 +524,7 @@ class PiTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        spatial = _pit_features(
+        spatial = pit_backbone_feature(
             x,
             patch_size=patch_size,
             stride=stride,

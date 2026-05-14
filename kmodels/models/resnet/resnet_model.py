@@ -232,7 +232,7 @@ def bottleneck_block(
     return x
 
 
-def _resnet_features(
+def resnet_backbone_feature(
     inputs,
     block_fn,
     block_repeats,
@@ -380,7 +380,7 @@ class ResNetClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resnet_features(
+        features = resnet_backbone_feature(
             x,
             block_fn=block_fn,
             block_repeats=block_repeats,
@@ -559,7 +559,7 @@ class ResNetBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resnet_features(
+        features = resnet_backbone_feature(
             x,
             block_fn=block_fn,
             block_repeats=block_repeats,
@@ -705,7 +705,7 @@ class ResNetModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resnet_features(
+        features = resnet_backbone_feature(
             x,
             block_fn=block_fn,
             block_repeats=block_repeats,

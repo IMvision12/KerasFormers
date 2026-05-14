@@ -225,7 +225,7 @@ def mobilevit_block(
     return x
 
 
-def _mobilevit_features(
+def mobilevit_backbone_feature(
     inputs,
     *,
     initial_dims,
@@ -391,7 +391,7 @@ class MobileViTClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilevit_features(
+        features = mobilevit_backbone_feature(
             x,
             initial_dims=initial_dims,
             head_dims=head_dims,
@@ -517,7 +517,7 @@ class MobileViTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilevit_features(
+        features = mobilevit_backbone_feature(
             x,
             initial_dims=initial_dims,
             head_dims=head_dims,
@@ -629,7 +629,7 @@ class MobileViTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilevit_features(
+        features = mobilevit_backbone_feature(
             x,
             initial_dims=initial_dims,
             head_dims=head_dims,

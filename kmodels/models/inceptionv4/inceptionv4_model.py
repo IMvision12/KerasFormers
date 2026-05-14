@@ -360,7 +360,7 @@ def inception_c(x, conv_block, block_idx):
     )
 
 
-def _inceptionv4_features(inputs, *, data_format):
+def inceptionv4_backbone_feature(inputs, *, data_format):
     """InceptionV4 full backbone, returns list of stage feature maps."""
     features = []
 
@@ -449,7 +449,7 @@ class InceptionV4Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inceptionv4_features(x, data_format=data_format)
+        features = inceptionv4_backbone_feature(x, data_format=data_format)
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
             features[-1]
         )
@@ -546,7 +546,7 @@ class InceptionV4Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inceptionv4_features(x, data_format=data_format)
+        features = inceptionv4_backbone_feature(x, data_format=data_format)
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
@@ -634,7 +634,7 @@ class InceptionV4Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inceptionv4_features(x, data_format=data_format)
+        features = inceptionv4_backbone_feature(x, data_format=data_format)
 
         super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 

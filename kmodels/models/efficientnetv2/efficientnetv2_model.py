@@ -244,7 +244,7 @@ def fusedmb_conv_block(
     return x
 
 
-def _efficientnetv2_features(
+def efficientnetv2_backbone_feature(
     inputs,
     *,
     width_coefficient,
@@ -403,7 +403,7 @@ class EfficientNetV2Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnetv2_features(
+        features = efficientnetv2_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,
@@ -527,7 +527,7 @@ class EfficientNetV2Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnetv2_features(
+        features = efficientnetv2_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,
@@ -636,7 +636,7 @@ class EfficientNetV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnetv2_features(
+        features = efficientnetv2_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,

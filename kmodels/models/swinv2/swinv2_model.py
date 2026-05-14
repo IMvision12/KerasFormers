@@ -18,7 +18,7 @@ from .config import SWINV2_CONFIG, SWINV2_WEIGHTS
 from .convert_swinv2_torch_to_keras import transfer_swinv2_weights
 
 
-def _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
+def spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
     """LayerNorm over channels for spatial feature maps.
 
     For channels_first, permutes to NHWC, normalizes on axis=-1, then
@@ -134,7 +134,7 @@ def swinv2_block(
         trimmed_x = unshifted_x[:, :img_height, :img_width]
 
     # Post-norm: norm AFTER attention
-    trimmed_x = _spatial_layer_norm(
+    trimmed_x = spatial_layer_norm(
         trimmed_x, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_1"
     )
 
@@ -151,7 +151,7 @@ def swinv2_block(
         mlp_x = ops.transpose(mlp_x, [0, 3, 1, 2])
 
     # Post-norm: norm AFTER MLP
-    mlp_x = _spatial_layer_norm(
+    mlp_x = spatial_layer_norm(
         mlp_x, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_2"
     )
 
@@ -366,7 +366,7 @@ def swinv2_stage(
     return x
 
 
-def _swinv2_features(
+def swinv2_backbone_feature(
     inputs,
     *,
     pretrain_size,
@@ -390,7 +390,7 @@ def _swinv2_features(
         data_format=data_format,
         name="stem_conv",
     )(inputs)
-    x = _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name="stem_norm")
+    x = spatial_layer_norm(x, data_format, epsilon=1.001e-5, name="stem_norm")
     x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
     features.append(x)
 
@@ -495,7 +495,7 @@ class SwinV2Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _swinv2_features(
+        features = swinv2_backbone_feature(
             x,
             pretrain_size=pretrain_size,
             window_size=window_size,
@@ -508,7 +508,7 @@ class SwinV2Classify(BaseModel):
             data_format=data_format,
             channels_axis=channels_axis,
         )
-        x = _spatial_layer_norm(
+        x = spatial_layer_norm(
             features[-1], data_format, epsilon=1.001e-5, name="final_norm"
         )
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
@@ -628,7 +628,7 @@ class SwinV2Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _swinv2_features(
+        features = swinv2_backbone_feature(
             x,
             pretrain_size=pretrain_size,
             window_size=window_size,
@@ -750,7 +750,7 @@ class SwinV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _swinv2_features(
+        features = swinv2_backbone_feature(
             x,
             pretrain_size=pretrain_size,
             window_size=window_size,

@@ -4,7 +4,7 @@ from keras import layers, utils
 from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.models.dino_v2.convert_dino_v2_hf_to_keras import transfer_dino_v2_weights
-from kmodels.models.vit.vit_model import _vit_features
+from kmodels.models.vit.vit_model import vit_backbone_feature
 
 from .config import DINOV2_CONFIG, DINOV2_WEIGHTS
 
@@ -99,7 +99,7 @@ class DinoV2Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _vit_features(
+        features = vit_backbone_feature(
             x,
             patch_size=patch_size,
             dim=dim,

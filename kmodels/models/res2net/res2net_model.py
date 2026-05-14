@@ -195,7 +195,7 @@ def bottle2neck_block(
     return out
 
 
-def _res2net_features(
+def res2net_backbone_feature(
     inputs,
     depth,
     base_width,
@@ -342,7 +342,7 @@ class Res2NetClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _res2net_features(
+        features = res2net_backbone_feature(
             x,
             depth=depth,
             base_width=base_width,
@@ -456,7 +456,7 @@ class Res2NetModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _res2net_features(
+        features = res2net_backbone_feature(
             x,
             depth=depth,
             base_width=base_width,
@@ -564,7 +564,7 @@ class Res2NetBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _res2net_features(
+        features = res2net_backbone_feature(
             x,
             depth=depth,
             base_width=base_width,

@@ -254,7 +254,7 @@ def mobilevitv2_block(
     return x
 
 
-def _mobilevitv2_features(
+def mobilevitv2_backbone_feature(
     inputs,
     *,
     multiplier,
@@ -390,7 +390,7 @@ class MobileViTV2Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilevitv2_features(
+        features = mobilevitv2_backbone_feature(
             x,
             multiplier=multiplier,
             data_format=data_format,
@@ -496,7 +496,7 @@ class MobileViTV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilevitv2_features(
+        features = mobilevitv2_backbone_feature(
             x,
             multiplier=multiplier,
             data_format=data_format,
@@ -592,7 +592,7 @@ class MobileViTV2Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilevitv2_features(
+        features = mobilevitv2_backbone_feature(
             x,
             multiplier=multiplier,
             data_format=data_format,

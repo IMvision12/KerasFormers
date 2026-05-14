@@ -124,7 +124,7 @@ _DEFAULT_BLOCKS = [
 ]
 
 
-def _mobilenetv2_features(
+def mobilenetv2_backbone_feature(
     inputs,
     *,
     width_multiplier,
@@ -271,7 +271,7 @@ class MobileNetV2Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilenetv2_features(
+        features = mobilenetv2_backbone_feature(
             x,
             width_multiplier=width_multiplier,
             depth_multiplier=depth_multiplier,
@@ -386,7 +386,7 @@ class MobileNetV2Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilenetv2_features(
+        features = mobilenetv2_backbone_feature(
             x,
             width_multiplier=width_multiplier,
             depth_multiplier=depth_multiplier,
@@ -488,7 +488,7 @@ class MobileNetV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilenetv2_features(
+        features = mobilenetv2_backbone_feature(
             x,
             width_multiplier=width_multiplier,
             depth_multiplier=depth_multiplier,

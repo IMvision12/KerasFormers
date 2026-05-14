@@ -17,7 +17,7 @@ _BLOCK_FN_LOOKUP = {
 }
 
 
-def _resolve_block_fn(kwargs):
+def resolve_block_fn(kwargs):
     """Convert a ``block_fn_name`` string (from the variant config) to a
     callable. Subclass __init__s call this to support both SE-ResNet
     (``bottleneck_block``) and SE-ResNeXt (``resnext_block``) variants.
@@ -44,7 +44,7 @@ class SENetClassify(ResNetClassify):
     KMODELS_WEIGHTS = SENET_WEIGHTS
 
     def __init__(self, senet=True, name="SENetClassify", **kwargs):
-        _resolve_block_fn(kwargs)
+        resolve_block_fn(kwargs)
         super().__init__(senet=senet, name=name, **kwargs)
 
 
@@ -65,7 +65,7 @@ class SENetModel(ResNetModel):
         return model
 
     def __init__(self, senet=True, name="SENetModel", **kwargs):
-        _resolve_block_fn(kwargs)
+        resolve_block_fn(kwargs)
         super().__init__(senet=senet, name=name, **kwargs)
 
 
@@ -86,5 +86,5 @@ class SENetBackbone(ResNetBackbone):
         return model
 
     def __init__(self, senet=True, name="SENetBackbone", **kwargs):
-        _resolve_block_fn(kwargs)
+        resolve_block_fn(kwargs)
         super().__init__(senet=senet, name=name, **kwargs)

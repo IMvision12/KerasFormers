@@ -62,7 +62,7 @@ def vgg_block(
     return x, features
 
 
-def _vgg_features(
+def vgg_backbone_feature(
     inputs,
     *,
     num_filters,
@@ -157,7 +157,7 @@ class VGGClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _vgg_features(
+        features = vgg_backbone_feature(
             x,
             num_filters=num_filters,
             batch_norm=batch_norm,
@@ -269,7 +269,7 @@ class VGGModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _vgg_features(
+        features = vgg_backbone_feature(
             x,
             num_filters=num_filters,
             batch_norm=batch_norm,
@@ -370,7 +370,7 @@ class VGGBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _vgg_features(
+        features = vgg_backbone_feature(
             x,
             num_filters=num_filters,
             batch_norm=batch_norm,

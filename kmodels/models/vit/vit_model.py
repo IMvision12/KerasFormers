@@ -75,7 +75,7 @@ def transformer_block(
     return keras.layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
 
 
-def _vit_features(
+def vit_backbone_feature(
     inputs,
     *,
     patch_size,
@@ -225,7 +225,7 @@ class ViTClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        x = _vit_features(
+        x = vit_backbone_feature(
             x,
             patch_size=patch_size,
             dim=dim,
@@ -398,7 +398,7 @@ class ViTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        x = _vit_features(
+        x = vit_backbone_feature(
             x,
             patch_size=patch_size,
             dim=dim,
@@ -549,7 +549,7 @@ class ViTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        x = _vit_features(
+        x = vit_backbone_feature(
             x,
             patch_size=patch_size,
             dim=dim,

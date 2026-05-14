@@ -252,7 +252,7 @@ def siglip_vision_embedding(
     return outputs
 
 
-def siglip_vision_features(
+def siglip_vision_backbone_feature(
     inputs,
     patch_size,
     hidden_dim,
@@ -276,7 +276,7 @@ def siglip_vision_features(
 
     if height != width:
         raise ValueError(
-            "`siglip_vision_features` expects the height and width to be the "
+            "`siglip_vision_backbone_feature` expects the height and width to be the "
             f"same in input shape. Received: input_shape={input_shape}"
         )
 
@@ -317,7 +317,7 @@ def siglip_vision_encoder(
     Returns the pooled vector ``(B, hidden_dim)`` ready for the
     contrastive head. Matches HF ``SiglipVisionModel.pooler_output``.
     """
-    x = siglip_vision_features(
+    x = siglip_vision_backbone_feature(
         inputs,
         patch_size=patch_size,
         hidden_dim=hidden_dim,
@@ -542,7 +542,7 @@ def siglip_head(vision_embedding, text_embedding):
     return image_logits, text_logits
 
 
-def _siglip_resolve_image_shape(input_shape, image_resolution, data_format):
+def siglip_resolve_image_shape(input_shape, image_resolution, data_format):
     if input_shape is not None:
         if data_format == "channels_first":
             channels = input_shape[0] if len(input_shape) == 3 else 3
@@ -641,7 +641,7 @@ class SigLIPModel(BaseModel):
         **kwargs,
     ):
         data_format = keras.backend.image_data_format()
-        image_input_shape, image_size = _siglip_resolve_image_shape(
+        image_input_shape, image_size = siglip_resolve_image_shape(
             input_shape, image_resolution, data_format
         )
 
@@ -938,7 +938,7 @@ class SigLIPImageClassify(BaseModel):
             kwargs.pop(k, None)
 
         data_format = keras.backend.image_data_format()
-        image_input_shape, image_size = _siglip_resolve_image_shape(
+        image_input_shape, image_size = siglip_resolve_image_shape(
             input_shape, image_resolution, data_format
         )
 
@@ -947,7 +947,7 @@ class SigLIPImageClassify(BaseModel):
         else:
             images_input = input_tensor
 
-        encoded = siglip_vision_features(
+        encoded = siglip_vision_backbone_feature(
             images_input,
             patch_size=patch_size,
             hidden_dim=vision_hidden_dim,

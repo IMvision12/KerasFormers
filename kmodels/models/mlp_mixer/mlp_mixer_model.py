@@ -77,7 +77,7 @@ def mixer_block(
     return x
 
 
-def _mlp_mixer_features(
+def mlp_mixer_backbone_feature(
     inputs,
     *,
     patch_size,
@@ -205,7 +205,7 @@ class MLPMixerClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mlp_mixer_features(
+        features = mlp_mixer_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -331,7 +331,7 @@ class MLPMixerBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mlp_mixer_features(
+        features = mlp_mixer_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -445,7 +445,7 @@ class MLPMixerModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mlp_mixer_features(
+        features = mlp_mixer_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,

@@ -129,7 +129,7 @@ def efficientnet_block(
     return x
 
 
-def _efficientnet_features(
+def efficientnet_backbone_feature(
     inputs,
     *,
     width_coefficient,
@@ -271,7 +271,7 @@ class EfficientNetClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnet_features(
+        features = efficientnet_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,
@@ -391,7 +391,7 @@ class EfficientNetBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnet_features(
+        features = efficientnet_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,
@@ -499,7 +499,7 @@ class EfficientNetModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _efficientnet_features(
+        features = efficientnet_backbone_feature(
             x,
             width_coefficient=width_coefficient,
             depth_coefficient=depth_coefficient,

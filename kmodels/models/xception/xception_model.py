@@ -117,7 +117,7 @@ def exit_flow(x):
     return x
 
 
-def _xception_features(inputs):
+def xception_backbone_feature(inputs):
     """Xception entry / middle / exit flows, returns ``[entry, middle, exit]``."""
     features = []
     x = entry_flow(inputs)
@@ -191,7 +191,7 @@ class XceptionClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _xception_features(x)
+        features = xception_backbone_feature(x)
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
             features[-1]
         )
@@ -286,7 +286,7 @@ class XceptionModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _xception_features(x)
+        features = xception_backbone_feature(x)
 
         super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
 
@@ -371,7 +371,7 @@ class XceptionBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _xception_features(x)
+        features = xception_backbone_feature(x)
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 

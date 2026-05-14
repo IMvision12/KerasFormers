@@ -100,7 +100,7 @@ def inception_next_block(
     return x
 
 
-def _inception_next_features(
+def inception_next_backbone_feature(
     inputs,
     *,
     depths,
@@ -225,7 +225,7 @@ class InceptionNextClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inception_next_features(
+        features = inception_next_backbone_feature(
             x,
             depths=depths,
             num_filters=num_filters,
@@ -350,7 +350,7 @@ class InceptionNextBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inception_next_features(
+        features = inception_next_backbone_feature(
             x,
             depths=depths,
             num_filters=num_filters,
@@ -463,7 +463,7 @@ class InceptionNextModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _inception_next_features(
+        features = inception_next_backbone_feature(
             x,
             depths=depths,
             num_filters=num_filters,

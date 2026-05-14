@@ -12,7 +12,7 @@ from .config import CONVNEXT_CONFIG, CONVNEXT_WEIGHTS
 from .convert_convnext_torch_to_keras import transfer_convnext_weights
 
 
-def _spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):
+def spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):
     """LayerNorm over channels for spatial feature maps."""
     if data_format == "channels_first":
         x = layers.Permute((2, 3, 1), name=f"{name}_to_cl" if name else None)(x)
@@ -41,7 +41,7 @@ def convnext_block(
         data_format=data_format,
         name=name + "_depthwise_conv",
     )(inputs)
-    x = _spatial_layer_norm(x, data_format, epsilon=1e-6, name=name + "_layernorm")
+    x = spatial_layer_norm(x, data_format, epsilon=1e-6, name=name + "_layernorm")
     if use_conv:
         x = layers.Conv2D(
             projection_dim * 4, 1, data_format=data_format, name=name + "_conv_1"
@@ -67,7 +67,7 @@ def convnext_block(
     return layers.Add(name=name + "_add")([inputs, x])
 
 
-def _convnext_features(
+def convnext_backbone_feature(
     inputs,
     *,
     depths,
@@ -88,14 +88,14 @@ def _convnext_features(
         data_format=data_format,
         name="stem_conv",
     )(inputs)
-    x = _spatial_layer_norm(x, data_format, epsilon=1e-6, name="stem_layernorm")
+    x = spatial_layer_norm(x, data_format, epsilon=1e-6, name="stem_layernorm")
     features.append(x)
 
     depth_drop_rates = np.linspace(0.0, drop_path_rate, sum(depths))
     cur = 0
     for i in range(len(depths)):
         if i > 0:
-            x = _spatial_layer_norm(
+            x = spatial_layer_norm(
                 x,
                 data_format,
                 epsilon=1e-6,
@@ -190,7 +190,7 @@ class ConvNeXtClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _convnext_features(
+        features = convnext_backbone_feature(
             x,
             depths=depths,
             projection_dims=projection_dims,
@@ -315,7 +315,7 @@ class ConvNeXtBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _convnext_features(
+        features = convnext_backbone_feature(
             x,
             depths=depths,
             projection_dims=projection_dims,
@@ -429,7 +429,7 @@ class ConvNeXtModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _convnext_features(
+        features = convnext_backbone_feature(
             x,
             depths=depths,
             projection_dims=projection_dims,

@@ -101,7 +101,7 @@ def poolformer_block(
     return x
 
 
-def _poolformer_features(
+def poolformer_backbone_feature(
     inputs,
     *,
     embed_dims,
@@ -235,7 +235,7 @@ class PoolFormerClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _poolformer_features(
+        features = poolformer_backbone_feature(
             x,
             embed_dims=embed_dims,
             num_blocks=num_blocks,
@@ -360,7 +360,7 @@ class PoolFormerBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _poolformer_features(
+        features = poolformer_backbone_feature(
             x,
             embed_dims=embed_dims,
             num_blocks=num_blocks,
@@ -474,7 +474,7 @@ class PoolFormerModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _poolformer_features(
+        features = poolformer_backbone_feature(
             x,
             embed_dims=embed_dims,
             num_blocks=num_blocks,

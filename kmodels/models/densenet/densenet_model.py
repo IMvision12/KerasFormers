@@ -97,7 +97,7 @@ def transition_block(x, reduction, channels_axis, data_format, name):
     return x
 
 
-def _densenet_features(
+def densenet_backbone_feature(
     inputs,
     *,
     num_blocks,
@@ -220,7 +220,7 @@ class DenseNetClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _densenet_features(
+        features = densenet_backbone_feature(
             x,
             num_blocks=num_blocks,
             growth_rate=growth_rate,
@@ -334,7 +334,7 @@ class DenseNetModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _densenet_features(
+        features = densenet_backbone_feature(
             x,
             num_blocks=num_blocks,
             growth_rate=growth_rate,
@@ -436,7 +436,7 @@ class DenseNetBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _densenet_features(
+        features = densenet_backbone_feature(
             x,
             num_blocks=num_blocks,
             growth_rate=growth_rate,

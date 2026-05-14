@@ -41,7 +41,7 @@ def nextvit_conv_attention(x, out_chs, head_dim, channels_axis, data_format, pre
     return out
 
 
-def _make_divisible(v, divisor, min_value=None):
+def make_divisible(v, divisor, min_value=None):
     if min_value is None:
         min_value = divisor
     new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
@@ -50,7 +50,7 @@ def _make_divisible(v, divisor, min_value=None):
     return new_v
 
 
-def _calculate_drop_path_rates(drop_path_rate, depths):
+def calculate_drop_path_rates(drop_path_rate, depths):
     total_depth = sum(depths)
     rates = []
     idx = 0
@@ -65,7 +65,7 @@ def _calculate_drop_path_rates(drop_path_rate, depths):
     return rates
 
 
-def _get_stage_out_chs(depths):
+def get_stage_out_chs(depths):
     return [
         [96] * depths[0],
         [192] * (depths[1] - 1) + [256],
@@ -74,7 +74,7 @@ def _get_stage_out_chs(depths):
     ]
 
 
-def _get_stage_block_types(depths):
+def get_stage_block_types(depths):
     return [
         ["conv"] * depths[0],
         ["conv"] * (depths[1] - 1) + ["transformer"],
@@ -191,7 +191,7 @@ def next_transformer_block(
     prefix="",
 ):
     """NextTransformerBlock with E-MHSA and MHCA branches."""
-    mhsa_out_chs = _make_divisible(int(out_chs * mix_block_ratio), 32)
+    mhsa_out_chs = make_divisible(int(out_chs * mix_block_ratio), 32)
     mhca_out_chs = out_chs - mhsa_out_chs
 
     use_pool = stride == 2
@@ -277,7 +277,7 @@ def next_transformer_block(
     return x
 
 
-def _nextvit_features(
+def nextvit_backbone_feature(
     inputs,
     *,
     depths,
@@ -324,9 +324,9 @@ def _nextvit_features(
         x = layers.Activation("relu", name=f"stem_{i}_act")(x)
     features.append(x)
 
-    stage_out_chs = _get_stage_out_chs(depths)
-    stage_block_types = _get_stage_block_types(depths)
-    dpr = _calculate_drop_path_rates(drop_path_rate, depths)
+    stage_out_chs = get_stage_out_chs(depths)
+    stage_block_types = get_stage_block_types(depths)
+    dpr = calculate_drop_path_rates(drop_path_rate, depths)
     strides = [1, 2, 2, 2]
 
     in_chs = stem_chs[-1]
@@ -451,7 +451,7 @@ class NextViTClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _nextvit_features(
+        features = nextvit_backbone_feature(
             x,
             depths=depths,
             stem_chs=stem_chs,
@@ -578,7 +578,7 @@ class NextViTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _nextvit_features(
+        features = nextvit_backbone_feature(
             x,
             depths=depths,
             stem_chs=stem_chs,
@@ -692,7 +692,7 @@ class NextViTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _nextvit_features(
+        features = nextvit_backbone_feature(
             x,
             depths=depths,
             stem_chs=stem_chs,

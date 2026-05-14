@@ -127,7 +127,7 @@ def hierarchical_transformer_encoder_block(
     return layers.Add()([add1, mlp_out])
 
 
-def _mit_features(
+def mit_backbone_feature(
     inputs,
     *,
     embed_dims,
@@ -258,7 +258,7 @@ class MiTClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mit_features(
+        features = mit_backbone_feature(
             x,
             embed_dims=embed_dims,
             depths=depths,
@@ -377,7 +377,7 @@ class MiTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mit_features(
+        features = mit_backbone_feature(
             x,
             embed_dims=embed_dims,
             depths=depths,
@@ -486,7 +486,7 @@ class MiTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mit_features(
+        features = mit_backbone_feature(
             x,
             embed_dims=embed_dims,
             depths=depths,

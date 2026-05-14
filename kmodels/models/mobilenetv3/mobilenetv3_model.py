@@ -153,7 +153,7 @@ _LARGE_BLOCKS = [
 ]
 
 
-def _mobilenetv3_features(
+def mobilenetv3_backbone_feature(
     inputs,
     *,
     config,
@@ -305,7 +305,7 @@ class MobileNetV3Classify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilenetv3_features(
+        features = mobilenetv3_backbone_feature(
             x,
             config=config,
             width_multiplier=width_multiplier,
@@ -442,7 +442,7 @@ class MobileNetV3Backbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilenetv3_features(
+        features = mobilenetv3_backbone_feature(
             x,
             config=config,
             width_multiplier=width_multiplier,
@@ -553,7 +553,7 @@ class MobileNetV3Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _mobilenetv3_features(
+        features = mobilenetv3_backbone_feature(
             x,
             config=config,
             width_multiplier=width_multiplier,

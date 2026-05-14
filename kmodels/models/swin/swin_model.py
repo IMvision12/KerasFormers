@@ -18,7 +18,7 @@ from .config import SWIN_CONFIG, SWIN_WEIGHTS
 from .convert_swin_torch_to_keras import transfer_swin_weights
 
 
-def _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
+def spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
     """LayerNorm over channels for spatial feature maps."""
     if data_format == "channels_first":
         x = layers.Permute((2, 3, 1), name=f"{name}_to_cl" if name else None)(x)
@@ -60,7 +60,7 @@ def swin_block(
     img_height = ops.shape(inputs)[h_ax]
     img_width = ops.shape(inputs)[w_ax]
 
-    x = _spatial_layer_norm(
+    x = spatial_layer_norm(
         inputs, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_1"
     )
 
@@ -99,7 +99,7 @@ def swin_block(
     dropout_layer = StochasticDepth(drop_path_rate=drop_path_rate)
     skip_x1 = inputs + dropout_layer(trimmed_x)
 
-    normalized_x = _spatial_layer_norm(
+    normalized_x = spatial_layer_norm(
         skip_x1, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_2"
     )
 
@@ -288,7 +288,7 @@ def swin_stage(
     return x
 
 
-def _swin_features(
+def swin_backbone_feature(
     inputs,
     *,
     pretrain_size,
@@ -311,7 +311,7 @@ def _swin_features(
         data_format=data_format,
         name="stem_conv",
     )(inputs)
-    x = _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name="stem_norm")
+    x = spatial_layer_norm(x, data_format, epsilon=1.001e-5, name="stem_norm")
     x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
     features.append(x)
 
@@ -414,7 +414,7 @@ class SwinClassify(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _swin_features(
+        features = swin_backbone_feature(
             x,
             pretrain_size=pretrain_size,
             window_size=window_size,
@@ -426,7 +426,7 @@ class SwinClassify(BaseModel):
             data_format=data_format,
             channels_axis=channels_axis,
         )
-        x = _spatial_layer_norm(
+        x = spatial_layer_norm(
             features[-1], data_format, epsilon=1.001e-5, name="final_norm"
         )
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
@@ -543,7 +543,7 @@ class SwinBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _swin_features(
+        features = swin_backbone_feature(
             x,
             pretrain_size=pretrain_size,
             window_size=window_size,
@@ -661,7 +661,7 @@ class SwinModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _swin_features(
+        features = swin_backbone_feature(
             x,
             pretrain_size=pretrain_size,
             window_size=window_size,
