@@ -10,6 +10,7 @@ from kmodels.models.resnet.resnet_model import (
     conv_block,
     squeeze_excitation_block,
 )
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNEXT_CONFIG, RESNEXT_WEIGHTS
 
@@ -155,8 +156,13 @@ class ResNeXtModel(ResNetModel):
     KMODELS_WEIGHTS = RESNEXT_WEIGHTS
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return ResNeXtClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = ResNeXtClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     def __init__(
         self,
@@ -187,8 +193,13 @@ class ResNeXtBackbone(ResNetBackbone):
     KMODELS_WEIGHTS = RESNEXT_WEIGHTS
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return ResNeXtClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = ResNeXtClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     def __init__(
         self,

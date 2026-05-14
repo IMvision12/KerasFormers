@@ -347,14 +347,10 @@ class PiTBackbone(BaseModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return PiTClassify
-
-    @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = cls._release_warm_start_cls().from_weights(variant)
+            src = PiTClassify.from_weights(variant)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -472,14 +468,10 @@ class PiTModel(BaseModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return PiTClassify
-
-    @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = cls._release_warm_start_cls().from_weights(variant)
+            src = PiTClassify.from_weights(variant)
             copy_weights_by_path_suffix(src, model)
             del src
         return model

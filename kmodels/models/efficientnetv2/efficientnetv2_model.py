@@ -473,14 +473,10 @@ class EfficientNetV2Backbone(BaseModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return EfficientNetV2Classify
-
-    @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = cls._release_warm_start_cls().from_weights(variant)
+            src = EfficientNetV2Classify.from_weights(variant)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -586,14 +582,10 @@ class EfficientNetV2Model(BaseModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return EfficientNetV2Classify
-
-    @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = cls._release_warm_start_cls().from_weights(variant)
+            src = EfficientNetV2Classify.from_weights(variant)
             copy_weights_by_path_suffix(src, model)
             del src
         return model

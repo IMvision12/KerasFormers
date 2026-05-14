@@ -495,15 +495,6 @@ class ResNetBackbone(BaseModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        """Classifier class that owns the kmodels release ``.weights.h5``.
-
-        Subclasses (e.g. :class:`ResNeXtBackbone`) override this to point
-        at their matching classifier model.
-        """
-        return ResNetClassify
-
-    @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
         """Build backbone and warm-start from the matching classifier release.
 
@@ -515,7 +506,7 @@ class ResNetBackbone(BaseModel):
         """
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = cls._release_warm_start_cls().from_weights(variant)
+            src = ResNetClassify.from_weights(variant)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -660,14 +651,10 @@ class ResNetModel(BaseModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return ResNetClassify
-
-    @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = cls._release_warm_start_cls().from_weights(variant)
+            src = ResNetClassify.from_weights(variant)
             copy_weights_by_path_suffix(src, model)
             del src
         return model

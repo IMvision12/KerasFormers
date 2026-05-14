@@ -4,6 +4,7 @@ import keras
 
 from kmodels.models.vit.convert_vit_torch_to_keras import transfer_vit_weights
 from kmodels.models.vit.vit_model import ViTBackbone, ViTClassify, ViTModel
+from kmodels.weight_utils import copy_weights_by_path_suffix
 
 from .config import FLEXIVIT_CONFIG, FLEXIVIT_WEIGHTS
 
@@ -42,8 +43,13 @@ class FlexiViTBackbone(ViTBackbone):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return FlexiViTClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = FlexiViTClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
@@ -62,8 +68,13 @@ class FlexiViTModel(ViTModel):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def _release_warm_start_cls(cls):
-        return FlexiViTClassify
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = FlexiViTClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
