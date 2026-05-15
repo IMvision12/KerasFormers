@@ -1,0 +1,126 @@
+# Classification Backbones
+
+Every classification architecture in `kmodels.models.<arch>` exposes **two classes** that share the same architectural parameters and the same set of pretrained variants:
+
+| Class        | What it returns                                                     | Typical use                                    |
+|--------------|---------------------------------------------------------------------|------------------------------------------------|
+| `XModel`     | The last layer output **before** the classifier head                | Feature extractor / transfer learning          |
+| `XClassify`  | Class logits - `XModel` plus the original architecture's head       | Drop-in classification                         |
+
+`XClassify` composes `XModel` internally and attaches the per-architecture head (CLS-token linear for ViT-family; GAP + Dense for CNNs; LayerNorm + mean-pool + Dense for hierarchical Transformers; etc.). You don't need to know which head pattern your architecture uses - `XClassify` already wires the correct one.
+
+## Quick start
+
+```python
+from kmodels.models.resnet import ResNetClassify, ResNetModel
+
+# Full classifier - 1000-class logits
+classifier = ResNetClassify.from_weights("resnet50_a1_in1k")
+logits = classifier(images)                                 # (B, 1000)
+
+# Just the backbone - last-stage feature map, no head
+backbone = ResNetModel.from_weights("resnet50_a1_in1k")
+feature_map = backbone(images)                              # (B, H/32, W/32, 2048)
+```
+
+The same pattern works for every classification arch - swap `ResNet` for `CaiT`, `ViT`, `ConvNeXt`, `EfficientNet`, `Swin`, `MobileNetV3`, etc.
+
+## `as_backbone=True` - multi-scale features
+
+Pass `as_backbone=True` to `XModel` (not `XClassify`) to get a **list of per-stage feature maps** instead of a single tensor. This is what you'd hook an FPN / segmentation neck / detection head onto.
+
+```python
+from kmodels.models.resnet import ResNetModel
+
+backbone = ResNetModel.from_weights("resnet50_a1_in1k", as_backbone=True)
+features = backbone(images)
+# features is a list of 4 tensors at strides [4, 8, 16, 32]
+for i, f in enumerate(features):
+    print(f"stage {i}: {f.shape}")
+```
+
+The number of stages and their semantics depend on the architecture:
+
+| Family                                              | Stages when `as_backbone=True`                                  |
+|-----------------------------------------------------|-----------------------------------------------------------------|
+| ResNet / ResNetV2 / Res2Net / ResNeXt / SENet       | 4 (one per residual stage)                                      |
+| ConvNeXt / ConvNeXtV2                               | 4                                                               |
+| EfficientNet / EfficientNet-Lite / EfficientNetV2   | 5 (at stride-2 boundaries; head conv excluded)                  |
+| EfficientFormer                                     | 4                                                               |
+| MobileNetV2 / MobileNetV3                           | 5 (head conv excluded)                                          |
+| MobileViT / MobileViTV2                             | 5 (S0–S4)                                                       |
+| DenseNet                                            | 4 (post-transition + final BN/ReLU)                             |
+| VGG                                                 | 5 (post-pool stages)                                            |
+| Xception                                            | 3 (entry / middle / exit flow)                                  |
+| ConvMixer                                           | 1 (no natural multi-scale hierarchy — singleton list)           |
+| Swin / SwinV2 / PoolFormer / NextViT / MaxViT       | 4 (native hierarchical pyramid)                                 |
+| InceptionV3 / InceptionV4 / InceptionNext           | 4 (at major reduction boundaries)                               |
+| InceptionResNetV2                                   | 3 (post each Inception-ResNet group; `conv2d_7b` head excluded) |
+| MiT                                                 | 4 (segmentation-style hierarchical features)                    |
+| ViT / DeiT / FlexiViT / CaiT                        | `depth + 1` (per-transformer-block + final LN)                  |
+| PiT                                                 | 5 (stem + per-stage + final norm)                               |
+| MLP-Mixer / ResMLP                                  | per-block (typically ~12; final norm excluded)                  |
+
+**Head conv exclusion.** For architectures that have a 1×1 "head conv" at the end of the backbone-feature function (EfficientNet / MobileNet families, NextViT's trailing BN, InceptionResNetV2's `conv2d_7b`), the head conv is **only** applied when `as_backbone=False`. When you ask for stages, you get the last MBConv/stage output before that head conv — which is usually what you want for downstream tasks.
+
+## `from_weights` — variants and HF checkpoints
+
+Both classes use the same variant registry, so any string you can pass to one works on the other:
+
+```python
+ResNetClassify.from_weights("resnet50_a1_in1k")
+ResNetModel.from_weights("resnet50_a1_in1k")            # same weights, no Dense head
+ResNetModel.from_weights("timm:timm/resnet50.a1_in1k")  # any timm variant via the timm: prefix
+```
+
+Under the hood `XModel.from_release` warm-starts from `XClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
+
+## Custom heads / transfer learning
+
+Because `XModel` and `XClassify` share architecture parameters and layer names, you can chain them in any of three idiomatic ways:
+
+```python
+import keras
+from keras import layers
+from kmodels.models.convnext import ConvNeXtModel
+
+backbone = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k")
+
+# Option 1 — Sequential with a custom head
+model = keras.Sequential([
+    backbone,
+    layers.GlobalAveragePooling2D(),
+    layers.Dense(num_classes, name="predictions"),
+])
+
+# Option 2 — Functional API with intermediate fan-out
+inputs = backbone.input
+features = backbone.output                                # (B, H/32, W/32, 1024)
+pooled = layers.GlobalAveragePooling2D()(features)
+logits = layers.Dense(num_classes)(pooled)
+model = keras.Model(inputs, logits)
+
+# Option 3 — Reach into the per-stage outputs for FPN / segmentation
+multi = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k", as_backbone=True)
+c2, c3, c4, c5 = multi.output                              # 4 stages
+# ...feed c2..c5 into an FPN
+```
+
+## Subclass relationships
+
+A few architectures are thin subclasses of a parent that swap the variant registry only:
+
+| Subclass            | Parent      | Differs in                       |
+|---------------------|-------------|----------------------------------|
+| `DeiT`, `FlexiViT`  | `ViT`       | weights only                     |
+| `ConvNeXtV2`        | `ConvNeXt`  | weights + GRN block enabled      |
+| `ResNeXt`, `SENet`  | `ResNet`    | block fn + arch defaults         |
+
+Both `XModel` and `XClassify` are subclassed so that the subclass's variants resolve correctly. The composition rule still holds — `DeiTClassify` composes `DeiTModel`, not `ViTModel`.
+
+## When to use which
+
+- **Inference on ImageNet-style 1000-class tasks** → `XClassify.from_weights(...)`.
+- **Transfer learning** (fine-tune with a new head on a new dataset) → `XModel.from_weights(...)` plus your own head.
+- **Segmentation, detection, FPN, anything multi-scale** → `XModel.from_weights(..., as_backbone=True)`.
+- **Saving to disk** — both classes are `keras.saving.register_keras_serializable` decorated, so `model.save("foo.keras")` and `keras.models.load_model("foo.keras")` round-trip cleanly.
