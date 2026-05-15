@@ -10,7 +10,7 @@ from kmodels.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kmodels.models.efficientformer.efficientformer_layers import Attention4D
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import EFFICIENTFORMER_CONFIG, EFFICIENTFORMER_WEIGHTS
+from .config import EFFICIENTFORMER_MODEL_CONFIG, EFFICIENTFORMER_WEIGHT_CONFIG
 from .convert_efficientformer_torch_to_keras import transfer_efficientformer_weights
 
 
@@ -350,8 +350,8 @@ class EfficientFormerModel(BaseModel):
     LayerNorm + token-pool + dual-Dense classification head on top.
     """
 
-    KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
-    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHTS
+    KMODELS_CONFIG = EFFICIENTFORMER_MODEL_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -494,8 +494,8 @@ class EfficientFormerClassify(BaseModel):
     >>> EfficientFormerClassify.from_weights("timm:timm/efficientformer_l1.snap_dist_in1k")
     """
 
-    KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
-    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHTS
+    KMODELS_CONFIG = EFFICIENTFORMER_MODEL_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

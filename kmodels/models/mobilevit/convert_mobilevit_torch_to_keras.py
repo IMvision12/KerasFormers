@@ -92,9 +92,9 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.mobilevit import MobileViTClassify as MobileViT
-    from kmodels.models.mobilevit.config import MOBILEVIT_CONFIG
+    from kmodels.models.mobilevit.config import MOBILEVIT_MODEL_CONFIG
 
-    for variant, cfg in MOBILEVIT_CONFIG.items():
+    for variant, cfg in MOBILEVIT_MODEL_CONFIG.items():
         timm_id = cfg["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

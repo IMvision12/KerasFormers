@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import RES2NET_CONFIG, RES2NET_WEIGHTS
+from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHT_CONFIG
 from .convert_res2net_torch_to_keras import transfer_res2net_weights
 
 
@@ -285,8 +285,8 @@ class Res2NetModel(BaseModel):
     - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
     """
 
-    KMODELS_CONFIG = RES2NET_CONFIG
-    KMODELS_WEIGHTS = RES2NET_WEIGHTS
+    KMODELS_CONFIG = RES2NET_MODEL_CONFIG
+    KMODELS_WEIGHTS = RES2NET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -425,8 +425,8 @@ class Res2NetClassify(BaseModel):
         A Keras :class:`Model` instance.
     """
 
-    KMODELS_CONFIG = RES2NET_CONFIG
-    KMODELS_WEIGHTS = RES2NET_WEIGHTS
+    KMODELS_CONFIG = RES2NET_MODEL_CONFIG
+    KMODELS_WEIGHTS = RES2NET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

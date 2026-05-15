@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer, LayerScale
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import INCEPTION_NEXT_CONFIG, INCEPTION_NEXT_WEIGHTS
+from .config import INCEPTION_NEXT_MODEL_CONFIG, INCEPTION_NEXT_WEIGHT_CONFIG
 from .convert_inception_next_torch_to_keras import transfer_inception_next_weights
 
 
@@ -237,8 +237,8 @@ class InceptionNextModel(BaseModel):
     >>> InceptionNextModel.from_weights("timm:timm/inception_next_tiny.sail_in1k")
     """
 
-    KMODELS_CONFIG = INCEPTION_NEXT_CONFIG
-    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHTS
+    KMODELS_CONFIG = INCEPTION_NEXT_MODEL_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -363,8 +363,8 @@ class InceptionNextClassify(BaseModel):
     >>> InceptionNextClassify.from_weights("timm:timm/inception_next_tiny.sail_in1k")
     """
 
-    KMODELS_CONFIG = INCEPTION_NEXT_CONFIG
-    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHTS
+    KMODELS_CONFIG = INCEPTION_NEXT_MODEL_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

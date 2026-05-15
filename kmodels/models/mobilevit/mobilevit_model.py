@@ -11,7 +11,7 @@ from kmodels.models.mobilevit.mobilevit_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MOBILEVIT_CONFIG, MOBILEVIT_WEIGHTS
+from .config import MOBILEVIT_MODEL_CONFIG, MOBILEVIT_WEIGHT_CONFIG
 from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
 
 
@@ -391,8 +391,8 @@ class MobileViTModel(BaseModel):
     >>> MobileViTModel.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = MOBILEVIT_CONFIG
-    KMODELS_WEIGHTS = MOBILEVIT_WEIGHTS
+    KMODELS_CONFIG = MOBILEVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILEVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -517,8 +517,8 @@ class MobileViTClassify(BaseModel):
     >>> MobileViTClassify.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = MOBILEVIT_CONFIG
-    KMODELS_WEIGHTS = MOBILEVIT_WEIGHTS
+    KMODELS_CONFIG = MOBILEVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILEVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

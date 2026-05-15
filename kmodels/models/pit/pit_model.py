@@ -11,7 +11,7 @@ from kmodels.models.vit.vit_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import PIT_CONFIG, PIT_WEIGHTS
+from .config import PIT_MODEL_CONFIG, PIT_WEIGHT_CONFIG
 from .convert_pit_torch_to_keras import transfer_pit_weights
 
 
@@ -265,8 +265,8 @@ class PiTModel(BaseModel):
     >>> PiTModel.from_weights("timm:timm/pit_b_224.in1k")
     """
 
-    KMODELS_CONFIG = PIT_CONFIG
-    KMODELS_WEIGHTS = PIT_WEIGHTS
+    KMODELS_CONFIG = PIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = PIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -403,8 +403,8 @@ class PiTClassify(BaseModel):
     >>> PiTClassify.from_weights("timm:timm/pit_b_224.in1k")
     """
 
-    KMODELS_CONFIG = PIT_CONFIG
-    KMODELS_WEIGHTS = PIT_WEIGHTS
+    KMODELS_CONFIG = PIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = PIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

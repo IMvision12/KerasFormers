@@ -61,9 +61,9 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.vgg import VGGClassify
-    from kmodels.models.vgg.config import VGG_CONFIG
+    from kmodels.models.vgg.config import VGG_MODEL_CONFIG
 
-    for variant, cfg in VGG_CONFIG.items():
+    for variant, cfg in VGG_MODEL_CONFIG.items():
         timm_id = cfg["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

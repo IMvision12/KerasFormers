@@ -8,7 +8,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import RESNET_CONFIG, RESNET_WEIGHTS
+from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHT_CONFIG
 from .convert_resnet_torch_to_keras import transfer_resnet_weights
 
 
@@ -326,8 +326,8 @@ class ResNetModel(BaseModel):
     >>> ResNetModel.from_weights("timm:timm/resnet50.a1_in1k")
     """
 
-    KMODELS_CONFIG = RESNET_CONFIG
-    KMODELS_WEIGHTS = RESNET_WEIGHTS
+    KMODELS_CONFIG = RESNET_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -509,8 +509,8 @@ class ResNetClassify(BaseModel):
         A Keras :class:`Model` instance.
     """
 
-    KMODELS_CONFIG = RESNET_CONFIG
-    KMODELS_WEIGHTS = RESNET_WEIGHTS
+    KMODELS_CONFIG = RESNET_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None  # timm-ported; no HF transformers passthrough.
 
     @classmethod

@@ -7,7 +7,7 @@ from kmodels.models.vit.convert_vit_torch_to_keras import transfer_vit_weights
 from kmodels.models.vit.vit_model import ViTClassify, ViTModel
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import FLEXIVIT_CONFIG, FLEXIVIT_WEIGHTS
+from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHT_CONFIG
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -18,8 +18,8 @@ class FlexiViTModel(ViTModel):
     The first token is the class token; the rest are spatial patch tokens.
     """
 
-    KMODELS_CONFIG = FLEXIVIT_CONFIG
-    KMODELS_WEIGHTS = FLEXIVIT_WEIGHTS
+    KMODELS_CONFIG = FLEXIVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = FLEXIVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -52,8 +52,8 @@ class FlexiViTClassify(ViTClassify):
     >>> FlexiViTClassify.from_weights("timm:timm/flexivit_base.1200ep_in1k")
     """
 
-    KMODELS_CONFIG = FLEXIVIT_CONFIG
-    KMODELS_WEIGHTS = FLEXIVIT_WEIGHTS
+    KMODELS_CONFIG = FLEXIVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = FLEXIVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

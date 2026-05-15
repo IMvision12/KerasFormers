@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import XCEPTION_CONFIG, XCEPTION_WEIGHTS
+from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHT_CONFIG
 from .convert_xception_org_keras_to_keras import transfer_xception_weights
 
 
@@ -196,8 +196,8 @@ class XceptionModel(BaseModel):
     >>> XceptionModel.from_weights("xception_in1k")
     """
 
-    KMODELS_CONFIG = XCEPTION_CONFIG
-    KMODELS_WEIGHTS = XCEPTION_WEIGHTS
+    KMODELS_CONFIG = XCEPTION_MODEL_CONFIG
+    KMODELS_WEIGHTS = XCEPTION_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -301,8 +301,8 @@ class XceptionClassify(BaseModel):
     >>> XceptionClassify.from_weights("xception_in1k")
     """
 
-    KMODELS_CONFIG = XCEPTION_CONFIG
-    KMODELS_WEIGHTS = XCEPTION_WEIGHTS
+    KMODELS_CONFIG = XCEPTION_MODEL_CONFIG
+    KMODELS_WEIGHTS = XCEPTION_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

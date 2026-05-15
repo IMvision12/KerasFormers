@@ -12,7 +12,7 @@ from kmodels.models.cait.cait_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import CAIT_CONFIG, CAIT_WEIGHTS
+from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHT_CONFIG
 from .convert_cait_torch_to_keras import transfer_cait_weights
 
 
@@ -252,8 +252,8 @@ class CaiTModel(BaseModel):
     >>> CaiTModel.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
     """
 
-    KMODELS_CONFIG = CAIT_CONFIG
-    KMODELS_WEIGHTS = CAIT_WEIGHTS
+    KMODELS_CONFIG = CAIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = CAIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -404,8 +404,8 @@ class CaiTClassify(BaseModel):
     >>> CaiTClassify.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
     """
 
-    KMODELS_CONFIG = CAIT_CONFIG
-    KMODELS_WEIGHTS = CAIT_WEIGHTS
+    KMODELS_CONFIG = CAIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = CAIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MOBILENETV3_CONFIG, MOBILENETV3_WEIGHTS
+from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHT_CONFIG
 from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
 
 
@@ -294,8 +294,8 @@ class MobileNetV3Model(BaseModel):
     Dense(num_classes) on top.
     """
 
-    KMODELS_CONFIG = MOBILENETV3_CONFIG
-    KMODELS_WEIGHTS = MOBILENETV3_WEIGHTS
+    KMODELS_CONFIG = MOBILENETV3_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILENETV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -422,8 +422,8 @@ class MobileNetV3Classify(BaseModel):
     >>> MobileNetV3Classify.from_weights("timm:timm/mobilenetv3_large_100.ra_in1k")
     """
 
-    KMODELS_CONFIG = MOBILENETV3_CONFIG
-    KMODELS_WEIGHTS = MOBILENETV3_WEIGHTS
+    KMODELS_CONFIG = MOBILENETV3_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILENETV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

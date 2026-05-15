@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MAXVIT_CONFIG, MAXVIT_WEIGHTS
+from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHT_CONFIG
 from .convert_maxvit_timm_to_keras import transfer_maxvit_weights
 from .maxvit_layers import (
     MaxViTAttention,
@@ -393,8 +393,8 @@ class MaxViTModel(BaseModel):
     >>> MaxViTModel.from_weights("timm:timm/maxvit_base_tf_224.in1k")
     """
 
-    KMODELS_CONFIG = MAXVIT_CONFIG
-    KMODELS_WEIGHTS = MAXVIT_WEIGHTS
+    KMODELS_CONFIG = MAXVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = MAXVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -532,8 +532,8 @@ class MaxViTClassify(BaseModel):
     >>> MaxViTClassify.from_weights("timm:timm/maxvit_base_tf_224.in1k")
     """
 
-    KMODELS_CONFIG = MAXVIT_CONFIG
-    KMODELS_WEIGHTS = MAXVIT_WEIGHTS
+    KMODELS_CONFIG = MAXVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = MAXVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

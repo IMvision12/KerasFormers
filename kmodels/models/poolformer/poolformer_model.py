@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import POOLFORMER_CONFIG, POOLFORMER_WEIGHTS
+from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHT_CONFIG
 from .convert_poolformer_torch_to_keras import transfer_poolformer_weights
 
 
@@ -228,8 +228,8 @@ class PoolFormerModel(BaseModel):
     >>> PoolFormerModel.from_weights("timm:timm/poolformer_s12.sail_in1k")
     """
 
-    KMODELS_CONFIG = POOLFORMER_CONFIG
-    KMODELS_WEIGHTS = POOLFORMER_WEIGHTS
+    KMODELS_CONFIG = POOLFORMER_MODEL_CONFIG
+    KMODELS_WEIGHTS = POOLFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -361,8 +361,8 @@ class PoolFormerClassify(BaseModel):
     >>> PoolFormerClassify.from_weights("timm:timm/poolformer_s12.sail_in1k")
     """
 
-    KMODELS_CONFIG = POOLFORMER_CONFIG
-    KMODELS_WEIGHTS = POOLFORMER_WEIGHTS
+    KMODELS_CONFIG = POOLFORMER_MODEL_CONFIG
+    KMODELS_WEIGHTS = POOLFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

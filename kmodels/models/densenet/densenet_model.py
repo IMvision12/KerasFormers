@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import DENSENET_CONFIG, DENSENET_WEIGHTS
+from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHT_CONFIG
 from .convert_densenet_torch_to_keras import transfer_densenet_weights
 
 
@@ -229,8 +229,8 @@ class DenseNetModel(BaseModel):
     >>> DenseNetModel.from_weights("timm:timm/densenet121.tv_in1k")
     """
 
-    KMODELS_CONFIG = DENSENET_CONFIG
-    KMODELS_WEIGHTS = DENSENET_WEIGHTS
+    KMODELS_CONFIG = DENSENET_MODEL_CONFIG
+    KMODELS_WEIGHTS = DENSENET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -347,8 +347,8 @@ class DenseNetClassify(BaseModel):
     >>> DenseNetClassify.from_weights("timm:timm/densenet121.tv_in1k")
     """
 
-    KMODELS_CONFIG = DENSENET_CONFIG
-    KMODELS_WEIGHTS = DENSENET_WEIGHTS
+    KMODELS_CONFIG = DENSENET_MODEL_CONFIG
+    KMODELS_WEIGHTS = DENSENET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

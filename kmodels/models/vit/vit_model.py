@@ -11,7 +11,7 @@ from kmodels.models.vit.vit_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import VIT_CONFIG, VIT_WEIGHTS
+from .config import VIT_MODEL_CONFIG, VIT_WEIGHT_CONFIG
 from .convert_vit_torch_to_keras import transfer_vit_weights
 
 
@@ -237,8 +237,8 @@ class ViTModel(BaseModel):
     >>> ViTModel.from_weights("timm:timm/vit_base_patch16_224.augreg_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = VIT_CONFIG
-    KMODELS_WEIGHTS = VIT_WEIGHTS
+    KMODELS_CONFIG = VIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = VIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -394,8 +394,8 @@ class ViTClassify(BaseModel):
     >>> ViTClassify.from_weights("timm:timm/vit_base_patch16_224.augreg_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = VIT_CONFIG
-    KMODELS_WEIGHTS = VIT_WEIGHTS
+    KMODELS_CONFIG = VIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = VIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

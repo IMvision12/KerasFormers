@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import VGG_CONFIG, VGG_WEIGHTS
+from .config import VGG_MODEL_CONFIG, VGG_WEIGHT_CONFIG
 from .convert_vgg_torch_to_keras import transfer_vgg_weights
 
 
@@ -143,8 +143,8 @@ class VGGModel(BaseModel):
     >>> VGGModel.from_weights("timm:timm/vgg16.tv_in1k")
     """
 
-    KMODELS_CONFIG = VGG_CONFIG
-    KMODELS_WEIGHTS = VGG_WEIGHTS
+    KMODELS_CONFIG = VGG_MODEL_CONFIG
+    KMODELS_WEIGHTS = VGG_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -261,8 +261,8 @@ class VGGClassify(BaseModel):
     >>> VGGClassify.from_weights("timm:timm/vgg16.tv_in1k")
     """
 
-    KMODELS_CONFIG = VGG_CONFIG
-    KMODELS_WEIGHTS = VGG_WEIGHTS
+    KMODELS_CONFIG = VGG_MODEL_CONFIG
+    KMODELS_WEIGHTS = VGG_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

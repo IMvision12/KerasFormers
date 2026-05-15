@@ -6,7 +6,7 @@ from keras import layers
 from kmodels.models.vit.vit_model import ViTClassify, ViTModel
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import DEIT_CONFIG, DEIT_WEIGHTS
+from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHT_CONFIG
 from .convert_deit_torch_to_keras import transfer_deit_weights
 
 
@@ -19,8 +19,8 @@ class DeiTModel(ViTModel):
     the rest are spatial patch tokens.
     """
 
-    KMODELS_CONFIG = DEIT_CONFIG
-    KMODELS_WEIGHTS = DEIT_WEIGHTS
+    KMODELS_CONFIG = DEIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = DEIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -54,8 +54,8 @@ class DeiTClassify(ViTClassify):
     >>> DeiTClassify.from_weights("timm:timm/deit_tiny_distilled_patch16_224.fb_in1k")
     """
 
-    KMODELS_CONFIG = DEIT_CONFIG
-    KMODELS_WEIGHTS = DEIT_WEIGHTS
+    KMODELS_CONFIG = DEIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = DEIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

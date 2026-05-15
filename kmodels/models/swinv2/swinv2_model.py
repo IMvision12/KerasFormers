@@ -14,7 +14,7 @@ from kmodels.models.swinv2.swinv2_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import SWINV2_CONFIG, SWINV2_WEIGHTS
+from .config import SWINV2_MODEL_CONFIG, SWINV2_WEIGHT_CONFIG
 from .convert_swinv2_torch_to_keras import transfer_swinv2_weights
 
 
@@ -482,8 +482,8 @@ class SwinV2Model(BaseModel):
     >>> SwinV2Model.from_weights("timm:timm/swinv2_base_window8_256.ms_in1k")
     """
 
-    KMODELS_CONFIG = SWINV2_CONFIG
-    KMODELS_WEIGHTS = SWINV2_WEIGHTS
+    KMODELS_CONFIG = SWINV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = SWINV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -623,8 +623,8 @@ class SwinV2Classify(BaseModel):
     >>> SwinV2Classify.from_weights("timm:timm/swinv2_base_window8_256.ms_in1k")
     """
 
-    KMODELS_CONFIG = SWINV2_CONFIG
-    KMODELS_WEIGHTS = SWINV2_WEIGHTS
+    KMODELS_CONFIG = SWINV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = SWINV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

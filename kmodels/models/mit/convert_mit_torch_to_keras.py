@@ -86,9 +86,9 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.mit import MiTClassify
-    from kmodels.models.mit.config import MIT_CONFIG
+    from kmodels.models.mit.config import MIT_MODEL_CONFIG
 
-    for variant, cfg in MIT_CONFIG.items():
+    for variant, cfg in MIT_MODEL_CONFIG.items():
         hf_id = cfg["hf_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

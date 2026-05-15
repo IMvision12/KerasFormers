@@ -14,7 +14,7 @@ from kmodels.models.swin.swin_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import SWIN_CONFIG, SWIN_WEIGHTS
+from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHT_CONFIG
 from .convert_swin_torch_to_keras import transfer_swin_weights
 
 
@@ -472,8 +472,8 @@ class SwinModel(BaseModel):
     >>> SwinModel.from_weights("timm:timm/swin_tiny_patch4_window7_224.ms_in1k")
     """
 
-    KMODELS_CONFIG = SWIN_CONFIG
-    KMODELS_WEIGHTS = SWIN_WEIGHTS
+    KMODELS_CONFIG = SWIN_MODEL_CONFIG
+    KMODELS_WEIGHTS = SWIN_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -609,8 +609,8 @@ class SwinClassify(BaseModel):
     >>> SwinClassify.from_weights("timm:timm/swin_tiny_patch4_window7_224.ms_in1k")
     """
 
-    KMODELS_CONFIG = SWIN_CONFIG
-    KMODELS_WEIGHTS = SWIN_WEIGHTS
+    KMODELS_CONFIG = SWIN_MODEL_CONFIG
+    KMODELS_WEIGHTS = SWIN_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

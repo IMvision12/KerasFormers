@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import CONVMIXER_CONFIG, CONVMIXER_WEIGHTS
+from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHT_CONFIG
 from .convert_convmixer_torch_to_keras import transfer_convmixer_weights
 
 
@@ -141,8 +141,8 @@ class ConvMixerModel(BaseModel):
     >>> ConvMixerModel.from_weights("timm:timm/convmixer_768_32.in1k")
     """
 
-    KMODELS_CONFIG = CONVMIXER_CONFIG
-    KMODELS_WEIGHTS = CONVMIXER_WEIGHTS
+    KMODELS_CONFIG = CONVMIXER_MODEL_CONFIG
+    KMODELS_WEIGHTS = CONVMIXER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -267,8 +267,8 @@ class ConvMixerClassify(BaseModel):
     >>> ConvMixerClassify.from_weights("timm:timm/convmixer_768_32.in1k")
     """
 
-    KMODELS_CONFIG = CONVMIXER_CONFIG
-    KMODELS_WEIGHTS = CONVMIXER_WEIGHTS
+    KMODELS_CONFIG = CONVMIXER_MODEL_CONFIG
+    KMODELS_WEIGHTS = CONVMIXER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

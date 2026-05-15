@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import NEXTVIT_CONFIG, NEXTVIT_WEIGHTS
+from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHT_CONFIG
 from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
 from .nextvit_layers import EfficientAttention
 
@@ -551,8 +551,8 @@ class NextViTModel(BaseModel):
     >>> NextViTModel.from_weights("timm:timm/nextvit_small.bd_in1k")
     """
 
-    KMODELS_CONFIG = NEXTVIT_CONFIG
-    KMODELS_WEIGHTS = NEXTVIT_WEIGHTS
+    KMODELS_CONFIG = NEXTVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = NEXTVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -683,8 +683,8 @@ class NextViTClassify(BaseModel):
     >>> NextViTClassify.from_weights("timm:timm/nextvit_small.bd_in1k")
     """
 
-    KMODELS_CONFIG = NEXTVIT_CONFIG
-    KMODELS_WEIGHTS = NEXTVIT_WEIGHTS
+    KMODELS_CONFIG = NEXTVIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = NEXTVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

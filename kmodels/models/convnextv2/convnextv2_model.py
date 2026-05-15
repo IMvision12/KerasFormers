@@ -12,15 +12,15 @@ from kmodels.models.convnext.convnext_model import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import CONVNEXTV2_CONFIG, CONVNEXTV2_WEIGHTS
+from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHT_CONFIG
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ConvNeXtV2Model(ConvNeXtModel):
     """ConvNeXtV2 backbone returning the final stage feature map ``(B, H, W, C)``."""
 
-    KMODELS_CONFIG = CONVNEXTV2_CONFIG
-    KMODELS_WEIGHTS = CONVNEXTV2_WEIGHTS
+    KMODELS_CONFIG = CONVNEXTV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = CONVNEXTV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -53,8 +53,8 @@ class ConvNeXtV2Classify(ConvNeXtClassify):
     >>> ConvNeXtV2Classify.from_weights("timm:timm/convnextv2_base.fcmae_ft_in22k_in1k")
     """
 
-    KMODELS_CONFIG = CONVNEXTV2_CONFIG
-    KMODELS_WEIGHTS = CONVNEXTV2_WEIGHTS
+    KMODELS_CONFIG = CONVNEXTV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = CONVNEXTV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

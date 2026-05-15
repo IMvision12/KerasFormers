@@ -7,7 +7,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import INCEPTIONV3_CONFIG, INCEPTIONV3_WEIGHTS
+from .config import INCEPTIONV3_MODEL_CONFIG, INCEPTIONV3_WEIGHT_CONFIG
 from .convert_inceptionv3_torch_to_keras import transfer_inceptionv3_weights
 
 
@@ -375,8 +375,8 @@ class InceptionV3Model(BaseModel):
     model and applies GAP + Dense head to produce logits.
     """
 
-    KMODELS_CONFIG = INCEPTIONV3_CONFIG
-    KMODELS_WEIGHTS = INCEPTIONV3_WEIGHTS
+    KMODELS_CONFIG = INCEPTIONV3_MODEL_CONFIG
+    KMODELS_WEIGHTS = INCEPTIONV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -477,8 +477,8 @@ class InceptionV3Classify(BaseModel):
     >>> InceptionV3Classify.from_weights("timm:timm/inception_v3.tf_in1k")
     """
 
-    KMODELS_CONFIG = INCEPTIONV3_CONFIG
-    KMODELS_WEIGHTS = INCEPTIONV3_WEIGHTS
+    KMODELS_CONFIG = INCEPTIONV3_MODEL_CONFIG
+    KMODELS_WEIGHTS = INCEPTIONV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

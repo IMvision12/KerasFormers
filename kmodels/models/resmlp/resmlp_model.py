@@ -7,7 +7,7 @@ from kmodels.layers import ImageNormalizationLayer, LayerScale
 from kmodels.models.resmlp.resmlp_layers import Affine
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import RESMLP_CONFIG, RESMLP_WEIGHTS
+from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHT_CONFIG
 from .convert_resmlp_torch_to_keras import transfer_resmlp_weights
 
 
@@ -171,8 +171,8 @@ class ResMLPModel(BaseModel):
     >>> ResMLPModel.from_weights("timm:timm/resmlp_12_224.fb_in1k")
     """
 
-    KMODELS_CONFIG = RESMLP_CONFIG
-    KMODELS_WEIGHTS = RESMLP_WEIGHTS
+    KMODELS_CONFIG = RESMLP_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESMLP_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -306,8 +306,8 @@ class ResMLPClassify(BaseModel):
     >>> ResMLPClassify.from_weights("timm:timm/resmlp_12_224.fb_in1k")
     """
 
-    KMODELS_CONFIG = RESMLP_CONFIG
-    KMODELS_WEIGHTS = RESMLP_WEIGHTS
+    KMODELS_CONFIG = RESMLP_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESMLP_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -7,7 +7,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import INCEPTION_RESNET_V2_CONFIG, INCEPTION_RESNET_V2_WEIGHTS
+from .config import INCEPTION_RESNETV2_MODEL_CONFIG, INCEPTION_RESNETV2_WEIGHT_CONFIG
 from .convert_inceptionresnetv2_torch_to_keras import (
     transfer_inception_resnet_v2_weights,
 )
@@ -346,8 +346,8 @@ class InceptionResNetV2Model(BaseModel):
     >>> InceptionResNetV2Model.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
     """
 
-    KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
-    KMODELS_WEIGHTS = INCEPTION_RESNET_V2_WEIGHTS
+    KMODELS_CONFIG = INCEPTION_RESNETV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -448,8 +448,8 @@ class InceptionResNetV2Classify(BaseModel):
     >>> InceptionResNetV2Classify.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
     """
 
-    KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
-    KMODELS_WEIGHTS = INCEPTION_RESNET_V2_WEIGHTS
+    KMODELS_CONFIG = INCEPTION_RESNETV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

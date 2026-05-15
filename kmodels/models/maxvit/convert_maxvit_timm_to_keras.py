@@ -99,9 +99,9 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.maxvit import MaxViTClassify as MaxViT
-    from kmodels.models.maxvit.config import MAXVIT_CONFIG
+    from kmodels.models.maxvit.config import MAXVIT_MODEL_CONFIG
 
-    for variant, cfg in MAXVIT_CONFIG.items():
+    for variant, cfg in MAXVIT_MODEL_CONFIG.items():
         timm_id = cfg["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

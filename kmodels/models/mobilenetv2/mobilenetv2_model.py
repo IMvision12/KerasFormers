@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MOBILENETV2_CONFIG, MOBILENETV2_WEIGHTS
+from .config import MOBILENETV2_MODEL_CONFIG, MOBILENETV2_WEIGHT_CONFIG
 from .convert_mobilenetv2_torch_to_keras import transfer_mobilenetv2_weights
 
 
@@ -251,8 +251,8 @@ class MobileNetV2Model(BaseModel):
     and adds GlobalAveragePool + Dense on top.
     """
 
-    KMODELS_CONFIG = MOBILENETV2_CONFIG
-    KMODELS_WEIGHTS = MOBILENETV2_WEIGHTS
+    KMODELS_CONFIG = MOBILENETV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILENETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -370,8 +370,8 @@ class MobileNetV2Classify(BaseModel):
     >>> MobileNetV2Classify.from_weights("timm:timm/mobilenetv2_100.ra_in1k")
     """
 
-    KMODELS_CONFIG = MOBILENETV2_CONFIG
-    KMODELS_WEIGHTS = MOBILENETV2_WEIGHTS
+    KMODELS_CONFIG = MOBILENETV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILENETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

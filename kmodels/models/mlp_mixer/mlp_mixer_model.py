@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MLP_MIXER_CONFIG, MLP_MIXER_WEIGHTS
+from .config import MLP_MIXER_MODEL_CONFIG, MLP_MIXER_WEIGHT_CONFIG
 from .convert_mlpmixer_torch_to_keras import transfer_mlp_mixer_weights
 
 
@@ -174,8 +174,8 @@ class MLPMixerModel(BaseModel):
     >>> MLPMixerModel.from_weights("timm:timm/mixer_b16_224.goog_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = MLP_MIXER_CONFIG
-    KMODELS_WEIGHTS = MLP_MIXER_WEIGHTS
+    KMODELS_CONFIG = MLP_MIXER_MODEL_CONFIG
+    KMODELS_WEIGHTS = MLP_MIXER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -306,8 +306,8 @@ class MLPMixerClassify(BaseModel):
     >>> MLPMixerClassify.from_weights("timm:timm/mixer_b16_224.goog_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = MLP_MIXER_CONFIG
-    KMODELS_WEIGHTS = MLP_MIXER_WEIGHTS
+    KMODELS_CONFIG = MLP_MIXER_MODEL_CONFIG
+    KMODELS_WEIGHTS = MLP_MIXER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

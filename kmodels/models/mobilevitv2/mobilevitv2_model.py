@@ -10,7 +10,7 @@ from kmodels.models.mobilevit.mobilevit_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MOBILEVITV2_CONFIG, MOBILEVITV2_WEIGHTS
+from .config import MOBILEVITV2_MODEL_CONFIG, MOBILEVITV2_WEIGHT_CONFIG
 from .convert_mobilevitv2_torch_to_keras import transfer_mobilevitv2_weights
 
 
@@ -421,8 +421,8 @@ class MobileViTV2Model(BaseModel):
     >>> MobileViTV2Model.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = MOBILEVITV2_CONFIG
-    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHTS
+    KMODELS_CONFIG = MOBILEVITV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -532,8 +532,8 @@ class MobileViTV2Classify(BaseModel):
     >>> MobileViTV2Classify.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = MOBILEVITV2_CONFIG
-    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHTS
+    KMODELS_CONFIG = MOBILEVITV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

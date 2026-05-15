@@ -9,14 +9,91 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import (
-    CONV_KERNEL_INITIALIZER,
-    DEFAULT_BLOCKS_ARGS,
-    DENSE_KERNEL_INITIALIZER,
-    EFFICIENTNET_CONFIG,
-    EFFICIENTNET_WEIGHTS,
-)
+from .config import EFFICIENTNET_MODEL_CONFIG, EFFICIENTNET_WEIGHT_CONFIG
 from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
+
+DEFAULT_BLOCKS_ARGS = [
+    {
+        "kernel_size": 3,
+        "repeats": 1,
+        "filters_in": 32,
+        "filters_out": 16,
+        "expand_ratio": 1,
+        "id_skip": True,
+        "strides": 1,
+        "se_ratio": 0.25,
+    },
+    {
+        "kernel_size": 3,
+        "repeats": 2,
+        "filters_in": 16,
+        "filters_out": 24,
+        "expand_ratio": 6,
+        "id_skip": True,
+        "strides": 2,
+        "se_ratio": 0.25,
+    },
+    {
+        "kernel_size": 5,
+        "repeats": 2,
+        "filters_in": 24,
+        "filters_out": 40,
+        "expand_ratio": 6,
+        "id_skip": True,
+        "strides": 2,
+        "se_ratio": 0.25,
+    },
+    {
+        "kernel_size": 3,
+        "repeats": 3,
+        "filters_in": 40,
+        "filters_out": 80,
+        "expand_ratio": 6,
+        "id_skip": True,
+        "strides": 2,
+        "se_ratio": 0.25,
+    },
+    {
+        "kernel_size": 5,
+        "repeats": 3,
+        "filters_in": 80,
+        "filters_out": 112,
+        "expand_ratio": 6,
+        "id_skip": True,
+        "strides": 1,
+        "se_ratio": 0.25,
+    },
+    {
+        "kernel_size": 5,
+        "repeats": 4,
+        "filters_in": 112,
+        "filters_out": 192,
+        "expand_ratio": 6,
+        "id_skip": True,
+        "strides": 2,
+        "se_ratio": 0.25,
+    },
+    {
+        "kernel_size": 3,
+        "repeats": 1,
+        "filters_in": 192,
+        "filters_out": 320,
+        "expand_ratio": 6,
+        "id_skip": True,
+        "strides": 1,
+        "se_ratio": 0.25,
+    },
+]
+
+CONV_KERNEL_INITIALIZER = {
+    "class_name": "VarianceScaling",
+    "config": {"scale": 2.0, "mode": "fan_out", "distribution": "truncated_normal"},
+}
+
+DENSE_KERNEL_INITIALIZER = {
+    "class_name": "VarianceScaling",
+    "config": {"scale": 1.0 / 3.0, "mode": "fan_out", "distribution": "uniform"},
+}
 
 
 def round_filters(filters, width_coefficient, divisor=8):
@@ -284,8 +361,8 @@ class EfficientNetModel(BaseModel):
     >>> EfficientNetModel.from_weights("timm:timm/tf_efficientnet_b0.ns_jft_in1k")
     """
 
-    KMODELS_CONFIG = EFFICIENTNET_CONFIG
-    KMODELS_WEIGHTS = EFFICIENTNET_WEIGHTS
+    KMODELS_CONFIG = EFFICIENTNET_MODEL_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -405,8 +482,8 @@ class EfficientNetClassify(BaseModel):
     >>> EfficientNetClassify.from_weights("timm:timm/tf_efficientnet_b0.ns_jft_in1k")
     """
 
-    KMODELS_CONFIG = EFFICIENTNET_CONFIG
-    KMODELS_WEIGHTS = EFFICIENTNET_WEIGHTS
+    KMODELS_CONFIG = EFFICIENTNET_MODEL_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

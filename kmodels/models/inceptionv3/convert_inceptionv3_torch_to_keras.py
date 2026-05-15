@@ -70,9 +70,9 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.inceptionv3 import InceptionV3Classify
-    from kmodels.models.inceptionv3.config import INCEPTIONV3_CONFIG
+    from kmodels.models.inceptionv3.config import INCEPTIONV3_MODEL_CONFIG
 
-    for variant, cfg in INCEPTIONV3_CONFIG.items():
+    for variant, cfg in INCEPTIONV3_MODEL_CONFIG.items():
         timm_id = cfg["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

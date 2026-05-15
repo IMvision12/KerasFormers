@@ -9,7 +9,7 @@ from kmodels.models.resnet.resnet_model import (
 from kmodels.models.resnext.resnext_model import resnext_block
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import SENET_CONFIG, SENET_WEIGHTS
+from .config import SENET_MODEL_CONFIG, SENET_WEIGHT_CONFIG
 
 _BLOCK_FN_LOOKUP = {
     "bottleneck_block": bottleneck_block,
@@ -41,8 +41,8 @@ def resolve_block_fn(kwargs):
 class SENetModel(ResNetModel):
     """SE-ResNet / SE-ResNeXt trunk returning the final stage feature map."""
 
-    KMODELS_CONFIG = SENET_CONFIG
-    KMODELS_WEIGHTS = SENET_WEIGHTS
+    KMODELS_CONFIG = SENET_MODEL_CONFIG
+    KMODELS_WEIGHTS = SENET_WEIGHT_CONFIG
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -65,15 +65,15 @@ class SENetClassify(ResNetClassify):
     Composes a :class:`SENetModel` backbone with the GAP + Dense head.
     Covers both ``seresnet*`` (bottleneck block) and ``seresnext*``
     (grouped block) variants — block_fn is selected per-variant via the
-    ``block_fn_name`` key in :data:`SENET_CONFIG`.
+    ``block_fn_name`` key in :data:`SENET_MODEL_CONFIG`.
 
     >>> SENetClassify.from_weights("seresnet50_a1_in1k")
     >>> SENetClassify.from_weights("seresnext50_32x4d_racm_in1k")
     >>> SENetClassify.from_weights("timm:timm/seresnet50.a1_in1k")
     """
 
-    KMODELS_CONFIG = SENET_CONFIG
-    KMODELS_WEIGHTS = SENET_WEIGHTS
+    KMODELS_CONFIG = SENET_MODEL_CONFIG
+    KMODELS_WEIGHTS = SENET_WEIGHT_CONFIG
 
     def __init__(
         self,

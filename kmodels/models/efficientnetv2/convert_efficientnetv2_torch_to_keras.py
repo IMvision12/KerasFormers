@@ -83,9 +83,9 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.efficientnetv2 import EfficientNetV2Classify
-    from kmodels.models.efficientnetv2.config import EFFICIENTNETV2_CONFIG
+    from kmodels.models.efficientnetv2.config import EFFICIENTNETV2_MODEL_CONFIG
 
-    for variant, cfg in EFFICIENTNETV2_CONFIG.items():
+    for variant, cfg in EFFICIENTNETV2_MODEL_CONFIG.items():
         timm_id = cfg["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

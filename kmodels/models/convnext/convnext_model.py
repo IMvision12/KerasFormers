@@ -8,7 +8,7 @@ from kmodels.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kmodels.models.convnext.convnext_layers import GlobalResponseNorm
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import CONVNEXT_CONFIG, CONVNEXT_WEIGHTS
+from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHT_CONFIG
 from .convert_convnext_torch_to_keras import transfer_convnext_weights
 
 
@@ -190,8 +190,8 @@ class ConvNeXtModel(BaseModel):
     >>> ConvNeXtModel.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
     """
 
-    KMODELS_CONFIG = CONVNEXT_CONFIG
-    KMODELS_WEIGHTS = CONVNEXT_WEIGHTS
+    KMODELS_CONFIG = CONVNEXT_MODEL_CONFIG
+    KMODELS_WEIGHTS = CONVNEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -321,8 +321,8 @@ class ConvNeXtClassify(BaseModel):
     >>> ConvNeXtClassify.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
     """
 
-    KMODELS_CONFIG = CONVNEXT_CONFIG
-    KMODELS_WEIGHTS = CONVNEXT_WEIGHTS
+    KMODELS_CONFIG = CONVNEXT_MODEL_CONFIG
+    KMODELS_WEIGHTS = CONVNEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

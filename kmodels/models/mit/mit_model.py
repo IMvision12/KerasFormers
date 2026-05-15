@@ -8,7 +8,7 @@ from kmodels.layers import ImageNormalizationLayer, StochasticDepth
 from kmodels.models.mit.mit_layers import EfficientMultiheadSelfAttention
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MIT_CONFIG, MIT_WEIGHTS
+from .config import MIT_MODEL_CONFIG, MIT_WEIGHT_CONFIG
 from .convert_mit_torch_to_keras import transfer_mit_weights
 
 
@@ -277,8 +277,8 @@ class MiTModel(BaseModel):
     >>> MiTModel.from_weights("hf:nvidia/mit-b0")
     """
 
-    KMODELS_CONFIG = MIT_CONFIG
-    KMODELS_WEIGHTS = MIT_WEIGHTS
+    KMODELS_CONFIG = MIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = MIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = "segformer"
 
     @classmethod
@@ -402,8 +402,8 @@ class MiTClassify(BaseModel):
     >>> MiTClassify.from_weights("hf:nvidia/mit-b0")         # direct from HF
     """
 
-    KMODELS_CONFIG = MIT_CONFIG
-    KMODELS_WEIGHTS = MIT_WEIGHTS
+    KMODELS_CONFIG = MIT_MODEL_CONFIG
+    KMODELS_WEIGHTS = MIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = "segformer"
 
     @classmethod

@@ -8,7 +8,7 @@ from kmodels.layers import ImageNormalizationLayer, StochasticDepth
 from kmodels.models.resnetv2.resnetv2_layers import StdConv2D
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import RESNETV2_CONFIG, RESNETV2_WEIGHTS
+from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHT_CONFIG
 from .convert_resnetv2_torch_to_keras import transfer_resnetv2_weights
 
 
@@ -250,8 +250,8 @@ class ResNetV2Model(BaseModel):
     - [Big Transfer (BiT)](https://arxiv.org/abs/1912.11370)
     """
 
-    KMODELS_CONFIG = RESNETV2_CONFIG
-    KMODELS_WEIGHTS = RESNETV2_WEIGHTS
+    KMODELS_CONFIG = RESNETV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -380,8 +380,8 @@ class ResNetV2Classify(BaseModel):
     >>> ResNetV2Classify.from_weights("timm:timm/resnetv2_50x1_bit.goog_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = RESNETV2_CONFIG
-    KMODELS_WEIGHTS = RESNETV2_WEIGHTS
+    KMODELS_CONFIG = RESNETV2_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

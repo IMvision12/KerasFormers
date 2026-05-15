@@ -11,7 +11,7 @@ from kmodels.models.resnet.resnet_model import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import RESNEXT_CONFIG, RESNEXT_WEIGHTS
+from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHT_CONFIG
 
 
 def resnext_block(
@@ -115,8 +115,8 @@ def resnext_block(
 class ResNeXtModel(ResNetModel):
     """ResNeXt trunk returning the final stage feature map ``(B, H, W, C)``."""
 
-    KMODELS_CONFIG = RESNEXT_CONFIG
-    KMODELS_WEIGHTS = RESNEXT_WEIGHTS
+    KMODELS_CONFIG = RESNEXT_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESNEXT_WEIGHT_CONFIG
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
@@ -157,14 +157,14 @@ class ResNeXtClassify(ResNetClassify):
     Same skeleton as :class:`ResNetClassify` but composes a
     :class:`ResNeXtModel` backbone with :func:`resnext_block` and the
     cardinality knobs (``groups`` / ``width_factor``). Variant ids and
-    release weights live in :data:`RESNEXT_CONFIG` / :data:`RESNEXT_WEIGHTS`.
+    release weights live in :data:`RESNEXT_MODEL_CONFIG` / :data:`RESNEXT_WEIGHT_CONFIG`.
 
     >>> ResNeXtClassify.from_weights("resnext50_32x4d_a1_in1k")
     >>> ResNeXtClassify.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
     """
 
-    KMODELS_CONFIG = RESNEXT_CONFIG
-    KMODELS_WEIGHTS = RESNEXT_WEIGHTS
+    KMODELS_CONFIG = RESNEXT_MODEL_CONFIG
+    KMODELS_WEIGHTS = RESNEXT_WEIGHT_CONFIG
 
     def __init__(
         self,
