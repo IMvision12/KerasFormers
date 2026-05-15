@@ -183,6 +183,7 @@ def mit_backbone_feature(
     drop_path_rate,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """MiT 4-stage hierarchical transformer encoder (SegFormer backbone).
 
@@ -195,10 +196,13 @@ def mit_backbone_feature(
             across all blocks in the network).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis index (``-1`` or ``1``).
+        return_stages: If ``True``, return the full list of four per-stage
+            spatial feature maps. Otherwise return only the final stage.
 
     Returns:
-        List of four spatial feature maps, one per stage, each of shape
-        ``(B, H_i, W_i, embed_dims[i])`` (or channels-first equivalent).
+        By default, the final stage's spatial feature map of shape
+        ``(B, H_4, W_4, embed_dims[-1])``. When ``return_stages=True``,
+        returns the list of four per-stage feature maps.
     """
     num_stages = 4
     blockwise_num_heads = [1, 2, 5, 8]
@@ -248,18 +252,21 @@ def mit_backbone_feature(
             x = layers.Reshape((H, W, embed_dims[i]))(x)
         features.append(x)
 
-    return features
+    if return_stages:
+        return features
+    return features[-1]
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MiTModel(BaseModel):
     """MiT backbone — the SegFormer encoder.
 
-    Returns a list of four spatial feature maps, one per encoder stage,
-    each of shape ``(B, H_i, W_i, embed_dims[i])`` (or channels-first
-    equivalent). This is the last set of outputs before the classifier
-    head. :class:`MiTClassify` composes this model and applies a global
-    average pooling + Dense head on the final stage.
+    By default, returns the final stage's spatial feature map of shape
+    ``(B, H_4, W_4, embed_dims[-1])`` (or channels-first equivalent).
+    When constructed with ``as_backbone=True``, returns the list of all
+    four per-stage feature maps instead. :class:`MiTClassify` composes
+    this model with the default ``as_backbone=False`` and applies a
+    global average pooling + Dense head on the resulting feature map.
 
     Reference:
     - [SegFormer](https://arxiv.org/abs/2105.15203)
@@ -296,6 +303,7 @@ class MiTModel(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         embed_dims=(32, 64, 160, 256),
         depths=(2, 2, 2, 2),
         drop_path_rate=0.1,
@@ -341,10 +349,12 @@ class MiTModel(BaseModel):
             drop_path_rate=drop_path_rate,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.embed_dims = list(embed_dims)
         self.depths = list(depths)
         self.drop_path_rate = drop_path_rate
@@ -357,6 +367,7 @@ class MiTModel(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "embed_dims": self.embed_dims,
                 "depths": self.depths,
                 "drop_path_rate": self.drop_path_rate,
@@ -439,7 +450,7 @@ class MiTClassify(BaseModel):
         )
 
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-            backbone.output[-1]
+            backbone.output
         )
         out = layers.Dense(
             num_classes, activation=classifier_activation, name="predictions"

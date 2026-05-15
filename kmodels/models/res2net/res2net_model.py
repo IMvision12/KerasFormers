@@ -203,6 +203,7 @@ def res2net_backbone_feature(
     cardinality,
     channels_axis,
     data_format,
+    return_stages=False,
 ):
     """Res2Net stem + stages, returning the final stage feature map.
 
@@ -214,9 +215,13 @@ def res2net_backbone_feature(
         cardinality: Number of groups for grouped convolution.
         channels_axis: Int axis for the channel dimension.
         data_format: ``"channels_last"`` or ``"channels_first"``.
+        return_stages: If True, return a list of per-stage feature maps
+            (one tensor per Res2Net stage, typically 4). If False
+            (default), return only the final stage map.
 
     Returns:
-        Final stage feature tensor.
+        Final stage feature tensor, or a list of per-stage feature maps
+        when ``return_stages=True``.
     """
     x = layers.ZeroPadding2D(padding=3, data_format=data_format)(inputs)
     x = layers.Conv2D(
@@ -238,6 +243,7 @@ def res2net_backbone_feature(
     )(x)
 
     filters = [64, 128, 256, 512]
+    stages = []
     for i, (blocks, filter_size) in enumerate(zip(depth, filters)):
         stride = 1 if i == 0 else 2
         x = bottle2neck_block(
@@ -261,6 +267,10 @@ def res2net_backbone_feature(
                 scale=scale,
                 data_format=data_format,
             )
+        stages.append(x)
+
+    if return_stages:
+        return stages
     return x
 
 
@@ -302,6 +312,7 @@ class Res2NetModel(BaseModel):
         normalization_mode="imagenet",
         input_tensor=None,
         input_shape=None,
+        as_backbone=False,
         name="Res2NetModel",
         **kwargs,
     ):
@@ -340,6 +351,7 @@ class Res2NetModel(BaseModel):
             cardinality=cardinality,
             channels_axis=channels_axis,
             data_format=data_format,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -351,6 +363,7 @@ class Res2NetModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -364,6 +377,7 @@ class Res2NetModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
                 "trainable": self.trainable,
             }

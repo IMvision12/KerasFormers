@@ -134,6 +134,7 @@ class ResNeXtModel(ResNetModel):
         filters=[64, 128, 256, 512],
         groups=32,
         width_factor=2,
+        as_backbone=False,
         name="ResNeXtModel",
         **kwargs,
     ):
@@ -143,6 +144,7 @@ class ResNeXtModel(ResNetModel):
             filters=filters,
             groups=groups,
             width_factor=width_factor,
+            as_backbone=as_backbone,
             name=name,
             **kwargs,
         )

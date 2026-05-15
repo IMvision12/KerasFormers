@@ -152,6 +152,7 @@ def cait_backbone_feature(
     image_size,
     data_format,
     depth_token_only=2,
+    return_stages=False,
 ):
     """CaiT stem + talking-head blocks + class-attn blocks.
 
@@ -167,10 +168,15 @@ def cait_backbone_feature(
         image_size: Input image resolution (documentation only).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         depth_token_only: Number of trailing class-attention blocks.
+        return_stages: If ``True``, return a list of per-block (talking-head
+            + class-attn) intermediate outputs ending with the final-LN
+            output. Otherwise return only the final-LN output.
 
     Returns:
         ``(B, 1+N, D)`` tensor of final-LN normalized tokens — CLS at index 0
         followed by ``N = (H/patch_size) * (W/patch_size)`` patch tokens.
+        When ``return_stages=True``, returns a list of intermediate tensors;
+        the last entry is the same final-LN output.
     """
     x = layers.Conv2D(
         embed_dim,
@@ -193,6 +199,7 @@ def cait_backbone_feature(
         grid_h=grid_h, grid_w=grid_w, no_embed_class=True, name="pos_embed"
     )(x)
 
+    stages = []
     dpr = list(ops.linspace(0.0, drop_path_rate, depth))
     for i in range(depth):
         x = layer_scale_talking_head_block(
@@ -203,6 +210,7 @@ def cait_backbone_feature(
             init_values=1e-5,
             block_prefix=f"blocks_{i}",
         )
+        stages.append(x)
 
     cls_token = ClassDistToken(name="cls_token")(x)
     for i in range(depth_token_only):
@@ -214,9 +222,14 @@ def cait_backbone_feature(
             init_values=1e-5,
             block_prefix=f"blocks_token_only_{i}",
         )
+        stages.append(cls_token)
 
     x = layers.Concatenate(axis=1, name="cat_cls_patch")([cls_token, x])
-    return layers.LayerNormalization(epsilon=1e-6, name="final_layernorm")(x)
+    x = layers.LayerNormalization(epsilon=1e-6, name="final_layernorm")(x)
+    stages.append(x)
+    if return_stages:
+        return stages
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -258,6 +271,7 @@ class CaiTModel(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         patch_size=16,
         embed_dim=192,
         depth=24,
@@ -306,10 +320,12 @@ class CaiTModel(BaseModel):
             drop_path_rate=drop_path_rate,
             image_size=image_size,
             data_format=data_format,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.patch_size = patch_size
         self.embed_dim = embed_dim
         self.depth = depth
@@ -324,6 +340,7 @@ class CaiTModel(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
                 "embed_dim": self.embed_dim,
                 "depth": self.depth,

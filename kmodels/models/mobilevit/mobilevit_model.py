@@ -280,6 +280,7 @@ def mobilevit_backbone_feature(
     attention_dims,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """MobileViT stem + 5 stages.
 
@@ -293,10 +294,13 @@ def mobilevit_backbone_feature(
             may be ``None`` for stages that don't use a transformer block.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis index.
+        return_stages: If ``True``, return a list of the 5 per-stage feature
+            maps instead of just the final one. Defaults to ``False``.
 
     Returns:
         Final stage feature map with ``block_dims[-1]`` channels at spatial
-        resolution ``H/32``.
+        resolution ``H/32`` when ``return_stages=False``. When
+        ``return_stages=True``, a list of 5 per-stage feature maps.
     """
     x = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), data_format=data_format)(inputs)
     x = layers.Conv2D(
@@ -316,6 +320,7 @@ def mobilevit_backbone_feature(
     )(x)
     x = layers.Activation("swish", name="stem_act")(x)
 
+    stages = []
     for i in range(5):
         x = inverted_residual_block(
             x,
@@ -359,6 +364,10 @@ def mobilevit_backbone_feature(
                 name=f"stages_{i}_1",
             )
 
+        stages.append(x)
+
+    if return_stages:
+        return stages
     return x
 
 
@@ -411,6 +420,7 @@ class MobileViTModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="MobileViTModel",
         **kwargs,
     ):
@@ -449,6 +459,7 @@ class MobileViTModel(BaseModel):
             attention_dims=attention_dims,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -462,6 +473,7 @@ class MobileViTModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -477,6 +489,7 @@ class MobileViTModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

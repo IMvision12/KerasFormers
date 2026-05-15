@@ -153,19 +153,25 @@ def exit_flow(x):
     return x
 
 
-def xception_backbone_feature(inputs):
+def xception_backbone_feature(inputs, *, return_stages=False):
     """Xception entry / middle / exit flows, returns the final feature map.
 
     Args:
         inputs: Input image tensor (post-normalization).
+        return_stages: If True, return a list of per-stage feature maps
+            ``[entry, middle, exit]`` (3 stages, one per flow). If False
+            (default), return only the final exit-flow feature map.
 
     Returns:
-        Final feature map ``(B, H, W, C)`` from the exit flow.
+        Final feature map ``(B, H, W, C)`` from the exit flow, or a list of
+        ``[entry, middle, exit]`` feature maps when ``return_stages=True``.
     """
-    x = entry_flow(inputs)
-    x = middle_flow(x)
-    x = exit_flow(x)
-    return x
+    entry = entry_flow(inputs)
+    middle = middle_flow(entry)
+    exit_ = exit_flow(middle)
+    if return_stages:
+        return [entry, middle, exit_]
+    return exit_
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -214,6 +220,7 @@ class XceptionModel(BaseModel):
         normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="XceptionModel",
         **kwargs,
     ):
@@ -243,7 +250,7 @@ class XceptionModel(BaseModel):
             if include_normalization
             else img_input
         )
-        x = xception_backbone_feature(x)
+        x = xception_backbone_feature(x, return_stages=as_backbone)
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
@@ -251,6 +258,7 @@ class XceptionModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self) -> dict:
         config = super().get_config()
@@ -261,6 +269,7 @@ class XceptionModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

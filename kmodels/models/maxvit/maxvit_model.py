@@ -264,6 +264,7 @@ def maxvit_backbone_feature(
     image_size,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """MaxViT 2-conv stem + 4 stages of (MBConv + block-attn + grid-attn) blocks.
 
@@ -282,10 +283,13 @@ def maxvit_backbone_feature(
             current ``(H, W)`` for window/grid partition layers.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis index.
+        return_stages: If ``True``, return a list of the 4 per-stage feature
+            maps instead of just the final one. Defaults to ``False``.
 
     Returns:
         Final stage feature map with ``embed_dim[-1]`` channels at spatial
-        resolution ``H/32``.
+        resolution ``H/32`` when ``return_stages=False``. When
+        ``return_stages=True``, a list of 4 per-stage feature maps.
     """
     H = W = image_size
 
@@ -316,6 +320,7 @@ def maxvit_backbone_feature(
     cur_W = W // 2
 
     in_ch = stem_width
+    stages = []
     for stage_idx in range(len(depths)):
         out_ch = embed_dim[stage_idx]
         for block_idx in range(depths[stage_idx]):
@@ -361,7 +366,11 @@ def maxvit_backbone_feature(
                 prefix=prefix + "attn_grid_",
             )
 
+        stages.append(x)
         in_ch = out_ch
+
+    if return_stages:
+        return stages
     return x
 
 
@@ -416,6 +425,7 @@ class MaxViTModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="MaxViTModel",
         **kwargs,
     ):
@@ -459,6 +469,7 @@ class MaxViTModel(BaseModel):
             image_size=image_size,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -475,6 +486,7 @@ class MaxViTModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -493,6 +505,7 @@ class MaxViTModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

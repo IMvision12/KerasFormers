@@ -35,8 +35,8 @@ class FlexiViTModel(ViTModel):
     def transfer_from_timm(cls, keras_model, state_dict):
         transfer_vit_weights(keras_model, state_dict)
 
-    def __init__(self, name="FlexiViTModel", **kwargs):
-        super().__init__(name=name, **kwargs)
+    def __init__(self, as_backbone=False, name="FlexiViTModel", **kwargs):
+        super().__init__(as_backbone=as_backbone, name=name, **kwargs)
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

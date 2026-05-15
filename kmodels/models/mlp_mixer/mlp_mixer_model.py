@@ -88,6 +88,7 @@ def mlp_mixer_backbone_feature(
     input_shape,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """MLP-Mixer stem (patch embed) + N mixer blocks + final LayerNorm.
 
@@ -103,9 +104,14 @@ def mlp_mixer_backbone_feature(
         input_shape: Image input shape used to derive grid size.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
+        return_stages: If True, return a list of per-block (post-residual)
+            features (one per mixer block, ``num_blocks`` total). Spatial shape
+            is constant across blocks (Mixer is isotropic). If False (default),
+            return the single post-final-LayerNorm sequence.
 
     Returns:
-        Post-LayerNorm patch sequence of shape ``(B, num_patches, embed_dim)``.
+        Post-LayerNorm patch sequence of shape ``(B, num_patches, embed_dim)``,
+        or a list of ``num_blocks`` per-block outputs when ``return_stages=True``.
     """
     x = layers.Conv2D(
         embed_dim,
@@ -127,6 +133,7 @@ def mlp_mixer_backbone_feature(
     token_mlp_dim = int(embed_dim * mlp_ratio[0])
     channel_mlp_dim = int(embed_dim * mlp_ratio[1])
 
+    stages = []
     for i in range(num_blocks):
         drop_path = drop_path_rate * (i / num_blocks)
         x = mixer_block(
@@ -139,6 +146,10 @@ def mlp_mixer_backbone_feature(
             drop_rate=drop_path,
             block_idx=i,
         )
+        stages.append(x)
+
+    if return_stages:
+        return stages
 
     x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernomr")(x)
     return x
@@ -193,6 +204,7 @@ class MLPMixerModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="MLPMixerModel",
         **kwargs,
     ):
@@ -233,6 +245,7 @@ class MLPMixerModel(BaseModel):
             input_shape=input_shape,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -247,6 +260,7 @@ class MLPMixerModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -263,6 +277,7 @@ class MLPMixerModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

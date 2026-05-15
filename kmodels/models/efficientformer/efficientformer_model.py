@@ -207,6 +207,7 @@ def efficientformer_backbone_feature(
     image_h,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """EfficientFormer stem + four hybrid (pool + optional transformer) stages.
 
@@ -227,9 +228,13 @@ def efficientformer_backbone_feature(
         image_h: Input image height; used to compute the final-stage resolution.
         data_format: Keras data-format string.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        return_stages: If True, return a list of per-stage feature maps (one
+            tensor per element of ``depths``); otherwise return the final
+            stage's feature tensor.
 
     Returns:
-        Final-stage feature tensor.
+        Final-stage feature tensor, or a list of per-stage feature tensors when
+        ``return_stages`` is True.
     """
     x = layers.ZeroPadding2D(padding=1, data_format=data_format, name="stem_pad1")(
         inputs
@@ -265,6 +270,7 @@ def efficientformer_backbone_feature(
     dpr = np.linspace(0.0, drop_path_rate, sum(depths))
     cur = 0
 
+    stages = []
     for i in range(num_stages):
         if i > 0:
             x = layers.ZeroPadding2D(
@@ -324,8 +330,13 @@ def efficientformer_backbone_feature(
                     name=f"stages_{i}_blocks_{j}",
                 )
 
+        if return_stages:
+            stages.append(x)
+
         cur += depths[i]
 
+    if return_stages:
+        return stages
     return x
 
 
@@ -371,6 +382,7 @@ class EfficientFormerModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="EfficientFormerModel",
         **kwargs,
     ):
@@ -419,6 +431,7 @@ class EfficientFormerModel(BaseModel):
             image_h=image_h,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -435,6 +448,7 @@ class EfficientFormerModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -453,6 +467,7 @@ class EfficientFormerModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

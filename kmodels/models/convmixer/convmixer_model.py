@@ -72,6 +72,7 @@ def convmixer_backbone_feature(
     activation,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """Stem + N ConvMixer blocks, returning the final feature map.
 
@@ -84,9 +85,14 @@ def convmixer_backbone_feature(
         activation: Activation name applied inside conv layers (e.g. ``"gelu"``).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis index of the channels dimension.
+        return_stages: If True, return a singleton list ``[final]`` (ConvMixer
+            has no natural multi-stage hierarchy — all blocks share the same
+            spatial resolution and channel count). If False (default), return
+            the final feature map directly.
 
     Returns:
-        Final feature map ``(B, H, W, C)``.
+        Final feature map ``(B, H, W, C)``, or a singleton list
+        ``[final]`` when ``return_stages=True``.
     """
     x = layers.Conv2D(
         dim,
@@ -112,6 +118,8 @@ def convmixer_backbone_feature(
             f"mixer_block_{i}",
         )
 
+    if return_stages:
+        return [x]
     return x
 
 
@@ -162,6 +170,7 @@ class ConvMixerModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="ConvMixerModel",
         **kwargs,
     ):
@@ -201,6 +210,7 @@ class ConvMixerModel(BaseModel):
             activation=activation,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -214,6 +224,7 @@ class ConvMixerModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -229,6 +240,7 @@ class ConvMixerModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

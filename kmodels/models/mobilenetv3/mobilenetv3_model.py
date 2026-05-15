@@ -189,6 +189,7 @@ def mobilenetv3_backbone_feature(
     minimal,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """MobileNetV3 stem + inverted-residual stages + final 1x1 conv.
 
@@ -202,9 +203,13 @@ def mobilenetv3_backbone_feature(
             for every IR block (minimal variant).
         data_format: Keras data-format string.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        return_stages: If True, return a list of per-stage feature maps grouped
+            by stride boundary (pre-final-conv); otherwise return the
+            post-final-conv tensor.
 
     Returns:
-        Final 4D feature tensor after the final 1x1 conv (post BN + activation).
+        Final 4D feature tensor after the final 1x1 conv (post BN + activation),
+        or a list of per-stage feature tensors when ``return_stages`` is True.
     """
     blocks = _LARGE_BLOCKS if config == "large" else _SMALL_BLOCKS
 
@@ -227,6 +232,7 @@ def mobilenetv3_backbone_feature(
         "hard_swish" if not minimal else "relu", name="stem_activation"
     )(x)
 
+    stages = []
     for idx, layer_config in enumerate(blocks):
         expansion_ratio, filters, kernel_size, stride, se_ratio, activation = (
             layer_config
@@ -235,6 +241,9 @@ def mobilenetv3_backbone_feature(
             kernel_size = 3
             activation = "relu"
             se_ratio = None
+
+        if return_stages and stride == 2:
+            stages.append(x)
 
         x = inverted_residual_block(
             x,
@@ -248,6 +257,10 @@ def mobilenetv3_backbone_feature(
             data_format=data_format,
             channels_axis=channels_axis,
         )
+
+    if return_stages:
+        stages.append(x)
+        return stages
 
     final_conv_channels = make_divisible(x.shape[channels_axis] * 6)
     x = layers.Conv2D(
@@ -309,6 +322,7 @@ class MobileNetV3Model(BaseModel):
         normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="MobileNetV3Model",
         **kwargs,
     ):
@@ -352,6 +366,7 @@ class MobileNetV3Model(BaseModel):
             minimal=minimal,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -364,6 +379,7 @@ class MobileNetV3Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -378,6 +394,7 @@ class MobileNetV3Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

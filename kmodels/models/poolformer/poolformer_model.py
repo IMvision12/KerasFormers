@@ -131,6 +131,7 @@ def poolformer_backbone_feature(
     init_scale,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """PoolFormer stem (7x7 stride-4 conv) + 4 stages with 3x3 stride-2 downsamples.
 
@@ -144,9 +145,13 @@ def poolformer_backbone_feature(
         init_scale: Initial LayerScale value for the residual branches.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
+        return_stages: If True, return a list of the 4 per-stage feature maps
+            (each captured post-stage, pre-downsample). If False (default),
+            return the final stage feature map only.
 
     Returns:
-        Final stage feature map ``(B, H, W, C)``.
+        Final stage feature map ``(B, H, W, C)``, or a list of 4 per-stage
+        feature maps when ``return_stages=True``.
     """
     x = layers.ZeroPadding2D(
         padding=((2, 2), (2, 2)), data_format=data_format, name="stem_pad"
@@ -165,6 +170,7 @@ def poolformer_backbone_feature(
     dpr = [val * drop_path_rate / total_blocks for val in range(total_blocks)]
     cur = 0
 
+    stages = []
     for stage_idx in range(len(num_blocks)):
         for block_idx in range(num_blocks[stage_idx]):
             x = poolformer_block(
@@ -179,6 +185,8 @@ def poolformer_backbone_feature(
                 name=f"stage_{stage_idx}_block_{block_idx}",
             )
             cur += 1
+
+        stages.append(x)
 
         if stage_idx < len(num_blocks) - 1:
             x = layers.ZeroPadding2D(
@@ -196,6 +204,8 @@ def poolformer_backbone_feature(
                 name=f"stage_{stage_idx + 1}_downsample_conv",
             )(x)
 
+    if return_stages:
+        return stages
     return x
 
 
@@ -248,6 +258,7 @@ class PoolFormerModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="PoolFormerModel",
         **kwargs,
     ):
@@ -288,6 +299,7 @@ class PoolFormerModel(BaseModel):
             init_scale=init_scale,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -302,6 +314,7 @@ class PoolFormerModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -318,6 +331,7 @@ class PoolFormerModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

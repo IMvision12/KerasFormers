@@ -411,6 +411,7 @@ def nextvit_backbone_feature(
     drop_path_rate,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """NextViT stem + 4 stages + final BN.
 
@@ -427,10 +428,15 @@ def nextvit_backbone_feature(
         drop_path_rate: Maximum stochastic-depth rate (linearly ramped per block).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis index.
+        return_stages: If ``True``, return a list of the 4 per-stage feature
+            maps (collected at the end of each stage, BEFORE the trailing
+            BatchNorm). Defaults to ``False``.
 
     Returns:
         Final stage feature map (after BatchNorm) with the last stage's
-        channel count at spatial resolution ``H/32``.
+        channel count at spatial resolution ``H/32`` when
+        ``return_stages=False``. When ``return_stages=True``, a list of 4
+        per-stage feature maps.
     """
     x = inputs
     stem_configs = [
@@ -470,6 +476,7 @@ def nextvit_backbone_feature(
 
     in_chs = stem_chs[-1]
 
+    stages = []
     for stage_idx in range(4):
         block_chs = stage_out_chs[stage_idx]
         block_types = stage_block_types[stage_idx]
@@ -510,6 +517,11 @@ def nextvit_backbone_feature(
                     prefix=prefix,
                 )
             in_chs = out_chs
+
+        stages.append(x)
+
+    if return_stages:
+        return stages
 
     x = layers.BatchNormalization(
         axis=channels_axis,
@@ -569,6 +581,7 @@ class NextViTModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="NextViTModel",
         **kwargs,
     ):
@@ -609,6 +622,7 @@ class NextViTModel(BaseModel):
             drop_path_rate=drop_path_rate,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -623,6 +637,7 @@ class NextViTModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -639,6 +654,7 @@ class NextViTModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

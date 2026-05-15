@@ -122,6 +122,7 @@ def vit_backbone_feature(
     image_size,
     data_format,
     return_intermediates=False,
+    return_stages=False,
 ):
     """ViT patch embed + cls/dist tokens + pos embed + transformer blocks.
 
@@ -149,12 +150,16 @@ def vit_backbone_feature(
         data_format: ``"channels_last"`` or ``"channels_first"``.
         return_intermediates: If ``True``, return per-block raw outputs
             (no final LN) — used by DINO / DINOv2 which apply their own norm.
+        return_stages: If ``True``, return a list of per-block outputs ending
+            with the final-LN output (used as a generic backbone feature
+            extractor).
 
     Returns:
         Final encoder tokens of shape ``(B, num_tokens, dim)`` after the
         final LayerNorm. When ``return_intermediates=True``, a list
         ``[post_pos_embed, block_0, ..., block_{depth-1}]`` of raw block
-        outputs (no final LN) is returned instead.
+        outputs (no final LN) is returned instead. When ``return_stages=True``,
+        a list ``[block_0, ..., block_{depth-1}, final_ln]`` is returned.
     """
     if data_format == "channels_first":
         _, height, width = inputs.shape[1:]
@@ -187,6 +192,7 @@ def vit_backbone_feature(
     intermediates = [x]
     x = layers.Dropout(drop_rate)(x)
 
+    stages = []
     for i in range(depth):
         x = transformer_block(
             x,
@@ -201,10 +207,15 @@ def vit_backbone_feature(
             block_idx=i,
         )
         intermediates.append(x)
+        stages.append(x)
 
     if return_intermediates:
         return intermediates
-    return layers.LayerNormalization(epsilon=1e-6, axis=-1, name="final_layernorm")(x)
+    x = layers.LayerNormalization(epsilon=1e-6, axis=-1, name="final_layernorm")(x)
+    stages.append(x)
+    if return_stages:
+        return stages
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -245,6 +256,7 @@ class ViTModel(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         patch_size=16,
         dim=768,
         depth=12,
@@ -307,10 +319,12 @@ class ViTModel(BaseModel):
             init_values=init_values,
             image_size=image_size,
             data_format=data_format,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.patch_size = patch_size
         self.dim = dim
         self.depth = depth
@@ -332,6 +346,7 @@ class ViTModel(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
                 "dim": self.dim,
                 "depth": self.depth,

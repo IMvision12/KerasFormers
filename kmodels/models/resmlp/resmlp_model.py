@@ -81,6 +81,7 @@ def resmlp_backbone_feature(
     drop_path_rate,
     input_shape,
     data_format,
+    return_stages=False,
 ):
     """ResMLP stem (patch embed) + ``depth`` ResMLP blocks + final Affine.
 
@@ -95,9 +96,14 @@ def resmlp_backbone_feature(
             with block index).
         input_shape: Image input shape used to derive sequence length.
         data_format: ``"channels_last"`` or ``"channels_first"``.
+        return_stages: If True, return a list of per-block (post-residual)
+            outputs (one per ResMLP block, ``depth`` total). ResMLP is
+            isotropic — shape is constant across blocks. If False (default),
+            return the single post-final-Affine sequence.
 
     Returns:
-        Post-Affine patch sequence of shape ``(B, num_patches, embed_dim)``.
+        Post-Affine patch sequence of shape ``(B, num_patches, embed_dim)``,
+        or a list of ``depth`` per-block outputs when ``return_stages=True``.
     """
     x = layers.Conv2D(
         embed_dim,
@@ -124,6 +130,7 @@ def resmlp_backbone_feature(
         x = layers.Permute((2, 3, 1))(x)
     x = layers.Reshape((num_patches, embed_dim))(x)
 
+    stages = []
     for i in range(depth):
         drop_path = drop_path_rate * (i / depth)
         x = resmlp_block(
@@ -135,6 +142,10 @@ def resmlp_backbone_feature(
             drop_path,
             block_idx=i,
         )
+        stages.append(x)
+
+    if return_stages:
+        return stages
 
     x = Affine(name="Final_affine")(x)
     return x
@@ -191,6 +202,7 @@ class ResMLPModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="ResMLPModel",
         **kwargs,
     ):
@@ -230,6 +242,7 @@ class ResMLPModel(BaseModel):
             drop_path_rate=drop_path_rate,
             input_shape=input_shape,
             data_format=data_format,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -245,6 +258,7 @@ class ResMLPModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -262,6 +276,7 @@ class ResMLPModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

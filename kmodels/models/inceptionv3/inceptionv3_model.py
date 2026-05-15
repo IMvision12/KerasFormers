@@ -317,22 +317,29 @@ def inception_blocke(inputs, name="inception_block_e"):
     )
 
 
-def inceptionv3_backbone_feature(inputs, *, data_format):
+def inceptionv3_backbone_feature(inputs, *, data_format, return_stages=False):
     """InceptionV3 stem + 5-block backbone, returns final stage feature map.
 
     Args:
         inputs: Input image tensor.
         data_format: ``"channels_last"`` or ``"channels_first"``.
+        return_stages: If True, return a list of per-stage feature maps
+            taken at natural downsample boundaries (after Pool1, after
+            Conv2d_4a, after Mixed_5d, after Mixed_6e, after Mixed_7c).
+            If False (default), return only the final stage map.
 
     Returns:
-        Final stage feature tensor (after Mixed_7c).
+        Final stage feature tensor (after Mixed_7c), or a list of per-stage
+        feature maps when ``return_stages=True``.
     """
+    stages = []
     # Stem
     x = conv_block(inputs, 32, 3, strides=2, name="Conv2d_1a_3x3")
     x = conv_block(x, 32, 3, name="Conv2d_2a_3x3")
     x = conv_block(x, 64, 3, padding=None, name="Conv2d_2b_3x3")
 
     x = layers.MaxPooling2D(3, 2, name="Pool1")(x)
+    stages.append(x)  # stage 1: after Pool1
     x = conv_block(x, 80, 1, name="Conv2d_3b_1x1")
     x = conv_block(x, 192, 3, name="Conv2d_4a_3x3")
 
@@ -340,17 +347,22 @@ def inceptionv3_backbone_feature(inputs, *, data_format):
     x = inception_blocka(x, 32, "Mixed_5b")
     x = inception_blocka(x, 64, "Mixed_5c")
     x = inception_blocka(x, 64, "Mixed_5d")
+    stages.append(x)  # stage 2: after Inception-A group
 
     x = inception_blockb(x, "Mixed_6a")
     x = inception_blockc(x, 128, "Mixed_6b")
     x = inception_blockc(x, 160, "Mixed_6c")
     x = inception_blockc(x, 160, "Mixed_6d")
     x = inception_blockc(x, 192, "Mixed_6e")
+    stages.append(x)  # stage 3: after Inception-C group
 
     x = inception_blockd(x, "Mixed_7a")
     x = inception_blocke(x, "Mixed_7b")
     x = inception_blocke(x, "Mixed_7c")
+    stages.append(x)  # stage 4: after Inception-E group
 
+    if return_stages:
+        return stages
     return x
 
 
@@ -387,6 +399,7 @@ class InceptionV3Model(BaseModel):
         normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="InceptionV3Model",
         **kwargs,
     ):
@@ -416,7 +429,9 @@ class InceptionV3Model(BaseModel):
             if include_normalization
             else img_input
         )
-        x = inceptionv3_backbone_feature(x, data_format=data_format)
+        x = inceptionv3_backbone_feature(
+            x, data_format=data_format, return_stages=as_backbone
+        )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
@@ -424,6 +439,7 @@ class InceptionV3Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -434,6 +450,7 @@ class InceptionV3Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

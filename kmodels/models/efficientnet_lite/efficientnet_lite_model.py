@@ -145,6 +145,7 @@ def efficientnet_lite_backbone_feature(
     drop_connect_rate,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """EfficientNet-Lite stem + MBConv-Lite stages + head conv.
 
@@ -156,9 +157,13 @@ def efficientnet_lite_backbone_feature(
         drop_connect_rate: Stochastic-depth drop rate ramp applied across blocks.
         data_format: Keras data-format string.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        return_stages: If True, return a list of per-stage feature maps grouped
+            by stride boundary (pre-head-conv); otherwise return the post-head-conv
+            tensor.
 
     Returns:
-        Final 4D feature tensor after the head 1x1 conv (post BN + ReLU6).
+        Final 4D feature tensor after the head 1x1 conv (post BN + ReLU6), or a
+        list of per-stage feature tensors when ``return_stages`` is True.
     """
     x = layers.ZeroPadding2D(
         padding=imagenet_utils.correct_pad(inputs, 3),
@@ -182,6 +187,7 @@ def efficientnet_lite_backbone_feature(
     b = 0
     blocks = float(sum(args["repeats"] for args in DEFAULT_BLOCKS_ARGS))
 
+    stages = []
     for i, args in enumerate(blocks_args):
         args["filters_in"] = round_filters(args["filters_in"], width_coefficient)
         args["filters_out"] = round_filters(args["filters_out"], width_coefficient)
@@ -189,6 +195,10 @@ def efficientnet_lite_backbone_feature(
             repeats = args.pop("repeats")
         else:
             repeats = round_repeats(args.pop("repeats"), depth_coefficient)
+
+        group_stride = args["strides"]
+        if return_stages and group_stride == 2:
+            stages.append(x)
 
         for j in range(repeats):
             if j > 0:
@@ -203,6 +213,10 @@ def efficientnet_lite_backbone_feature(
                 **args,
             )
             b += 1
+
+    if return_stages:
+        stages.append(x)
+        return stages
 
     x = layers.Conv2D(
         1280,
@@ -256,6 +270,7 @@ class EfficientNetLiteModel(BaseModel):
         normalization_mode="imagenet",
         input_tensor=None,
         input_shape=None,
+        as_backbone=False,
         name="EfficientNetLiteModel",
         **kwargs,
     ):
@@ -293,6 +308,7 @@ class EfficientNetLiteModel(BaseModel):
             drop_connect_rate=drop_connect_rate,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -306,6 +322,7 @@ class EfficientNetLiteModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -321,6 +338,7 @@ class EfficientNetLiteModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

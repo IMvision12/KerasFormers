@@ -320,6 +320,7 @@ def mobilevitv2_backbone_feature(
     multiplier,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """MobileViTV2 stem + 5 stages.
 
@@ -329,10 +330,13 @@ def mobilevitv2_backbone_feature(
         multiplier: Width multiplier applied to every stage's channel count.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis index.
+        return_stages: If ``True``, return a list of the 5 per-stage feature
+            maps instead of just the final one. Defaults to ``False``.
 
     Returns:
         Final stage feature map with ``int(512 * multiplier)`` channels at
-        spatial resolution ``H/32``.
+        spatial resolution ``H/32`` when ``return_stages=False``. When
+        ``return_stages=True``, a list of 5 per-stage feature maps.
     """
     x = layers.ZeroPadding2D(padding=1, data_format=data_format)(inputs)
     x = layers.Conv2D(
@@ -352,6 +356,7 @@ def mobilevitv2_backbone_feature(
     )(x)
     x = layers.Activation("swish", name="stem_act")(x)
 
+    stages = []
     for stage in range(5):
         channels = int(([64, 128, 256, 384, 512][stage]) * multiplier)
         stride = 1 if stage == 0 else 2
@@ -390,6 +395,10 @@ def mobilevitv2_backbone_feature(
                 name=f"stages_{stage}_1",
             )
 
+        stages.append(x)
+
+    if return_stages:
+        return stages
     return x
 
 
@@ -437,6 +446,7 @@ class MobileViTV2Model(BaseModel):
         normalization_mode="zero_to_one",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="MobileViTV2Model",
         **kwargs,
     ):
@@ -472,6 +482,7 @@ class MobileViTV2Model(BaseModel):
             multiplier=multiplier,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -481,6 +492,7 @@ class MobileViTV2Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -492,6 +504,7 @@ class MobileViTV2Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

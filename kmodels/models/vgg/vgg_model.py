@@ -16,6 +16,7 @@ def vgg_block(
     channels_axis,
     data_format,
     batch_norm=False,
+    collect_stages=False,
 ):
     """Stack of Conv2D / [BN] / ReLU and MaxPool layers per the VGG recipe.
 
@@ -29,12 +30,17 @@ def vgg_block(
         channels_axis: Axis index of the channels dimension.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         batch_norm: If True, insert BatchNormalization after each Conv2D.
+        collect_stages: If True, also return a list of feature maps captured
+            right after each MaxPool.
 
     Returns:
-        Tensor produced after all VGG stages.
+        If ``collect_stages`` is False: the tensor produced after all VGG
+        stages. If True: a tuple ``(x, stages)`` where ``stages`` is a list
+        of per-MaxPool feature maps.
     """
     x = inputs
     layer_idx = 0
+    stages = []
 
     for v in num_filters:
         if v == "M":
@@ -45,6 +51,7 @@ def vgg_block(
                 name=f"Max_Pool_{layer_idx}",
             )(x)
             layer_idx += 1
+            stages.append(x)
         else:
             x = layers.Conv2D(
                 v,
@@ -67,6 +74,8 @@ def vgg_block(
             x = layers.ReLU(name=f"relu_{layer_idx}")(x)
             layer_idx += 1
 
+    if collect_stages:
+        return x, stages
     return x
 
 
@@ -77,6 +86,7 @@ def vgg_backbone_feature(
     batch_norm,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """Convolutional stack + classification-head pre-logit convs.
 
@@ -86,16 +96,21 @@ def vgg_backbone_feature(
         batch_norm: Whether to apply BatchNormalization after each Conv2D.
         data_format: ``"channels_last"`` or ``"channels_first"`` Keras format.
         channels_axis: Axis index of the channels dimension.
+        return_stages: If True, return a list of per-stage feature maps (one
+            tensor captured right after each MaxPool). If False (default),
+            return only the final pre-logits 4096-channel feature tensor.
 
     Returns:
-        Final pre-logits 4096-channel feature tensor.
+        Final pre-logits 4096-channel feature tensor, or a list of per-stage
+        feature maps when ``return_stages=True``.
     """
-    x = vgg_block(
+    x, stages = vgg_block(
         inputs,
         num_filters,
         batch_norm=batch_norm,
         channels_axis=channels_axis,
         data_format=data_format,
+        collect_stages=True,
     )
 
     x = layers.Conv2D(4096, 7, data_format=data_format, name="conv_fc1")(x)
@@ -105,6 +120,8 @@ def vgg_backbone_feature(
     x = layers.ReLU(name="relu_fc2")(x)
     x = layers.Dropout(0.5, name="dropout_fc2")(x)
 
+    if return_stages:
+        return stages
     return x
 
 
@@ -152,6 +169,7 @@ class VGGModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="VGGModel",
         **kwargs,
     ):
@@ -191,6 +209,7 @@ class VGGModel(BaseModel):
             batch_norm=batch_norm,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -201,6 +220,7 @@ class VGGModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -213,6 +233,7 @@ class VGGModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

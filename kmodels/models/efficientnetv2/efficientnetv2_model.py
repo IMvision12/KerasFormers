@@ -307,6 +307,7 @@ def efficientnetv2_backbone_feature(
     head_filters,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """EfficientNetV2 stem + Fused/MBConv stages + head conv.
 
@@ -320,9 +321,13 @@ def efficientnetv2_backbone_feature(
         head_filters: Output channel count of the final 1x1 head conv.
         data_format: Keras data-format string.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        return_stages: If True, return a list of per-stage feature maps grouped
+            by stride boundary (pre-head-conv); otherwise return the post-head-conv
+            tensor.
 
     Returns:
-        Final 4D feature tensor after the head 1x1 conv (post BN + swish).
+        Final 4D feature tensor after the head 1x1 conv (post BN + swish), or a
+        list of per-stage feature tensors when ``return_stages`` is True.
     """
     block_config = copy.deepcopy(EFFICIENTNETV2_BLOCK_CONFIG[block_arch])
 
@@ -350,6 +355,7 @@ def efficientnetv2_backbone_feature(
     b = 0
     blocks = float(sum(args["num_repeat"] for args in block_config))
 
+    stages = []
     for i, args in enumerate(block_config):
         assert args["num_repeat"] > 0
 
@@ -361,6 +367,10 @@ def efficientnetv2_backbone_feature(
             filters=args["output_filters"],
             width_coefficient=width_coefficient,
         )
+
+        group_stride = args["strides"]
+        if return_stages and group_stride == 2:
+            stages.append(x)
 
         block = {0: mb_conv_block, 1: fusedmb_conv_block}[args.pop("conv_type")]
         repeats = round_repeats(
@@ -381,6 +391,10 @@ def efficientnetv2_backbone_feature(
                 **args,
             )
             b += 1
+
+    if return_stages:
+        stages.append(x)
+        return stages
 
     x = layers.Conv2D(
         filters=head_filters,
@@ -440,6 +454,7 @@ class EfficientNetV2Model(BaseModel):
         normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="EfficientNetV2Model",
         **kwargs,
     ):
@@ -478,6 +493,7 @@ class EfficientNetV2Model(BaseModel):
             head_filters=head_filters,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -491,6 +507,7 @@ class EfficientNetV2Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -506,6 +523,7 @@ class EfficientNetV2Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

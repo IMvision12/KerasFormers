@@ -284,6 +284,7 @@ class PiTModel(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         patch_size=16,
         stride=8,
         embed_dim=(64, 128, 256),
@@ -338,10 +339,12 @@ class PiTModel(BaseModel):
             drop_rate=drop_rate,
             image_size=image_size,
             data_format=data_format,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.patch_size = patch_size
         self.stride = stride
         self.embed_dim = embed_dim
@@ -359,6 +362,7 @@ class PiTModel(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
                 "stride": self.stride,
                 "embed_dim": self.embed_dim,

@@ -53,9 +53,9 @@ class SENetModel(ResNetModel):
             del src
         return model
 
-    def __init__(self, senet=True, name="SENetModel", **kwargs):
+    def __init__(self, senet=True, as_backbone=False, name="SENetModel", **kwargs):
         resolve_block_fn(kwargs)
-        super().__init__(senet=senet, name=name, **kwargs)
+        super().__init__(senet=senet, as_backbone=as_backbone, name=name, **kwargs)
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

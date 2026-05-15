@@ -252,7 +252,7 @@ def siglip_vision_embedding(
     return outputs
 
 
-def siglip_vision_backbone_feature(
+def siglip_vision_features(
     inputs,
     patch_size,
     hidden_dim,
@@ -289,7 +289,7 @@ def siglip_vision_backbone_feature(
 
     if height != width:
         raise ValueError(
-            "`siglip_vision_backbone_feature` expects the height and width to be the "
+            "`siglip_vision_features` expects the height and width to be the "
             f"same in input shape. Received: input_shape={input_shape}"
         )
 
@@ -342,7 +342,7 @@ def siglip_vision_encoder(
         Pooled vision vector of shape ``(B, hidden_dim)`` — equivalent to HF
         ``SiglipVisionModel.pooler_output``, ready for the contrastive head.
     """
-    x = siglip_vision_backbone_feature(
+    x = siglip_vision_features(
         inputs,
         patch_size=patch_size,
         hidden_dim=hidden_dim,
@@ -567,7 +567,7 @@ def siglip_head(vision_embedding, text_embedding):
     return image_logits, text_logits
 
 
-def siglip_resolve_image_shape(input_shape, image_resolution, data_format):
+def _siglip_resolve_image_shape(input_shape, image_resolution, data_format):
     """Normalize a SigLIP image input shape and extract its square edge length.
 
     Falls back to ``(image_resolution, image_resolution, 3)`` when
@@ -683,7 +683,7 @@ class SigLIPModel(BaseModel):
         **kwargs,
     ):
         data_format = keras.backend.image_data_format()
-        image_input_shape, image_size = siglip_resolve_image_shape(
+        image_input_shape, image_size = _siglip_resolve_image_shape(
             input_shape, image_resolution, data_format
         )
 
@@ -907,9 +907,10 @@ class SigLIPZeroShotClassify(BaseModel):
 class SigLIPImageClassify(BaseModel):
     """SigLIP vision encoder + linear image-classification head.
 
-    Composes a :class:`SigLIPModel` base, reads the attention-pooled
-    ``image_embeddings`` output of its vision side, and attaches a single
-    linear Dense layer producing ``num_labels`` logits.
+    Uses only the SigLIP vision encoder (no text encoder, no attention
+    pooling head), drops the CLS-equivalent token, mean-pools the patch
+    tokens, and applies a single linear classifier producing
+    ``num_labels`` logits.
     """
 
     KMODELS_CONFIG = SIGLIP_CONFIG
@@ -962,62 +963,59 @@ class SigLIPImageClassify(BaseModel):
         vision_num_layers=12,
         vision_num_heads=12,
         vision_intermediate_dim=3072,
-        vocabulary_size=32000,
-        embed_dim=768,
-        text_hidden_dim=768,
-        text_num_layers=12,
-        text_num_heads=12,
-        text_intermediate_dim=3072,
-        max_sequence_length=64,
         input_shape=None,
         input_tensor=None,
         name="SigLIPImageClassify",
         **kwargs,
     ):
-        backbone = SigLIPModel(
-            image_resolution=image_resolution,
+        for k in (
+            "vocabulary_size",
+            "embed_dim",
+            "text_hidden_dim",
+            "text_num_layers",
+            "text_num_heads",
+            "text_intermediate_dim",
+            "max_sequence_length",
+        ):
+            kwargs.pop(k, None)
+
+        data_format = keras.backend.image_data_format()
+        image_input_shape, image_size = _siglip_resolve_image_shape(
+            input_shape, image_resolution, data_format
+        )
+
+        if input_tensor is None:
+            images_input = layers.Input(shape=image_input_shape, name="images")
+        else:
+            images_input = input_tensor
+
+        encoded = siglip_vision_features(
+            images_input,
             patch_size=patch_size,
-            vision_hidden_dim=vision_hidden_dim,
-            vision_num_layers=vision_num_layers,
-            vision_num_heads=vision_num_heads,
-            vision_intermediate_dim=vision_intermediate_dim,
-            vocabulary_size=vocabulary_size,
-            embed_dim=embed_dim,
-            text_hidden_dim=text_hidden_dim,
-            text_num_layers=text_num_layers,
-            text_num_heads=text_num_heads,
-            text_intermediate_dim=text_intermediate_dim,
-            max_sequence_length=max_sequence_length,
-            input_shape=input_shape,
-            input_tensor=input_tensor,
-            name=f"{name}_backbone",
+            hidden_dim=vision_hidden_dim,
+            num_layers=vision_num_layers,
+            num_heads=vision_num_heads,
+            intermediate_dim=vision_intermediate_dim,
+            data_format=data_format,
         )
 
-        logits = layers.Dense(num_labels, name="classifier")(
-            backbone.output["image_embeddings"]
-        )
+        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(encoded)
+        logits = layers.Dense(num_labels, name="classifier")(pooled)
 
-        super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
+        super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.num_labels = num_labels
-        self.image_resolution = image_resolution
+        self.image_resolution = image_size
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
         self.vision_num_heads = vision_num_heads
         self.vision_intermediate_dim = vision_intermediate_dim
-        self.vocabulary_size = vocabulary_size
-        self.embed_dim = embed_dim
-        self.text_hidden_dim = text_hidden_dim
-        self.text_num_layers = text_num_layers
-        self.text_num_heads = text_num_heads
-        self.text_intermediate_dim = text_intermediate_dim
-        self.max_sequence_length = max_sequence_length
         self.input_tensor = input_tensor
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = self.input_shape["images"]
+        image_shape_with_batch = self.input_shape
         if image_shape_with_batch[0] is None:
             image_input_shape = image_shape_with_batch[1:]
         else:
@@ -1032,13 +1030,6 @@ class SigLIPImageClassify(BaseModel):
                 "vision_num_layers": self.vision_num_layers,
                 "vision_num_heads": self.vision_num_heads,
                 "vision_intermediate_dim": self.vision_intermediate_dim,
-                "vocabulary_size": self.vocabulary_size,
-                "embed_dim": self.embed_dim,
-                "text_hidden_dim": self.text_hidden_dim,
-                "text_num_layers": self.text_num_layers,
-                "text_num_heads": self.text_num_heads,
-                "text_intermediate_dim": self.text_intermediate_dim,
-                "max_sequence_length": self.max_sequence_length,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }

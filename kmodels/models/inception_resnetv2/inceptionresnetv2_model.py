@@ -275,16 +275,24 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
     return x
 
 
-def inception_resnet_v2_backbone_feature(inputs, *, data_format):
+def inception_resnet_v2_backbone_feature(inputs, *, data_format, return_stages=False):
     """InceptionResNetV2 full backbone (stem + 3 inception-residual stages + head).
 
     Args:
         inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
             or ``(B, C, H, W)`` for channels-first.
         data_format: ``"channels_last"`` or ``"channels_first"``.
+        return_stages: If ``True``, return a list of per-stage feature maps
+            collected at natural reduction boundaries: after the Inception-
+            ResNet-A stack (post Mixed_5b + block35 stack), after the
+            Inception-ResNet-B stack (post Mixed_6a + block17 stack), and
+            after the Inception-ResNet-C stack (post Mixed_7a + block8 stack,
+            BEFORE the trailing 1x1 head conv). Defaults to ``False``.
 
     Returns:
-        Final feature map with 1536 channels at spatial size ``H/32``.
+        Final feature map with 1536 channels at spatial size ``H/32`` when
+        ``return_stages=False``. When ``return_stages=True``, a list of 3
+        per-stage feature maps.
     """
     x = conv_block(inputs, 32, 3, strides=2, padding="valid", name="conv2d_1a")
     x = conv_block(x, 32, 3, padding="valid", name="conv2d_2a")
@@ -294,20 +302,28 @@ def inception_resnet_v2_backbone_feature(inputs, *, data_format):
     x = conv_block(x, 192, 3, padding="valid", name="conv2d_4a")
     x = layers.MaxPooling2D(3, strides=2)(x)
 
+    stages = []
+
     x = mixed_5b_block(x, name="mixed_5b")
     for i in range(10):
         x = block35(x, scale=0.17, name=f"repeat_{i}")
+    stages.append(x)
 
     x = mixed_6a_block(x, name="mixed_6a")
     for i in range(20):
         x = block17(x, scale=0.10, name=f"repeats_1_{i}")
+    stages.append(x)
 
     x = mixed_7a_block(x, name="mixed_7a")
     for i in range(9):
         x = block8(x, scale=0.20, name=f"repeats_2_{i}")
     x = block8(x, activation=False, name="block8")
-    x = conv_block(x, 1536, 1, name="conv2d_7b")
+    stages.append(x)
 
+    if return_stages:
+        return stages
+
+    x = conv_block(x, 1536, 1, name="conv2d_7b")
     return x
 
 
@@ -354,6 +370,7 @@ class InceptionResNetV2Model(BaseModel):
         normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="InceptionResNetV2Model",
         **kwargs,
     ):
@@ -383,7 +400,9 @@ class InceptionResNetV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        x = inception_resnet_v2_backbone_feature(x, data_format=data_format)
+        x = inception_resnet_v2_backbone_feature(
+            x, data_format=data_format, return_stages=as_backbone
+        )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
@@ -391,6 +410,7 @@ class InceptionResNetV2Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self) -> dict:
         config = super().get_config()
@@ -401,6 +421,7 @@ class InceptionResNetV2Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

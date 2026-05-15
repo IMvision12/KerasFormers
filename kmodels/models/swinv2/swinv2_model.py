@@ -390,6 +390,7 @@ def swinv2_backbone_feature(
     drop_path_rate,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """SwinV2 stem (4x4 patch conv) + 4 hierarchical stages with patch merging.
 
@@ -406,9 +407,13 @@ def swinv2_backbone_feature(
         drop_path_rate: Maximum stochastic-depth rate (linearly scaled across blocks).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
+        return_stages: If True, return a list of the 4 per-stage feature maps
+            (each captured post-stage, pre-downsample). If False (default),
+            return the final stage feature map only.
 
     Returns:
-        Final stage feature map ``(B, H, W, C)`` (pre-final-norm).
+        Final stage feature map ``(B, H, W, C)`` (pre-final-norm), or a list of
+        4 per-stage feature maps when ``return_stages=True``.
     """
     x = layers.Conv2D(
         embed_dim,
@@ -427,6 +432,7 @@ def swinv2_backbone_feature(
         feat_res = pretrain_size // (4 * 2**i)
         stage_pretrained_ws.append(min(pretrained_window_size, feat_res))
 
+    stages = []
     for i in range(len(depths)):
         start_idx = sum(depths[:i])
         end_idx = sum(depths[: i + 1])
@@ -443,6 +449,7 @@ def swinv2_backbone_feature(
             drop_path_rate=path_drop_values,
             name=f"layers_{i}",
         )
+        stages.append(x)
         if i != len(depths) - 1:
             x = swinv2_patch_merging(
                 x,
@@ -451,6 +458,8 @@ def swinv2_backbone_feature(
                 name=f"layers_{i + 1}_downsample",
             )
 
+    if return_stages:
+        return stages
     return x
 
 
@@ -505,6 +514,7 @@ class SwinV2Model(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="SwinV2Model",
         **kwargs,
     ):
@@ -547,6 +557,7 @@ class SwinV2Model(BaseModel):
             drop_path_rate=drop_path_rate,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -563,6 +574,7 @@ class SwinV2Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -581,6 +593,7 @@ class SwinV2Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

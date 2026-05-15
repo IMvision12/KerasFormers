@@ -355,6 +355,7 @@ class ResNetModel(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="ResNetModel",
         **kwargs,
     ):
@@ -395,6 +396,7 @@ class ResNetModel(BaseModel):
             groups=groups,
             senet=senet,
             width_factor=width_factor,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -408,6 +410,7 @@ class ResNetModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -437,6 +440,7 @@ class ResNetModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
                 "trainable": self.trainable,
             }

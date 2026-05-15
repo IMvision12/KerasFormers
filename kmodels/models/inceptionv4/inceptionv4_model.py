@@ -459,34 +459,46 @@ def inception_c(x, conv_block, block_idx):
     )
 
 
-def inceptionv4_backbone_feature(inputs, *, data_format):
+def inceptionv4_backbone_feature(inputs, *, data_format, return_stages=False):
     """InceptionV4 full backbone, returns the final stage feature map.
 
     Args:
         inputs: Input image tensor.
         data_format: ``"channels_last"`` or ``"channels_first"``.
+        return_stages: If True, return a list of per-stage feature maps
+            taken at natural downsample boundaries (after Mixed3a, after
+            Inception-A group, after Inception-B group, after Inception-C
+            group). If False (default), return only the final stage map.
 
     Returns:
-        Final stage feature tensor (after the last Inception-C block).
+        Final stage feature tensor (after the last Inception-C block), or
+        a list of per-stage feature maps when ``return_stages=True``.
     """
+    stages = []
     x = stem_blocks(inputs, conv_block)
 
     x = mixed3a(x, conv_block)
+    stages.append(x)  # stage 1: after Mixed3a (stride 4)
 
     x = mixed4a(x, conv_block)
     x = mixed5a(x, conv_block)
 
     for i in range(4):
         x = inception_a(x, conv_block, block_idx=6 + i)
+    stages.append(x)  # stage 2: after Inception-A group (stride 8)
 
     x = reduction_a(x, conv_block)
     for i in range(7):
         x = inception_b(x, conv_block, block_idx=11 + i)
+    stages.append(x)  # stage 3: after Inception-B group (stride 16)
 
     x = reduction_b(x, conv_block)
     for i in range(3):
         x = inception_c(x, conv_block, block_idx=19 + i)
+    stages.append(x)  # stage 4: after Inception-C group (stride 32)
 
+    if return_stages:
+        return stages
     return x
 
 
@@ -523,6 +535,7 @@ class InceptionV4Model(BaseModel):
         normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="InceptionV4Model",
         **kwargs,
     ):
@@ -552,7 +565,9 @@ class InceptionV4Model(BaseModel):
             if include_normalization
             else img_input
         )
-        x = inceptionv4_backbone_feature(x, data_format=data_format)
+        x = inceptionv4_backbone_feature(
+            x, data_format=data_format, return_stages=as_backbone
+        )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
@@ -560,6 +575,7 @@ class InceptionV4Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -570,6 +586,7 @@ class InceptionV4Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )

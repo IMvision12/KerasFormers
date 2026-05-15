@@ -172,6 +172,7 @@ def resnetv2_backbone_feature(
     drop_path_rate,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """ResNetV2 stem + stages, returning the final stage feature map.
 
@@ -185,9 +186,13 @@ def resnetv2_backbone_feature(
             interpolated across blocks.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Int axis for the channel dimension.
+        return_stages: If True, return a list of per-stage feature maps
+            (one tensor per ResNetV2 stage). If False (default), return
+            only the final stage map.
 
     Returns:
-        Final stage feature tensor (pre final GroupNorm).
+        Final stage feature tensor (pre final GroupNorm), or a list of
+        per-stage feature maps when ``return_stages=True``.
     """
     x = conv_block(
         inputs,
@@ -209,6 +214,7 @@ def resnetv2_backbone_feature(
 
     dpr = list(np.linspace(0.0, drop_path_rate, sum(block_repeats)))
     block_idx = 0
+    stages = []
     for stage_idx, num_blocks in enumerate(block_repeats):
         nb_channels_stage = make_divisible(filters[stage_idx] * width_factor)
         for block_idx_in_stage in range(num_blocks):
@@ -224,7 +230,10 @@ def resnetv2_backbone_feature(
                 block_prefix=block_prefix,
             )
             block_idx += 1
+        stages.append(x)
 
+    if return_stages:
+        return stages
     return x
 
 
@@ -270,6 +279,7 @@ class ResNetV2Model(BaseModel):
         normalization_mode="imagenet",
         input_tensor=None,
         input_shape=None,
+        as_backbone=False,
         name="ResNetV2Model",
         **kwargs,
     ):
@@ -309,6 +319,7 @@ class ResNetV2Model(BaseModel):
             drop_path_rate=drop_path_rate,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -322,6 +333,7 @@ class ResNetV2Model(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -337,6 +349,7 @@ class ResNetV2Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
                 "trainable": self.trainable,
             }

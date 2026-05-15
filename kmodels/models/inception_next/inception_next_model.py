@@ -147,6 +147,7 @@ def inception_next_backbone_feature(
     branch_ratio,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
     """InceptionNeXt stem + 4 stages.
 
@@ -160,10 +161,13 @@ def inception_next_backbone_feature(
         branch_ratio: Channel fraction per token-mixer branch.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis index.
+        return_stages: If ``True``, return a list of the 4 per-stage feature
+            maps instead of just the final one. Defaults to ``False``.
 
     Returns:
         Final stage feature map with ``num_filters[-1]`` channels at spatial
-        resolution ``H/32``.
+        resolution ``H/32`` when ``return_stages=False``. When
+        ``return_stages=True``, a list of 4 per-stage feature maps.
     """
     x = layers.Conv2D(
         num_filters[0],
@@ -177,6 +181,7 @@ def inception_next_backbone_feature(
         axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_batchnorm"
     )(x)
 
+    stages = []
     for i in range(len(depths)):
         strides = 2 if i > 0 else 1
         if strides > 1:
@@ -207,6 +212,10 @@ def inception_next_backbone_feature(
                 name=f"stages_{i}_blocks_{j}",
             )
 
+        stages.append(x)
+
+    if return_stages:
+        return stages
     return x
 
 
@@ -257,6 +266,7 @@ class InceptionNextModel(BaseModel):
         normalization_mode="inception",
         input_shape=None,
         input_tensor=None,
+        as_backbone=False,
         name="InceptionNextModel",
         **kwargs,
     ):
@@ -296,6 +306,7 @@ class InceptionNextModel(BaseModel):
             branch_ratio=branch_ratio,
             data_format=data_format,
             channels_axis=channels_axis,
+            return_stages=as_backbone,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -309,6 +320,7 @@ class InceptionNextModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
 
     def get_config(self):
         config = super().get_config()
@@ -324,6 +336,7 @@ class InceptionNextModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
                 "name": self.name,
             }
         )
