@@ -633,8 +633,8 @@ class DepthAnythingV1Model(BaseModel):
           Unlabeled Data <https://arxiv.org/abs/2401.10891>`_
     """
 
-    KMODELS_CONFIG = DEPTHANYTHINGV1_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = DEPTHANYTHINGV1_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "depth_anything"
 
     def __init__(
@@ -767,8 +767,8 @@ class DepthAnythingV1DepthEstimation(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DEPTHANYTHINGV1_CONFIG
-    KMODELS_WEIGHTS = DEPTHANYTHINGV1_WEIGHTS
+    BASE_MODEL_CONFIG = DEPTHANYTHINGV1_CONFIG
+    BASE_WEIGHT_CONFIG = DEPTHANYTHINGV1_WEIGHTS
     HF_MODEL_TYPE = "depth_anything"
 
     @classmethod

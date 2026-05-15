@@ -1,3 +1,3 @@
-from kmodels.models.cait.cait_model import CaiTBackbone, CaiTClassify, CaiTModel
+from kmodels.models.cait.cait_model import CaiTClassify, CaiTModel
 
-__all__ = ["CaiTClassify", "CaiTModel", "CaiTBackbone"]
+__all__ = ["CaiTClassify", "CaiTModel"]

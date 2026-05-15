@@ -254,8 +254,8 @@ class Sam2Model(BaseModel):
     DYNAMIC_MULTIMASK_STABILITY_DELTA = 0.05
     DYNAMIC_MULTIMASK_STABILITY_THRESH = 0.98
 
-    KMODELS_CONFIG = SAM2_CONFIG
-    KMODELS_WEIGHTS = SAM2_WEIGHTS
+    BASE_MODEL_CONFIG = SAM2_CONFIG
+    BASE_WEIGHT_CONFIG = SAM2_WEIGHTS
     # HF's facebook/sam2-hiera-* repos are Sam2VideoModel checkpoints
     # (model_type="sam2_video"); image-only sam2 repos use "sam2".
     # Both share the image-side weights, so we accept either.

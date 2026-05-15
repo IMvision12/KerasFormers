@@ -127,8 +127,8 @@ class BaseModel(keras.Model):
     .. code-block:: python
 
         class OwlViTDetect(BaseModel):
-            KMODELS_CONFIG = OWLVIT_CONFIG
-            KMODELS_WEIGHTS = OWLVIT_WEIGHTS
+            BASE_MODEL_CONFIG = OWLVIT_CONFIG
+            BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS
 
             @classmethod
             def config_from_hf(cls, hf_config: dict): ...
@@ -148,8 +148,8 @@ class BaseModel(keras.Model):
         m = OwlViTDetect.from_weights("owlvit-base-patch32", load_weights=False)
     """
 
-    KMODELS_CONFIG = None
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -160,8 +160,8 @@ class BaseModel(keras.Model):
             identifier: One of three forms:
 
                 * a kmodels variant string (e.g. ``"resnet50_a1_in1k"``)
-                  — resolves against ``cls.KMODELS_CONFIG`` /
-                  ``cls.KMODELS_WEIGHTS``.
+                  — resolves against ``cls.BASE_MODEL_CONFIG`` /
+                  ``cls.BASE_WEIGHT_CONFIG``.
                 * ``"hf:<org>/<repo>"`` — pulls config and weights from
                   HuggingFace transformers-style repos. Requires the
                   class to implement ``config_from_hf`` /
@@ -194,9 +194,9 @@ class BaseModel(keras.Model):
     def from_timm(cls, timm_id, variant=None, load_weights=True, **kwargs):
         """Load a timm-style checkpoint from HuggingFace and convert.
 
-        Builds the model from ``cls.KMODELS_CONFIG[variant]`` and then
+        Builds the model from ``cls.BASE_MODEL_CONFIG[variant]`` and then
         applies the timm state-dict via ``cls.transfer_from_timm``.
-        Subclasses opt in by setting ``KMODELS_CONFIG`` and overriding
+        Subclasses opt in by setting ``BASE_MODEL_CONFIG`` and overriding
         ``transfer_from_timm``.
 
         Args:
@@ -204,7 +204,7 @@ class BaseModel(keras.Model):
                 checkpoint (e.g., ``"timm/resnet50.a1_in1k"`` or a user
                 fine-tune of one).
             variant: kmodels variant id (e.g., ``"resnet50_a1_in1k"``)
-                whose ``KMODELS_CONFIG`` entry sizes the model. If
+                whose ``BASE_MODEL_CONFIG`` entry sizes the model. If
                 ``None``, inferred from the trailing segment of
                 ``timm_id`` (``timm/resnet50.a1_in1k`` →
                 ``resnet50_a1_in1k``).
@@ -214,7 +214,7 @@ class BaseModel(keras.Model):
         if variant is None:
             tail = timm_id.split("/")[-1]
             stem = tail.replace(".", "_")
-            for candidate in cls.KMODELS_CONFIG or {}:
+            for candidate in cls.BASE_MODEL_CONFIG or {}:
                 if stem == candidate or stem.startswith(candidate + "_"):
                     variant = candidate
                     break
@@ -222,7 +222,7 @@ class BaseModel(keras.Model):
                 raise ValueError(
                     f"Cannot infer kmodels variant from timm_id '{timm_id}'. "
                     f"Pass `variant=` explicitly. Available variants: "
-                    f"{sorted(cls.KMODELS_CONFIG or {})}"
+                    f"{sorted(cls.BASE_MODEL_CONFIG or {})}"
                 )
         model = cls.from_release(variant, load_weights=False, **kwargs)
         if load_weights:
@@ -246,28 +246,28 @@ class BaseModel(keras.Model):
 
     @classmethod
     def from_release(cls, variant, load_weights=True, **kwargs):
-        if cls.KMODELS_CONFIG is None:
+        if cls.BASE_MODEL_CONFIG is None:
             raise NotImplementedError(
-                f"{cls.__name__} must set KMODELS_CONFIG to use from_weights()."
+                f"{cls.__name__} must set BASE_MODEL_CONFIG to use from_weights()."
             )
-        if variant not in cls.KMODELS_CONFIG:
-            available = sorted(cls.KMODELS_CONFIG.keys())
+        if variant not in cls.BASE_MODEL_CONFIG:
+            available = sorted(cls.BASE_MODEL_CONFIG.keys())
             raise ValueError(
                 f"Unknown variant '{variant}' for {cls.__name__}. "
                 f"Available variants: {available}"
             )
 
-        config = dict(cls.KMODELS_CONFIG[variant])
+        config = dict(cls.BASE_MODEL_CONFIG[variant])
         config.update(kwargs)
         model = cls(**config)
 
         if load_weights:
-            if cls.KMODELS_WEIGHTS is None or variant not in cls.KMODELS_WEIGHTS:
+            if cls.BASE_WEIGHT_CONFIG is None or variant not in cls.BASE_WEIGHT_CONFIG:
                 raise ValueError(
                     f"No release weights configured for variant '{variant}'. "
                     f"Pass load_weights=False to build an untrained model."
                 )
-            entry = cls.KMODELS_WEIGHTS[variant]
+            entry = cls.BASE_WEIGHT_CONFIG[variant]
             if isinstance(entry, dict):
                 hf_id = entry.get("hf_id")
                 gated = entry.get("gated", False)

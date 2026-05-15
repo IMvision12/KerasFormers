@@ -262,11 +262,24 @@ def siglip_vision_features(
     layer_norm_epsilon=1e-6,
     data_format=None,
 ):
-    """Pre-pool SigLIP vision encoder output.
+    """Pre-pool SigLIP vision encoder output (patch embed + N encoders + LN).
 
-    Returns the full token sequence ``(B, num_patches, hidden_dim)`` after
-    the post-LN, before any pooling. Matches HF
-    ``SiglipVisionModel.last_hidden_state``.
+    Args:
+        inputs: Image tensor of shape ``(B, H, W, C)`` or ``(B, C, H, W)``.
+            Height and width must be equal.
+        patch_size: Edge length of each square patch.
+        hidden_dim: Vision-side hidden dimension (must be divisible by
+            ``num_heads``).
+        num_layers: Number of stacked transformer encoder layers.
+        num_heads: Number of attention heads per encoder layer.
+        intermediate_dim: Per-encoder feed-forward hidden dimension.
+        layer_norm_epsilon: Epsilon for every LayerNorm. Defaults to 1e-6.
+        data_format: ``"channels_last"`` or ``"channels_first"``. ``None``
+            uses the global default.
+
+    Returns:
+        Full token sequence ``(B, num_patches, hidden_dim)`` after the final
+        LayerNorm — equivalent to HF ``SiglipVisionModel.last_hidden_state``.
     """
     input_shape = inputs.shape
     if data_format == "channels_last":
@@ -312,10 +325,22 @@ def siglip_vision_encoder(
     layer_norm_epsilon=1e-6,
     data_format=None,
 ):
-    """Full SigLIP vision encoder: features + attention pooling.
+    """Full SigLIP vision encoder: backbone features + attention pooling.
 
-    Returns the pooled vector ``(B, hidden_dim)`` ready for the
-    contrastive head. Matches HF ``SiglipVisionModel.pooler_output``.
+    Args:
+        inputs: Image tensor of shape ``(B, H, W, C)`` or ``(B, C, H, W)``.
+        patch_size: Edge length of each square patch.
+        hidden_dim: Vision-side hidden dimension.
+        num_layers: Number of stacked transformer encoder layers.
+        num_heads: Number of attention heads.
+        intermediate_dim: Per-encoder feed-forward hidden dimension.
+        layer_norm_epsilon: Epsilon for every LayerNorm. Defaults to 1e-6.
+        data_format: ``"channels_last"`` or ``"channels_first"``. ``None``
+            uses the global default.
+
+    Returns:
+        Pooled vision vector of shape ``(B, hidden_dim)`` — equivalent to HF
+        ``SiglipVisionModel.pooler_output``, ready for the contrastive head.
     """
     x = siglip_vision_features(
         inputs,
@@ -543,6 +568,23 @@ def siglip_head(vision_embedding, text_embedding):
 
 
 def _siglip_resolve_image_shape(input_shape, image_resolution, data_format):
+    """Normalize a SigLIP image input shape and extract its square edge length.
+
+    Falls back to ``(image_resolution, image_resolution, 3)`` when
+    ``input_shape`` is None; otherwise reshapes the provided shape to be square
+    using the smaller spatial side and the channel count of the original.
+
+    Args:
+        input_shape: Optional user-provided input shape (with or without the
+            channel dim), or ``None``.
+        image_resolution: Default square image side to fall back to.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Tuple ``(shape_list, image_size)`` where ``shape_list`` is the resolved
+        ``[C, H, W]`` / ``[H, W, C]`` list and ``image_size`` is the square edge
+        length.
+    """
     if input_shape is not None:
         if data_format == "channels_first":
             channels = input_shape[0] if len(input_shape) == 3 else 3
@@ -588,8 +630,8 @@ class SigLIPModel(BaseModel):
     >>> SigLIPModel.from_weights("hf:google/siglip-base-patch16-224")
     """
 
-    KMODELS_CONFIG = SIGLIP_CONFIG
-    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -747,8 +789,8 @@ class SigLIPZeroShotClassify(BaseModel):
     >>> SigLIPZeroShotClassify.from_weights("hf:google/siglip-base-patch16-224")
     """
 
-    KMODELS_CONFIG = SIGLIP_CONFIG
-    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -865,14 +907,14 @@ class SigLIPZeroShotClassify(BaseModel):
 class SigLIPImageClassify(BaseModel):
     """SigLIP vision encoder + linear image-classification head.
 
-    Mirrors HF's ``SiglipForImageClassification``: uses **only the SigLIP
-    vision encoder** (no text encoder, no attention pooling, no
-    ``logit_scale`` / ``logit_bias``), mean-pools the patch tokens, and
-    applies a single linear classifier producing ``num_labels`` logits.
+    Uses only the SigLIP vision encoder (no text encoder, no attention
+    pooling head), drops the CLS-equivalent token, mean-pools the patch
+    tokens, and applies a single linear classifier producing
+    ``num_labels`` logits.
     """
 
-    KMODELS_CONFIG = SIGLIP_CONFIG
-    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -956,6 +998,7 @@ class SigLIPImageClassify(BaseModel):
             intermediate_dim=vision_intermediate_dim,
             data_format=data_format,
         )
+
         pooled = layers.GlobalAveragePooling1D(name="patch_pool")(encoded)
         logits = layers.Dense(num_labels, name="classifier")(pooled)
 

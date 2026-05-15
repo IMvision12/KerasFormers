@@ -3,7 +3,7 @@ from keras import layers, ops, utils
 
 from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer, LayerScale
-from kmodels.models.convnext.convnext_model import ConvNeXtBackbone
+from kmodels.models.convnext.convnext_model import convnext_backbone_feature
 from kmodels.models.dino_v3.convert_dino_v3_hf_to_keras import (
     transfer_dinov3_convnext_weights,
     transfer_dinov3_vit_weights,
@@ -149,8 +149,8 @@ class DinoV3ViTBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINOV3_VIT_CONFIG
-    KMODELS_WEIGHTS = DINOV3_VIT_WEIGHTS
+    BASE_MODEL_CONFIG = DINOV3_VIT_CONFIG
+    BASE_WEIGHT_CONFIG = DINOV3_VIT_WEIGHTS
     HF_MODEL_TYPE = "dinov3_vit"
 
     @classmethod
@@ -362,8 +362,8 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINOV3_CONVNEXT_CONFIG
-    KMODELS_WEIGHTS = DINOV3_CONVNEXT_WEIGHTS
+    BASE_MODEL_CONFIG = DINOV3_CONVNEXT_CONFIG
+    BASE_WEIGHT_CONFIG = DINOV3_CONVNEXT_WEIGHTS
     HF_MODEL_TYPE = "dinov3_convnext"
 
     @classmethod
@@ -395,21 +395,35 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         if input_shape is None and input_tensor is None:
             input_shape = (224, 224, 3)
 
-        base = ConvNeXtBackbone(
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        features = convnext_backbone_feature(
+            x,
             depths=depths,
             projection_dims=projection_dims,
             drop_path_rate=0.0,
             layer_scale_init_value=1e-6,
-            use_grn=False,
             use_conv=True,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
-            input_tensor=input_tensor,
-            input_shape=input_shape,
-            name=f"{name}_convnext",
+            use_grn=False,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            return_stages=True,
         )
 
-        super().__init__(inputs=base.input, outputs=base.output, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
         self.depths = list(depths)
         self.projection_dims = list(projection_dims)

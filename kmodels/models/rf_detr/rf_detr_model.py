@@ -1300,8 +1300,8 @@ class RFDetrModel(BaseModel):
     support ``from_weights("hf:...")``.
     """
 
-    KMODELS_CONFIG = RF_DETR_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = RF_DETR_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
     def __init__(
@@ -1490,8 +1490,8 @@ class RFDETRDetect(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = RF_DETR_CONFIG
-    KMODELS_WEIGHTS = RF_DETR_WEIGHTS
+    BASE_MODEL_CONFIG = RF_DETR_CONFIG
+    BASE_WEIGHT_CONFIG = RF_DETR_WEIGHTS
 
     def __init__(
         self,

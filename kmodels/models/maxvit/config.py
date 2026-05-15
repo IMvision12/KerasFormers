@@ -1,94 +1,263 @@
-"""MaxViT variant registry (timm-ported)."""
-
-_TINY = {
-    "stem_width": 64,
-    "depths": [2, 2, 5, 2],
-    "embed_dim": [64, 128, 256, 512],
-    "num_heads": [2, 4, 8, 16],
+MAXVIT_MODEL_CONFIG = {
+    "maxvit_tiny_224": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [64, 128, 256, 512],
+        "num_heads": [2, 4, 8, 16],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_tiny_384": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [64, 128, 256, 512],
+        "num_heads": [2, 4, 8, 16],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_tiny_512": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [64, 128, 256, 512],
+        "num_heads": [2, 4, 8, 16],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_small_224": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_small_384": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_small_512": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_base_224": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_base_384": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_base_512": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_base_224_in21k": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "maxvit_large_224": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_large_384": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_large_512": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_large_224_in21k": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "maxvit_xlarge_224_in21k": {
+        "stem_width": 192,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [192, 384, 768, 1536],
+        "num_heads": [6, 12, 24, 48],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "maxvit_xlarge_384": {
+        "stem_width": 192,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [192, 384, 768, 1536],
+        "num_heads": [6, 12, 24, 48],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_xlarge_512": {
+        "stem_width": 192,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [192, 384, 768, 1536],
+        "num_heads": [6, 12, 24, 48],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
 }
-_SMALL = {
-    "stem_width": 64,
-    "depths": [2, 2, 5, 2],
-    "embed_dim": [96, 192, 384, 768],
-    "num_heads": [3, 6, 12, 24],
-}
-_BASE = {
-    "stem_width": 64,
-    "depths": [2, 6, 14, 2],
-    "embed_dim": [96, 192, 384, 768],
-    "num_heads": [3, 6, 12, 24],
-}
-_LARGE = {
-    "stem_width": 128,
-    "depths": [2, 6, 14, 2],
-    "embed_dim": [128, 256, 512, 1024],
-    "num_heads": [4, 8, 16, 32],
-}
-_XLARGE = {
-    "stem_width": 192,
-    "depths": [2, 6, 14, 2],
-    "embed_dim": [192, 384, 768, 1536],
-    "num_heads": [6, 12, 24, 48],
-}
 
-_IN1K = 1000
-_IN21K = 21843
-_WS = {224: 7, 384: 12, 512: 16}
-
-
-def _v(arch, timm_id, image_size, num_classes=_IN1K):
-    return {
-        **arch,
-        "window_size": _WS[image_size],
-        "image_size": image_size,
-        "timm_id": timm_id,
-        "num_classes": num_classes,
-    }
-
-
-MAXVIT_CONFIG = {
-    "maxvit_tiny_tf_224_in1k": _v(_TINY, "maxvit_tiny_tf_224.in1k", 224),
-    "maxvit_tiny_tf_384_in1k": _v(_TINY, "maxvit_tiny_tf_384.in1k", 384),
-    "maxvit_tiny_tf_512_in1k": _v(_TINY, "maxvit_tiny_tf_512.in1k", 512),
-    "maxvit_small_tf_224_in1k": _v(_SMALL, "maxvit_small_tf_224.in1k", 224),
-    "maxvit_small_tf_384_in1k": _v(_SMALL, "maxvit_small_tf_384.in1k", 384),
-    "maxvit_small_tf_512_in1k": _v(_SMALL, "maxvit_small_tf_512.in1k", 512),
-    "maxvit_base_tf_224_in1k": _v(_BASE, "maxvit_base_tf_224.in1k", 224),
-    "maxvit_base_tf_384_in1k": _v(_BASE, "maxvit_base_tf_384.in1k", 384),
-    "maxvit_base_tf_512_in1k": _v(_BASE, "maxvit_base_tf_512.in1k", 512),
-    "maxvit_base_tf_224_in21k": _v(
-        _BASE, "maxvit_base_tf_224.in21k", 224, num_classes=_IN21K
-    ),
-    "maxvit_base_tf_384_in21k_ft_in1k": _v(
-        _BASE, "maxvit_base_tf_384.in21k_ft_in1k", 384
-    ),
-    "maxvit_base_tf_512_in21k_ft_in1k": _v(
-        _BASE, "maxvit_base_tf_512.in21k_ft_in1k", 512
-    ),
-    "maxvit_large_tf_224_in1k": _v(_LARGE, "maxvit_large_tf_224.in1k", 224),
-    "maxvit_large_tf_384_in1k": _v(_LARGE, "maxvit_large_tf_384.in1k", 384),
-    "maxvit_large_tf_512_in1k": _v(_LARGE, "maxvit_large_tf_512.in1k", 512),
-    "maxvit_large_tf_224_in21k": _v(
-        _LARGE, "maxvit_large_tf_224.in21k", 224, num_classes=_IN21K
-    ),
-    "maxvit_large_tf_384_in21k_ft_in1k": _v(
-        _LARGE, "maxvit_large_tf_384.in21k_ft_in1k", 384
-    ),
-    "maxvit_large_tf_512_in21k_ft_in1k": _v(
-        _LARGE, "maxvit_large_tf_512.in21k_ft_in1k", 512
-    ),
-    "maxvit_xlarge_tf_224_in21k": _v(
-        _XLARGE, "maxvit_xlarge_tf_224.in21k", 224, num_classes=_IN21K
-    ),
-    "maxvit_xlarge_tf_384_in21k_ft_in1k": _v(
-        _XLARGE, "maxvit_xlarge_tf_384.in21k_ft_in1k", 384
-    ),
-    "maxvit_xlarge_tf_512_in21k_ft_in1k": _v(
-        _XLARGE, "maxvit_xlarge_tf_512.in21k_ft_in1k", 512
-    ),
-}
-
-_BASE_URL = "https://github.com/IMvision12/keras-models/releases/download/MaxViT"
-MAXVIT_WEIGHTS = {
-    variant: {"url": f"{_BASE_URL}/{variant}.weights.h5"} for variant in MAXVIT_CONFIG
+MAXVIT_WEIGHT_CONFIG = {
+    "maxvit_tiny_tf_224_in1k": {
+        "model": "maxvit_tiny_224",
+        "timm_id": "maxvit_tiny_tf_224.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_tiny_tf_224_in1k.weights.h5",
+    },
+    "maxvit_tiny_tf_384_in1k": {
+        "model": "maxvit_tiny_384",
+        "timm_id": "maxvit_tiny_tf_384.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_tiny_tf_384_in1k.weights.h5",
+    },
+    "maxvit_tiny_tf_512_in1k": {
+        "model": "maxvit_tiny_512",
+        "timm_id": "maxvit_tiny_tf_512.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_tiny_tf_512_in1k.weights.h5",
+    },
+    "maxvit_small_tf_224_in1k": {
+        "model": "maxvit_small_224",
+        "timm_id": "maxvit_small_tf_224.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_small_tf_224_in1k.weights.h5",
+    },
+    "maxvit_small_tf_384_in1k": {
+        "model": "maxvit_small_384",
+        "timm_id": "maxvit_small_tf_384.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_small_tf_384_in1k.weights.h5",
+    },
+    "maxvit_small_tf_512_in1k": {
+        "model": "maxvit_small_512",
+        "timm_id": "maxvit_small_tf_512.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_small_tf_512_in1k.weights.h5",
+    },
+    "maxvit_base_tf_224_in1k": {
+        "model": "maxvit_base_224",
+        "timm_id": "maxvit_base_tf_224.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_224_in1k.weights.h5",
+    },
+    "maxvit_base_tf_384_in1k": {
+        "model": "maxvit_base_384",
+        "timm_id": "maxvit_base_tf_384.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_384_in1k.weights.h5",
+    },
+    "maxvit_base_tf_512_in1k": {
+        "model": "maxvit_base_512",
+        "timm_id": "maxvit_base_tf_512.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_512_in1k.weights.h5",
+    },
+    "maxvit_base_tf_224_in21k": {
+        "model": "maxvit_base_224_in21k",
+        "timm_id": "maxvit_base_tf_224.in21k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_224_in21k.weights.h5",
+    },
+    "maxvit_base_tf_384_in21k_ft_in1k": {
+        "model": "maxvit_base_384",
+        "timm_id": "maxvit_base_tf_384.in21k_ft_in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_384_in21k_ft_in1k.weights.h5",
+    },
+    "maxvit_base_tf_512_in21k_ft_in1k": {
+        "model": "maxvit_base_512",
+        "timm_id": "maxvit_base_tf_512.in21k_ft_in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_512_in21k_ft_in1k.weights.h5",
+    },
+    "maxvit_large_tf_224_in1k": {
+        "model": "maxvit_large_224",
+        "timm_id": "maxvit_large_tf_224.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_224_in1k.weights.h5",
+    },
+    "maxvit_large_tf_384_in1k": {
+        "model": "maxvit_large_384",
+        "timm_id": "maxvit_large_tf_384.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_384_in1k.weights.h5",
+    },
+    "maxvit_large_tf_512_in1k": {
+        "model": "maxvit_large_512",
+        "timm_id": "maxvit_large_tf_512.in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_512_in1k.weights.h5",
+    },
+    "maxvit_large_tf_224_in21k": {
+        "model": "maxvit_large_224_in21k",
+        "timm_id": "maxvit_large_tf_224.in21k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_224_in21k.weights.h5",
+    },
+    "maxvit_large_tf_384_in21k_ft_in1k": {
+        "model": "maxvit_large_384",
+        "timm_id": "maxvit_large_tf_384.in21k_ft_in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_384_in21k_ft_in1k.weights.h5",
+    },
+    "maxvit_large_tf_512_in21k_ft_in1k": {
+        "model": "maxvit_large_512",
+        "timm_id": "maxvit_large_tf_512.in21k_ft_in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_512_in21k_ft_in1k.weights.h5",
+    },
+    "maxvit_xlarge_tf_224_in21k": {
+        "model": "maxvit_xlarge_224_in21k",
+        "timm_id": "maxvit_xlarge_tf_224.in21k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_xlarge_tf_224_in21k.weights.h5",
+    },
+    "maxvit_xlarge_tf_384_in21k_ft_in1k": {
+        "model": "maxvit_xlarge_384",
+        "timm_id": "maxvit_xlarge_tf_384.in21k_ft_in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_xlarge_tf_384_in21k_ft_in1k.weights.h5",
+    },
+    "maxvit_xlarge_tf_512_in21k_ft_in1k": {
+        "model": "maxvit_xlarge_512",
+        "timm_id": "maxvit_xlarge_tf_512.in21k_ft_in1k",
+        "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_xlarge_tf_512_in21k_ft_in1k.weights.h5",
+    },
 }

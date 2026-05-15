@@ -11,12 +11,23 @@ from kmodels.models.vit.vit_layers import (
 )
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import PIT_CONFIG, PIT_WEIGHTS
+from .config import PIT_MODEL_CONFIG, PIT_WEIGHT_CONFIG
 from .convert_pit_torch_to_keras import transfer_pit_weights
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix=None):
-    """Standard transformer MLP block."""
+    """Standard transformer MLP block: Dense -> GELU -> Drop -> Dense -> Drop.
+
+    Args:
+        inputs: Input token tensor of shape ``(B, N, D)``.
+        hidden_features: Hidden expansion dimension of the first Dense.
+        out_features: Output dimension of the second Dense.
+        drop: Dropout rate applied after each Dense.
+        block_prefix: Prefix used to name the inner Dense layers.
+
+    Returns:
+        Tensor of shape ``(B, N, out_features)``.
+    """
     x = layers.Dense(hidden_features, use_bias=True, name=block_prefix + "_dense_1")(
         inputs
     )
@@ -28,7 +39,18 @@ def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix
 
 
 def transformer_block(inputs, dim, num_heads, mlp_ratio, block_prefix=None):
-    """LN -> MHSA -> Add -> LN -> MLP -> Add."""
+    """PiT transformer block: LN -> MHSA -> Add -> LN -> MLP -> Add.
+
+    Args:
+        inputs: Input token tensor of shape ``(B, N, dim)``.
+        dim: Token embedding dimension.
+        num_heads: Number of attention heads.
+        mlp_ratio: Hidden expansion ratio for the MLP sub-block.
+        block_prefix: Prefix used to name layers inside the block.
+
+    Returns:
+        Tensor of shape ``(B, N, dim)`` after both residual branches.
+    """
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=block_prefix + "_layernorm_1"
     )(inputs)
@@ -55,7 +77,23 @@ def transformer_block(inputs, dim, num_heads, mlp_ratio, block_prefix=None):
 def conv_pooling(
     x, nb_tokens, in_channels, out_channels, stride, data_format, block_prefix
 ):
-    """Depthwise-conv downsampling for spatial tokens + Dense projection for class tokens."""
+    """Depthwise-conv downsampling for spatial tokens + Dense projection for class tokens.
+
+    Args:
+        x: ``(tokens, (height, width))`` pair where ``tokens`` has shape
+            ``(B, nb_tokens + height*width, in_channels)`` and ``(height,
+            width)`` is the spatial grid for the patch tokens.
+        nb_tokens: Number of class/distillation prefix tokens (1 or 2).
+        in_channels: Channel dimension of the input tokens.
+        out_channels: Channel dimension after projection.
+        stride: Spatial stride for the depthwise conv downsample.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        block_prefix: Prefix used to name the conv and dense layers.
+
+    Returns:
+        Pair ``(output, (new_height, new_width))`` where ``output`` has
+        shape ``(B, nb_tokens + new_height*new_width, out_channels)``.
+    """
     input_tensor, (height, width) = x
     tokens = input_tensor[:, :nb_tokens]
     spatial = input_tensor[:, nb_tokens:]
@@ -86,7 +124,7 @@ def conv_pooling(
     return output, (new_height, new_width)
 
 
-def _pit_features(
+def pit_backbone_feature(
     inputs,
     *,
     patch_size,
@@ -104,11 +142,31 @@ def _pit_features(
 ):
     """PiT stem + pooling-attention stages.
 
-    Returns the final pre-norm tokens (cls + dist if distilled), already
-    sliced to the class/dist tokens. When ``return_stages=True``, returns
-    a list ``[stem, stage1, stage2, ..., stageN, cls_dist_norm]``. When
-    ``return_final_spatial=True``, returns the final stage's spatial feature
-    map of shape ``(B, H, W, C)`` (or channels_first equivalent).
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        patch_size: Conv-stem kernel size in pixels.
+        stride: Conv-stem stride in pixels.
+        embed_dim: Per-stage embedding dimensions (one int per stage).
+        depth: Per-stage number of transformer blocks.
+        heads: Per-stage number of attention heads.
+        mlp_ratio: Hidden expansion ratio for the MLP sub-block.
+        distilled: If ``True``, also use a distillation token in addition to
+            the class token.
+        drop_rate: Dropout rate applied after the position embedding.
+        image_size: Input image resolution (documentation only).
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        return_stages: If ``True``, return a list of intermediate stage
+            outputs as described below.
+        return_final_spatial: If ``True``, return the final stage's spatial
+            feature map instead of the class/dist tokens.
+
+    Returns:
+        By default, the LN-normalized class/dist tokens of shape
+        ``(B, 1 or 2, embed_dim[-1])``. If ``return_stages=True``, returns
+        ``[stem, stage1, ..., stageN, cls_dist_norm]``. If
+        ``return_final_spatial=True``, returns the final stage's spatial
+        feature map of shape ``(B, H, W, C)`` (or channels-first equivalent).
     """
     if data_format == "channels_first":
         _, height, width = inputs.shape[1:]
@@ -190,160 +248,27 @@ def _pit_features(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class PiTClassify(BaseModel):
-    """Pooling-based Vision Transformer classifier (timm-ported).
+class PiTModel(BaseModel):
+    """PiT backbone — the main feature extractor.
+
+    Returns the final LN-normalized class (and distillation) tokens of
+    shape ``(B, 1 or 2, embed_dim[-1])``. This is the last layer output
+    before the classifier head. :class:`PiTClassify` composes this model
+    and reads the class token(s) to produce logits.
 
     Reference:
     - [Rethinking Spatial Dimensions of Vision Transformers](https://arxiv.org/abs/2103.16302)
 
     Construction:
 
-    >>> PiTClassify.from_weights("pit_b_224_in1k")
-    >>> PiTClassify.from_weights("timm:timm/pit_b_224.in1k")
+    >>> PiTModel.from_weights("pit_b_224_in1k")
+    >>> PiTModel.from_weights("timm:timm/pit_b_224.in1k")
     """
 
-    KMODELS_CONFIG = PIT_CONFIG
-    KMODELS_WEIGHTS = PIT_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_pit_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        patch_size=16,
-        stride=8,
-        embed_dim=(64, 128, 256),
-        depth=(2, 6, 4),
-        heads=(2, 4, 8),
-        mlp_ratio=4.0,
-        distilled=False,
-        drop_rate=0.0,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_tensor=None,
-        input_shape=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="PiTClassify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        cls_dist = _pit_features(
-            x,
-            patch_size=patch_size,
-            stride=stride,
-            embed_dim=embed_dim,
-            depth=depth,
-            heads=heads,
-            mlp_ratio=mlp_ratio,
-            distilled=distilled,
-            drop_rate=drop_rate,
-            image_size=image_size,
-            data_format=data_format,
-        )
-
-        if distilled:
-            cls_token = layers.Lambda(lambda v: v[:, 0], name="ExtractClsToken")(
-                cls_dist
-            )
-            dist_token = layers.Lambda(lambda v: v[:, 1], name="ExtractDistToken")(
-                cls_dist
-            )
-            cls_token = layers.Dropout(drop_rate)(cls_token)
-            dist_token = layers.Dropout(drop_rate)(dist_token)
-            cls_head = layers.Dense(num_classes, name="predictions")(cls_token)
-            dist_head = layers.Dense(num_classes, name="predictions_dist")(dist_token)
-            out = layers.Average()([cls_head, dist_head])
-            if classifier_activation is not None:
-                out = layers.Activation(
-                    classifier_activation, name="predictions_activation"
-                )(out)
-        else:
-            tok = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(cls_dist)
-            tok = layers.Dropout(drop_rate)(tok)
-            out = layers.Dense(
-                num_classes, activation=classifier_activation, name="predictions"
-            )(tok)
-
-        super().__init__(inputs=img_input, outputs=out, name=name, **kwargs)
-
-        self.patch_size = patch_size
-        self.stride = stride
-        self.embed_dim = embed_dim
-        self.depth = depth
-        self.heads = heads
-        self.mlp_ratio = mlp_ratio
-        self.distilled = distilled
-        self.drop_rate = drop_rate
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "patch_size": self.patch_size,
-                "stride": self.stride,
-                "embed_dim": self.embed_dim,
-                "depth": self.depth,
-                "heads": self.heads,
-                "mlp_ratio": self.mlp_ratio,
-                "distilled": self.distilled,
-                "drop_rate": self.drop_rate,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class PiTBackbone(BaseModel):
-    """PiT feature extractor (no classifier head). Returns final norm'd cls/dist tokens."""
-
-    KMODELS_CONFIG = PIT_CONFIG
-    KMODELS_WEIGHTS = PIT_WEIGHTS
+    BASE_MODEL_CONFIG = {
+        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = PIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -361,127 +286,7 @@ class PiTBackbone(BaseModel):
 
     def __init__(
         self,
-        patch_size=16,
-        stride=8,
-        embed_dim=(64, 128, 256),
-        depth=(2, 6, 4),
-        heads=(2, 4, 8),
-        mlp_ratio=4.0,
-        distilled=False,
-        drop_rate=0.0,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_tensor=None,
-        input_shape=None,
-        name="PiTBackbone",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        cls_dist = _pit_features(
-            x,
-            patch_size=patch_size,
-            stride=stride,
-            embed_dim=embed_dim,
-            depth=depth,
-            heads=heads,
-            mlp_ratio=mlp_ratio,
-            distilled=distilled,
-            drop_rate=drop_rate,
-            image_size=image_size,
-            data_format=data_format,
-        )
-
-        super().__init__(inputs=img_input, outputs=cls_dist, name=name, **kwargs)
-
-        self.patch_size = patch_size
-        self.stride = stride
-        self.embed_dim = embed_dim
-        self.depth = depth
-        self.heads = heads
-        self.mlp_ratio = mlp_ratio
-        self.distilled = distilled
-        self.drop_rate = drop_rate
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "patch_size": self.patch_size,
-                "stride": self.stride,
-                "embed_dim": self.embed_dim,
-                "depth": self.depth,
-                "heads": self.heads,
-                "mlp_ratio": self.mlp_ratio,
-                "distilled": self.distilled,
-                "drop_rate": self.drop_rate,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class PiTModel(BaseModel):
-    """PiT trunk returning the final stage spatial feature map ``(B, H, W, C)``."""
-
-    KMODELS_CONFIG = PIT_CONFIG
-    KMODELS_WEIGHTS = PIT_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = PiTClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_pit_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
+        as_backbone=False,
         patch_size=16,
         stride=8,
         embed_dim=(64, 128, 256),
@@ -524,7 +329,7 @@ class PiTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        spatial = _pit_features(
+        x = pit_backbone_feature(
             x,
             patch_size=patch_size,
             stride=stride,
@@ -536,10 +341,144 @@ class PiTModel(BaseModel):
             drop_rate=drop_rate,
             image_size=image_size,
             data_format=data_format,
-            return_final_spatial=True,
+            return_stages=as_backbone,
         )
 
-        super().__init__(inputs=img_input, outputs=spatial, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
+
+        self.as_backbone = as_backbone
+        self.patch_size = patch_size
+        self.stride = stride
+        self.embed_dim = embed_dim
+        self.depth = depth
+        self.heads = heads
+        self.mlp_ratio = mlp_ratio
+        self.distilled = distilled
+        self.drop_rate = drop_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "as_backbone": self.as_backbone,
+                "patch_size": self.patch_size,
+                "stride": self.stride,
+                "embed_dim": self.embed_dim,
+                "depth": self.depth,
+                "heads": self.heads,
+                "mlp_ratio": self.mlp_ratio,
+                "distilled": self.distilled,
+                "drop_rate": self.drop_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class PiTClassify(BaseModel):
+    """Pooling-based Vision Transformer classifier — :class:`PiTModel` + linear head on the CLS token.
+
+    Wraps a :class:`PiTModel` backbone and attaches a Dense head on the
+    class token (and an averaged distillation head when ``distilled=True``)
+    to produce class logits.
+
+    Reference:
+    - [Rethinking Spatial Dimensions of Vision Transformers](https://arxiv.org/abs/2103.16302)
+
+    Construction:
+
+    >>> PiTClassify.from_weights("pit_b_224_in1k")
+    >>> PiTClassify.from_weights("timm:timm/pit_b_224.in1k")
+    """
+
+    BASE_MODEL_CONFIG = {
+        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = PIT_WEIGHT_CONFIG
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_pit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        patch_size=16,
+        stride=8,
+        embed_dim=(64, 128, 256),
+        depth=(2, 6, 4),
+        heads=(2, 4, 8),
+        mlp_ratio=4.0,
+        distilled=False,
+        drop_rate=0.0,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_tensor=None,
+        input_shape=None,
+        num_classes=1000,
+        classifier_activation="linear",
+        name="PiTClassify",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+
+        backbone = PiTModel(
+            patch_size=patch_size,
+            stride=stride,
+            embed_dim=embed_dim,
+            depth=depth,
+            heads=heads,
+            mlp_ratio=mlp_ratio,
+            distilled=distilled,
+            drop_rate=drop_rate,
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_tensor=input_tensor,
+            input_shape=input_shape,
+            name=f"{name}_backbone",
+        )
+
+        cls_dist = backbone.output
+        if distilled:
+            cls_token = layers.Lambda(lambda v: v[:, 0], name="ExtractClsToken")(
+                cls_dist
+            )
+            dist_token = layers.Lambda(lambda v: v[:, 1], name="ExtractDistToken")(
+                cls_dist
+            )
+            cls_token = layers.Dropout(drop_rate)(cls_token)
+            dist_token = layers.Dropout(drop_rate)(dist_token)
+            cls_head = layers.Dense(num_classes, name="predictions")(cls_token)
+            dist_head = layers.Dense(num_classes, name="predictions_dist")(dist_token)
+            out = layers.Average()([cls_head, dist_head])
+            if classifier_activation is not None:
+                out = layers.Activation(
+                    classifier_activation, name="predictions_activation"
+                )(out)
+        else:
+            tok = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(cls_dist)
+            tok = layers.Dropout(drop_rate)(tok)
+            out = layers.Dense(
+                num_classes, activation=classifier_activation, name="predictions"
+            )(tok)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.stride = stride
@@ -553,6 +492,8 @@ class PiTModel(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
 
     def get_config(self):
         config = super().get_config()
@@ -571,6 +512,8 @@ class PiTModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )

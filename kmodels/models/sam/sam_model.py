@@ -200,8 +200,8 @@ class SAMVisionModel(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = SAM_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = SAM_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "sam"
 
     def __init__(
@@ -335,8 +335,8 @@ class SAMPromptableSegment(BaseModel):
         - ``"iou_scores"``: ``(batch, point_batch, 3|1)``.
     """
 
-    KMODELS_CONFIG = SAM_CONFIG
-    KMODELS_WEIGHTS = SAM_WEIGHTS
+    BASE_MODEL_CONFIG = SAM_CONFIG
+    BASE_WEIGHT_CONFIG = SAM_WEIGHTS
     HF_MODEL_TYPE = "sam"
 
     @classmethod

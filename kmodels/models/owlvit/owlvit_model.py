@@ -515,7 +515,7 @@ class OwlViT(BaseModel):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
     """
 
-    KMODELS_CONFIG = OWLVIT_CONFIG
+    BASE_MODEL_CONFIG = OWLVIT_CONFIG
     HF_MODEL_TYPE = "owlvit"
 
     def __init__(
@@ -658,8 +658,8 @@ class OwlViTDetect(BaseModel):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
     """
 
-    KMODELS_CONFIG = OWLVIT_CONFIG
-    KMODELS_WEIGHTS = OWLVIT_WEIGHTS
+    BASE_MODEL_CONFIG = OWLVIT_CONFIG
+    BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS
     HF_MODEL_TYPE = "owlvit"
 
     def __init__(

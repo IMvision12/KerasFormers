@@ -7,7 +7,7 @@ the original architecture, so this module exposes a
 ``transfer_xception_weights`` shim that raises ``NotImplementedError``
 to make the mismatch explicit, and a ``__main__`` block that
 reproduces the legacy ``keras.applications.Xception`` -> kmodels
-conversion that produced the release file in ``XCEPTION_WEIGHTS``.
+conversion that produced the release file in ``XCEPTION_WEIGHT_CONFIG``.
 """
 
 from typing import Dict

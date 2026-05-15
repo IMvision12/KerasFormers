@@ -2,7 +2,7 @@
 
 The timm-name -> keras-name mapping is identical to ResNet's, so this
 script just re-uses :func:`transfer_resnet_weights`. The ``__main__``
-block iterates :data:`RESNEXT_CONFIG` and saves one ``.weights.h5`` per
+block iterates :data:`RESNEXT_MODEL_CONFIG` and saves one ``.weights.h5`` per
 variant.
 """
 
@@ -17,10 +17,10 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.resnext import ResNeXtClassify
-    from kmodels.models.resnext.config import RESNEXT_CONFIG
+    from kmodels.models.resnext.config import RESNEXT_WEIGHT_CONFIG
 
-    for variant, cfg in RESNEXT_CONFIG.items():
-        timm_id = cfg["timm_id"]
+    for variant, meta in RESNEXT_WEIGHT_CONFIG.items():
+        timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")

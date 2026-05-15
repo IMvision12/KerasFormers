@@ -74,10 +74,10 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.nextvit import NextViTClassify as NextViT
-    from kmodels.models.nextvit.config import NEXTVIT_CONFIG
+    from kmodels.models.nextvit.config import NEXTVIT_WEIGHT_CONFIG
 
-    for variant, cfg in NEXTVIT_CONFIG.items():
-        timm_id = cfg["timm_id"]
+    for variant, meta in NEXTVIT_WEIGHT_CONFIG.items():
+        timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")

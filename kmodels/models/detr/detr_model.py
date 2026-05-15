@@ -554,8 +554,8 @@ class DetrModel(BaseModel):
             :class:`BaseModel` / :class:`keras.Model`.
     """
 
-    KMODELS_CONFIG = DETR_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = DETR_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "detr"
 
     def __init__(
@@ -669,8 +669,8 @@ class DETRDetect(BaseModel):
     See ``BaseModel.from_weights`` for the loading API.
     """
 
-    KMODELS_CONFIG = DETR_CONFIG
-    KMODELS_WEIGHTS = DETR_WEIGHTS
+    BASE_MODEL_CONFIG = DETR_CONFIG
+    BASE_WEIGHT_CONFIG = DETR_WEIGHTS
     HF_MODEL_TYPE = "detr"
 
     def __init__(

@@ -1,3 +1,3 @@
-from kmodels.models.pit.pit_model import PiTBackbone, PiTClassify, PiTModel
+from kmodels.models.pit.pit_model import PiTClassify, PiTModel
 
-__all__ = ["PiTBackbone", "PiTClassify", "PiTModel"]
+__all__ = ["PiTClassify", "PiTModel"]

@@ -1621,8 +1621,8 @@ class DFineModel(BaseModel):
           Distribution Refinement <https://arxiv.org/abs/2410.13842>`_
     """
 
-    KMODELS_CONFIG = DFINE_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = DFINE_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = ("d_fine", "dfine")
 
     def __init__(
@@ -1798,8 +1798,8 @@ class DFineDetect(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DFINE_CONFIG
-    KMODELS_WEIGHTS = DFINE_WEIGHTS
+    BASE_MODEL_CONFIG = DFINE_CONFIG
+    BASE_WEIGHT_CONFIG = DFINE_WEIGHTS
     HF_MODEL_TYPE = ("d_fine", "dfine")
 
     def __init__(

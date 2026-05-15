@@ -1,3 +1,3 @@
-from kmodels.models.vit.vit_model import ViTBackbone, ViTClassify, ViTModel
+from kmodels.models.vit.vit_model import ViTClassify, ViTModel
 
-__all__ = ["ViTClassify", "ViTModel", "ViTBackbone"]
+__all__ = ["ViTClassify", "ViTModel"]

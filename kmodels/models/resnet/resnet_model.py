@@ -8,7 +8,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import RESNET_CONFIG, RESNET_WEIGHTS
+from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHT_CONFIG
 from .convert_resnet_torch_to_keras import transfer_resnet_weights
 
 
@@ -232,7 +232,7 @@ def bottleneck_block(
     return x
 
 
-def _resnet_features(
+def resnet_backbone_feature(
     inputs,
     block_fn,
     block_repeats,
@@ -242,15 +242,32 @@ def _resnet_features(
     groups,
     senet,
     width_factor,
+    return_stages=False,
 ):
-    """Build the ResNet stem + stages, returning a list of feature maps.
+    """Build the ResNet stem + stages.
 
-    Returns ``[stem, stage1, stage2, stage3, stage4]`` (5 tensors). Shared
-    by :class:`ResNet` (which pools + classifies the last one) and
-    :class:`ResNetBackbone` (which exposes the full list).
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        block_fn: Callable building one residual block (e.g. ``bottleneck_block``
+            or ``resnext_block``).
+        block_repeats: Number of blocks per stage (length-4 list).
+        filters: Base filter count per stage (length-4 list).
+        channels_axis: Int axis for the channel dimension (-1 for channels-last,
+            1 for channels-first).
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        groups: Number of groups for grouped convolution (forwarded to
+            ResNeXt blocks).
+        senet: Whether to enable Squeeze-and-Excitation in each block.
+        width_factor: Width scaling factor (forwarded to ResNeXt blocks).
+        return_stages: If True, return a list of per-stage feature maps
+            (4 tensors, one per ResNet stage). If False (default), return
+            only the final stage map.
+
+    Returns:
+        Final stage feature tensor at stride 32 of the input, or a
+        list of 4 per-stage feature maps when ``return_stages=True``.
     """
-    features = []
-
     x = conv_block(
         inputs,
         filters[0],
@@ -265,7 +282,6 @@ def _resnet_features(
     x = layers.MaxPooling2D(
         data_format=data_format, pool_size=3, strides=2, padding="valid"
     )(x)
-    features.append(x)
 
     common_args = {
         "channels_axis": channels_axis,
@@ -278,6 +294,7 @@ def _resnet_features(
     elif hasattr(block_fn, "__module__") and "resnext" in block_fn.__module__:
         common_args.update({"groups": groups, "width_factor": width_factor})
 
+    stages = []
     for i, num_blocks in enumerate(block_repeats):
         for j in range(num_blocks):
             common_args["block_name"] = f"resnet_layer{i + 1}_{j}"
@@ -285,25 +302,191 @@ def _resnet_features(
                 x = block_fn(x, filters[i], strides=2, downsample=True, **common_args)
             else:
                 x = block_fn(x, filters[i], **common_args)
-        features.append(x)
+        stages.append(x)
 
-    return features
+    if return_stages:
+        return stages
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ResNetClassify(BaseModel):
-    """ResNet classifier (also covers ResNeXt and SE-ResNet/SE-ResNeXt).
+class ResNetModel(BaseModel):
+    """ResNet trunk returning the final stage feature map.
+
+    Output shape: ``(B, H, W, C)`` — the last stage's 4D feature map,
+    unpooled and head-free. :class:`ResNetClassify` composes this model
+    and applies a GAP + Dense head to produce logits.
 
     Reference:
     - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016)
 
     Construction:
 
-    >>> ResNet.from_weights("resnet50_a1_in1k")                 # kmodels release
-    >>> ResNet.from_weights("timm:timm/resnet50.a1_in1k")       # direct from timm
+    >>> ResNetModel.from_weights("resnet50_a1_in1k")
+    >>> ResNetModel.from_weights("timm:timm/resnet50.a1_in1k")
+    """
 
-    Use :class:`ResNetBackbone` to obtain the per-stage feature maps instead
-    of the classifier output.
+    BASE_MODEL_CONFIG = {
+        variant: RESNET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RESNET_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = RESNET_WEIGHT_CONFIG
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = ResNetClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_resnet_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        block_fn=bottleneck_block,
+        block_repeats=[2, 2, 2, 2],
+        filters=[64, 128, 256, 512],
+        groups=32,
+        senet=False,
+        width_factor=2,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        as_backbone=False,
+        name="ResNetModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=224,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=False,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        x = resnet_backbone_feature(
+            x,
+            block_fn=block_fn,
+            block_repeats=block_repeats,
+            filters=filters,
+            channels_axis=channels_axis,
+            data_format=data_format,
+            groups=groups,
+            senet=senet,
+            width_factor=width_factor,
+            return_stages=as_backbone,
+        )
+
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
+
+        self.block_fn = block_fn
+        self.block_repeats = block_repeats
+        self.filters = filters
+        self.groups = groups
+        self.senet = senet
+        self.width_factor = width_factor
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
+
+    def get_config(self):
+        config = super().get_config()
+        if hasattr(self.block_fn, "__module__"):
+            block_fn_config = {
+                "class_name": "function",
+                "config": self.block_fn.__name__,
+                "module": self.block_fn.__module__,
+                "registered_name": "function",
+            }
+        else:
+            block_fn_config = {
+                "class_name": "function",
+                "config": "bottleneck_block",
+                "module": "kmodels.models.resnet.resnet_model",
+                "registered_name": "function",
+            }
+        config.update(
+            {
+                "block_fn": block_fn_config,
+                "block_repeats": self.block_repeats,
+                "filters": self.filters,
+                "groups": self.groups,
+                "senet": self.senet,
+                "width_factor": self.width_factor,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        if isinstance(config.get("block_fn"), dict):
+            block_fn_name = config["block_fn"]["config"]
+            module_path = config["block_fn"]["module"]
+            if module_path == "kmodels.models.resnet.resnet_model":
+                if block_fn_name == "bottleneck_block":
+                    config["block_fn"] = bottleneck_block
+            elif module_path == "kmodels.models.resnext.resnext_model":
+                from kmodels.models.resnext.resnext_model import resnext_block
+
+                if block_fn_name == "resnext_block":
+                    config["block_fn"] = resnext_block
+            else:
+                raise ValueError(
+                    f"Unknown block function: {block_fn_name} from module {module_path}"
+                )
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class ResNetClassify(BaseModel):
+    """ResNet classifier (also covers ResNeXt and SE-ResNet/SE-ResNeXt).
+
+    Wraps a :class:`ResNetModel` backbone and attaches GlobalAveragePooling +
+    a single Dense layer on the final feature map to produce class logits.
+    All architectural parameters are forwarded to the underlying
+    :class:`ResNetModel`; only ``num_classes`` and ``classifier_activation``
+    are head-specific.
+
+    Reference:
+    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016)
+
+    Construction:
+
+    >>> ResNetClassify.from_weights("resnet50_a1_in1k")                 # kmodels release
+    >>> ResNetClassify.from_weights("timm:timm/resnet50.a1_in1k")       # direct from timm
 
     Args:
         block_fn: Callable, the block function to use for residual blocks.
@@ -323,14 +506,17 @@ class ResNetClassify(BaseModel):
         num_classes: Int, number of output classes. Default ``1000``.
         classifier_activation: Activation for the head. ``None`` returns
             logits. Default ``"linear"``.
-        name: Model name. Default ``"ResNet"``.
+        name: Model name. Default ``"ResNetClassify"``.
 
     Returns:
         A Keras :class:`Model` instance.
     """
 
-    KMODELS_CONFIG = RESNET_CONFIG
-    KMODELS_WEIGHTS = RESNET_WEIGHTS
+    BASE_MODEL_CONFIG = {
+        variant: RESNET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RESNET_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = RESNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None  # timm-ported; no HF transformers passthrough.
 
     @classmethod
@@ -357,51 +543,32 @@ class ResNetClassify(BaseModel):
         kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = _resnet_features(
-            x,
+        backbone = ResNetModel(
             block_fn=block_fn,
             block_repeats=block_repeats,
             filters=filters,
-            channels_axis=channels_axis,
-            data_format=data_format,
             groups=groups,
             senet=senet,
             width_factor=width_factor,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
         )
+
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-            features[-1]
+            backbone.output
         )
-        x = layers.Dense(
+        out = layers.Dense(
             num_classes,
             activation=classifier_activation,
             kernel_initializer="zeros",
             name="predictions",
         )(x)
 
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.block_fn = block_fn
         self.block_repeats = block_repeats
@@ -472,312 +639,4 @@ class ResNetClassify(BaseModel):
                     f"Unknown block function: {block_fn_name} from module {module_path}"
                 )
 
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class ResNetBackbone(BaseModel):
-    """ResNet feature extractor (no classifier head).
-
-    Returns a list of five feature maps: ``[stem, stage1, stage2,
-    stage3, stage4]``, sized at strides ``[4, 4, 8, 16, 32]`` of the
-    input. Use as a frozen / fine-tunable backbone in detection,
-    segmentation, or other downstream tasks.
-
-    Construction:
-
-    >>> ResNetBackbone.from_weights("resnet50_a1_in1k")
-    >>> ResNetBackbone.from_weights("timm:timm/resnet50.a1_in1k")
-    """
-
-    KMODELS_CONFIG = RESNET_CONFIG
-    KMODELS_WEIGHTS = RESNET_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        """Build backbone and warm-start from the matching classifier release.
-
-        The kmodels release files are saved by the classifier class
-        (which includes the Dense head); we materialize a temporary
-        classifier, load its weights, then copy the matching encoder
-        layers here by stable path suffix. The classifier weights are
-        discarded.
-        """
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = ResNetClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_resnet_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        block_fn=bottleneck_block,
-        block_repeats=[2, 2, 2, 2],
-        filters=[64, 128, 256, 512],
-        groups=32,
-        senet=False,
-        width_factor=2,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="ResNetBackbone",
-        **kwargs,
-    ):
-        # ResNet classifier-only kwargs that arrive via KMODELS_CONFIG / a
-        # ResNet config dict — accept-and-drop so the shared config is usable.
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = _resnet_features(
-            x,
-            block_fn=block_fn,
-            block_repeats=block_repeats,
-            filters=filters,
-            channels_axis=channels_axis,
-            data_format=data_format,
-            groups=groups,
-            senet=senet,
-            width_factor=width_factor,
-        )
-
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
-
-        self.block_fn = block_fn
-        self.block_repeats = block_repeats
-        self.filters = filters
-        self.groups = groups
-        self.senet = senet
-        self.width_factor = width_factor
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        if hasattr(self.block_fn, "__module__"):
-            block_fn_config = {
-                "class_name": "function",
-                "config": self.block_fn.__name__,
-                "module": self.block_fn.__module__,
-                "registered_name": "function",
-            }
-        else:
-            block_fn_config = {
-                "class_name": "function",
-                "config": "bottleneck_block",
-                "module": "kmodels.models.resnet.resnet_model",
-                "registered_name": "function",
-            }
-        config.update(
-            {
-                "block_fn": block_fn_config,
-                "block_repeats": self.block_repeats,
-                "filters": self.filters,
-                "groups": self.groups,
-                "senet": self.senet,
-                "width_factor": self.width_factor,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-                "trainable": self.trainable,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        if isinstance(config.get("block_fn"), dict):
-            block_fn_name = config["block_fn"]["config"]
-            module_path = config["block_fn"]["module"]
-            if module_path == "kmodels.models.resnet.resnet_model":
-                if block_fn_name == "bottleneck_block":
-                    config["block_fn"] = bottleneck_block
-            elif module_path == "kmodels.models.resnext.resnext_model":
-                from kmodels.models.resnext.resnext_model import resnext_block
-
-                if block_fn_name == "resnext_block":
-                    config["block_fn"] = resnext_block
-            else:
-                raise ValueError(
-                    f"Unknown block function: {block_fn_name} from module {module_path}"
-                )
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class ResNetModel(BaseModel):
-    """ResNet trunk returning the final stage feature map.
-
-    Output shape: ``(B, H, W, C)`` — the last stage's 4D feature map,
-    unpooled and head-free. For the full multi-scale feature pyramid use
-    :class:`ResNetBackbone`; for class logits use :class:`ResNetClassify`.
-    """
-
-    KMODELS_CONFIG = RESNET_CONFIG
-    KMODELS_WEIGHTS = RESNET_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = ResNetClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_resnet_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        block_fn=bottleneck_block,
-        block_repeats=[2, 2, 2, 2],
-        filters=[64, 128, 256, 512],
-        groups=32,
-        senet=False,
-        width_factor=2,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="ResNetModel",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = _resnet_features(
-            x,
-            block_fn=block_fn,
-            block_repeats=block_repeats,
-            filters=filters,
-            channels_axis=channels_axis,
-            data_format=data_format,
-            groups=groups,
-            senet=senet,
-            width_factor=width_factor,
-        )
-
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
-
-        self.block_fn = block_fn
-        self.block_repeats = block_repeats
-        self.filters = filters
-        self.groups = groups
-        self.senet = senet
-        self.width_factor = width_factor
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        if hasattr(self.block_fn, "__module__"):
-            block_fn_config = {
-                "class_name": "function",
-                "config": self.block_fn.__name__,
-                "module": self.block_fn.__module__,
-                "registered_name": "function",
-            }
-        else:
-            block_fn_config = {
-                "class_name": "function",
-                "config": "bottleneck_block",
-                "module": "kmodels.models.resnet.resnet_model",
-                "registered_name": "function",
-            }
-        config.update(
-            {
-                "block_fn": block_fn_config,
-                "block_repeats": self.block_repeats,
-                "filters": self.filters,
-                "groups": self.groups,
-                "senet": self.senet,
-                "width_factor": self.width_factor,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-                "trainable": self.trainable,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        if isinstance(config.get("block_fn"), dict):
-            block_fn_name = config["block_fn"]["config"]
-            module_path = config["block_fn"]["module"]
-            if module_path == "kmodels.models.resnet.resnet_model":
-                if block_fn_name == "bottleneck_block":
-                    config["block_fn"] = bottleneck_block
-            elif module_path == "kmodels.models.resnext.resnext_model":
-                from kmodels.models.resnext.resnext_model import resnext_block
-
-                if block_fn_name == "resnext_block":
-                    config["block_fn"] = resnext_block
-            else:
-                raise ValueError(
-                    f"Unknown block function: {block_fn_name} from module {module_path}"
-                )
         return cls(**config)

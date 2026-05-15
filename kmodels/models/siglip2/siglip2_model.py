@@ -35,8 +35,8 @@ class SigLIP2Model(SigLIPModel):
     >>> SigLIP2Model.from_weights("hf:google/siglip2-base-patch16-224")
     """
 
-    KMODELS_CONFIG = SIGLIP2_CONFIG
-    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -53,8 +53,8 @@ class SigLIP2ZeroShotClassify(BaseModel):
     cosine-similarity matrix).
     """
 
-    KMODELS_CONFIG = SIGLIP2_CONFIG
-    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -173,18 +173,15 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
     """SigLIP 2 vision encoder + linear classifier head.
 
     Mirrors :class:`SigLIPImageClassify`; the only differences are the
-    variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS``) and
-    ``HF_MODEL_TYPE = "siglip2"``. ``from_release`` warm-starts the
-    encoder from a :class:`SigLIP2Model` checkpoint.
+    variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS``) and that
+    ``from_release`` warm-starts the encoder from a
+    :class:`SigLIP2Model` checkpoint.
     """
 
-    KMODELS_CONFIG = SIGLIP2_CONFIG
-    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
 
     HF_MODEL_TYPE = "siglip"
-
-    def __init__(self, *args, name="SigLIP2ImageClassify", **kwargs):
-        super().__init__(*args, name=name, **kwargs)
 
     @classmethod
     def _release_warm_start_cls(cls):

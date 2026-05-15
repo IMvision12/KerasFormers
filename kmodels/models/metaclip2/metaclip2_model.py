@@ -303,8 +303,8 @@ class MetaClip2Model(BaseModel):
       - https://huggingface.co/docs/transformers/model_doc/metaclip_2
     """
 
-    KMODELS_CONFIG = METACLIP2_CONFIG
-    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = METACLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -509,8 +509,8 @@ class MetaClip2ZeroShotClassify(BaseModel):
     >>> MetaClip2ZeroShotClassify.from_weights("hf:facebook/metaclip-2-worldwide-b32")
     """
 
-    KMODELS_CONFIG = METACLIP2_CONFIG
-    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = METACLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -645,8 +645,8 @@ class MetaClip2ImageClassify(BaseModel):
     ``num_labels`` logits.
     """
 
-    KMODELS_CONFIG = METACLIP2_CONFIG
-    KMODELS_WEIGHTS = METACLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = METACLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod

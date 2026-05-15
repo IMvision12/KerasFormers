@@ -6,7 +6,7 @@ from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.weight_utils import copy_weights_by_path_suffix
 
-from .config import MAXVIT_CONFIG, MAXVIT_WEIGHTS
+from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHT_CONFIG
 from .convert_maxvit_timm_to_keras import transfer_maxvit_weights
 from .maxvit_layers import (
     MaxViTAttention,
@@ -18,7 +18,14 @@ from .maxvit_layers import (
 
 
 def maxvit_gelu_approximate(x):
-    """GELU activation with tanh approximation, matching timm's GELUTanh."""
+    """GELU activation with tanh approximation, matching timm's GELUTanh.
+
+    Args:
+        x: Input tensor.
+
+    Returns:
+        Tensor with the tanh-approximated GELU applied element-wise.
+    """
     return keras.activations.gelu(x, approximate=True)
 
 
@@ -243,7 +250,7 @@ def maxvit_partition_attn_block(
     return x
 
 
-def _maxvit_features(
+def maxvit_backbone_feature(
     inputs,
     *,
     stem_width,
@@ -257,8 +264,33 @@ def _maxvit_features(
     image_size,
     data_format,
     channels_axis,
+    return_stages=False,
 ):
-    """MaxViT stem + 4 stages, returns ``[stem, s1, s2, s3, s4]``."""
+    """MaxViT 2-conv stem + 4 stages of (MBConv + block-attn + grid-attn) blocks.
+
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        stem_width: Output channel count of both stem convs.
+        depths: Number of blocks per stage (length 4).
+        embed_dim: Output channel count per stage (length 4).
+        num_heads: Number of attention heads per stage (length 4).
+        window_size: Side length used by both window and grid partitions.
+        mlp_ratio: Hidden-dim expansion ratio inside the attention-block MLPs.
+        se_ratio: Squeeze-and-Excitation reduction ratio for MBConv blocks.
+        expand_ratio: Channel expansion ratio for MBConv blocks.
+        image_size: Input spatial size (assumed square); used to track the
+            current ``(H, W)`` for window/grid partition layers.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel axis index.
+        return_stages: If ``True``, return a list of the 4 per-stage feature
+            maps instead of just the final one. Defaults to ``False``.
+
+    Returns:
+        Final stage feature map with ``embed_dim[-1]`` channels at spatial
+        resolution ``H/32`` when ``return_stages=False``. When
+        ``return_stages=True``, a list of 4 per-stage feature maps.
+    """
     H = W = image_size
 
     x = layers.Conv2D(
@@ -287,8 +319,8 @@ def _maxvit_features(
     cur_H = H // 2
     cur_W = W // 2
 
-    features = [x]
     in_ch = stem_width
+    stages = []
     for stage_idx in range(len(depths)):
         out_ch = embed_dim[stage_idx]
         for block_idx in range(depths[stage_idx]):
@@ -334,26 +366,180 @@ def _maxvit_features(
                 prefix=prefix + "attn_grid_",
             )
 
+        stages.append(x)
         in_ch = out_ch
-        features.append(x)
-    return features
+
+    if return_stages:
+        return stages
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MaxViTClassify(BaseModel):
-    """MaxViT classifier (timm-ported).
+class MaxViTModel(BaseModel):
+    """MaxViT backbone — the main feature extractor.
+
+    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first), unpooled and head-free. This is the
+    last layer output before the classifier head. :class:`MaxViTClassify`
+    composes this model and appends the head (GAP + LayerNorm + Dense +
+    tanh + Dense).
 
     Reference:
     - [MaxViT: Multi-Axis Vision Transformer](https://arxiv.org/abs/2204.01697)
 
     Construction:
 
-    >>> MaxViT.from_weights("maxvit_base_tf_224_in1k")
-    >>> MaxViT.from_weights("timm:timm/maxvit_base_tf_224.in1k")
+    >>> MaxViTModel.from_weights("maxvit_base_tf_224_in1k")
+    >>> MaxViTModel.from_weights("timm:timm/maxvit_base_tf_224.in1k")
     """
 
-    KMODELS_CONFIG = MAXVIT_CONFIG
-    KMODELS_WEIGHTS = MAXVIT_WEIGHTS
+    BASE_MODEL_CONFIG = {
+        variant: MAXVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MAXVIT_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = MAXVIT_WEIGHT_CONFIG
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = MaxViTClassify.from_weights(variant)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_maxvit_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        stem_width=64,
+        depths=(2, 2, 5, 2),
+        embed_dim=(64, 128, 256, 512),
+        num_heads=(2, 4, 8, 16),
+        window_size=7,
+        mlp_ratio=4.0,
+        se_ratio=0.0625,
+        expand_ratio=4,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        as_backbone=False,
+        name="MaxViTModel",
+        **kwargs,
+    ):
+        for k in ("num_classes", "classifier_activation", "timm_id"):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
+        input_shape = imagenet_utils.obtain_input_shape(
+            input_shape,
+            default_size=image_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=True,
+            weights=None,
+        )
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_shape)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+        else:
+            img_input = input_tensor
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            if include_normalization
+            else img_input
+        )
+        x = maxvit_backbone_feature(
+            x,
+            stem_width=stem_width,
+            depths=depths,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            window_size=window_size,
+            mlp_ratio=mlp_ratio,
+            se_ratio=se_ratio,
+            expand_ratio=expand_ratio,
+            image_size=image_size,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            return_stages=as_backbone,
+        )
+
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
+
+        self.stem_width = stem_width
+        self.depths = list(depths)
+        self.embed_dim = list(embed_dim)
+        self.num_heads = list(num_heads)
+        self.window_size = window_size
+        self.mlp_ratio = mlp_ratio
+        self.se_ratio = se_ratio
+        self.expand_ratio = expand_ratio
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.as_backbone = as_backbone
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "stem_width": self.stem_width,
+                "depths": self.depths,
+                "embed_dim": self.embed_dim,
+                "num_heads": self.num_heads,
+                "window_size": self.window_size,
+                "mlp_ratio": self.mlp_ratio,
+                "se_ratio": self.se_ratio,
+                "expand_ratio": self.expand_ratio,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "as_backbone": self.as_backbone,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class MaxViTClassify(BaseModel):
+    """MaxViT classifier (timm-ported).
+
+    Wraps a :class:`MaxViTModel` backbone and applies the head: GAP ->
+    LayerNorm -> Dense(embed_dim[-1]) -> tanh -> Dense classifier.
+
+    Reference:
+    - [MaxViT: Multi-Axis Vision Transformer](https://arxiv.org/abs/2204.01697)
+
+    Construction:
+
+    >>> MaxViTClassify.from_weights("maxvit_base_tf_224_in1k")
+    >>> MaxViTClassify.from_weights("timm:timm/maxvit_base_tf_224.in1k")
+    """
+
+    BASE_MODEL_CONFIG = {
+        variant: MAXVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MAXVIT_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = MAXVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -383,31 +569,8 @@ class MaxViTClassify(BaseModel):
         kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = _maxvit_features(
-            x,
+        backbone = MaxViTModel(
             stem_width=stem_width,
             depths=depths,
             embed_dim=embed_dim,
@@ -417,20 +580,24 @@ class MaxViTClassify(BaseModel):
             se_ratio=se_ratio,
             expand_ratio=expand_ratio,
             image_size=image_size,
-            data_format=data_format,
-            channels_axis=channels_axis,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
         )
+
         x = layers.GlobalAveragePooling2D(
             data_format=data_format, name="head_global_pool"
-        )(features[-1])
+        )(backbone.output)
         x = layers.LayerNormalization(axis=-1, epsilon=1e-5, name="head_norm")(x)
         x = layers.Dense(embed_dim[-1], use_bias=True, name="head_pre_logits_fc")(x)
         x = layers.Activation("tanh", name="head_pre_logits_act")(x)
-        x = layers.Dense(num_classes, activation=classifier_activation, name="head_fc")(
-            x
-        )
+        out = layers.Dense(
+            num_classes, activation=classifier_activation, name="head_fc"
+        )(x)
 
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.stem_width = stem_width
         self.depths = list(depths)
@@ -466,252 +633,6 @@ class MaxViTClassify(BaseModel):
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MaxViTModel(BaseModel):
-    """MaxViT trunk returning the final stage feature map (B, H, W, C)."""
-
-    KMODELS_CONFIG = MAXVIT_CONFIG
-    KMODELS_WEIGHTS = MAXVIT_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = MaxViTClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_maxvit_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        stem_width=64,
-        depths=(2, 2, 5, 2),
-        embed_dim=(64, 128, 256, 512),
-        num_heads=(2, 4, 8, 16),
-        window_size=7,
-        mlp_ratio=4.0,
-        se_ratio=0.0625,
-        expand_ratio=4,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="MaxViTModel",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = _maxvit_features(
-            x,
-            stem_width=stem_width,
-            depths=depths,
-            embed_dim=embed_dim,
-            num_heads=num_heads,
-            window_size=window_size,
-            mlp_ratio=mlp_ratio,
-            se_ratio=se_ratio,
-            expand_ratio=expand_ratio,
-            image_size=image_size,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
-
-        self.stem_width = stem_width
-        self.depths = list(depths)
-        self.embed_dim = list(embed_dim)
-        self.num_heads = list(num_heads)
-        self.window_size = window_size
-        self.mlp_ratio = mlp_ratio
-        self.se_ratio = se_ratio
-        self.expand_ratio = expand_ratio
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "stem_width": self.stem_width,
-                "depths": self.depths,
-                "embed_dim": self.embed_dim,
-                "num_heads": self.num_heads,
-                "window_size": self.window_size,
-                "mlp_ratio": self.mlp_ratio,
-                "se_ratio": self.se_ratio,
-                "expand_ratio": self.expand_ratio,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MaxViTBackbone(BaseModel):
-    """MaxViT feature extractor. Returns ``[stem, s1, s2, s3, s4]``."""
-
-    KMODELS_CONFIG = MAXVIT_CONFIG
-    KMODELS_WEIGHTS = MAXVIT_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = MaxViTClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_maxvit_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        stem_width=64,
-        depths=(2, 2, 5, 2),
-        embed_dim=(64, 128, 256, 512),
-        num_heads=(2, 4, 8, 16),
-        window_size=7,
-        mlp_ratio=4.0,
-        se_ratio=0.0625,
-        expand_ratio=4,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="MaxViTBackbone",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = _maxvit_features(
-            x,
-            stem_width=stem_width,
-            depths=depths,
-            embed_dim=embed_dim,
-            num_heads=num_heads,
-            window_size=window_size,
-            mlp_ratio=mlp_ratio,
-            se_ratio=se_ratio,
-            expand_ratio=expand_ratio,
-            image_size=image_size,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
-
-        self.stem_width = stem_width
-        self.depths = list(depths)
-        self.embed_dim = list(embed_dim)
-        self.num_heads = list(num_heads)
-        self.window_size = window_size
-        self.mlp_ratio = mlp_ratio
-        self.se_ratio = se_ratio
-        self.expand_ratio = expand_ratio
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "stem_width": self.stem_width,
-                "depths": self.depths,
-                "embed_dim": self.embed_dim,
-                "num_heads": self.num_heads,
-                "window_size": self.window_size,
-                "mlp_ratio": self.mlp_ratio,
-                "se_ratio": self.se_ratio,
-                "expand_ratio": self.expand_ratio,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
                 "name": self.name,
             }
         )

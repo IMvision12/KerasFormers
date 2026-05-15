@@ -3,7 +3,7 @@ from keras import layers
 
 from kmodels.base import BaseModel
 from kmodels.base.base_model import hf_num_labels
-from kmodels.models.mit.mit_model import MiTBackbone
+from kmodels.models.mit.mit_model import MiTModel
 
 from .config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS
 
@@ -118,8 +118,8 @@ class SegFormerModel(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = SEGFORMER_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = SEGFORMER_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "segformer"
 
     def __init__(
@@ -138,7 +138,7 @@ class SegFormerModel(BaseModel):
         if input_shape is None:
             input_shape = (512, 512, 3)
 
-        backbone = MiTBackbone(
+        backbone = MiTModel(
             embed_dims=embed_dims,
             depths=depths,
             include_normalization=False,
@@ -203,8 +203,8 @@ class SegFormerSegment(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = SEGFORMER_CONFIG
-    KMODELS_WEIGHTS = SEGFORMER_WEIGHTS
+    BASE_MODEL_CONFIG = SEGFORMER_CONFIG
+    BASE_WEIGHT_CONFIG = SEGFORMER_WEIGHTS
     HF_MODEL_TYPE = "segformer"
 
     @classmethod

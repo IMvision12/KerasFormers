@@ -3,8 +3,8 @@ from keras import layers, utils
 
 from kmodels.base import BaseModel
 from kmodels.layers import ImageNormalizationLayer
-from kmodels.models.resnet.resnet_model import _resnet_features, bottleneck_block
-from kmodels.models.vit.vit_model import _vit_features
+from kmodels.models.resnet.resnet_model import bottleneck_block, resnet_backbone_feature
+from kmodels.models.vit.vit_model import vit_backbone_feature
 
 from .config import (
     DINO_RESNET_CONFIG,
@@ -47,8 +47,8 @@ class DinoViTBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINO_VIT_CONFIG
-    KMODELS_WEIGHTS = DINO_VIT_WEIGHTS
+    BASE_MODEL_CONFIG = DINO_VIT_CONFIG
+    BASE_WEIGHT_CONFIG = DINO_VIT_WEIGHTS
     HF_MODEL_TYPE = None
 
     def __init__(
@@ -86,7 +86,7 @@ class DinoViTBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _vit_features(
+        features = vit_backbone_feature(
             x,
             patch_size=patch_size,
             dim=dim,
@@ -173,8 +173,8 @@ class DinoResNetBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINO_RESNET_CONFIG
-    KMODELS_WEIGHTS = DINO_RESNET_WEIGHTS
+    BASE_MODEL_CONFIG = DINO_RESNET_CONFIG
+    BASE_WEIGHT_CONFIG = DINO_RESNET_WEIGHTS
     HF_MODEL_TYPE = None
 
     def __init__(
@@ -210,7 +210,7 @@ class DinoResNetBackbone(BaseModel):
             if include_normalization
             else img_input
         )
-        features = _resnet_features(
+        features = resnet_backbone_feature(
             x,
             block_fn=bottleneck_block,
             block_repeats=block_repeats,
@@ -220,6 +220,7 @@ class DinoResNetBackbone(BaseModel):
             groups=1,
             senet=False,
             width_factor=1,
+            return_stages=True,
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
