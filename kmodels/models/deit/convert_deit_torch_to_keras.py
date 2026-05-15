@@ -95,7 +95,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.deit import DeiT
+    from kmodels.models.deit import DeiTClassify
     from kmodels.models.deit.config import DEIT_WEIGHT_CONFIG
 
     for variant, meta in DEIT_WEIGHT_CONFIG.items():
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = DeiT.from_weights(variant, load_weights=False)
+        keras_model = DeiTClassify.from_weights(variant, load_weights=False)
         transfer_deit_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"
