@@ -106,6 +106,68 @@ c2, c3, c4, c5 = multi.output                              # 4 stages
 # ...feed c2..c5 into an FPN
 ```
 
+## Fine-tuning with a different number of classes
+
+Two equivalent paths, picked based on whether you want safety or one-liner ergonomics.
+
+### Path A — `XModel` + your own head (strict)
+
+Recommended when you want explicit control or are unsure the variant is correct. The class type (`XModel`) guarantees you can't accidentally load a wrong-shape head; everything that loads must be a real backbone weight.
+
+```python
+import keras
+from keras import layers
+from kmodels.models.resnet import ResNetModel
+
+backbone = ResNetModel.from_weights("resnet50_a1_in1k")     # strict load, no skip
+classifier = keras.Sequential([
+    backbone,
+    layers.GlobalAveragePooling2D(),
+    layers.Dense(10, activation="softmax"),                 # new head, randomly init
+])
+```
+
+### Path B — `XClassify` + `skip_mismatch=True` (convenient)
+
+One line. Loads matching backbone weights and silently re-initializes any layer whose shape doesn't match (typically just the classifier `Dense`).
+
+```python
+from kmodels.models.resnet import ResNetClassify
+
+model = ResNetClassify.from_weights(
+    "resnet50_a1_in1k",
+    num_classes=10,
+    skip_mismatch=True,    # head Dense reshaped (1000→10), reset to random init
+)
+```
+
+**Trade-off:** `skip_mismatch=True` is shape-based, not name-based. If you point it at a wrong variant or a corrupt file, it will *quietly* skip more than the head and leave parts of the backbone randomly initialized. Keras emits `warnings.warn` per skipped layer, but warnings are easy to miss — especially in notebook stderr streams. For sensitive training runs, prefer **Path A**.
+
+**Scope:** `skip_mismatch=True` only affects the kmodels-release weight path (the `.h5` / `.json` URLs from the GitHub release). The `hf:` and `timm:` prefixes go through hand-mapped `transfer_from_*` functions that ignore the flag.
+
+### Feature extractor (frozen backbone)
+
+Either path supports `trainable = False`:
+
+```python
+backbone = ResNetModel.from_weights("resnet50_a1_in1k")
+backbone.trainable = False     # whole backbone frozen
+
+model = keras.Sequential([
+    backbone,
+    layers.GlobalAveragePooling2D(),
+    layers.Dense(10, activation="softmax"),
+])
+```
+
+Or partial:
+
+```python
+backbone = ResNetModel.from_weights("resnet50_a1_in1k")
+for layer in backbone.layers[:-30]:    # freeze all but last 30 layers
+    layer.trainable = False
+```
+
 ## Subclass relationships
 
 A few architectures are thin subclasses of a parent that swap the variant registry only:
