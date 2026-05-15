@@ -472,11 +472,11 @@ class SwinModel(BaseModel):
     >>> SwinModel.from_weights("timm:timm/swin_tiny_patch4_window7_224.ms_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: SWIN_MODEL_CONFIG[meta["model"]]
         for variant, meta in SWIN_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = SWIN_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = SWIN_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -612,11 +612,11 @@ class SwinClassify(BaseModel):
     >>> SwinClassify.from_weights("timm:timm/swin_tiny_patch4_window7_224.ms_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: SWIN_MODEL_CONFIG[meta["model"]]
         for variant, meta in SWIN_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = SWIN_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = SWIN_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

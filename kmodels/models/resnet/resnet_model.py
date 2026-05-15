@@ -326,11 +326,11 @@ class ResNetModel(BaseModel):
     >>> ResNetModel.from_weights("timm:timm/resnet50.a1_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: RESNET_MODEL_CONFIG[meta["model"]]
         for variant, meta in RESNET_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = RESNET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -512,11 +512,11 @@ class ResNetClassify(BaseModel):
         A Keras :class:`Model` instance.
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: RESNET_MODEL_CONFIG[meta["model"]]
         for variant, meta in RESNET_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = RESNET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None  # timm-ported; no HF transformers passthrough.
 
     @classmethod

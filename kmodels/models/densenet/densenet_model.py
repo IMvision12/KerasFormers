@@ -229,11 +229,11 @@ class DenseNetModel(BaseModel):
     >>> DenseNetModel.from_weights("timm:timm/densenet121.tv_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: DENSENET_MODEL_CONFIG[meta["model"]]
         for variant, meta in DENSENET_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = DENSENET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DENSENET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -350,11 +350,11 @@ class DenseNetClassify(BaseModel):
     >>> DenseNetClassify.from_weights("timm:timm/densenet121.tv_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: DENSENET_MODEL_CONFIG[meta["model"]]
         for variant, meta in DENSENET_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = DENSENET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DENSENET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

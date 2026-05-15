@@ -375,11 +375,11 @@ class InceptionV3Model(BaseModel):
     model and applies GAP + Dense head to produce logits.
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: INCEPTIONV3_MODEL_CONFIG[meta["model"]]
         for variant, meta in INCEPTIONV3_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = INCEPTIONV3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTIONV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -480,11 +480,11 @@ class InceptionV3Classify(BaseModel):
     >>> InceptionV3Classify.from_weights("timm:timm/inception_v3.tf_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: INCEPTIONV3_MODEL_CONFIG[meta["model"]]
         for variant, meta in INCEPTIONV3_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = INCEPTIONV3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTIONV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

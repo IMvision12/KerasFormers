@@ -346,11 +346,11 @@ class InceptionResNetV2Model(BaseModel):
     >>> InceptionResNetV2Model.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: INCEPTION_RESNETV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in INCEPTION_RESNETV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = INCEPTION_RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -451,11 +451,11 @@ class InceptionResNetV2Classify(BaseModel):
     >>> InceptionResNetV2Classify.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: INCEPTION_RESNETV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in INCEPTION_RESNETV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = INCEPTION_RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

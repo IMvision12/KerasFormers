@@ -234,8 +234,8 @@ class EoMTModel(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = EOMT_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = EOMT_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "eomt"
 
     def __init__(
@@ -356,8 +356,8 @@ class EoMTUniversalSegment(BaseModel):
         See :class:`EoMTModel` for the remaining args.
     """
 
-    KMODELS_CONFIG = EOMT_CONFIG
-    KMODELS_WEIGHTS = EOMT_WEIGHTS
+    BASE_MODEL_CONFIG = EOMT_CONFIG
+    BASE_WEIGHT_CONFIG = EOMT_WEIGHTS
     HF_MODEL_TYPE = "eomt"
 
     @classmethod

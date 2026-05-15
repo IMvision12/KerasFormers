@@ -18,10 +18,10 @@ class FlexiViTModel(ViTModel):
     The first token is the class token; the rest are spatial patch tokens.
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         v: FLEXIVIT_MODEL_CONFIG[m["model"]] for v, m in FLEXIVIT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = FLEXIVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = FLEXIVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -54,10 +54,10 @@ class FlexiViTClassify(ViTClassify):
     >>> FlexiViTClassify.from_weights("timm:timm/flexivit_base.1200ep_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         v: FLEXIVIT_MODEL_CONFIG[m["model"]] for v, m in FLEXIVIT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = FLEXIVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = FLEXIVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

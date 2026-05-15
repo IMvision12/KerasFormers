@@ -316,8 +316,8 @@ class CLIPModel(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = CLIP_CONFIG
-    KMODELS_WEIGHTS = CLIP_WEIGHTS
+    BASE_MODEL_CONFIG = CLIP_CONFIG
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -536,8 +536,8 @@ class CLIPZeroShotClassify(BaseModel):
         input_tensor, name.
     """
 
-    KMODELS_CONFIG = CLIP_CONFIG
-    KMODELS_WEIGHTS = CLIP_WEIGHTS
+    BASE_MODEL_CONFIG = CLIP_CONFIG
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -682,8 +682,8 @@ class CLIPImageClassify(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = CLIP_CONFIG
-    KMODELS_WEIGHTS = CLIP_WEIGHTS
+    BASE_MODEL_CONFIG = CLIP_CONFIG
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
     HF_MODEL_TYPE = "clip"
 
     @classmethod

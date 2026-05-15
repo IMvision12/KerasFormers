@@ -149,8 +149,8 @@ class DinoV3ViTBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINOV3_VIT_CONFIG
-    KMODELS_WEIGHTS = DINOV3_VIT_WEIGHTS
+    BASE_MODEL_CONFIG = DINOV3_VIT_CONFIG
+    BASE_WEIGHT_CONFIG = DINOV3_VIT_WEIGHTS
     HF_MODEL_TYPE = "dinov3_vit"
 
     @classmethod
@@ -362,8 +362,8 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINOV3_CONVNEXT_CONFIG
-    KMODELS_WEIGHTS = DINOV3_CONVNEXT_WEIGHTS
+    BASE_MODEL_CONFIG = DINOV3_CONVNEXT_CONFIG
+    BASE_WEIGHT_CONFIG = DINOV3_CONVNEXT_WEIGHTS
     HF_MODEL_TYPE = "dinov3_convnext"
 
     @classmethod

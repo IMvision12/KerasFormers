@@ -47,8 +47,8 @@ class DinoViTBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINO_VIT_CONFIG
-    KMODELS_WEIGHTS = DINO_VIT_WEIGHTS
+    BASE_MODEL_CONFIG = DINO_VIT_CONFIG
+    BASE_WEIGHT_CONFIG = DINO_VIT_WEIGHTS
     HF_MODEL_TYPE = None
 
     def __init__(
@@ -173,8 +173,8 @@ class DinoResNetBackbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINO_RESNET_CONFIG
-    KMODELS_WEIGHTS = DINO_RESNET_WEIGHTS
+    BASE_MODEL_CONFIG = DINO_RESNET_CONFIG
+    BASE_WEIGHT_CONFIG = DINO_RESNET_WEIGHTS
     HF_MODEL_TYPE = None
 
     def __init__(

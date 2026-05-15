@@ -979,8 +979,8 @@ class Sam3(BaseModel):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    KMODELS_CONFIG = SAM3_CONFIG
-    KMODELS_WEIGHTS = SAM3_WEIGHTS
+    BASE_MODEL_CONFIG = SAM3_CONFIG
+    BASE_WEIGHT_CONFIG = SAM3_WEIGHTS
     HF_MODEL_TYPE = "sam3"
 
     @classmethod

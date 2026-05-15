@@ -118,8 +118,8 @@ class SegFormerModel(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = SEGFORMER_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = SEGFORMER_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "segformer"
 
     def __init__(
@@ -203,8 +203,8 @@ class SegFormerSegment(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = SEGFORMER_CONFIG
-    KMODELS_WEIGHTS = SEGFORMER_WEIGHTS
+    BASE_MODEL_CONFIG = SEGFORMER_CONFIG
+    BASE_WEIGHT_CONFIG = SEGFORMER_WEIGHTS
     HF_MODEL_TYPE = "segformer"
 
     @classmethod

@@ -143,11 +143,11 @@ class VGGModel(BaseModel):
     >>> VGGModel.from_weights("timm:timm/vgg16.tv_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: VGG_MODEL_CONFIG[meta["model"]]
         for variant, meta in VGG_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = VGG_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = VGG_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -264,11 +264,11 @@ class VGGClassify(BaseModel):
     >>> VGGClassify.from_weights("timm:timm/vgg16.tv_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: VGG_MODEL_CONFIG[meta["model"]]
         for variant, meta in VGG_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = VGG_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = VGG_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

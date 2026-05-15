@@ -190,11 +190,11 @@ class ConvNeXtModel(BaseModel):
     >>> ConvNeXtModel.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: CONVNEXT_MODEL_CONFIG[meta["model"]]
         for variant, meta in CONVNEXT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = CONVNEXT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = CONVNEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -324,11 +324,11 @@ class ConvNeXtClassify(BaseModel):
     >>> ConvNeXtClassify.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: CONVNEXT_MODEL_CONFIG[meta["model"]]
         for variant, meta in CONVNEXT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = CONVNEXT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = CONVNEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

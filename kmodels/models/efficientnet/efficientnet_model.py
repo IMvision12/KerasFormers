@@ -361,11 +361,11 @@ class EfficientNetModel(BaseModel):
     >>> EfficientNetModel.from_weights("timm:timm/tf_efficientnet_b0.ns_jft_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: EFFICIENTNET_MODEL_CONFIG[meta["model"]]
         for variant, meta in EFFICIENTNET_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = EFFICIENTNET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = EFFICIENTNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -485,11 +485,11 @@ class EfficientNetClassify(BaseModel):
     >>> EfficientNetClassify.from_weights("timm:timm/tf_efficientnet_b0.ns_jft_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: EFFICIENTNET_MODEL_CONFIG[meta["model"]]
         for variant, meta in EFFICIENTNET_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = EFFICIENTNET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = EFFICIENTNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

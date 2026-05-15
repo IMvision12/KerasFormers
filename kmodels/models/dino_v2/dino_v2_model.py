@@ -44,8 +44,8 @@ class DinoV2Backbone(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DINOV2_CONFIG
-    KMODELS_WEIGHTS = DINOV2_WEIGHTS
+    BASE_MODEL_CONFIG = DINOV2_CONFIG
+    BASE_WEIGHT_CONFIG = DINOV2_WEIGHTS
     HF_MODEL_TYPE = "dinov2"
 
     @classmethod

@@ -35,8 +35,8 @@ class SigLIP2Model(SigLIPModel):
     >>> SigLIP2Model.from_weights("hf:google/siglip2-base-patch16-224")
     """
 
-    KMODELS_CONFIG = SIGLIP2_CONFIG
-    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -53,8 +53,8 @@ class SigLIP2ZeroShotClassify(BaseModel):
     cosine-similarity matrix).
     """
 
-    KMODELS_CONFIG = SIGLIP2_CONFIG
-    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -178,8 +178,8 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
     :class:`SigLIP2Model` checkpoint.
     """
 
-    KMODELS_CONFIG = SIGLIP2_CONFIG
-    KMODELS_WEIGHTS = SIGLIP2_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
 
     HF_MODEL_TYPE = "siglip"
 

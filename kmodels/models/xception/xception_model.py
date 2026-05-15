@@ -196,11 +196,11 @@ class XceptionModel(BaseModel):
     >>> XceptionModel.from_weights("xception_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: XCEPTION_MODEL_CONFIG[meta["model"]]
         for variant, meta in XCEPTION_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = XCEPTION_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -304,11 +304,11 @@ class XceptionClassify(BaseModel):
     >>> XceptionClassify.from_weights("xception_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: XCEPTION_MODEL_CONFIG[meta["model"]]
         for variant, meta in XCEPTION_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = XCEPTION_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

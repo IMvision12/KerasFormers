@@ -228,11 +228,11 @@ class PoolFormerModel(BaseModel):
     >>> PoolFormerModel.from_weights("timm:timm/poolformer_s12.sail_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: POOLFORMER_MODEL_CONFIG[meta["model"]]
         for variant, meta in POOLFORMER_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = POOLFORMER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -364,11 +364,11 @@ class PoolFormerClassify(BaseModel):
     >>> PoolFormerClassify.from_weights("timm:timm/poolformer_s12.sail_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: POOLFORMER_MODEL_CONFIG[meta["model"]]
         for variant, meta in POOLFORMER_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = POOLFORMER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -1098,8 +1098,8 @@ class RTDetrModel(BaseModel):
           <https://arxiv.org/abs/2304.08069>`_
     """
 
-    KMODELS_CONFIG = RT_DETR_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = RT_DETR_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rt_detr"
 
     def __init__(
@@ -1286,8 +1286,8 @@ class RTDETRDetect(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = RT_DETR_CONFIG
-    KMODELS_WEIGHTS = RT_DETR_WEIGHTS
+    BASE_MODEL_CONFIG = RT_DETR_CONFIG
+    BASE_WEIGHT_CONFIG = RT_DETR_WEIGHTS
     HF_MODEL_TYPE = "rt_detr"
 
     def __init__(

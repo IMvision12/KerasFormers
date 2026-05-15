@@ -326,8 +326,8 @@ class WhisperModel(BaseModel):
         name: Model name. Defaults to ``"WhisperModel"``.
     """
 
-    KMODELS_CONFIG = WHISPER_CONFIG
-    KMODELS_WEIGHTS = WHISPER_WEIGHTS
+    BASE_MODEL_CONFIG = WHISPER_CONFIG
+    BASE_WEIGHT_CONFIG = WHISPER_WEIGHTS
     HF_MODEL_TYPE = "whisper"
 
     @classmethod
@@ -642,8 +642,8 @@ class WhisperAudioClassify(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = None
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "whisper"
 
     @classmethod

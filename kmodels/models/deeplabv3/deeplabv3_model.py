@@ -312,8 +312,8 @@ class DeepLabV3Model(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DEEPLABV3_CONFIG
-    KMODELS_WEIGHTS = None
+    BASE_MODEL_CONFIG = DEEPLABV3_CONFIG
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
     def __init__(
@@ -396,8 +396,8 @@ class DeepLabV3Segment(BaseModel):
         name: Model name.
     """
 
-    KMODELS_CONFIG = DEEPLABV3_CONFIG
-    KMODELS_WEIGHTS = DEEPLABV3_WEIGHTS
+    BASE_MODEL_CONFIG = DEEPLABV3_CONFIG
+    BASE_WEIGHT_CONFIG = DEEPLABV3_WEIGHTS
     HF_MODEL_TYPE = None
 
     def __init__(

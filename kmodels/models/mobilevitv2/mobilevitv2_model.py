@@ -421,11 +421,11 @@ class MobileViTV2Model(BaseModel):
     >>> MobileViTV2Model.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -535,11 +535,11 @@ class MobileViTV2Classify(BaseModel):
     >>> MobileViTV2Classify.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

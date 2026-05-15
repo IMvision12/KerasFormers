@@ -350,11 +350,11 @@ class EfficientFormerModel(BaseModel):
     LayerNorm + token-pool + dual-Dense classification head on top.
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: EFFICIENTFORMER_MODEL_CONFIG[meta["model"]]
         for variant, meta in EFFICIENTFORMER_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = EFFICIENTFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -497,11 +497,11 @@ class EfficientFormerClassify(BaseModel):
     >>> EfficientFormerClassify.from_weights("timm:timm/efficientformer_l1.snap_dist_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: EFFICIENTFORMER_MODEL_CONFIG[meta["model"]]
         for variant, meta in EFFICIENTFORMER_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = EFFICIENTFORMER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

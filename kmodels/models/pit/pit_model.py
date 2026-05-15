@@ -265,10 +265,10 @@ class PiTModel(BaseModel):
     >>> PiTModel.from_weights("timm:timm/pit_b_224.in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = PIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = PIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -405,10 +405,10 @@ class PiTClassify(BaseModel):
     >>> PiTClassify.from_weights("timm:timm/pit_b_224.in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = PIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = PIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

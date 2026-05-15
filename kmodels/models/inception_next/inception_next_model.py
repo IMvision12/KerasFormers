@@ -237,11 +237,11 @@ class InceptionNextModel(BaseModel):
     >>> InceptionNextModel.from_weights("timm:timm/inception_next_tiny.sail_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: INCEPTION_NEXT_MODEL_CONFIG[meta["model"]]
         for variant, meta in INCEPTION_NEXT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTION_NEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -366,11 +366,11 @@ class InceptionNextClassify(BaseModel):
     >>> InceptionNextClassify.from_weights("timm:timm/inception_next_tiny.sail_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: INCEPTION_NEXT_MODEL_CONFIG[meta["model"]]
         for variant, meta in INCEPTION_NEXT_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = INCEPTION_NEXT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTION_NEXT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

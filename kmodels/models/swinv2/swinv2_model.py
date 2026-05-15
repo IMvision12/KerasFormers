@@ -482,11 +482,11 @@ class SwinV2Model(BaseModel):
     >>> SwinV2Model.from_weights("timm:timm/swinv2_base_window8_256.ms_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: SWINV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in SWINV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = SWINV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = SWINV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -626,11 +626,11 @@ class SwinV2Classify(BaseModel):
     >>> SwinV2Classify.from_weights("timm:timm/swinv2_base_window8_256.ms_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: SWINV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in SWINV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = SWINV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = SWINV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -250,11 +250,11 @@ class ResNetV2Model(BaseModel):
     - [Big Transfer (BiT)](https://arxiv.org/abs/1912.11370)
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: RESNETV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in RESNETV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -383,11 +383,11 @@ class ResNetV2Classify(BaseModel):
     >>> ResNetV2Classify.from_weights("timm:timm/resnetv2_50x1_bit.goog_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = {
+    BASE_MODEL_CONFIG = {
         variant: RESNETV2_MODEL_CONFIG[meta["model"]]
         for variant, meta in RESNETV2_WEIGHT_CONFIG.items()
     }
-    KMODELS_WEIGHTS = RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod

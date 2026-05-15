@@ -630,8 +630,8 @@ class SigLIPModel(BaseModel):
     >>> SigLIPModel.from_weights("hf:google/siglip-base-patch16-224")
     """
 
-    KMODELS_CONFIG = SIGLIP_CONFIG
-    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -789,8 +789,8 @@ class SigLIPZeroShotClassify(BaseModel):
     >>> SigLIPZeroShotClassify.from_weights("hf:google/siglip-base-patch16-224")
     """
 
-    KMODELS_CONFIG = SIGLIP_CONFIG
-    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -913,8 +913,8 @@ class SigLIPImageClassify(BaseModel):
     ``num_labels`` logits.
     """
 
-    KMODELS_CONFIG = SIGLIP_CONFIG
-    KMODELS_WEIGHTS = SIGLIP_WEIGHTS
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
