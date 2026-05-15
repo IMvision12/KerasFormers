@@ -244,11 +244,58 @@ def mobilenetv2_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileNetV2Model(BaseModel):
-    """MobileNetV2 backbone — returns the post-head-conv 4D feature map.
+    """Instantiates the MobileNetV2 backbone.
 
-    Output shape: ``(B, H, W, C)`` — head-conv 4D feature map after the final
-    1x1 conv + BN + ReLU6. :class:`MobileNetV2Classify` composes this model
-    and adds GlobalAveragePool + Dense on top.
+    MobileNetV2 is designed for mobile inference and is built around
+    inverted residual blocks with linear bottlenecks: each block expands
+    the channel count via a 1x1 conv, applies a depthwise separable
+    3x3 conv, projects back down with a 1x1 conv (no activation on the
+    projection — the "linear bottleneck"), and adds a residual connection
+    when the spatial / channel shapes match. The network is composed of
+    a stem, seven such inverted-residual stages, and a 1x1 head conv,
+    with channel widths controlled by a single width multiplier.
+
+    Output is the last layer output before the classifier head: the
+    post-head-conv 4D feature map of shape ``(B, H, W, C)``.
+    :class:`MobileNetV2Classify` composes this model and adds a
+    GlobalAveragePooling2D + Dense head on top.
+
+    References:
+    - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381)
+
+    Args:
+        width_multiplier: Float, multiplier applied to per-stage channel
+            counts. Defaults to `1.0`.
+        depth_multiplier: Float, multiplier applied to interior stage
+            block repeats (ceiling-rounded). Defaults to `1.0`.
+        fix_channels: Boolean, if True keep the stem (32) and head (1280)
+            channel counts fixed regardless of ``width_multiplier``.
+            Defaults to `False`.
+        image_size: Integer, square input resolution used to derive the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            feature maps grouped by stride boundary (pre-head-conv).
+            Defaults to `False`.
+        name: String, the name of the model.
+            Defaults to `"MobileNetV2Model"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -358,19 +405,53 @@ class MobileNetV2Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileNetV2Classify(BaseModel):
-    """MobileNetV2 classifier (timm-ported).
+    """Instantiates the MobileNetV2 classifier.
 
-    Wraps a :class:`MobileNetV2Model` backbone and adds GlobalAveragePool +
-    Dense on top.
+    This classifier wraps a :class:`MobileNetV2Model` backbone and
+    attaches a GlobalAveragePooling2D + Dense head to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`MobileNetV2Model`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](
-        https://arxiv.org/abs/1801.04381) (CVPR 2018)
+    References:
+    - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381)
 
-    Construction:
+    Args:
+        width_multiplier: Float, multiplier applied to per-stage channel
+            counts. Defaults to `1.0`.
+        depth_multiplier: Float, multiplier applied to interior stage
+            block repeats (ceiling-rounded). Defaults to `1.0`.
+        fix_channels: Boolean, if True keep the stem (32) and head (1280)
+            channel counts fixed regardless of ``width_multiplier``.
+            Defaults to `False`.
+        image_size: Integer, square input resolution used to derive the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to
+            `"MobileNetV2Classify"`.
 
-    >>> MobileNetV2Classify.from_weights("mobilenetv2_100_ra_in1k")
-    >>> MobileNetV2Classify.from_weights("timm:timm/mobilenetv2_100.ra_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

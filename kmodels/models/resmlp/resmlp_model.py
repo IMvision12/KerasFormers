@@ -153,22 +153,61 @@ def resmlp_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResMLPModel(BaseModel):
-    """ResMLP backbone — the main feature extractor.
+    """Instantiates the ResMLP (Residual MLP) backbone.
 
-    Returns the final Affine-normalized patch sequence ``(B, N, D)``
-    where ``N = (H/patch_size) * (W/patch_size)``. This is the last
-    layer output before the classifier head. :class:`ResMLPClassify`
-    composes this model and applies GAP1D + Dense.
+    ResMLP is a Mixer-style architecture where per-channel learnable
+    Affine layers replace LayerNorm and a residual structure (Affine
+    pre-norm + LayerScale + residual add on each branch) scales to very
+    deep models with stable, data-efficient training. Like Mixer it
+    alternates a cross-patch linear and a channel MLP, but the
+    normalization-free Affine design and LayerScale residuals are what
+    make deep stacks trainable.
 
-    Reference:
-        Touvron et al., *ResMLP: Feedforward networks for image
-        classification with data-efficient training*
-        (https://arxiv.org/abs/2105.03404).
+    Output is the last layer output before the classifier head: the
+    final-Affine normalized patch sequence ``(B, N, D)`` where
+    ``N = (H/patch_size) * (W/patch_size)``. :class:`ResMLPClassify`
+    composes this model and applies a GlobalAveragePooling1D + Dense
+    head.
 
-    Construction:
+    References:
+    - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/abs/2105.03404)
 
-    >>> ResMLPModel.from_weights("resmlp_12_224_fb_in1k")
-    >>> ResMLPModel.from_weights("timm:timm/resmlp_12_224.fb_in1k")
+    Args:
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        embed_dim: Integer, token (channel) embedding dimension.
+            Defaults to `384`.
+        depth: Integer, number of ResMLP blocks. Defaults to `12`.
+        mlp_ratio: Integer, hidden-dim multiplier inside each block's
+            channel MLP. Defaults to `4`.
+        init_values: Float, initial LayerScale value applied at the end
+            of each residual branch. Defaults to `1e-4`.
+        drop_rate: Float, dropout rate. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth-style dropout
+            rate (scaled linearly with block index). Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-block outputs (one per ResMLP block). Defaults to `False`.
+        name: String, the name of the model. Defaults to `"ResMLPModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -292,21 +331,57 @@ class ResMLPModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResMLPClassify(BaseModel):
-    """ResMLP image classifier — :class:`ResMLPModel` + GAP1D + Dense.
+    """Instantiates the ResMLP classifier.
 
-    Wraps a :class:`ResMLPModel` backbone and attaches the standard timm
-    ResMLP classifier head: global average pooling over patch tokens,
-    then a single Dense layer producing class logits.
+    This classifier wraps a :class:`ResMLPModel` backbone and attaches a
+    GlobalAveragePooling1D + Dense head on the patch sequence to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`ResMLPModel`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-        Touvron et al., *ResMLP: Feedforward networks for image
-        classification with data-efficient training*
-        (https://arxiv.org/abs/2105.03404).
+    References:
+    - [ResMLP: Feedforward networks for image classification with data-efficient training](https://arxiv.org/abs/2105.03404)
 
-    Construction:
+    Args:
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        embed_dim: Integer, token (channel) embedding dimension.
+            Defaults to `384`.
+        depth: Integer, number of ResMLP blocks. Defaults to `12`.
+        mlp_ratio: Integer, hidden-dim multiplier inside each block's
+            channel MLP. Defaults to `4`.
+        init_values: Float, initial LayerScale value applied at the end
+            of each residual branch. Defaults to `1e-4`.
+        drop_rate: Float, dropout rate. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth-style dropout
+            rate (scaled linearly with block index). Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"ResMLPClassify"`.
 
-    >>> ResMLPClassify.from_weights("resmlp_12_224_fb_in1k")
-    >>> ResMLPClassify.from_weights("timm:timm/resmlp_12_224.fb_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

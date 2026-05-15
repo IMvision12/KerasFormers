@@ -249,20 +249,69 @@ def pit_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class PiTModel(BaseModel):
-    """PiT backbone — the main feature extractor.
+    """Instantiates the Pooling-based Vision Transformer (PiT) backbone.
 
-    Returns the final LN-normalized class (and distillation) tokens of
-    shape ``(B, 1 or 2, embed_dim[-1])``. This is the last layer output
-    before the classifier head. :class:`PiTClassify` composes this model
-    and reads the class token(s) to produce logits.
+    PiT is a hierarchical Vision Transformer that progressively shrinks
+    the spatial token grid via depthwise-conv pooling layers placed
+    between transformer stages, while expanding the channel dimension —
+    analogous to the spatial-reduction / channel-expansion pattern of
+    classical CNN backbones. The class (and optional distillation) tokens
+    are pooled in parallel with the patch tokens via a Dense projection,
+    so the prefix tokens stay shape-compatible across stages.
 
-    Reference:
+    Output is the last layer output before the classifier head: the
+    final LN-normalized class (and distillation) tokens of shape
+    ``(B, 1 or 2, embed_dim[-1])``. :class:`PiTClassify` composes this
+    model and reads the class token via ``backbone.output[:, 0]`` (and
+    ``[:, 1]`` for the distillation token) to produce logits.
+
+    References:
     - [Rethinking Spatial Dimensions of Vision Transformers](https://arxiv.org/abs/2103.16302)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (post-pos-embed, after each stage, and
+            the final LN-normalized class/dist tokens). Defaults to
+            `False`.
+        patch_size: Integer, conv-stem kernel size in pixels.
+            Defaults to `16`.
+        stride: Integer, conv-stem stride in pixels. Defaults to `8`.
+        embed_dim: Tuple of integers, per-stage token embedding
+            dimensions (one entry per stage). Defaults to
+            `(64, 128, 256)`.
+        depth: Tuple of integers, per-stage number of transformer blocks.
+            Defaults to `(2, 6, 4)`.
+        heads: Tuple of integers, per-stage number of attention heads.
+            Defaults to `(2, 4, 8)`.
+        mlp_ratio: Float, hidden expansion ratio for the MLP sub-block
+            inside every transformer block. Defaults to `4.0`.
+        distilled: Boolean, if `True`, also use a distillation token in
+            addition to the class token (DeiT-distilled style).
+            Defaults to `False`.
+        drop_rate: Float, dropout rate applied after the position
+            embedding. Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the positional embedding.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        name: String, the name of the model. Defaults to `"PiTModel"`.
 
-    >>> PiTModel.from_weights("pit_b_224_in1k")
-    >>> PiTModel.from_weights("timm:timm/pit_b_224.in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -390,19 +439,67 @@ class PiTModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class PiTClassify(BaseModel):
-    """Pooling-based Vision Transformer classifier — :class:`PiTModel` + linear head on the CLS token.
+    """Instantiates the Pooling-based Vision Transformer (PiT) classifier.
 
-    Wraps a :class:`PiTModel` backbone and attaches a Dense head on the
-    class token (and an averaged distillation head when ``distilled=True``)
-    to produce class logits.
+    This classifier wraps a :class:`PiTModel` backbone and attaches a
+    single Dense layer on the CLS token (index 0 of the backbone's
+    output) to produce ``num_classes`` class logits. When
+    ``distilled=True``, a second Dense head is attached to the
+    distillation token (index 1) and the two head outputs are averaged
+    before the classifier activation. All architectural parameters are
+    forwarded to the underlying :class:`PiTModel`; only ``num_classes``
+    and ``classifier_activation`` are head-specific.
 
-    Reference:
+    References:
     - [Rethinking Spatial Dimensions of Vision Transformers](https://arxiv.org/abs/2103.16302)
 
-    Construction:
+    Args:
+        patch_size: Integer, conv-stem kernel size in pixels.
+            Defaults to `16`.
+        stride: Integer, conv-stem stride in pixels. Defaults to `8`.
+        embed_dim: Tuple of integers, per-stage token embedding
+            dimensions (one entry per stage). Defaults to
+            `(64, 128, 256)`.
+        depth: Tuple of integers, per-stage number of transformer blocks.
+            Defaults to `(2, 6, 4)`.
+        heads: Tuple of integers, per-stage number of attention heads.
+            Defaults to `(2, 4, 8)`.
+        mlp_ratio: Float, hidden expansion ratio for the MLP sub-block
+            inside every transformer block. Defaults to `4.0`.
+        distilled: Boolean, if `True`, also use a distillation token in
+            addition to the class token and attach a second prediction
+            head whose output is averaged with the CLS head. Defaults to
+            `False`.
+        drop_rate: Float, dropout rate applied after the position
+            embedding and before the classifier head. Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the positional embedding.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"PiTClassify"`.
 
-    >>> PiTClassify.from_weights("pit_b_224_in1k")
-    >>> PiTClassify.from_weights("timm:timm/pit_b_224.in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

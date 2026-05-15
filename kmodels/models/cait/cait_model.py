@@ -234,22 +234,66 @@ def cait_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class CaiTModel(BaseModel):
-    """CaiT backbone — the main feature extractor.
+    """Instantiates the Class-Attention in Image Transformers (CaiT) backbone.
 
-    Returns the final-LN normalized token sequence ``(B, 1+N, D)`` — CLS
-    at index 0, then ``N = (H/patch_size) * (W/patch_size)`` patch tokens.
-    This is the last layer output before the classifier head.
-    :class:`CaiTClassify` composes this model and reads ``[:, 0]`` from
-    the output to produce logits.
+    CaiT refines the vanilla ViT recipe in two ways that make very deep
+    transformers trainable for image classification: (1) talking-head
+    self-attention paired with a learnable per-channel LayerScale
+    (initialized at ``1e-5``) plus stochastic depth on every residual
+    branch, so deep stacks converge without divergence; and (2) a
+    dedicated class-attention stage where the model first runs ``depth``
+    blocks on patch tokens alone, then appends a class token and updates
+    it with ``depth_token_only`` extra class-attention blocks while the
+    patch tokens are frozen — so the CLS token aggregates information
+    without contaminating the patch representation.
 
-    Reference:
-        Touvron et al., *Going deeper with Image Transformers*
-        (https://arxiv.org/abs/2103.17239).
+    Output is the last layer output before the classifier head:
+    the final-LN normalized token sequence ``(B, 1+N, D)`` with the CLS
+    token at index 0 followed by ``N = (H/patch_size) * (W/patch_size)``
+    patch tokens. :class:`CaiTClassify` composes this model and reads
+    ``[:, 0]`` from the output to produce logits.
 
-    Construction:
+    References:
+    - [Going deeper with Image Transformers](https://arxiv.org/abs/2103.17239)
 
-    >>> CaiTModel.from_weights("cait_s24_224_fb_dist_in1k")
-    >>> CaiTModel.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            feature maps after each talking-head block, each class-attn
+            block, and the final-LN output. Defaults to `False`.
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        embed_dim: Integer, token embedding dimension. Determines model
+            width: 192 (XXS), 288 (XS), 384 (S), 768 (M).
+            Defaults to `192`.
+        depth: Integer, number of patch-only talking-head transformer
+            blocks. Defaults to `24`.
+        num_heads: Integer, number of attention heads per block (both
+            patch-only and class-attention). Defaults to `4`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled from 0 to this value across the
+            ``depth`` patch blocks. Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the positional embedding.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model. Defaults to `"CaiTModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -365,45 +409,58 @@ class CaiTModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class CaiTClassify(BaseModel):
-    """CaiT image classifier — :class:`CaiTModel` + linear head on the CLS token.
+    """Instantiates the Class-Attention in Image Transformers (CaiT) classifier.
 
-    Wraps a :class:`CaiTModel` backbone and attaches a single Dense layer
-    on the CLS token (index 0 of the backbone's output) to produce class
-    logits. All architectural parameters are forwarded to the underlying
-    :class:`CaiTModel`; only ``num_classes`` and ``classifier_activation``
-    are head-specific.
+    This classifier wraps a :class:`CaiTModel` backbone and attaches a
+    single Dense layer on the CLS token (index 0 of the backbone's
+    output) to produce ``num_classes`` class logits. All architectural
+    parameters are forwarded to the underlying :class:`CaiTModel`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-        Touvron et al., *Going deeper with Image Transformers*
-        (https://arxiv.org/abs/2103.17239).
+    References:
+    - [Going deeper with Image Transformers](https://arxiv.org/abs/2103.17239)
 
     Args:
-        patch_size: Conv-stem patch size in pixels.
-        embed_dim: Token embedding dimension (192/288/384/768 for
-            XXS/XS/S/M variants).
-        depth: Number of patch-only talking-head blocks in the backbone.
-        num_heads: Number of attention heads per block.
-        drop_path_rate: Maximum stochastic-depth drop rate, linearly scaled
-            across the ``depth`` patch blocks.
-        image_size: Square input resolution.
-        include_normalization: If True, the backbone prepends an
-            :class:`~kmodels.layers.ImageNormalizationLayer` so inputs can
-            be raw pixels in ``[0, 255]``.
-        normalization_mode: Mode passed to the image normalization layer.
-        input_shape: Optional explicit input shape ``(H, W, C)`` /
-            ``(C, H, W)``. If None, derived from ``image_size``.
-        input_tensor: Optional pre-built Keras tensor to use as input.
-        num_classes: Output logits dimension.
-        classifier_activation: Activation on the final Dense (``"linear"``
-            returns raw logits; ``"softmax"`` returns probabilities).
-        name: Model name. The internal backbone is named ``f"{name}_backbone"``.
-        **kwargs: Forwarded to :class:`~kmodels.base.BaseModel`. ``timm_id``
-            is consumed and dropped.
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        embed_dim: Integer, token embedding dimension. Determines model
+            width: 192 (XXS), 288 (XS), 384 (S), 768 (M).
+            Defaults to `192`.
+        depth: Integer, number of patch-only talking-head transformer
+            blocks in the backbone. Defaults to `24`.
+        num_heads: Integer, number of attention heads per block (both
+            patch-only and class-attention). Defaults to `4`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled from 0 to this value across the
+            ``depth`` patch blocks. Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the positional embedding.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"CaiTClassify"`.
 
-    Construction:
-
-    >>> CaiTClassify.from_weights("cait_s24_224_fb_dist_in1k")
-    >>> CaiTClassify.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

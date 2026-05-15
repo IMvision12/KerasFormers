@@ -157,21 +157,61 @@ def mlp_mixer_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MLPMixerModel(BaseModel):
-    """MLP-Mixer backbone — the main feature extractor.
+    """Instantiates the MLP-Mixer backbone.
 
-    Returns the final-LN normalized patch sequence ``(B, N, D)`` where
-    ``N = (H/patch_size) * (W/patch_size)``. This is the last layer
-    output before the classifier head. :class:`MLPMixerClassify`
-    composes this model and applies GAP1D + Dense.
+    MLP-Mixer is an all-MLP architecture for vision: after a patch
+    embedding stem, patches go through alternating "token-mixing" MLPs
+    (acting across spatial positions) and "channel-mixing" MLPs (acting
+    across channels). It contains no self-attention and no convolutions
+    beyond the patch-embed stem, demonstrating that competitive image
+    classification can be built from MLPs alone.
 
-    Reference:
-        Tolstikhin et al., *MLP-Mixer: An all-MLP Architecture for Vision*
-        (https://arxiv.org/abs/2105.01601).
+    Output is the last layer output before the classifier head: the
+    final-LN normalized patch sequence ``(B, N, D)`` where
+    ``N = (H/patch_size) * (W/patch_size)``. :class:`MLPMixerClassify`
+    composes this model and applies a GlobalAveragePooling1D + Dense
+    head (mean-pool over tokens).
 
-    Construction:
+    References:
+    - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601)
 
-    >>> MLPMixerModel.from_weights("mixer_b16_224_goog_in21k_ft_in1k")
-    >>> MLPMixerModel.from_weights("timm:timm/mixer_b16_224.goog_in21k_ft_in1k")
+    Args:
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        embed_dim: Integer, per-patch embedding (channel) dimension.
+            Defaults to `768`.
+        num_blocks: Integer, number of mixer blocks.
+            Defaults to `12`.
+        mlp_ratio: Tuple of two floats, ``(token_mlp, channel_mlp)``
+            hidden-dim ratios applied to ``embed_dim``.
+            Defaults to `(0.5, 4.0)`.
+        drop_rate: Float, dropout rate. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth-style dropout
+            rate (scaled linearly with block index). Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-block outputs (one per mixer block). Defaults to `False`.
+        name: String, the name of the model.
+            Defaults to `"MLPMixerModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -293,20 +333,58 @@ class MLPMixerModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MLPMixerClassify(BaseModel):
-    """MLP-Mixer image classifier — :class:`MLPMixerModel` + GAP1D + Dense.
+    """Instantiates the MLP-Mixer classifier.
 
-    Wraps an :class:`MLPMixerModel` backbone and attaches the standard
-    timm Mixer classifier head: global average pooling over patch tokens,
-    then a single Dense layer producing class logits.
+    This classifier wraps an :class:`MLPMixerModel` backbone and
+    attaches a GlobalAveragePooling1D + Dense head (mean-pool over
+    tokens) on the patch sequence to produce ``num_classes`` class
+    logits. All architectural parameters are forwarded to the
+    underlying :class:`MLPMixerModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
-        Tolstikhin et al., *MLP-Mixer: An all-MLP Architecture for Vision*
-        (https://arxiv.org/abs/2105.01601).
+    References:
+    - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601)
 
-    Construction:
+    Args:
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        embed_dim: Integer, per-patch embedding (channel) dimension.
+            Defaults to `768`.
+        num_blocks: Integer, number of mixer blocks.
+            Defaults to `12`.
+        mlp_ratio: Tuple of two floats, ``(token_mlp, channel_mlp)``
+            hidden-dim ratios applied to ``embed_dim``.
+            Defaults to `(0.5, 4.0)`.
+        drop_rate: Float, dropout rate. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth-style dropout
+            rate (scaled linearly with block index). Defaults to `0.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"MLPMixerClassify"`.
 
-    >>> MLPMixerClassify.from_weights("mixer_b16_224_goog_in21k_ft_in1k")
-    >>> MLPMixerClassify.from_weights("timm:timm/mixer_b16_224.goog_in21k_ft_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

@@ -213,20 +213,52 @@ def densenet_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DenseNetModel(BaseModel):
-    """DenseNet backbone — the main feature extractor.
+    """Instantiates the DenseNet backbone.
 
-    Returns the final feature map ``(B, H, W, C)`` (post BN+ReLU). This is
-    the last layer output before the classifier head. :class:`DenseNetClassify`
-    composes this model and attaches GlobalAveragePooling + Dense to produce
-    class logits.
+    DenseNet introduces dense connectivity within each block: every
+    layer receives feature maps from all preceding layers in the block
+    via channel-wise concatenation, with transition layers (1x1 conv +
+    average pool) between dense blocks to control channel growth and
+    downsample. Output is the last layer output before the classifier
+    head: the final feature map ``(B, H, W, C)`` after a final
+    BatchNorm + ReLU. :class:`DenseNetClassify` composes this model and
+    attaches a GlobalAveragePooling2D + Dense head to produce logits.
 
-    Reference:
-    - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993) (CVPR 2017)
+    References:
+    - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (one per dense block; the final stage
+            is the post BN+ReLU output). Defaults to `False`.
+        num_blocks: Tuple of integers, number of conv layers in each
+            dense block. Defaults to `(6, 12, 24, 16)`.
+        growth_rate: Integer, per-layer channel growth inside each dense
+            block. Defaults to `32`.
+        initial_filter: Integer, channel count for the 7x7 stem
+            convolution. Defaults to `64`.
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model.
+            Defaults to `"DenseNetModel"`.
 
-    >>> DenseNetModel.from_weights("densenet121_tv_in1k")
-    >>> DenseNetModel.from_weights("timm:timm/densenet121.tv_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -336,18 +368,51 @@ class DenseNetModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DenseNetClassify(BaseModel):
-    """DenseNet image classifier — :class:`DenseNetModel` + GAP + Dense head.
+    """Instantiates the DenseNet classifier.
 
-    Wraps a :class:`DenseNetModel` backbone and attaches GlobalAveragePooling
-    and a single Dense layer on the final feature map to produce class logits.
+    This classifier wraps a :class:`DenseNetModel` backbone and attaches
+    a GlobalAveragePooling2D + Dense head to produce ``num_classes``
+    class logits. All architectural parameters are forwarded to the
+    underlying :class:`DenseNetModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993) (CVPR 2017)
+    References:
+    - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993)
 
-    Construction:
+    Args:
+        num_blocks: Tuple of integers, number of conv layers in each
+            dense block. Defaults to `(6, 12, 24, 16)`.
+        growth_rate: Integer, per-layer channel growth inside each dense
+            block. Defaults to `32`.
+        initial_filter: Integer, channel count for the 7x7 stem
+            convolution. Defaults to `64`.
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"DenseNetClassify"`.
 
-    >>> DenseNetClassify.from_weights("densenet121_tv_in1k")
-    >>> DenseNetClassify.from_weights("timm:timm/densenet121.tv_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

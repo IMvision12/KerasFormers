@@ -304,11 +304,64 @@ def efficientnet_lite_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EfficientNetLiteModel(BaseModel):
-    """EfficientNet-Lite backbone — returns the post-head-conv 4D feature map.
+    """Instantiates the EfficientNet-Lite backbone.
 
-    Output shape: ``(B, H, W, C)`` — head-conv 4D feature map after the final
-    1x1 conv + BN + ReLU6. :class:`EfficientNetLiteClassify` composes this
-    model and adds GlobalAveragePool + Dropout + Dense on top.
+    EfficientNet-Lite is a hardware-friendlier EfficientNet variant
+    targeted at mobile and edge inference. It strips out the
+    Squeeze-and-Excitation modules from every MBConv block and replaces
+    the swish activations with ReLU6 — both changes make the network
+    cheaper to deploy on accelerators that lack efficient SE / swish
+    support. The macro structure (stem + 7 MBConv stages + 1x1 head
+    conv) and compound scaling are otherwise inherited from EfficientNet,
+    with the stem and head channel counts held fixed across variants.
+
+    Output is the last layer output before the classifier head: the
+    post-head-conv 4D feature map of shape ``(B, H, W, C)``.
+    :class:`EfficientNetLiteClassify` composes this model and adds a
+    GlobalAveragePooling2D + (optional) Dropout + Dense head on top.
+
+    References:
+    - [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946)
+
+    Args:
+        width_coefficient: Float, filter-count multiplier applied to
+            interior stage channel widths. Stem (32) and head (1280)
+            channels are kept fixed. Defaults to `1.0`.
+        depth_coefficient: Float, depth multiplier applied to interior
+            stage block repeats. Defaults to `1.0`.
+        default_size: Integer, the original training resolution for the
+            selected variant (kept for reference / config). Defaults to
+            `224`.
+        dropout_rate: Float, dropout rate used by the classifier head
+            (forwarded from / consumed by :class:`EfficientNetLiteClassify`).
+            Defaults to `0.2`.
+        drop_connect_rate: Float, stochastic-depth drop rate ramped
+            linearly across the MBConv-Lite blocks. Defaults to `0.2`.
+        image_size: Integer, square input resolution used to derive the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            feature maps grouped by stride boundary (pre-head-conv).
+            Defaults to `False`.
+        name: String, the name of the model.
+            Defaults to `"EfficientNetLiteModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -424,15 +477,58 @@ class EfficientNetLiteModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EfficientNetLiteClassify(BaseModel):
-    """EfficientNet-Lite classifier (timm-ported).
+    """Instantiates the EfficientNet-Lite classifier.
 
-    Wraps a :class:`EfficientNetLiteModel` backbone and adds GlobalAveragePool
-    + Dropout + Dense on top.
+    This classifier wraps a :class:`EfficientNetLiteModel` backbone and
+    attaches a GlobalAveragePooling2D + (optional) Dropout + Dense head
+    to produce ``num_classes`` class logits. All architectural parameters
+    are forwarded to the underlying :class:`EfficientNetLiteModel`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Construction:
+    References:
+    - [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946)
 
-    >>> EfficientNetLiteClassify.from_weights("tf_efficientnet_lite0_in1k")
-    >>> EfficientNetLiteClassify.from_weights("timm:timm/tf_efficientnet_lite0.in1k")
+    Args:
+        width_coefficient: Float, filter-count multiplier applied to
+            interior stage channel widths. Stem (32) and head (1280)
+            channels are kept fixed. Defaults to `1.0`.
+        depth_coefficient: Float, depth multiplier applied to interior
+            stage block repeats. Defaults to `1.0`.
+        default_size: Integer, the original training resolution for the
+            selected variant (kept for reference / config). Defaults to
+            `224`.
+        dropout_rate: Float, dropout rate applied before the final Dense
+            classifier. Defaults to `0.2`.
+        drop_connect_rate: Float, stochastic-depth drop rate ramped
+            linearly across the MBConv-Lite blocks. Defaults to `0.2`.
+        image_size: Integer, square input resolution used to derive the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to
+            `"EfficientNetLiteClassify"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

@@ -535,20 +535,66 @@ def nextvit_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class NextViTModel(BaseModel):
-    """NextViT backbone — the main feature extractor.
+    """Instantiates the NextViT backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
-    ``(B, C, H, W)`` (channels-first) after the trailing BatchNorm, unpooled
-    and head-free. This is the last layer output before the classifier head.
-    :class:`NextViTClassify` composes this model and appends GAP + Dense.
+    NextViT is a next-generation hybrid CNN-Transformer backbone that
+    alternates two purpose-built block types across 4 hierarchical
+    stages: Next Convolution Blocks (NCB) — efficient multi-head
+    convolutional attention paired with a Conv-MLP — and Next
+    Transformer Blocks (NTB) — efficient multi-head self-attention with
+    spatial reduction (E-MHSA, linear in the number of tokens) fused
+    with a parallel MHCA branch. The four stages follow the standard
+    pyramid downsampling schedule and end with a trailing BatchNorm.
+    NCB blocks dominate the early/cheap stages while NTB blocks appear
+    at the end of each stage to inject global context.
 
-    Reference:
-    - [Next-ViT](https://arxiv.org/abs/2207.05501)
+    Output is the last layer output before the classifier head:
+    the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first) after the trailing BatchNorm,
+    unpooled and head-free. :class:`NextViTClassify` composes this model
+    and appends GAP + Dense.
 
-    Construction:
+    References:
+    - [Next-ViT: Next Generation Vision Transformer for Efficient Deployment in Realistic Industrial Scenarios](https://arxiv.org/abs/2207.05501)
 
-    >>> NextViTModel.from_weights("nextvit_small_bd_in1k")
-    >>> NextViTModel.from_weights("timm:timm/nextvit_small.bd_in1k")
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of the
+            4 per-stage feature maps (collected at the end of each stage,
+            BEFORE the trailing BatchNorm). Defaults to `False`.
+        depths: Tuple of integers, number of blocks per stage (length 4).
+            Defaults to `(3, 4, 10, 3)`.
+        stem_chs: Tuple of integers, stem channel widths (length 3); a
+            4-conv stem reaches ``stem_chs[-1]``. Defaults to `(64, 32, 64)`.
+        head_dim: Integer, per-head channel dimension shared across all
+            attention modules. Defaults to `32`.
+        mix_block_ratio: Float, fraction of channels allocated to E-MHSA
+            inside transformer blocks (rest goes to MHCA).
+            Defaults to `0.75`.
+        sr_ratios: Tuple of integers, per-stage spatial-reduction ratios
+            for E-MHSA (length 4). Defaults to `(8, 4, 2, 1)`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate.
+            Linearly ramped per block. Defaults to `0.1`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model. Defaults to `"NextViTModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -670,20 +716,58 @@ class NextViTModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class NextViTClassify(BaseModel):
-    """NextViT classifier (timm-ported).
+    """Instantiates the NextViT classifier.
 
-    Wraps a :class:`NextViTModel` backbone and applies GAP + a Dense
-    classifier on top.
+    This classifier wraps a :class:`NextViTModel` backbone and attaches
+    a GlobalAveragePooling2D + Dense head to produce ``num_classes``
+    class logits. All architectural parameters are forwarded to the
+    underlying :class:`NextViTModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    A hybrid CNN-Transformer combining MHCA blocks with E-MHSA blocks.
+    References:
+    - [Next-ViT: Next Generation Vision Transformer for Efficient Deployment in Realistic Industrial Scenarios](https://arxiv.org/abs/2207.05501)
 
-    Reference:
-    - [Next-ViT](https://arxiv.org/abs/2207.05501)
+    Args:
+        depths: Tuple of integers, number of blocks per stage (length 4).
+            Defaults to `(3, 4, 10, 3)`.
+        stem_chs: Tuple of integers, stem channel widths (length 3); a
+            4-conv stem reaches ``stem_chs[-1]``. Defaults to `(64, 32, 64)`.
+        head_dim: Integer, per-head channel dimension shared across all
+            attention modules. Defaults to `32`.
+        mix_block_ratio: Float, fraction of channels allocated to E-MHSA
+            inside transformer blocks (rest goes to MHCA).
+            Defaults to `0.75`.
+        sr_ratios: Tuple of integers, per-stage spatial-reduction ratios
+            for E-MHSA (length 4). Defaults to `(8, 4, 2, 1)`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate.
+            Linearly ramped per block. Defaults to `0.1`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"NextViTClassify"`.
 
-    Construction:
-
-    >>> NextViTClassify.from_weights("nextvit_small_bd_in1k")
-    >>> NextViTClassify.from_weights("timm:timm/nextvit_small.bd_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

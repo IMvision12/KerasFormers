@@ -12,10 +12,46 @@ from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHT_CONFIG
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class FlexiViTModel(ViTModel):
-    """FlexiViT backbone — thin :class:`ViTModel` subclass that loads FlexiViT timm weights.
+    """Instantiates the FlexiViT (Flexible Vision Transformer) backbone.
 
-    Returns the final-LN normalized token sequence ``(B, num_tokens, dim)``.
-    The first token is the class token; the rest are spatial patch tokens.
+    FlexiViT is a thin :class:`ViTModel` subclass that loads FlexiViT timm
+    weights. The architecture is a standard ViT — patch embedding, CLS
+    token, position embedding, and ``depth`` transformer encoder blocks —
+    but is trained with randomized patch sizes per minibatch, enabling
+    flexible resampling of the patch embedding kernel and positional
+    embeddings at inference for any patch size from a single set of
+    weights. FlexiViT checkpoints use ``no_embed_class=True`` so position
+    embeddings cover only patch tokens (the CLS token gets none), which is
+    what makes positional-embedding interpolation across patch sizes well
+    defined.
+
+    Output is the last layer output before the classifier head: the
+    final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
+    first token is the class token and the rest are spatial patch tokens.
+    :class:`FlexiViTClassify` composes this model and reads
+    ``backbone.output[:, 0]`` to produce logits.
+
+    References:
+    - [FlexiViT: One Model for All Patch Sizes](https://arxiv.org/abs/2212.08013)
+    - [An Image is Worth 16x16 Words](https://arxiv.org/abs/2010.11929)
+
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-block feature maps ending with the final-LN output.
+            Defaults to `False`.
+        name: String, the name of the model. Defaults to
+            `"FlexiViTModel"`.
+        **kwargs: All architectural parameters of :class:`ViTModel`
+            (``patch_size``, ``dim``, ``depth``, ``num_heads``,
+            ``mlp_ratio``, ``qkv_bias``, ``qk_norm``, ``drop_rate``,
+            ``attn_drop_rate``, ``no_embed_class``, ``use_distillation``,
+            ``init_values``, ``image_size``, ``include_normalization``,
+            ``normalization_mode``, ``input_shape``, ``input_tensor``)
+            are forwarded to the parent class.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -43,15 +79,79 @@ class FlexiViTModel(ViTModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class FlexiViTClassify(ViTClassify):
-    """FlexiViT classifier (no_embed_class=True for flexible patch sizes).
+    """Instantiates the FlexiViT (Flexible Vision Transformer) classifier.
 
-    Reference:
+    This classifier wraps a :class:`FlexiViTModel` backbone and attaches a
+    single Dense layer on the CLS token (index 0 of the backbone's
+    output) to produce ``num_classes`` class logits. FlexiViT checkpoints
+    are trained with ``no_embed_class=True`` so the positional embedding
+    can be resampled for any patch size at inference. All architectural
+    parameters are forwarded to the underlying :class:`FlexiViTModel`;
+    only ``num_classes`` and ``classifier_activation`` are head-specific.
+
+    References:
     - [FlexiViT: One Model for All Patch Sizes](https://arxiv.org/abs/2212.08013)
+    - [An Image is Worth 16x16 Words](https://arxiv.org/abs/2010.11929)
 
-    Construction:
+    Args:
+        patch_size: Integer, conv-stem patch size in pixels. Can be set
+            at inference to any value supported by the resampled
+            positional embedding. Defaults to `16`.
+        dim: Integer, token embedding dimension. Defaults to `768`.
+        depth: Integer, number of transformer encoder blocks in the
+            backbone. Defaults to `12`.
+        num_heads: Integer, number of attention heads per block.
+            Defaults to `12`.
+        mlp_ratio: Float, hidden expansion ratio for the MLP sub-block.
+            Defaults to `4.0`.
+        qkv_bias: Boolean, whether to include bias in the QKV projection.
+            Defaults to `True`.
+        qk_norm: Boolean, whether to apply LayerNorm to Q and K inside
+            attention. Defaults to `False`.
+        drop_rate: Float, dropout rate after the position embedding,
+            inside the MLP sub-block, and before the classifier head.
+            Defaults to `0.0`.
+        attn_drop_rate: Float, dropout rate applied to attention weights.
+            Defaults to `0.0`.
+        no_embed_class: Boolean, if `True`, position embeddings do not
+            cover the class / distillation prefix tokens — required for
+            the flexible patch-size positional-embedding resampling.
+            Defaults to `False` here for ``__init__`` compatibility;
+            FlexiViT checkpoints set this to `True`.
+        use_distillation: Boolean, if `True`, prepend a separate
+            distillation token alongside the class token. Defaults to
+            `False`.
+        init_values: Optional float, initial gamma value for LayerScale
+            applied on both residual branches. If `None`, LayerScale is
+            disabled. Defaults to `None`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the positional embedding.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"FlexiViTClassify"`.
 
-    >>> FlexiViTClassify.from_weights("flexivit_base_1200ep_in1k")
-    >>> FlexiViTClassify.from_weights("timm:timm/flexivit_base.1200ep_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

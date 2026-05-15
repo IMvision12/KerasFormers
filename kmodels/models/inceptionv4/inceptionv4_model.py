@@ -504,11 +504,48 @@ def inceptionv4_backbone_feature(inputs, *, data_format, return_stages=False):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class InceptionV4Model(BaseModel):
-    """InceptionV4 trunk returning the final stage feature map.
+    """Instantiates the Inception V4 backbone.
 
-    Output shape: ``(B, H, W, C)`` — unpooled, head-free.
-    :class:`InceptionV4Classify` composes this model and applies GAP +
-    Dense head to produce logits.
+    Inception V4 streamlines the Inception family with three uniform
+    Inception-A / B / C module designs interleaved by dedicated
+    Reduction-A and Reduction-B blocks that handle all spatial
+    downsampling; the network is deeper than InceptionV3 and drops the
+    auxiliary classifier branches. The output tensor is the last layer
+    output before the classifier head — the final-stage feature map
+    ``(B, H, W, C)`` (after the last Inception-C block), unpooled and
+    head-free. :class:`InceptionV4Classify` composes this model and
+    applies a GlobalAveragePooling2D + Dense head to produce logits.
+
+    References:
+    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261)
+
+    Args:
+        image_size: Integer, square input resolution used to validate
+            and infer the input shape. Defaults to `299`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps at natural downsample boundaries
+            (after Mixed3a, after the Inception-A group, after the
+            Inception-B group, and after the Inception-C group).
+            Defaults to `False`.
+        name: String, the name of the model. Defaults to `"InceptionV4Model"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -602,18 +639,45 @@ class InceptionV4Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class InceptionV4Classify(BaseModel):
-    """InceptionV4 classifier (timm-ported).
+    """Instantiates the Inception V4 classifier.
 
-    Wraps an :class:`InceptionV4Model` backbone and applies a GAP + Dense
-    head to produce class logits.
+    This classifier wraps an :class:`InceptionV4Model` backbone and
+    attaches a GlobalAveragePooling2D + Dense head to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`InceptionV4Model`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
+    References:
+    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261)
 
-    Construction:
+    Args:
+        image_size: Integer, square input resolution used to validate
+            and infer the input shape. Defaults to `299`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"InceptionV4Classify"`.
 
-    >>> InceptionV4Classify.from_weights("inception_v4_tf_in1k")
-    >>> InceptionV4Classify.from_weights("timm:timm/inception_v4.tf_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

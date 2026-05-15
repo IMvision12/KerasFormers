@@ -259,22 +259,62 @@ def mit_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MiTModel(BaseModel):
-    """MiT backbone — the SegFormer encoder.
+    """Instantiates the Mix Transformer (MiT) backbone — the SegFormer encoder.
 
-    By default, returns the final stage's spatial feature map of shape
+    MiT is a hierarchical transformer backbone built from four stages.
+    Each stage begins with an overlapping patch embedding (a strided
+    convolution with kernel ``> stride``) that downsamples and re-tokenizes
+    the feature map, followed by a stack of transformer blocks that use
+    efficient self-attention with spatial reduction of the key/value
+    tokens (large reduction ratio in early stages, none in the final
+    stage) and a Mix-FFN feed-forward network that injects a 3x3 depthwise
+    convolution between the two Dense layers to encode positional
+    information without explicit positional embeddings. The four stages
+    produce a multi-scale feature pyramid used by SegFormer.
+
+    Output is the last layer output before the classifier head: by default
+    the final stage's spatial feature map of shape
     ``(B, H_4, W_4, embed_dims[-1])`` (or channels-first equivalent).
     When constructed with ``as_backbone=True``, returns the list of all
     four per-stage feature maps instead. :class:`MiTClassify` composes
-    this model with the default ``as_backbone=False`` and applies a
-    global average pooling + Dense head on the resulting feature map.
+    this model with ``as_backbone=False`` and reads the final feature map
+    through a ``GlobalAveragePooling2D`` + Dense head.
 
-    Reference:
-    - [SegFormer](https://arxiv.org/abs/2105.15203)
+    References:
+    - [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of four
+            per-stage spatial feature maps (the SegFormer feature pyramid).
+            Defaults to `False`.
+        embed_dims: Tuple of four integers, per-stage channel dimensions.
+            Determines model width. Defaults to `(32, 64, 160, 256)`.
+        depths: Tuple of four integers, per-stage number of transformer
+            blocks. Defaults to `(2, 2, 2, 2)`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled from 0 to this value across all
+            blocks in the network. Defaults to `0.1`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        name: String, the name of the model. Defaults to `"MiTModel"`.
 
-    >>> MiTModel.from_weights("mit_b0_in1k")
-    >>> MiTModel.from_weights("hf:nvidia/mit-b0")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -390,18 +430,53 @@ class MiTModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MiTClassify(BaseModel):
-    """Mix Transformer (SegFormer encoder) classifier — :class:`MiTModel` + GAP + Dense head.
+    """Instantiates the Mix Transformer (MiT) classifier.
 
-    Wraps a :class:`MiTModel` backbone and attaches a global average pooling
-    + Dense head on the final stage feature map to produce class logits.
+    This classifier wraps a :class:`MiTModel` backbone and attaches a
+    ``GlobalAveragePooling2D`` followed by a single Dense layer on the
+    final stage feature map to produce ``num_classes`` class logits. All
+    architectural parameters are forwarded to the underlying
+    :class:`MiTModel`; only ``num_classes`` and ``classifier_activation``
+    are head-specific.
 
-    Reference:
-    - [SegFormer](https://arxiv.org/abs/2105.15203)
+    References:
+    - [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203)
 
-    Construction:
+    Args:
+        embed_dims: Tuple of four integers, per-stage channel dimensions.
+            Determines model width. Defaults to `(32, 64, 160, 256)`.
+        depths: Tuple of four integers, per-stage number of transformer
+            blocks. Defaults to `(2, 2, 2, 2)`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled from 0 to this value across all
+            blocks in the network. Defaults to `0.1`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"MiTClassify"`.
 
-    >>> MiTClassify.from_weights("mit_b0_in1k")              # kmodels release
-    >>> MiTClassify.from_weights("hf:nvidia/mit-b0")         # direct from HF
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

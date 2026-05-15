@@ -455,21 +455,64 @@ def swin_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SwinModel(BaseModel):
-    """Swin Transformer backbone — the main feature extractor.
+    """Instantiates the Swin Transformer backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)`` (or
-    ``(B, C, H, W)`` for channels_first), pre-final-norm. This is the
-    last layer output before the classifier head. :class:`SwinClassify`
-    composes this model and applies LayerNorm + GAP + Dense.
+    Swin is a hierarchical vision transformer that computes self-attention
+    within shifted local windows — alternating regular and shifted
+    windowing yields cross-window connections while keeping compute
+    linear in image size. The network has 4 stages with progressive
+    patch merging, halving spatial resolution and doubling channels
+    between stages.
 
-    Reference:
-        Liu et al., *Swin Transformer: Hierarchical Vision Transformer
-        using Shifted Windows* (https://arxiv.org/abs/2103.14030).
+    Output is the last layer output before the classifier head: the
+    final stage feature map ``(B, H, W, C)`` (or ``(B, C, H, W)`` for
+    channels_first), pre-final-norm. :class:`SwinClassify` composes this
+    model and applies a spatial-LayerNorm + GlobalAveragePooling2D +
+    Dense head.
 
-    Construction:
+    References:
+    - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030)
 
-    >>> SwinModel.from_weights("swin_base_patch4_window7_224_ms_in22k_ft_in1k")
-    >>> SwinModel.from_weights("timm:timm/swin_tiny_patch4_window7_224.ms_in1k")
+    Args:
+        pretrain_size: Integer, image side used during pretraining.
+            Drives relative-position bias-table sizing for fine-tuning.
+            Defaults to `224`.
+        window_size: Integer, local-attention window edge length.
+            Defaults to `7`.
+        embed_dim: Integer, stage-0 token embedding dimension.
+            Subsequent stages double this. Defaults to `96`.
+        depths: Tuple of integers, number of Swin blocks per stage
+            (length-4). Defaults to `(2, 2, 6, 2)`.
+        num_heads: Tuple of integers, number of attention heads per
+            stage (length-4). Defaults to `(3, 6, 12, 24)`.
+        dropout_rate: Float, dropout rate inside attention and MLP.
+            Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled from 0 to this value across all
+            blocks. Defaults to `0.1`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of the
+            4 per-stage feature maps. Defaults to `False`.
+        name: String, the name of the model. Defaults to `"SwinModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -595,21 +638,62 @@ class SwinModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SwinClassify(BaseModel):
-    """Swin Transformer image classifier — :class:`SwinModel` + LN + GAP + Dense.
+    """Instantiates the Swin Transformer classifier.
 
-    Wraps a :class:`SwinModel` backbone and attaches the standard timm
-    Swin classifier head: spatial LayerNorm on the final feature map,
-    global average pooling, then a single Dense layer producing class
-    logits.
+    This classifier wraps a :class:`SwinModel` backbone and attaches a
+    spatial-LayerNorm + GlobalAveragePooling2D + Dense head on the final
+    feature map to produce ``num_classes`` class logits. All
+    architectural parameters are forwarded to the underlying
+    :class:`SwinModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
-        Liu et al., *Swin Transformer: Hierarchical Vision Transformer
-        using Shifted Windows* (https://arxiv.org/abs/2103.14030).
+    References:
+    - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030)
 
-    Construction:
+    Args:
+        pretrain_size: Integer, image side used during pretraining.
+            Drives relative-position bias-table sizing for fine-tuning.
+            Defaults to `224`.
+        window_size: Integer, local-attention window edge length.
+            Defaults to `7`.
+        embed_dim: Integer, stage-0 token embedding dimension.
+            Subsequent stages double this. Defaults to `96`.
+        depths: Tuple of integers, number of Swin blocks per stage
+            (length-4). Defaults to `(2, 2, 6, 2)`.
+        num_heads: Tuple of integers, number of attention heads per
+            stage (length-4). Defaults to `(3, 6, 12, 24)`.
+        dropout_rate: Float, dropout rate inside attention and MLP.
+            Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled from 0 to this value across all
+            blocks. Defaults to `0.1`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"SwinClassify"`.
 
-    >>> SwinClassify.from_weights("swin_base_patch4_window7_224_ms_in22k_ft_in1k")
-    >>> SwinClassify.from_weights("timm:timm/swin_tiny_patch4_window7_224.ms_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

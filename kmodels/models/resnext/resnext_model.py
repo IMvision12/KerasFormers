@@ -113,7 +113,43 @@ def resnext_block(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResNeXtModel(ResNetModel):
-    """ResNeXt trunk returning the final stage feature map ``(B, H, W, C)``."""
+    """Instantiates the ResNeXt (Aggregated Residual Transformations) backbone.
+
+    ResNeXt augments ResNet by replacing the bottleneck's 3x3 convolution
+    with a grouped convolution of ``groups`` parallel paths
+    (``cardinality``), exposing a third axis besides depth and width for
+    capacity at near-constant FLOPs. The output tensor is the last layer
+    output before the classifier head — the final-stage feature map
+    ``(B, H, W, C)``, unpooled and head-free. :class:`ResNeXtClassify`
+    composes this model and applies a GlobalAveragePooling2D + Dense
+    head to produce logits.
+
+    References:
+    - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431)
+
+    Args:
+        block_fn: Callable, the residual block builder. Should accept
+            ``(x, filters, strides=1, downsample=False, block_name=None)``
+            and the ResNeXt-specific ``groups`` / ``width_factor``
+            keyword arguments. Defaults to `resnext_block`.
+        block_repeats: List of ints, number of residual blocks per stage.
+            Defaults to `[3, 4, 6, 3]`.
+        filters: List of ints, base filter counts per stage (the final
+            output width is ``filters[i] * expansion``).
+            Defaults to `[64, 128, 256, 512]`.
+        groups: Integer, number of groups (cardinality) for the grouped
+            3x3 convolution inside each block. Defaults to `32`.
+        width_factor: Integer, width scaling factor applied to the
+            grouped convolution channels. Defaults to `2`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (4 tensors, one per ResNeXt stage).
+            Defaults to `False`.
+        name: String, the name of the model. Defaults to `"ResNeXtModel"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
 
     BASE_MODEL_CONFIG = {
         variant: RESNEXT_MODEL_CONFIG[meta["model"]]
@@ -155,15 +191,58 @@ class ResNeXtModel(ResNetModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResNeXtClassify(ResNetClassify):
-    """ResNeXt (grouped-convolution ResNet) classifier.
+    """Instantiates the ResNeXt (Aggregated Residual Transformations) classifier.
 
-    Same skeleton as :class:`ResNetClassify` but composes a
-    :class:`ResNeXtModel` backbone with :func:`resnext_block` and the
-    cardinality knobs (``groups`` / ``width_factor``). Variant ids and
-    release weights live in :data:`RESNEXT_MODEL_CONFIG` / :data:`RESNEXT_WEIGHT_CONFIG`.
+    This classifier wraps a :class:`ResNeXtModel` backbone and attaches
+    a GlobalAveragePooling2D + Dense head to produce ``num_classes``
+    class logits. All architectural parameters are forwarded to the
+    underlying :class:`ResNeXtModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    >>> ResNeXtClassify.from_weights("resnext50_32x4d_a1_in1k")
-    >>> ResNeXtClassify.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
+    References:
+    - [Aggregated Residual Transformations for Deep Neural Networks](https://arxiv.org/abs/1611.05431)
+
+    Args:
+        block_fn: Callable, the residual block builder. Should accept
+            ``(x, filters, strides=1, downsample=False, block_name=None)``
+            and the ResNeXt-specific ``groups`` / ``width_factor``
+            keyword arguments. Defaults to `resnext_block`.
+        block_repeats: List of ints, number of residual blocks per stage.
+            Defaults to `[3, 4, 6, 3]`.
+        filters: List of ints, base filter counts per stage (the final
+            output width is ``filters[i] * expansion``).
+            Defaults to `[64, 128, 256, 512]`.
+        groups: Integer, number of groups (cardinality) for the grouped
+            3x3 convolution inside each block. Defaults to `32`.
+        senet: Boolean, whether to apply Squeeze-and-Excitation inside
+            each block. Defaults to `False`.
+        width_factor: Integer, width scaling factor applied to the
+            grouped convolution channels. Defaults to `2`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from the active Keras data format
+            with a default size of 224. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"ResNeXtClassify"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

@@ -376,21 +376,67 @@ def maxvit_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MaxViTModel(BaseModel):
-    """MaxViT backbone — the main feature extractor.
+    """Instantiates the MaxViT backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
-    ``(B, C, H, W)`` (channels-first), unpooled and head-free. This is the
-    last layer output before the classifier head. :class:`MaxViTClassify`
-    composes this model and appends the head (GAP + LayerNorm + Dense +
-    tanh + Dense).
+    MaxViT introduces multi-axis attention by interleaving three block
+    types in each of its 4 hierarchical stages: an MBConv block (with
+    Squeeze-and-Excitation) for local convolutional mixing, a
+    window-based self-attention block over fixed-size local windows for
+    local receptive field, and a grid-based self-attention block over
+    dilated, regularly-spaced grids for a global receptive field. By
+    combining all three at every stage, MaxViT achieves both local and
+    global attention at linear complexity while remaining
+    fully-convolutional in spatial shape.
 
-    Reference:
+    Output is the last layer output before the classifier head:
+    the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first), unpooled and head-free.
+    :class:`MaxViTClassify` composes this model and appends the head.
+
+    References:
     - [MaxViT: Multi-Axis Vision Transformer](https://arxiv.org/abs/2204.01697)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of the
+            4 per-stage feature maps. Defaults to `False`.
+        stem_width: Integer, output channel count of both stem convs.
+            Defaults to `64`.
+        depths: Tuple of integers, number of blocks per stage (length 4).
+            Defaults to `(2, 2, 5, 2)`.
+        embed_dim: Tuple of integers, output channel count per stage
+            (length 4). Defaults to `(64, 128, 256, 512)`.
+        num_heads: Tuple of integers, number of attention heads per
+            stage (length 4). Defaults to `(2, 4, 8, 16)`.
+        window_size: Integer, side length used by both window and grid
+            partitions. Defaults to `7`.
+        mlp_ratio: Float, hidden-dim expansion ratio inside the
+            attention-block MLPs. Defaults to `4.0`.
+        se_ratio: Float, Squeeze-and-Excitation reduction ratio for
+            MBConv blocks. Defaults to `0.0625`.
+        expand_ratio: Integer, channel expansion ratio for MBConv
+            blocks. Defaults to `4`.
+        image_size: Integer, square input resolution. Used to track the
+            current ``(H, W)`` for window/grid partition layers.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model. Defaults to `"MaxViTModel"`.
 
-    >>> MaxViTModel.from_weights("maxvit_base_tf_224_in1k")
-    >>> MaxViTModel.from_weights("timm:timm/maxvit_base_tf_224.in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -521,18 +567,62 @@ class MaxViTModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MaxViTClassify(BaseModel):
-    """MaxViT classifier (timm-ported).
+    """Instantiates the MaxViT classifier.
 
-    Wraps a :class:`MaxViTModel` backbone and applies the head: GAP ->
-    LayerNorm -> Dense(embed_dim[-1]) -> tanh -> Dense classifier.
+    This classifier wraps a :class:`MaxViTModel` backbone and attaches a
+    GlobalAveragePooling2D + LayerNorm + Dense + tanh + Dense head to
+    produce ``num_classes`` class logits. All architectural parameters
+    are forwarded to the underlying :class:`MaxViTModel`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
+    References:
     - [MaxViT: Multi-Axis Vision Transformer](https://arxiv.org/abs/2204.01697)
 
-    Construction:
+    Args:
+        stem_width: Integer, output channel count of both stem convs.
+            Defaults to `64`.
+        depths: Tuple of integers, number of blocks per stage (length 4).
+            Defaults to `(2, 2, 5, 2)`.
+        embed_dim: Tuple of integers, output channel count per stage
+            (length 4). Defaults to `(64, 128, 256, 512)`.
+        num_heads: Tuple of integers, number of attention heads per
+            stage (length 4). Defaults to `(2, 4, 8, 16)`.
+        window_size: Integer, side length used by both window and grid
+            partitions. Defaults to `7`.
+        mlp_ratio: Float, hidden-dim expansion ratio inside the
+            attention-block MLPs. Defaults to `4.0`.
+        se_ratio: Float, Squeeze-and-Excitation reduction ratio for
+            MBConv blocks. Defaults to `0.0625`.
+        expand_ratio: Integer, channel expansion ratio for MBConv
+            blocks. Defaults to `4`.
+        image_size: Integer, square input resolution. Used to track the
+            current ``(H, W)`` for window/grid partition layers.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"MaxViTClassify"`.
 
-    >>> MaxViTClassify.from_weights("maxvit_base_tf_224_in1k")
-    >>> MaxViTClassify.from_weights("timm:timm/maxvit_base_tf_224.in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

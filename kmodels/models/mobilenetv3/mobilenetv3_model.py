@@ -286,12 +286,63 @@ def mobilenetv3_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileNetV3Model(BaseModel):
-    """MobileNetV3 backbone — returns the post-final-conv 4D feature map.
+    """Instantiates the MobileNetV3 backbone.
 
-    Output shape: ``(B, H, W, C)`` — feature map after the final 1x1 conv +
-    BN + activation. :class:`MobileNetV3Classify` composes this model and
-    adds GlobalAveragePool + Dense(head_channels) + activation + Dropout +
-    Dense(num_classes) on top.
+    MobileNetV3 is a NAS-optimized refinement of MobileNetV2 that mixes
+    in Squeeze-and-Excitation modules on selected blocks, replaces ReLU
+    with h-swish (hard swish) in the later stages, and applies
+    architecture-specific tweaks to produce two main variants
+    (``"large"`` and ``"small"``) tuned for different latency budgets.
+    The network is composed of a 3x3 conv stem, a sequence of NAS-tuned
+    inverted-residual blocks (with optional SE), and a 1x1 final conv
+    whose output channel count is six times the last block's channel
+    width (post BN + activation).
+
+    Output is the last layer output before the classifier head: the
+    post-final-conv 4D feature map of shape ``(B, H, W, C)``.
+    :class:`MobileNetV3Classify` composes this model and adds a
+    GlobalAveragePooling2D + Dense + activation + Dropout + Dense
+    classifier head on top.
+
+    References:
+    - [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244)
+
+    Args:
+        width_multiplier: Float, multiplier applied to per-stage channel
+            counts. Defaults to `1.0`.
+        depth_multiplier: Float, multiplier applied to per-block
+            expansion ratios. Defaults to `1.0`.
+        config: String, variant key selecting the block table. One of
+            ``"large"`` or ``"small"``. Defaults to `"large"`.
+        minimal: Boolean, if True force kernel size 3, ReLU activations,
+            and disable SE for every IR block (minimal variant for
+            hardware that lacks h-swish / SE support). Defaults to
+            `False`.
+        image_size: Integer, square input resolution used to derive the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            feature maps grouped by stride boundary (pre-final-conv).
+            Defaults to `False`.
+        name: String, the name of the model.
+            Defaults to `"MobileNetV3Model"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -410,19 +461,63 @@ class MobileNetV3Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileNetV3Classify(BaseModel):
-    """MobileNetV3 classifier (timm-ported).
+    """Instantiates the MobileNetV3 classifier.
 
-    Wraps a :class:`MobileNetV3Model` backbone and adds GlobalAveragePool +
-    Dense(head_channels) + activation + (optional Dropout) + Dense(num_classes)
-    on top.
+    This classifier wraps a :class:`MobileNetV3Model` backbone and
+    attaches a GlobalAveragePooling2D + Dense + activation + Dropout +
+    Dense classifier head to produce ``num_classes`` class logits. The
+    intermediate Dense projects to ``head_channels`` (1280 for the
+    ``"large"`` variant, 1024 for ``"small"``) and is followed by the
+    backbone's head activation (h-swish, or ReLU when ``minimal=True``).
+    All architectural parameters are forwarded to the underlying
+    :class:`MobileNetV3Model`; ``num_classes``, ``classifier_activation``
+    and ``dropout_rate`` are head-specific.
 
-    Reference:
-    - [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244) (ICCV 2019)
+    References:
+    - [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244)
 
-    Construction:
+    Args:
+        width_multiplier: Float, multiplier applied to per-stage channel
+            counts. Defaults to `1.0`.
+        depth_multiplier: Float, multiplier applied to per-block
+            expansion ratios. Defaults to `1.0`.
+        config: String, variant key selecting the block table and the
+            head Dense width (1280 for ``"large"``, 1024 for
+            ``"small"``). Defaults to `"large"`.
+        minimal: Boolean, if True force kernel size 3, ReLU activations,
+            and disable SE for every IR block (also switches the head
+            activation from h-swish to ReLU). Defaults to `False`.
+        image_size: Integer, square input resolution used to derive the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        dropout_rate: Float, dropout rate applied between the head
+            activation and the final Dense classifier (skipped when
+            ``<= 0``). Defaults to `0.2`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to
+            `"MobileNetV3Classify"`.
 
-    >>> MobileNetV3Classify.from_weights("mobilenetv3_large_100_ra_in1k")
-    >>> MobileNetV3Classify.from_weights("timm:timm/mobilenetv3_large_100.ra_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

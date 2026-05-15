@@ -127,20 +127,50 @@ def vgg_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class VGGModel(BaseModel):
-    """VGG backbone — the main feature extractor.
+    """Instantiates the VGG backbone.
 
-    Returns the final pre-logits 4096-channel feature map ``(B, H, W, C)``.
-    This is the last layer output before the classifier head.
-    :class:`VGGClassify` composes this model and attaches
-    GlobalAveragePooling + Dense to produce class logits.
+    VGG is a sequential stack of 3x3 convolutions and 2x2 max-pooling
+    layers arranged in 5 progressively-strided stages, followed by two
+    pre-logit fully-connected layers (implemented here as 7x7 and 1x1
+    convolutions) that form the classifier head's feature extractor.
+    Output is the last layer output before the classifier head: the
+    final pre-logits 4096-channel feature map ``(B, H, W, C)``.
+    :class:`VGGClassify` composes this model and attaches a
+    GlobalAveragePooling2D + Dropout + Dense head to produce logits.
 
-    Reference:
-    - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556) (ICLR 2015)
+    References:
+    - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (one tensor captured right after each
+            MaxPool). Defaults to `False`.
+        num_filters: List mixing integers (Conv2D filter counts) and
+            ``"M"`` strings (MaxPool boundaries) that defines the VGG
+            recipe. Must be provided. Defaults to `None`.
+        batch_norm: Boolean, whether to insert BatchNormalization after
+            each Conv2D. Defaults to `False`.
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model. Defaults to `"VGGModel"`.
 
-    >>> VGGModel.from_weights("vgg16_tv_in1k")
-    >>> VGGModel.from_weights("timm:timm/vgg16.tv_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -249,19 +279,51 @@ class VGGModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class VGGClassify(BaseModel):
-    """VGG image classifier — :class:`VGGModel` + GAP + Dense head.
+    """Instantiates the VGG classifier.
 
-    Wraps a :class:`VGGModel` backbone and attaches GlobalAveragePooling,
-    a (rate-0) Dropout, and a single Dense layer on the final feature map
-    to produce class logits.
+    This classifier wraps a :class:`VGGModel` backbone and attaches a
+    GlobalAveragePooling2D + Dropout + Dense head (the Dropout has
+    rate 0, mirroring the original implementation) to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`VGGModel`; only ``num_classes``
+    and ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556) (ICLR 2015)
+    References:
+    - [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556)
 
-    Construction:
+    Args:
+        num_filters: List mixing integers (Conv2D filter counts) and
+            ``"M"`` strings (MaxPool boundaries) that defines the VGG
+            recipe. Must be provided. Defaults to `None`.
+        batch_norm: Boolean, whether to insert BatchNormalization after
+            each Conv2D. Defaults to `False`.
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"VGGClassify"`.
 
-    >>> VGGClassify.from_weights("vgg16_tv_in1k")
-    >>> VGGClassify.from_weights("timm:timm/vgg16.tv_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

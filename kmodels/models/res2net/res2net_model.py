@@ -276,13 +276,53 @@ def res2net_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Res2NetModel(BaseModel):
-    """Res2Net trunk returning the final stage feature map ``(B, H, W, C)``.
+    """Instantiates the Res2Net (Multi-scale Residual Network) backbone.
 
-    Output is the raw final-stage feature map. :class:`Res2NetClassify`
-    composes this model and applies GAP + Dense head to produce logits.
+    Res2Net replaces the standard 3x3 convolution inside the bottleneck
+    with a hierarchical multi-scale residual structure: the intermediate
+    feature map is split into ``scale`` groups along the channel axis,
+    each group is processed by its own 3x3 conv, and the outputs are
+    fused via residual connections to subsequent groups — increasing the
+    effective receptive-field range at fine granularity without adding
+    depth. The output tensor is the last layer output before the
+    classifier head — the final-stage feature map ``(B, H, W, C)``.
+    :class:`Res2NetClassify` composes this model and applies a
+    GlobalAveragePooling2D + Dense head to produce logits.
 
-    Reference:
-    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
+    References:
+    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169)
+
+    Args:
+        depth: Tuple of ints, number of Bottle2neck blocks per stage.
+            Defaults to `(3, 4, 6, 3)`.
+        base_width: Integer, base channel width per scale inside each
+            Bottle2neck block. Defaults to `26`.
+        scale: Integer, number of feature scales per Bottle2neck block.
+            Defaults to `4`.
+        cardinality: Integer, number of groups for grouped convolution
+            inside each scale. Defaults to `1`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from the active Keras data format
+            with a default size of 224. Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (one tensor per Res2Net stage).
+            Defaults to `False`.
+        name: String, the name of the model. Defaults to `"Res2NetModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -394,38 +434,51 @@ class Res2NetModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Res2NetClassify(BaseModel):
-    """Res2Net classifier with multi-scale residual blocks.
+    """Instantiates the Res2Net (Multi-scale Residual Network) classifier.
 
-    Wraps a :class:`Res2NetModel` backbone and applies a GAP + Dense head
-    to produce class logits.
+    This classifier wraps a :class:`Res2NetModel` backbone and attaches
+    a GlobalAveragePooling2D + Dense head to produce ``num_classes``
+    class logits. All architectural parameters are forwarded to the
+    underlying :class:`Res2NetModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
-
-    Construction:
-
-    >>> Res2NetClassify.from_weights("res2net50_26w_4s_in1k")
-    >>> Res2NetClassify.from_weights("timm:timm/res2net50_26w_4s.in1k")
+    References:
+    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169)
 
     Args:
-        depth: List of ints, number of blocks per stage.
-        base_width: Int, base channel width per scale. Default ``26``.
-        scale: Int, number of scales per Res2Net block. Default ``4``.
-        cardinality: Int, group count for grouped convolution. Default ``1``.
-        include_normalization: Bool, whether to prepend an
-            :class:`ImageNormalizationLayer`. Default ``True``.
-        normalization_mode: One of ``"imagenet"``, ``"inception"``, ``"dpn"``,
-            ``"clip"``, ``"zero_to_one"``, ``"minus_one_to_one"``. Default
-            ``"imagenet"``.
-        input_shape: Optional ``(H, W, C)``. Default ``(224, 224, 3)``.
-        input_tensor: Optional pre-existing Keras input tensor.
-        num_classes: Int, number of output classes. Default ``1000``.
-        classifier_activation: Activation for the head. ``None`` returns
-            logits. Default ``"linear"``.
-        name: Model name. Default ``"Res2NetClassify"``.
+        depth: Tuple of ints, number of Bottle2neck blocks per stage.
+            Defaults to `(3, 4, 6, 3)`.
+        base_width: Integer, base channel width per scale inside each
+            Bottle2neck block. Defaults to `26`.
+        scale: Integer, number of feature scales per Bottle2neck block.
+            Defaults to `4`.
+        cardinality: Integer, number of groups for grouped convolution
+            inside each scale. Defaults to `1`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from the active Keras data format
+            with a default size of 224. Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"Res2NetClassify"`.
 
     Returns:
-        A Keras :class:`Model` instance.
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

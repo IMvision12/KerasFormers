@@ -329,21 +329,55 @@ def inception_resnet_v2_backbone_feature(inputs, *, data_format, return_stages=F
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class InceptionResNetV2Model(BaseModel):
-    """InceptionResNetV2 backbone — the main feature extractor.
+    """Instantiates the Inception-ResNet-v2 backbone.
 
-    Returns the final feature map ``(B, H, W, C)`` (channels-last) /
-    ``(B, C, H, W)`` (channels-first), unpooled and head-free. This is the
-    last layer output before the classifier head.
+    Inception-ResNet-v2 combines Inception modules — parallel branches of
+    1x1, factorized n x 1 / 1 x n, and pooled convs concatenated along
+    the channel axis — with ResNet-style identity skip connections that
+    add a scaled residual back into the input of each block. The network
+    has a deep conv stem followed by three inception-residual stacks
+    (A/B/C, operating on 35x35, 17x17, and 8x8 feature maps) separated
+    by Reduction-A and Reduction-B blocks, and a final 1x1 projection to
+    1536 channels.
+
+    Output is the last layer output before the classifier head:
+    the final feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first) with 1536 channels at spatial
+    resolution ``H/32``, unpooled and head-free.
     :class:`InceptionResNetV2Classify` composes this model and appends
     GAP + Dense.
 
-    Reference:
-    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
+    References:
+    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of 3
+            per-stage feature maps taken at the natural reduction
+            boundaries (after the A-stack, after the B-stack, and after
+            the C-stack, before the trailing 1x1 head conv).
+            Defaults to `False`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `299`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model.
+            Defaults to `"InceptionResNetV2Model"`.
 
-    >>> InceptionResNetV2Model.from_weights("inception_resnet_v2_tf_in1k")
-    >>> InceptionResNetV2Model.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -437,18 +471,46 @@ class InceptionResNetV2Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class InceptionResNetV2Classify(BaseModel):
-    """Inception-ResNet-v2 classifier (timm-ported).
+    """Instantiates the Inception-ResNet-v2 classifier.
 
-    Wraps an :class:`InceptionResNetV2Model` backbone and applies GAP + a
-    Dense classifier on top.
+    This classifier wraps an :class:`InceptionResNetV2Model` backbone
+    and attaches a GlobalAveragePooling2D + Dense head to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`InceptionResNetV2Model`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
+    References:
+    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261)
 
-    Construction:
+    Args:
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `299`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`.
+            Defaults to `"InceptionResNetV2Classify"`.
 
-    >>> InceptionResNetV2Classify.from_weights("inception_resnet_v2_tf_in1k")
-    >>> InceptionResNetV2Classify.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
