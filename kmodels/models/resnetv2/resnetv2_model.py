@@ -239,15 +239,56 @@ def resnetv2_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResNetV2Model(BaseModel):
-    """ResNetV2 trunk returning the final stage feature map ``(B, H, W, C)``.
+    """Instantiates the ResNetV2 (Pre-activation ResNet / BiT) backbone.
 
-    Output is the raw final-stage feature map (pre final GroupNorm).
-    :class:`ResNetV2Classify` composes this model and applies the final
-    GroupNorm + ReLU + GAP + Dense head to produce logits.
+    ResNetV2 is the pre-activation variant of ResNet — it moves
+    GroupNorm + ReLU to the start of each residual branch, which
+    improves gradient flow and stabilizes training of very deep
+    networks. The output tensor is the last layer output before the
+    classifier head — the raw final-stage feature map ``(B, H, W, C)``
+    (pre final GroupNorm). :class:`ResNetV2Classify` composes this model
+    and applies the final GroupNorm + ReLU + GlobalAveragePooling2D +
+    optional Dropout + Dense head to produce logits.
 
-    Reference:
+    References:
     - [Identity Mappings in Deep Residual Networks](https://arxiv.org/abs/1603.05027)
-    - [Big Transfer (BiT)](https://arxiv.org/abs/1912.11370)
+    - [Big Transfer (BiT): General Visual Representation Learning](https://arxiv.org/abs/1912.11370)
+
+    Args:
+        block_repeats: Tuple of ints, number of pre-activation
+            bottlenecks per stage. Defaults to `(3, 4, 6, 3)`.
+        filters: Tuple of ints, base filter counts per stage before
+            ``width_factor`` scaling. Defaults to `(256, 512, 1024, 2048)`.
+        width_factor: Integer, multiplier applied to channel counts
+            (BiT widening). Defaults to `1`.
+        stem_width: Integer, base width of the stem convolution before
+            ``width_factor`` scaling. Defaults to `64`.
+        drop_path_rate: Float, maximum stochastic-depth drop
+            probability; linearly interpolated across all blocks.
+            Defaults to `0.0`.
+        image_size: Integer, square input resolution used to validate
+            and infer the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps. Defaults to `False`.
+        name: String, the name of the model. Defaults to `"ResNetV2Model"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -366,21 +407,59 @@ class ResNetV2Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResNetV2Classify(BaseModel):
-    """
-    Instantiates a ResNetV2 / BiT classifier (timm-ported).
+    """Instantiates the ResNetV2 (Pre-activation ResNet / BiT) classifier.
 
-    Wraps a :class:`ResNetV2Model` backbone and applies the final
-    GroupNorm + ReLU + GlobalAveragePooling + optional Dropout + Dense
-    head to produce class logits.
+    This classifier wraps a :class:`ResNetV2Model` backbone and attaches
+    a GroupNorm -> ReLU -> GlobalAveragePooling2D -> optional Dropout ->
+    Dense head to produce ``num_classes`` class logits. All architectural
+    parameters are forwarded to the underlying :class:`ResNetV2Model`;
+    only ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
+    References:
     - [Identity Mappings in Deep Residual Networks](https://arxiv.org/abs/1603.05027)
-    - [Big Transfer (BiT)](https://arxiv.org/abs/1912.11370)
+    - [Big Transfer (BiT): General Visual Representation Learning](https://arxiv.org/abs/1912.11370)
 
-    Construction:
+    Args:
+        block_repeats: Tuple of ints, number of pre-activation
+            bottlenecks per stage. Defaults to `(3, 4, 6, 3)`.
+        filters: Tuple of ints, base filter counts per stage before
+            ``width_factor`` scaling. Defaults to `(256, 512, 1024, 2048)`.
+        width_factor: Integer, multiplier applied to channel counts
+            (BiT widening). Defaults to `1`.
+        stem_width: Integer, base width of the stem convolution before
+            ``width_factor`` scaling. Defaults to `64`.
+        drop_rate: Float, dropout rate applied to the pooled features
+            before the final Dense layer. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth drop
+            probability; linearly interpolated across all blocks.
+            Defaults to `0.0`.
+        image_size: Integer, square input resolution used to validate
+            and infer the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"ResNetV2Classify"`.
 
-    >>> ResNetV2Classify.from_weights("resnetv2_50x1_bit_goog_in21k_ft_in1k")
-    >>> ResNetV2Classify.from_weights("timm:timm/resnetv2_50x1_bit.goog_in21k_ft_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

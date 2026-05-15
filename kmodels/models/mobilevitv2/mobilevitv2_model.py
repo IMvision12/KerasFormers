@@ -404,21 +404,52 @@ def mobilevitv2_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileViTV2Model(BaseModel):
-    """MobileViTV2 backbone — the main feature extractor.
+    """Instantiates the MobileViTV2 backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
-    ``(B, C, H, W)`` (channels-first), unpooled and head-free. This is the
-    last layer output before the classifier head. :class:`MobileViTV2Classify`
-    composes this model and appends GAP + Dense.
+    MobileViTV2 builds on MobileViT by replacing the standard quadratic
+    multi-head self-attention with a separable, linear-complexity
+    self-attention that scales linearly in the number of patches. The
+    transformer block is also simplified to a more lightweight design
+    that uses GroupNorm + Conv1x1 projections in place of LayerNorm +
+    Dense, making it more efficient for mobile inference while keeping
+    the same 5-stage hierarchical layout.
 
-    Reference:
-    - [Separable Self-attention for Mobile Vision
-      Transformers](https://arxiv.org/abs/2206.02680)
+    Output is the last layer output before the classifier head:
+    the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first), unpooled and head-free.
+    :class:`MobileViTV2Classify` composes this model and appends GAP +
+    Dense.
 
-    Construction:
+    References:
+    - [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680)
 
-    >>> MobileViTV2Model.from_weights("mobilevitv2_100_cvnets_in1k")
-    >>> MobileViTV2Model.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of the
+            5 per-stage feature maps. Defaults to `False`.
+        multiplier: Float, width multiplier applied to every stage's
+            channel count. Defaults to `1.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `256`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'`, `'dpn'`,
+            `'clip'`, `'zero_to_one'` (default), or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model.
+            Defaults to `"MobileViTV2Model"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -520,19 +551,48 @@ class MobileViTV2Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileViTV2Classify(BaseModel):
-    """MobileViTV2 classifier (timm-ported).
+    """Instantiates the MobileViTV2 classifier.
 
-    Wraps a :class:`MobileViTV2Model` backbone and applies GAP + a Dense
-    classifier on top.
+    This classifier wraps a :class:`MobileViTV2Model` backbone and
+    attaches a GlobalAveragePooling2D + Dense head to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`MobileViTV2Model`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [Separable Self-attention for Mobile Vision
-      Transformers](https://arxiv.org/abs/2206.02680)
+    References:
+    - [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680)
 
-    Construction:
+    Args:
+        multiplier: Float, width multiplier applied to every stage's
+            channel count. Defaults to `1.0`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `256`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'`, `'dpn'`,
+            `'clip'`, `'zero_to_one'` (default), or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`.
+            Defaults to `"MobileViTV2Classify"`.
 
-    >>> MobileViTV2Classify.from_weights("mobilevitv2_100_cvnets_in1k")
-    >>> MobileViTV2Classify.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

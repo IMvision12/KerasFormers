@@ -211,21 +211,61 @@ def poolformer_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class PoolFormerModel(BaseModel):
-    """PoolFormer backbone — the main feature extractor.
+    """Instantiates the PoolFormer backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)`` (or
-    ``(B, C, H, W)`` for channels_first). This is the last layer
-    output before the classifier head. :class:`PoolFormerClassify`
-    composes this model and applies GAP + LN + Dense.
+    PoolFormer is a MetaFormer instantiation where the token-mixing
+    primitive is a simple average pooling layer (implemented as
+    ``avg_pool(x) - x``) rather than self-attention or an MLP. By
+    matching transformer-style results with such a trivial mixer, it
+    demonstrates that the MetaFormer template — norm + token mixer +
+    norm + channel MLP, each wrapped in residual + LayerScale + drop
+    path — is what matters, not the mixer itself. The network has 4
+    stages with stride-2 conv downsamples between them.
 
-    Reference:
-        Yu et al., *MetaFormer Is Actually What You Need for Vision*
-        (https://arxiv.org/abs/2111.11418).
+    Output is the last layer output before the classifier head: the
+    final stage feature map ``(B, H, W, C)`` (or ``(B, C, H, W)`` for
+    channels_first). :class:`PoolFormerClassify` composes this model
+    and applies a GlobalAveragePooling2D + LayerNorm + Dense head.
 
-    Construction:
+    References:
+    - [MetaFormer Is Actually What You Need for Vision](https://arxiv.org/abs/2111.11418)
 
-    >>> PoolFormerModel.from_weights("poolformer_s12_sail_in1k")
-    >>> PoolFormerModel.from_weights("timm:timm/poolformer_s12.sail_in1k")
+    Args:
+        embed_dims: Tuple of integers, per-stage channel dimensions
+            (length-4). Defaults to `(64, 128, 320, 512)`.
+        num_blocks: Tuple of integers, per-stage PoolFormer block counts
+            (length-4). Defaults to `(2, 2, 6, 2)`.
+        mlp_ratio: Float, hidden-dim multiplier inside each block's MLP.
+            Defaults to `4.0`.
+        drop_rate: Float, dropout rate inside MLPs. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled across blocks. Defaults to `0.0`.
+        init_scale: Float, initial LayerScale value for the residual
+            branches. Defaults to `1e-5`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of the
+            4 per-stage feature maps. Defaults to `False`.
+        name: String, the name of the model.
+            Defaults to `"PoolFormerModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -347,21 +387,57 @@ class PoolFormerModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class PoolFormerClassify(BaseModel):
-    """PoolFormer image classifier — :class:`PoolFormerModel` + GAP + LN + Dense.
+    """Instantiates the PoolFormer classifier.
 
-    Wraps a :class:`PoolFormerModel` backbone and attaches the standard
-    timm PoolFormer classifier head: global average pooling over the
-    final feature map, LayerNorm, then a single Dense layer producing
-    class logits.
+    This classifier wraps a :class:`PoolFormerModel` backbone and
+    attaches a GlobalAveragePooling2D + LayerNorm + Dense head on the
+    final feature map to produce ``num_classes`` class logits. All
+    architectural parameters are forwarded to the underlying
+    :class:`PoolFormerModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
-        Yu et al., *MetaFormer Is Actually What You Need for Vision*
-        (https://arxiv.org/abs/2111.11418).
+    References:
+    - [MetaFormer Is Actually What You Need for Vision](https://arxiv.org/abs/2111.11418)
 
-    Construction:
+    Args:
+        embed_dims: Tuple of integers, per-stage channel dimensions
+            (length-4). Defaults to `(64, 128, 320, 512)`.
+        num_blocks: Tuple of integers, per-stage PoolFormer block counts
+            (length-4). Defaults to `(2, 2, 6, 2)`.
+        mlp_ratio: Float, hidden-dim multiplier inside each block's MLP.
+            Defaults to `4.0`.
+        drop_rate: Float, dropout rate inside MLPs. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly scaled across blocks. Defaults to `0.0`.
+        init_scale: Float, initial LayerScale value for the residual
+            branches. Defaults to `1e-5`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"PoolFormerClassify"`.
 
-    >>> PoolFormerClassify.from_weights("poolformer_s12_sail_in1k")
-    >>> PoolFormerClassify.from_weights("timm:timm/poolformer_s12.sail_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

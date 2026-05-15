@@ -221,20 +221,60 @@ def inception_next_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class InceptionNextModel(BaseModel):
-    """InceptionNeXt backbone — the main feature extractor.
+    """Instantiates the InceptionNeXt backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
-    ``(B, C, H, W)`` (channels-first), unpooled and head-free. This is the
-    last layer output before the classifier head. :class:`InceptionNextClassify`
-    composes this model and appends GAP + MLP head.
+    InceptionNeXt decomposes the large-kernel depthwise convolution used
+    by ConvNeXt into an Inception-style multi-branch token mixer: the
+    channels are split into an identity branch plus a small square
+    ``k x k`` depthwise branch and two band ``1 x k`` / ``k x 1``
+    depthwise branches, then concatenated. These mixers are dropped into
+    a ConvNeXt-shaped 4-stage architecture (stem + per-stage downsample
+    + repeated blocks with a Conv-MLP and LayerScale).
 
-    Reference:
+    Output is the last layer output before the classifier head:
+    the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first), unpooled and head-free.
+    :class:`InceptionNextClassify` composes this model and appends the
+    MLP head.
+
+    References:
     - [InceptionNeXt: When Inception Meets ConvNeXt](https://arxiv.org/abs/2303.16900)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of the
+            4 per-stage feature maps. Defaults to `False`.
+        depths: Tuple of integers, number of blocks per stage (length 4).
+            Defaults to `(3, 3, 9, 3)`.
+        num_filters: Tuple of integers, output channel count per stage
+            (length 4). Defaults to `(96, 192, 384, 768)`.
+        mlp_ratios: Tuple of numbers, MLP expansion ratio per stage
+            (length 4). Defaults to `(4, 4, 4, 3)`.
+        band_kernel_size: Integer, band length for the token mixer
+            (shared across stages). Defaults to `11`.
+        branch_ratio: Float, fraction of input channels allocated to
+            each non-identity token-mixer branch. Defaults to `0.125`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model.
+            Defaults to `"InceptionNextModel"`.
 
-    >>> InceptionNextModel.from_weights("inception_next_tiny_sail_in1k")
-    >>> InceptionNextModel.from_weights("timm:timm/inception_next_tiny.sail_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -352,18 +392,57 @@ class InceptionNextModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class InceptionNextClassify(BaseModel):
-    """InceptionNeXt classifier (timm-ported).
+    """Instantiates the InceptionNeXt classifier.
 
-    Wraps an :class:`InceptionNextModel` backbone and applies the MLP head:
-    GAP -> Dense(num_filters[-1] * 3) -> GELU -> LayerNorm -> Dense.
+    This classifier wraps an :class:`InceptionNextModel` backbone and
+    attaches a GlobalAveragePooling2D + Dense(`'head_fc'`) + GELU +
+    LayerNorm + Dense head to produce ``num_classes`` class logits. All
+    architectural parameters are forwarded to the underlying
+    :class:`InceptionNextModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
+    References:
     - [InceptionNeXt: When Inception Meets ConvNeXt](https://arxiv.org/abs/2303.16900)
 
-    Construction:
+    Args:
+        depths: Tuple of integers, number of blocks per stage (length 4).
+            Defaults to `(3, 3, 9, 3)`.
+        num_filters: Tuple of integers, output channel count per stage
+            (length 4). Defaults to `(96, 192, 384, 768)`.
+        mlp_ratios: Tuple of numbers, MLP expansion ratio per stage
+            (length 4). Defaults to `(4, 4, 4, 3)`.
+        band_kernel_size: Integer, band length for the token mixer
+            (shared across stages). Defaults to `11`.
+        branch_ratio: Float, fraction of input channels allocated to
+            each non-identity token-mixer branch. Defaults to `0.125`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`.
+            Defaults to `"InceptionNextClassify"`.
 
-    >>> InceptionNextClassify.from_weights("inception_next_tiny_sail_in1k")
-    >>> InceptionNextClassify.from_weights("timm:timm/inception_next_tiny.sail_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

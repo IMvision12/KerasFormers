@@ -373,22 +373,59 @@ def mobilevit_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileViTModel(BaseModel):
-    """MobileViT backbone — the main feature extractor.
+    """Instantiates the MobileViT backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    MobileViT is a hybrid CNN-Transformer backbone designed for mobile
+    inference: it interleaves MobileNetV2 inverted-residual (MBConv)
+    blocks with MobileViT blocks that fold local self-attention over
+    fixed-size patches, mixing convolutional locality with transformer
+    global context. The network is organized as 5 stages of progressively
+    reduced spatial resolution.
+
+    Output is the last layer output before the classifier head:
+    the final stage feature map ``(B, H, W, C)`` (channels-last) /
     ``(B, C, H, W)`` (channels-first) with ``block_dims[-1]`` channels at
-    spatial resolution ``H/32``. This is the last layer output before the
-    1x1 final conv head. :class:`MobileViTClassify` composes this model and
-    appends the final 1x1 conv, GAP, and linear classifier.
+    spatial resolution ``H/32``. :class:`MobileViTClassify` composes this
+    model and appends the final 1x1 conv + GAP + Dense head.
 
-    Reference:
-    - [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision
-      Transformer](https://arxiv.org/abs/2110.02178)
+    References:
+    - [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of the
+            5 per-stage feature maps. Defaults to `False`.
+        initial_dims: Integer, stem output channel count.
+            Defaults to `16`.
+        head_dims: Integer, channel count of the 1x1 final conv used by
+            the classifier head. Defaults to `640`.
+        block_dims: List of integers, per-stage output channel counts
+            (length 5). Defaults to `[32, 64, 96, 128, 160]`.
+        expansion_ratio: List of floats, per-stage MBConv expansion
+            ratios (length 5). Defaults to `[4.0, 4.0, 4.0, 4.0, 4.0]`.
+        attention_dims: List, per-stage transformer attention dims
+            (length 5). Entries may be `None` for stages without a
+            transformer block. Defaults to `[None, None, 144, 192, 240]`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `256`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model. Defaults to `"MobileViTModel"`.
 
-    >>> MobileViTModel.from_weights("mobilevit_s_cvnets_in1k")
-    >>> MobileViTModel.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -505,19 +542,56 @@ class MobileViTModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileViTClassify(BaseModel):
-    """MobileViT classifier (timm-ported).
+    """Instantiates the MobileViT classifier.
 
-    Wraps a :class:`MobileViTModel` backbone, applies the final 1x1 conv head,
-    GAP, and a Dense classifier.
+    This classifier wraps a :class:`MobileViTModel` backbone and attaches
+    a 1x1 final conv + GlobalAveragePooling2D + Dense head to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`MobileViTModel`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision
-      Transformer](https://arxiv.org/abs/2110.02178)
+    References:
+    - [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178)
 
-    Construction:
+    Args:
+        initial_dims: Integer, stem output channel count.
+            Defaults to `16`.
+        head_dims: Integer, channel count of the 1x1 final conv used by
+            the classifier head. Defaults to `640`.
+        block_dims: List of integers, per-stage output channel counts
+            (length 5). Defaults to `[32, 64, 96, 128, 160]`.
+        expansion_ratio: List of floats, per-stage MBConv expansion
+            ratios (length 5). Defaults to `[4.0, 4.0, 4.0, 4.0, 4.0]`.
+        attention_dims: List, per-stage transformer attention dims
+            (length 5). Entries may be `None` for stages without a
+            transformer block. Defaults to `[None, None, 144, 192, 240]`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape. Defaults to `256`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"MobileViTClassify"`.
 
-    >>> MobileViTClassify.from_weights("mobilevit_s_cvnets_in1k")
-    >>> MobileViTClassify.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

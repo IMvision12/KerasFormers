@@ -220,21 +220,77 @@ def vit_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ViTModel(BaseModel):
-    """ViT backbone — the main feature extractor.
+    """Instantiates the Vision Transformer (ViT) backbone.
 
-    Returns the final-LN normalized token sequence ``(B, num_tokens, dim)``.
-    The first 1 (or 2 if distillation) tokens are class/distillation tokens;
-    the rest are spatial patch tokens. This is the last layer output before
-    the classifier head. :class:`ViTClassify` composes this model and reads
-    the class token(s) to produce logits.
+    ViT splits the input image into fixed-size patches via a convolutional
+    stem, linearly embeds each patch into a token, prepends a learnable CLS
+    token (and optionally a distillation token) plus position embeddings,
+    and processes the resulting sequence through ``depth`` standard
+    transformer encoder blocks consisting of multi-head self-attention and
+    MLP sub-blocks with residual connections and LayerNorm.
 
-    Reference:
+    Output is the last layer output before the classifier head: the
+    final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
+    first 1 (or 2 if ``use_distillation=True``) tokens are class /
+    distillation tokens and the rest are spatial patch tokens.
+    :class:`ViTClassify` composes this model and reads the class token(s)
+    via ``backbone.output[:, 0]`` to produce logits.
+
+    References:
     - [An Image is Worth 16x16 Words](https://arxiv.org/abs/2010.11929)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-block feature maps ending with the final-LN output.
+            Defaults to `False`.
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        dim: Integer, token embedding dimension. Defaults to `768`.
+        depth: Integer, number of transformer encoder blocks.
+            Defaults to `12`.
+        num_heads: Integer, number of attention heads per block.
+            Defaults to `12`.
+        mlp_ratio: Float, hidden expansion ratio for the MLP sub-block.
+            Defaults to `4.0`.
+        qkv_bias: Boolean, whether to include bias in the QKV projection.
+            Defaults to `True`.
+        qk_norm: Boolean, whether to apply LayerNorm to Q and K inside
+            attention. Defaults to `False`.
+        drop_rate: Float, dropout rate after the position embedding and
+            inside the MLP sub-block. Defaults to `0.0`.
+        attn_drop_rate: Float, dropout rate applied to attention weights.
+            Defaults to `0.0`.
+        no_embed_class: Boolean, if `True`, position embeddings do not
+            cover the class / distillation prefix tokens. Defaults to
+            `False`.
+        use_distillation: Boolean, if `True`, prepend a separate
+            distillation token alongside the class token (DeiT-distilled
+            style). Defaults to `False`.
+        init_values: Optional float, initial gamma value for LayerScale
+            applied on both residual branches. If `None`, LayerScale is
+            disabled. Defaults to `None`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the positional embedding.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model. Defaults to `"ViTModel"`.
 
-    >>> ViTModel.from_weights("vit_base_patch16_224_augreg_in21k_ft_in1k")
-    >>> ViTModel.from_weights("timm:timm/vit_base_patch16_224.augreg_in21k_ft_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -379,21 +435,77 @@ class ViTModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ViTClassify(BaseModel):
-    """Vision Transformer classifier — :class:`ViTModel` + linear head on the CLS token.
+    """Instantiates the Vision Transformer (ViT) classifier.
 
-    Wraps a :class:`ViTModel` backbone and attaches a single Dense layer
-    on the CLS token (index 0 of the backbone's output) to produce class
-    logits. When ``use_distillation`` is True, two prediction heads are
-    used (one on the CLS token, one on the distillation token) and their
-    outputs are averaged.
+    This classifier wraps a :class:`ViTModel` backbone and attaches a
+    single Dense layer on the CLS token (index 0 of the backbone's
+    output) to produce ``num_classes`` class logits. When
+    ``use_distillation=True``, two prediction heads are used (one on the
+    CLS token, one on the distillation token) and their outputs are
+    averaged. All architectural parameters are forwarded to the
+    underlying :class:`ViTModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
+    References:
     - [An Image is Worth 16x16 Words](https://arxiv.org/abs/2010.11929)
 
-    Construction:
+    Args:
+        patch_size: Integer, conv-stem patch size in pixels.
+            Defaults to `16`.
+        dim: Integer, token embedding dimension. Defaults to `768`.
+        depth: Integer, number of transformer encoder blocks in the
+            backbone. Defaults to `12`.
+        num_heads: Integer, number of attention heads per block.
+            Defaults to `12`.
+        mlp_ratio: Float, hidden expansion ratio for the MLP sub-block.
+            Defaults to `4.0`.
+        qkv_bias: Boolean, whether to include bias in the QKV projection.
+            Defaults to `True`.
+        qk_norm: Boolean, whether to apply LayerNorm to Q and K inside
+            attention. Defaults to `False`.
+        drop_rate: Float, dropout rate after the position embedding,
+            inside the MLP sub-block, and before the classifier head.
+            Defaults to `0.0`.
+        attn_drop_rate: Float, dropout rate applied to attention weights.
+            Defaults to `0.0`.
+        no_embed_class: Boolean, if `True`, position embeddings do not
+            cover the class / distillation prefix tokens. Defaults to
+            `False`.
+        use_distillation: Boolean, if `True`, prepend a separate
+            distillation token alongside the class token and attach a
+            second prediction head whose output is averaged with the CLS
+            head. Defaults to `False`.
+        init_values: Optional float, initial gamma value for LayerScale
+            applied on both residual branches. If `None`, LayerScale is
+            disabled. Defaults to `None`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the positional embedding.
+            Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"ViTClassify"`.
 
-    >>> ViTClassify.from_weights("vit_base_patch16_224_augreg_in21k_ft_in1k")
-    >>> ViTClassify.from_weights("timm:timm/vit_base_patch16_224.augreg_in21k_ft_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

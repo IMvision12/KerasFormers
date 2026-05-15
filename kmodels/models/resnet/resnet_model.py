@@ -311,19 +311,58 @@ def resnet_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResNetModel(BaseModel):
-    """ResNet trunk returning the final stage feature map.
+    """Instantiates the Residual Network (ResNet) backbone.
 
-    Output shape: ``(B, H, W, C)`` — the last stage's 4D feature map,
+    ResNet stacks 4 stages of residual bottleneck blocks at progressively
+    halved spatial resolution and doubled channel width, with identity
+    skip connections enabling very deep networks to train without
+    degradation. The output tensor is the last layer output before the
+    classifier head — the final stage's 4D feature map ``(B, H, W, C)``,
     unpooled and head-free. :class:`ResNetClassify` composes this model
-    and applies a GAP + Dense head to produce logits.
+    and applies a GlobalAveragePooling2D + Dense head to produce logits.
 
-    Reference:
-    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016)
+    References:
+    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)
 
-    Construction:
+    Args:
+        block_fn: Callable, the residual block builder. Should accept
+            ``(x, filters, strides=1, downsample=False, block_name=None)``
+            and additional keyword arguments from the backbone (e.g.
+            ``groups``, ``width_factor`` for ResNeXt).
+            Defaults to `bottleneck_block`.
+        block_repeats: List of ints, number of residual blocks per stage.
+            Defaults to `[2, 2, 2, 2]`.
+        filters: List of ints, base filter counts per stage (the final
+            output width is ``filters[i] * expansion``).
+            Defaults to `[64, 128, 256, 512]`.
+        groups: Integer, number of groups for grouped convolution
+            (forwarded to ResNeXt blocks). Defaults to `32`.
+        senet: Boolean, whether to apply Squeeze-and-Excitation inside
+            each block. Defaults to `False`.
+        width_factor: Integer, width scaling factor (forwarded to
+            ResNeXt blocks). Defaults to `2`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from the active Keras data format
+            with a default size of 224. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (4 tensors, one per ResNet stage).
+            Defaults to `False`.
+        name: String, the name of the model. Defaults to `"ResNetModel"`.
 
-    >>> ResNetModel.from_weights("resnet50_a1_in1k")
-    >>> ResNetModel.from_weights("timm:timm/resnet50.a1_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -472,44 +511,59 @@ class ResNetModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ResNetClassify(BaseModel):
-    """ResNet classifier (also covers ResNeXt and SE-ResNet/SE-ResNeXt).
+    """Instantiates the Residual Network (ResNet) classifier.
 
-    Wraps a :class:`ResNetModel` backbone and attaches GlobalAveragePooling +
-    a single Dense layer on the final feature map to produce class logits.
-    All architectural parameters are forwarded to the underlying
+    This classifier wraps a :class:`ResNetModel` backbone and attaches a
+    GlobalAveragePooling2D + Dense head to produce ``num_classes`` class
+    logits. All architectural parameters are forwarded to the underlying
     :class:`ResNetModel`; only ``num_classes`` and ``classifier_activation``
     are head-specific.
 
-    Reference:
-    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016)
-
-    Construction:
-
-    >>> ResNetClassify.from_weights("resnet50_a1_in1k")                 # kmodels release
-    >>> ResNetClassify.from_weights("timm:timm/resnet50.a1_in1k")       # direct from timm
+    References:
+    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)
 
     Args:
-        block_fn: Callable, the block function to use for residual blocks.
-            Should accept ``(x, filters, strides=1, downsample=False, block_name=None)``.
-        block_repeats: List of ints, number of blocks per stage.
-        filters: List of ints, filter counts per stage.
-        groups: Int, number of groups for grouped convolutions (ResNeXt). Default ``32``.
-        senet: Bool, whether to apply Squeeze-and-Excitation. Default ``False``.
-        width_factor: Int, width scaling factor (ResNeXt). Default ``2``.
-        include_normalization: Bool, whether to prepend an
-            :class:`ImageNormalizationLayer`. Default ``True``.
-        normalization_mode: One of ``"imagenet"``, ``"inception"``, ``"dpn"``,
-            ``"clip"``, ``"zero_to_one"``, ``"minus_one_to_one"``. Default
-            ``"imagenet"``.
-        input_shape: Optional ``(H, W, C)``. Default ``(224, 224, 3)``.
-        input_tensor: Optional pre-existing Keras input tensor.
-        num_classes: Int, number of output classes. Default ``1000``.
-        classifier_activation: Activation for the head. ``None`` returns
-            logits. Default ``"linear"``.
-        name: Model name. Default ``"ResNetClassify"``.
+        block_fn: Callable, the residual block builder. Should accept
+            ``(x, filters, strides=1, downsample=False, block_name=None)``
+            and additional keyword arguments from the backbone (e.g.
+            ``groups``, ``width_factor`` for ResNeXt).
+            Defaults to `bottleneck_block`.
+        block_repeats: List of ints, number of residual blocks per stage.
+            Defaults to `[2, 2, 2, 2]`.
+        filters: List of ints, base filter counts per stage (the final
+            output width is ``filters[i] * expansion``).
+            Defaults to `[64, 128, 256, 512]`.
+        groups: Integer, number of groups for grouped convolution
+            (forwarded to ResNeXt blocks). Defaults to `32`.
+        senet: Boolean, whether to apply Squeeze-and-Excitation inside
+            each block. Defaults to `False`.
+        width_factor: Integer, width scaling factor (forwarded to
+            ResNeXt blocks). Defaults to `2`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from the active Keras data format
+            with a default size of 224. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"ResNetClassify"`.
 
     Returns:
-        A Keras :class:`Model` instance.
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

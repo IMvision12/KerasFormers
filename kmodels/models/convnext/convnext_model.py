@@ -174,20 +174,58 @@ def convnext_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ConvNeXtModel(BaseModel):
-    """ConvNeXt backbone — the main feature extractor.
+    """Instantiates the ConvNeXt backbone.
 
-    Returns the final stage feature map ``(B, H, W, C)``. This is the last
-    layer output before the classifier head. :class:`ConvNeXtClassify`
-    composes this model and attaches GAP + LayerNorm + Dense to produce
-    class logits.
+    ConvNeXt is a modernized ConvNet that adapts ViT design principles to
+    pure CNNs: depthwise 7x7 convolutions, LayerNorm in place of
+    BatchNorm, GELU activations, and inverted-bottleneck blocks organized
+    into 4 hierarchical stages. Output is the last layer output before
+    the classifier head: the final stage feature map ``(B, H, W, C)``.
+    :class:`ConvNeXtClassify` composes this model and attaches a
+    GlobalAveragePooling2D + LayerNorm + Dense head to produce logits.
 
-    Reference:
+    References:
     - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (one per ConvNeXt stage).
+            Defaults to `False`.
+        depths: Tuple of 4 integers, number of ConvNeXt blocks per stage.
+            Defaults to `(3, 3, 9, 3)`.
+        projection_dims: Tuple of 4 integers, channel count per stage.
+            Defaults to `(96, 192, 384, 768)`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate.
+            Linearly scaled from 0 to this value across all blocks.
+            Defaults to `0.0`.
+        layer_scale_init_value: Float, initial value for per-channel
+            LayerScale. Pass ``None`` to disable LayerScale.
+            Defaults to `1e-6`.
+        use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
+            block's MLP; otherwise use Dense layers. Defaults to `False`.
+        use_grn: Boolean, whether to apply GlobalResponseNorm inside each
+            block (ConvNeXtV2 recipe). Defaults to `False`.
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model. Defaults to `"ConvNeXtModel"`.
 
-    >>> ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k")
-    >>> ConvNeXtModel.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -309,19 +347,59 @@ class ConvNeXtModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class ConvNeXtClassify(BaseModel):
-    """ConvNeXt image classifier — :class:`ConvNeXtModel` + GAP + LN + Dense head.
+    """Instantiates the ConvNeXt classifier.
 
-    Wraps a :class:`ConvNeXtModel` backbone and attaches GlobalAveragePooling,
-    LayerNormalization, and a single Dense layer on the final feature map
-    to produce class logits.
+    This classifier wraps a :class:`ConvNeXtModel` backbone and attaches
+    a GlobalAveragePooling2D + LayerNorm + Dense head to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`ConvNeXtModel`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
+    References:
     - [A ConvNet for the 2020s](https://arxiv.org/abs/2201.03545)
 
-    Construction:
+    Args:
+        depths: Tuple of 4 integers, number of ConvNeXt blocks per stage.
+            Defaults to `(3, 3, 9, 3)`.
+        projection_dims: Tuple of 4 integers, channel count per stage.
+            Defaults to `(96, 192, 384, 768)`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate.
+            Linearly scaled from 0 to this value across all blocks.
+            Defaults to `0.0`.
+        layer_scale_init_value: Float, initial value for per-channel
+            LayerScale. Pass ``None`` to disable LayerScale.
+            Defaults to `1e-6`.
+        use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
+            block's MLP; otherwise use Dense layers. Defaults to `False`.
+        use_grn: Boolean, whether to apply GlobalResponseNorm inside each
+            block (ConvNeXtV2 recipe). Defaults to `False`.
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"ConvNeXtClassify"`.
 
-    >>> ConvNeXtClassify.from_weights("convnext_base_fb_in22k_ft_in1k")
-    >>> ConvNeXtClassify.from_weights("timm:timm/convnext_base.fb_in22k_ft_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

@@ -342,12 +342,71 @@ def efficientformer_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EfficientFormerModel(BaseModel):
-    """EfficientFormer backbone — returns the final-stage feature tensor.
+    """Instantiates the EfficientFormer backbone.
 
-    Output shape: 1D ``(B, N, C)`` if the final stage has transformer blocks
-    (``num_vit > 0``), otherwise 2D ``(B, H, W, C)``.
-    :class:`EfficientFormerClassify` composes this model and applies the
-    LayerNorm + token-pool + dual-Dense classification head on top.
+    EfficientFormer is a hybrid CNN-Transformer designed for fast
+    on-device inference. The network keeps pure-convolutional stages
+    (MetaBlock2D with an average-pool token mixer + LayerScale +
+    stochastic depth) at high resolution where attention would be too
+    expensive, then switches to transformer (MetaBlock1D) blocks at the
+    lowest resolution where attention is cheap. Each stage is preceded
+    by a 3x3 strided downsampling conv, and the final stage's tail
+    ``num_vit`` blocks operate on a flattened token sequence so that
+    self-attention can be applied.
+
+    Output is the last layer output before the classifier head: a 1D
+    token tensor of shape ``(B, N, C)`` when the final stage uses
+    transformer blocks (``num_vit > 0``), otherwise a 2D feature map of
+    shape ``(B, H, W, C)``. :class:`EfficientFormerClassify` composes
+    this model and applies a LayerNorm + mean-pool + Dropout + dual
+    Dense (head + head_dist) + Average head on top.
+
+    References:
+    - [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191)
+
+    Args:
+        depths: Sequence of integers, per-stage block counts. The length
+            sets the number of stages.
+        embed_dims: Sequence of integers, per-stage channel widths.
+        num_vit: Integer, number of transformer (MetaBlock1D) blocks
+            placed at the tail of the final stage. Defaults to `1`.
+        mlp_ratio: Float, hidden-feature multiplier shared by every MLP
+            sub-block. Defaults to `4.0`.
+        pool_size: Integer, kernel size of the average-pool token mixer
+            used by the 2D MetaBlocks. Defaults to `3`.
+        drop_rate: Float, dropout rate applied inside the MLPs (and the
+            head Dropout in the classifier). Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly ramped across all blocks. Defaults to `0.0`.
+        layer_scale_init_value: Float, initial value for the per-channel
+            LayerScale gamma applied on every residual branch.
+            Defaults to `1e-5`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the attention biases of the
+            final-stage transformer blocks. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps (one tensor per element of
+            ``depths``). Defaults to `False`.
+        name: String, the name of the model.
+            Defaults to `"EfficientFormerModel"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -483,18 +542,67 @@ class EfficientFormerModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EfficientFormerClassify(BaseModel):
-    """EfficientFormer classifier (timm-ported).
+    """Instantiates the EfficientFormer classifier.
 
-    Wraps a :class:`EfficientFormerModel` backbone and applies LayerNorm +
-    token-mean-pool + Dropout + dual Dense (cls + dist) + Average + Activation.
+    This classifier wraps a :class:`EfficientFormerModel` backbone and
+    attaches a LayerNorm + mean-pool + Dropout + dual Dense (``head``
+    and ``head_dist`` for DeiT-style hard distillation) + Average head
+    to produce ``num_classes`` class logits. The two Dense logits are
+    averaged before the optional final activation. All architectural
+    parameters are forwarded to the underlying
+    :class:`EfficientFormerModel`; only ``num_classes`` and
+    ``classifier_activation`` are head-specific.
 
-    Reference:
+    References:
     - [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191)
 
-    Construction:
+    Args:
+        depths: Sequence of integers, per-stage block counts in the
+            backbone. The length sets the number of stages.
+        embed_dims: Sequence of integers, per-stage channel widths.
+        num_vit: Integer, number of transformer (MetaBlock1D) blocks
+            placed at the tail of the final backbone stage.
+            Defaults to `1`.
+        mlp_ratio: Float, hidden-feature multiplier shared by every MLP
+            sub-block. Defaults to `4.0`.
+        pool_size: Integer, kernel size of the average-pool token mixer
+            used by the 2D MetaBlocks. Defaults to `3`.
+        drop_rate: Float, dropout rate applied inside the MLPs and
+            before the dual Dense classifier. Defaults to `0.0`.
+        drop_path_rate: Float, maximum stochastic-depth drop rate. The
+            rate is linearly ramped across all blocks. Defaults to `0.0`.
+        layer_scale_init_value: Float, initial value for the per-channel
+            LayerScale gamma applied on every residual branch.
+            Defaults to `1e-5`.
+        image_size: Integer, square input resolution. Used to validate
+            the input shape and to size the attention biases of the
+            final-stage transformer blocks. Defaults to `224`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            applied on top of the averaged ``head`` + ``head_dist``
+            logits. Use `"linear"` to return raw logits or `"softmax"`
+            to return class probabilities. Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to
+            `"EfficientFormerClassify"`.
 
-    >>> EfficientFormerClassify.from_weights("efficientformer_l1_snap_dist_in1k")
-    >>> EfficientFormerClassify.from_weights("timm:timm/efficientformer_l1.snap_dist_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {

@@ -176,24 +176,51 @@ def xception_backbone_feature(inputs, *, return_stages=False):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class XceptionModel(BaseModel):
-    """Xception backbone — the main feature extractor.
+    """Instantiates the Xception backbone.
 
-    Returns the final feature map ``(B, H, W, C)`` from the exit flow. This
-    is the last layer output before the classifier head.
-    :class:`XceptionClassify` composes this model and attaches
-    GlobalAveragePooling + Dense to produce class logits.
+    Xception ("extreme Inception") replaces standard convolutions with
+    depthwise-separable convolutions throughout an entry flow, a
+    middle flow of 8 repeated 728-channel blocks, and an exit flow, with
+    residual skip connections around each block. Output is the last
+    layer output before the classifier head: the final 2048-channel
+    feature map ``(B, H, W, C)`` from the exit flow.
+    :class:`XceptionClassify` composes this model and attaches a
+    GlobalAveragePooling2D + Dense head to produce logits.
 
-    Reference:
-    - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357) (CVPR 2017)
+    Note: This is the *original* Keras Xception (Chollet 2017),
+    warm-started from ``keras.applications.Xception``. timm's
+    xception41/65/71 families use a different *Aligned Xception*
+    backbone that is not implemented in this module.
 
-    Note: This is the *original* Keras Xception (Chollet 2017), warm-started
-    from ``keras.applications.Xception``. timm's xception41/65/71 families
-    use a different *Aligned Xception* backbone that is not implemented
-    in this module.
+    References:
+    - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357)
 
-    Construction:
+    Args:
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps ``[entry, middle, exit]`` (one per
+            flow). Defaults to `False`.
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `299`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        name: String, the name of the model.
+            Defaults to `"XceptionModel"`.
 
-    >>> XceptionModel.from_weights("xception_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
@@ -285,23 +312,50 @@ class XceptionModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class XceptionClassify(BaseModel):
-    """Xception image classifier — :class:`XceptionModel` + GAP + Dense head.
+    """Instantiates the Xception classifier.
 
-    Wraps an :class:`XceptionModel` backbone and attaches
-    GlobalAveragePooling and a single Dense layer on the final feature map
-    to produce class logits.
+    This classifier wraps an :class:`XceptionModel` backbone and
+    attaches a GlobalAveragePooling2D + Dense head to produce
+    ``num_classes`` class logits. All architectural parameters are
+    forwarded to the underlying :class:`XceptionModel`; only
+    ``num_classes`` and ``classifier_activation`` are head-specific.
 
-    Reference:
-    - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357) (CVPR 2017)
+    Note: This is the *original* Keras Xception (Chollet 2017),
+    warm-started from ``keras.applications.Xception``. timm's
+    xception41/65/71 families use a different *Aligned Xception*
+    backbone that is not implemented in this module.
 
-    Note: This is the *original* Keras Xception (Chollet 2017), warm-started
-    from ``keras.applications.Xception``. timm's xception41/65/71 families
-    use a different *Aligned Xception* backbone that is not implemented
-    in this module.
+    References:
+    - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357)
 
-    Construction:
+    Args:
+        image_size: Integer, square input resolution used to validate the
+            input shape. Defaults to `299`.
+        include_normalization: Boolean, whether to prepend an
+            :class:`~kmodels.layers.ImageNormalizationLayer` at the start
+            of the network. When True, input images should be in uint8
+            format with values in `[0, 255]`. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
+            `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
+            Only used when ``include_normalization=True``.
+        input_shape: Optional tuple specifying the shape of the input
+            data. If `None`, derived from ``image_size`` and the active
+            Keras data format. Defaults to `None`.
+        input_tensor: Optional Keras tensor as input. Useful for
+            connecting the model to other Keras components.
+            Defaults to `None`.
+        num_classes: Integer, the number of output classes for
+            classification. Defaults to `1000`.
+        classifier_activation: String or callable, activation function
+            for the final Dense layer. Use `"linear"` to return raw
+            logits or `"softmax"` to return class probabilities.
+            Defaults to `"linear"`.
+        name: String, the name of the model. The internal backbone is
+            named `f"{name}_backbone"`. Defaults to `"XceptionClassify"`.
 
-    >>> XceptionClassify.from_weights("xception_in1k")
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = {
