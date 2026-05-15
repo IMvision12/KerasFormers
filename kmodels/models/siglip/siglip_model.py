@@ -927,10 +927,12 @@ class SigLIPImageClassify(BaseModel):
         return SigLIPModel
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = cls._release_warm_start_cls().from_weights(variant)
+            src = cls._release_warm_start_cls().from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
