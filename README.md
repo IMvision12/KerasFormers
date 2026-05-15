@@ -26,26 +26,6 @@ pip install -U git+https://github.com/IMvision12/keras-models
 
 Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below — all share the same `XModel` / `XClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT), object detection (DETR variants, D-FINE, OWL-ViT), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
 
-### Classification backbone quick start
-
-```python
-from kmodels.models.resnet import ResNetClassify, ResNetModel
-
-# Full classifier
-classifier = ResNetClassify.from_weights("resnet50_a1_in1k")
-logits = classifier(images)                                   # (B, 1000)
-
-# Just the backbone (transfer learning)
-backbone = ResNetModel.from_weights("resnet50_a1_in1k")
-features = backbone(images)                                   # (B, H/32, W/32, 2048)
-
-# Multi-scale features (FPN / segmentation)
-backbone = ResNetModel.from_weights("resnet50_a1_in1k", as_backbone=True)
-c2, c3, c4, c5 = backbone(images)                             # 4 stages
-```
-
-See [`docs/classification_backbones.md`](docs/classification_backbones.md) for the full pattern, per-architecture stage counts, and custom-head examples.
-
 ## 📑 Models
 
 - Backbones
