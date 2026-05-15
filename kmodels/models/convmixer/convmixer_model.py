@@ -73,9 +73,21 @@ def convmixer_backbone_feature(
     data_format,
     channels_axis,
 ):
-    """Stem + N ConvMixer blocks, returning ``[stem, stage1..stage4]`` (5 maps)."""
-    features = []
+    """Stem + N ConvMixer blocks, returning the final feature map.
 
+    Args:
+        inputs: Input image tensor (post-normalization).
+        dim: Channel dimension carried throughout the model.
+        depth: Total number of ConvMixer blocks stacked after the stem.
+        kernel_size: Depthwise convolution kernel size inside each block.
+        patch_size: Stride/kernel of the patch-embedding stem convolution.
+        activation: Activation name applied inside conv layers (e.g. ``"gelu"``).
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Axis index of the channels dimension.
+
+    Returns:
+        Final feature map ``(B, H, W, C)``.
+    """
     x = layers.Conv2D(
         dim,
         kernel_size=patch_size,
@@ -88,9 +100,7 @@ def convmixer_backbone_feature(
     x = layers.BatchNormalization(
         axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_batchnorm"
     )(x)
-    features.append(x)
 
-    features_at = [depth // 4, depth // 2, 3 * depth // 4, depth - 1]
     for i in range(depth):
         x = convmixer_block(
             x,
@@ -101,248 +111,27 @@ def convmixer_backbone_feature(
             data_format,
             f"mixer_block_{i}",
         )
-        if i in features_at:
-            features.append(x)
 
-    return features
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ConvMixerClassify(BaseModel):
-    """ConvMixer classifier (timm-ported).
+class ConvMixerModel(BaseModel):
+    """ConvMixer backbone — the main feature extractor.
+
+    Returns the final feature map ``(B, H, W, C)``. This is the last layer
+    output before the classifier head. :class:`ConvMixerClassify` composes
+    this model and attaches GlobalAveragePooling + Dense to produce
+    class logits.
 
     Reference:
     - [Patches Are All You Need?](https://arxiv.org/abs/2201.09792) (OpenReview 2022)
 
     Construction:
 
-    >>> ConvMixerClassify.from_weights("convmixer_768_32_in1k")
-    >>> ConvMixerClassify.from_weights("timm:timm/convmixer_768_32.in1k")
+    >>> ConvMixerModel.from_weights("convmixer_768_32_in1k")
+    >>> ConvMixerModel.from_weights("timm:timm/convmixer_768_32.in1k")
     """
-
-    KMODELS_CONFIG = CONVMIXER_CONFIG
-    KMODELS_WEIGHTS = CONVMIXER_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_convmixer_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        dim=768,
-        depth=32,
-        kernel_size=7,
-        patch_size=7,
-        activation="gelu",
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="ConvMixerClassify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = convmixer_backbone_feature(
-            x,
-            dim=dim,
-            depth=depth,
-            kernel_size=kernel_size,
-            patch_size=patch_size,
-            activation=activation,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-            features[-1]
-        )
-        x = layers.Dense(
-            num_classes,
-            activation=classifier_activation,
-            name="predictions",
-        )(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.dim = dim
-        self.depth = depth
-        self.patch_size = patch_size
-        self.kernel_size = kernel_size
-        self.activation = activation
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "dim": self.dim,
-                "depth": self.depth,
-                "patch_size": self.patch_size,
-                "kernel_size": self.kernel_size,
-                "activation": self.activation,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class ConvMixerBackbone(BaseModel):
-    """ConvMixer feature extractor. Returns ``[stem, s1..s4]`` (5 maps)."""
-
-    KMODELS_CONFIG = CONVMIXER_CONFIG
-    KMODELS_WEIGHTS = CONVMIXER_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = ConvMixerClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_convmixer_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        dim=768,
-        depth=32,
-        kernel_size=7,
-        patch_size=7,
-        activation="gelu",
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="ConvMixerBackbone",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = convmixer_backbone_feature(
-            x,
-            dim=dim,
-            depth=depth,
-            kernel_size=kernel_size,
-            patch_size=patch_size,
-            activation=activation,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
-
-        self.dim = dim
-        self.depth = depth
-        self.patch_size = patch_size
-        self.kernel_size = kernel_size
-        self.activation = activation
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "dim": self.dim,
-                "depth": self.depth,
-                "patch_size": self.patch_size,
-                "kernel_size": self.kernel_size,
-                "activation": self.activation,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class ConvMixerModel(BaseModel):
-    """ConvMixer trunk returning the final feature map ``(B, H, W, C)``."""
 
     KMODELS_CONFIG = CONVMIXER_CONFIG
     KMODELS_WEIGHTS = CONVMIXER_WEIGHTS
@@ -403,7 +192,7 @@ class ConvMixerModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = convmixer_backbone_feature(
+        x = convmixer_backbone_feature(
             x,
             dim=dim,
             depth=depth,
@@ -414,7 +203,7 @@ class ConvMixerModel(BaseModel):
             channels_axis=channels_axis,
         )
 
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.dim = dim
         self.depth = depth
@@ -440,6 +229,114 @@ class ConvMixerModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class ConvMixerClassify(BaseModel):
+    """ConvMixer image classifier — :class:`ConvMixerModel` + GAP + Dense head.
+
+    Wraps a :class:`ConvMixerModel` backbone and attaches GlobalAveragePooling
+    and a single Dense layer on the final feature map to produce class logits.
+
+    Reference:
+    - [Patches Are All You Need?](https://arxiv.org/abs/2201.09792) (OpenReview 2022)
+
+    Construction:
+
+    >>> ConvMixerClassify.from_weights("convmixer_768_32_in1k")
+    >>> ConvMixerClassify.from_weights("timm:timm/convmixer_768_32.in1k")
+    """
+
+    KMODELS_CONFIG = CONVMIXER_CONFIG
+    KMODELS_WEIGHTS = CONVMIXER_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_convmixer_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        dim=768,
+        depth=32,
+        kernel_size=7,
+        patch_size=7,
+        activation="gelu",
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=1000,
+        classifier_activation="linear",
+        name="ConvMixerClassify",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+
+        data_format = keras.config.image_data_format()
+
+        backbone = ConvMixerModel(
+            dim=dim,
+            depth=depth,
+            kernel_size=kernel_size,
+            patch_size=patch_size,
+            activation=activation,
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            backbone.output
+        )
+        out = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
+
+        self.dim = dim
+        self.depth = depth
+        self.patch_size = patch_size
+        self.kernel_size = kernel_size
+        self.activation = activation
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "dim": self.dim,
+                "depth": self.depth,
+                "patch_size": self.patch_size,
+                "kernel_size": self.kernel_size,
+                "activation": self.activation,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )

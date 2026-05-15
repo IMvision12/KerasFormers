@@ -4,7 +4,6 @@ import keras
 from keras import layers
 
 from kmodels.models.resnet.resnet_model import (
-    ResNetBackbone,
     ResNetClassify,
     ResNetModel,
     conv_block,
@@ -113,42 +112,6 @@ def resnext_block(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ResNeXtClassify(ResNetClassify):
-    """ResNeXt (grouped-convolution ResNet) classifier.
-
-    Same skeleton as :class:`ResNetClassify` but with :func:`resnext_block`
-    and cardinality knobs (``groups`` / ``width_factor``). Variant ids and
-    release weights live in :data:`RESNEXT_CONFIG` / :data:`RESNEXT_WEIGHTS`.
-
-    >>> ResNeXtClassify.from_weights("resnext50_32x4d_a1_in1k")
-    >>> ResNeXtClassify.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
-    """
-
-    KMODELS_CONFIG = RESNEXT_CONFIG
-    KMODELS_WEIGHTS = RESNEXT_WEIGHTS
-
-    def __init__(
-        self,
-        block_fn=resnext_block,
-        block_repeats=[3, 4, 6, 3],
-        filters=[64, 128, 256, 512],
-        groups=32,
-        width_factor=2,
-        name="ResNeXtClassify",
-        **kwargs,
-    ):
-        super().__init__(
-            block_fn=block_fn,
-            block_repeats=block_repeats,
-            filters=filters,
-            groups=groups,
-            width_factor=width_factor,
-            name=name,
-            **kwargs,
-        )
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
 class ResNeXtModel(ResNetModel):
     """ResNeXt trunk returning the final stage feature map ``(B, H, W, C)``."""
 
@@ -186,20 +149,20 @@ class ResNeXtModel(ResNetModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ResNeXtBackbone(ResNetBackbone):
-    """ResNeXt feature extractor (no classifier head)."""
+class ResNeXtClassify(ResNetClassify):
+    """ResNeXt (grouped-convolution ResNet) classifier.
+
+    Same skeleton as :class:`ResNetClassify` but composes a
+    :class:`ResNeXtModel` backbone with :func:`resnext_block` and the
+    cardinality knobs (``groups`` / ``width_factor``). Variant ids and
+    release weights live in :data:`RESNEXT_CONFIG` / :data:`RESNEXT_WEIGHTS`.
+
+    >>> ResNeXtClassify.from_weights("resnext50_32x4d_a1_in1k")
+    >>> ResNeXtClassify.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
+    """
 
     KMODELS_CONFIG = RESNEXT_CONFIG
     KMODELS_WEIGHTS = RESNEXT_WEIGHTS
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = ResNeXtClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
 
     def __init__(
         self,
@@ -207,16 +170,57 @@ class ResNeXtBackbone(ResNetBackbone):
         block_repeats=[3, 4, 6, 3],
         filters=[64, 128, 256, 512],
         groups=32,
+        senet=False,
         width_factor=2,
-        name="ResNeXtBackbone",
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=1000,
+        classifier_activation="linear",
+        name="ResNeXtClassify",
         **kwargs,
     ):
-        super().__init__(
+        kwargs.pop("timm_id", None)
+
+        data_format = keras.config.image_data_format()
+
+        backbone = ResNeXtModel(
             block_fn=block_fn,
             block_repeats=block_repeats,
             filters=filters,
             groups=groups,
+            senet=senet,
             width_factor=width_factor,
-            name=name,
-            **kwargs,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
         )
+
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            backbone.output
+        )
+        out = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            kernel_initializer="zeros",
+            name="predictions",
+        )(x)
+
+        super(ResNetClassify, self).__init__(
+            inputs=backbone.input, outputs=out, name=name, **kwargs
+        )
+
+        self.block_fn = block_fn
+        self.block_repeats = block_repeats
+        self.filters = filters
+        self.groups = groups
+        self.senet = senet
+        self.width_factor = width_factor
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation

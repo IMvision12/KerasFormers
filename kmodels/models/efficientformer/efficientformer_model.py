@@ -23,7 +23,20 @@ def conv_mlp_block(
     data_format="channels_last",
     name=None,
 ):
-    """MLP block with 1x1 convolutions for 2D spatial feature maps."""
+    """MLP block built from 1x1 convolutions for 2D spatial feature maps.
+
+    Args:
+        inputs: Input feature tensor in NHWC or NCHW format.
+        hidden_features: Channel width of the intermediate (hidden) projection.
+        out_features: Channel width of the output projection.
+        drop: Dropout rate applied after each conv.
+        channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        data_format: Keras data-format string.
+        name: Prefix used to name the layers inside the block.
+
+    Returns:
+        Output feature tensor with ``out_features`` channels.
+    """
     x = layers.Conv2D(
         hidden_features,
         kernel_size=1,
@@ -52,7 +65,18 @@ def conv_mlp_block(
 
 
 def mlp_block(inputs, hidden_features, out_features, drop=0.0, name=None):
-    """Standard MLP block for 1D token sequences."""
+    """Standard two-layer Dense MLP block for 1D token sequences.
+
+    Args:
+        inputs: Input token tensor of shape ``(B, N, C)``.
+        hidden_features: Width of the intermediate (hidden) projection.
+        out_features: Width of the output projection.
+        drop: Dropout rate applied after each dense layer.
+        name: Prefix used to name the layers inside the block.
+
+    Returns:
+        Output token tensor of shape ``(B, N, out_features)``.
+    """
     x = layers.Dense(hidden_features, use_bias=True, name=f"{name}_dense_1")(inputs)
     x = layers.Activation("gelu", name=f"{name}_gelu")(x)
     x = layers.Dropout(drop, name=f"{name}_dropout_1")(x)
@@ -73,7 +97,23 @@ def meta_block_2d(
     data_format="channels_last",
     name=None,
 ):
-    """2D MetaBlock with pooling token mixer for convolutional stages."""
+    """2D MetaBlock with a pooling token mixer for convolutional stages.
+
+    Args:
+        inputs: Input 2D feature tensor.
+        dim: Channel width of the block.
+        pool_size: Kernel size of the average-pool token mixer.
+        mlp_ratio: Hidden-feature multiplier for the conv MLP.
+        drop: Dropout rate applied inside the MLP.
+        drop_path: Stochastic-depth drop rate applied on each residual branch.
+        layer_scale_init_value: Initial value for the LayerScale gamma parameter.
+        channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        data_format: Keras data-format string.
+        name: Prefix used to name the layers inside the block.
+
+    Returns:
+        Output 2D feature tensor with ``dim`` channels.
+    """
     # Token mixer (pooling)
     pooled = layers.AveragePooling2D(
         pool_size=pool_size,
@@ -115,7 +155,21 @@ def meta_block_1d(
     resolution=7,
     name=None,
 ):
-    """1D MetaBlock with self-attention token mixer for transformer stages."""
+    """1D MetaBlock with a self-attention token mixer for transformer stages.
+
+    Args:
+        inputs: Input token tensor of shape ``(B, N, dim)``.
+        dim: Channel width of the block.
+        mlp_ratio: Hidden-feature multiplier for the Dense MLP.
+        drop: Dropout rate applied inside the MLP.
+        drop_path: Stochastic-depth drop rate applied on each residual branch.
+        layer_scale_init_value: Initial value for the LayerScale gamma parameter.
+        resolution: Spatial side length used to size the attention biases.
+        name: Prefix used to name the layers inside the block.
+
+    Returns:
+        Output token tensor of shape ``(B, N, dim)``.
+    """
     y = layers.LayerNormalization(epsilon=1e-6, axis=-1, name=f"{name}_norm1")(inputs)
     y = Attention4D(dim=dim, resolution=resolution, name=f"{name}_attn")(y)
     y = LayerScale(layer_scale_init_value, name=f"{name}_ls1")(y)
@@ -154,15 +208,29 @@ def efficientformer_backbone_feature(
     data_format,
     channels_axis,
 ):
-    """EfficientFormer stem + four hybrid stages.
+    """EfficientFormer stem + four hybrid (pool + optional transformer) stages.
 
-    Returns one feature tensor per stage (4 tensors). The last tensor is
-    1D ``(B, N, C)`` if the final stage has any transformer (vit) blocks,
-    otherwise 2D like the earlier stages. Shared by :class:`EfficientFormer`
-    and :class:`EfficientFormerBackbone`.
+    The output is 1D ``(B, N, C)`` if the final stage has any transformer
+    (``num_vit > 0``) blocks, otherwise 2D.
+
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        depths: Per-stage block counts (length = number of stages).
+        embed_dims: Per-stage channel widths.
+        num_vit: Number of transformer blocks at the tail of the final stage.
+        mlp_ratio: Hidden-feature multiplier shared by all MLP sub-blocks.
+        pool_size: Kernel size of the pooling token mixer used by 2D blocks.
+        drop_rate: Dropout rate applied inside the MLPs.
+        drop_path_rate: Maximum stochastic-depth drop rate (linearly ramped).
+        layer_scale_init_value: Initial value for LayerScale gamma parameters.
+        image_h: Input image height; used to compute the final-stage resolution.
+        data_format: Keras data-format string.
+        channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+
+    Returns:
+        Final-stage feature tensor.
     """
-    features = []
-
     x = layers.ZeroPadding2D(padding=1, data_format=data_format, name="stem_pad1")(
         inputs
     )
@@ -256,299 +324,19 @@ def efficientformer_backbone_feature(
                     name=f"stages_{i}_blocks_{j}",
                 )
 
-        features.append(x)
         cur += depths[i]
 
-    return features
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class EfficientFormerClassify(BaseModel):
-    """EfficientFormer classifier (timm-ported).
-
-    Reference:
-    - [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191)
-
-    Construction:
-
-    >>> EfficientFormerClassify.from_weights("efficientformer_l1_snap_dist_in1k")
-    >>> EfficientFormerClassify.from_weights("timm:timm/efficientformer_l1.snap_dist_in1k")
-    """
-
-    KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
-    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_efficientformer_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        depths,
-        embed_dims,
-        num_vit=1,
-        mlp_ratio=4.0,
-        pool_size=3,
-        drop_rate=0.0,
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-5,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="EfficientFormerClassify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if data_format == "channels_last":
-            image_h = input_shape[0]
-        else:
-            image_h = input_shape[1]
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = efficientformer_backbone_feature(
-            x,
-            depths=depths,
-            embed_dims=embed_dims,
-            num_vit=num_vit,
-            mlp_ratio=mlp_ratio,
-            pool_size=pool_size,
-            drop_rate=drop_rate,
-            drop_path_rate=drop_path_rate,
-            layer_scale_init_value=layer_scale_init_value,
-            image_h=image_h,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-
-        x = features[-1]
-        x = layers.LayerNormalization(epsilon=1e-6, axis=-1, name="final_norm")(x)
-        x = layers.Lambda(lambda v: ops.mean(v, axis=1), name="global_pool")(x)
-        x = layers.Dropout(drop_rate, name="head_drop")(x)
-
-        x_cls = layers.Dense(num_classes, activation=None, name="head", use_bias=True)(
-            x
-        )
-        x_dist = layers.Dense(
-            num_classes, activation=None, name="head_dist", use_bias=True
-        )(x)
-
-        x = layers.Average(name="avg_predictions")([x_cls, x_dist])
-        if classifier_activation:
-            x = layers.Activation(classifier_activation, name="predictions")(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.depths = depths
-        self.embed_dims = embed_dims
-        self.num_vit = num_vit
-        self.mlp_ratio = mlp_ratio
-        self.pool_size = pool_size
-        self.drop_rate = drop_rate
-        self.drop_path_rate = drop_path_rate
-        self.layer_scale_init_value = layer_scale_init_value
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "depths": self.depths,
-                "embed_dims": self.embed_dims,
-                "num_vit": self.num_vit,
-                "mlp_ratio": self.mlp_ratio,
-                "pool_size": self.pool_size,
-                "drop_rate": self.drop_rate,
-                "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init_value": self.layer_scale_init_value,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class EfficientFormerBackbone(BaseModel):
-    """EfficientFormer feature extractor. Returns one feature tensor per stage."""
-
-    KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
-    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = EfficientFormerClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_efficientformer_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        depths,
-        embed_dims,
-        num_vit=1,
-        mlp_ratio=4.0,
-        pool_size=3,
-        drop_rate=0.0,
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-5,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="EfficientFormerBackbone",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        # Attention biases in the final stage are sized to ``image_size /
-        # (4 * 2**(num_stages-1))``, so we cannot allow dynamic spatial
-        # dims to propagate. Build the input shape from ``image_size``
-        # whenever the caller didn't provide one.
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if data_format == "channels_last":
-            image_h = input_shape[0]
-        else:
-            image_h = input_shape[1]
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = efficientformer_backbone_feature(
-            x,
-            depths=depths,
-            embed_dims=embed_dims,
-            num_vit=num_vit,
-            mlp_ratio=mlp_ratio,
-            pool_size=pool_size,
-            drop_rate=drop_rate,
-            drop_path_rate=drop_path_rate,
-            layer_scale_init_value=layer_scale_init_value,
-            image_h=image_h,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
-
-        self.depths = depths
-        self.embed_dims = embed_dims
-        self.num_vit = num_vit
-        self.mlp_ratio = mlp_ratio
-        self.pool_size = pool_size
-        self.drop_rate = drop_rate
-        self.drop_path_rate = drop_path_rate
-        self.layer_scale_init_value = layer_scale_init_value
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "depths": self.depths,
-                "embed_dims": self.embed_dims,
-                "num_vit": self.num_vit,
-                "mlp_ratio": self.mlp_ratio,
-                "pool_size": self.pool_size,
-                "drop_rate": self.drop_rate,
-                "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init_value": self.layer_scale_init_value,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EfficientFormerModel(BaseModel):
-    """EfficientFormer trunk returning the final feature map ``(B, H, W, C)``.
+    """EfficientFormer backbone — returns the final-stage feature tensor.
 
-    If the final stage contains transformer blocks, the 1D token sequence is
-    reshaped back to a 4D grid before being returned.
+    Output shape: 1D ``(B, N, C)`` if the final stage has transformer blocks
+    (``num_vit > 0``), otherwise 2D ``(B, H, W, C)``.
+    :class:`EfficientFormerClassify` composes this model and applies the
+    LayerNorm + token-pool + dual-Dense classification head on top.
     """
 
     KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
@@ -618,7 +406,7 @@ class EfficientFormerModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = efficientformer_backbone_feature(
+        x = efficientformer_backbone_feature(
             x,
             depths=depths,
             embed_dims=embed_dims,
@@ -633,17 +421,7 @@ class EfficientFormerModel(BaseModel):
             channels_axis=channels_axis,
         )
 
-        last = features[-1]
-        # If last stage is 1D (transformer tokens), reshape back to (B, H, W, C).
-        if len(last.shape) == 3:
-            num_stages = len(depths)
-            grid = image_h // (4 * (2 ** (num_stages - 1)))
-            ch = embed_dims[-1]
-            last = layers.Reshape((grid, grid, ch), name="final_unflatten")(last)
-            if data_format == "channels_first":
-                last = layers.Permute((3, 1, 2), name="final_to_cf")(last)
-
-        super().__init__(inputs=img_input, outputs=last, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.depths = depths
         self.embed_dims = embed_dims
@@ -675,6 +453,131 @@ class EfficientFormerModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class EfficientFormerClassify(BaseModel):
+    """EfficientFormer classifier (timm-ported).
+
+    Wraps a :class:`EfficientFormerModel` backbone and applies LayerNorm +
+    token-mean-pool + Dropout + dual Dense (cls + dist) + Average + Activation.
+
+    Reference:
+    - [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191)
+
+    Construction:
+
+    >>> EfficientFormerClassify.from_weights("efficientformer_l1_snap_dist_in1k")
+    >>> EfficientFormerClassify.from_weights("timm:timm/efficientformer_l1.snap_dist_in1k")
+    """
+
+    KMODELS_CONFIG = EFFICIENTFORMER_CONFIG
+    KMODELS_WEIGHTS = EFFICIENTFORMER_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_efficientformer_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        depths,
+        embed_dims,
+        num_vit=1,
+        mlp_ratio=4.0,
+        pool_size=3,
+        drop_rate=0.0,
+        drop_path_rate=0.0,
+        layer_scale_init_value=1e-5,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=1000,
+        classifier_activation="linear",
+        name="EfficientFormerClassify",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+
+        backbone = EfficientFormerModel(
+            depths=depths,
+            embed_dims=embed_dims,
+            num_vit=num_vit,
+            mlp_ratio=mlp_ratio,
+            pool_size=pool_size,
+            drop_rate=drop_rate,
+            drop_path_rate=drop_path_rate,
+            layer_scale_init_value=layer_scale_init_value,
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        x = backbone.output
+        x = layers.LayerNormalization(epsilon=1e-6, axis=-1, name="final_norm")(x)
+        x = layers.Lambda(lambda v: ops.mean(v, axis=1), name="global_pool")(x)
+        x = layers.Dropout(drop_rate, name="head_drop")(x)
+
+        x_cls = layers.Dense(num_classes, activation=None, name="head", use_bias=True)(
+            x
+        )
+        x_dist = layers.Dense(
+            num_classes, activation=None, name="head_dist", use_bias=True
+        )(x)
+
+        out = layers.Average(name="avg_predictions")([x_cls, x_dist])
+        if classifier_activation:
+            out = layers.Activation(classifier_activation, name="predictions")(out)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
+
+        self.depths = depths
+        self.embed_dims = embed_dims
+        self.num_vit = num_vit
+        self.mlp_ratio = mlp_ratio
+        self.pool_size = pool_size
+        self.drop_rate = drop_rate
+        self.drop_path_rate = drop_path_rate
+        self.layer_scale_init_value = layer_scale_init_value
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "depths": self.depths,
+                "embed_dims": self.embed_dims,
+                "num_vit": self.num_vit,
+                "mlp_ratio": self.mlp_ratio,
+                "pool_size": self.pool_size,
+                "drop_rate": self.drop_rate,
+                "drop_path_rate": self.drop_path_rate,
+                "layer_scale_init_value": self.layer_scale_init_value,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )

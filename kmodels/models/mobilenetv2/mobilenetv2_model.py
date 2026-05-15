@@ -44,7 +44,22 @@ def inverted_residual_block(
     block_id,
     sub_block_id,
 ):
-    """A building block for MobileNetV2-style architectures using inverted residuals."""
+    """MobileNetV2 inverted-residual block: expand 1x1, depthwise, project 1x1.
+
+    Args:
+        x: Input feature tensor.
+        filters: Output channel count after the projection conv.
+        kernel_size: Depthwise convolution kernel size.
+        stride: Depthwise convolution stride.
+        expansion_ratio: Expansion factor applied to the input channels.
+        channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        data_format: Keras data-format string.
+        block_id: Stage index used to construct unique layer names.
+        sub_block_id: Within-stage block index used to construct unique layer names.
+
+    Returns:
+        Output feature tensor with ``filters`` channels.
+    """
     inputs = x
     block_name = f"blocks_{block_id}_{sub_block_id}"
 
@@ -133,12 +148,21 @@ def mobilenetv2_backbone_feature(
     data_format,
     channels_axis,
 ):
-    """MobileNetV2 stem + 7 inverted-residual stages + head conv.
+    """MobileNetV2 stem + 7 inverted-residual stages + head 1x1 conv.
 
-    Returns ``[stem, s1..s7, head_conv]`` (9 feature maps).
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        width_multiplier: Multiplier applied to per-stage channel counts.
+        depth_multiplier: Multiplier applied to interior stage block repeats.
+        fix_channels: If True, keep stem (32) and head (1280) channels fixed
+            regardless of ``width_multiplier``.
+        data_format: Keras data-format string.
+        channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+
+    Returns:
+        Final 4D feature tensor after the head 1x1 conv (post BN + ReLU6).
     """
-    features = []
-
     initial_dims = 32 if fix_channels else make_divisible(32 * width_multiplier)
     x = layers.ZeroPadding2D(
         padding=((1, 1), (1, 1)), data_format=data_format, name="stem_padding"
@@ -159,7 +183,6 @@ def mobilenetv2_backbone_feature(
         name="stem_batchnorm",
     )(x)
     x = layers.Activation("relu6", name="relu1")(x)
-    features.append(x)
 
     for layer_idx, layer_config in enumerate(_DEFAULT_BLOCKS):
         expansion_factor, output_channels, num_blocks, initial_stride = layer_config
@@ -181,7 +204,6 @@ def mobilenetv2_backbone_feature(
                 block_id=layer_idx,
                 sub_block_id=block_idx,
             )
-        features.append(x)
 
     head_dims = (
         1280
@@ -203,233 +225,18 @@ def mobilenetv2_backbone_feature(
         name="head_batchnorm",
     )(x)
     x = layers.Activation("relu6", name="relu2")(x)
-    features.append(x)
 
-    return features
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MobileNetV2Classify(BaseModel):
-    """MobileNetV2 classifier (timm-ported).
-
-    Reference:
-    - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](
-        https://arxiv.org/abs/1801.04381) (CVPR 2018)
-
-    Construction:
-
-    >>> MobileNetV2Classify.from_weights("mobilenetv2_100_ra_in1k")
-    >>> MobileNetV2Classify.from_weights("timm:timm/mobilenetv2_100.ra_in1k")
-    """
-
-    KMODELS_CONFIG = MOBILENETV2_CONFIG
-    KMODELS_WEIGHTS = MOBILENETV2_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_mobilenetv2_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        width_multiplier=1.0,
-        depth_multiplier=1.0,
-        fix_channels=False,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="MobileNetV2Classify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mobilenetv2_backbone_feature(
-            x,
-            width_multiplier=width_multiplier,
-            depth_multiplier=depth_multiplier,
-            fix_channels=fix_channels,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-            features[-1]
-        )
-        x = layers.Dense(
-            num_classes,
-            use_bias=True,
-            activation=classifier_activation,
-            name="predictions",
-        )(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.width_multiplier = width_multiplier
-        self.depth_multiplier = depth_multiplier
-        self.fix_channels = fix_channels
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "width_multiplier": self.width_multiplier,
-                "depth_multiplier": self.depth_multiplier,
-                "fix_channels": self.fix_channels,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MobileNetV2Backbone(BaseModel):
-    """MobileNetV2 feature extractor. Returns ``[stem, s1..s7, head_conv]`` (9 maps)."""
-
-    KMODELS_CONFIG = MOBILENETV2_CONFIG
-    KMODELS_WEIGHTS = MOBILENETV2_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = MobileNetV2Classify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_mobilenetv2_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        width_multiplier=1.0,
-        depth_multiplier=1.0,
-        fix_channels=False,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="MobileNetV2Backbone",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mobilenetv2_backbone_feature(
-            x,
-            width_multiplier=width_multiplier,
-            depth_multiplier=depth_multiplier,
-            fix_channels=fix_channels,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
-
-        self.width_multiplier = width_multiplier
-        self.depth_multiplier = depth_multiplier
-        self.fix_channels = fix_channels
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "width_multiplier": self.width_multiplier,
-                "depth_multiplier": self.depth_multiplier,
-                "fix_channels": self.fix_channels,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MobileNetV2Model(BaseModel):
-    """MobileNetV2 trunk returning the final stage feature map."""
+    """MobileNetV2 backbone — returns the post-head-conv 4D feature map.
+
+    Output shape: ``(B, H, W, C)`` — head-conv 4D feature map after the final
+    1x1 conv + BN + ReLU6. :class:`MobileNetV2Classify` composes this model
+    and adds GlobalAveragePool + Dense on top.
+    """
 
     KMODELS_CONFIG = MOBILENETV2_CONFIG
     KMODELS_WEIGHTS = MOBILENETV2_WEIGHTS
@@ -488,7 +295,7 @@ class MobileNetV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = mobilenetv2_backbone_feature(
+        x = mobilenetv2_backbone_feature(
             x,
             width_multiplier=width_multiplier,
             depth_multiplier=depth_multiplier,
@@ -497,7 +304,7 @@ class MobileNetV2Model(BaseModel):
             channels_axis=channels_axis,
         )
 
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.width_multiplier = width_multiplier
         self.depth_multiplier = depth_multiplier
@@ -519,6 +326,108 @@ class MobileNetV2Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class MobileNetV2Classify(BaseModel):
+    """MobileNetV2 classifier (timm-ported).
+
+    Wraps a :class:`MobileNetV2Model` backbone and adds GlobalAveragePool +
+    Dense on top.
+
+    Reference:
+    - [MobileNetV2: Inverted Residuals and Linear Bottlenecks](
+        https://arxiv.org/abs/1801.04381) (CVPR 2018)
+
+    Construction:
+
+    >>> MobileNetV2Classify.from_weights("mobilenetv2_100_ra_in1k")
+    >>> MobileNetV2Classify.from_weights("timm:timm/mobilenetv2_100.ra_in1k")
+    """
+
+    KMODELS_CONFIG = MOBILENETV2_CONFIG
+    KMODELS_WEIGHTS = MOBILENETV2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_mobilenetv2_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        width_multiplier=1.0,
+        depth_multiplier=1.0,
+        fix_channels=False,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=1000,
+        classifier_activation="linear",
+        name="MobileNetV2Classify",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+
+        data_format = keras.config.image_data_format()
+
+        backbone = MobileNetV2Model(
+            width_multiplier=width_multiplier,
+            depth_multiplier=depth_multiplier,
+            fix_channels=fix_channels,
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            backbone.output
+        )
+        out = layers.Dense(
+            num_classes,
+            use_bias=True,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
+
+        self.width_multiplier = width_multiplier
+        self.depth_multiplier = depth_multiplier
+        self.fix_channels = fix_channels
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "width_multiplier": self.width_multiplier,
+                "depth_multiplier": self.depth_multiplier,
+                "fix_channels": self.fix_channels,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )

@@ -16,7 +16,19 @@ from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
-    """Snap a (possibly scaled) channel count to a multiple of ``divisor``."""
+    """Snap a (possibly scaled) channel count to a multiple of ``divisor``.
+
+    Args:
+        v: Channel count to round (may be float-valued from a width multiplier).
+        divisor: Multiple to snap to. Defaults to ``8``.
+        min_value: Floor for the rounded value; defaults to ``divisor`` when ``None``.
+        round_limit: If the rounded value is less than ``round_limit * v``, bump it
+            up by one more ``divisor`` step. Defaults to ``0.9``.
+
+    Returns:
+        Integer channel count that is a multiple of ``divisor`` and at least
+        ``min_value``.
+    """
     min_value = min_value or divisor
     new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
     if new_v < round_limit * v:
@@ -33,7 +45,23 @@ def inverted_residual_block(
     expansion_ratio=1.0,
     name: str = "inverted_residual_block",
 ):
-    """Creates an inverted residual block as used in MobileNetV2 / MobileViT."""
+    """Inverted residual (MBConv) block as used in MobileNetV2 / MobileViT.
+
+    Args:
+        inputs: Input feature map.
+        filters: Output channel count.
+        channels_axis: Channel axis index (``-1`` for channels-last, ``-3`` for
+            channels-first).
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        strides: Spatial stride for the depthwise conv. Defaults to ``1``.
+        expansion_ratio: Channel expansion factor for the hidden layer.
+            Defaults to ``1.0``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with ``filters`` channels and spatial size reduced by
+        ``strides``.
+    """
     residual_connection = (strides == 1) and (inputs.shape[channels_axis] == filters)
 
     x = layers.Conv2D(
@@ -111,7 +139,25 @@ def mobilevit_block(
     patch_size=8,
     name="mobilevit_transformer_block",
 ):
-    """MobileViT transformer fusion block."""
+    """MobileViT transformer fusion block (local conv + global self-attention).
+
+    Args:
+        inputs: Input feature map.
+        block_dims: Output channel count of the block.
+        channels_axis: Channel axis index.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        attention_dims: Channel dimension used inside the transformer. If
+            ``None``, defaults to ``make_divisible(inputs.shape[channels_axis])``.
+        num_attention_blocks: Number of stacked transformer encoder blocks.
+            Defaults to ``2``.
+        patch_size: Side length of the square patches unfolded for self-attention.
+            Defaults to ``8``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with ``block_dims`` channels and the same spatial size as
+        ``inputs``.
+    """
     if attention_dims is None:
         attention_dims = make_divisible(inputs.shape[channels_axis])
 
@@ -229,19 +275,29 @@ def mobilevit_backbone_feature(
     inputs,
     *,
     initial_dims,
-    head_dims,
     block_dims,
     expansion_ratio,
     attention_dims,
     data_format,
     channels_axis,
 ):
-    """MobileViT stem + 5 stages + final 1x1 conv.
+    """MobileViT stem + 5 stages.
 
-    Returns ``[stem, stage0, stage1, stage2, stage3, stage4, final_conv]``.
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        initial_dims: Stem output channel count.
+        block_dims: Per-stage output channel counts (length 5).
+        expansion_ratio: Per-stage MBConv expansion ratios (length 5).
+        attention_dims: Per-stage transformer attention dims (length 5). Entries
+            may be ``None`` for stages that don't use a transformer block.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel axis index.
+
+    Returns:
+        Final stage feature map with ``block_dims[-1]`` channels at spatial
+        resolution ``H/32``.
     """
-    features = []
-
     x = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), data_format=data_format)(inputs)
     x = layers.Conv2D(
         initial_dims,
@@ -259,7 +315,6 @@ def mobilevit_backbone_feature(
         name="stem_batchnorm",
     )(x)
     x = layers.Activation("swish", name="stem_act")(x)
-    features.append(x)
 
     for i in range(5):
         x = inverted_residual_block(
@@ -304,31 +359,18 @@ def mobilevit_backbone_feature(
                 name=f"stages_{i}_1",
             )
 
-        features.append(x)
-
-    x = layers.Conv2D(
-        head_dims,
-        kernel_size=1,
-        strides=1,
-        padding="same",
-        use_bias=False,
-        name="final_conv",
-    )(x)
-    x = layers.BatchNormalization(
-        axis=channels_axis,
-        momentum=0.9,
-        epsilon=1e-5,
-        name="final_batchnorm",
-    )(x)
-    x = layers.Activation("swish", name="final_act")(x)
-    features.append(x)
-
-    return features
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MobileViTClassify(BaseModel):
-    """MobileViT classifier (timm-ported).
+class MobileViTModel(BaseModel):
+    """MobileViT backbone — the main feature extractor.
+
+    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first) with ``block_dims[-1]`` channels at
+    spatial resolution ``H/32``. This is the last layer output before the
+    1x1 final conv head. :class:`MobileViTClassify` composes this model and
+    appends the final 1x1 conv, GAP, and linear classifier.
 
     Reference:
     - [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision
@@ -336,126 +378,8 @@ class MobileViTClassify(BaseModel):
 
     Construction:
 
-    >>> MobileViT.from_weights("mobilevit_s_cvnets_in1k")
-    >>> MobileViT.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
-    """
-
-    KMODELS_CONFIG = MOBILEVIT_CONFIG
-    KMODELS_WEIGHTS = MOBILEVIT_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_mobilevit_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        initial_dims: int = 16,
-        head_dims: int = 640,
-        block_dims: list = [32, 64, 96, 128, 160],
-        expansion_ratio: list = [4.0, 4.0, 4.0, 4.0, 4.0],
-        attention_dims: list = [None, None, 144, 192, 240],
-        image_size=256,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="MobileViTClassify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mobilevit_backbone_feature(
-            x,
-            initial_dims=initial_dims,
-            head_dims=head_dims,
-            block_dims=block_dims,
-            expansion_ratio=expansion_ratio,
-            attention_dims=attention_dims,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-            features[-1]
-        )
-        x = layers.Dense(
-            num_classes,
-            activation=classifier_activation,
-            name="predictions",
-        )(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.initial_dims = initial_dims
-        self.head_dims = head_dims
-        self.block_dims = block_dims
-        self.expansion_ratio = expansion_ratio
-        self.attention_dims = attention_dims
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "initial_dims": self.initial_dims,
-                "head_dims": self.head_dims,
-                "block_dims": self.block_dims,
-                "expansion_ratio": self.expansion_ratio,
-                "attention_dims": self.attention_dims,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MobileViTModel(BaseModel):
-    """MobileViT trunk returning the final stage feature map.
-
-    Output shape: ``(B, H, W, C)`` — the final 1x1-projected feature map,
-    unpooled and head-free.
+    >>> MobileViTModel.from_weights("mobilevit_s_cvnets_in1k")
+    >>> MobileViTModel.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
     """
 
     KMODELS_CONFIG = MOBILEVIT_CONFIG
@@ -517,10 +441,9 @@ class MobileViTModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = mobilevit_backbone_feature(
+        x = mobilevit_backbone_feature(
             x,
             initial_dims=initial_dims,
-            head_dims=head_dims,
             block_dims=block_dims,
             expansion_ratio=expansion_ratio,
             attention_dims=attention_dims,
@@ -528,7 +451,7 @@ class MobileViTModel(BaseModel):
             channels_axis=channels_axis,
         )
 
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.initial_dims = initial_dims
         self.head_dims = head_dims
@@ -565,21 +488,25 @@ class MobileViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MobileViTBackbone(BaseModel):
-    """MobileViT feature extractor (no classifier head)."""
+class MobileViTClassify(BaseModel):
+    """MobileViT classifier (timm-ported).
+
+    Wraps a :class:`MobileViTModel` backbone, applies the final 1x1 conv head,
+    GAP, and a Dense classifier.
+
+    Reference:
+    - [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision
+      Transformer](https://arxiv.org/abs/2110.02178)
+
+    Construction:
+
+    >>> MobileViTClassify.from_weights("mobilevit_s_cvnets_in1k")
+    >>> MobileViTClassify.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
+    """
 
     KMODELS_CONFIG = MOBILEVIT_CONFIG
     KMODELS_WEIGHTS = MOBILEVIT_WEIGHTS
     HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = MobileViTClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
@@ -597,50 +524,53 @@ class MobileViTBackbone(BaseModel):
         normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
-        name="MobileViTBackbone",
+        num_classes=1000,
+        classifier_activation="linear",
+        name="MobileViTClassify",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
-        # require_flatten=True keeps a concrete H/W in the input spec which
-        # the MobileViT patch-fold layer needs at graph-build time.
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mobilevit_backbone_feature(
-            x,
+        backbone = MobileViTModel(
             initial_dims=initial_dims,
             head_dims=head_dims,
             block_dims=block_dims,
             expansion_ratio=expansion_ratio,
             attention_dims=attention_dims,
-            data_format=data_format,
-            channels_axis=channels_axis,
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
         )
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        x = layers.Conv2D(
+            head_dims,
+            kernel_size=1,
+            strides=1,
+            padding="same",
+            use_bias=False,
+            name="final_conv",
+        )(backbone.output)
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            momentum=0.9,
+            epsilon=1e-5,
+            name="final_batchnorm",
+        )(x)
+        x = layers.Activation("swish", name="final_act")(x)
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+        out = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.initial_dims = initial_dims
         self.head_dims = head_dims
@@ -651,6 +581,8 @@ class MobileViTBackbone(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
 
     def get_config(self):
         config = super().get_config()
@@ -666,6 +598,8 @@ class MobileViTBackbone(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )

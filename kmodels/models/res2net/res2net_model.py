@@ -204,12 +204,20 @@ def res2net_backbone_feature(
     channels_axis,
     data_format,
 ):
-    """Res2Net stem + stages, returning a list of feature maps.
+    """Res2Net stem + stages, returning the final stage feature map.
 
-    Shared by :class:`Res2Net` (which pools + classifies) and
-    :class:`Res2NetBackbone` (which exposes the full list).
+    Args:
+        inputs: Input image tensor.
+        depth: Number of Bottle2neck blocks per stage (length-4 list).
+        base_width: Base channel width per scale in the Bottle2neck block.
+        scale: Number of feature scales in the Bottle2neck block.
+        cardinality: Number of groups for grouped convolution.
+        channels_axis: Int axis for the channel dimension.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Final stage feature tensor.
     """
-    features = []
     x = layers.ZeroPadding2D(padding=3, data_format=data_format)(inputs)
     x = layers.Conv2D(
         64,
@@ -228,7 +236,6 @@ def res2net_backbone_feature(
     x = layers.MaxPooling2D(
         pool_size=3, strides=2, padding="valid", data_format=data_format
     )(x)
-    features.append(x)
 
     filters = [64, 128, 256, 512]
     for i, (blocks, filter_size) in enumerate(zip(depth, filters)):
@@ -254,150 +261,19 @@ def res2net_backbone_feature(
                 scale=scale,
                 data_format=data_format,
             )
-        features.append(x)
-    return features
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class Res2NetClassify(BaseModel):
-    """Res2Net classifier with multi-scale residual blocks.
-
-    Reference:
-    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
-
-    Construction:
-
-    >>> Res2NetClassify.from_weights("res2net50_26w_4s_in1k")
-    >>> Res2NetClassify.from_weights("timm:timm/res2net50_26w_4s.in1k")
-
-    Use :class:`Res2NetBackbone` for the per-stage feature maps.
-
-    Args:
-        depth: List of ints, number of blocks per stage.
-        base_width: Int, base channel width per scale. Default ``26``.
-        scale: Int, number of scales per Res2Net block. Default ``4``.
-        cardinality: Int, group count for grouped convolution. Default ``1``.
-        include_normalization: Bool, whether to prepend an
-            :class:`ImageNormalizationLayer`. Default ``True``.
-        normalization_mode: One of ``"imagenet"``, ``"inception"``, ``"dpn"``,
-            ``"clip"``, ``"zero_to_one"``, ``"minus_one_to_one"``. Default
-            ``"imagenet"``.
-        input_shape: Optional ``(H, W, C)``. Default ``(224, 224, 3)``.
-        input_tensor: Optional pre-existing Keras input tensor.
-        num_classes: Int, number of output classes. Default ``1000``.
-        classifier_activation: Activation for the head. ``None`` returns
-            logits. Default ``"linear"``.
-        name: Model name. Default ``"Res2NetClassify"``.
-
-    Returns:
-        A Keras :class:`Model` instance.
-    """
-
-    KMODELS_CONFIG = RES2NET_CONFIG
-    KMODELS_WEIGHTS = RES2NET_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_res2net_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        depth=(3, 4, 6, 3),
-        base_width=26,
-        scale=4,
-        cardinality=1,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_tensor=None,
-        input_shape=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="Res2NetClassify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = res2net_backbone_feature(
-            x,
-            depth=depth,
-            base_width=base_width,
-            scale=scale,
-            cardinality=cardinality,
-            channels_axis=channels_axis,
-            data_format=data_format,
-        )
-        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-            features[-1]
-        )
-        x = layers.Dense(
-            num_classes, activation=classifier_activation, name="predictions"
-        )(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.depth = depth
-        self.base_width = base_width
-        self.scale = scale
-        self.cardinality = cardinality
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "depth": self.depth,
-                "base_width": self.base_width,
-                "scale": self.scale,
-                "cardinality": self.cardinality,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-                "trainable": self.trainable,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Res2NetModel(BaseModel):
-    """Res2Net trunk returning the final stage feature map ``(B, H, W, C)``."""
+    """Res2Net trunk returning the final stage feature map ``(B, H, W, C)``.
+
+    Output is the raw final-stage feature map. :class:`Res2NetClassify`
+    composes this model and applies GAP + Dense head to produce logits.
+
+    Reference:
+    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
+    """
 
     KMODELS_CONFIG = RES2NET_CONFIG
     KMODELS_WEIGHTS = RES2NET_WEIGHTS
@@ -456,7 +332,7 @@ class Res2NetModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = res2net_backbone_feature(
+        x = res2net_backbone_feature(
             x,
             depth=depth,
             base_width=base_width,
@@ -466,7 +342,7 @@ class Res2NetModel(BaseModel):
             data_format=data_format,
         )
 
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.depth = depth
         self.base_width = base_width
@@ -500,25 +376,44 @@ class Res2NetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class Res2NetBackbone(BaseModel):
-    """Res2Net feature extractor (no classifier head).
+class Res2NetClassify(BaseModel):
+    """Res2Net classifier with multi-scale residual blocks.
 
-    Returns a list ``[stem, stage1, stage2, stage3, stage4]`` of feature
-    maps. Use as a backbone for detection / segmentation downstream.
+    Wraps a :class:`Res2NetModel` backbone and applies a GAP + Dense head
+    to produce class logits.
+
+    Reference:
+    - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
+
+    Construction:
+
+    >>> Res2NetClassify.from_weights("res2net50_26w_4s_in1k")
+    >>> Res2NetClassify.from_weights("timm:timm/res2net50_26w_4s.in1k")
+
+    Args:
+        depth: List of ints, number of blocks per stage.
+        base_width: Int, base channel width per scale. Default ``26``.
+        scale: Int, number of scales per Res2Net block. Default ``4``.
+        cardinality: Int, group count for grouped convolution. Default ``1``.
+        include_normalization: Bool, whether to prepend an
+            :class:`ImageNormalizationLayer`. Default ``True``.
+        normalization_mode: One of ``"imagenet"``, ``"inception"``, ``"dpn"``,
+            ``"clip"``, ``"zero_to_one"``, ``"minus_one_to_one"``. Default
+            ``"imagenet"``.
+        input_shape: Optional ``(H, W, C)``. Default ``(224, 224, 3)``.
+        input_tensor: Optional pre-existing Keras input tensor.
+        num_classes: Int, number of output classes. Default ``1000``.
+        classifier_activation: Activation for the head. ``None`` returns
+            logits. Default ``"linear"``.
+        name: Model name. Default ``"Res2NetClassify"``.
+
+    Returns:
+        A Keras :class:`Model` instance.
     """
 
     KMODELS_CONFIG = RES2NET_CONFIG
     KMODELS_WEIGHTS = RES2NET_WEIGHTS
     HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = Res2NetClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
@@ -534,47 +429,35 @@ class Res2NetBackbone(BaseModel):
         normalization_mode="imagenet",
         input_tensor=None,
         input_shape=None,
-        name="Res2NetBackbone",
+        num_classes=1000,
+        classifier_activation="linear",
+        name="Res2NetClassify",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = res2net_backbone_feature(
-            x,
+        backbone = Res2NetModel(
             depth=depth,
             base_width=base_width,
             scale=scale,
             cardinality=cardinality,
-            channels_axis=channels_axis,
-            data_format=data_format,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_tensor=input_tensor,
+            input_shape=input_shape,
+            name=f"{name}_backbone",
         )
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            backbone.output
+        )
+        out = layers.Dense(
+            num_classes, activation=classifier_activation, name="predictions"
+        )(x)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.depth = depth
         self.base_width = base_width
@@ -583,6 +466,8 @@ class Res2NetBackbone(BaseModel):
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
 
     def get_config(self):
         config = super().get_config()
@@ -596,6 +481,8 @@ class Res2NetBackbone(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
                 "trainable": self.trainable,
             }

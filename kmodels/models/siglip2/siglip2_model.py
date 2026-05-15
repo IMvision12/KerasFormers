@@ -12,6 +12,7 @@ keeps each class scoped to its HuggingFace ``model_type``.
 """
 
 import keras
+from keras import layers
 
 from kmodels.base import BaseModel
 from kmodels.models.siglip.siglip_model import (
@@ -173,9 +174,10 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
     """SigLIP 2 vision encoder + linear classifier head.
 
     Mirrors :class:`SigLIPImageClassify`; the only differences are the
-    variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS``) and
-    ``HF_MODEL_TYPE = "siglip2"``. ``from_release`` warm-starts the
-    encoder from a :class:`SigLIP2Model` checkpoint.
+    variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS``) and that
+    the composed backbone is a :class:`SigLIP2Model` rather than a
+    :class:`SigLIPModel`. ``from_release`` warm-starts the encoder from
+    a :class:`SigLIP2Model` checkpoint.
     """
 
     KMODELS_CONFIG = SIGLIP2_CONFIG
@@ -183,9 +185,71 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
 
     HF_MODEL_TYPE = "siglip"
 
-    def __init__(self, *args, name="SigLIP2ImageClassify", **kwargs):
-        super().__init__(*args, name=name, **kwargs)
-
     @classmethod
     def _release_warm_start_cls(cls):
         return SigLIP2Model
+
+    def __init__(
+        self,
+        num_labels=1000,
+        image_resolution=224,
+        patch_size=16,
+        vision_hidden_dim=768,
+        vision_num_layers=12,
+        vision_num_heads=12,
+        vision_intermediate_dim=3072,
+        vocabulary_size=256000,
+        embed_dim=768,
+        text_hidden_dim=768,
+        text_num_layers=12,
+        text_num_heads=12,
+        text_intermediate_dim=3072,
+        max_sequence_length=64,
+        input_shape=None,
+        input_tensor=None,
+        name="SigLIP2ImageClassify",
+        **kwargs,
+    ):
+        backbone = SigLIP2Model(
+            image_resolution=image_resolution,
+            patch_size=patch_size,
+            vision_hidden_dim=vision_hidden_dim,
+            vision_num_layers=vision_num_layers,
+            vision_num_heads=vision_num_heads,
+            vision_intermediate_dim=vision_intermediate_dim,
+            vocabulary_size=vocabulary_size,
+            embed_dim=embed_dim,
+            text_hidden_dim=text_hidden_dim,
+            text_num_layers=text_num_layers,
+            text_num_heads=text_num_heads,
+            text_intermediate_dim=text_intermediate_dim,
+            max_sequence_length=max_sequence_length,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        logits = layers.Dense(num_labels, name="classifier")(
+            backbone.output["image_embeddings"]
+        )
+
+        # Skip SigLIPImageClassify's __init__ — go straight to BaseModel.
+        super(SigLIPImageClassify, self).__init__(
+            inputs=backbone.input, outputs=logits, name=name, **kwargs
+        )
+
+        self.num_labels = num_labels
+        self.image_resolution = image_resolution
+        self.patch_size = patch_size
+        self.vision_hidden_dim = vision_hidden_dim
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
+        self.vision_intermediate_dim = vision_intermediate_dim
+        self.vocabulary_size = vocabulary_size
+        self.embed_dim = embed_dim
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_layers = text_num_layers
+        self.text_num_heads = text_num_heads
+        self.text_intermediate_dim = text_intermediate_dim
+        self.max_sequence_length = max_sequence_length
+        self.input_tensor = input_tensor

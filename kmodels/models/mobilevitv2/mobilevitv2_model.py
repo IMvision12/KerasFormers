@@ -15,7 +15,19 @@ from .convert_mobilevitv2_torch_to_keras import transfer_mobilevitv2_weights
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
-    """Snap a (possibly scaled) channel count to a multiple of ``divisor``."""
+    """Snap a (possibly scaled) channel count to a multiple of ``divisor``.
+
+    Args:
+        v: Channel count to round (may be float-valued from a width multiplier).
+        divisor: Multiple to snap to. Defaults to ``8``.
+        min_value: Floor for the rounded value; defaults to ``divisor`` when ``None``.
+        round_limit: If the rounded value is less than ``round_limit * v``, bump it
+            up by one more ``divisor`` step. Defaults to ``0.9``.
+
+    Returns:
+        Integer channel count that is a multiple of ``divisor`` and at least
+        ``min_value``.
+    """
     min_value = min_value or divisor
     new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
     if new_v < round_limit * v:
@@ -32,7 +44,22 @@ def inverted_residual_block(
     expansion_ratio=2.0,
     name="inverted_residual_block",
 ):
-    """MobileViTV2 inverted residual block."""
+    """MobileViTV2 inverted residual (MBConv) block.
+
+    Args:
+        inputs: Input feature map.
+        filters: Output channel count.
+        channels_axis: Channel axis index.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        strides: Spatial stride for the depthwise conv. Defaults to ``1``.
+        expansion_ratio: Channel expansion factor for the hidden layer.
+            Defaults to ``2.0``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with ``filters`` channels and spatial size reduced by
+        ``strides``.
+    """
     residual_connection = (strides == 1) and (inputs.shape[channels_axis] == filters)
 
     x = layers.Conv2D(
@@ -103,7 +130,19 @@ def inverted_residual_block(
 def linear_self_attention(
     inputs, dim, data_format, use_bias=True, name="linear_self_attention"
 ):
-    """Linear self-attention block used by MobileViTV2."""
+    """Separable (linear) self-attention block used by MobileViTV2.
+
+    Args:
+        inputs: Input tensor in patch-folded form.
+        dim: Channel dimension for the query/key/value projections.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        use_bias: Whether the projection convs use bias. Defaults to ``True``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with ``dim`` channels and the same spatial shape as
+        ``inputs``.
+    """
     num_patch_axis = -2 if data_format == "channels_last" else -1
 
     x = layers.Conv2D(1 + (2 * dim), 1, use_bias=use_bias, name=f"{name}_attn_conv_1")(
@@ -146,7 +185,28 @@ def mobilevitv2_block(
     patch_size=2,
     name="mobilevitv2_block",
 ):
-    """MobileViTV2 transformer block with linear self-attention."""
+    """MobileViTV2 transformer fusion block with linear self-attention.
+
+    Args:
+        inputs: Input feature map.
+        block_dims: Output channel count of the block.
+        channels_axis: Channel axis index.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        kernel_size: Kernel size of the leading depthwise conv. Defaults to ``3``.
+        expansion_ratio: Multiplier used to derive ``transformer_dim`` when it is
+            not given. Defaults to ``2.0``.
+        transformer_dim: Channel dimension inside the transformer. If ``None``,
+            computed as ``make_divisible(inputs.channels * expansion_ratio)``.
+        transformer_depth: Number of stacked transformer encoder blocks.
+            Defaults to ``2``.
+        patch_size: Side length of square patches unfolded for self-attention.
+            Defaults to ``2``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with ``block_dims`` channels and the same spatial size as
+        ``inputs``.
+    """
     transformer_dim = transformer_dim or make_divisible(
         inputs.shape[channels_axis] * expansion_ratio
     )
@@ -263,10 +323,17 @@ def mobilevitv2_backbone_feature(
 ):
     """MobileViTV2 stem + 5 stages.
 
-    Returns ``[stem, stage0, stage1, stage2, stage3, stage4]``.
-    """
-    features = []
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        multiplier: Width multiplier applied to every stage's channel count.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel axis index.
 
+    Returns:
+        Final stage feature map with ``int(512 * multiplier)`` channels at
+        spatial resolution ``H/32``.
+    """
     x = layers.ZeroPadding2D(padding=1, data_format=data_format)(inputs)
     x = layers.Conv2D(
         int(32 * multiplier),
@@ -284,7 +351,6 @@ def mobilevitv2_backbone_feature(
         name="stem_batchnorm",
     )(x)
     x = layers.Activation("swish", name="stem_act")(x)
-    features.append(x)
 
     for stage in range(5):
         channels = int(([64, 128, 256, 384, 512][stage]) * multiplier)
@@ -324,14 +390,17 @@ def mobilevitv2_backbone_feature(
                 name=f"stages_{stage}_1",
             )
 
-        features.append(x)
-
-    return features
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MobileViTV2Classify(BaseModel):
-    """MobileViTV2 classifier (timm-ported).
+class MobileViTV2Model(BaseModel):
+    """MobileViTV2 backbone — the main feature extractor.
+
+    Returns the final stage feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first), unpooled and head-free. This is the
+    last layer output before the classifier head. :class:`MobileViTV2Classify`
+    composes this model and appends GAP + Dense.
 
     Reference:
     - [Separable Self-attention for Mobile Vision
@@ -339,107 +408,9 @@ class MobileViTV2Classify(BaseModel):
 
     Construction:
 
-    >>> MobileViTV2.from_weights("mobilevitv2_100_cvnets_in1k")
-    >>> MobileViTV2.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
+    >>> MobileViTV2Model.from_weights("mobilevitv2_100_cvnets_in1k")
+    >>> MobileViTV2Model.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
     """
-
-    KMODELS_CONFIG = MOBILEVITV2_CONFIG
-    KMODELS_WEIGHTS = MOBILEVITV2_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_mobilevitv2_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        multiplier=1.0,
-        image_size=256,
-        include_normalization=True,
-        normalization_mode="zero_to_one",
-        input_shape=None,
-        input_tensor=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="MobileViTV2Classify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mobilevitv2_backbone_feature(
-            x,
-            multiplier=multiplier,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-            features[-1]
-        )
-        x = layers.Dense(
-            num_classes,
-            activation=classifier_activation,
-            name="predictions",
-        )(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.multiplier = multiplier
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "multiplier": self.multiplier,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MobileViTV2Model(BaseModel):
-    """MobileViTV2 trunk returning the final stage feature map."""
 
     KMODELS_CONFIG = MOBILEVITV2_CONFIG
     KMODELS_WEIGHTS = MOBILEVITV2_WEIGHTS
@@ -496,14 +467,14 @@ class MobileViTV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = mobilevitv2_backbone_feature(
+        x = mobilevitv2_backbone_feature(
             x,
             multiplier=multiplier,
             data_format=data_format,
             channels_axis=channels_axis,
         )
 
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.multiplier = multiplier
         self.image_size = image_size
@@ -532,21 +503,25 @@ class MobileViTV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MobileViTV2Backbone(BaseModel):
-    """MobileViTV2 feature extractor (no classifier head)."""
+class MobileViTV2Classify(BaseModel):
+    """MobileViTV2 classifier (timm-ported).
+
+    Wraps a :class:`MobileViTV2Model` backbone and applies GAP + a Dense
+    classifier on top.
+
+    Reference:
+    - [Separable Self-attention for Mobile Vision
+      Transformers](https://arxiv.org/abs/2206.02680)
+
+    Construction:
+
+    >>> MobileViTV2Classify.from_weights("mobilevitv2_100_cvnets_in1k")
+    >>> MobileViTV2Classify.from_weights("timm:timm/mobilevitv2_100.cvnets_in1k")
+    """
 
     KMODELS_CONFIG = MOBILEVITV2_CONFIG
     KMODELS_WEIGHTS = MOBILEVITV2_WEIGHTS
     HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = MobileViTV2Classify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
@@ -560,52 +535,43 @@ class MobileViTV2Backbone(BaseModel):
         normalization_mode="zero_to_one",
         input_shape=None,
         input_tensor=None,
-        name="MobileViTV2Backbone",
+        num_classes=1000,
+        classifier_activation="linear",
+        name="MobileViTV2Classify",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
+        kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
 
-        # require_flatten=True keeps a concrete H/W in the input spec which
-        # the MobileViTV2 patch-fold layer needs at graph-build time.
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mobilevitv2_backbone_feature(
-            x,
+        backbone = MobileViTV2Model(
             multiplier=multiplier,
-            data_format=data_format,
-            channels_axis=channels_axis,
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
         )
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+            backbone.output
+        )
+        out = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.multiplier = multiplier
         self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
 
     def get_config(self):
         config = super().get_config()
@@ -617,6 +583,8 @@ class MobileViTV2Backbone(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )

@@ -220,6 +220,7 @@ class DinoResNetBackbone(BaseModel):
             groups=1,
             senet=False,
             width_factor=1,
+            return_stages=True,
         )
 
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)

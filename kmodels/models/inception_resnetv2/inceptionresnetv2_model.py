@@ -23,7 +23,26 @@ def conv_block(
     padding="valid",
     name="conv2d_block",
 ):
-    """Conv -> BatchNorm -> ReLU with optional asymmetric ZeroPadding."""
+    """Conv -> BatchNorm -> ReLU with optional asymmetric ZeroPadding.
+
+    When ``padding`` is ``None``, computes timm-style asymmetric padding for the
+    given ``kernel_size`` and ``strides`` and applies it via ZeroPadding2D before
+    a ``valid``-padded conv. Otherwise the Keras ``padding`` mode is used directly.
+
+    Args:
+        inputs: Input feature map.
+        filters: Number of output channels.
+        kernel_size: Conv kernel size (int or 2-tuple). Defaults to ``1``.
+        strides: Conv strides. Defaults to ``1``.
+        bn_momentum: BatchNormalization momentum. Defaults to ``0.9``.
+        bn_epsilon: BatchNormalization epsilon. Defaults to ``1e-3``.
+        padding: Keras padding mode, or ``None`` to apply timm-style asymmetric
+            ZeroPadding2D. Defaults to ``"valid"``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor after Conv -> BN -> ReLU.
+    """
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     x = inputs
@@ -67,7 +86,15 @@ def conv_block(
 
 
 def mixed_5b_block(inputs, name="mixed_5b"):
-    """Stem-end Mixed-5b block (1x1, 5x5, double-3x3, avg-pool)."""
+    """Stem-end Mixed-5b inception block (1x1, 5x5, double-3x3, avg-pool branches).
+
+    Args:
+        inputs: Input feature map.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with 320 channels (concatenated branches).
+    """
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 96, 1, name=f"{name}_branch0")
@@ -93,7 +120,17 @@ def mixed_5b_block(inputs, name="mixed_5b"):
 
 
 def block35(inputs, scale=1.0, name="repeat_0"):
-    """Inception-ResNet-A residual block."""
+    """Inception-ResNet-A residual block (operates on 35x35 feature maps).
+
+    Args:
+        inputs: Input feature map (320 channels).
+        scale: Scalar multiplied with the residual branch before the add.
+            Defaults to ``1.0``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with the same shape as ``inputs``.
+    """
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 32, 1, name=f"{name}_branch0")
@@ -115,7 +152,15 @@ def block35(inputs, scale=1.0, name="repeat_0"):
 
 
 def mixed_6a_block(inputs, name="mixed_6a"):
-    """Reduction-A block."""
+    """Reduction-A block: halves spatial size between Inception-ResNet-A and -B stages.
+
+    Args:
+        inputs: Input feature map.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with 1088 channels and spatial size halved.
+    """
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(
@@ -134,7 +179,17 @@ def mixed_6a_block(inputs, name="mixed_6a"):
 
 
 def block17(inputs, scale=1.0, name="repeat_1_0"):
-    """Inception-ResNet-B residual block."""
+    """Inception-ResNet-B residual block (operates on 17x17 feature maps).
+
+    Args:
+        inputs: Input feature map (1088 channels).
+        scale: Scalar multiplied with the residual branch before the add.
+            Defaults to ``1.0``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with the same shape as ``inputs``.
+    """
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 192, 1, name=f"{name}_branch0")
@@ -153,7 +208,15 @@ def block17(inputs, scale=1.0, name="repeat_1_0"):
 
 
 def mixed_7a_block(inputs, name="mixed_7a"):
-    """Reduction-B block."""
+    """Reduction-B block: halves spatial size between Inception-ResNet-B and -C stages.
+
+    Args:
+        inputs: Input feature map.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with 2080 channels and spatial size halved.
+    """
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 256, 1, name=f"{name}_branch0_0")
@@ -180,7 +243,20 @@ def mixed_7a_block(inputs, name="mixed_7a"):
 
 
 def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
-    """Inception-ResNet-C residual block."""
+    """Inception-ResNet-C residual block (operates on 8x8 feature maps).
+
+    Args:
+        inputs: Input feature map (2080 channels).
+        scale: Scalar multiplied with the residual branch before the add.
+            Defaults to ``1.0``.
+        activation: If ``True``, apply ReLU after the residual add. Set to
+            ``False`` for the final block before the 1x1 projection.
+            Defaults to ``True``.
+        name: Prefix for layer names within this block.
+
+    Returns:
+        Output tensor with the same shape as ``inputs``.
+    """
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 192, 1, name=f"{name}_branch0")
@@ -200,9 +276,16 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
 
 
 def inception_resnet_v2_backbone_feature(inputs, *, data_format):
-    """InceptionResNetV2 full backbone, returns a list of stage feature maps."""
-    features = []
+    """InceptionResNetV2 full backbone (stem + 3 inception-residual stages + head).
 
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
+            or ``(B, C, H, W)`` for channels-first.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Final feature map with 1536 channels at spatial size ``H/32``.
+    """
     x = conv_block(inputs, 32, 3, strides=2, padding="valid", name="conv2d_1a")
     x = conv_block(x, 32, 3, padding="valid", name="conv2d_2a")
     x = conv_block(x, 64, 3, padding="same", name="conv2d_2b")
@@ -210,214 +293,41 @@ def inception_resnet_v2_backbone_feature(inputs, *, data_format):
     x = conv_block(x, 80, 1, name="conv2d_3b")
     x = conv_block(x, 192, 3, padding="valid", name="conv2d_4a")
     x = layers.MaxPooling2D(3, strides=2)(x)
-    features.append(x)
 
     x = mixed_5b_block(x, name="mixed_5b")
     for i in range(10):
         x = block35(x, scale=0.17, name=f"repeat_{i}")
-    features.append(x)
 
     x = mixed_6a_block(x, name="mixed_6a")
     for i in range(20):
         x = block17(x, scale=0.10, name=f"repeats_1_{i}")
-    features.append(x)
 
     x = mixed_7a_block(x, name="mixed_7a")
     for i in range(9):
         x = block8(x, scale=0.20, name=f"repeats_2_{i}")
     x = block8(x, activation=False, name="block8")
     x = conv_block(x, 1536, 1, name="conv2d_7b")
-    features.append(x)
 
-    return features
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class InceptionResNetV2Classify(BaseModel):
-    """Inception-ResNet-v2 classifier (timm-ported).
+class InceptionResNetV2Model(BaseModel):
+    """InceptionResNetV2 backbone — the main feature extractor.
+
+    Returns the final feature map ``(B, H, W, C)`` (channels-last) /
+    ``(B, C, H, W)`` (channels-first), unpooled and head-free. This is the
+    last layer output before the classifier head.
+    :class:`InceptionResNetV2Classify` composes this model and appends
+    GAP + Dense.
 
     Reference:
     - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
 
     Construction:
 
-    >>> InceptionResNetV2Classify.from_weights("inception_resnet_v2_tf_in1k")
-    >>> InceptionResNetV2Classify.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
-    """
-
-    KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
-    KMODELS_WEIGHTS = INCEPTION_RESNET_V2_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_inception_resnet_v2_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        image_size=299,
-        include_normalization=True,
-        normalization_mode="inception",
-        input_shape=None,
-        input_tensor=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="InceptionResNetV2Classify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=75,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = inception_resnet_v2_backbone_feature(x, data_format=data_format)
-        x = layers.GlobalAveragePooling2D(name="avg_pool")(features[-1])
-        x = layers.Dense(
-            num_classes,
-            activation=classifier_activation,
-            name="predictions",
-        )(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self) -> dict:
-        config = super().get_config()
-        config.update(
-            {
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class InceptionResNetV2Backbone(BaseModel):
-    """InceptionResNetV2 feature extractor (4 stage maps)."""
-
-    KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
-    KMODELS_WEIGHTS = INCEPTION_RESNET_V2_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = InceptionResNetV2Classify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_inception_resnet_v2_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        image_size=299,
-        include_normalization=True,
-        normalization_mode="inception",
-        input_shape=None,
-        input_tensor=None,
-        name="InceptionResNetV2Backbone",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=75,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = inception_resnet_v2_backbone_feature(x, data_format=data_format)
-
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
-
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self) -> dict:
-        config = super().get_config()
-        config.update(
-            {
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class InceptionResNetV2Model(BaseModel):
-    """InceptionResNetV2 trunk returning the final stage feature map.
-
-    Output shape: ``(B, H, W, C)`` — unpooled, head-free.
+    >>> InceptionResNetV2Model.from_weights("inception_resnet_v2_tf_in1k")
+    >>> InceptionResNetV2Model.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
     """
 
     KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
@@ -473,9 +383,9 @@ class InceptionResNetV2Model(BaseModel):
             if include_normalization
             else img_input
         )
-        features = inception_resnet_v2_backbone_feature(x, data_format=data_format)
+        x = inception_resnet_v2_backbone_feature(x, data_format=data_format)
 
-        super().__init__(inputs=img_input, outputs=features[-1], name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.image_size = image_size
         self.include_normalization = include_normalization
@@ -491,6 +401,90 @@ class InceptionResNetV2Model(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class InceptionResNetV2Classify(BaseModel):
+    """Inception-ResNet-v2 classifier (timm-ported).
+
+    Wraps an :class:`InceptionResNetV2Model` backbone and applies GAP + a
+    Dense classifier on top.
+
+    Reference:
+    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
+
+    Construction:
+
+    >>> InceptionResNetV2Classify.from_weights("inception_resnet_v2_tf_in1k")
+    >>> InceptionResNetV2Classify.from_weights("timm:timm/inception_resnet_v2.tf_in1k")
+    """
+
+    KMODELS_CONFIG = INCEPTION_RESNET_V2_CONFIG
+    KMODELS_WEIGHTS = INCEPTION_RESNET_V2_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_inception_resnet_v2_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        image_size=299,
+        include_normalization=True,
+        normalization_mode="inception",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=1000,
+        classifier_activation="linear",
+        name="InceptionResNetV2Classify",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+
+        backbone = InceptionResNetV2Model(
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        x = layers.GlobalAveragePooling2D(name="avg_pool")(backbone.output)
+        out = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
+
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update(
+            {
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )

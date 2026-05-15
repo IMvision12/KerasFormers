@@ -89,9 +89,24 @@ def mlp_mixer_backbone_feature(
     data_format,
     channels_axis,
 ):
-    """Patch-embed + N mixer blocks + final LayerNorm, returning ``[embed, b1..bN-stride]``."""
-    features = []
+    """MLP-Mixer stem (patch embed) + N mixer blocks + final LayerNorm.
 
+    Args:
+        inputs: Input image tensor of shape ``(B, H, W, C)`` or ``(B, C, H, W)``.
+        patch_size: Side length of each square patch.
+        embed_dim: Per-patch embedding (channel) dimension.
+        num_blocks: Number of mixer blocks.
+        mlp_ratio: Pair ``(token_mlp, channel_mlp)`` of ratios scaling
+            ``embed_dim`` to the two hidden dims.
+        drop_path_rate: Maximum stochastic-depth-style dropout rate (scaled linearly
+            with block index).
+        input_shape: Image input shape used to derive grid size.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Axis of the channel dimension.
+
+    Returns:
+        Post-LayerNorm patch sequence of shape ``(B, num_patches, embed_dim)``.
+    """
     x = layers.Conv2D(
         embed_dim,
         kernel_size=patch_size,
@@ -108,17 +123,10 @@ def mlp_mixer_backbone_feature(
 
     num_patches = (height // patch_size) * (width // patch_size)
     x = layers.Reshape((num_patches, embed_dim))(x)
-    features.append(x)
 
     token_mlp_dim = int(embed_dim * mlp_ratio[0])
     channel_mlp_dim = int(embed_dim * mlp_ratio[1])
 
-    features_at = [
-        num_blocks // 4,
-        num_blocks // 2,
-        3 * num_blocks // 4,
-        num_blocks - 1,
-    ]
     for i in range(num_blocks):
         drop_path = drop_path_rate * (i / num_blocks)
         x = mixer_block(
@@ -131,259 +139,29 @@ def mlp_mixer_backbone_feature(
             drop_rate=drop_path,
             block_idx=i,
         )
-        if i in features_at:
-            features.append(x)
 
     x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernomr")(x)
-    features[-1] = x
-
-    return features
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MLPMixerClassify(BaseModel):
-    """MLP-Mixer classifier (timm-ported).
-
-    Reference:
-    - [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601) (NIPS 2021)
-
-    Construction:
-
-    >>> MLPMixerClassify.from_weights("mixer_b16_224_goog_in21k_ft_in1k")
-    >>> MLPMixerClassify.from_weights("timm:timm/mixer_b16_224.goog_in21k_ft_in1k")
-    """
-
-    KMODELS_CONFIG = MLP_MIXER_CONFIG
-    KMODELS_WEIGHTS = MLP_MIXER_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_mlp_mixer_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        patch_size=16,
-        embed_dim=768,
-        num_blocks=12,
-        mlp_ratio=(0.5, 4.0),
-        drop_rate=0.0,
-        drop_path_rate=0.0,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        num_classes=1000,
-        classifier_activation="linear",
-        name="MLPMixerClassify",
-        **kwargs,
-    ):
-        kwargs.pop("timm_id", None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mlp_mixer_backbone_feature(
-            x,
-            patch_size=patch_size,
-            embed_dim=embed_dim,
-            num_blocks=num_blocks,
-            mlp_ratio=mlp_ratio,
-            drop_path_rate=drop_path_rate,
-            input_shape=input_shape,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-        x = layers.GlobalAveragePooling1D(data_format=data_format, name="avg_pool")(
-            features[-1]
-        )
-        x = layers.Dense(
-            num_classes,
-            activation=classifier_activation,
-            name="predictions",
-        )(x)
-
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
-
-        self.patch_size = patch_size
-        self.embed_dim = embed_dim
-        self.num_blocks = num_blocks
-        self.mlp_ratio = mlp_ratio
-        self.drop_rate = drop_rate
-        self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-        self.num_classes = num_classes
-        self.classifier_activation = classifier_activation
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "patch_size": self.patch_size,
-                "embed_dim": self.embed_dim,
-                "num_blocks": self.num_blocks,
-                "mlp_ratio": self.mlp_ratio,
-                "drop_rate": self.drop_rate,
-                "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "num_classes": self.num_classes,
-                "classifier_activation": self.classifier_activation,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MLPMixerBackbone(BaseModel):
-    """MLP-Mixer feature extractor. Returns ``[embed, b1..b4]`` (5 maps)."""
-
-    KMODELS_CONFIG = MLP_MIXER_CONFIG
-    KMODELS_WEIGHTS = MLP_MIXER_WEIGHTS
-    HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = MLPMixerClassify.from_weights(variant)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        transfer_mlp_mixer_weights(keras_model, state_dict)
-
-    def __init__(
-        self,
-        patch_size=16,
-        embed_dim=768,
-        num_blocks=12,
-        mlp_ratio=(0.5, 4.0),
-        drop_rate=0.0,
-        drop_path_rate=0.0,
-        image_size=224,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
-        input_tensor=None,
-        name="MLPMixerBackbone",
-        **kwargs,
-    ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
-            kwargs.pop(k, None)
-
-        data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
-
-        if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
-        elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-
-        x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
-            if include_normalization
-            else img_input
-        )
-        features = mlp_mixer_backbone_feature(
-            x,
-            patch_size=patch_size,
-            embed_dim=embed_dim,
-            num_blocks=num_blocks,
-            mlp_ratio=mlp_ratio,
-            drop_path_rate=drop_path_rate,
-            input_shape=input_shape,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
-
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
-
-        self.patch_size = patch_size
-        self.embed_dim = embed_dim
-        self.num_blocks = num_blocks
-        self.mlp_ratio = mlp_ratio
-        self.drop_rate = drop_rate
-        self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
-        self.input_tensor = input_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "patch_size": self.patch_size,
-                "embed_dim": self.embed_dim,
-                "num_blocks": self.num_blocks,
-                "mlp_ratio": self.mlp_ratio,
-                "drop_rate": self.drop_rate,
-                "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MLPMixerModel(BaseModel):
-    """MLP-Mixer trunk returning the final token grid as ``(B, H, W, C)``."""
+    """MLP-Mixer backbone — the main feature extractor.
+
+    Returns the final-LN normalized patch sequence ``(B, N, D)`` where
+    ``N = (H/patch_size) * (W/patch_size)``. This is the last layer
+    output before the classifier head. :class:`MLPMixerClassify`
+    composes this model and applies GAP1D + Dense.
+
+    Reference:
+        Tolstikhin et al., *MLP-Mixer: An all-MLP Architecture for Vision*
+        (https://arxiv.org/abs/2105.01601).
+
+    Construction:
+
+    >>> MLPMixerModel.from_weights("mixer_b16_224_goog_in21k_ft_in1k")
+    >>> MLPMixerModel.from_weights("timm:timm/mixer_b16_224.goog_in21k_ft_in1k")
+    """
 
     KMODELS_CONFIG = MLP_MIXER_CONFIG
     KMODELS_WEIGHTS = MLP_MIXER_WEIGHTS
@@ -445,7 +223,7 @@ class MLPMixerModel(BaseModel):
             if include_normalization
             else img_input
         )
-        features = mlp_mixer_backbone_feature(
+        x = mlp_mixer_backbone_feature(
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
@@ -457,19 +235,7 @@ class MLPMixerModel(BaseModel):
             channels_axis=channels_axis,
         )
 
-        if data_format == "channels_first":
-            height, width = input_shape[1], input_shape[2]
-        else:
-            height, width = input_shape[0], input_shape[1]
-        grid_h = height // patch_size
-        grid_w = width // patch_size
-        out = layers.Reshape((grid_h, grid_w, embed_dim), name="final_unflatten")(
-            features[-1]
-        )
-        if data_format == "channels_first":
-            out = layers.Permute((3, 1, 2), name="final_to_cf")(out)
-
-        super().__init__(inputs=img_input, outputs=out, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.embed_dim = embed_dim
@@ -497,6 +263,120 @@ class MLPMixerModel(BaseModel):
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class MLPMixerClassify(BaseModel):
+    """MLP-Mixer image classifier — :class:`MLPMixerModel` + GAP1D + Dense.
+
+    Wraps an :class:`MLPMixerModel` backbone and attaches the standard
+    timm Mixer classifier head: global average pooling over patch tokens,
+    then a single Dense layer producing class logits.
+
+    Reference:
+        Tolstikhin et al., *MLP-Mixer: An all-MLP Architecture for Vision*
+        (https://arxiv.org/abs/2105.01601).
+
+    Construction:
+
+    >>> MLPMixerClassify.from_weights("mixer_b16_224_goog_in21k_ft_in1k")
+    >>> MLPMixerClassify.from_weights("timm:timm/mixer_b16_224.goog_in21k_ft_in1k")
+    """
+
+    KMODELS_CONFIG = MLP_MIXER_CONFIG
+    KMODELS_WEIGHTS = MLP_MIXER_WEIGHTS
+    HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        transfer_mlp_mixer_weights(keras_model, state_dict)
+
+    def __init__(
+        self,
+        patch_size=16,
+        embed_dim=768,
+        num_blocks=12,
+        mlp_ratio=(0.5, 4.0),
+        drop_rate=0.0,
+        drop_path_rate=0.0,
+        image_size=224,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=1000,
+        classifier_activation="linear",
+        name="MLPMixerClassify",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+
+        data_format = keras.config.image_data_format()
+
+        backbone = MLPMixerModel(
+            patch_size=patch_size,
+            embed_dim=embed_dim,
+            num_blocks=num_blocks,
+            mlp_ratio=mlp_ratio,
+            drop_rate=drop_rate,
+            drop_path_rate=drop_path_rate,
+            image_size=image_size,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        x = layers.GlobalAveragePooling1D(data_format=data_format, name="avg_pool")(
+            backbone.output
+        )
+        out = layers.Dense(
+            num_classes,
+            activation=classifier_activation,
+            name="predictions",
+        )(x)
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
+
+        self.patch_size = patch_size
+        self.embed_dim = embed_dim
+        self.num_blocks = num_blocks
+        self.mlp_ratio = mlp_ratio
+        self.drop_rate = drop_rate
+        self.drop_path_rate = drop_path_rate
+        self.image_size = image_size
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+        self.classifier_activation = classifier_activation
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "embed_dim": self.embed_dim,
+                "num_blocks": self.num_blocks,
+                "mlp_ratio": self.mlp_ratio,
+                "drop_rate": self.drop_rate,
+                "drop_path_rate": self.drop_path_rate,
+                "image_size": self.image_size,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
                 "name": self.name,
             }
         )
