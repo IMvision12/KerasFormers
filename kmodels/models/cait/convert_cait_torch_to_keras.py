@@ -87,7 +87,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.cait import CaiT
+    from kmodels.models.cait import CaiTClassify
     from kmodels.models.cait.config import CAIT_WEIGHT_CONFIG
 
     for variant, meta in CAIT_WEIGHT_CONFIG.items():
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = CaiT.from_weights(variant, load_weights=False)
+        keras_model = CaiTClassify.from_weights(variant, load_weights=False)
         transfer_cait_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"

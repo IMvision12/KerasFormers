@@ -88,7 +88,7 @@ if __name__ == "__main__":
     import keras
 
     from kmodels.base.base_model import download_hf_state_dict
-    from kmodels.models.vit import ViT
+    from kmodels.models.vit import ViTClassify
     from kmodels.models.vit.config import VIT_WEIGHT_CONFIG
 
     for variant, meta in VIT_WEIGHT_CONFIG.items():
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ViT.from_weights(variant, load_weights=False)
+        keras_model = ViTClassify.from_weights(variant, load_weights=False)
         transfer_vit_weights(keras_model, state)
 
         out_path = f"{variant}.weights.h5"
