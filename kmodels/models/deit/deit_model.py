@@ -19,7 +19,9 @@ class DeiTModel(ViTModel):
     the rest are spatial patch tokens.
     """
 
-    KMODELS_CONFIG = DEIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: DEIT_MODEL_CONFIG[m["model"]] for v, m in DEIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = DEIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -54,7 +56,9 @@ class DeiTClassify(ViTClassify):
     >>> DeiTClassify.from_weights("timm:timm/deit_tiny_distilled_patch16_224.fb_in1k")
     """
 
-    KMODELS_CONFIG = DEIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: DEIT_MODEL_CONFIG[m["model"]] for v, m in DEIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = DEIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

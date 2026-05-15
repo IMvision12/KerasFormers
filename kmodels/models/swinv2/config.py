@@ -1,5 +1,5 @@
 SWINV2_MODEL_CONFIG = {
-    "swinv2_tiny_window8_256_ms_in1k": {
+    "swinv2_tiny_window8_256": {
         "embed_dim": 96,
         "depths": (2, 2, 6, 2),
         "num_heads": (3, 6, 12, 24),
@@ -7,10 +7,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 256,
         "pretrained_window_size": 0,
         "image_size": 256,
-        "timm_id": "swinv2_tiny_window8_256.ms_in1k",
         "num_classes": 1000,
     },
-    "swinv2_tiny_window16_256_ms_in1k": {
+    "swinv2_tiny_window16_256": {
         "embed_dim": 96,
         "depths": (2, 2, 6, 2),
         "num_heads": (3, 6, 12, 24),
@@ -18,10 +17,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 256,
         "pretrained_window_size": 0,
         "image_size": 256,
-        "timm_id": "swinv2_tiny_window16_256.ms_in1k",
         "num_classes": 1000,
     },
-    "swinv2_small_window8_256_ms_in1k": {
+    "swinv2_small_window8_256": {
         "embed_dim": 96,
         "depths": (2, 2, 18, 2),
         "num_heads": (3, 6, 12, 24),
@@ -29,10 +27,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 256,
         "pretrained_window_size": 0,
         "image_size": 256,
-        "timm_id": "swinv2_small_window8_256.ms_in1k",
         "num_classes": 1000,
     },
-    "swinv2_small_window16_256_ms_in1k": {
+    "swinv2_small_window16_256": {
         "embed_dim": 96,
         "depths": (2, 2, 18, 2),
         "num_heads": (3, 6, 12, 24),
@@ -40,10 +37,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 256,
         "pretrained_window_size": 0,
         "image_size": 256,
-        "timm_id": "swinv2_small_window16_256.ms_in1k",
         "num_classes": 1000,
     },
-    "swinv2_base_window8_256_ms_in1k": {
+    "swinv2_base_window8_256": {
         "embed_dim": 128,
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
@@ -51,10 +47,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 256,
         "pretrained_window_size": 0,
         "image_size": 256,
-        "timm_id": "swinv2_base_window8_256.ms_in1k",
         "num_classes": 1000,
     },
-    "swinv2_base_window12_192_ms_in22k": {
+    "swinv2_base_window12_192": {
         "embed_dim": 128,
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
@@ -62,10 +57,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 192,
         "pretrained_window_size": 0,
         "image_size": 192,
-        "timm_id": "swinv2_base_window12_192.ms_in22k",
         "num_classes": 21841,
     },
-    "swinv2_base_window12to16_192to256_ms_in22k_ft_in1k": {
+    "swinv2_base_window12to16_192to256": {
         "embed_dim": 128,
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
@@ -73,10 +67,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 192,
         "pretrained_window_size": 12,
         "image_size": 256,
-        "timm_id": "swinv2_base_window12to16_192to256.ms_in22k_ft_in1k",
         "num_classes": 1000,
     },
-    "swinv2_base_window12to24_192to384_ms_in22k_ft_in1k": {
+    "swinv2_base_window12to24_192to384": {
         "embed_dim": 128,
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
@@ -84,10 +77,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 192,
         "pretrained_window_size": 12,
         "image_size": 384,
-        "timm_id": "swinv2_base_window12to24_192to384.ms_in22k_ft_in1k",
         "num_classes": 1000,
     },
-    "swinv2_base_window16_256_ms_in1k": {
+    "swinv2_base_window16_256": {
         "embed_dim": 128,
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
@@ -95,10 +87,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 256,
         "pretrained_window_size": 0,
         "image_size": 256,
-        "timm_id": "swinv2_base_window16_256.ms_in1k",
         "num_classes": 1000,
     },
-    "swinv2_large_window12_192_ms_in22k": {
+    "swinv2_large_window12_192": {
         "embed_dim": 192,
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),
@@ -106,10 +97,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 192,
         "pretrained_window_size": 0,
         "image_size": 192,
-        "timm_id": "swinv2_large_window12_192.ms_in22k",
         "num_classes": 21841,
     },
-    "swinv2_large_window12to16_192to256_ms_in22k_ft_in1k": {
+    "swinv2_large_window12to16_192to256": {
         "embed_dim": 192,
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),
@@ -117,10 +107,9 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 192,
         "pretrained_window_size": 12,
         "image_size": 256,
-        "timm_id": "swinv2_large_window12to16_192to256.ms_in22k_ft_in1k",
         "num_classes": 1000,
     },
-    "swinv2_large_window12to24_192to384_ms_in22k_ft_in1k": {
+    "swinv2_large_window12to24_192to384": {
         "embed_dim": 192,
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),
@@ -128,46 +117,69 @@ SWINV2_MODEL_CONFIG = {
         "pretrain_size": 192,
         "pretrained_window_size": 12,
         "image_size": 384,
-        "timm_id": "swinv2_large_window12to24_192to384.ms_in22k_ft_in1k",
         "num_classes": 1000,
     },
 }
 
 SWINV2_WEIGHT_CONFIG = {
     "swinv2_tiny_window8_256_ms_in1k": {
+        "model": "swinv2_tiny_window8_256",
+        "timm_id": "swinv2_tiny_window8_256.ms_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_tiny_window8_256_ms_in1k.weights.h5",
     },
     "swinv2_tiny_window16_256_ms_in1k": {
+        "model": "swinv2_tiny_window16_256",
+        "timm_id": "swinv2_tiny_window16_256.ms_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_tiny_window16_256_ms_in1k.weights.h5",
     },
     "swinv2_small_window8_256_ms_in1k": {
+        "model": "swinv2_small_window8_256",
+        "timm_id": "swinv2_small_window8_256.ms_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_small_window8_256_ms_in1k.weights.h5",
     },
     "swinv2_small_window16_256_ms_in1k": {
+        "model": "swinv2_small_window16_256",
+        "timm_id": "swinv2_small_window16_256.ms_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_small_window16_256_ms_in1k.weights.h5",
     },
     "swinv2_base_window8_256_ms_in1k": {
+        "model": "swinv2_base_window8_256",
+        "timm_id": "swinv2_base_window8_256.ms_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_base_window8_256_ms_in1k.weights.h5",
     },
     "swinv2_base_window12_192_ms_in22k": {
+        "model": "swinv2_base_window12_192",
+        "timm_id": "swinv2_base_window12_192.ms_in22k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_base_window12_192_ms_in22k.weights.h5",
     },
     "swinv2_base_window12to16_192to256_ms_in22k_ft_in1k": {
+        "model": "swinv2_base_window12to16_192to256",
+        "timm_id": "swinv2_base_window12to16_192to256.ms_in22k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_base_window12to16_192to256_ms_in22k_ft_in1k.weights.h5",
     },
     "swinv2_base_window12to24_192to384_ms_in22k_ft_in1k": {
+        "model": "swinv2_base_window12to24_192to384",
+        "timm_id": "swinv2_base_window12to24_192to384.ms_in22k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_base_window12to24_192to384_ms_in22k_ft_in1k.weights.h5",
     },
     "swinv2_base_window16_256_ms_in1k": {
+        "model": "swinv2_base_window16_256",
+        "timm_id": "swinv2_base_window16_256.ms_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_base_window16_256_ms_in1k.weights.h5",
     },
     "swinv2_large_window12_192_ms_in22k": {
+        "model": "swinv2_large_window12_192",
+        "timm_id": "swinv2_large_window12_192.ms_in22k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_large_window12_192_ms_in22k.weights.h5",
     },
     "swinv2_large_window12to16_192to256_ms_in22k_ft_in1k": {
+        "model": "swinv2_large_window12to16_192to256",
+        "timm_id": "swinv2_large_window12to16_192to256.ms_in22k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_large_window12to16_192to256_ms_in22k_ft_in1k.weights.h5",
     },
     "swinv2_large_window12to24_192to384_ms_in22k_ft_in1k": {
+        "model": "swinv2_large_window12to24_192to384",
+        "timm_id": "swinv2_large_window12to24_192to384.ms_in22k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/swin/swinv2_large_window12to24_192to384_ms_in22k_ft_in1k.weights.h5",
     },
 }

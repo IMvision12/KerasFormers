@@ -237,7 +237,9 @@ class ViTModel(BaseModel):
     >>> ViTModel.from_weights("timm:timm/vit_base_patch16_224.augreg_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = VIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = VIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -394,7 +396,9 @@ class ViTClassify(BaseModel):
     >>> ViTClassify.from_weights("timm:timm/vit_base_patch16_224.augreg_in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = VIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = VIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

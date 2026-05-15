@@ -252,7 +252,9 @@ class CaiTModel(BaseModel):
     >>> CaiTModel.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
     """
 
-    KMODELS_CONFIG = CAIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: CAIT_MODEL_CONFIG[m["model"]] for v, m in CAIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = CAIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -404,7 +406,9 @@ class CaiTClassify(BaseModel):
     >>> CaiTClassify.from_weights("timm:timm/cait_s24_224.fb_dist_in1k")
     """
 
-    KMODELS_CONFIG = CAIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: CAIT_MODEL_CONFIG[m["model"]] for v, m in CAIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = CAIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

@@ -1,5 +1,5 @@
 VGG_MODEL_CONFIG = {
-    "vgg11_tv_in1k": {
+    "vgg11": {
         "num_filters": [
             64,
             "M",
@@ -16,11 +16,10 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "timm_id": "vgg11.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vgg11_bn_tv_in1k": {
+    "vgg11_bn": {
         "num_filters": [
             64,
             "M",
@@ -37,11 +36,10 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "timm_id": "vgg11_bn.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vgg13_tv_in1k": {
+    "vgg13": {
         "num_filters": [
             64,
             64,
@@ -60,11 +58,10 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "timm_id": "vgg13.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vgg13_bn_tv_in1k": {
+    "vgg13_bn": {
         "num_filters": [
             64,
             64,
@@ -83,11 +80,10 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "timm_id": "vgg13_bn.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vgg16_tv_in1k": {
+    "vgg16": {
         "num_filters": [
             64,
             64,
@@ -109,11 +105,10 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "timm_id": "vgg16.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vgg16_bn_tv_in1k": {
+    "vgg16_bn": {
         "num_filters": [
             64,
             64,
@@ -135,11 +130,10 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "timm_id": "vgg16_bn.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vgg19_tv_in1k": {
+    "vgg19": {
         "num_filters": [
             64,
             64,
@@ -164,11 +158,10 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "timm_id": "vgg19.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vgg19_bn_tv_in1k": {
+    "vgg19_bn": {
         "num_filters": [
             64,
             64,
@@ -193,7 +186,6 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "timm_id": "vgg19_bn.tv_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
@@ -201,27 +193,43 @@ VGG_MODEL_CONFIG = {
 
 VGG_WEIGHT_CONFIG = {
     "vgg11_tv_in1k": {
+        "model": "vgg11",
+        "timm_id": "vgg11.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg11_tv_in1k.weights.h5",
     },
     "vgg11_bn_tv_in1k": {
+        "model": "vgg11_bn",
+        "timm_id": "vgg11_bn.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg11_bn_tv_in1k.weights.h5",
     },
     "vgg13_tv_in1k": {
+        "model": "vgg13",
+        "timm_id": "vgg13.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg13_tv_in1k.weights.h5",
     },
     "vgg13_bn_tv_in1k": {
+        "model": "vgg13_bn",
+        "timm_id": "vgg13_bn.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg13_bn_tv_in1k.weights.h5",
     },
     "vgg16_tv_in1k": {
+        "model": "vgg16",
+        "timm_id": "vgg16.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg16_tv_in1k.weights.h5",
     },
     "vgg16_bn_tv_in1k": {
+        "model": "vgg16_bn",
+        "timm_id": "vgg16_bn.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg16_bn_tv_in1k.weights.h5",
     },
     "vgg19_tv_in1k": {
+        "model": "vgg19",
+        "timm_id": "vgg19.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg19_tv_in1k.weights.h5",
     },
     "vgg19_bn_tv_in1k": {
+        "model": "vgg19_bn",
+        "timm_id": "vgg19_bn.tv_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/vgg19_bn_tv_in1k.weights.h5",
     },
 }

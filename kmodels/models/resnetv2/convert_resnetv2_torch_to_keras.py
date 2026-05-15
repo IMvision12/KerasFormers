@@ -72,10 +72,10 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.resnetv2 import ResNetV2Classify
-    from kmodels.models.resnetv2.config import RESNETV2_MODEL_CONFIG
+    from kmodels.models.resnetv2.config import RESNETV2_WEIGHT_CONFIG
 
-    for variant, cfg in RESNETV2_MODEL_CONFIG.items():
-        timm_id = cfg["timm_id"]
+    for variant, meta in RESNETV2_WEIGHT_CONFIG.items():
+        timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")

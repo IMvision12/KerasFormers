@@ -311,7 +311,10 @@ class EfficientNetLiteModel(BaseModel):
     model and adds GlobalAveragePool + Dropout + Dense on top.
     """
 
-    KMODELS_CONFIG = EFFICIENTNET_LITE_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: EFFICIENTNET_LITE_MODEL_CONFIG[meta["model"]]
+        for variant, meta in EFFICIENTNET_LITE_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = EFFICIENTNET_LITE_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -432,7 +435,10 @@ class EfficientNetLiteClassify(BaseModel):
     >>> EfficientNetLiteClassify.from_weights("timm:timm/tf_efficientnet_lite0.in1k")
     """
 
-    KMODELS_CONFIG = EFFICIENTNET_LITE_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: EFFICIENTNET_LITE_MODEL_CONFIG[meta["model"]]
+        for variant, meta in EFFICIENTNET_LITE_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = EFFICIENTNET_LITE_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

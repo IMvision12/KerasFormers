@@ -11,18 +11,19 @@ groups-aware Aligned Xception backbone and is not implemented here.
 """
 
 XCEPTION_MODEL_CONFIG = {
-    # timm doesn't host the original-Keras Xception weights; we use the
-    # legacy keras-applications port. ``timm_id`` is set to the closest
-    # canonical name to keep the registry uniform.
-    "xception_in1k": {
-        "timm_id": "xception.tf_in1k",
+    "xception": {
         "image_size": 299,
         "num_classes": 1000,
     },
 }
 
 XCEPTION_WEIGHT_CONFIG = {
+    # timm doesn't host the original-Keras Xception weights; we use the
+    # legacy keras-applications port. ``timm_id`` is set to the closest
+    # canonical name to keep the registry uniform.
     "xception_in1k": {
+        "model": "xception",
+        "timm_id": "xception.tf_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/keras_org_xception.weights.h5",
     },
 }

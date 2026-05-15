@@ -285,7 +285,10 @@ class Res2NetModel(BaseModel):
     - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
     """
 
-    KMODELS_CONFIG = RES2NET_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: RES2NET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RES2NET_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = RES2NET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -425,7 +428,10 @@ class Res2NetClassify(BaseModel):
         A Keras :class:`Model` instance.
     """
 
-    KMODELS_CONFIG = RES2NET_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: RES2NET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RES2NET_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = RES2NET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

@@ -251,7 +251,10 @@ class MobileNetV2Model(BaseModel):
     and adds GlobalAveragePool + Dense on top.
     """
 
-    KMODELS_CONFIG = MOBILENETV2_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MOBILENETV2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILENETV2_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MOBILENETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -370,7 +373,10 @@ class MobileNetV2Classify(BaseModel):
     >>> MobileNetV2Classify.from_weights("timm:timm/mobilenetv2_100.ra_in1k")
     """
 
-    KMODELS_CONFIG = MOBILENETV2_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MOBILENETV2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILENETV2_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MOBILENETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

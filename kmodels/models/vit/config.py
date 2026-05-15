@@ -4,7 +4,7 @@ Variant ids follow timm: ``vit_<size>_patch<N>_<resolution>_<recipe>_<dataset>``
 """
 
 VIT_MODEL_CONFIG = {
-    "vit_tiny_patch16_224_augreg_in21k_ft_in1k": {
+    "vit_tiny_patch16_224": {
         "patch_size": 16,
         "dim": 192,
         "depth": 12,
@@ -12,11 +12,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_tiny_patch16_224.augreg_in21k_ft_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vit_tiny_patch16_384_augreg_in21k_ft_in1k": {
+    "vit_tiny_patch16_384": {
         "patch_size": 16,
         "dim": 192,
         "depth": 12,
@@ -24,11 +23,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_tiny_patch16_384.augreg_in21k_ft_in1k",
         "image_size": 384,
         "num_classes": 1000,
     },
-    "vit_tiny_patch16_224_augreg_in21k": {
+    "vit_tiny_patch16_224_in21k": {
         "patch_size": 16,
         "dim": 192,
         "depth": 12,
@@ -36,11 +34,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_tiny_patch16_224.augreg_in21k",
         "image_size": 224,
         "num_classes": 21843,
     },
-    "vit_small_patch16_224_augreg_in21k_ft_in1k": {
+    "vit_small_patch16_224": {
         "patch_size": 16,
         "dim": 384,
         "depth": 12,
@@ -48,11 +45,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_small_patch16_224.augreg_in21k_ft_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vit_small_patch16_384_augreg_in21k_ft_in1k": {
+    "vit_small_patch16_384": {
         "patch_size": 16,
         "dim": 384,
         "depth": 12,
@@ -60,11 +56,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_small_patch16_384.augreg_in21k_ft_in1k",
         "image_size": 384,
         "num_classes": 1000,
     },
-    "vit_small_patch16_224_augreg_in1k": {
+    "vit_small_patch16_224_in21k": {
         "patch_size": 16,
         "dim": 384,
         "depth": 12,
@@ -72,35 +67,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_small_patch16_224.augreg_in1k",
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_small_patch16_384_augreg_in1k": {
-        "patch_size": 16,
-        "dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_small_patch16_384.augreg_in1k",
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_small_patch16_224_augreg_in21k": {
-        "patch_size": 16,
-        "dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_small_patch16_224.augreg_in21k",
         "image_size": 224,
         "num_classes": 21843,
     },
-    "vit_small_patch32_224_augreg_in21k_ft_in1k": {
+    "vit_small_patch32_224": {
         "patch_size": 32,
         "dim": 384,
         "depth": 12,
@@ -108,11 +78,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_small_patch32_224.augreg_in21k_ft_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vit_small_patch32_384_augreg_in21k_ft_in1k": {
+    "vit_small_patch32_384": {
         "patch_size": 32,
         "dim": 384,
         "depth": 12,
@@ -120,11 +89,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_small_patch32_384.augreg_in21k_ft_in1k",
         "image_size": 384,
         "num_classes": 1000,
     },
-    "vit_small_patch32_224_augreg_in21k": {
+    "vit_small_patch32_224_in21k": {
         "patch_size": 32,
         "dim": 384,
         "depth": 12,
@@ -132,11 +100,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_small_patch32_224.augreg_in21k",
         "image_size": 224,
         "num_classes": 21843,
     },
-    "vit_base_patch16_224_augreg_in21k_ft_in1k": {
+    "vit_base_patch16_224": {
         "patch_size": 16,
         "dim": 768,
         "depth": 12,
@@ -144,11 +111,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_base_patch16_224.augreg_in21k_ft_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vit_base_patch16_384_augreg_in21k_ft_in1k": {
+    "vit_base_patch16_384": {
         "patch_size": 16,
         "dim": 768,
         "depth": 12,
@@ -156,11 +122,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_base_patch16_384.augreg_in21k_ft_in1k",
         "image_size": 384,
         "num_classes": 1000,
     },
-    "vit_base_patch16_224_orig_in21k_ft_in1k": {
+    "vit_base_patch16_224_in21k": {
         "patch_size": 16,
         "dim": 768,
         "depth": 12,
@@ -168,59 +133,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_base_patch16_224.orig_in21k_ft_in1k",
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_base_patch16_384_orig_in21k_ft_in1k": {
-        "patch_size": 16,
-        "dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_base_patch16_384.orig_in21k_ft_in1k",
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_base_patch16_224_augreg_in1k": {
-        "patch_size": 16,
-        "dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_base_patch16_224.augreg_in1k",
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_base_patch16_384_augreg_in1k": {
-        "patch_size": 16,
-        "dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_base_patch16_384.augreg_in1k",
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_base_patch16_224_augreg_in21k": {
-        "patch_size": 16,
-        "dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_base_patch16_224.augreg_in21k",
         "image_size": 224,
         "num_classes": 21843,
     },
-    "vit_base_patch32_224_augreg_in21k_ft_in1k": {
+    "vit_base_patch32_224": {
         "patch_size": 32,
         "dim": 768,
         "depth": 12,
@@ -228,11 +144,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_base_patch32_224.augreg_in21k_ft_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vit_base_patch32_384_augreg_in21k_ft_in1k": {
+    "vit_base_patch32_384": {
         "patch_size": 32,
         "dim": 768,
         "depth": 12,
@@ -240,11 +155,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_base_patch32_384.augreg_in21k_ft_in1k",
         "image_size": 384,
         "num_classes": 1000,
     },
-    "vit_base_patch32_224_augreg_in1k": {
+    "vit_base_patch32_224_in21k": {
         "patch_size": 32,
         "dim": 768,
         "depth": 12,
@@ -252,35 +166,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_base_patch32_224.augreg_in1k",
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_base_patch32_384_augreg_in1k": {
-        "patch_size": 32,
-        "dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_base_patch32_384.augreg_in1k",
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_base_patch32_224_augreg_in21k": {
-        "patch_size": 32,
-        "dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "timm_id": "vit_base_patch32_224.augreg_in21k",
         "image_size": 224,
         "num_classes": 21843,
     },
-    "vit_large_patch16_224_augreg_in21k_ft_in1k": {
+    "vit_large_patch16_224": {
         "patch_size": 16,
         "dim": 1024,
         "depth": 24,
@@ -288,11 +177,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_large_patch16_224.augreg_in21k_ft_in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "vit_large_patch16_384_augreg_in21k_ft_in1k": {
+    "vit_large_patch16_384": {
         "patch_size": 16,
         "dim": 1024,
         "depth": 24,
@@ -300,11 +188,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_large_patch16_384.augreg_in21k_ft_in1k",
         "image_size": 384,
         "num_classes": 1000,
     },
-    "vit_large_patch16_224_augreg_in21k": {
+    "vit_large_patch16_224_in21k": {
         "patch_size": 16,
         "dim": 1024,
         "depth": 24,
@@ -312,11 +199,10 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_large_patch16_224.augreg_in21k",
         "image_size": 224,
         "num_classes": 21843,
     },
-    "vit_large_patch32_384_orig_in21k_ft_in1k": {
+    "vit_large_patch32_384": {
         "patch_size": 32,
         "dim": 1024,
         "depth": 24,
@@ -324,7 +210,6 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "timm_id": "vit_large_patch32_384.orig_in21k_ft_in1k",
         "image_size": 384,
         "num_classes": 1000,
     },
@@ -332,84 +217,138 @@ VIT_MODEL_CONFIG = {
 
 VIT_WEIGHT_CONFIG = {
     "vit_tiny_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_tiny_patch16_224",
+        "timm_id": "vit_tiny_patch16_224.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_tiny_patch16_224_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_tiny_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_tiny_patch16_384",
+        "timm_id": "vit_tiny_patch16_384.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_tiny_patch16_384_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_tiny_patch16_224_augreg_in21k": {
+        "model": "vit_tiny_patch16_224_in21k",
+        "timm_id": "vit_tiny_patch16_224.augreg_in21k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_tiny_patch16_224_augreg_in21k.weights.h5",
     },
     "vit_small_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch16_224",
+        "timm_id": "vit_small_patch16_224.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch16_224_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_small_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch16_384",
+        "timm_id": "vit_small_patch16_384.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch16_384_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_small_patch16_224_augreg_in1k": {
+        "model": "vit_small_patch16_224",
+        "timm_id": "vit_small_patch16_224.augreg_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch16_224_augreg_in1k.weights.h5",
     },
     "vit_small_patch16_384_augreg_in1k": {
+        "model": "vit_small_patch16_384",
+        "timm_id": "vit_small_patch16_384.augreg_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch16_384_augreg_in1k.weights.h5",
     },
     "vit_small_patch16_224_augreg_in21k": {
+        "model": "vit_small_patch16_224_in21k",
+        "timm_id": "vit_small_patch16_224.augreg_in21k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch16_224_augreg_in21k.weights.h5",
     },
     "vit_small_patch32_224_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch32_224",
+        "timm_id": "vit_small_patch32_224.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch32_224_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_small_patch32_384_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch32_384",
+        "timm_id": "vit_small_patch32_384.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch32_384_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_small_patch32_224_augreg_in21k": {
+        "model": "vit_small_patch32_224_in21k",
+        "timm_id": "vit_small_patch32_224.augreg_in21k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_small_patch32_224_augreg_in21k.weights.h5",
     },
     "vit_base_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch16_224",
+        "timm_id": "vit_base_patch16_224.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch16_224_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_base_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch16_384",
+        "timm_id": "vit_base_patch16_384.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch16_384_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_base_patch16_224_orig_in21k_ft_in1k": {
+        "model": "vit_base_patch16_224",
+        "timm_id": "vit_base_patch16_224.orig_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch16_224_orig_in21k_ft_in1k.weights.h5",
     },
     "vit_base_patch16_384_orig_in21k_ft_in1k": {
+        "model": "vit_base_patch16_384",
+        "timm_id": "vit_base_patch16_384.orig_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch16_384_orig_in21k_ft_in1k.weights.h5",
     },
     "vit_base_patch16_224_augreg_in1k": {
+        "model": "vit_base_patch16_224",
+        "timm_id": "vit_base_patch16_224.augreg_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch16_224_augreg_in1k.weights.h5",
     },
     "vit_base_patch16_384_augreg_in1k": {
+        "model": "vit_base_patch16_384",
+        "timm_id": "vit_base_patch16_384.augreg_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch16_384_augreg_in1k.weights.h5",
     },
     "vit_base_patch16_224_augreg_in21k": {
+        "model": "vit_base_patch16_224_in21k",
+        "timm_id": "vit_base_patch16_224.augreg_in21k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch16_224_augreg_in21k.weights.h5",
     },
     "vit_base_patch32_224_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch32_224",
+        "timm_id": "vit_base_patch32_224.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch32_224_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_base_patch32_384_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch32_384",
+        "timm_id": "vit_base_patch32_384.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch32_384_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_base_patch32_224_augreg_in1k": {
+        "model": "vit_base_patch32_224",
+        "timm_id": "vit_base_patch32_224.augreg_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch32_224_augreg_in1k.weights.h5",
     },
     "vit_base_patch32_384_augreg_in1k": {
+        "model": "vit_base_patch32_384",
+        "timm_id": "vit_base_patch32_384.augreg_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch32_384_augreg_in1k.weights.h5",
     },
     "vit_base_patch32_224_augreg_in21k": {
+        "model": "vit_base_patch32_224_in21k",
+        "timm_id": "vit_base_patch32_224.augreg_in21k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_base_patch32_224_augreg_in21k.weights.h5",
     },
     "vit_large_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_large_patch16_224",
+        "timm_id": "vit_large_patch16_224.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_large_patch16_224_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_large_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_large_patch16_384",
+        "timm_id": "vit_large_patch16_384.augreg_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_large_patch16_384_augreg_in21k_ft_in1k.weights.h5",
     },
     "vit_large_patch16_224_augreg_in21k": {
+        "model": "vit_large_patch16_224_in21k",
+        "timm_id": "vit_large_patch16_224.augreg_in21k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_large_patch16_224_augreg_in21k.weights.h5",
     },
     "vit_large_patch32_384_orig_in21k_ft_in1k": {
+        "model": "vit_large_patch32_384",
+        "timm_id": "vit_large_patch32_384.orig_in21k_ft_in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/vit/vit_large_patch32_384_orig_in21k_ft_in1k.weights.h5",
     },
 }

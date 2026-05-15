@@ -19,7 +19,10 @@ from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHT_CONFIG
 class ConvNeXtV2Model(ConvNeXtModel):
     """ConvNeXtV2 backbone returning the final stage feature map ``(B, H, W, C)``."""
 
-    KMODELS_CONFIG = CONVNEXTV2_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: CONVNEXTV2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in CONVNEXTV2_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = CONVNEXTV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -53,7 +56,10 @@ class ConvNeXtV2Classify(ConvNeXtClassify):
     >>> ConvNeXtV2Classify.from_weights("timm:timm/convnextv2_base.fcmae_ft_in22k_in1k")
     """
 
-    KMODELS_CONFIG = CONVNEXTV2_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: CONVNEXTV2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in CONVNEXTV2_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = CONVNEXTV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

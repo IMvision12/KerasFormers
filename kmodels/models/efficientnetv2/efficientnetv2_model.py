@@ -796,7 +796,10 @@ class EfficientNetV2Model(BaseModel):
     model and adds GlobalAveragePool + Dropout + Dense on top.
     """
 
-    KMODELS_CONFIG = EFFICIENTNETV2_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: EFFICIENTNETV2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in EFFICIENTNETV2_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = EFFICIENTNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -921,7 +924,10 @@ class EfficientNetV2Classify(BaseModel):
     >>> EfficientNetV2Classify.from_weights("timm:timm/tf_efficientnetv2_s.in21k_ft_in1k")
     """
 
-    KMODELS_CONFIG = EFFICIENTNETV2_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: EFFICIENTNETV2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in EFFICIENTNETV2_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = EFFICIENTNETV2_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

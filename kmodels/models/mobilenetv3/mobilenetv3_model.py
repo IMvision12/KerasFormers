@@ -294,7 +294,10 @@ class MobileNetV3Model(BaseModel):
     Dense(num_classes) on top.
     """
 
-    KMODELS_CONFIG = MOBILENETV3_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MOBILENETV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -422,7 +425,10 @@ class MobileNetV3Classify(BaseModel):
     >>> MobileNetV3Classify.from_weights("timm:timm/mobilenetv3_large_100.ra_in1k")
     """
 
-    KMODELS_CONFIG = MOBILENETV3_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MOBILENETV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

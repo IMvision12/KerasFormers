@@ -393,7 +393,10 @@ class MaxViTModel(BaseModel):
     >>> MaxViTModel.from_weights("timm:timm/maxvit_base_tf_224.in1k")
     """
 
-    KMODELS_CONFIG = MAXVIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MAXVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MAXVIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MAXVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -532,7 +535,10 @@ class MaxViTClassify(BaseModel):
     >>> MaxViTClassify.from_weights("timm:timm/maxvit_base_tf_224.in1k")
     """
 
-    KMODELS_CONFIG = MAXVIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MAXVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MAXVIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MAXVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

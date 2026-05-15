@@ -277,7 +277,9 @@ class MiTModel(BaseModel):
     >>> MiTModel.from_weights("hf:nvidia/mit-b0")
     """
 
-    KMODELS_CONFIG = MIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = "segformer"
 
@@ -402,7 +404,9 @@ class MiTClassify(BaseModel):
     >>> MiTClassify.from_weights("hf:nvidia/mit-b0")         # direct from HF
     """
 
-    KMODELS_CONFIG = MIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = "segformer"
 

@@ -511,7 +511,10 @@ class InceptionV4Model(BaseModel):
     Dense head to produce logits.
     """
 
-    KMODELS_CONFIG = INCEPTIONV4_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: INCEPTIONV4_MODEL_CONFIG[meta["model"]]
+        for variant, meta in INCEPTIONV4_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = INCEPTIONV4_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -613,7 +616,10 @@ class InceptionV4Classify(BaseModel):
     >>> InceptionV4Classify.from_weights("timm:timm/inception_v4.tf_in1k")
     """
 
-    KMODELS_CONFIG = INCEPTIONV4_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: INCEPTIONV4_MODEL_CONFIG[meta["model"]]
+        for variant, meta in INCEPTIONV4_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = INCEPTIONV4_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

@@ -15,10 +15,10 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.senet import SENetClassify
-    from kmodels.models.senet.config import SENET_MODEL_CONFIG
+    from kmodels.models.senet.config import SENET_WEIGHT_CONFIG
 
-    for variant, cfg in SENET_MODEL_CONFIG.items():
-        timm_id = cfg["timm_id"]
+    for variant, meta in SENET_WEIGHT_CONFIG.items():
+        timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")

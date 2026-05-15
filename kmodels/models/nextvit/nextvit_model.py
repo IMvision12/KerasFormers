@@ -551,7 +551,10 @@ class NextViTModel(BaseModel):
     >>> NextViTModel.from_weights("timm:timm/nextvit_small.bd_in1k")
     """
 
-    KMODELS_CONFIG = NEXTVIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: NEXTVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in NEXTVIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = NEXTVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -683,7 +686,10 @@ class NextViTClassify(BaseModel):
     >>> NextViTClassify.from_weights("timm:timm/nextvit_small.bd_in1k")
     """
 
-    KMODELS_CONFIG = NEXTVIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: NEXTVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in NEXTVIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = NEXTVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

@@ -115,7 +115,10 @@ def resnext_block(
 class ResNeXtModel(ResNetModel):
     """ResNeXt trunk returning the final stage feature map ``(B, H, W, C)``."""
 
-    KMODELS_CONFIG = RESNEXT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: RESNEXT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RESNEXT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = RESNEXT_WEIGHT_CONFIG
 
     @classmethod
@@ -163,7 +166,10 @@ class ResNeXtClassify(ResNetClassify):
     >>> ResNeXtClassify.from_weights("timm:timm/resnext50_32x4d.a1_in1k")
     """
 
-    KMODELS_CONFIG = RESNEXT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: RESNEXT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RESNEXT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = RESNEXT_WEIGHT_CONFIG
 
     def __init__(

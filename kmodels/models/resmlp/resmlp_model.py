@@ -171,7 +171,10 @@ class ResMLPModel(BaseModel):
     >>> ResMLPModel.from_weights("timm:timm/resmlp_12_224.fb_in1k")
     """
 
-    KMODELS_CONFIG = RESMLP_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: RESMLP_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RESMLP_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = RESMLP_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -306,7 +309,10 @@ class ResMLPClassify(BaseModel):
     >>> ResMLPClassify.from_weights("timm:timm/resmlp_12_224.fb_in1k")
     """
 
-    KMODELS_CONFIG = RESMLP_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: RESMLP_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RESMLP_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = RESMLP_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

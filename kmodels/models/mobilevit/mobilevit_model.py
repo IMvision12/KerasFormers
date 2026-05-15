@@ -391,7 +391,10 @@ class MobileViTModel(BaseModel):
     >>> MobileViTModel.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = MOBILEVIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MOBILEVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -517,7 +520,10 @@ class MobileViTClassify(BaseModel):
     >>> MobileViTClassify.from_weights("timm:timm/mobilevit_s.cvnets_in1k")
     """
 
-    KMODELS_CONFIG = MOBILEVIT_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = MOBILEVIT_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 

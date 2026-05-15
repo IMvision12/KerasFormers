@@ -77,10 +77,10 @@ if __name__ == "__main__":
 
     from kmodels.base.base_model import download_hf_state_dict
     from kmodels.models.resnet import ResNetClassify
-    from kmodels.models.resnet.config import RESNET_MODEL_CONFIG
+    from kmodels.models.resnet.config import RESNET_WEIGHT_CONFIG
 
-    for variant, cfg in RESNET_MODEL_CONFIG.items():
-        timm_id = cfg["timm_id"]
+    for variant, meta in RESNET_WEIGHT_CONFIG.items():
+        timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")

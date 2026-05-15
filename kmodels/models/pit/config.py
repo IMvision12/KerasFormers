@@ -1,7 +1,7 @@
 """PiT variant registry (timm-ported)."""
 
 PIT_MODEL_CONFIG = {
-    "pit_xs_224_in1k": {
+    "pit_xs": {
         "patch_size": 16,
         "stride": 8,
         "embed_dim": [96, 192, 384],
@@ -9,11 +9,10 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": False,
-        "timm_id": "pit_xs_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "pit_xs_distilled_224_in1k": {
+    "pit_xs_distilled": {
         "patch_size": 16,
         "stride": 8,
         "embed_dim": [96, 192, 384],
@@ -21,11 +20,10 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": True,
-        "timm_id": "pit_xs_distilled_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "pit_ti_224_in1k": {
+    "pit_ti": {
         "patch_size": 16,
         "stride": 8,
         "embed_dim": [64, 128, 256],
@@ -33,11 +31,10 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": False,
-        "timm_id": "pit_ti_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "pit_ti_distilled_224_in1k": {
+    "pit_ti_distilled": {
         "patch_size": 16,
         "stride": 8,
         "embed_dim": [64, 128, 256],
@@ -45,11 +42,10 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": True,
-        "timm_id": "pit_ti_distilled_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "pit_s_224_in1k": {
+    "pit_s": {
         "patch_size": 16,
         "stride": 8,
         "embed_dim": [144, 288, 576],
@@ -57,11 +53,10 @@ PIT_MODEL_CONFIG = {
         "heads": [3, 6, 12],
         "mlp_ratio": 4,
         "distilled": False,
-        "timm_id": "pit_s_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "pit_s_distilled_224_in1k": {
+    "pit_s_distilled": {
         "patch_size": 16,
         "stride": 8,
         "embed_dim": [144, 288, 576],
@@ -69,11 +64,10 @@ PIT_MODEL_CONFIG = {
         "heads": [3, 6, 12],
         "mlp_ratio": 4,
         "distilled": True,
-        "timm_id": "pit_s_distilled_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "pit_b_224_in1k": {
+    "pit_b": {
         "patch_size": 14,
         "stride": 7,
         "embed_dim": [256, 512, 1024],
@@ -81,11 +75,10 @@ PIT_MODEL_CONFIG = {
         "heads": [4, 8, 16],
         "mlp_ratio": 4,
         "distilled": False,
-        "timm_id": "pit_b_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
-    "pit_b_distilled_224_in1k": {
+    "pit_b_distilled": {
         "patch_size": 14,
         "stride": 7,
         "embed_dim": [256, 512, 1024],
@@ -93,7 +86,6 @@ PIT_MODEL_CONFIG = {
         "heads": [4, 8, 16],
         "mlp_ratio": 4,
         "distilled": True,
-        "timm_id": "pit_b_distilled_224.in1k",
         "image_size": 224,
         "num_classes": 1000,
     },
@@ -101,27 +93,43 @@ PIT_MODEL_CONFIG = {
 
 PIT_WEIGHT_CONFIG = {
     "pit_xs_224_in1k": {
+        "model": "pit_xs",
+        "timm_id": "pit_xs_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_xs_224_in1k.weights.h5",
     },
     "pit_xs_distilled_224_in1k": {
+        "model": "pit_xs_distilled",
+        "timm_id": "pit_xs_distilled_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_xs_distilled_224_in1k.weights.h5",
     },
     "pit_ti_224_in1k": {
+        "model": "pit_ti",
+        "timm_id": "pit_ti_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_ti_224_in1k.weights.h5",
     },
     "pit_ti_distilled_224_in1k": {
+        "model": "pit_ti_distilled",
+        "timm_id": "pit_ti_distilled_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_ti_distilled_224_in1k.weights.h5",
     },
     "pit_s_224_in1k": {
+        "model": "pit_s",
+        "timm_id": "pit_s_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_s_224_in1k.weights.h5",
     },
     "pit_s_distilled_224_in1k": {
+        "model": "pit_s_distilled",
+        "timm_id": "pit_s_distilled_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_s_distilled_224_in1k.weights.h5",
     },
     "pit_b_224_in1k": {
+        "model": "pit_b",
+        "timm_id": "pit_b_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_b_224_in1k.weights.h5",
     },
     "pit_b_distilled_224_in1k": {
+        "model": "pit_b_distilled",
+        "timm_id": "pit_b_distilled_224.in1k",
         "url": "https://github.com/IMvision12/keras-models/releases/download/v0.1/pit_b_distilled_224_in1k.weights.h5",
     },
 }

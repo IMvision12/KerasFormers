@@ -361,7 +361,10 @@ class EfficientNetModel(BaseModel):
     >>> EfficientNetModel.from_weights("timm:timm/tf_efficientnet_b0.ns_jft_in1k")
     """
 
-    KMODELS_CONFIG = EFFICIENTNET_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: EFFICIENTNET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in EFFICIENTNET_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = EFFICIENTNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -393,7 +396,7 @@ class EfficientNetModel(BaseModel):
         name="EfficientNetModel",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
+        for k in ("num_classes", "classifier_activation"):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
@@ -482,7 +485,10 @@ class EfficientNetClassify(BaseModel):
     >>> EfficientNetClassify.from_weights("timm:timm/tf_efficientnet_b0.ns_jft_in1k")
     """
 
-    KMODELS_CONFIG = EFFICIENTNET_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: EFFICIENTNET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in EFFICIENTNET_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = EFFICIENTNET_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -506,8 +512,6 @@ class EfficientNetClassify(BaseModel):
         name="EfficientNetClassify",
         **kwargs,
     ):
-        kwargs.pop("timm_id", None)
-
         data_format = keras.config.image_data_format()
 
         backbone = EfficientNetModel(

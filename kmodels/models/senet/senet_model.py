@@ -41,7 +41,10 @@ def resolve_block_fn(kwargs):
 class SENetModel(ResNetModel):
     """SE-ResNet / SE-ResNeXt trunk returning the final stage feature map."""
 
-    KMODELS_CONFIG = SENET_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: SENET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in SENET_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = SENET_WEIGHT_CONFIG
 
     @classmethod
@@ -72,7 +75,10 @@ class SENetClassify(ResNetClassify):
     >>> SENetClassify.from_weights("timm:timm/seresnet50.a1_in1k")
     """
 
-    KMODELS_CONFIG = SENET_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: SENET_MODEL_CONFIG[meta["model"]]
+        for variant, meta in SENET_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = SENET_WEIGHT_CONFIG
 
     def __init__(

@@ -141,7 +141,10 @@ class ConvMixerModel(BaseModel):
     >>> ConvMixerModel.from_weights("timm:timm/convmixer_768_32.in1k")
     """
 
-    KMODELS_CONFIG = CONVMIXER_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: CONVMIXER_MODEL_CONFIG[meta["model"]]
+        for variant, meta in CONVMIXER_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = CONVMIXER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
@@ -267,7 +270,10 @@ class ConvMixerClassify(BaseModel):
     >>> ConvMixerClassify.from_weights("timm:timm/convmixer_768_32.in1k")
     """
 
-    KMODELS_CONFIG = CONVMIXER_MODEL_CONFIG
+    KMODELS_CONFIG = {
+        variant: CONVMIXER_MODEL_CONFIG[meta["model"]]
+        for variant, meta in CONVMIXER_WEIGHT_CONFIG.items()
+    }
     KMODELS_WEIGHTS = CONVMIXER_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
