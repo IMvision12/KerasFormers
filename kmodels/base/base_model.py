@@ -153,7 +153,7 @@ class BaseModel(keras.Model):
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_weights(cls, identifier, load_weights=True, **kwargs):
+    def from_weights(cls, identifier, load_weights=True, skip_mismatch=False, **kwargs):
         """Build a model and (optionally) load pretrained weights.
 
         Args:
@@ -176,6 +176,15 @@ class BaseModel(keras.Model):
             load_weights: If ``False``, only the architecture is built
                 (random init). For HF ids, ``config.json`` is still
                 fetched to size the model; the weight files are not.
+            skip_mismatch: If ``True``, layers whose shape in the
+                checkpoint disagrees with the instantiated model are
+                skipped during weight load and left at their default
+                initialization. Useful for fine-tuning: pass
+                ``num_classes=N, skip_mismatch=True`` to swap in a new
+                classifier head while loading the rest of the backbone.
+                Only applied on the kmodels-release path (``.h5`` /
+                ``.json`` URLs); ``hf:`` and ``timm:`` paths go through
+                hand-mapped transfer functions and ignore this flag.
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` / ``from_timm`` when applicable).
 
@@ -188,7 +197,12 @@ class BaseModel(keras.Model):
         if identifier.startswith(_TIMM_PREFIX):
             timm_id = identifier[len(_TIMM_PREFIX) :]
             return cls.from_timm(timm_id, load_weights=load_weights, **kwargs)
-        return cls.from_release(identifier, load_weights=load_weights, **kwargs)
+        return cls.from_release(
+            identifier,
+            load_weights=load_weights,
+            skip_mismatch=skip_mismatch,
+            **kwargs,
+        )
 
     @classmethod
     def from_timm(cls, timm_id, variant=None, load_weights=True, **kwargs):
@@ -245,7 +259,7 @@ class BaseModel(keras.Model):
         )
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, **kwargs):
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         if cls.BASE_MODEL_CONFIG is None:
             raise NotImplementedError(
                 f"{cls.__name__} must set BASE_MODEL_CONFIG to use from_weights()."
@@ -307,10 +321,10 @@ class BaseModel(keras.Model):
                     base_url = "/".join(url.split("/")[:-1])
                     for shard_file in sorted(set(index["weight_map"].values())):
                         download_file(f"{base_url}/{shard_file}")
-                    model.load_weights(json_path)
+                    model.load_weights(json_path, skip_mismatch=skip_mismatch)
                 else:
                     weights_path = download_file(url)
-                    model.load_weights(weights_path)
+                    model.load_weights(weights_path, skip_mismatch=skip_mismatch)
             else:
                 raise ValueError(
                     f"Release weights entry for variant '{variant}' has "
