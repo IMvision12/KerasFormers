@@ -1,5 +1,3 @@
-"""timm ConvNeXtV2ImageClassify -> Keras weight transfer (shares ConvNeXt mapping)."""
-
 import gc
 
 import keras

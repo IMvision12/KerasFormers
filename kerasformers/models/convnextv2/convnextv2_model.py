@@ -1,5 +1,3 @@
-"""ConvNeXtV2 as thin :class:`ConvNeXt` subclasses (timm-ported)."""
-
 import keras
 from keras import layers
 
