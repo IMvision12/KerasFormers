@@ -195,7 +195,30 @@ def deeplabv3_dilated_resnet_backbone(
 
 
 def deeplabv3_aspp(x, name="classifier_0"):
-    """Atrous Spatial Pyramid Pooling module (rates 12, 24, 36)."""
+    """Atrous Spatial Pyramid Pooling module.
+
+    Standard DeepLabV3 ASPP head:
+
+    * one 1×1 conv branch,
+    * three 3×3 atrous conv branches with dilation rates ``12``, ``24``,
+      and ``36``,
+    * one image-level branch (global average pool → 1×1 conv → bilinear
+      upsample back to ``HxW``).
+
+    The five branches are concatenated along the channel axis, projected
+    back to 256 channels via a 1×1 conv, and passed through dropout.
+    Atrous rates match torchvision's DeepLabV3 head.
+
+    Args:
+        x: Input feature tensor (typically the dilated backbone's C5
+            output) of shape ``(B, H, W, C)`` for ``channels_last`` (or
+            ``(B, C, H, W)`` for ``channels_first``).
+        name: Prefix used for every layer name inside this block.
+
+    Returns:
+        Tensor of shape ``(B, H, W, 256)`` — ASPP-fused features at the
+        same spatial resolution as ``x``.
+    """
     data_format = keras.config.image_data_format()
     channels_axis = -1 if data_format == "channels_last" else 1
 
@@ -268,7 +291,23 @@ def deeplabv3_aspp(x, name="classifier_0"):
 
 
 def deeplabv3_classifier_head(x, num_classes, name="classifier"):
-    """DeepLabV3 classifier head: 3x3 conv + BN + ReLU + 1x1 conv."""
+    """DeepLabV3 classifier head — 3×3 conv → BN → ReLU → 1×1 conv to logits.
+
+    Final per-pixel projection applied after :func:`deeplabv3_aspp`.
+    Output retains the spatial resolution of ``x`` (typically the
+    backbone's ``output_stride=8`` resolution); pair with a bilinear
+    upsample back to the input size for the final segmentation mask.
+
+    Args:
+        x: Feature tensor from :func:`deeplabv3_aspp` of shape
+            ``(B, H, W, 256)``.
+        num_classes: Number of segmentation classes (output channels).
+        name: Prefix used for every layer name inside this block.
+
+    Returns:
+        Tensor of shape ``(B, H, W, num_classes)`` — per-pixel class
+        logits at the same spatial resolution as ``x``.
+    """
     data_format = keras.config.image_data_format()
     channels_axis = -1 if data_format == "channels_last" else 1
 

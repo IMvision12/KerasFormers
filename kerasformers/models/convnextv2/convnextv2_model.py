@@ -184,7 +184,6 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
             num_classes, activation=classifier_activation, name="predictions"
         )(x)
 
-        # Skip ConvNeXtImageClassify.__init__; go straight to BaseModel.
         super(ConvNeXtImageClassify, self).__init__(
             inputs=backbone.input, outputs=out, name=name, **kwargs
         )
