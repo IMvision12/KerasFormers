@@ -144,6 +144,7 @@ class SegFormerModel(BaseModel):
             include_normalization=False,
             input_shape=input_shape,
             input_tensor=input_tensor,
+            as_backbone=True,
             name=f"{name}_backbone",
         )
 

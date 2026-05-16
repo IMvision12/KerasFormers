@@ -13,7 +13,19 @@ from tests.base.model_test_registry import (
 BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
-SKIP_DATA_FORMAT = set()
+# Models that don't support runtime channels_first/channels_last switching:
+# - ConvNeXtClassify: uses `Dense` over the last axis inside its block. In
+#   channels_first that axis is W, not C — so the block produces the wrong
+#   shape. `use_conv=True` would route through `Conv2D` instead, but the
+#   default architecture (and all published ConvNeXt weights) uses Dense.
+# - Whisper*: audio model, no spatial image dim; the channels_first
+#   conversion doesn't apply.
+SKIP_DATA_FORMAT = {
+    "ConvNeXtClassify",
+    "WhisperModel",
+    "WhisperSpeechToText",
+    "WhisperAudioClassify",
+}
 
 
 def _adapt_input_shape_for_format(init_kwargs, data_format):
