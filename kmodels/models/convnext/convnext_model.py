@@ -66,10 +66,17 @@ def convnext_block(
         data_format=data_format,
         name=name + "_depthwise_conv",
     )(inputs)
-    x = spatial_layer_norm(x, data_format, epsilon=1e-6, name=name + "_layernorm")
+
+    if data_format == "channels_first":
+        x = layers.Permute((2, 3, 1), name=name + "_to_nhwc")(x)
+
+    x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name=name + "_layernorm")(x)
     if use_conv:
         x = layers.Conv2D(
-            projection_dim * 4, 1, data_format=data_format, name=name + "_conv_1"
+            projection_dim * 4,
+            1,
+            data_format="channels_last",
+            name=name + "_conv_1",
         )(x)
     else:
         x = layers.Dense(4 * projection_dim, name=name + "_dense_1")(x)
@@ -78,13 +85,19 @@ def convnext_block(
         x = GlobalResponseNorm(name=name + "_grn")(x)
     if use_conv:
         x = layers.Conv2D(
-            projection_dim, 1, data_format=data_format, name=name + "_conv_2"
+            projection_dim,
+            1,
+            data_format="channels_last",
+            name=name + "_conv_2",
         )(x)
     else:
         x = layers.Dense(projection_dim, name=name + "_dense_2")(x)
 
     if layer_scale_init_value is not None:
         x = LayerScale(layer_scale_init_value, name=name + "_layer_scale")(x)
+
+    if data_format == "channels_first":
+        x = layers.Permute((3, 1, 2), name=name + "_to_nchw")(x)
 
     if drop_path_rate:
         x = StochasticDepth(drop_path_rate, name=name + "_stochastic_depth")(x)
