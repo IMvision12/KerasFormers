@@ -22,17 +22,43 @@ DEFAULT_MT5_SENTENCEPIECE_URL = (
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MetaClip2Mt5Tokenizer(BaseTokenizer):
-    """SigLIP-style tokenizer for the MetaCLIP 2 mT5 variants.
+    """SigLIP-style SentencePiece tokenizer for the MetaCLIP 2 mT5 variants.
 
-    Loads a SentencePiece model file (``spiece.model``) and replicates
-    HF ``SiglipTokenizer`` exactly: **lowercase** the text, then SP-encode,
-    append ``eos_token_id=1``, pad with ``pad_token_id=1`` (same as eos).
-    No BOS token. Vocab size is 250 100.
+    Replicates HF ``SiglipTokenizer`` bit-close on the mT5-tokenizer
+    MetaCLIP 2 checkpoints (250 100-token vocab built on top of mT5's
+    SentencePiece model).
+
+    Tokenization pipeline:
+
+    1. **Lowercase** the input string and strip ASCII punctuation
+       (matches HF SigLIP's preprocessing — without this the token ids
+       drift from the reference).
+    2. SentencePiece encode to integer pieces (no fairseq offset, no
+       BOS).
+    3. Append ``eos_token_id`` (``1``).
+    4. Truncate (replacing the last token with EOS) or pad with
+       ``pad_token_id`` to ``context_length`` — note that PAD and EOS
+       share the same id ``1`` here, so the attention mask is the
+       only reliable signal for "real vs padding".
+    5. Build an attention mask: ``1`` for real tokens, ``0`` for
+       padding.
 
     Args:
-        sentencepiece_model_file: Path to ``spiece.model``. When ``None``,
-            downloads from the default MetaCLIP 2 release URL.
+        sentencepiece_model_file: Path to ``spiece.model``. When
+            ``None``, downloads from the default MetaCLIP 2 release
+            URL on first use.
         context_length: Maximum sequence length. Defaults to ``77``.
+        eos_token_id: EOS token id. Defaults to ``1``.
+        pad_token_id: PAD token id. Defaults to ``1`` (same as EOS —
+            HF SigLIP convention).
+        unk_token_id: UNK token id. Defaults to ``2``.
+
+    Example:
+        >>> from kerasformers.models.metaclip2 import MetaClip2Mt5Tokenizer
+        >>> tok = MetaClip2Mt5Tokenizer()
+        >>> out = tok(["A photo of a cat."])
+        >>> out["token_ids"].shape       # (1, 77)
+        >>> out["padding_mask"].shape    # (1, 77)
     """
 
     def __init__(

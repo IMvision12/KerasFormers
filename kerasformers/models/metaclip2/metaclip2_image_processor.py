@@ -11,15 +11,47 @@ from kerasformers.utils.image import load_image
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MetaClip2ImageProcessor(CLIPImageProcessor):
-    """Image processor for MetaCLIP 2.
+    """Image processor for MetaCLIP 2 — direct square resize, no center crop.
 
-    Matches HF MetaCLIP 2's default config: **direct square resize** to
-    ``image_resolution`` (no shortest-edge scaling + center crop), followed
-    by rescale to ``[0, 1]`` and OpenAI-CLIP normalization. This is the
-    main preprocessing difference from OpenAI CLIP itself, which uses
-    shortest-edge=resolution + center crop.
+    Subclass of :class:`CLIPImageProcessor` configured to match HF
+    MetaCLIP 2's default preprocessing. Two differences from OpenAI
+    CLIP's processor:
 
-    Resize uses PIL.BICUBIC to match HF's ``resample=3`` exactly.
+    1. **Direct square resize** to ``(image_resolution, image_resolution)``
+       — HF uses ``do_resize=True, do_center_crop=False``, which means
+       the image is stretched (not aspect-preserving) to the target
+       square. OpenAI CLIP instead does shortest-edge resize +
+       center-crop, which preserves aspect ratio.
+    2. **PIL.BICUBIC resample** explicitly — matches HF's
+       ``resample=3`` (``PIL.Image.BICUBIC``) bit-close. The parent
+       :class:`CLIPImageProcessor` uses Keras image-ops resize which
+       can drift from HF.
+
+    Pixel values are then rescaled to ``[0, 1]`` and normalized with
+    the OpenAI-CLIP mean / std (MetaCLIP 2 keeps these unchanged from
+    CLIP).
+
+    Args:
+        image_resolution: Target square resolution. Defaults to ``224``.
+        mean: Per-channel mean for normalization. Defaults to OpenAI
+            CLIP's ``(0.48145466, 0.4578275, 0.40821073)``.
+        std: Per-channel std for normalization. Defaults to OpenAI
+            CLIP's ``(0.26862954, 0.26130258, 0.27577711)``.
+        do_normalize: Whether to apply mean/std normalization.
+            Defaults to ``True``.
+        do_resize: Whether to resize images to ``image_resolution``.
+            Defaults to ``True``.
+        data_format: ``"channels_last"`` / ``"channels_first"`` /
+            ``None`` (auto from ``keras.config.image_data_format()``).
+        **kwargs: Forwarded to :class:`CLIPImageProcessor`.
+
+    Example:
+        >>> from kerasformers.models.metaclip2 import (
+        ...     MetaClip2ImageProcessor, MetaClip2ZeroShotClassify,
+        ... )
+        >>> processor = MetaClip2ImageProcessor(image_resolution=224)
+        >>> inputs = processor("photo.jpg")
+        >>> inputs["pixel_values"].shape   # (1, 224, 224, 3) — channels_last
     """
 
     def __init__(
