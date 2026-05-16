@@ -34,17 +34,6 @@ backbone_weight_name_mapping: Dict[str, str] = {
 
 
 def transfer_detr_weights(keras_model, state_dict):
-    """Transfer DETR weights from a ``DetrForObjectDetection`` state_dict.
-
-    Handles the ResNet backbone, the input projection, the transformer
-    encoder/decoder, the decoder layer norm, the classifier head, and
-    the bbox MLP head.
-
-    Args:
-        keras_model: A ``DETRDetect`` instance.
-        state_dict: Mapping of torch weight names to numpy arrays from
-            ``DetrForObjectDetection.state_dict()``.
-    """
     backbone_layers = [
         layer for layer in keras_model.layers if layer.name.startswith("backbone_")
     ]

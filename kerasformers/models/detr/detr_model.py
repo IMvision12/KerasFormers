@@ -23,10 +23,44 @@ def detr_encoder_layer(
     dropout_rate=0.1,
     block_prefix="encoder_layers_0",
 ):
-    """Single DETR transformer encoder layer.
+    """One post-LN DETR transformer encoder layer (self-attn → FFN).
+
+    Mirrors the canonical FB-Research DETR encoder block:
+
+    1. ``q = k = x + pos_embed`` (positional encoding is added to the
+       query/key paths only — the value stream stays unchanged), then
+       self-attention.
+    2. Dropout → residual add → LayerNorm.
+    3. Feed-forward: ``Linear(hidden→ff) → ReLU → Dropout →
+       Linear(ff→hidden)``.
+    4. Residual add → LayerNorm.
+
+    All sublayer names are deterministic (``{block_prefix}_*``) so the
+    PyTorch state-dict can be transferred by name during checkpoint
+    conversion.
 
     Reference:
-    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
+        - `End-to-End Object Detection with Transformers
+          <https://arxiv.org/abs/2005.12872>`_
+
+    Args:
+        x: Flattened image-feature token sequence of shape
+            ``(B, H*W, hidden_dim)``.
+        pos_embed: Sine positional embedding of shape
+            ``(B, H*W, hidden_dim)``, added to the query/key paths of
+            the self-attention.
+        hidden_dim: Model / token dimension (DETR uses 256).
+        num_heads: Number of attention heads. ``hidden_dim`` must be
+            divisible by it.
+        dim_feedforward: Hidden dimension of the FFN's intermediate
+            Dense layer (DETR uses 2048).
+        dropout_rate: Dropout applied to the attention output and the
+            FFN's intermediate activations.
+        block_prefix: Prefix used to name every sublayer in this block.
+
+    Returns:
+        Tensor of shape ``(B, H*W, hidden_dim)`` — the encoder layer's
+        output.
     """
     self_attn = DETRMultiHeadAttention(
         hidden_dim=hidden_dim,
@@ -77,7 +111,52 @@ def detr_decoder_layer(
     dropout_rate=0.1,
     block_prefix="decoder_layers_0",
 ):
-    """Single DETR transformer decoder layer with self-attn + cross-attn."""
+    """One post-LN DETR decoder layer (self-attn → cross-attn → FFN).
+
+    Mirrors the canonical FB-Research DETR decoder block:
+
+    1. **Self-attn over queries**: ``q = k = x + query_pos`` (learned
+       object-query positional embedding added to Q/K only), ``v = x``;
+       then Dropout → residual → LayerNorm.
+    2. **Cross-attn into encoder memory**: ``q = x + query_pos``,
+       ``k = memory + pos_embed`` (sine positional encoding on the
+       image side), ``v = memory``; then Dropout → residual → LayerNorm.
+    3. **Feed-forward**: ``Linear(hidden→ff) → ReLU → Dropout →
+       Linear(ff→hidden)``; then residual → LayerNorm.
+
+    Sublayer names are deterministic (``{block_prefix}_*``) so the
+    PyTorch state-dict can be transferred by name during conversion.
+
+    Reference:
+        - `End-to-End Object Detection with Transformers
+          <https://arxiv.org/abs/2005.12872>`_
+
+    Args:
+        x: Current decoder token sequence of shape
+            ``(B, num_queries, hidden_dim)``. Starts at zero in the
+            first decoder layer.
+        memory: Encoder output of shape ``(B, H*W, hidden_dim)``, used
+            as keys and values in the cross-attention.
+        pos_embed: Sine positional embedding of shape
+            ``(B, H*W, hidden_dim)``, added to the cross-attention's
+            key path so the encoder side keeps its spatial geometry.
+        query_pos: Learned object-query embedding of shape
+            ``(B, num_queries, hidden_dim)``, added to the Q/K path of
+            self-attention and to the Q path of cross-attention.
+        hidden_dim: Model / token dimension (DETR uses 256).
+        num_heads: Number of attention heads. ``hidden_dim`` must be
+            divisible by it.
+        dim_feedforward: Hidden dimension of the FFN's intermediate
+            Dense layer (DETR uses 2048).
+        dropout_rate: Dropout applied to each attention output and to
+            the FFN's intermediate activations.
+        block_prefix: Prefix used to name every sublayer in this block.
+
+    Returns:
+        Tensor of shape ``(B, num_queries, hidden_dim)`` — the decoder
+        layer's output, ready to feed the next decoder layer or the
+        detection head.
+    """
     self_attn = DETRMultiHeadAttention(
         hidden_dim=hidden_dim,
         num_heads=num_heads,
@@ -144,10 +223,39 @@ def detr_backbone(
     data_format="channels_last",
     channels_axis=-1,
 ):
-    """Build a ResNet backbone (ResNet50 / ResNet101) for DETR.
+    """ResNet-50 / ResNet-101 backbone used by DETR.
 
-    Layer naming mirrors HuggingFace's DETR backbone so weights can be
-    transferred directly.
+    Standard torchvision-style ResNet (7×7 stem → max-pool → 4 stages
+    of bottleneck residual blocks → final C5 feature map at stride 32).
+    Returns the last-stage activation **without** any pooling or
+    classifier head — the DETR transformer expects a spatial feature
+    map of shape ``(B, H/32, W/32, 2048)`` to flatten into tokens.
+
+    Sublayer names mirror HuggingFace's DETR backbone naming
+    (``backbone_conv1``, ``backbone_layer{stage}_{block}_*``,
+    ``*_downsample_*``), so :func:`transfer_detr_weights` can map the
+    PyTorch state-dict directly without renaming.
+
+    Args:
+        input_tensor: Input image tensor — ``(B, H, W, 3)`` for
+            ``channels_last`` or ``(B, 3, H, W)`` for ``channels_first``.
+        backbone_variant: ``"ResNet50"`` (block repeats 3-4-6-3) or
+            ``"ResNet101"`` (3-4-23-3).
+        include_normalization: If ``True``, prepend an
+            :class:`ImageNormalizationLayer` so the model can ingest
+            raw ``[0, 1]`` images.
+        normalization_mode: Normalization preset (e.g. ``"imagenet"``),
+            forwarded to :class:`ImageNormalizationLayer` when
+            ``include_normalization`` is ``True``.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel axis matching ``data_format``
+            (``-1`` for ``channels_last``, ``1`` for ``channels_first``).
+            Used to align ``BatchNormalization`` axes.
+
+    Returns:
+        Tensor of shape ``(B, H/32, W/32, 2048)`` (``channels_last``)
+        or ``(B, 2048, H/32, W/32)`` (``channels_first``) — the C5
+        feature map fed into the DETR encoder.
     """
     block_repeats = {
         "ResNet50": [3, 4, 6, 3],
