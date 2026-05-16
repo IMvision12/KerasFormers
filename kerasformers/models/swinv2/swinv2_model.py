@@ -475,7 +475,7 @@ class SwinV2Model(BaseModel):
 
     Output is the last layer output before the classifier head: the
     final stage feature map ``(B, H, W, C)`` (or ``(B, C, H, W)`` for
-    channels_first), pre-final-norm. :class:`SwinV2Classify` composes
+    channels_first), pre-final-norm. :class:`SwinV2ImageClassify` composes
     this model and applies a spatial-LayerNorm + GlobalAveragePooling2D
     + Dense head.
 
@@ -537,7 +537,7 @@ class SwinV2Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = SwinV2Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = SwinV2ImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -652,7 +652,7 @@ class SwinV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinV2Classify(BaseModel):
+class SwinV2ImageClassify(BaseModel):
     """Instantiates the Swin Transformer V2 classifier.
 
     This classifier wraps a :class:`SwinV2Model` backbone and attaches a
@@ -707,7 +707,7 @@ class SwinV2Classify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"SwinV2Classify"`.
+            named `f"{name}_backbone"`. Defaults to `"SwinV2ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -741,7 +741,7 @@ class SwinV2Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="SwinV2Classify",
+        name="SwinV2ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

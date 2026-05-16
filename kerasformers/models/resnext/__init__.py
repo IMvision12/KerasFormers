@@ -1,11 +1,11 @@
 from kerasformers.models.resnext.resnext_model import (
-    ResNeXtClassify,
+    ResNeXtImageClassify,
     ResNeXtModel,
     resnext_block,
 )
 
 __all__ = [
-    "ResNeXtClassify",
+    "ResNeXtImageClassify",
     "ResNeXtModel",
     "resnext_block",
 ]

@@ -9,7 +9,7 @@ import numpy as np
 import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
-from kerasformers.models.cait import CaiTClassify
+from kerasformers.models.cait import CaiTImageClassify
 from kerasformers.models.cait.config import CAIT_WEIGHT_CONFIG
 from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = CaiTClassify.from_weights(variant, load_weights=False)
+        keras_model = CaiTImageClassify.from_weights(variant, load_weights=False)
         transfer_cait_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

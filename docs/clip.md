@@ -13,19 +13,19 @@ Two classes are exposed, mirroring HF's `CLIP*` hierarchy:
 | Class | HF equivalent | Purpose |
 |---|---|---|
 | `CLIPModel` | `CLIPModel` | Full contrastive dual-encoder. Image encoder + text encoder + learnable `logit_scale`. Outputs an `(B, B)` similarity matrix — use it for zero-shot classification, retrieval, or as a frozen encoder. |
-| `CLIPClassify` | `CLIPForImageClassification` | Vision encoder only + mean-pool patches + linear classifier head. Outputs `(B, num_labels)` class logits. For supervised image classification on a fixed label set. |
+| `CLIPImageClassify` | `CLIPForImageClassification` | Vision encoder only + mean-pool patches + linear classifier head. Outputs `(B, num_labels)` class logits. For supervised image classification on a fixed label set. |
 
 Both load the same way:
 
 ```python
-from kerasformers.models.clip import CLIPModel, CLIPClassify
+from kerasformers.models.clip import CLIPModel, CLIPImageClassify
 
 # kerasformers release variant
 model = CLIPModel.from_weights("clip_vit_base_16")
 
 # Any HF Hub repo whose model_type is "clip"
 model = CLIPModel.from_weights("hf:openai/clip-vit-base-patch16")
-model = CLIPClassify.from_weights("hf:<user>/clip-finetune-imagenet")
+model = CLIPImageClassify.from_weights("hf:<user>/clip-finetune-imagenet")
 ```
 
 ## Model Variants
@@ -78,7 +78,7 @@ image_logits[i, j] = exp(logit_scale) * cos_sim(image_embed_i, text_embed_j)
 - **Zero-Shot Classification:** Encode class names as text → compare against the image embedding → pick the nearest text. No fine-tuning required, class list can change at inference time.
 - **Cross-Modal Retrieval:** Image→text and text→image search via the shared embedding space.
 - **Robust Representations:** Vision and text embeddings work as drop-in features for downstream pipelines (captioning, VQA, diffusion, multimodal LLMs).
-- **Supervised Classification:** Use `CLIPClassify` for a fixed-label classification head on top of the CLIP vision encoder.
+- **Supervised Classification:** Use `CLIPImageClassify` for a fixed-label classification head on top of the CLIP vision encoder.
 - **HF passthrough:** `from_weights("hf:org/repo")` works for arbitrary community fine-tunes whose `model_type` is `"clip"`.
 
 ## Basic Usage — Zero-Shot Classification
@@ -131,15 +131,15 @@ for i, img_path in enumerate(image_paths):
         print(f"  {label}: {probs[i, j]:.4f}")
 ```
 
-## Supervised Image Classification — `CLIPClassify`
+## Supervised Image Classification — `CLIPImageClassify`
 
 Mirrors HF's `CLIPForImageClassification`: the CLIP vision encoder feeds a mean-pool over the patch tokens (CLS excluded) and a single linear `classifier` Dense producing `num_labels` logits. The text tower, visual projection, and `logit_scale` are **not** built.
 
 ```python
-from kerasformers.models.clip import CLIPClassify, CLIPImageProcessor
+from kerasformers.models.clip import CLIPImageClassify, CLIPImageProcessor
 
 # Load a fine-tuned HF CLIPForImageClassification checkpoint
-model = CLIPClassify.from_weights("hf:<user>/clip-finetuned-imagenet")
+model = CLIPImageClassify.from_weights("hf:<user>/clip-finetuned-imagenet")
 image_processor = CLIPImageProcessor()
 
 images = image_processor("cat.jpg")
@@ -150,7 +150,7 @@ pred = logits.argmax(axis=-1)
 Construct from scratch for fine-tuning on a new dataset:
 
 ```python
-model = CLIPClassify(
+model = CLIPImageClassify(
     num_labels=10,                   # your class count
     image_resolution=224,
     vision_layers=12, vision_width=768, vision_patch_size=16,
@@ -164,7 +164,7 @@ You can also warm-start the vision encoder from a `CLIPModel` checkpoint (the en
 
 ```python
 src = CLIPModel.from_weights("clip_vit_base_16")
-ac = CLIPClassify(
+ac = CLIPImageClassify(
     num_labels=10, image_resolution=224, vision_layers=12,
     vision_width=768, vision_patch_size=16, vision_mlp_ratio=4.0,
 )

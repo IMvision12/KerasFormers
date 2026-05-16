@@ -257,7 +257,7 @@ class MobileNetV2Model(BaseModel):
 
     Output is the last layer output before the classifier head: the
     post-head-conv 4D feature map of shape ``(B, H, W, C)``.
-    :class:`MobileNetV2Classify` composes this model and adds a
+    :class:`MobileNetV2ImageClassify` composes this model and adds a
     GlobalAveragePooling2D + Dense head on top.
 
     References:
@@ -309,7 +309,9 @@ class MobileNetV2Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = MobileNetV2Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MobileNetV2ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -404,7 +406,7 @@ class MobileNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileNetV2Classify(BaseModel):
+class MobileNetV2ImageClassify(BaseModel):
     """Instantiates the MobileNetV2 classifier.
 
     This classifier wraps a :class:`MobileNetV2Model` backbone and
@@ -448,7 +450,7 @@ class MobileNetV2Classify(BaseModel):
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`. Defaults to
-            `"MobileNetV2Classify"`.
+            `"MobileNetV2ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -477,7 +479,7 @@ class MobileNetV2Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MobileNetV2Classify",
+        name="MobileNetV2ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

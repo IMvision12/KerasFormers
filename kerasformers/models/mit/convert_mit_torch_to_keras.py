@@ -49,7 +49,7 @@ _ATTN_REPLACEMENT: Dict[str, str] = {
 
 
 def transfer_mit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a HF SegformerForImageClassification state-dict into a Keras :class:`MiTClassify`."""
+    """Transfer a HF SegformerForImageClassification state-dict into a Keras :class:`MiTImageClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     import transformers
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.mit import MiTClassify
+    from kerasformers.models.mit import MiTImageClassify
     from kerasformers.models.mit.config import MIT_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(hf_id)
-        keras_model = MiTClassify.from_weights(variant, load_weights=False)
+        keras_model = MiTImageClassify.from_weights(variant, load_weights=False)
         transfer_mit_weights(keras_model, state)
 
         hf_model = transformers.SegformerForImageClassification.from_pretrained(

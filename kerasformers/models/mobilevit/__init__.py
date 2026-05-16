@@ -1,6 +1,6 @@
 from kerasformers.models.mobilevit.mobilevit_model import (
-    MobileViTClassify,
+    MobileViTImageClassify,
     MobileViTModel,
 )
 
-__all__ = ["MobileViTClassify", "MobileViTModel"]
+__all__ = ["MobileViTImageClassify", "MobileViTModel"]

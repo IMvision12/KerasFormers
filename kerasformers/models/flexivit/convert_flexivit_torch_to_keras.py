@@ -14,7 +14,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.flexivit import FlexiViTClassify
+    from kerasformers.models.flexivit import FlexiViTImageClassify
     from kerasformers.models.flexivit.config import FLEXIVIT_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = FlexiViTClassify.from_weights(variant, load_weights=False)
+        keras_model = FlexiViTImageClassify.from_weights(variant, load_weights=False)
         transfer_flexivit_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

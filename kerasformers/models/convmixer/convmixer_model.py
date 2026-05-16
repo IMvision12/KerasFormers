@@ -132,7 +132,7 @@ class ConvMixerModel(BaseModel):
     network — after a patch-embedding stem there is no further
     downsampling or channel hierarchy. Output is the last layer output
     before the classifier head: the final feature map ``(B, H, W, C)``.
-    :class:`ConvMixerClassify` composes this model and attaches a
+    :class:`ConvMixerImageClassify` composes this model and attaches a
     GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -187,7 +187,9 @@ class ConvMixerModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ConvMixerClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ConvMixerImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -290,7 +292,7 @@ class ConvMixerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ConvMixerClassify(BaseModel):
+class ConvMixerImageClassify(BaseModel):
     """Instantiates the ConvMixer classifier.
 
     This classifier wraps a :class:`ConvMixerModel` backbone and
@@ -336,7 +338,7 @@ class ConvMixerClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ConvMixerClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"ConvMixerImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -367,7 +369,7 @@ class ConvMixerClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ConvMixerClassify",
+        name="ConvMixerImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

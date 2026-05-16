@@ -5,17 +5,17 @@ Every classification architecture in `kerasformers.models.<arch>` exposes **two 
 | Class        | What it returns                                                     | Typical use                                    |
 |--------------|---------------------------------------------------------------------|------------------------------------------------|
 | `XModel`     | The last layer output **before** the classifier head                | Feature extractor / transfer learning          |
-| `XClassify`  | Class logits - `XModel` plus the original architecture's head       | Drop-in classification                         |
+| `XImageClassify`  | Class logits - `XModel` plus the original architecture's head       | Drop-in classification                         |
 
-`XClassify` composes `XModel` internally and attaches the per-architecture head (CLS-token linear for ViT-family; GAP + Dense for CNNs; LayerNorm + mean-pool + Dense for hierarchical Transformers; etc.). You don't need to know which head pattern your architecture uses - `XClassify` already wires the correct one.
+`XImageClassify` composes `XModel` internally and attaches the per-architecture head (CLS-token linear for ViT-family; GAP + Dense for CNNs; LayerNorm + mean-pool + Dense for hierarchical Transformers; etc.). You don't need to know which head pattern your architecture uses - `XImageClassify` already wires the correct one.
 
 ## Quick start
 
 ```python
-from kerasformers.models.resnet import ResNetClassify, ResNetModel
+from kerasformers.models.resnet import ResNetImageClassify, ResNetModel
 
 # Full classifier - 1000-class logits
-classifier = ResNetClassify.from_weights("resnet50_a1_in1k")
+classifier = ResNetImageClassify.from_weights("resnet50_a1_in1k")
 logits = classifier(images)                                 # (B, 1000)
 
 # Just the backbone - last-stage feature map, no head
@@ -27,7 +27,7 @@ The same pattern works for every classification arch - swap `ResNet` for `CaiT`,
 
 ## `as_backbone=True` - multi-scale features
 
-Pass `as_backbone=True` to `XModel` (not `XClassify`) to get a **list of per-stage feature maps** instead of a single tensor. This is what you'd hook an FPN / segmentation neck / detection head onto.
+Pass `as_backbone=True` to `XModel` (not `XImageClassify`) to get a **list of per-stage feature maps** instead of a single tensor. This is what you'd hook an FPN / segmentation neck / detection head onto.
 
 ```python
 from kerasformers.models.resnet import ResNetModel
@@ -68,16 +68,16 @@ The number of stages and their semantics depend on the architecture:
 Both classes use the same variant registry, so any string you can pass to one works on the other:
 
 ```python
-ResNetClassify.from_weights("resnet50_a1_in1k")
+ResNetImageClassify.from_weights("resnet50_a1_in1k")
 ResNetModel.from_weights("resnet50_a1_in1k")            # same weights, no Dense head
 ResNetModel.from_weights("timm:timm/resnet50.a1_in1k")  # any timm variant via the timm: prefix
 ```
 
-Under the hood `XModel.from_release` warm-starts from `XClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
+Under the hood `XModel.from_release` warm-starts from `XImageClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
 
 ## Custom heads / transfer learning
 
-Because `XModel` and `XClassify` share architecture parameters and layer names, you can chain them in any of three idiomatic ways:
+Because `XModel` and `XImageClassify` share architecture parameters and layer names, you can chain them in any of three idiomatic ways:
 
 ```python
 import keras
@@ -127,14 +127,14 @@ classifier = keras.Sequential([
 ])
 ```
 
-### Path B — `XClassify` + `skip_mismatch=True` (convenient)
+### Path B — `XImageClassify` + `skip_mismatch=True` (convenient)
 
 One line. Loads matching backbone weights and silently re-initializes any layer whose shape doesn't match (typically just the classifier `Dense`).
 
 ```python
-from kerasformers.models.resnet import ResNetClassify
+from kerasformers.models.resnet import ResNetImageClassify
 
-model = ResNetClassify.from_weights(
+model = ResNetImageClassify.from_weights(
     "resnet50_a1_in1k",
     num_classes=10,
     skip_mismatch=True,    # head Dense reshaped (1000→10), reset to random init
@@ -178,11 +178,11 @@ A few architectures are thin subclasses of a parent that swap the variant regist
 | `ConvNeXtV2`        | `ConvNeXt`  | weights + GRN block enabled      |
 | `ResNeXt`, `SENet`  | `ResNet`    | block fn + arch defaults         |
 
-Both `XModel` and `XClassify` are subclassed so that the subclass's variants resolve correctly. The composition rule still holds — `DeiTClassify` composes `DeiTModel`, not `ViTModel`.
+Both `XModel` and `XImageClassify` are subclassed so that the subclass's variants resolve correctly. The composition rule still holds — `DeiTImageClassify` composes `DeiTModel`, not `ViTModel`.
 
 ## When to use which
 
-- **Inference on ImageNet-style 1000-class tasks** → `XClassify.from_weights(...)`.
+- **Inference on ImageNet-style 1000-class tasks** → `XImageClassify.from_weights(...)`.
 - **Transfer learning** (fine-tune with a new head on a new dataset) → `XModel.from_weights(...)` plus your own head.
 - **Segmentation, detection, FPN, anything multi-scale** → `XModel.from_weights(..., as_backbone=True)`.
 - **Saving to disk** — both classes are `keras.saving.register_keras_serializable` decorated, so `model.save("foo.keras")` and `keras.models.load_model("foo.keras")` round-trip cleanly.

@@ -4,7 +4,7 @@ import keras
 from keras import layers
 
 from kerasformers.models.resnet.resnet_model import (
-    ResNetClassify,
+    ResNetImageClassify,
     ResNetModel,
     conv_block,
     squeeze_excitation_block,
@@ -120,7 +120,7 @@ class ResNeXtModel(ResNetModel):
     (``cardinality``), exposing a third axis besides depth and width for
     capacity at near-constant FLOPs. The output tensor is the last layer
     output before the classifier head — the final-stage feature map
-    ``(B, H, W, C)``, unpooled and head-free. :class:`ResNeXtClassify`
+    ``(B, H, W, C)``, unpooled and head-free. :class:`ResNeXtImageClassify`
     composes this model and applies a GlobalAveragePooling2D + Dense
     head to produce logits.
 
@@ -161,7 +161,9 @@ class ResNeXtModel(ResNetModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ResNeXtClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ResNeXtImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -190,7 +192,7 @@ class ResNeXtModel(ResNetModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResNeXtClassify(ResNetClassify):
+class ResNeXtImageClassify(ResNetImageClassify):
     """Instantiates the ResNeXt (Aggregated Residual Transformations) classifier.
 
     This classifier wraps a :class:`ResNeXtModel` backbone and attaches
@@ -239,7 +241,7 @@ class ResNeXtClassify(ResNetClassify):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ResNeXtClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"ResNeXtImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -265,7 +267,7 @@ class ResNeXtClassify(ResNetClassify):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ResNeXtClassify",
+        name="ResNeXtImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -296,7 +298,7 @@ class ResNeXtClassify(ResNetClassify):
             name="predictions",
         )(x)
 
-        super(ResNetClassify, self).__init__(
+        super(ResNetImageClassify, self).__init__(
             inputs=backbone.input, outputs=out, name=name, **kwargs
         )
 

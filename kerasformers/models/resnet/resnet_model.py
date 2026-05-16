@@ -318,7 +318,7 @@ class ResNetModel(BaseModel):
     skip connections enabling very deep networks to train without
     degradation. The output tensor is the last layer output before the
     classifier head — the final stage's 4D feature map ``(B, H, W, C)``,
-    unpooled and head-free. :class:`ResNetClassify` composes this model
+    unpooled and head-free. :class:`ResNetImageClassify` composes this model
     and applies a GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -376,7 +376,7 @@ class ResNetModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ResNetClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ResNetImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -510,7 +510,7 @@ class ResNetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResNetClassify(BaseModel):
+class ResNetImageClassify(BaseModel):
     """Instantiates the Residual Network (ResNet) classifier.
 
     This classifier wraps a :class:`ResNetModel` backbone and attaches a
@@ -560,7 +560,7 @@ class ResNetClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ResNetClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"ResNetImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -591,7 +591,7 @@ class ResNetClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ResNetClassify",
+        name="ResNetImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

@@ -1,6 +1,6 @@
 from kerasformers.models.nextvit.nextvit_model import (
-    NextViTClassify,
+    NextViTImageClassify,
     NextViTModel,
 )
 
-__all__ = ["NextViTClassify", "NextViTModel"]
+__all__ = ["NextViTImageClassify", "NextViTModel"]

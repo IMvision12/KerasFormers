@@ -74,7 +74,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.nextvit import NextViTClassify as NextViT
+    from kerasformers.models.nextvit import NextViTImageClassify as NextViT
     from kerasformers.models.nextvit.config import NEXTVIT_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 

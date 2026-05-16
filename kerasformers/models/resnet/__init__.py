@@ -1,6 +1,6 @@
 from kerasformers.models.resnet.resnet_model import (
-    ResNetClassify,
+    ResNetImageClassify,
     ResNetModel,
 )
 
-__all__ = ["ResNetClassify", "ResNetModel"]
+__all__ = ["ResNetImageClassify", "ResNetModel"]

@@ -825,7 +825,7 @@ class CLIPZeroShotClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPClassify(BaseModel):
+class CLIPImageClassify(BaseModel):
     """CLIP vision encoder + linear image-classification head.
 
     Mirrors HF's ``CLIPForImageClassification``: uses **only the CLIP
@@ -835,7 +835,7 @@ class CLIPClassify(BaseModel):
 
     .. code-block:: python
 
-        model = CLIPClassify.from_weights(
+        model = CLIPImageClassify.from_weights(
             "hf:<user>/clip-finetune-imagenet"
         )
         logits = model(images)              # (B, num_labels)
@@ -895,7 +895,7 @@ class CLIPClassify(BaseModel):
         layer_norm_eps=1e-5,
         input_shape=None,
         input_tensor=None,
-        name="CLIPClassify",
+        name="CLIPImageClassify",
         **kwargs,
     ):
         for k in (

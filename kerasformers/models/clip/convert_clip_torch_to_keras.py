@@ -121,11 +121,11 @@ def transfer_clip_image_classify_weights(
 
     Loads the CLIP vision encoder (no text encoder, no visual
     projection, no post-LN — none of those exist in the Keras
-    :class:`CLIPClassify` graph) plus the final ``classifier``
+    :class:`CLIPImageClassify` graph) plus the final ``classifier``
     Dense head.
 
     Args:
-        keras_model: A :class:`CLIPClassify` instance.
+        keras_model: A :class:`CLIPImageClassify` instance.
         hf_state_dict: Mapping of HF weight names to numpy arrays from
             ``CLIPForImageClassification.state_dict()``.
     """

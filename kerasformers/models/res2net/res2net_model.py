@@ -286,7 +286,7 @@ class Res2NetModel(BaseModel):
     effective receptive-field range at fine granularity without adding
     depth. The output tensor is the last layer output before the
     classifier head — the final-stage feature map ``(B, H, W, C)``.
-    :class:`Res2NetClassify` composes this model and applies a
+    :class:`Res2NetImageClassify` composes this model and applies a
     GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -336,7 +336,9 @@ class Res2NetModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = Res2NetClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = Res2NetImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -433,7 +435,7 @@ class Res2NetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Res2NetClassify(BaseModel):
+class Res2NetImageClassify(BaseModel):
     """Instantiates the Res2Net (Multi-scale Residual Network) classifier.
 
     This classifier wraps a :class:`Res2NetModel` backbone and attaches
@@ -475,7 +477,7 @@ class Res2NetClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"Res2NetClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"Res2NetImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -504,7 +506,7 @@ class Res2NetClassify(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="Res2NetClassify",
+        name="Res2NetImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

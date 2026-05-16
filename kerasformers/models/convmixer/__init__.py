@@ -1,6 +1,6 @@
 from kerasformers.models.convmixer.convmixer_model import (
-    ConvMixerClassify,
+    ConvMixerImageClassify,
     ConvMixerModel,
 )
 
-__all__ = ["ConvMixerClassify", "ConvMixerModel"]
+__all__ = ["ConvMixerImageClassify", "ConvMixerModel"]

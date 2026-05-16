@@ -2,7 +2,7 @@ import keras
 from keras import layers
 
 from kerasformers.models.resnet.resnet_model import (
-    ResNetClassify,
+    ResNetImageClassify,
     ResNetModel,
     bottleneck_block,
 )
@@ -47,7 +47,7 @@ class SENetModel(ResNetModel):
     gate that rescales each channel of the residual branch. The output
     tensor is the last layer output before the classifier head — the
     final-stage feature map ``(B, H, W, C)``, unpooled and head-free.
-    :class:`SENetClassify` composes this model and applies a
+    :class:`SENetImageClassify` composes this model and applies a
     GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -81,7 +81,7 @@ class SENetModel(ResNetModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = SENetClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = SENetImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -92,7 +92,7 @@ class SENetModel(ResNetModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SENetClassify(ResNetClassify):
+class SENetImageClassify(ResNetImageClassify):
     """Instantiates the Squeeze-and-Excitation Network (SENet) classifier.
 
     This classifier wraps a :class:`SENetModel` backbone and attaches a
@@ -146,7 +146,7 @@ class SENetClassify(ResNetClassify):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"SENetClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"SENetImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -172,7 +172,7 @@ class SENetClassify(ResNetClassify):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="SENetClassify",
+        name="SENetImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -206,7 +206,7 @@ class SENetClassify(ResNetClassify):
             name="predictions",
         )(x)
 
-        super(ResNetClassify, self).__init__(
+        super(ResNetImageClassify, self).__init__(
             inputs=backbone.input, outputs=out, name=name, **kwargs
         )
 

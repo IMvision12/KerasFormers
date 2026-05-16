@@ -378,7 +378,7 @@ class InceptionV3Model(BaseModel):
     tensor is the last layer output before the classifier head — the
     final-stage feature map ``(B, H, W, C)`` (after the last Mixed_7c
     Inception-E block), unpooled and head-free.
-    :class:`InceptionV3Classify` composes this model and applies a
+    :class:`InceptionV3ImageClassify` composes this model and applies a
     GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -424,7 +424,9 @@ class InceptionV3Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = InceptionV3Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = InceptionV3ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -503,7 +505,7 @@ class InceptionV3Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionV3Classify(BaseModel):
+class InceptionV3ImageClassify(BaseModel):
     """Instantiates the Inception V3 classifier.
 
     This classifier wraps an :class:`InceptionV3Model` backbone and
@@ -539,7 +541,7 @@ class InceptionV3Classify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"InceptionV3Classify"`.
+            named `f"{name}_backbone"`. Defaults to `"InceptionV3ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -565,7 +567,7 @@ class InceptionV3Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="InceptionV3Classify",
+        name="InceptionV3ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

@@ -1,3 +1,3 @@
-from kerasformers.models.vit.vit_model import ViTClassify, ViTModel
+from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
 
-__all__ = ["ViTClassify", "ViTModel"]
+__all__ = ["ViTImageClassify", "ViTModel"]

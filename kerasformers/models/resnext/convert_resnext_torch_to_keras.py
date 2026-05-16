@@ -1,4 +1,4 @@
-"""timm ResNeXtClassify -> Keras weight transfer.
+"""timm ResNeXtImageClassify -> Keras weight transfer.
 
 The timm-name -> keras-name mapping is identical to ResNet's, so this
 script just re-uses :func:`transfer_resnet_weights`. The ``__main__``
@@ -17,7 +17,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.resnext import ResNeXtClassify
+    from kerasformers.models.resnext import ResNeXtImageClassify
     from kerasformers.models.resnext.config import RESNEXT_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ResNeXtClassify.from_weights(variant, load_weights=False)
+        keras_model = ResNeXtImageClassify.from_weights(variant, load_weights=False)
         transfer_resnext_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

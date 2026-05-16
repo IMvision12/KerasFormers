@@ -344,7 +344,7 @@ class InceptionResNetV2Model(BaseModel):
     the final feature map ``(B, H, W, C)`` (channels-last) /
     ``(B, C, H, W)`` (channels-first) with 1536 channels at spatial
     resolution ``H/32``, unpooled and head-free.
-    :class:`InceptionResNetV2Classify` composes this model and appends
+    :class:`InceptionResNetV2ImageClassify` composes this model and appends
     GAP + Dense.
 
     References:
@@ -391,7 +391,7 @@ class InceptionResNetV2Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = InceptionResNetV2Classify.from_weights(
+            src = InceptionResNetV2ImageClassify.from_weights(
                 variant, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
@@ -472,7 +472,7 @@ class InceptionResNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionResNetV2Classify(BaseModel):
+class InceptionResNetV2ImageClassify(BaseModel):
     """Instantiates the Inception-ResNet-v2 classifier.
 
     This classifier wraps an :class:`InceptionResNetV2Model` backbone
@@ -509,7 +509,7 @@ class InceptionResNetV2Classify(BaseModel):
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`.
-            Defaults to `"InceptionResNetV2Classify"`.
+            Defaults to `"InceptionResNetV2ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -535,7 +535,7 @@ class InceptionResNetV2Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="InceptionResNetV2Classify",
+        name="InceptionResNetV2ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

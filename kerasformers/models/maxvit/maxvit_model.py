@@ -391,7 +391,7 @@ class MaxViTModel(BaseModel):
     Output is the last layer output before the classifier head:
     the final stage feature map ``(B, H, W, C)`` (channels-last) /
     ``(B, C, H, W)`` (channels-first), unpooled and head-free.
-    :class:`MaxViTClassify` composes this model and appends the head.
+    :class:`MaxViTImageClassify` composes this model and appends the head.
 
     References:
     - [MaxViT: Multi-Axis Vision Transformer](https://arxiv.org/abs/2204.01697)
@@ -450,7 +450,7 @@ class MaxViTModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = MaxViTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MaxViTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -566,7 +566,7 @@ class MaxViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MaxViTClassify(BaseModel):
+class MaxViTImageClassify(BaseModel):
     """Instantiates the MaxViT classifier.
 
     This classifier wraps a :class:`MaxViTModel` backbone and attaches a
@@ -619,7 +619,7 @@ class MaxViTClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"MaxViTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"MaxViTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -653,7 +653,7 @@ class MaxViTClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MaxViTClassify",
+        name="MaxViTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

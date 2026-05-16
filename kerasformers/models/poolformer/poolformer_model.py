@@ -224,7 +224,7 @@ class PoolFormerModel(BaseModel):
 
     Output is the last layer output before the classifier head: the
     final stage feature map ``(B, H, W, C)`` (or ``(B, C, H, W)`` for
-    channels_first). :class:`PoolFormerClassify` composes this model
+    channels_first). :class:`PoolFormerImageClassify` composes this model
     and applies a GlobalAveragePooling2D + LayerNorm + Dense head.
 
     References:
@@ -279,7 +279,9 @@ class PoolFormerModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = PoolFormerClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = PoolFormerImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -386,7 +388,7 @@ class PoolFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class PoolFormerClassify(BaseModel):
+class PoolFormerImageClassify(BaseModel):
     """Instantiates the PoolFormer classifier.
 
     This classifier wraps a :class:`PoolFormerModel` backbone and
@@ -434,7 +436,7 @@ class PoolFormerClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"PoolFormerClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"PoolFormerImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -466,7 +468,7 @@ class PoolFormerClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="PoolFormerClassify",
+        name="PoolFormerImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

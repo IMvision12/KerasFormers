@@ -1,6 +1,6 @@
 from kerasformers.models.densenet.densenet_model import (
-    DenseNetClassify,
+    DenseNetImageClassify,
     DenseNetModel,
 )
 
-__all__ = ["DenseNetClassify", "DenseNetModel"]
+__all__ = ["DenseNetImageClassify", "DenseNetModel"]

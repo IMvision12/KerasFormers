@@ -168,7 +168,7 @@ class MLPMixerModel(BaseModel):
 
     Output is the last layer output before the classifier head: the
     final-LN normalized patch sequence ``(B, N, D)`` where
-    ``N = (H/patch_size) * (W/patch_size)``. :class:`MLPMixerClassify`
+    ``N = (H/patch_size) * (W/patch_size)``. :class:`MLPMixerImageClassify`
     composes this model and applies a GlobalAveragePooling1D + Dense
     head (mean-pool over tokens).
 
@@ -225,7 +225,9 @@ class MLPMixerModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = MLPMixerClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MLPMixerImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -332,7 +334,7 @@ class MLPMixerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MLPMixerClassify(BaseModel):
+class MLPMixerImageClassify(BaseModel):
     """Instantiates the MLP-Mixer classifier.
 
     This classifier wraps an :class:`MLPMixerModel` backbone and
@@ -381,7 +383,7 @@ class MLPMixerClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"MLPMixerClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"MLPMixerImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -413,7 +415,7 @@ class MLPMixerClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MLPMixerClassify",
+        name="MLPMixerImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

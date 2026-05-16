@@ -88,7 +88,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.mobilevitv2 import MobileViTV2Classify as MobileViTV2
+    from kerasformers.models.mobilevitv2 import MobileViTV2ImageClassify as MobileViTV2
     from kerasformers.models.mobilevitv2.config import MOBILEVITV2_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 

@@ -99,7 +99,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.maxvit import MaxViTClassify as MaxViT
+    from kerasformers.models.maxvit import MaxViTImageClassify as MaxViT
     from kerasformers.models.maxvit.config import MAXVIT_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 

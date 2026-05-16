@@ -71,7 +71,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.efficientnet_lite import EfficientNetLiteClassify
+    from kerasformers.models.efficientnet_lite import EfficientNetLiteImageClassify
     from kerasformers.models.efficientnet_lite.config import (
         EFFICIENTNET_LITE_WEIGHT_CONFIG,
     )
@@ -84,7 +84,9 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientNetLiteClassify.from_weights(variant, load_weights=False)
+        keras_model = EfficientNetLiteImageClassify.from_weights(
+            variant, load_weights=False
+        )
         transfer_efficientnet_lite_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

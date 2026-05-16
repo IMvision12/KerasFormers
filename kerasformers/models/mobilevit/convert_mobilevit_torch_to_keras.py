@@ -92,7 +92,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.mobilevit import MobileViTClassify as MobileViT
+    from kerasformers.models.mobilevit import MobileViTImageClassify as MobileViT
     from kerasformers.models.mobilevit.config import MOBILEVIT_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 

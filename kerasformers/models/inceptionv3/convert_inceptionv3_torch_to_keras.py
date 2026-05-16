@@ -70,7 +70,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.inceptionv3 import InceptionV3Classify
+    from kerasformers.models.inceptionv3 import InceptionV3ImageClassify
     from kerasformers.models.inceptionv3.config import INCEPTIONV3_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = InceptionV3Classify.from_weights(variant, load_weights=False)
+        keras_model = InceptionV3ImageClassify.from_weights(variant, load_weights=False)
         transfer_inceptionv3_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

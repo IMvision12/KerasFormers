@@ -317,7 +317,7 @@ class EfficientNetLiteModel(BaseModel):
 
     Output is the last layer output before the classifier head: the
     post-head-conv 4D feature map of shape ``(B, H, W, C)``.
-    :class:`EfficientNetLiteClassify` composes this model and adds a
+    :class:`EfficientNetLiteImageClassify` composes this model and adds a
     GlobalAveragePooling2D + (optional) Dropout + Dense head on top.
 
     References:
@@ -333,7 +333,7 @@ class EfficientNetLiteModel(BaseModel):
             selected variant (kept for reference / config). Defaults to
             `224`.
         dropout_rate: Float, dropout rate used by the classifier head
-            (forwarded from / consumed by :class:`EfficientNetLiteClassify`).
+            (forwarded from / consumed by :class:`EfficientNetLiteImageClassify`).
             Defaults to `0.2`.
         drop_connect_rate: Float, stochastic-depth drop rate ramped
             linearly across the MBConv-Lite blocks. Defaults to `0.2`.
@@ -375,7 +375,7 @@ class EfficientNetLiteModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = EfficientNetLiteClassify.from_weights(
+            src = EfficientNetLiteImageClassify.from_weights(
                 variant, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
@@ -478,7 +478,7 @@ class EfficientNetLiteModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientNetLiteClassify(BaseModel):
+class EfficientNetLiteImageClassify(BaseModel):
     """Instantiates the EfficientNet-Lite classifier.
 
     This classifier wraps a :class:`EfficientNetLiteModel` backbone and
@@ -527,7 +527,7 @@ class EfficientNetLiteClassify(BaseModel):
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`. Defaults to
-            `"EfficientNetLiteClassify"`.
+            `"EfficientNetLiteImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -558,7 +558,7 @@ class EfficientNetLiteClassify(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="EfficientNetLiteClassify",
+        name="EfficientNetLiteImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

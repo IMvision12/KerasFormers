@@ -1,6 +1,6 @@
 from kerasformers.models.efficientnet.efficientnet_model import (
-    EfficientNetClassify,
+    EfficientNetImageClassify,
     EfficientNetModel,
 )
 
-__all__ = ["EfficientNetClassify", "EfficientNetModel"]
+__all__ = ["EfficientNetImageClassify", "EfficientNetModel"]

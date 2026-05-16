@@ -1,6 +1,6 @@
 from kerasformers.models.resmlp.resmlp_model import (
-    ResMLPClassify,
+    ResMLPImageClassify,
     ResMLPModel,
 )
 
-__all__ = ["ResMLPClassify", "ResMLPModel"]
+__all__ = ["ResMLPImageClassify", "ResMLPModel"]

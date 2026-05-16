@@ -1,6 +1,6 @@
 from kerasformers.models.convnext.convnext_model import (
-    ConvNeXtClassify,
+    ConvNeXtImageClassify,
     ConvNeXtModel,
 )
 
-__all__ = ["ConvNeXtClassify", "ConvNeXtModel"]
+__all__ = ["ConvNeXtImageClassify", "ConvNeXtModel"]

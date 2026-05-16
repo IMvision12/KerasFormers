@@ -1,9 +1,9 @@
-"""DeiT and DeiT3 as thin :class:`ViTClassify` subclasses (timm-ported)."""
+"""DeiT and DeiT3 as thin :class:`ViTImageClassify` subclasses (timm-ported)."""
 
 import keras
 from keras import layers
 
-from kerasformers.models.vit.vit_model import ViTClassify, ViTModel
+from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHT_CONFIG
@@ -27,7 +27,7 @@ class DeiTModel(ViTModel):
     final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
     first 1 (or 2 if ``use_distillation=True``) tokens are class /
     distillation tokens and the rest are spatial patch tokens.
-    :class:`DeiTClassify` composes this model and reads the class token(s)
+    :class:`DeiTImageClassify` composes this model and reads the class token(s)
     via ``backbone.output[:, 0]`` (and ``[:, 1]`` for the distillation
     token) to produce logits.
 
@@ -64,7 +64,7 @@ class DeiTModel(ViTModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = DeiTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = DeiTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -78,7 +78,7 @@ class DeiTModel(ViTModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeiTClassify(ViTClassify):
+class DeiTImageClassify(ViTImageClassify):
     """Instantiates the Data-efficient Image Transformer (DeiT) classifier.
 
     This classifier wraps a :class:`DeiTModel` backbone and attaches a
@@ -149,7 +149,7 @@ class DeiTClassify(ViTClassify):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"DeiTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"DeiTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -186,7 +186,7 @@ class DeiTClassify(ViTClassify):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="DeiTClassify",
+        name="DeiTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -234,7 +234,7 @@ class DeiTClassify(ViTClassify):
                 num_classes, activation=classifier_activation, name="predictions"
             )(tok)
 
-        super(ViTClassify, self).__init__(
+        super(ViTImageClassify, self).__init__(
             inputs=backbone.input, outputs=out, name=name, **kwargs
         )
 

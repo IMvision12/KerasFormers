@@ -802,7 +802,7 @@ class EfficientNetV2Model(BaseModel):
 
     Output is the last layer output before the classifier head: the
     post-head-conv 4D feature map of shape ``(B, H, W, C)``.
-    :class:`EfficientNetV2Classify` composes this model and adds a
+    :class:`EfficientNetV2ImageClassify` composes this model and adds a
     GlobalAveragePooling2D + (optional) Dropout + Dense head on top.
 
     References:
@@ -861,7 +861,7 @@ class EfficientNetV2Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = EfficientNetV2Classify.from_weights(
+            src = EfficientNetV2ImageClassify.from_weights(
                 variant, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
@@ -965,7 +965,7 @@ class EfficientNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientNetV2Classify(BaseModel):
+class EfficientNetV2ImageClassify(BaseModel):
     """Instantiates the EfficientNetV2 classifier.
 
     This classifier wraps a :class:`EfficientNetV2Model` backbone and
@@ -1016,7 +1016,7 @@ class EfficientNetV2Classify(BaseModel):
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`. Defaults to
-            `"EfficientNetV2Classify"`.
+            `"EfficientNetV2ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -1047,7 +1047,7 @@ class EfficientNetV2Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="EfficientNetV2Classify",
+        name="EfficientNetV2ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

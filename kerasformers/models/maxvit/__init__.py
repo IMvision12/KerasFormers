@@ -1,6 +1,6 @@
 from kerasformers.models.maxvit.maxvit_model import (
-    MaxViTClassify,
+    MaxViTImageClassify,
     MaxViTModel,
 )
 
-__all__ = ["MaxViTClassify", "MaxViTModel"]
+__all__ = ["MaxViTImageClassify", "MaxViTModel"]

@@ -513,7 +513,7 @@ class InceptionV4Model(BaseModel):
     auxiliary classifier branches. The output tensor is the last layer
     output before the classifier head — the final-stage feature map
     ``(B, H, W, C)`` (after the last Inception-C block), unpooled and
-    head-free. :class:`InceptionV4Classify` composes this model and
+    head-free. :class:`InceptionV4ImageClassify` composes this model and
     applies a GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -559,7 +559,9 @@ class InceptionV4Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = InceptionV4Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = InceptionV4ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -638,7 +640,7 @@ class InceptionV4Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionV4Classify(BaseModel):
+class InceptionV4ImageClassify(BaseModel):
     """Instantiates the Inception V4 classifier.
 
     This classifier wraps an :class:`InceptionV4Model` backbone and
@@ -674,7 +676,7 @@ class InceptionV4Classify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"InceptionV4Classify"`.
+            named `f"{name}_backbone"`. Defaults to `"InceptionV4ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -700,7 +702,7 @@ class InceptionV4Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="InceptionV4Classify",
+        name="InceptionV4ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

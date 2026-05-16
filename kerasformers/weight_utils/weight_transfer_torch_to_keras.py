@@ -493,7 +493,7 @@ def copy_weights_by_path_suffix(src, dst):
     everything else is left untouched.
 
     Used to warm-start a task-specific subclass (e.g.
-    ``CLIPClassify``) from a base model checkpoint
+    ``CLIPImageClassify``) from a base model checkpoint
     (``CLIPModel.from_weights(variant)``).
     """
 

@@ -1,6 +1,6 @@
 from kerasformers.models.mlp_mixer.mlp_mixer_model import (
-    MLPMixerClassify,
+    MLPMixerImageClassify,
     MLPMixerModel,
 )
 
-__all__ = ["MLPMixerClassify", "MLPMixerModel"]
+__all__ = ["MLPMixerImageClassify", "MLPMixerModel"]

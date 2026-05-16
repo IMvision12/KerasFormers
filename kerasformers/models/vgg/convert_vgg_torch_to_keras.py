@@ -30,7 +30,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_vgg_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm VGG state-dict into a Keras :class:`VGGClassify`."""
+    """Transfer a timm VGG state-dict into a Keras :class:`VGGImageClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.vgg import VGGClassify
+    from kerasformers.models.vgg import VGGImageClassify
     from kerasformers.models.vgg.config import VGG_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = VGGClassify.from_weights(variant, load_weights=False)
+        keras_model = VGGImageClassify.from_weights(variant, load_weights=False)
         transfer_vgg_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

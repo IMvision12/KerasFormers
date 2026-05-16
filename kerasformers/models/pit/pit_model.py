@@ -261,7 +261,7 @@ class PiTModel(BaseModel):
 
     Output is the last layer output before the classifier head: the
     final LN-normalized class (and distillation) tokens of shape
-    ``(B, 1 or 2, embed_dim[-1])``. :class:`PiTClassify` composes this
+    ``(B, 1 or 2, embed_dim[-1])``. :class:`PiTImageClassify` composes this
     model and reads the class token via ``backbone.output[:, 0]`` (and
     ``[:, 1]`` for the distillation token) to produce logits.
 
@@ -324,7 +324,7 @@ class PiTModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = PiTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = PiTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -438,7 +438,7 @@ class PiTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class PiTClassify(BaseModel):
+class PiTImageClassify(BaseModel):
     """Instantiates the Pooling-based Vision Transformer (PiT) classifier.
 
     This classifier wraps a :class:`PiTModel` backbone and attaches a
@@ -496,7 +496,7 @@ class PiTClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"PiTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"PiTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -529,7 +529,7 @@ class PiTClassify(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="PiTClassify",
+        name="PiTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

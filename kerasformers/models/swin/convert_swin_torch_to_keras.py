@@ -36,7 +36,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_swin_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm Swin state-dict into a Keras :class:`SwinClassify`."""
+    """Transfer a timm Swin state-dict into a Keras :class:`SwinImageClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.swin import SwinClassify
+    from kerasformers.models.swin import SwinImageClassify
     from kerasformers.models.swin.config import SWIN_WEIGHT_CONFIG
     from kerasformers.weight_utils import verify_cls_model_equivalence
 
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = SwinClassify.from_weights(variant, load_weights=False)
+        keras_model = SwinImageClassify.from_weights(variant, load_weights=False)
         transfer_swin_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

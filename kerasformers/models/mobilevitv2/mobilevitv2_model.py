@@ -417,7 +417,7 @@ class MobileViTV2Model(BaseModel):
     Output is the last layer output before the classifier head:
     the final stage feature map ``(B, H, W, C)`` (channels-last) /
     ``(B, C, H, W)`` (channels-first), unpooled and head-free.
-    :class:`MobileViTV2Classify` composes this model and appends GAP +
+    :class:`MobileViTV2ImageClassify` composes this model and appends GAP +
     Dense.
 
     References:
@@ -463,7 +463,9 @@ class MobileViTV2Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = MobileViTV2Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MobileViTV2ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -550,7 +552,7 @@ class MobileViTV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileViTV2Classify(BaseModel):
+class MobileViTV2ImageClassify(BaseModel):
     """Instantiates the MobileViTV2 classifier.
 
     This classifier wraps a :class:`MobileViTV2Model` backbone and
@@ -589,7 +591,7 @@ class MobileViTV2Classify(BaseModel):
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`.
-            Defaults to `"MobileViTV2Classify"`.
+            Defaults to `"MobileViTV2ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -616,7 +618,7 @@ class MobileViTV2Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MobileViTV2Classify",
+        name="MobileViTV2ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

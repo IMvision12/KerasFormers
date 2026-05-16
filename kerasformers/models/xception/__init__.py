@@ -1,6 +1,6 @@
 from kerasformers.models.xception.xception_model import (
-    XceptionClassify,
+    XceptionImageClassify,
     XceptionModel,
 )
 
-__all__ = ["XceptionClassify", "XceptionModel"]
+__all__ = ["XceptionImageClassify", "XceptionModel"]

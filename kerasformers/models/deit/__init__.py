@@ -1,3 +1,3 @@
-from kerasformers.models.deit.deit_model import DeiTClassify, DeiTModel
+from kerasformers.models.deit.deit_model import DeiTImageClassify, DeiTModel
 
-__all__ = ["DeiTClassify", "DeiTModel"]
+__all__ = ["DeiTImageClassify", "DeiTModel"]

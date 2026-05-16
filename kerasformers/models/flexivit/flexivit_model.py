@@ -1,10 +1,10 @@
-"""FlexiViT as a thin :class:`ViTClassify` subclass (timm-ported)."""
+"""FlexiViT as a thin :class:`ViTImageClassify` subclass (timm-ported)."""
 
 import keras
 from keras import layers
 
 from kerasformers.models.vit.convert_vit_torch_to_keras import transfer_vit_weights
-from kerasformers.models.vit.vit_model import ViTClassify, ViTModel
+from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHT_CONFIG
@@ -28,7 +28,7 @@ class FlexiViTModel(ViTModel):
     Output is the last layer output before the classifier head: the
     final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
     first token is the class token and the rest are spatial patch tokens.
-    :class:`FlexiViTClassify` composes this model and reads
+    :class:`FlexiViTImageClassify` composes this model and reads
     ``backbone.output[:, 0]`` to produce logits.
 
     References:
@@ -64,7 +64,9 @@ class FlexiViTModel(ViTModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = FlexiViTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = FlexiViTImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -78,7 +80,7 @@ class FlexiViTModel(ViTModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class FlexiViTClassify(ViTClassify):
+class FlexiViTImageClassify(ViTImageClassify):
     """Instantiates the FlexiViT (Flexible Vision Transformer) classifier.
 
     This classifier wraps a :class:`FlexiViTModel` backbone and attaches a
@@ -148,7 +150,7 @@ class FlexiViTClassify(ViTClassify):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"FlexiViTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"FlexiViTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -185,7 +187,7 @@ class FlexiViTClassify(ViTClassify):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="FlexiViTClassify",
+        name="FlexiViTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -233,7 +235,7 @@ class FlexiViTClassify(ViTClassify):
                 num_classes, activation=classifier_activation, name="predictions"
             )(tok)
 
-        super(ViTClassify, self).__init__(
+        super(ViTImageClassify, self).__init__(
             inputs=backbone.input, outputs=out, name=name, **kwargs
         )
 

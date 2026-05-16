@@ -112,7 +112,7 @@ if __name__ == "__main__":
     import timm
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.inception_resnetv2 import InceptionResNetV2Classify
+    from kerasformers.models.inception_resnetv2 import InceptionResNetV2ImageClassify
     from kerasformers.models.inception_resnetv2.config import (
         INCEPTION_RESNETV2_WEIGHT_CONFIG,
     )
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = InceptionResNetV2Classify.from_weights(
+        keras_model = InceptionResNetV2ImageClassify.from_weights(
             variant, load_weights=False
         )
         transfer_inception_resnet_v2_weights(keras_model, state)

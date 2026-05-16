@@ -126,7 +126,7 @@ def vit_backbone_feature(
 ):
     """ViT patch embed + cls/dist tokens + pos embed + transformer blocks.
 
-    Shared by :class:`ViTClassify` and :class:`ViTModel`.
+    Shared by :class:`ViTImageClassify` and :class:`ViTModel`.
 
     Args:
         inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
@@ -233,7 +233,7 @@ class ViTModel(BaseModel):
     final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
     first 1 (or 2 if ``use_distillation=True``) tokens are class /
     distillation tokens and the rest are spatial patch tokens.
-    :class:`ViTClassify` composes this model and reads the class token(s)
+    :class:`ViTImageClassify` composes this model and reads the class token(s)
     via ``backbone.output[:, 0]`` to produce logits.
 
     References:
@@ -303,7 +303,7 @@ class ViTModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ViTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ViTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -434,7 +434,7 @@ class ViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ViTClassify(BaseModel):
+class ViTImageClassify(BaseModel):
     """Instantiates the Vision Transformer (ViT) classifier.
 
     This classifier wraps a :class:`ViTModel` backbone and attaches a
@@ -502,7 +502,7 @@ class ViTClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ViTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"ViTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -539,7 +539,7 @@ class ViTClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ViTClassify",
+        name="ViTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
