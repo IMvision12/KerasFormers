@@ -39,20 +39,6 @@ def _transfer_attention(path: str, keras_weight, hf_sd: Dict[str, np.ndarray]) -
 def transfer_depth_anything_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer Depth Anything (V1 or V2) weights from a HF state_dict.
-
-    Works for both the relative and metric Depth Anything checkpoints
-    (V1 and V2 share the same backbone/neck/head architecture and the
-    same HF ``model_type``). Used by both the converter ``__main__``
-    block and the ``transfer_from_hf`` classmethod for loading
-    arbitrary user fine-tunes from the HF Hub.
-
-    Args:
-        keras_model: A ``DepthAnythingV1DepthEstimation`` or
-            ``DepthAnythingV2DepthEstimation`` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``DepthAnythingForDepthEstimation.state_dict()``.
-    """
     all_weights = [w for layer in keras_model.layers for w in layer.weights]
     for w in tqdm(all_weights, desc="Transferring weights"):
         path = w.path

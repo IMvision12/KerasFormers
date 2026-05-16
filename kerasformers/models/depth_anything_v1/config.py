@@ -28,12 +28,14 @@ DEPTHANYTHINGV1_CONFIG = {
     },
 }
 
-V1_BASE_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v1"
-)
-
 DEPTHANYTHINGV1_WEIGHTS = {
-    "depth_anything_small": {"url": f"{V1_BASE_URL}/depth_anything_small.weights.h5"},
-    "depth_anything_base": {"url": f"{V1_BASE_URL}/depth_anything_base.weights.h5"},
-    "depth_anything_large": {"url": f"{V1_BASE_URL}/depth_anything_large.weights.h5"},
+    "depth_anything_small": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v1/depth_anything_small.weights.h5",
+    },
+    "depth_anything_base": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v1/depth_anything_base.weights.h5",
+    },
+    "depth_anything_large": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v1/depth_anything_large.weights.h5",
+    },
 }
