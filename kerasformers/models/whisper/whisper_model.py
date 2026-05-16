@@ -62,7 +62,31 @@ def whisper_encoder_block(
     activation=_gelu,
     layer_norm_eps=1e-5,
 ):
-    """One pre-LN encoder block: self-attention + MLP with residuals."""
+    """One pre-LN Whisper encoder block (self-attention + MLP).
+
+    Structure (matches OpenAI / HF Whisper):
+
+    1. Pre-norm → :class:`WhisperAttention` (bidirectional self-attn) →
+       residual.
+    2. Pre-norm → ``Dense(d_model → ffn_dim) → activation →
+       Dense(ffn_dim → d_model)`` → residual.
+
+    Sublayer names follow ``encoder_layers_{layer_idx}_*`` so the
+    PyTorch state-dict transfers by name.
+
+    Args:
+        x: Encoder token sequence of shape ``(B, T, d_model)``.
+        d_model: Model / residual dimension.
+        num_heads: Number of self-attention heads.
+        ffn_dim: Hidden dimension of the feed-forward layer.
+        layer_idx: Index of this block within the encoder stack.
+        activation: Activation callable applied between the two FFN
+            Dense layers. Defaults to exact GELU (Whisper's choice).
+        layer_norm_eps: Epsilon for both pre-norm LayerNorms.
+
+    Returns:
+        Tensor of shape ``(B, T, d_model)``.
+    """
     prefix = f"encoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
@@ -96,7 +120,40 @@ def whisper_decoder_block(
     activation=_gelu,
     layer_norm_eps=1e-5,
 ):
-    """One pre-LN decoder block: self-attn + cross-attn + MLP with residuals."""
+    """One pre-LN Whisper decoder block (causal self-attn + cross-attn + MLP).
+
+    Structure (matches OpenAI / HF Whisper):
+
+    1. Pre-norm → causal :class:`WhisperAttention` (Q/K/V from ``x``,
+       additive ``causal_mask`` applied to attention logits) → residual.
+    2. Pre-norm → cross :class:`WhisperAttention` (Q from ``x``, K/V
+       from ``encoder_hidden_states``) → residual.
+    3. Pre-norm → ``Dense(d_model → ffn_dim) → activation →
+       Dense(ffn_dim → d_model)`` → residual.
+
+    Sublayer names follow ``decoder_layers_{layer_idx}_*`` so the
+    PyTorch state-dict transfers by name.
+
+    Args:
+        x: Current decoder token sequence ``(B, L, d_model)``.
+        encoder_hidden_states: Output of the Whisper encoder
+            ``(B, T, d_model)``, used as keys/values in the cross
+            attention.
+        causal_mask: Additive ``(1, 1, L, L)`` mask with large-negative
+            values above the diagonal — built once per call by
+            :func:`_make_causal_mask_from_ids`.
+        d_model: Model / residual dimension.
+        num_heads: Number of attention heads (shared by self- and
+            cross-attention).
+        ffn_dim: Hidden dimension of the feed-forward layer.
+        layer_idx: Index of this block within the decoder stack.
+        activation: Activation callable applied between the two FFN
+            Dense layers. Defaults to exact GELU.
+        layer_norm_eps: Epsilon for all three pre-norm LayerNorms.
+
+    Returns:
+        Tensor of shape ``(B, L, d_model)``.
+    """
     prefix = f"decoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
@@ -198,7 +255,22 @@ def whisper_encoder(
 
 
 def _make_causal_mask_from_ids(decoder_input_ids):
-    """Build an additive causal attention mask matching the input length."""
+    """Build an additive causal mask sized to the decoder input length.
+
+    Returns a ``(1, 1, L, L)`` mask where positions ``j > i`` (future
+    tokens, strictly above the diagonal) carry ``-1e9`` and all other
+    positions are ``0``. Added directly to the pre-softmax attention
+    logits in :class:`WhisperAttention`, this masks out attention to
+    future tokens for the standard left-to-right autoregressive decode.
+    The leading singleton axes broadcast over batch and head dims.
+
+    Args:
+        decoder_input_ids: Decoder input-id tensor of shape ``(B, L)``.
+            Only the length ``L`` (second axis) is used.
+
+    Returns:
+        Float tensor of shape ``(1, 1, L, L)`` — additive causal mask.
+    """
     seq_len = ops.shape(decoder_input_ids)[1]
     i = ops.arange(seq_len)[:, None]
     j = ops.arange(seq_len)[None, :]
@@ -218,7 +290,42 @@ def whisper_decoder(
     scale_embedding=False,
     name="decoder",
 ):
-    """Build the Whisper decoder as a Functional :class:`keras.Model`."""
+    """Build the Whisper decoder as a Functional :class:`keras.Model`.
+
+    Pipeline: token embedding (optionally scaled by ``√d_model``) →
+    learned positional embedding → ``decoder_layers`` stacked
+    :func:`whisper_decoder_block`s (each consuming a freshly-built
+    causal mask) → final ``LayerNormalization`` → tied LM head (matmul
+    against the transposed token-embedding matrix).
+
+    The returned :class:`keras.Model` consumes a dict with
+    ``decoder_input_ids`` ``(B, L)`` and ``encoder_hidden_states``
+    ``(B, T, d_model)``, and returns logits ``(B, L, vocab_size)``.
+
+    Args:
+        d_model: Model / residual dimension.
+        max_target_positions: Max decoder sequence length used to size
+            the learned positional embedding table.
+        vocab_size: Token vocabulary size (output logit width and
+            tied-embedding rows).
+        decoder_layers: Number of stacked decoder blocks.
+        decoder_attention_heads: Heads in each block's self- and
+            cross-attention.
+        decoder_ffn_dim: Hidden width of the FFN inside each block.
+        activation: Activation callable for the FFN. Defaults to exact
+            GELU.
+        layer_norm_eps: Epsilon for every LayerNorm.
+        scale_embedding: If ``True``, multiply token embeddings by
+            ``√d_model`` before adding positional embeddings (matches
+            HF's ``scale_embedding`` flag — off for the standard
+            Whisper checkpoints).
+        name: Name of the returned :class:`keras.Model`.
+
+    Returns:
+        A :class:`keras.Model` that maps
+        ``{"decoder_input_ids", "encoder_hidden_states"}`` →
+        logits ``(B, L, vocab_size)``.
+    """
     decoder_input_ids = layers.Input(
         shape=(None,), dtype="int32", name="decoder_input_ids"
     )

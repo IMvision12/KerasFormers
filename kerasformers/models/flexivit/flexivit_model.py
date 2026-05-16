@@ -1,5 +1,3 @@
-"""FlexiViT as a thin :class:`ViTImageClassify` subclass (timm-ported)."""
-
 import keras
 from keras import layers
 

@@ -83,7 +83,18 @@ def conv_block(
 
 
 def mixed_5b_block(inputs, name="mixed_5b"):
-    """Stem-end Mixed-5b inception block (1x1, 5x5, double-3x3, avg-pool branches).
+    """Stem-end Mixed-5b inception block — feeds the Inception-ResNet-A stack.
+
+    Four parallel branches concatenated along the channel axis:
+
+    1. **1×1** — 96 channels.
+    2. **1×1 → 5×5** — 48 → 64 channels.
+    3. **1×1 → 3×3 → 3×3** — 64 → 96 → 96 channels.
+    4. **Avg-pool → 1×1** — 64 channels.
+
+    Spatial size is preserved. Output has 96 + 64 + 96 + 64 = 320
+    channels — the input width expected by every :func:`block35`
+    Inception-ResNet-A block downstream.
 
     Args:
         inputs: Input feature map.
@@ -117,7 +128,20 @@ def mixed_5b_block(inputs, name="mixed_5b"):
 
 
 def block35(inputs, scale=1.0, name="repeat_0"):
-    """Inception-ResNet-A residual block (operates on 35x35 feature maps).
+    """Inception-ResNet-A residual block (35×35 stage; 10× in the model).
+
+    Three parallel inception branches are concatenated, projected to
+    320 channels by a 1×1 conv, scaled by ``scale``, added back into
+    ``inputs`` as a residual, then ReLU. Branches:
+
+    1. **1×1** — 32 channels.
+    2. **1×1 → 3×3** — 32 → 32 channels.
+    3. **1×1 → 3×3 → 3×3** — 32 → 48 → 64 channels.
+
+    The ``scale=0.17`` factor (used throughout the model) keeps the
+    residual contribution small enough for the training to remain
+    stable — without it the deeper Inception-ResNet variants diverge.
+    Spatial size is preserved; channels stay at 320.
 
     Args:
         inputs: Input feature map (320 channels).
@@ -149,7 +173,18 @@ def block35(inputs, scale=1.0, name="repeat_0"):
 
 
 def mixed_6a_block(inputs, name="mixed_6a"):
-    """Reduction-A block: halves spatial size between Inception-ResNet-A and -B stages.
+    """Reduction-A — halves spatial size between Inception-ResNet-A and -B.
+
+    Three parallel branches concatenated along the channel axis:
+
+    1. **Strided 3×3** — 384 channels, stride-2, valid padding.
+    2. **1×1 → 3×3 → strided 3×3** — 256 → 256 → 384 channels, last
+       conv stride-2.
+    3. **3×3 max-pool, stride-2** — passes through input channels (320).
+
+    Output has 384 + 384 + 320 = 1088 channels — the input width
+    expected by every :func:`block17` Inception-ResNet-B block
+    downstream.
 
     Args:
         inputs: Input feature map.
@@ -176,7 +211,18 @@ def mixed_6a_block(inputs, name="mixed_6a"):
 
 
 def block17(inputs, scale=1.0, name="repeat_1_0"):
-    """Inception-ResNet-B residual block (operates on 17x17 feature maps).
+    """Inception-ResNet-B residual block (17×17 stage; 20× in the model).
+
+    Two parallel inception branches with factorized 7×7 convs are
+    concatenated, projected to 1088 channels by a 1×1 conv, scaled by
+    ``scale``, added back into ``inputs`` as a residual, then ReLU.
+    Branches:
+
+    1. **1×1** — 192 channels.
+    2. **1×1 → 1×7 → 7×1** — 128 → 160 → 192 channels (factorized 7×7).
+
+    Uses ``scale=0.10`` throughout the model for training stability.
+    Spatial size is preserved; channels stay at 1088.
 
     Args:
         inputs: Input feature map (1088 channels).
@@ -205,7 +251,19 @@ def block17(inputs, scale=1.0, name="repeat_1_0"):
 
 
 def mixed_7a_block(inputs, name="mixed_7a"):
-    """Reduction-B block: halves spatial size between Inception-ResNet-B and -C stages.
+    """Reduction-B — halves spatial size between Inception-ResNet-B and -C.
+
+    Four parallel branches concatenated along the channel axis:
+
+    1. **1×1 → strided 3×3** — 256 → 384 channels, last conv stride-2.
+    2. **1×1 → strided 3×3** — 256 → 288 channels, last conv stride-2.
+    3. **1×1 → 3×3 → strided 3×3** — 256 → 288 → 320 channels, last
+       conv stride-2.
+    4. **3×3 max-pool, stride-2** — passes through input channels (1088).
+
+    Output has 384 + 288 + 320 + 1088 = 2080 channels — the input width
+    expected by every :func:`block8` Inception-ResNet-C block
+    downstream.
 
     Args:
         inputs: Input feature map.
@@ -240,7 +298,20 @@ def mixed_7a_block(inputs, name="mixed_7a"):
 
 
 def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
-    """Inception-ResNet-C residual block (operates on 8x8 feature maps).
+    """Inception-ResNet-C residual block (8×8 stage; 10× in the model).
+
+    Two parallel inception branches with factorized 3×3 convs are
+    concatenated, projected to 2080 channels by a 1×1 conv, scaled by
+    ``scale``, added back into ``inputs`` as a residual, then ReLU
+    (skipped on the final block). Branches:
+
+    1. **1×1** — 192 channels.
+    2. **1×1 → 1×3 → 3×1** — 192 → 224 → 256 channels (factorized 3×3).
+
+    Uses ``scale=0.20`` throughout the model for training stability.
+    The very last block in the C-stack passes ``activation=False`` so
+    the trailing 1×1 head conv sees the pre-ReLU residual sum (matches
+    timm's reference). Spatial size is preserved; channels stay at 2080.
 
     Args:
         inputs: Input feature map (2080 channels).

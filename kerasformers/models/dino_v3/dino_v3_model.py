@@ -20,7 +20,27 @@ from .dino_v3_layers import (
 
 
 def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True):
-    """Gated feed-forward network used in DINOv3 ViT blocks (GeGLU / SwiGLU)."""
+    """Gated feed-forward network used in DINOv3 ViT blocks (GeGLU / SwiGLU).
+
+    Three Dense projections — a gate branch (activated) and a value /
+    up branch — are multiplied elementwise, then projected back to
+    ``dim`` by a third Dense. With ``hidden_act="silu"`` this is the
+    standard SwiGLU; with ``"gelu"`` it is GeGLU. DINOv3 selects the
+    variant via the ``use_swiglu`` flag on the encoder block.
+
+    Args:
+        x: Input token sequence of shape ``(B, N, dim)``.
+        dim: Output / residual channel dimension.
+        hidden_dim: Width of the gate / up branches.
+        block_idx: Block index, used to name the inner Dense layers
+            (``blocks_{block_idx}_swiglu_*``).
+        hidden_act: Activation applied to the gate branch (``"silu"``
+            for SwiGLU, ``"gelu"`` for GeGLU).
+        mlp_bias: Whether the three Dense layers carry biases.
+
+    Returns:
+        Tensor of shape ``(B, N, dim)``.
+    """
     gate = layers.Dense(
         hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_gate"
     )(x)
@@ -34,7 +54,23 @@ def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias
 
 
 def dinov3_mlp_block(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True):
-    """Standard two-layer MLP with configurable activation."""
+    """Standard two-layer transformer MLP — Dense → activation → Dense.
+
+    Used by DINOv3 blocks when ``use_swiglu=False``. Layer names follow
+    ``blocks_{block_idx}_dense_{1,2}`` so the PyTorch state-dict can be
+    transferred by suffix.
+
+    Args:
+        x: Input token sequence of shape ``(B, N, dim)``.
+        dim: Output / residual channel dimension.
+        hidden_dim: Intermediate Dense width.
+        block_idx: Block index used in layer names.
+        hidden_act: Activation name (typically ``"gelu"``).
+        mlp_bias: Whether both Dense layers carry biases.
+
+    Returns:
+        Tensor of shape ``(B, N, dim)``.
+    """
     x = layers.Dense(hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_dense_1")(
         x
     )
@@ -62,7 +98,52 @@ def dinov3_transformer_block(
     mlp_bias=True,
     layer_norm_eps=1e-5,
 ):
-    """DINOv3 transformer block with 2D-RoPE self-attention + MLP."""
+    """One pre-LN DINOv3 transformer block (2D-RoPE attention + MLP).
+
+    Structure:
+
+    1. Pre-norm → :class:`DinoV3Attention` (with 2D RoPE applied to
+       Q/K of the patch tokens; prefix tokens — CLS + registers — skip
+       RoPE) → optional :class:`LayerScale` → residual.
+    2. Pre-norm → :func:`dinov3_mlp_block` *or* :func:`dinov3_swiglu_ffn`
+       (selected by ``use_swiglu``) → optional :class:`LayerScale` →
+       residual.
+
+    All sublayer names are deterministic (``blocks_{block_idx}_*``) so
+    the HF DINOv3 state-dict can be transferred by name. The shared
+    RoPE cache (``rope_cos``, ``rope_sin``) is set once per block via
+    :meth:`DinoV3Attention.set_rope_cache`, avoiding re-computation per
+    forward pass.
+
+    Reference:
+        - `DINOv3 <https://arxiv.org/abs/2508.10104>`_
+
+    Args:
+        inputs: Token sequence ``(B, N, dim)`` — typically
+            ``[CLS, registers..., patch_tokens...]``.
+        dim: Hidden / model dimension.
+        num_heads: Number of attention heads.
+        mlp_hidden_dim: Hidden width of the MLP / SwiGLU branch.
+        num_prefix_tokens: Number of leading tokens that bypass RoPE
+            (CLS + registers).
+        rope_theta: RoPE base frequency.
+        use_swiglu: If ``True`` use :func:`dinov3_swiglu_ffn`; otherwise
+            :func:`dinov3_mlp_block`.
+        init_values: Initial LayerScale value. Pass ``None`` to disable
+            LayerScale on both residual branches.
+        block_idx: Block index used in every layer name.
+        rope_cos: Pre-computed cosine cache for 2D RoPE.
+        rope_sin: Pre-computed sine cache for 2D RoPE.
+        query_bias: Whether the query projection carries a bias.
+        key_bias: Whether the key projection carries a bias.
+        value_bias: Whether the value projection carries a bias.
+        hidden_act: MLP / SwiGLU activation name.
+        mlp_bias: Whether MLP / SwiGLU Dense layers carry biases.
+        layer_norm_eps: Epsilon for both pre-norm LayerNorms.
+
+    Returns:
+        Tensor of shape ``(B, N, dim)`` — the block's output sequence.
+    """
     x = layers.LayerNormalization(
         epsilon=layer_norm_eps, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
