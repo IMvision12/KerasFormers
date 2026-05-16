@@ -46,3 +46,14 @@ def owlvit_input(batch_size=2, image_size=64, context_length=16, num_queries=2):
             (batch_size * num_queries, context_length), dtype="int32"
         ),
     }
+
+
+def whisper_input(batch_size=2, num_mel_bins=80, mel_length=40, decoder_seq_len=5):
+    return {
+        "input_features": ops.ones((batch_size, num_mel_bins, mel_length)),
+        "decoder_input_ids": ops.zeros((batch_size, decoder_seq_len), dtype="int32"),
+    }
+
+
+def whisper_audio_input(batch_size=2, num_mel_bins=80, mel_length=40):
+    return ops.ones((batch_size, num_mel_bins, mel_length))

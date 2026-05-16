@@ -13,7 +13,14 @@ from tests.base.model_test_registry import (
 BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
-SKIP_DATA_FORMAT = set()
+# Models that don't support runtime channels_first/channels_last switching:
+# - Whisper*: audio model, no spatial image dim; the channels_first
+#   conversion doesn't apply.
+SKIP_DATA_FORMAT = {
+    "WhisperModel",
+    "WhisperSpeechToText",
+    "WhisperAudioClassify",
+}
 
 
 def _adapt_input_shape_for_format(init_kwargs, data_format):

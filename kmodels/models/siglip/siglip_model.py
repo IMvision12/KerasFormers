@@ -744,7 +744,7 @@ class SigLIPModel(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = self.input_shape["images"]
+        image_shape_with_batch = tuple(self.input["images"].shape)
         if image_shape_with_batch[0] is None:
             image_input_shape = image_shape_with_batch[1:]
         else:
@@ -871,7 +871,7 @@ class SigLIPZeroShotClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = self.input_shape["images"]
+        image_shape_with_batch = tuple(self.input["images"].shape)
         if image_shape_with_batch[0] is None:
             image_input_shape = image_shape_with_batch[1:]
         else:
