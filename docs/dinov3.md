@@ -13,7 +13,7 @@ Both return the list of intermediate feature maps from each block / stage, suita
 
 ## Weights License
 
-DINOv3 weights are **gated** on HuggingFace and cannot be redistributed. The first call to `from_weights(variant)` downloads from HF, converts to Keras format, and caches the result at `~/.cache/kmodels/<variant>/`. Subsequent calls reload from cache.
+DINOv3 weights are **gated** on HuggingFace and cannot be redistributed. The first call to `from_weights(variant)` downloads from HF, converts to Keras format, and caches the result at `~/.cache/kerasformers/<variant>/`. Subsequent calls reload from cache.
 
 Before the first call:
 
@@ -43,7 +43,7 @@ Before the first call:
 
 ## Features and Capabilities
 
-- **Gated weight loading:** First call downloads from HuggingFace, converts from PyTorch, and caches at `~/.cache/kmodels/<variant>/`.
+- **Gated weight loading:** First call downloads from HuggingFace, converts from PyTorch, and caches at `~/.cache/kerasformers/<variant>/`.
 - **2D RoPE:** ViT variants use 2D Rotary Position Embeddings applied to patch tokens only (CLS and register tokens are excluded).
 - **Register tokens:** 4 learnable register tokens inserted between CLS and patch tokens improve attention map quality.
 - **HF passthrough:** `from_weights("hf:facebook/dinov3-...")` also works for arbitrary fine-tunes whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"`.
@@ -59,7 +59,7 @@ import os
 os.environ["HF_TOKEN"] = "your_huggingface_token"
 
 import numpy as np
-from kmodels.models.dino_v3 import DinoV3ViTBackbone, DinoV3ConvNeXtBackbone
+from kerasformers.models.dino_v3 import DinoV3ViTBackbone, DinoV3ConvNeXtBackbone
 
 # ViT — returns 13 intermediate feature maps (embed + 12 blocks)
 model = DinoV3ViTBackbone.from_weights("dinov3_vits16")
@@ -78,7 +78,7 @@ print(len(features), features[-1].shape)  # 5, (1, 7, 7, 768)
 Any HF repo whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"` (the official DINOv3 checkpoints or any user fine-tune built on the same architectures) can be loaded directly via `from_weights("hf:<repo>")`:
 
 ```python
-from kmodels.models.dino_v3 import DinoV3ViTBackbone
+from kerasformers.models.dino_v3 import DinoV3ViTBackbone
 
 model = DinoV3ViTBackbone.from_weights("hf:facebook/dinov3-vitb16-pretrain-lvd1689m")
 ```
@@ -87,7 +87,7 @@ model = DinoV3ViTBackbone.from_weights("hf:facebook/dinov3-vitb16-pretrain-lvd16
 
 ```python
 import keras
-from kmodels.models.dino_v3 import DinoV3ViTBackbone
+from kerasformers.models.dino_v3 import DinoV3ViTBackbone
 
 backbone = DinoV3ViTBackbone.from_weights("dinov3_vits16")
 features = backbone.output  # list
@@ -101,4 +101,4 @@ backbone.trainable = False
 
 ## Cache Location
 
-Converted weights live in `~/.cache/kmodels/<variant>/<variant>.weights.h5`. To force a re-download (e.g. after a converter update), delete the cache file.
+Converted weights live in `~/.cache/kerasformers/<variant>/<variant>.weights.h5`. To force a re-download (e.g. after a converter update), delete the cache file.

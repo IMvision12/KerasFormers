@@ -27,9 +27,9 @@ RT-DETR (Real-Time DEtection TRansformer) is the first real-time end-to-end obje
 ## Basic Usage
 
 ```python
-from kmodels.models.rt_detr import RTDETRDetect
+from kerasformers.models.rt_detr import RTDETRDetect
 
-# RT-DETR with ResNet-50 (kmodels release, COCO pre-trained)
+# RT-DETR with ResNet-50 (kerasformers release, COCO pre-trained)
 model = RTDETRDetect.from_weights("rtdetr-r50vd")
 
 # Other variants
@@ -51,7 +51,7 @@ model = RTDETRDetect.from_weights("hf:my-username/my-rtdetr-finetune")
 ## Example Inference
 
 ```python
-from kmodels.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
+from kerasformers.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 from PIL import Image
 
 model = RTDETRDetect.from_weights("rtdetr-r50vd")
@@ -109,7 +109,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
+from kerasformers.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 
 model = RTDETRDetect.from_weights("rtdetr-r50vd")
 
@@ -166,7 +166,7 @@ Unlike DETR and RF-DETR, RT-DETR does **not** apply ImageNet normalization. The 
 To convert weights from HuggingFace checkpoints:
 
 ```bash
-KERAS_BACKEND=torch python kmodels/models/rt_detr/convert_rt_detr_hf_to_keras.py
+KERAS_BACKEND=torch python kerasformers/models/rt_detr/convert_rt_detr_hf_to_keras.py
 ```
 
 This converts all 7 checkpoints from the [PekingU](https://huggingface.co/PekingU) organization:

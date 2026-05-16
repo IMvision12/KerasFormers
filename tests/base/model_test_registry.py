@@ -1,4 +1,4 @@
-# Test registry for kmodels.
+# Test registry for kerasformers.
 #
 # Each entry describes one parametrized test case for the integration suite:
 # - `module` + `model_cls`: how to import the class under test.
@@ -15,7 +15,7 @@
 MODEL_TEST_CONFIGS = {
     # ---------- Classification: XClassify (full classifier with head) ----------
     "CaiTClassify": {
-        "module": "kmodels.models.cait",
+        "module": "kerasformers.models.cait",
         "model_cls": "CaiTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -31,7 +31,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ConvMixerClassify": {
-        "module": "kmodels.models.convmixer",
+        "module": "kerasformers.models.convmixer",
         "model_cls": "ConvMixerClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -48,7 +48,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ConvNeXtClassify": {
-        "module": "kmodels.models.convnext",
+        "module": "kerasformers.models.convnext",
         "model_cls": "ConvNeXtClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -62,7 +62,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ConvNeXtV2Classify": {
-        "module": "kmodels.models.convnextv2",
+        "module": "kerasformers.models.convnextv2",
         "model_cls": "ConvNeXtV2Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -79,7 +79,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "DeiTClassify": {
-        "module": "kmodels.models.deit",
+        "module": "kerasformers.models.deit",
         "model_cls": "DeiTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -95,7 +95,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "DenseNetClassify": {
-        "module": "kmodels.models.densenet",
+        "module": "kerasformers.models.densenet",
         "model_cls": "DenseNetClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -110,7 +110,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "EfficientFormerClassify": {
-        "module": "kmodels.models.efficientformer",
+        "module": "kerasformers.models.efficientformer",
         "model_cls": "EfficientFormerClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -125,7 +125,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "EfficientNetClassify": {
-        "module": "kmodels.models.efficientnet",
+        "module": "kerasformers.models.efficientnet",
         "model_cls": "EfficientNetClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -141,7 +141,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "EfficientNetLiteClassify": {
-        "module": "kmodels.models.efficientnet_lite",
+        "module": "kerasformers.models.efficientnet_lite",
         "model_cls": "EfficientNetLiteClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -157,7 +157,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "EfficientNetV2Classify": {
-        "module": "kmodels.models.efficientnetv2",
+        "module": "kerasformers.models.efficientnetv2",
         "model_cls": "EfficientNetV2Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -174,7 +174,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "FlexiViTClassify": {
-        "module": "kmodels.models.flexivit",
+        "module": "kerasformers.models.flexivit",
         "model_cls": "FlexiViTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -191,7 +191,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "InceptionNextClassify": {
-        "module": "kmodels.models.inception_next",
+        "module": "kerasformers.models.inception_next",
         "model_cls": "InceptionNextClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -208,7 +208,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "InceptionResNetV2Classify": {
-        "module": "kmodels.models.inception_resnetv2",
+        "module": "kerasformers.models.inception_resnetv2",
         "model_cls": "InceptionResNetV2Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -220,7 +220,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "InceptionV3Classify": {
-        "module": "kmodels.models.inceptionv3",
+        "module": "kerasformers.models.inceptionv3",
         "model_cls": "InceptionV3Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -232,7 +232,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "InceptionV4Classify": {
-        "module": "kmodels.models.inceptionv4",
+        "module": "kerasformers.models.inceptionv4",
         "model_cls": "InceptionV4Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -244,7 +244,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "MaxViTClassify": {
-        "module": "kmodels.models.maxvit",
+        "module": "kerasformers.models.maxvit",
         "model_cls": "MaxViTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -261,7 +261,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "MiTClassify": {
-        "module": "kmodels.models.mit",
+        "module": "kerasformers.models.mit",
         "model_cls": "MiTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -275,7 +275,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "MLPMixerClassify": {
-        "module": "kmodels.models.mlp_mixer",
+        "module": "kerasformers.models.mlp_mixer",
         "model_cls": "MLPMixerClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -291,7 +291,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "MobileNetV2Classify": {
-        "module": "kmodels.models.mobilenetv2",
+        "module": "kerasformers.models.mobilenetv2",
         "model_cls": "MobileNetV2Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -306,7 +306,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "MobileNetV3Classify": {
-        "module": "kmodels.models.mobilenetv3",
+        "module": "kerasformers.models.mobilenetv3",
         "model_cls": "MobileNetV3Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -322,7 +322,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "MobileViTClassify": {
-        "module": "kmodels.models.mobilevit",
+        "module": "kerasformers.models.mobilevit",
         "model_cls": "MobileViTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -339,7 +339,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "MobileViTV2Classify": {
-        "module": "kmodels.models.mobilevitv2",
+        "module": "kerasformers.models.mobilevitv2",
         "model_cls": "MobileViTV2Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -352,7 +352,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "NextViTClassify": {
-        "module": "kmodels.models.nextvit",
+        "module": "kerasformers.models.nextvit",
         "model_cls": "NextViTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -370,7 +370,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "PiTClassify": {
-        "module": "kmodels.models.pit",
+        "module": "kerasformers.models.pit",
         "model_cls": "PiTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -389,7 +389,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "PoolFormerClassify": {
-        "module": "kmodels.models.poolformer",
+        "module": "kerasformers.models.poolformer",
         "model_cls": "PoolFormerClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -404,7 +404,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "Res2NetClassify": {
-        "module": "kmodels.models.res2net",
+        "module": "kerasformers.models.res2net",
         "model_cls": "Res2NetClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -419,7 +419,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ResMLPClassify": {
-        "module": "kmodels.models.resmlp",
+        "module": "kerasformers.models.resmlp",
         "model_cls": "ResMLPClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -436,7 +436,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ResNetClassify": {
-        "module": "kmodels.models.resnet",
+        "module": "kerasformers.models.resnet",
         "model_cls": "ResNetClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -449,7 +449,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ResNetV2Classify": {
-        "module": "kmodels.models.resnetv2",
+        "module": "kerasformers.models.resnetv2",
         "model_cls": "ResNetV2Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -463,7 +463,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ResNeXtClassify": {
-        "module": "kmodels.models.resnext",
+        "module": "kerasformers.models.resnext",
         "model_cls": "ResNeXtClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -478,7 +478,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "SENetClassify": {
-        "module": "kmodels.models.senet",
+        "module": "kerasformers.models.senet",
         "model_cls": "SENetClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -492,7 +492,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "SwinClassify": {
-        "module": "kmodels.models.swin",
+        "module": "kerasformers.models.swin",
         "model_cls": "SwinClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -509,7 +509,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "SwinV2Classify": {
-        "module": "kmodels.models.swinv2",
+        "module": "kerasformers.models.swinv2",
         "model_cls": "SwinV2Classify",
         "model_type": "classification",
         "init_kwargs": {
@@ -527,7 +527,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "VGGClassify": {
-        "module": "kmodels.models.vgg",
+        "module": "kerasformers.models.vgg",
         "model_cls": "VGGClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -541,7 +541,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "ViTClassify": {
-        "module": "kmodels.models.vit",
+        "module": "kerasformers.models.vit",
         "model_cls": "ViTClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -560,7 +560,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     "XceptionClassify": {
-        "module": "kmodels.models.xception",
+        "module": "kerasformers.models.xception",
         "model_cls": "XceptionClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -573,7 +573,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Self-supervised vision backbones ----------
     "DinoViTBackbone": {
-        "module": "kmodels.models.dino",
+        "module": "kerasformers.models.dino",
         "model_cls": "DinoViTBackbone",
         "model_type": "backbone",
         "init_kwargs": {
@@ -587,7 +587,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "DinoResNetBackbone": {
-        "module": "kmodels.models.dino",
+        "module": "kerasformers.models.dino",
         "model_cls": "DinoResNetBackbone",
         "model_type": "backbone",
         "init_kwargs": {
@@ -597,7 +597,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "DinoV2Backbone": {
-        "module": "kmodels.models.dino_v2",
+        "module": "kerasformers.models.dino_v2",
         "model_cls": "DinoV2Backbone",
         "model_type": "backbone",
         "init_kwargs": {
@@ -611,7 +611,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "DinoV3ViTBackbone": {
-        "module": "kmodels.models.dino_v3",
+        "module": "kerasformers.models.dino_v3",
         "model_cls": "DinoV3ViTBackbone",
         "model_type": "backbone",
         "init_kwargs": {
@@ -625,7 +625,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "DinoV3ConvNeXtBackbone": {
-        "module": "kmodels.models.dino_v3",
+        "module": "kerasformers.models.dino_v3",
         "model_cls": "DinoV3ConvNeXtBackbone",
         "model_type": "backbone",
         "init_kwargs": {
@@ -638,7 +638,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Object detection ----------
     "DFineDetect": {
-        "module": "kmodels.models.dfine",
+        "module": "kerasformers.models.dfine",
         "model_cls": "DFineDetect",
         "model_type": "object_detection",
         "init_kwargs": {
@@ -663,7 +663,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "DETRDetect": {
-        "module": "kmodels.models.detr",
+        "module": "kerasformers.models.detr",
         "model_cls": "DETRDetect",
         "model_type": "object_detection",
         "init_kwargs": {
@@ -680,7 +680,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "RTDETRDetect": {
-        "module": "kmodels.models.rt_detr",
+        "module": "kerasformers.models.rt_detr",
         "model_cls": "RTDETRDetect",
         "model_type": "object_detection",
         "init_kwargs": {
@@ -701,7 +701,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "RTDETRV2Detect": {
-        "module": "kmodels.models.rt_detr_v2",
+        "module": "kerasformers.models.rt_detr_v2",
         "model_cls": "RTDETRV2Detect",
         "model_type": "object_detection",
         "init_kwargs": {
@@ -722,7 +722,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "RFDETRDetect": {
-        "module": "kmodels.models.rf_detr",
+        "module": "kerasformers.models.rf_detr",
         "model_cls": "RFDETRDetect",
         "model_type": "object_detection",
         "init_kwargs": {
@@ -743,7 +743,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Depth estimation ----------
     "DepthAnythingV1DepthEstimation": {
-        "module": "kmodels.models.depth_anything_v1",
+        "module": "kerasformers.models.depth_anything_v1",
         "model_cls": "DepthAnythingV1DepthEstimation",
         "model_type": "depth_estimation",
         "init_kwargs": {
@@ -753,7 +753,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 42, 42, 1),
     },
     "DepthAnythingV2DepthEstimation": {
-        "module": "kmodels.models.depth_anything_v2",
+        "module": "kerasformers.models.depth_anything_v2",
         "model_cls": "DepthAnythingV2DepthEstimation",
         "model_type": "depth_estimation",
         "init_kwargs": {
@@ -763,7 +763,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 42, 42, 1),
     },
     "DepthAnythingV2DepthMetric": {
-        "module": "kmodels.models.depth_anything_v2",
+        "module": "kerasformers.models.depth_anything_v2",
         "model_cls": "DepthAnythingV2DepthEstimation",
         "model_type": "depth_estimation",
         "init_kwargs": {
@@ -776,7 +776,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Semantic / universal segmentation ----------
     "DeepLabV3Segment": {
-        "module": "kmodels.models.deeplabv3",
+        "module": "kerasformers.models.deeplabv3",
         "model_cls": "DeepLabV3Segment",
         "model_type": "segmentation",
         "init_kwargs": {
@@ -788,7 +788,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 64, 64, 21),
     },
     "EoMTUniversalSegment": {
-        "module": "kmodels.models.eomt",
+        "module": "kerasformers.models.eomt",
         "model_cls": "EoMTUniversalSegment",
         "model_type": "segmentation",
         "init_kwargs": {
@@ -808,7 +808,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "SegFormerSegment": {
-        "module": "kmodels.models.segformer",
+        "module": "kerasformers.models.segformer",
         "model_cls": "SegFormerSegment",
         "model_type": "segmentation",
         "init_kwargs": {
@@ -820,7 +820,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Promptable segmentation ----------
     "SAMVisionModel": {
-        "module": "kmodels.models.sam",
+        "module": "kerasformers.models.sam",
         "model_cls": "SAMVisionModel",
         "model_type": "backbone",
         "init_kwargs": {
@@ -835,7 +835,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "SAMPromptableSegment": {
-        "module": "kmodels.models.sam",
+        "module": "kerasformers.models.sam",
         "model_cls": "SAMPromptableSegment",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
@@ -854,7 +854,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "Sam2Model": {
-        "module": "kmodels.models.sam2",
+        "module": "kerasformers.models.sam2",
         "model_cls": "Sam2Model",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
@@ -877,7 +877,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Vision-language (CLIP family) ----------
     "CLIPModel": {
-        "module": "kmodels.models.clip",
+        "module": "kerasformers.models.clip",
         "model_cls": "CLIPModel",
         "model_type": "vlm",
         "init_kwargs": {
@@ -898,7 +898,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "CLIPZeroShotClassify": {
-        "module": "kmodels.models.clip",
+        "module": "kerasformers.models.clip",
         "model_cls": "CLIPZeroShotClassify",
         "model_type": "vlm",
         "init_kwargs": {
@@ -922,7 +922,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "CLIPImageClassify": {
-        "module": "kmodels.models.clip",
+        "module": "kerasformers.models.clip",
         "model_cls": "CLIPImageClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -938,7 +938,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Vision-language (SigLIP family) ----------
     "SigLIPModel": {
-        "module": "kmodels.models.siglip",
+        "module": "kerasformers.models.siglip",
         "model_cls": "SigLIPModel",
         "model_type": "vlm",
         "init_kwargs": {
@@ -962,7 +962,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "SigLIPZeroShotClassify": {
-        "module": "kmodels.models.siglip",
+        "module": "kerasformers.models.siglip",
         "model_cls": "SigLIPZeroShotClassify",
         "model_type": "vlm",
         "init_kwargs": {
@@ -989,7 +989,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "SigLIPImageClassify": {
-        "module": "kmodels.models.siglip",
+        "module": "kerasformers.models.siglip",
         "model_cls": "SigLIPImageClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -1007,7 +1007,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Vision-language (SigLIP 2 family) ----------
     "SigLIP2Model": {
-        "module": "kmodels.models.siglip2",
+        "module": "kerasformers.models.siglip2",
         "model_cls": "SigLIP2Model",
         "model_type": "vlm",
         "init_kwargs": {
@@ -1031,7 +1031,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "SigLIP2ZeroShotClassify": {
-        "module": "kmodels.models.siglip2",
+        "module": "kerasformers.models.siglip2",
         "model_cls": "SigLIP2ZeroShotClassify",
         "model_type": "vlm",
         "init_kwargs": {
@@ -1058,7 +1058,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "SigLIP2ImageClassify": {
-        "module": "kmodels.models.siglip2",
+        "module": "kerasformers.models.siglip2",
         "model_cls": "SigLIP2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -1076,7 +1076,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Vision-language (MetaCLIP 2) ----------
     "MetaClip2Model": {
-        "module": "kmodels.models.metaclip2",
+        "module": "kerasformers.models.metaclip2",
         "model_cls": "MetaClip2Model",
         "model_type": "vlm",
         "init_kwargs": {
@@ -1097,7 +1097,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": None,
     },
     "MetaClip2ZeroShotClassify": {
-        "module": "kmodels.models.metaclip2",
+        "module": "kerasformers.models.metaclip2",
         "model_cls": "MetaClip2ZeroShotClassify",
         "model_type": "vlm",
         "init_kwargs": {
@@ -1121,7 +1121,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "MetaClip2ImageClassify": {
-        "module": "kmodels.models.metaclip2",
+        "module": "kerasformers.models.metaclip2",
         "model_cls": "MetaClip2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
@@ -1137,7 +1137,7 @@ MODEL_TEST_CONFIGS = {
     },
     # ---------- Audio (Whisper) ----------
     "WhisperModel": {
-        "module": "kmodels.models.whisper",
+        "module": "kerasformers.models.whisper",
         "model_cls": "WhisperModel",
         "model_type": "audio",
         "init_kwargs": {
@@ -1165,7 +1165,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "WhisperSpeechToText": {
-        "module": "kmodels.models.whisper",
+        "module": "kerasformers.models.whisper",
         "model_cls": "WhisperSpeechToText",
         "model_type": "audio",
         "init_kwargs": {
@@ -1193,7 +1193,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "WhisperAudioClassify": {
-        "module": "kmodels.models.whisper",
+        "module": "kerasformers.models.whisper",
         "model_cls": "WhisperAudioClassify",
         "model_type": "audio",
         "init_kwargs": {
@@ -1211,7 +1211,7 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 10),
     },
     "OwlViTDetect": {
-        "module": "kmodels.models.owlvit",
+        "module": "kerasformers.models.owlvit",
         "model_cls": "OwlViTDetect",
         "model_type": "object_detection",
         "init_kwargs": {

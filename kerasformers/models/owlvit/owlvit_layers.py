@@ -1,0 +1,305 @@
+import keras
+from keras import layers, ops
+
+
+def quick_gelu(x):
+    return x * ops.sigmoid(1.702 * x)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class OwlViTVisionEmbeddings(layers.Layer):
+    """Patch embedding + class token + learned position embedding for OWL-ViT.
+
+    Reference:
+    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+
+    Args:
+        hidden_size: Integer, embedding dimension of each patch token.
+        image_size: Integer, square image edge in pixels.
+        patch_size: Integer, square patch edge in pixels. Must divide
+            ``image_size``.
+        num_channels: Integer, number of input image channels. Defaults
+            to ``3``.
+        **kwargs: Additional keyword arguments passed to ``Layer``.
+
+    Input Shape:
+        4D tensor: ``(batch_size, image_size, image_size, num_channels)``.
+
+    Output Shape:
+        3D tensor: ``(batch_size, num_patches + 1, hidden_size)``.
+    """
+
+    def __init__(
+        self,
+        hidden_size,
+        image_size,
+        patch_size,
+        num_channels=3,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.hidden_size = hidden_size
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.num_channels = num_channels
+        self.num_patches = (image_size // patch_size) ** 2
+        self.num_positions = self.num_patches + 1
+        self._data_format = keras.config.image_data_format()
+
+        self.patch_embedding = layers.Conv2D(
+            filters=hidden_size,
+            kernel_size=patch_size,
+            strides=patch_size,
+            use_bias=False,
+            data_format=self._data_format,
+            name="patch_embedding",
+        )
+        self.position_embedding = layers.Embedding(
+            self.num_positions,
+            hidden_size,
+            name="position_embedding",
+        )
+
+    def build(self, input_shape):
+        self.class_embedding = self.add_weight(
+            name="class_embedding",
+            shape=(self.hidden_size,),
+            initializer="zeros",
+            trainable=True,
+        )
+        super().build(input_shape)
+
+    def call(self, pixel_values):
+        patch_embeds = self.patch_embedding(pixel_values)
+        if self._data_format == "channels_first":
+            patch_embeds = ops.transpose(patch_embeds, (0, 2, 3, 1))
+        b = ops.shape(patch_embeds)[0]
+        patch_embeds = ops.reshape(
+            patch_embeds, (b, self.num_patches, self.hidden_size)
+        )
+        cls = ops.broadcast_to(
+            ops.reshape(self.class_embedding, (1, 1, self.hidden_size)),
+            (b, 1, self.hidden_size),
+        )
+        embeddings = ops.concatenate([cls, patch_embeds], axis=1)
+        position_ids = ops.arange(0, self.num_positions, dtype="int32")
+        pos_embed = self.position_embedding(position_ids)
+        return embeddings + ops.expand_dims(pos_embed, axis=0)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "image_size": self.image_size,
+                "patch_size": self.patch_size,
+                "num_channels": self.num_channels,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class OwlViTTextEmbeddings(layers.Layer):
+    """Token embedding + learned position embedding for the OWL-ViT text tower.
+
+    Reference:
+    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+
+    Args:
+        vocab_size: Integer, text vocabulary size.
+        hidden_size: Integer, hidden size of the text tower.
+        max_position_embeddings: Integer, maximum text sequence length.
+        **kwargs: Additional keyword arguments passed to ``Layer``.
+
+    Input Shape:
+        2D integer tensor: ``(batch_size, sequence_length)``.
+
+    Output Shape:
+        3D tensor: ``(batch_size, sequence_length, hidden_size)``.
+    """
+
+    def __init__(
+        self,
+        vocab_size,
+        hidden_size,
+        max_position_embeddings,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        self.max_position_embeddings = max_position_embeddings
+
+        self.token_embedding = layers.Embedding(
+            vocab_size, hidden_size, name="token_embedding"
+        )
+        self.position_embedding = layers.Embedding(
+            max_position_embeddings, hidden_size, name="position_embedding"
+        )
+
+    def call(self, input_ids):
+        token_embeds = self.token_embedding(input_ids)
+        position_ids = ops.arange(0, self.max_position_embeddings, dtype="int32")
+        position_embeds = self.position_embedding(position_ids)
+        return token_embeds + ops.expand_dims(position_embeds, axis=0)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "hidden_size": self.hidden_size,
+                "max_position_embeddings": self.max_position_embeddings,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class OwlViTAttention(layers.Layer):
+    """Multi-head self-attention with separate q/k/v/out projections.
+
+    Reference:
+    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+
+    Args:
+        hidden_size: Integer, total model dimension. Must be divisible
+            by ``num_heads``.
+        num_heads: Integer, number of parallel attention heads.
+        **kwargs: Additional keyword arguments passed to ``Layer``.
+
+    Input Shape:
+        3D tensor: ``(batch_size, seq_len, hidden_size)``. An optional
+        additive ``attention_mask`` broadcastable to
+        ``(batch_size, num_heads, seq_len, seq_len)`` may be provided.
+
+    Output Shape:
+        3D tensor: ``(batch_size, seq_len, hidden_size)``.
+    """
+
+    def __init__(
+        self,
+        hidden_size,
+        num_heads,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        if hidden_size % num_heads != 0:
+            raise ValueError(
+                f"hidden_size ({hidden_size}) must be divisible by num_heads "
+                f"({num_heads})."
+            )
+        self.hidden_size = hidden_size
+        self.num_heads = num_heads
+        self.head_dim = hidden_size // num_heads
+        self.scale = self.head_dim**-0.5
+
+        self.k_proj = layers.Dense(hidden_size, name="k_proj")
+        self.v_proj = layers.Dense(hidden_size, name="v_proj")
+        self.q_proj = layers.Dense(hidden_size, name="q_proj")
+        self.out_proj = layers.Dense(hidden_size, name="out_proj")
+
+    def split_heads(self, x):
+        b = ops.shape(x)[0]
+        s = ops.shape(x)[1]
+        x = ops.reshape(x, (b, s, self.num_heads, self.head_dim))
+        return ops.transpose(x, (0, 2, 1, 3))
+
+    def call(self, hidden_states, attention_mask=None):
+        q = self.split_heads(self.q_proj(hidden_states))
+        k = self.split_heads(self.k_proj(hidden_states))
+        v = self.split_heads(self.v_proj(hidden_states))
+
+        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
+        if attention_mask is not None:
+            attn = attn + attention_mask
+        attn = ops.softmax(attn, axis=-1)
+
+        out = ops.matmul(attn, v)
+        out = ops.transpose(out, (0, 2, 1, 3))
+        b = ops.shape(out)[0]
+        s = ops.shape(out)[1]
+        out = ops.reshape(out, (b, s, self.hidden_size))
+        return self.out_proj(out)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "num_heads": self.num_heads,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class OwlViTSplitBatchQueries(layers.Layer):
+    """Split a flat ``(B*Q, ...)`` tensor into a per-image ``(B, Q, ...)`` tensor.
+
+    OwlViT receives text queries flattened across the batch
+    (``B * Q`` rows). This layer reshapes that flat tensor back into
+    ``(B, Q, ...)`` using a separate batch-reference input to recover
+    ``B`` at runtime, so it works correctly under the Keras Functional
+    API where the leading ``B*Q`` dim is unknown at trace time.
+
+    Reference:
+    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+
+    Args:
+        **kwargs: Additional keyword arguments passed to ``Layer``.
+
+    Input Shape:
+        Two tensors:
+        - ``flat``: ``(B*Q, ..., last_dim)``
+        - ``batch_ref``: any tensor whose first dim is ``B``.
+
+    Output Shape:
+        ``(B, Q, ..., last_dim)``.
+    """
+
+    def call(self, flat, batch_ref):
+        b = ops.shape(batch_ref)[0]
+        last = flat.shape[-1]
+        return ops.reshape(flat, (b, -1, last))
+
+
+def compute_box_bias(num_patches_height, num_patches_width):
+    """Constant log-space box bias added to raw ``box_head`` outputs.
+
+    Each patch's default predicted box is biased toward its grid
+    location with a one-patch size, mirroring HF's ``compute_box_bias``.
+
+    Reference:
+    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+
+    Args:
+        num_patches_height: Integer, vertical patch count.
+        num_patches_width: Integer, horizontal patch count.
+
+    Returns:
+        Tensor of shape ``(num_patches_height * num_patches_width, 4)``
+        containing the log-odds bias appended to the box head output.
+    """
+    nh = num_patches_height
+    nw = num_patches_width
+    x = ops.arange(1, nw + 1, dtype="float32")
+    y = ops.arange(1, nh + 1, dtype="float32")
+    xx, yy = ops.meshgrid(x, y, indexing="xy")
+    box_coords = ops.stack([xx / float(nw), yy / float(nh)], axis=-1)
+    box_coords = ops.reshape(box_coords, (nh * nw, 2))
+    box_coords = ops.clip(box_coords, 0.0, 1.0)
+
+    box_coord_bias = ops.log(box_coords + 1e-4) - ops.log1p(-box_coords + 1e-4)
+
+    box_size = ops.stack(
+        [
+            ops.ones((nh * nw,), dtype="float32") / float(nw),
+            ops.ones((nh * nw,), dtype="float32") / float(nh),
+        ],
+        axis=-1,
+    )
+    box_size_bias = ops.log(box_size + 1e-4) - ops.log1p(-box_size + 1e-4)
+
+    return ops.concatenate([box_coord_bias, box_size_bias], axis=-1)

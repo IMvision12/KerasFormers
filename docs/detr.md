@@ -21,9 +21,9 @@ DETR (DEtection TRansformer) is an end-to-end object detection model that combin
 ## Basic Usage
 
 ```python
-from kmodels.models.detr import DETRDetect
+from kerasformers.models.detr import DETRDetect
 
-# Load kmodels release weights (COCO pre-trained)
+# Load kerasformers release weights (COCO pre-trained)
 model = DETRDetect.from_weights("detr-resnet-50")
 
 # Untrained model
@@ -37,7 +37,7 @@ model = DETRDetect.from_weights("hf:my-username/my-detr-finetune")
 ## Example Inference
 
 ```python
-from kmodels.models.detr import DETRDetect, DETRImageProcessor
+from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 from PIL import Image
 
 model = DETRDetect.from_weights("detr-resnet-50")
@@ -87,7 +87,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.detr import DETRDetect, DETRImageProcessor
+from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 
 model = DETRDetect.from_weights("detr-resnet-50")
 

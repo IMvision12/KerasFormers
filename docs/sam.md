@@ -20,7 +20,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `SAMPromptableSegment.from_weights(variant_id)` for kmodels releases, or `SAMPromptableSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
+Pretrained weights are loaded via `SAMPromptableSegment.from_weights(variant_id)` for kerasformers releases, or `SAMPromptableSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant         | Parameters | Backbone   |
 |-----------------|-----------:|------------|
@@ -33,7 +33,7 @@ All variants take a 1024×1024 input. The Huge checkpoint is stored as a sharded
 ## Basic Usage
 
 ```python
-from kmodels.models.sam import SAMPromptableSegment
+from kerasformers.models.sam import SAMPromptableSegment
 
 # Build a SAM model with default 1024x1024 input and multi-mask output
 model = SAMPromptableSegment.from_weights("sam_vit_base")
@@ -78,7 +78,7 @@ The SAM model's functional graph requires `pixel_values`, `input_points`, and `i
 ```python
 import numpy as np
 import keras
-from kmodels.models.sam import (
+from kerasformers.models.sam import (
     SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
@@ -133,7 +133,7 @@ Pass a real `(x1, y1, x2, y2)` box and toggle `has_boxes_input=1`. Build the mod
 
 ```python
 import numpy as np
-from kmodels.models.sam import (
+from kerasformers.models.sam import (
     SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
@@ -185,7 +185,7 @@ For interactive tools that try many prompts on the same image, run the ViT encod
 | `model.prompt_encoder_model` | prompt inputs | `sparse_embeddings`, `dense_embeddings` |
 
 ```python
-from kmodels.models.sam import SAMPromptableSegment, SAMImageProcessor
+from kerasformers.models.sam import SAMPromptableSegment, SAMImageProcessor
 
 model = SAMPromptableSegment.from_weights("sam_vit_base")
 processor = SAMImageProcessor()
@@ -208,7 +208,7 @@ For a 1024×1024 image the ViT is roughly 95% of the compute — the decoder its
 Alternatively use `SAMVisionModel` standalone if you only need image embeddings (no prompt encoder / mask decoder built):
 
 ```python
-from kmodels.models.sam import SAMVisionModel
+from kerasformers.models.sam import SAMVisionModel
 vision = SAMVisionModel.from_weights("sam_vit_base")
 image_embeddings = vision(pre["pixel_values"])
 ```
@@ -234,7 +234,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam import (
+from kerasformers.models.sam import (
     SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
@@ -310,7 +310,7 @@ Without any prompts, SAM can sample a dense point grid over the image and return
 
 HuggingFace's `SamProcessor` exposes the **helpers** (`generate_crop_boxes`, `filter_masks`, `post_process_for_mask_generation`, plus internals like `_compute_stability_score`, `_mask_to_rle`) but leaves the crop loop, per-crop batching, and model orchestration to you. Meta's original `segment-anything` repo ships the end-to-end driver as `SamAutomaticMaskGenerator`.
 
-The kmodels port provides:
+The kerasformers port provides:
 
 | Function | What it corresponds to |
 |---|---|
@@ -334,7 +334,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam import SAMPromptableSegment, SAMGenerateMasks
+from kerasformers.models.sam import SAMPromptableSegment, SAMGenerateMasks
 
 
 def overlay_masks(ax, masks_list):
@@ -397,7 +397,7 @@ Under the hood the driver:
 If you want HuggingFace-parity behavior exactly, import the helpers from the submodule and skip `SAMGenerateMasks`:
 
 ```python
-from kmodels.models.sam.sam_image_processor import (
+from kerasformers.models.sam.sam_image_processor import (
     generate_crop_boxes, filter_masks, post_process_for_mask_generation,
 )
 ```

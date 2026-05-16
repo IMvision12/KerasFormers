@@ -26,10 +26,10 @@ SigLIP2 is the next generation of the SigLIP model, building upon the original a
 
 ```python
 import keras
-import kmodels
+import kerasformers
 
-processor = kmodels.models.siglip2.SigLIP2Processor()
-model = kmodels.models.siglip2.SigLIP2BaseP16(
+processor = kerasformers.models.siglip2.SigLIP2Processor()
+model = kerasformers.models.siglip2.SigLIP2BaseP16(
    weights="google_224",
    input_shape=(224, 224, 3),
 )
@@ -62,10 +62,10 @@ Image processors return tensors in the requested layout; post-processors accept 
 
 ```python
 import keras
-import kmodels
+import kerasformers
 
-processor = kmodels.models.siglip2.SigLIP2Processor()
-model = kmodels.models.siglip2.SigLIP2BaseP16(weights="google_224")
+processor = kerasformers.models.siglip2.SigLIP2Processor()
+model = kerasformers.models.siglip2.SigLIP2BaseP16(weights="google_224")
 
 image_paths = ["dog.jpg", "cat1.jpg"]
 labels = ["a photo of a dog", "a photo of a car", "a photo of a flower", "a photo of a cat"]
@@ -89,10 +89,10 @@ for i, img_path in enumerate(image_paths):
 
 ```python
 import keras
-import kmodels
+import kerasformers
 
-processor = kmodels.models.siglip2.SigLIP2Processor()
-model = kmodels.models.siglip2.SigLIP2BaseP16(weights="google_256", input_shape=(224, 224, 3))
+processor = kerasformers.models.siglip2.SigLIP2Processor()
+model = kerasformers.models.siglip2.SigLIP2BaseP16(weights="google_256", input_shape=(224, 224, 3))
 
 multilingual_labels = [
     "un gato",   # Spanish: a cat
@@ -116,10 +116,10 @@ print(result)
 
 ```python
 import keras
-import kmodels
+import kerasformers
 
-processor = kmodels.models.siglip2.SigLIP2Processor(image_resolution=384)
-model = kmodels.models.siglip2.SigLIP2So400mP16(
+processor = kerasformers.models.siglip2.SigLIP2Processor(image_resolution=384)
+model = kerasformers.models.siglip2.SigLIP2So400mP16(
     weights="google_384",
     input_shape=(384, 384, 3)
 )

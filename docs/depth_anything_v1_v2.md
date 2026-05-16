@@ -43,7 +43,7 @@ gather + lerp, so the model is numerically consistent across `torch`,
 ## Available Weights
 
 Pretrained weights are loaded via `from_weights(variant_id)` for
-kmodels releases, or `from_weights("hf:<repo>")` for arbitrary HF
+kerasformers releases, or `from_weights("hf:<repo>")` for arbitrary HF
 fine-tunes.
 
 ### Relative Depth
@@ -72,8 +72,8 @@ All variants default to a 518×518 input (37x37 DINOv2 patch grid).
 
 ## Image Processor
 
-Both `kmodels.models.depth_anything_v1` and
-`kmodels.models.depth_anything_v2` ship a pure-Keras image processor that
+Both `kerasformers.models.depth_anything_v1` and
+`kerasformers.models.depth_anything_v2` ship a pure-Keras image processor that
 resizes an input image with bicubic interpolation, rescales to `[0, 1]`,
 and applies ImageNet normalization. Unlike HF `DPTImageProcessor` — which
 preserves the aspect ratio and produces a variable-shape output — this
@@ -90,7 +90,7 @@ bilinearly interpolated to the new grid when weights are loaded, so
 non-518 inputs work as long as the model was built with the same shape.
 
 ```python
-from kmodels.models.depth_anything_v1 import (
+from kerasformers.models.depth_anything_v1 import (
     DepthAnythingV1DepthEstimation,
     DepthAnythingV1ImageProcessor,
 )
@@ -118,7 +118,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.cm as cm
 
-from kmodels.models.depth_anything_v1 import (
+from kerasformers.models.depth_anything_v1 import (
     DepthAnythingV1DepthEstimation,
     DepthAnythingV1ImageProcessor,
 )
@@ -164,7 +164,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.cm as cm
 
-from kmodels.models.depth_anything_v2 import (
+from kerasformers.models.depth_anything_v2 import (
     DepthAnythingV2DepthEstimation,
     DepthAnythingV2ImageProcessor,
 )
@@ -194,7 +194,7 @@ Output (mountain valley — crisp ridges and foreground detail):
 ### Metric Indoor Depth (V2)
 
 ```python
-from kmodels.models.depth_anything_v2 import (
+from kerasformers.models.depth_anything_v2 import (
     DepthAnythingV2DepthEstimation,
     DepthAnythingV2ImageProcessor,
 )
@@ -214,7 +214,7 @@ depth_full = processor.post_process_depth_estimation(
 ### Metric Outdoor Depth (V2)
 
 ```python
-from kmodels.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
+from kerasformers.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
 
 model = DepthAnythingV2DepthEstimation.from_weights(
     "depth_anything_v2_metric_outdoor_large"
@@ -232,7 +232,7 @@ sizes, reassemble factors, `depth_estimation_type`, and `max_depth`
 straight from the HF config.
 
 ```python
-from kmodels.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
+from kerasformers.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
 
 model = DepthAnythingV2DepthEstimation.from_weights(
     "hf:depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
@@ -250,7 +250,7 @@ targets are derived from the model's construction-time `input_shape`, so
 each instance is locked to the shape you pick at build time.
 
 ```python
-from kmodels.models.depth_anything_v2 import (
+from kerasformers.models.depth_anything_v2 import (
     DepthAnythingV2DepthEstimation,
     DepthAnythingV2ImageProcessor,
 )
@@ -277,7 +277,7 @@ transposes.
 import keras
 keras.config.set_image_data_format("channels_first")
 
-from kmodels.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
+from kerasformers.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
 model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_small")
 # model input: (B, 3, 518, 518)  /  output: (B, 1, 518, 518)
 ```

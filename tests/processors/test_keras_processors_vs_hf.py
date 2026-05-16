@@ -25,23 +25,23 @@ from transformers import (
     Sam2ImageProcessor as HFSam2ImageProcessor,
 )
 
-from kmodels.models.clip.clip_image_processor import (
+from kerasformers.models.clip.clip_image_processor import (
     CLIPImageProcessor as KerasCLIPImageProcessor,
 )
-from kmodels.models.depth_anything_v1 import DepthAnythingV1ImageProcessor
-from kmodels.models.depth_anything_v2 import DepthAnythingV2ImageProcessor
-from kmodels.models.detr import DETRImageProcessor
-from kmodels.models.dfine.dfine_image_processor import DFineImageProcessor
-from kmodels.models.eomt.eomt_image_processor import EoMTImageProcessor
-from kmodels.models.metaclip2 import MetaClip2ImageProcessor
-from kmodels.models.rt_detr import RTDETRImageProcessor
-from kmodels.models.rt_detr_v2 import RTDETRV2ImageProcessor
-from kmodels.models.sam import SAMImageProcessor
-from kmodels.models.sam2 import Sam2ImageProcessor
-from kmodels.models.segformer.segformer_image_processor import (
+from kerasformers.models.depth_anything_v1 import DepthAnythingV1ImageProcessor
+from kerasformers.models.depth_anything_v2 import DepthAnythingV2ImageProcessor
+from kerasformers.models.detr import DETRImageProcessor
+from kerasformers.models.dfine.dfine_image_processor import DFineImageProcessor
+from kerasformers.models.eomt.eomt_image_processor import EoMTImageProcessor
+from kerasformers.models.metaclip2 import MetaClip2ImageProcessor
+from kerasformers.models.rt_detr import RTDETRImageProcessor
+from kerasformers.models.rt_detr_v2 import RTDETRV2ImageProcessor
+from kerasformers.models.sam import SAMImageProcessor
+from kerasformers.models.sam2 import Sam2ImageProcessor
+from kerasformers.models.segformer.segformer_image_processor import (
     SegFormerImageProcessor,
 )
-from kmodels.models.siglip.siglip_image_processor import (
+from kerasformers.models.siglip.siglip_image_processor import (
     SigLIPImageProcessor as KerasSigLIPImageProcessor,
 )
 

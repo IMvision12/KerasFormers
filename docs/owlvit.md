@@ -48,7 +48,7 @@ from the HF checkpoint into the matching Keras layers.
 
 Pre-converted Keras weights are cached at the `owlvit` GitHub release
 on first use:
-[https://github.com/IMvision12/keras-models/releases/tag/owlvit](https://github.com/IMvision12/keras-models/releases/tag/owlvit).
+[https://github.com/IMvision12/KerasFormers/releases/tag/owlvit](https://github.com/IMvision12/KerasFormers/releases/tag/owlvit).
 The text-tower BPE vocab (`owlvit_vocab.json` + `owlvit_merges.txt`)
 is downloaded by `OwlViTProcessor` from the same release.
 
@@ -59,7 +59,7 @@ from io import BytesIO
 import requests
 from PIL import Image, ImageDraw
 
-from kmodels.models.owlvit import (
+from kerasformers.models.owlvit import (
     OwlViTDetect,
     OwlViTProcessor,
     owlvit_post_process_object_detection,
@@ -127,17 +127,17 @@ back to `(B, Q, ...)` and masks padded queries to `-inf` logits).
 If you want to drive the components separately:
 
 ```python
-from kmodels.models.owlvit import OwlViTDetect, OwlViTImageProcessor
-from kmodels.models.clip import CLIPTokenizer
-from kmodels.weight_utils import download_file
+from kerasformers.models.owlvit import OwlViTDetect, OwlViTImageProcessor
+from kerasformers.models.clip import CLIPTokenizer
+from kerasformers.weight_utils import download_file
 
 image_processor = OwlViTImageProcessor(size={"height": 768, "width": 768})
 tokenizer = CLIPTokenizer(
     vocab_file=download_file(
-        "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_vocab.json"
+        "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_vocab.json"
     ),
     merges_file=download_file(
-        "https://github.com/IMvision12/keras-models/releases/download/owlvit/owlvit_merges.txt"
+        "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_merges.txt"
     ),
     context_length=16,
     pad_token="!",
@@ -189,7 +189,7 @@ machines — parity numbers are not re-listed here.
 Reproduce on any variant:
 
 ```bash
-KERAS_BACKEND=torch python -m kmodels.models.owlvit.convert_owlvit_hf_to_keras
+KERAS_BACKEND=torch python -m kerasformers.models.owlvit.convert_owlvit_hf_to_keras
 ```
 
 ## Real-image E2E vs HF (Base/32)
@@ -208,7 +208,7 @@ with three text queries (`cat`, `dog`, `remote`):
 
 Same 4 objects, scores within 0.01, boxes within 0.5 px. The small
 remaining gap is the bicubic-kernel difference between PIL (HF) and
-`keras.ops.image.resize` (kmodels) — both are valid bicubic
+`keras.ops.image.resize` (kerasformers) — both are valid bicubic
 implementations with slightly different coefficients.
 
 ## Notes

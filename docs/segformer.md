@@ -11,7 +11,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `SegFormerSegment.from_weights(variant_id)` for kmodels releases, or `SegFormerSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
+Pretrained weights are loaded via `SegFormerSegment.from_weights(variant_id)` for kerasformers releases, or `SegFormerSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant                          | Backbone | Dataset    | Classes | Input    |
 |----------------------------------|----------|------------|--------:|----------|
@@ -32,7 +32,7 @@ Pretrained weights are loaded via `SegFormerSegment.from_weights(variant_id)` fo
 ## Basic Usage
 
 ```python
-from kmodels.models.segformer import SegFormerSegment
+from kerasformers.models.segformer import SegFormerSegment
 
 model = SegFormerSegment.from_weights("segformer_b0_ade_512")
 ```
@@ -68,7 +68,7 @@ model = SegFormerSegment.from_weights(
 ## Inference Example
 
 ```python
-from kmodels.models.segformer import SegFormerSegment, SegFormerImageProcessor
+from kerasformers.models.segformer import SegFormerSegment, SegFormerImageProcessor
 
 model = SegFormerSegment.from_weights("segformer_b0_ade_512")
 
@@ -113,7 +113,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.segformer import SegFormerSegment, SegFormerImageProcessor
+from kerasformers.models.segformer import SegFormerSegment, SegFormerImageProcessor
 
 model = SegFormerSegment.from_weights("segformer_b0_ade_512")
 

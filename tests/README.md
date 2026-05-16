@@ -8,7 +8,7 @@ pip install -e ".[test]"
 
 ## Commands
 
-**Windows:** `kmodels-test <command>` &nbsp;|&nbsp; **Linux/macOS:** `make test-<command>`
+**Windows:** `kerasformers-test <command>` &nbsp;|&nbsp; **Linux/macOS:** `make test-<command>`
 
 | Command | What it tests | Backend |
 |---------|--------------|---------|
@@ -35,8 +35,8 @@ pip install -e ".[test]"
 ## Local GPU (manual)
 
 ```bash
-kmodels-test data-format-gpu    # TF channels_first (needs cuDNN)
-kmodels-test gpu                # All GPU-marked tests
+kerasformers-test data-format-gpu    # TF channels_first (needs cuDNN)
+kerasformers-test gpu                # All GPU-marked tests
 ```
 
 ## Adding a new model

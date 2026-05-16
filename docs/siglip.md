@@ -22,10 +22,10 @@ SigLIP (Sigmoid Loss for Language Image Pre-training) uses a simple pairwise sig
 
 ```python
 import keras
-import kmodels
+import kerasformers
 
-processor = kmodels.models.siglip.SigLIPProcessor()
-model = kmodels.models.siglip.SigLIPBaseP16(
+processor = kerasformers.models.siglip.SigLIPProcessor()
+model = kerasformers.models.siglip.SigLIPBaseP16(
    weights="google_224",
    input_shape=(224, 224, 3),
 )
@@ -58,10 +58,10 @@ Image processors return tensors in the requested layout; post-processors accept 
 
 ```python
 import keras
-import kmodels
+import kerasformers
 
-processor = kmodels.models.siglip.SigLIPProcessor()
-model = kmodels.models.siglip.SigLIPBaseP16(weights="google_224")
+processor = kerasformers.models.siglip.SigLIPProcessor()
+model = kerasformers.models.siglip.SigLIPBaseP16(weights="google_224")
 
 image_paths = ["dog.jpg", "cat1.jpg"]
 labels = ["a photo of a dog", "a photo of a car", "a photo of a flower", "a photo of a cat"]
@@ -85,10 +85,10 @@ for i, img_path in enumerate(image_paths):
 
 ```python
 import keras
-import kmodels
+import kerasformers
 
-processor = kmodels.models.siglip.SigLIPProcessor(multilingual=True)
-model = kmodels.models.siglip.SigLIPBaseP16(weights="google_multilingual_256", input_shape=(224, 224, 3))
+processor = kerasformers.models.siglip.SigLIPProcessor(multilingual=True)
+model = kerasformers.models.siglip.SigLIPBaseP16(weights="google_multilingual_256", input_shape=(224, 224, 3))
 
 multilingual_labels = [
     "un gato",   # Spanish: a cat
