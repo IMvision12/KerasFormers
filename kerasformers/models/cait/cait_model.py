@@ -13,7 +13,6 @@ from kerasformers.models.cait.cait_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHT_CONFIG
-from .convert_cait_torch_to_keras import transfer_cait_weights
 
 
 def mlp_block(x, hidden_dim, out_dim, drop_rate=0.0, block_prefix=None):
@@ -313,6 +312,8 @@ class CaiTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_cait_torch_to_keras import transfer_cait_weights
+
         transfer_cait_weights(keras_model, state_dict)
 
     def __init__(
@@ -471,6 +472,8 @@ class CaiTClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_cait_torch_to_keras import transfer_cait_weights
+
         transfer_cait_weights(keras_model, state_dict)
 
     def __init__(

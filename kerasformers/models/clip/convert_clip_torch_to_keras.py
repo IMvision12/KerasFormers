@@ -1,11 +1,3 @@
-"""HuggingFace CLIP -> Keras weight transfer.
-
-Splits the conversion into a callable :func:`transfer_clip_weights`
-that takes a Keras :class:`~kerasformers.models.clip.CLIPModel` and an HF
-state dict (numpy values), plus a ``__main__`` block that runs the
-openai -> kerasformers conversion for every variant.
-"""
-
 from typing import Dict
 
 import numpy as np
@@ -59,13 +51,6 @@ ATTN_NAME_REPLACE = {
 
 
 def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
-    """Strip the ``model.`` prefix from HF keys when present.
-
-    Task-wrapper classes (e.g. ``CLIPForImageClassification``) wrap a
-    raw ``CLIPModel`` under a top-level ``model`` submodule. We
-    normalize to the un-prefixed layout so the transfer code only has
-    to handle one shape.
-    """
     if not any(k.startswith("model.") for k in state_dict):
         return state_dict
     out = {}
@@ -78,13 +63,6 @@ def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarr
 
 
 def transfer_clip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer HuggingFace CLIP weights into a Keras :class:`CLIPModel`.
-
-    Args:
-        keras_model: A :class:`CLIPModel` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``CLIPModel.state_dict()`` or a task-wrapper variant.
-    """
     state = _strip_model_prefix(hf_state_dict)
     trainable, non_trainable = split_model_weights(keras_model)
 
@@ -143,11 +121,11 @@ def transfer_clip_image_classify_weights(
 
     Loads the CLIP vision encoder (no text encoder, no visual
     projection, no post-LN — none of those exist in the Keras
-    :class:`CLIPImageClassify` graph) plus the final ``classifier``
+    :class:`CLIPClassify` graph) plus the final ``classifier``
     Dense head.
 
     Args:
-        keras_model: A :class:`CLIPImageClassify` instance.
+        keras_model: A :class:`CLIPClassify` instance.
         hf_state_dict: Mapping of HF weight names to numpy arrays from
             ``CLIPForImageClassification.state_dict()``.
     """

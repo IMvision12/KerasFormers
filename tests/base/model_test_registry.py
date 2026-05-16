@@ -921,9 +921,9 @@ MODEL_TEST_CONFIGS = {
             "text_logits": (2, 2),
         },
     },
-    "CLIPImageClassify": {
+    "CLIPClassify": {
         "module": "kerasformers.models.clip",
-        "model_cls": "CLIPImageClassify",
+        "model_cls": "CLIPClassify",
         "model_type": "classification",
         "init_kwargs": {
             "num_labels": 10,
