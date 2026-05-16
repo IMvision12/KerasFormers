@@ -23,7 +23,10 @@ from typing import Dict
 
 import numpy as np
 import torch
+from keras import ops
+from transformers import WhisperForConditionalGeneration
 
+from kerasformers.models.whisper import WhisperModel
 from kerasformers.models.whisper.whisper_layers import WhisperAttention
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
@@ -256,11 +259,6 @@ def transfer_whisper_audio_classify_weights(
 
 
 if __name__ == "__main__":
-    from keras import ops
-    from transformers import WhisperForConditionalGeneration
-
-    from kerasformers.models.whisper import WhisperModel
-
     SLUG = {
         "whisper_tiny": "tiny",
         "whisper_base": "base",

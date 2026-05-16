@@ -12,7 +12,6 @@ from kerasformers.models.detr.detr_layers import (
 )
 
 from .config import DETR_CONFIG, DETR_WEIGHTS
-from .convert_detr_torch_to_keras import transfer_detr_weights
 
 
 def detr_encoder_layer(
@@ -784,4 +783,6 @@ class DETRDetect(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_detr_torch_to_keras import transfer_detr_weights
+
         transfer_detr_weights(keras_model, hf_state_dict)

@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticD
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHT_CONFIG
-from .convert_poolformer_torch_to_keras import transfer_poolformer_weights
 
 
 def mlp_block(x, hidden_dim, embed_dim, drop_rate, data_format, name):
@@ -288,6 +287,8 @@ class PoolFormerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_poolformer_torch_to_keras import transfer_poolformer_weights
+
         transfer_poolformer_weights(keras_model, state_dict)
 
     def __init__(
@@ -451,6 +452,8 @@ class PoolFormerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_poolformer_torch_to_keras import transfer_poolformer_weights
+
         transfer_poolformer_weights(keras_model, state_dict)
 
     def __init__(

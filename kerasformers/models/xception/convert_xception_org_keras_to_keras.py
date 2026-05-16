@@ -12,7 +12,10 @@ conversion that produced the release file in ``XCEPTION_WEIGHT_CONFIG``.
 
 from typing import Dict
 
+import keras
 import numpy as np
+
+from kerasformers.models.xception import XceptionImageClassify
 
 
 def transfer_xception_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
@@ -37,9 +40,6 @@ def transfer_xception_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
 if __name__ == "__main__":
     # Re-create the kerasformers release ``keras_org_xception.weights.h5`` from
     # ``keras.applications.Xception``. Run once to regenerate the release.
-    import keras
-
-    from kerasformers.models.xception import XceptionImageClassify
 
     original_model = keras.applications.Xception(
         input_shape=(299, 299, 3),

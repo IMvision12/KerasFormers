@@ -11,10 +11,6 @@ from .clip_layers import (
     VisionModelEmbedding,
 )
 from .config import CLIP_CONFIG, CLIP_WEIGHTS
-from .convert_clip_torch_to_keras import (
-    transfer_clip_image_classify_weights,
-    transfer_clip_weights,
-)
 
 
 def quick_gelu(x):
@@ -516,9 +512,7 @@ class CLIPModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.clip.convert_clip_torch_to_keras import (
-            transfer_clip_weights,
-        )
+        from .convert_clip_torch_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -719,6 +713,8 @@ class CLIPZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_clip_torch_to_keras import transfer_clip_weights
+
         transfer_clip_weights(keras_model, hf_state_dict)
 
     def __init__(
@@ -881,6 +877,8 @@ class CLIPImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_clip_torch_to_keras import transfer_clip_image_classify_weights
+
         transfer_clip_image_classify_weights(keras_model, hf_state_dict)
 
     def __init__(

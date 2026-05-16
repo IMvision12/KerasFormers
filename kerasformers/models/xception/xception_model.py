@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHT_CONFIG
-from .convert_xception_org_keras_to_keras import transfer_xception_weights
 
 
 def conv_block(
@@ -243,6 +242,8 @@ class XceptionModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_xception_org_keras_to_keras import transfer_xception_weights
+
         transfer_xception_weights(keras_model, state_dict)
 
     def __init__(
@@ -369,6 +370,8 @@ class XceptionImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_xception_org_keras_to_keras import transfer_xception_weights
+
         transfer_xception_weights(keras_model, state_dict)
 
     def __init__(

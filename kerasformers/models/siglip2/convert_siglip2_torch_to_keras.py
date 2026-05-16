@@ -8,13 +8,17 @@ ids to their HuggingFace repos and runs the conversion through
 the contrastive head).
 """
 
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+from transformers import SiglipModel
 
 from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
     transfer_siglip_weights,
 )
+from kerasformers.models.siglip2 import SigLIP2ZeroShotClassify
 
 
 def transfer_siglip2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
@@ -24,13 +28,6 @@ def transfer_siglip2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    from transformers import SiglipModel
-
-    from kerasformers.models.siglip2 import SigLIP2ZeroShotClassify
-
     SIGLIP2_CONVERSION_CONFIG = [
         ("siglip2_base_p16_224", "google/siglip2-base-patch16-224"),
         ("siglip2_base_p16_256", "google/siglip2-base-patch16-256"),

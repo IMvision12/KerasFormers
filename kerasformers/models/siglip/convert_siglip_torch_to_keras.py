@@ -6,10 +6,14 @@ HF state dict (numpy values), plus a ``__main__`` block that runs the
 google -> kerasformers conversion for every variant.
 """
 
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+from transformers import SiglipModel
 
+from kerasformers.models.siglip import SigLIPZeroShotClassify
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -191,13 +195,6 @@ def transfer_siglip_image_classify_weights(
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    from transformers import SiglipModel
-
-    from kerasformers.models.siglip import SigLIPZeroShotClassify
-
     SIGLIP_CONVERSION_CONFIG = [
         ("siglip_base_p16_224", "google/siglip-base-patch16-224"),
         ("siglip_base_p16_256", "google/siglip-base-patch16-256"),

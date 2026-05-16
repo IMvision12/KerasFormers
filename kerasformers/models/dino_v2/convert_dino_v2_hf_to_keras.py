@@ -6,7 +6,9 @@ import keras
 import numpy as np
 import torch
 from tqdm import tqdm
+from transformers import Dinov2Model
 
+from kerasformers.models.dino_v2 import DinoV2Backbone
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -219,10 +221,6 @@ DINOV2_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
-    from transformers import Dinov2Model
-
-    from kerasformers.models.dino_v2 import DinoV2Backbone
-
     for variant, hf_id in DINOV2_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

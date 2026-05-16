@@ -1,9 +1,15 @@
+import gc
+import os
 import re
 from typing import Dict
 
+import keras
 import numpy as np
+import torch
 from tqdm import tqdm
+from transformers import AutoModel
 
+from kerasformers.models.dino_v3 import DinoV3ConvNeXtBackbone, DinoV3ViTBackbone
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -228,19 +234,6 @@ def transfer_dinov3_convnext_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
-    import gc
-    import os
-
-    import keras
-    import numpy as np
-    import torch
-    from transformers import AutoModel
-
-    from kerasformers.models.dino_v3 import (
-        DinoV3ConvNeXtBackbone,
-        DinoV3ViTBackbone,
-    )
-
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
     for variant, hf_id in DINOV3_VIT_VARIANTS:

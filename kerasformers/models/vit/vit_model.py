@@ -12,7 +12,6 @@ from kerasformers.models.vit.vit_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import VIT_MODEL_CONFIG, VIT_WEIGHT_CONFIG
-from .convert_vit_torch_to_keras import transfer_vit_weights
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0):
@@ -310,6 +309,8 @@ class ViTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_vit_torch_to_keras import transfer_vit_weights
+
         transfer_vit_weights(keras_model, state_dict)
 
     def __init__(
@@ -516,6 +517,8 @@ class ViTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_vit_torch_to_keras import transfer_vit_weights
+
         transfer_vit_weights(keras_model, state_dict)
 
     def __init__(

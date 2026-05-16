@@ -1,8 +1,12 @@
 from typing import Any, Dict, List, Tuple
 
+import keras
 import numpy as np
+import torch
 from tqdm import tqdm
+from transformers import RTDetrV2ForObjectDetection
 
+from kerasformers.models.rt_detr_v2 import RTDETRV2Detect
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
@@ -310,12 +314,6 @@ def transfer_rt_detr_v2_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
-    import keras
-    import torch
-    from transformers import RTDetrV2ForObjectDetection
-
-    from kerasformers.models.rt_detr_v2 import RTDETRV2Detect
-
     model_configs: List[Dict[str, Any]] = [
         {
             "variant": "rtdetr-v2-r50vd",

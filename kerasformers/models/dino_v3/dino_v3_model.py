@@ -4,10 +4,6 @@ from keras import layers, ops, utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.models.convnext.convnext_model import convnext_backbone_feature
-from kerasformers.models.dino_v3.convert_dino_v3_hf_to_keras import (
-    transfer_dinov3_convnext_weights,
-    transfer_dinov3_vit_weights,
-)
 
 from .config import (
     DINOV3_CONVNEXT_CONFIG,
@@ -178,6 +174,10 @@ class DinoV3ViTBackbone(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.dino_v3.convert_dino_v3_hf_to_keras import (
+            transfer_dinov3_vit_weights,
+        )
+
         transfer_dinov3_vit_weights(keras_model, hf_state_dict)
 
     def __init__(
@@ -375,6 +375,10 @@ class DinoV3ConvNeXtBackbone(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.dino_v3.convert_dino_v3_hf_to_keras import (
+            transfer_dinov3_convnext_weights,
+        )
+
         transfer_dinov3_convnext_weights(keras_model, hf_state_dict)
 
     def __init__(

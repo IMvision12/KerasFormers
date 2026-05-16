@@ -3,10 +3,7 @@ from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
-from kerasformers.layers import (
-    ImageNormalizationLayer,
-    StochasticDepth,
-)
+from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.swin.swin_layers import (
     RollLayer,
     WindowAttention,
@@ -15,7 +12,6 @@ from kerasformers.models.swin.swin_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHT_CONFIG
-from .convert_swin_torch_to_keras import transfer_swin_weights
 
 
 def spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
@@ -533,6 +529,8 @@ class SwinModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_swin_torch_to_keras import transfer_swin_weights
+
         transfer_swin_weights(keras_model, state_dict)
 
     def __init__(
@@ -705,6 +703,8 @@ class SwinImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_swin_torch_to_keras import transfer_swin_weights
+
         transfer_swin_weights(keras_model, state_dict)
 
     def __init__(

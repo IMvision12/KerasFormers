@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import VGG_MODEL_CONFIG, VGG_WEIGHT_CONFIG
-from .convert_vgg_torch_to_keras import transfer_vgg_weights
 
 
 def vgg_block(
@@ -191,6 +190,8 @@ class VGGModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_vgg_torch_to_keras import transfer_vgg_weights
+
         transfer_vgg_weights(keras_model, state_dict)
 
     def __init__(
@@ -335,6 +336,8 @@ class VGGImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_vgg_torch_to_keras import transfer_vgg_weights
+
         transfer_vgg_weights(keras_model, state_dict)
 
     def __init__(

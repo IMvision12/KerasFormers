@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHT_CONFIG
-from .convert_densenet_torch_to_keras import transfer_densenet_weights
 
 
 def conv_block(
@@ -281,6 +280,8 @@ class DenseNetModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_densenet_torch_to_keras import transfer_densenet_weights
+
         transfer_densenet_weights(keras_model, state_dict)
 
     def __init__(
@@ -426,6 +427,8 @@ class DenseNetImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_densenet_torch_to_keras import transfer_densenet_weights
+
         transfer_densenet_weights(keras_model, state_dict)
 
     def __init__(

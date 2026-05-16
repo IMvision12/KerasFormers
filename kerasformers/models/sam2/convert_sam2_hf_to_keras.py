@@ -11,6 +11,8 @@ encoder + mask decoder) are transferred; video-only modules (memory
 attention / encoder / fuser) are skipped.
 """
 
+import gc
+import os
 from typing import Dict
 
 import numpy as np
@@ -249,9 +251,6 @@ def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
 
 
 if __name__ == "__main__":
-    import gc
-    import os
-
     os.environ.setdefault("KERAS_BACKEND", "torch")
 
     import keras

@@ -1,9 +1,16 @@
 """timm SwinV2 -> Keras weight transfer."""
 
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.swinv2 import SwinV2ImageClassify
+from kerasformers.models.swinv2.config import SWINV2_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -73,16 +80,6 @@ def transfer_swinv2_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.swinv2 import SwinV2ImageClassify
-    from kerasformers.models.swinv2.config import SWINV2_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in SWINV2_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

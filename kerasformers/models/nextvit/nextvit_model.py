@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHT_CONFIG
-from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
 from .nextvit_layers import EfficientAttention
 
 
@@ -617,6 +616,8 @@ class NextViTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
+
         transfer_nextvit_weights(keras_model, state_dict)
 
     def __init__(
@@ -781,6 +782,8 @@ class NextViTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
+
         transfer_nextvit_weights(keras_model, state_dict)
 
     def __init__(

@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHT_CONFIG
-from .convert_maxvit_timm_to_keras import transfer_maxvit_weights
 from .maxvit_layers import (
     MaxViTAttention,
     MaxViTGridPartition,
@@ -457,6 +456,8 @@ class MaxViTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_maxvit_timm_to_keras import transfer_maxvit_weights
+
         transfer_maxvit_weights(keras_model, state_dict)
 
     def __init__(
@@ -634,6 +635,8 @@ class MaxViTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_maxvit_timm_to_keras import transfer_maxvit_weights
+
         transfer_maxvit_weights(keras_model, state_dict)
 
     def __init__(

@@ -1,23 +1,22 @@
 """timm ConvNeXtV2ImageClassify -> Keras weight transfer (shares ConvNeXt mapping)."""
 
+import gc
+
+import keras
+import timm
+
+from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.convnext.convert_convnext_torch_to_keras import (
     transfer_convnext_weights as transfer_convnextv2_weights,
 )
+from kerasformers.models.convnextv2 import ConvNeXtV2ImageClassify
+from kerasformers.models.convnextv2.config import CONVNEXTV2_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 
 __all__ = ["transfer_convnextv2_weights"]
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.convnextv2 import ConvNeXtV2ImageClassify
-    from kerasformers.models.convnextv2.config import CONVNEXTV2_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in CONVNEXTV2_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

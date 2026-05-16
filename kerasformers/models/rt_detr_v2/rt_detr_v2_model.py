@@ -6,7 +6,6 @@ from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
 
 from .config import RT_DETR_V2_CONFIG, RT_DETR_V2_WEIGHTS
-from .convert_rt_detr_v2_hf_to_keras import transfer_rt_detr_v2_weights
 from .rt_detr_v2_layers import (
     RTDETRV2MultiHeadAttention,
     RTDETRV2MultiScaleDeformableAttention,
@@ -1544,4 +1543,6 @@ class RTDETRV2Detect(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_rt_detr_v2_hf_to_keras import transfer_rt_detr_v2_weights
+
         transfer_rt_detr_v2_weights(keras_model, hf_state_dict)

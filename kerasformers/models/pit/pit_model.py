@@ -12,7 +12,6 @@ from kerasformers.models.vit.vit_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import PIT_MODEL_CONFIG, PIT_WEIGHT_CONFIG
-from .convert_pit_torch_to_keras import transfer_pit_weights
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix=None):
@@ -331,6 +330,8 @@ class PiTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_pit_torch_to_keras import transfer_pit_weights
+
         transfer_pit_weights(keras_model, state_dict)
 
     def __init__(
@@ -510,6 +511,8 @@ class PiTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_pit_torch_to_keras import transfer_pit_weights
+
         transfer_pit_weights(keras_model, state_dict)
 
     def __init__(

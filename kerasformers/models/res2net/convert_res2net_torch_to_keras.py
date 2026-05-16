@@ -1,9 +1,16 @@
 """timm Res2Net -> Keras weight transfer."""
 
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.res2net import Res2NetImageClassify
+from kerasformers.models.res2net.config import RES2NET_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -58,16 +65,6 @@ def transfer_res2net_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.res2net import Res2NetImageClassify
-    from kerasformers.models.res2net.config import RES2NET_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in RES2NET_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

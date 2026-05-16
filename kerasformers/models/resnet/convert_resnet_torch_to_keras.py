@@ -5,10 +5,17 @@ Exposes :func:`transfer_resnet_weights` for both the offline conversion
 runtime ``ResNet.from_weights("timm:...")`` path.
 """
 
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.resnet import ResNetImageClassify
+from kerasformers.models.resnet.config import RESNET_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -71,16 +78,6 @@ def transfer_resnet_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.resnet import ResNetImageClassify
-    from kerasformers.models.resnet.config import RESNET_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in RESNET_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

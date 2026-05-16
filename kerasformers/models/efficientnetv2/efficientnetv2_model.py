@@ -12,7 +12,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTNETV2_MODEL_CONFIG, EFFICIENTNETV2_WEIGHT_CONFIG
-from .convert_efficientnetv2_torch_to_keras import transfer_efficientnetv2_weights
 
 EFFICIENTNETV2_BLOCK_CONFIG = {
     "EfficientNetV2S": [
@@ -870,6 +869,10 @@ class EfficientNetV2Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientnetv2_torch_to_keras import (
+            transfer_efficientnetv2_weights,
+        )
+
         transfer_efficientnetv2_weights(keras_model, state_dict)
 
     def __init__(
@@ -1031,6 +1034,10 @@ class EfficientNetV2ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientnetv2_torch_to_keras import (
+            transfer_efficientnetv2_weights,
+        )
+
         transfer_efficientnetv2_weights(keras_model, state_dict)
 
     def __init__(

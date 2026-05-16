@@ -9,7 +9,6 @@ from kerasformers.models.resnetv2.resnetv2_layers import StdConv2D
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHT_CONFIG
-from .convert_resnetv2_torch_to_keras import transfer_resnetv2_weights
 
 
 def make_divisible(v, divisor=8):
@@ -311,6 +310,8 @@ class ResNetV2Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_resnetv2_torch_to_keras import transfer_resnetv2_weights
+
         transfer_resnetv2_weights(keras_model, state_dict)
 
     def __init__(
@@ -473,6 +474,8 @@ class ResNetV2ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_resnetv2_torch_to_keras import transfer_resnetv2_weights
+
         transfer_resnetv2_weights(keras_model, state_dict)
 
     def __init__(

@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTION_NEXT_MODEL_CONFIG, INCEPTION_NEXT_WEIGHT_CONFIG
-from .convert_inception_next_torch_to_keras import transfer_inception_next_weights
 
 
 def inception_dwconv2d(
@@ -297,6 +296,10 @@ class InceptionNextModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inception_next_torch_to_keras import (
+            transfer_inception_next_weights,
+        )
+
         transfer_inception_next_weights(keras_model, state_dict)
 
     def __init__(
@@ -456,6 +459,10 @@ class InceptionNextImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inception_next_torch_to_keras import (
+            transfer_inception_next_weights,
+        )
+
         transfer_inception_next_weights(keras_model, state_dict)
 
     def __init__(

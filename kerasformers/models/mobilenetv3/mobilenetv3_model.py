@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHT_CONFIG
-from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -365,6 +364,8 @@ class MobileNetV3Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
+
         transfer_mobilenetv3_weights(keras_model, state_dict)
 
     def __init__(
@@ -531,6 +532,8 @@ class MobileNetV3ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
+
         transfer_mobilenetv3_weights(keras_model, state_dict)
 
     def __init__(

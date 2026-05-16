@@ -1,8 +1,15 @@
+import gc
+import os
 from typing import Any, Dict, List
 
+import keras
 import numpy as np
+import torch
+from PIL import Image
 from tqdm import tqdm
+from transformers import OwlViTForObjectDetection, OwlViTProcessor
 
+from kerasformers.models.owlvit import OwlViTDetect
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -193,16 +200,6 @@ def transfer_owlvit_detection_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
-    import gc
-    import os
-
-    import keras
-    import torch
-    from PIL import Image
-    from transformers import OwlViTForObjectDetection, OwlViTProcessor
-
-    from kerasformers.models.owlvit import OwlViTDetect
-
     model_configs: List[Dict[str, Any]] = [
         {
             "variant": "owlvit-base-patch32",

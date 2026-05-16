@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHT_CONFIG
-from .convert_convmixer_torch_to_keras import transfer_convmixer_weights
 
 
 def convmixer_block(
@@ -196,6 +195,8 @@ class ConvMixerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_convmixer_torch_to_keras import transfer_convmixer_weights
+
         transfer_convmixer_weights(keras_model, state_dict)
 
     def __init__(
@@ -353,6 +354,8 @@ class ConvMixerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_convmixer_torch_to_keras import transfer_convmixer_weights
+
         transfer_convmixer_weights(keras_model, state_dict)
 
     def __init__(

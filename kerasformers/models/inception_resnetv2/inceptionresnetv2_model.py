@@ -8,9 +8,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTION_RESNETV2_MODEL_CONFIG, INCEPTION_RESNETV2_WEIGHT_CONFIG
-from .convert_inceptionresnetv2_torch_to_keras import (
-    transfer_inception_resnet_v2_weights,
-)
 
 
 def conv_block(
@@ -400,6 +397,10 @@ class InceptionResNetV2Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionresnetv2_torch_to_keras import (
+            transfer_inception_resnet_v2_weights,
+        )
+
         transfer_inception_resnet_v2_weights(keras_model, state_dict)
 
     def __init__(
@@ -524,6 +525,10 @@ class InceptionResNetV2ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionresnetv2_torch_to_keras import (
+            transfer_inception_resnet_v2_weights,
+        )
+
         transfer_inception_resnet_v2_weights(keras_model, state_dict)
 
     def __init__(

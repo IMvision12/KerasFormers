@@ -5,7 +5,6 @@ from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
 
 from .config import DFINE_CONFIG, DFINE_WEIGHTS
-from .convert_dfine_hf_to_keras import transfer_dfine_weights
 from .dfine_layers import (
     DFineDecoderLayer,
     DFineDecoderParams,
@@ -1969,4 +1968,6 @@ class DFineDetect(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_dfine_hf_to_keras import transfer_dfine_weights
+
         transfer_dfine_weights(keras_model, hf_state_dict)

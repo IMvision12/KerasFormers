@@ -1,9 +1,16 @@
 """HuggingFace MiT (SegformerForImageClassification) -> Keras weight transfer."""
 
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import transformers
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.mit import MiTImageClassify
+from kerasformers.models.mit.config import MIT_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -80,16 +87,6 @@ def transfer_mit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import transformers
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.mit import MiTImageClassify
-    from kerasformers.models.mit.config import MIT_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in MIT_WEIGHT_CONFIG.items():
         hf_id = meta["hf_id"]
         print(f"\n{'=' * 60}")

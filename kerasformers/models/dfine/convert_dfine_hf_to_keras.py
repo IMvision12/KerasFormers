@@ -1,5 +1,6 @@
 """Convert D-FINE weights from HuggingFace to Keras format."""
 
+import os
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -413,8 +414,6 @@ def transfer_dfine_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
-    import os
-
     os.environ.setdefault("KERAS_BACKEND", "torch")
 
     import torch

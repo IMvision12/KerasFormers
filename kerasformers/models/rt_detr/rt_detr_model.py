@@ -5,11 +5,7 @@ from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
 
 from .config import RT_DETR_CONFIG, RT_DETR_WEIGHTS
-from .convert_rt_detr_hf_to_keras import transfer_rt_detr_weights
-from .rt_detr_layers import (
-    RTDETRDecoderLayer,
-    RTDETRMultiHeadAttention,
-)
+from .rt_detr_layers import RTDETRDecoderLayer, RTDETRMultiHeadAttention
 
 
 def rt_detr_sine_pos_embed(height, width, embed_dim, temperature=10000):
@@ -1452,4 +1448,6 @@ class RTDETRDetect(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_rt_detr_hf_to_keras import transfer_rt_detr_weights
+
         transfer_rt_detr_weights(keras_model, hf_state_dict)

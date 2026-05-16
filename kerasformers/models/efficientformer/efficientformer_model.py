@@ -11,7 +11,6 @@ from kerasformers.models.efficientformer.efficientformer_layers import Attention
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTFORMER_MODEL_CONFIG, EFFICIENTFORMER_WEIGHT_CONFIG
-from .convert_efficientformer_torch_to_keras import transfer_efficientformer_weights
 
 
 def conv_mlp_block(
@@ -429,6 +428,10 @@ class EfficientFormerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientformer_torch_to_keras import (
+            transfer_efficientformer_weights,
+        )
+
         transfer_efficientformer_weights(keras_model, state_dict)
 
     def __init__(
@@ -616,6 +619,10 @@ class EfficientFormerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientformer_torch_to_keras import (
+            transfer_efficientformer_weights,
+        )
+
         transfer_efficientformer_weights(keras_model, state_dict)
 
     def __init__(

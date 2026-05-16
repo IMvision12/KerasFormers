@@ -12,7 +12,6 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MOBILEVIT_MODEL_CONFIG, MOBILEVIT_WEIGHT_CONFIG
-from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -448,6 +447,8 @@ class MobileViTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
+
         transfer_mobilevit_weights(keras_model, state_dict)
 
     def __init__(
@@ -605,6 +606,8 @@ class MobileViTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
+
         transfer_mobilevit_weights(keras_model, state_dict)
 
     def __init__(

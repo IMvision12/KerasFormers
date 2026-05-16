@@ -9,12 +9,7 @@ from keras import ops
 from PIL import Image
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
-from .sam3_utils import (
-    box_xyxy_to_cxcywh,
-    compute_scores,
-    scale_boxes,
-    sigmoid,
-)
+from .sam3_utils import box_xyxy_to_cxcywh, compute_scores, scale_boxes, sigmoid
 
 IMAGE_SIZE = 1008
 RESCALE_FACTOR = 1.0 / 255.0

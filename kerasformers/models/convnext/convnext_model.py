@@ -9,7 +9,6 @@ from kerasformers.models.convnext.convnext_layers import GlobalResponseNorm
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHT_CONFIG
-from .convert_convnext_torch_to_keras import transfer_convnext_weights
 
 
 def spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):
@@ -261,6 +260,8 @@ class ConvNeXtModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_convnext_torch_to_keras import transfer_convnext_weights
+
         transfer_convnext_weights(keras_model, state_dict)
 
     def __init__(
@@ -426,6 +427,8 @@ class ConvNeXtImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_convnext_torch_to_keras import transfer_convnext_weights
+
         transfer_convnext_weights(keras_model, state_dict)
 
     def __init__(

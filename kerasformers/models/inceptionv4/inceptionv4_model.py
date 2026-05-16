@@ -8,7 +8,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTIONV4_MODEL_CONFIG, INCEPTIONV4_WEIGHT_CONFIG
-from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
 
 
 def conv_block(
@@ -568,6 +567,8 @@ class InceptionV4Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
+
         transfer_inceptionv4_weights(keras_model, state_dict)
 
     def __init__(
@@ -691,6 +692,8 @@ class InceptionV4ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
+
         transfer_inceptionv4_weights(keras_model, state_dict)
 
     def __init__(

@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MLP_MIXER_MODEL_CONFIG, MLP_MIXER_WEIGHT_CONFIG
-from .convert_mlpmixer_torch_to_keras import transfer_mlp_mixer_weights
 
 
 def mixer_block(
@@ -234,6 +233,8 @@ class MLPMixerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mlpmixer_torch_to_keras import transfer_mlp_mixer_weights
+
         transfer_mlp_mixer_weights(keras_model, state_dict)
 
     def __init__(
@@ -398,6 +399,8 @@ class MLPMixerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mlpmixer_torch_to_keras import transfer_mlp_mixer_weights
+
         transfer_mlp_mixer_weights(keras_model, state_dict)
 
     def __init__(

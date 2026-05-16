@@ -9,7 +9,6 @@ from kerasformers.models.mit.mit_layers import EfficientMultiheadSelfAttention
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHT_CONFIG
-from .convert_mit_torch_to_keras import transfer_mit_weights
 
 
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
@@ -341,6 +340,8 @@ class MiTModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from .convert_mit_torch_to_keras import transfer_mit_weights
+
         transfer_mit_weights(keras_model, state_dict)
 
     def __init__(
@@ -495,6 +496,8 @@ class MiTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from .convert_mit_torch_to_keras import transfer_mit_weights
+
         transfer_mit_weights(keras_model, state_dict)
 
     def __init__(

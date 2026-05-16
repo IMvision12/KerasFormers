@@ -3,9 +3,6 @@ from keras import layers, utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
-from kerasformers.models.dino_v2.convert_dino_v2_hf_to_keras import (
-    transfer_dino_v2_weights,
-)
 from kerasformers.models.vit.vit_model import vit_backbone_feature
 
 from .config import DINOV2_CONFIG, DINOV2_WEIGHTS
@@ -63,6 +60,10 @@ class DinoV2Backbone(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.dino_v2.convert_dino_v2_hf_to_keras import (
+            transfer_dino_v2_weights,
+        )
+
         transfer_dino_v2_weights(keras_model, hf_state_dict)
 
     def __init__(

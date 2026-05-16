@@ -10,7 +10,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTNET_MODEL_CONFIG, EFFICIENTNET_WEIGHT_CONFIG
-from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
 
 DEFAULT_BLOCKS_ARGS = [
     {
@@ -420,6 +419,8 @@ class EfficientNetModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
+
         transfer_efficientnet_weights(keras_model, state_dict)
 
     def __init__(
@@ -573,6 +574,8 @@ class EfficientNetImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
+
         transfer_efficientnet_weights(keras_model, state_dict)
 
     def __init__(
