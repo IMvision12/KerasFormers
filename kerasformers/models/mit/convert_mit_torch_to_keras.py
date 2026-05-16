@@ -103,7 +103,7 @@ if __name__ == "__main__":
         hf_model = transformers.SegformerForImageClassification.from_pretrained(
             hf_id
         ).eval()
-        verify_cls_model_equivalence(
+        results = verify_cls_model_equivalence(
             model_a=hf_model,
             model_b=keras_model,
             input_shape=keras_model.input_shape[1:],
@@ -111,6 +111,10 @@ if __name__ == "__main__":
             comparison_type="hf_to_keras",
             run_performance=False,
         )
+        if not results["standard_input"]:
+            raise ValueError(
+                "Model equivalence test failed - model outputs do not match for standard input"
+            )
 
         out_path = f"{variant}.weights.h5"
         keras_model.save_weights(out_path)
