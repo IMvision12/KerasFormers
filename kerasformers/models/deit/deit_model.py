@@ -1,5 +1,3 @@
-"""DeiT and DeiT3 as thin :class:`ViTImageClassify` subclasses (timm-ported)."""
-
 import keras
 from keras import layers
 
