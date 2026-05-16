@@ -1,5 +1,3 @@
-"""EfficientNetV2 classifier and backbone (timm-ported)."""
-
 import copy
 import math
 

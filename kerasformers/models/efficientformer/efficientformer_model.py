@@ -1,5 +1,3 @@
-"""EfficientFormer classifier and backbone (timm-ported)."""
-
 import keras
 import numpy as np
 from keras import layers, ops, utils
