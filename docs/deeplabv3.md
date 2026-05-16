@@ -29,7 +29,7 @@ Pretrained weights are loaded via `DeepLabV3Segment.from_weights(variant_id)`. T
 ## Basic Usage
 
 ```python
-from kmodels.models.deeplabv3 import DeepLabV3Segment
+from kerasformers.models.deeplabv3 import DeepLabV3Segment
 
 # Load model with pre-trained weights
 model = DeepLabV3Segment.from_weights("deeplabv3_resnet50_coco_voc")
@@ -49,7 +49,7 @@ custom = DeepLabV3Segment.from_weights(
 ## Inference Example
 
 ```python
-from kmodels.models.deeplabv3 import DeepLabV3Segment, DeepLabV3ImageProcessor
+from kerasformers.models.deeplabv3 import DeepLabV3Segment, DeepLabV3ImageProcessor
 
 model = DeepLabV3Segment.from_weights("deeplabv3_resnet50_coco_voc")
 
@@ -93,7 +93,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.deeplabv3 import DeepLabV3Segment, DeepLabV3ImageProcessor
+from kerasformers.models.deeplabv3 import DeepLabV3Segment, DeepLabV3ImageProcessor
 
 VOC_COLORMAP = np.array([
     [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],

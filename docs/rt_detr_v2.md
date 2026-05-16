@@ -24,9 +24,9 @@ RT-DETRv2 is the second-generation Real-Time DEtection TRansformer, building on 
 ## Basic Usage
 
 ```python
-from kmodels.models.rt_detr_v2 import RTDETRV2Detect
+from kerasformers.models.rt_detr_v2 import RTDETRV2Detect
 
-# RT-DETRv2 with ResNet-50 (kmodels release, COCO pre-trained)
+# RT-DETRv2 with ResNet-50 (kerasformers release, COCO pre-trained)
 model = RTDETRV2Detect.from_weights("rtdetr-v2-r50vd")
 
 # Other variants
@@ -45,7 +45,7 @@ model = RTDETRV2Detect.from_weights("hf:my-username/my-rtdetr-v2-finetune")
 ## Example Inference
 
 ```python
-from kmodels.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcessor
+from kerasformers.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcessor
 from PIL import Image
 
 model = RTDETRV2Detect.from_weights("rtdetr-v2-r50vd")
@@ -104,7 +104,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.rt_detr_v2 import (
+from kerasformers.models.rt_detr_v2 import (
     RTDETRV2Detect,
     RTDETRV2ImageProcessor,
 )

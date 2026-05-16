@@ -21,12 +21,12 @@ SAM3 weights are gated on HuggingFace. Before using `weights="saco"`:
 1. Accept the license at https://huggingface.co/facebook/sam3
 2. Authenticate: `huggingface-cli login` or set `export HF_TOKEN=<your_token>`
 
-On first use, weights are downloaded, converted to Keras, and cached at `~/.cache/kmodels/sam3/`.
+On first use, weights are downloaded, converted to Keras, and cached at `~/.cache/kerasformers/sam3/`.
 
 ## Basic Usage
 
 ```python
-from kmodels.models.sam3 import SAM3
+from kerasformers.models.sam3 import SAM3
 
 # First call: downloads from HF, converts, caches (~5 min)
 # Subsequent calls: loads from cache instantly
@@ -36,7 +36,7 @@ model = SAM3(input_shape=(1008, 1008, 3), weights="saco")
 ## Object Detection
 
 ```python
-from kmodels.models.sam3.sam3_downstream import SAM3ObjectDetection
+from kerasformers.models.sam3.sam3_downstream import SAM3ObjectDetection
 from PIL import Image
 
 image = Image.open("photo.jpg")
@@ -51,7 +51,7 @@ for det in results:
 ## Instance Segmentation
 
 ```python
-from kmodels.models.sam3.sam3_downstream import SAM3InstanceSegmentation
+from kerasformers.models.sam3.sam3_downstream import SAM3InstanceSegmentation
 
 segmenter = SAM3InstanceSegmentation(model)
 results = segmenter.predict(images=image, text="cat")
@@ -65,7 +65,7 @@ for r in results:
 ## Semantic Segmentation
 
 ```python
-from kmodels.models.sam3.sam3_downstream import SAM3SemanticSegmentation
+from kerasformers.models.sam3.sam3_downstream import SAM3SemanticSegmentation
 
 sem_seg = SAM3SemanticSegmentation(model)
 masks = sem_seg.predict(images=image, text="cat")
@@ -88,7 +88,7 @@ results = detector.predict(
 ## Visualization
 
 ```python
-from kmodels.models.sam3.sam3_utils import (
+from kerasformers.models.sam3.sam3_utils import (
     draw_detections,
     draw_instance_masks,
     draw_semantic_mask,
@@ -204,12 +204,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam3 import SAM3
-from kmodels.models.sam3.sam3_downstream import (
+from kerasformers.models.sam3 import SAM3
+from kerasformers.models.sam3.sam3_downstream import (
     SAM3ObjectDetection,
     SAM3InstanceSegmentation,
 )
-from kmodels.models.sam3.sam3_utils import (
+from kerasformers.models.sam3.sam3_utils import (
     draw_detections,
     draw_instance_masks,
 )

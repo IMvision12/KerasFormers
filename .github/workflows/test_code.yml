@@ -68,7 +68,7 @@ jobs:
                  tests/integration/test_model_saving.py \
                  tests/integration/test_data_formats.py \
                  tests/processors/test_keras_processors_vs_hf.py \
-                 -v --durations=20 --cov=kmodels --cov-append \
+                 -v --durations=20 --cov=kerasformers --cov-append \
                  -m "not slow and not gpu"
       - name: Generate coverage
         run: coverage xml -o coverage.xml

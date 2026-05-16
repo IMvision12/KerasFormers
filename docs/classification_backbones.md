@@ -1,6 +1,6 @@
 # Classification Backbones
 
-Every classification architecture in `kmodels.models.<arch>` exposes **two classes** that share the same architectural parameters and the same set of pretrained variants:
+Every classification architecture in `kerasformers.models.<arch>` exposes **two classes** that share the same architectural parameters and the same set of pretrained variants:
 
 | Class        | What it returns                                                     | Typical use                                    |
 |--------------|---------------------------------------------------------------------|------------------------------------------------|
@@ -12,7 +12,7 @@ Every classification architecture in `kmodels.models.<arch>` exposes **two class
 ## Quick start
 
 ```python
-from kmodels.models.resnet import ResNetClassify, ResNetModel
+from kerasformers.models.resnet import ResNetClassify, ResNetModel
 
 # Full classifier - 1000-class logits
 classifier = ResNetClassify.from_weights("resnet50_a1_in1k")
@@ -30,7 +30,7 @@ The same pattern works for every classification arch - swap `ResNet` for `CaiT`,
 Pass `as_backbone=True` to `XModel` (not `XClassify`) to get a **list of per-stage feature maps** instead of a single tensor. This is what you'd hook an FPN / segmentation neck / detection head onto.
 
 ```python
-from kmodels.models.resnet import ResNetModel
+from kerasformers.models.resnet import ResNetModel
 
 backbone = ResNetModel.from_weights("resnet50_a1_in1k", as_backbone=True)
 features = backbone(images)
@@ -82,7 +82,7 @@ Because `XModel` and `XClassify` share architecture parameters and layer names, 
 ```python
 import keras
 from keras import layers
-from kmodels.models.convnext import ConvNeXtModel
+from kerasformers.models.convnext import ConvNeXtModel
 
 backbone = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k")
 
@@ -117,7 +117,7 @@ Recommended when you want explicit control or are unsure the variant is correct.
 ```python
 import keras
 from keras import layers
-from kmodels.models.resnet import ResNetModel
+from kerasformers.models.resnet import ResNetModel
 
 backbone = ResNetModel.from_weights("resnet50_a1_in1k")     # strict load, no skip
 classifier = keras.Sequential([
@@ -132,7 +132,7 @@ classifier = keras.Sequential([
 One line. Loads matching backbone weights and silently re-initializes any layer whose shape doesn't match (typically just the classifier `Dense`).
 
 ```python
-from kmodels.models.resnet import ResNetClassify
+from kerasformers.models.resnet import ResNetClassify
 
 model = ResNetClassify.from_weights(
     "resnet50_a1_in1k",
@@ -143,7 +143,7 @@ model = ResNetClassify.from_weights(
 
 **Trade-off:** `skip_mismatch=True` is shape-based, not name-based. If you point it at a wrong variant or a corrupt file, it will *quietly* skip more than the head and leave parts of the backbone randomly initialized. Keras emits `warnings.warn` per skipped layer, but warnings are easy to miss — especially in notebook stderr streams. For sensitive training runs, prefer **Path A**.
 
-**Scope:** `skip_mismatch=True` only affects the kmodels-release weight path (the `.h5` / `.json` URLs from the GitHub release). The `hf:` and `timm:` prefixes go through hand-mapped `transfer_from_*` functions that ignore the flag.
+**Scope:** `skip_mismatch=True` only affects the kerasformers-release weight path (the `.h5` / `.json` URLs from the GitHub release). The `hf:` and `timm:` prefixes go through hand-mapped `transfer_from_*` functions that ignore the flag.
 
 ### Feature extractor (frozen backbone)
 

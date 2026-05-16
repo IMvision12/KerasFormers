@@ -11,7 +11,7 @@ decoder generates byte-level BPE token ids autoregressively, attending
 to the encoder output via cross-attention. Token embeddings are tied
 with the LM head.
 
-kmodels ships a **pure Keras 3** port of all eight official OpenAI
+kerasformers ships a **pure Keras 3** port of all eight official OpenAI
 checkpoints with bit-close parity to HuggingFace's reference
 implementation. The processor, encoder, decoder, and greedy `generate`
 loop run unmodified on TensorFlow / Torch / JAX backends — no
@@ -30,9 +30,9 @@ Three classes are exposed, mirroring HF's `Whisper*` hierarchy:
 All three are loaded the same way:
 
 ```python
-from kmodels.models.whisper import WhisperSpeechToText
+from kerasformers.models.whisper import WhisperSpeechToText
 
-# kmodels release variant
+# kerasformers release variant
 model = WhisperSpeechToText.from_weights("whisper_tiny")
 
 # Any HF Hub repo whose model_type is "whisper"
@@ -64,8 +64,8 @@ bins instead of 80).
 Every variant ships a single `"openai"` weights preset converted from
 the official OpenAI checkpoints on HuggingFace. One combined
 `.weights.h5` file per variant (encoder + decoder together) is hosted
-under the kmodels
-[`whisper`](https://github.com/IMvision12/keras-models/releases/tag/whisper)
+under the kerasformers
+[`whisper`](https://github.com/IMvision12/KerasFormers/releases/tag/whisper)
 release tag and downloaded on first use, then cached locally.
 
 Variant ids for `WhisperModel.from_weights`:
@@ -88,9 +88,9 @@ encoder and decoder into a single graph. The encoder and decoder are
 exposed as attributes for inference / generation paths:
 
 ```python
-from kmodels.models.whisper import WhisperModel
+from kerasformers.models.whisper import WhisperModel
 
-# kmodels release variant
+# kerasformers release variant
 model = WhisperModel.from_weights("whisper_tiny")
 
 # Any HF Hub repo whose model_type is "whisper" — original openai checkpoints
@@ -116,7 +116,7 @@ The class is also constructable directly with custom hyperparameters
 for from-scratch training:
 
 ```python
-from kmodels.models.whisper import WhisperModel
+from kerasformers.models.whisper import WhisperModel
 
 model = WhisperModel(
     d_model=384,
@@ -140,7 +140,7 @@ converter normalizes both `WhisperForConditionalGeneration`
 state-dict layouts.
 
 ```python
-from kmodels.models.whisper import WhisperSpeechToText, WhisperProcessor
+from kerasformers.models.whisper import WhisperSpeechToText, WhisperProcessor
 
 model = WhisperSpeechToText.from_weights("hf:aware-ai/whisper-tiny-german")
 processor = WhisperProcessor(variant="v1")
@@ -185,7 +185,7 @@ The shortest path is `WhisperSpeechToText` — same model graph as
 method (audio in, text out).
 
 ```python
-from kmodels.models.whisper import WhisperSpeechToText, WhisperProcessor
+from kerasformers.models.whisper import WhisperSpeechToText, WhisperProcessor
 
 model = WhisperSpeechToText.from_weights("whisper_tiny")
 processor = WhisperProcessor(variant="v1")    # 51865 vocab, 80 mels
@@ -220,7 +220,7 @@ os.environ["KERAS_BACKEND"] = "torch"
 
 import soundfile as sf
 
-from kmodels.models.whisper import WhisperSpeechToText, WhisperProcessor
+from kerasformers.models.whisper import WhisperSpeechToText, WhisperProcessor
 
 # Build model + processor
 model = WhisperSpeechToText.from_weights("whisper_base")
@@ -295,7 +295,7 @@ the **v3 tokenizer** (vocab 51 866 — adds Cantonese `yue`). The
 processor handles both via constructor kwargs:
 
 ```python
-from kmodels.models.whisper import WhisperModel, WhisperProcessor
+from kerasformers.models.whisper import WhisperModel, WhisperProcessor
 
 model = WhisperModel.from_weights("whisper_large_v3_turbo")
 processor = WhisperProcessor(variant="v3", n_mels=128)
@@ -318,7 +318,7 @@ builder behind a single object that mirrors HuggingFace's
 `transformers.WhisperProcessor` API.
 
 ```python
-from kmodels.models.whisper import WhisperProcessor
+from kerasformers.models.whisper import WhisperProcessor
 
 processor = WhisperProcessor(
     variant="v1",        # or "v3"
@@ -394,7 +394,7 @@ timestamps, task tokens) registered via `add_special_tokens`. No
 runtime `transformers` dependency.
 
 ```python
-from kmodels.models.whisper import WhisperTokenizer
+from kerasformers.models.whisper import WhisperTokenizer
 
 tok = WhisperTokenizer(variant="v1")    # tiny..large-v2 (51865 vocab)
 ids = tok.encode("Hello, world!")
@@ -404,7 +404,7 @@ tok_v3 = WhisperTokenizer(variant="v3") # large-v3 / large-v3-turbo (51866 vocab
 ```
 
 Vocab files (`vocab.json`, `merges.txt`, `added_tokens.json`) are
-hosted on the kmodels `whisper` release tag and downloaded on first
+hosted on the kerasformers `whisper` release tag and downloaded on first
 use.
 
 | File | Variant | Vocab |
@@ -428,7 +428,7 @@ processors:
   Defaults to `[220, 50257]` (space + `<|endoftext|>`).
 
 ```python
-from kmodels.models.whisper.config import WHISPER_SUPPRESS_TOKENS
+from kerasformers.models.whisper.config import WHISPER_SUPPRESS_TOKENS
 
 text = model.generate(
     wave, processor,
@@ -454,7 +454,7 @@ classification tasks like language identification, keyword spotting,
 or music-genre prediction.
 
 ```python
-from kmodels.models.whisper import WhisperAudioClassify, WhisperFeatureExtractor
+from kerasformers.models.whisper import WhisperAudioClassify, WhisperFeatureExtractor
 
 # Public Whisper-tiny fine-tuned on Google Speech Commands (12 classes)
 model = WhisperAudioClassify.from_weights(
@@ -491,7 +491,7 @@ text path is what feeds the label tensor:
 
 ```python
 import keras
-from kmodels.models.whisper import WhisperModel, WhisperProcessor
+from kerasformers.models.whisper import WhisperModel, WhisperProcessor
 
 model = WhisperModel.from_weights("whisper_tiny")
 encoder, decoder = model.encoder, model.decoder

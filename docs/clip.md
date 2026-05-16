@@ -18,9 +18,9 @@ Two classes are exposed, mirroring HF's `CLIP*` hierarchy:
 Both load the same way:
 
 ```python
-from kmodels.models.clip import CLIPModel, CLIPImageClassify
+from kerasformers.models.clip import CLIPModel, CLIPImageClassify
 
-# kmodels release variant
+# kerasformers release variant
 model = CLIPModel.from_weights("clip_vit_base_16")
 
 # Any HF Hub repo whose model_type is "clip"
@@ -41,14 +41,14 @@ Variant ids for `CLIPModel.from_weights`:
 | `clip_vit_g_14`         | ~1.4 B  |    14 |        224 | laion2b s12B b42K  |
 | `clip_vit_bigg_14`      | ~2.5 B  |    14 |        224 | laion2b 39B b160k  |
 
-Weights are hosted on the kmodels [`clip`](https://github.com/IMvision12/keras-models/releases/tag/clip) release tag and downloaded on first call.
+Weights are hosted on the kerasformers [`clip`](https://github.com/IMvision12/KerasFormers/releases/tag/clip) release tag and downloaded on first call.
 
 ## Loading HF Fine-tunes
 
 Any HF repo whose `model_type` is `"clip"` (the official `openai/clip-*` checkpoints, LAION CLIP variants, or arbitrary user fine-tunes) can be loaded directly via `from_weights("hf:<repo>")`. The class reads ViT dims, depth, heads, vocab, MLP ratios, `hidden_act` (`"quick_gelu"` for OpenAI, `"gelu"`/`"gelu_new"` for LAION), and `layer_norm_eps` straight from the HF config.
 
 ```python
-from kmodels.models.clip import CLIPModel
+from kerasformers.models.clip import CLIPModel
 
 # Canonical OpenAI
 model = CLIPModel.from_weights("hf:openai/clip-vit-base-patch16")
@@ -85,7 +85,7 @@ image_logits[i, j] = exp(logit_scale) * cos_sim(image_embed_i, text_embed_j)
 
 ```python
 import keras
-from kmodels.models.clip import CLIPModel, CLIPProcessor
+from kerasformers.models.clip import CLIPModel, CLIPProcessor
 
 processor = CLIPProcessor()
 model = CLIPModel.from_weights("clip_vit_base_16")
@@ -108,7 +108,7 @@ print(result)
 
 ```python
 import keras
-from kmodels.models.clip import CLIPModel, CLIPProcessor
+from kerasformers.models.clip import CLIPModel, CLIPProcessor
 
 processor = CLIPProcessor()
 model = CLIPModel.from_weights("clip_vit_base_16")
@@ -136,7 +136,7 @@ for i, img_path in enumerate(image_paths):
 Mirrors HF's `CLIPForImageClassification`: the CLIP vision encoder feeds a mean-pool over the patch tokens (CLS excluded) and a single linear `classifier` Dense producing `num_labels` logits. The text tower, visual projection, and `logit_scale` are **not** built.
 
 ```python
-from kmodels.models.clip import CLIPImageClassify, CLIPImageProcessor
+from kerasformers.models.clip import CLIPImageClassify, CLIPImageProcessor
 
 # Load a fine-tuned HF CLIPForImageClassification checkpoint
 model = CLIPImageClassify.from_weights("hf:<user>/clip-finetuned-imagenet")

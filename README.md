@@ -6,20 +6,20 @@
 
 ## 📖 Introduction
 
-Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2, Qwen2-VL), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kerasformers) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2, Qwen2-VL), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
 From PyPI (recommended)
 
 ```shell
-pip install -U kmodels
+pip install -U kerasformers
 ```
 
 From Source
 
 ```shell
-pip install -U git+https://github.com/IMvision12/keras-models
+pip install -U git+https://github.com/IMvision12/KerasFormers
 ```
 
 ## 📑 Documentation
@@ -138,7 +138,7 @@ Per-model guides with architecture notes, usage examples, and available pretrain
 
 This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses) and [transformers](https://github.com/huggingface/transformers#license) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.
 
-- 🔖 **kmodels Code**: This repository is licensed under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
+- 🔖 **kerasformers Code**: This repository is licensed under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
 
 
 ## 🌟 Credits
@@ -153,11 +153,11 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
 ### BibTeX
 
 ```bash
-@misc{gc2025kmodels,
+@misc{gc2025kerasformers,
   author = {Gitesh Chawda},
   title = {Keras Models},
   year = {2025},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/IMvision12/keras-models}}
+  howpublished = {\url{https://github.com/IMvision12/KerasFormers}}
 ```

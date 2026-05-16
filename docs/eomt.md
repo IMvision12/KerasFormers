@@ -17,7 +17,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `EoMTUniversalSegment.from_weights(variant_id)` for kmodels releases, or `EoMTUniversalSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
+Pretrained weights are loaded via `EoMTUniversalSegment.from_weights(variant_id)` for kerasformers releases, or `EoMTUniversalSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant                              | Size  | Dataset            | Classes | Queries | Input    |
 |--------------------------------------|-------|--------------------|--------:|--------:|----------|
@@ -30,7 +30,7 @@ Pretrained weights are loaded via `EoMTUniversalSegment.from_weights(variant_id)
 ## Basic Usage
 
 ```python
-from kmodels.models.eomt import EoMTUniversalSegment
+from kerasformers.models.eomt import EoMTUniversalSegment
 
 # Small variant (panoptic, COCO)
 model = EoMTUniversalSegment.from_weights("eomt_small_coco_panoptic_640")
@@ -59,7 +59,7 @@ model = EoMTUniversalSegment.from_weights(
 ## Inference Example
 
 ```python
-from kmodels.models.eomt import EoMTUniversalSegment, EoMTImageProcessor
+from kerasformers.models.eomt import EoMTUniversalSegment, EoMTImageProcessor
 from PIL import Image
 
 model = EoMTUniversalSegment.from_weights("eomt_large_coco_panoptic_640")
@@ -157,7 +157,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.eomt import EoMTUniversalSegment, EoMTImageProcessor
+from kerasformers.models.eomt import EoMTUniversalSegment, EoMTImageProcessor
 
 model = EoMTUniversalSegment.from_weights("eomt_large_coco_panoptic_640")
 

@@ -17,9 +17,9 @@ RF-DETR is a real-time object detection model based on the DETR framework, using
 ## Basic Usage
 
 ```python
-from kmodels.models.rf_detr import RFDETRDetect
+from kerasformers.models.rf_detr import RFDETRDetect
 
-# RF-DETR Base (kmodels release, COCO pre-trained)
+# RF-DETR Base (kerasformers release, COCO pre-trained)
 model = RFDETRDetect.from_weights("rfdetr-base")
 
 # Other variants
@@ -33,13 +33,13 @@ model = RFDETRDetect.from_weights("rfdetr-base", load_weights=False)
 ```
 
 > RF-DETR is not available through HuggingFace transformers. Use the
-> kmodels release variants above, or load a custom checkpoint via
+> kerasformers release variants above, or load a custom checkpoint via
 > `model.load_weights(...)`.
 
 ## Example Inference
 
 ```python
-from kmodels.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
+from kerasformers.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 from PIL import Image
 
 model = RFDETRDetect.from_weights("rfdetr-base")
@@ -97,7 +97,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
+from kerasformers.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 
 model = RFDETRDetect.from_weights("rfdetr-base")
 

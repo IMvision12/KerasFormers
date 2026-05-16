@@ -41,8 +41,8 @@ Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Backbon
 
 ```python
 import numpy as np
-from kmodels.models.dino import DinoViTBackbone, DinoResNetBackbone
-from kmodels.models.dino_v2 import DinoV2Backbone
+from kerasformers.models.dino import DinoViTBackbone, DinoResNetBackbone
+from kerasformers.models.dino_v2 import DinoV2Backbone
 
 # DINO V1 ViT — returns 13 intermediate feature maps (embed + 12 blocks)
 model = DinoViTBackbone.from_weights("dino_vits16")
@@ -65,7 +65,7 @@ print(len(features), features[-1].shape)  # 13, (1, 257, 384)
 Any HF repo whose `model_type` is `"dinov2"` (the official `facebook/dinov2-*` checkpoints or any user fine-tune) can be loaded directly via `from_weights("hf:<repo>")`. The class reads ViT dims, depth, num heads, and LayerScale value straight from the HF config; position embeddings are bicubically resampled if your `input_shape` differs from HF's training resolution. The backbone's last feature map matches HF's `last_hidden_state` (the final LayerNorm is included). For `Dinov2For*` task-head wrappers, the `dinov2.` prefix on state-dict keys is stripped automatically and any classifier head is dropped.
 
 ```python
-from kmodels.models.dino_v2 import DinoV2Backbone
+from kerasformers.models.dino_v2 import DinoV2Backbone
 
 # Canonical
 model = DinoV2Backbone.from_weights("hf:facebook/dinov2-base")
@@ -81,7 +81,7 @@ model = DinoV2Backbone.from_weights(
 
 ```python
 import keras
-from kmodels.models.dino_v2 import DinoV2Backbone
+from kerasformers.models.dino_v2 import DinoV2Backbone
 
 backbone = DinoV2Backbone.from_weights("dinov2_vits14")
 # Take the last feature map and CLS token, then add a head

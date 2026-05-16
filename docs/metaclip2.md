@@ -19,7 +19,7 @@ text tower, same logit-scale head — differing only in:
   `901628` would break that trick; mT5's `eos=1` also wouldn't be the
   argmax).
 
-kmodels reuses CLIP's attention, position-embedding, and logit-scale
+kerasformers reuses CLIP's attention, position-embedding, and logit-scale
 layers directly; only the model wiring and tokenizers are MetaCLIP
 2-specific.
 
@@ -57,7 +57,7 @@ the tokenizer vocab and EOS id differ.
 ## Basic Usage
 
 ```python
-from kmodels.models.metaclip2 import (
+from kerasformers.models.metaclip2 import (
     MetaClip2WorldwideB32,
     MetaClip2Processor,
 )
@@ -82,7 +82,7 @@ Keras 3 backend (torch / tensorflow / jax).
 import keras
 import numpy as np
 
-from kmodels.models.metaclip2 import (
+from kerasformers.models.metaclip2 import (
     MetaClip2WorldwideS16,
     MetaClip2ImageProcessor,
     MetaClip2Tokenizer,
@@ -158,7 +158,7 @@ mT5 variants use the SigLIP-style tokenizer (lowercase + strip ASCII
 punctuation + SP encode). Swap in `MetaClip2Mt5Tokenizer`:
 
 ```python
-from kmodels.models.metaclip2 import (
+from kerasformers.models.metaclip2 import (
     MetaClip2Mt5WorldwideB32,
     MetaClip2ImageProcessor,
     MetaClip2Mt5Tokenizer,
@@ -184,7 +184,7 @@ and raw similarity scores.
 import keras
 import numpy as np
 
-from kmodels.models.metaclip2 import (
+from kerasformers.models.metaclip2 import (
     MetaClip2WorldwideS16,
     MetaClip2ImageProcessor,
     MetaClip2Tokenizer,
@@ -249,8 +249,8 @@ Cat / car distractors round to 0% across all six languages.
 
 Both tokenizers are **pure-Python wrappers around `sentencepiece`** — no
 `transformers` dependency at runtime. The SentencePiece model files are
-hosted on the kmodels [`metaclip-2`
-release](https://github.com/IMvision12/keras-models/releases/tag/metaclip-2)
+hosted on the kerasformers [`metaclip-2`
+release](https://github.com/IMvision12/KerasFormers/releases/tag/metaclip-2)
 and downloaded + cached on first use.
 
 ### `MetaClip2Tokenizer` — for Worldwide (XLM-R) variants
@@ -261,7 +261,7 @@ padding. Hardcoded token ids: `<s>=0`, `<pad>=1`, `</s>=2`, `<unk>=3`,
 `<mask>=901628`. Context length defaults to `77`.
 
 ```python
-from kmodels.models.metaclip2 import MetaClip2Tokenizer
+from kerasformers.models.metaclip2 import MetaClip2Tokenizer
 tok = MetaClip2Tokenizer(context_length=77)
 out = tok(inputs=["hello world", "bonjour le monde"])
 print(out["token_ids"].shape)  # (2, 77)
@@ -273,7 +273,7 @@ SigLIP-style tokenizer: **lowercase text**, SP encode, append `eos=1`,
 pad with `eos` (no bos). Hardcoded token ids: `eos=1`, `pad=1`, `unk=2`.
 
 ```python
-from kmodels.models.metaclip2 import MetaClip2Mt5Tokenizer
+from kerasformers.models.metaclip2 import MetaClip2Mt5Tokenizer
 tok = MetaClip2Mt5Tokenizer(context_length=77)
 out = tok(inputs=["hello world", "una foto de un gato"])
 print(out["token_ids"].shape)  # (2, 77)
@@ -287,11 +287,11 @@ conventions are fixed.
 
 | File | Used by | Vocab |
 |---|---|---|
-| [`sentencepiece.bpe.model`](https://github.com/IMvision12/keras-models/releases/download/metaclip-2/sentencepiece.bpe.model) | `MetaClip2Tokenizer` (13 Worldwide variants) | 901 629 |
-| [`spiece.model`](https://github.com/IMvision12/keras-models/releases/download/metaclip-2/spiece.model) | `MetaClip2Mt5Tokenizer` (3 mT5 variants) | 250 100 |
+| [`sentencepiece.bpe.model`](https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/sentencepiece.bpe.model) | `MetaClip2Tokenizer` (13 Worldwide variants) | 901 629 |
+| [`spiece.model`](https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/spiece.model) | `MetaClip2Mt5Tokenizer` (3 mT5 variants) | 250 100 |
 
 Both are ~5 MB. Token-id parity with HF's `XLMRobertaTokenizerFast` and
-`SiglipTokenizer` is verified — kmodels produces **bit-identical** token
+`SiglipTokenizer` is verified — kerasformers produces **bit-identical** token
 ids across English / German / French / Chinese / Japanese inputs.
 
 ## Image processor
@@ -303,7 +303,7 @@ crop, which is CLIP's default). Rescale to `[0, 1]` and OpenAI-CLIP
 normalization follow.
 
 ```python
-from kmodels.models.metaclip2 import MetaClip2ImageProcessor
+from kerasformers.models.metaclip2 import MetaClip2ImageProcessor
 proc = MetaClip2ImageProcessor(image_resolution=224)
 pixel_values = proc("photo.jpg")["pixel_values"]
 # (1, 224, 224, 3) float32, normalized
@@ -312,7 +312,7 @@ pixel_values = proc("photo.jpg")["pixel_values"]
 ## Data format
 
 `MetaClip2ImageProcessor` accepts the same `data_format=None` kwarg as
-every other kmodels processor — `None` resolves to
+every other kerasformers processor — `None` resolves to
 `keras.config.image_data_format()`; pass `"channels_first"` /
 `"channels_last"` to override per-call.
 

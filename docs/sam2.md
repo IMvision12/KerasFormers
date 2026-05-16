@@ -28,19 +28,19 @@ All models use a 1024×1024 input resolution and are trained on the SA-V dataset
 ## Basic Usage
 
 ```python
-import kmodels
+import kerasformers
 
 # List available SAM2 models
-print(kmodels.list_models("sam2"))
+print(kerasformers.list_models("sam2"))
 
 # Build a SAM2 model (default 1024x1024 input, 3-mask output)
-model = kmodels.models.sam2.Sam2Tiny(
+model = kerasformers.models.sam2.Sam2Tiny(
     input_shape=(1024, 1024, 3),
     weights="sav",
 )
 
 # For single best-mask output (HF ``multimask_output=False`` path):
-model_single = kmodels.models.sam2.Sam2Tiny(
+model_single = kerasformers.models.sam2.Sam2Tiny(
     weights="sav",
     multimask_output=False,
 )
@@ -66,7 +66,7 @@ The default SAM2 functional graph has three inputs. Box and dense-mask prompts a
 ```python
 import numpy as np
 import keras
-from kmodels.models.sam2 import (
+from kerasformers.models.sam2 import (
     Sam2Large, Sam2ImageProcessorWithPrompts,
 )
 
@@ -121,7 +121,7 @@ SAM2 supports two box-prompt paths:
 
 ```python
 import numpy as np
-from kmodels.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
+from kerasformers.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
 
 model = Sam2Small(input_shape=(1024, 1024, 3), weights="sav")
 
@@ -148,7 +148,7 @@ outputs = model({
 
 ```python
 import numpy as np
-from kmodels.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
+from kerasformers.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
 
 model = Sam2Small(
     input_shape=(1024, 1024, 3),
@@ -190,7 +190,7 @@ For interactive tools that try many prompts on the same image, run the Hiera bac
 ```python
 import numpy as np
 import keras
-from kmodels.models.sam2 import Sam2Tiny, Sam2ImageProcessor
+from kerasformers.models.sam2 import Sam2Tiny, Sam2ImageProcessor
 
 model = Sam2Tiny(weights="sav")
 processor = Sam2ImageProcessor()
@@ -235,7 +235,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam2 import (
+from kerasformers.models.sam2 import (
     Sam2Large, Sam2ImageProcessorWithPrompts,
 )
 
@@ -314,13 +314,13 @@ Without any prompts, SAM2 can sample a dense point grid over the image and retur
 
 HuggingFace's `Sam2ImageProcessor` exposes the AMG **helpers** (`generate_crop_boxes`, `filter_masks`, `post_process_for_mask_generation`, plus internals like `_compute_stability_score`, `_mask_to_rle`) but leaves the crop loop, per-crop batching, and model orchestration to you. Meta's original repo ships the end-to-end driver as `SAM2AutomaticMaskGenerator`.
 
-The kmodels port provides:
+The kerasformers port provides:
 
 | Function | What it corresponds to |
 |---|---|
-| `generate_crop_boxes` *(re-used from `kmodels.models.sam`)* | `Sam2ImageProcessor.generate_crop_boxes` |
-| `filter_masks` *(re-used from `kmodels.models.sam`)* | `Sam2ImageProcessor.filter_masks` |
-| `post_process_for_mask_generation` *(re-used from `kmodels.models.sam`)* | `Sam2ImageProcessor.post_process_for_mask_generation` |
+| `generate_crop_boxes` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.generate_crop_boxes` |
+| `filter_masks` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.filter_masks` |
+| `post_process_for_mask_generation` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.post_process_for_mask_generation` |
 | `Sam2GenerateMasks` | `SAM2AutomaticMaskGenerator` (Meta original) |
 
 All helpers run on `keras.ops` tensors and work on any backend.
@@ -338,7 +338,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam2 import Sam2BasePlus, Sam2GenerateMasks
+from kerasformers.models.sam2 import Sam2BasePlus, Sam2GenerateMasks
 
 
 def overlay_masks(ax, masks_list):
@@ -404,7 +404,7 @@ Under the hood the driver:
 If you want HuggingFace-parity behavior exactly, import the helpers from the SAM submodule and skip `Sam2GenerateMasks`:
 
 ```python
-from kmodels.models.sam.sam_image_processor import (
+from kerasformers.models.sam.sam_image_processor import (
     generate_crop_boxes, filter_masks, post_process_for_mask_generation,
 )
 ```
@@ -439,7 +439,7 @@ The Keras port intentionally differs from the PyTorch/HuggingFace `Sam2Model` AP
 | `multimask_output` | runtime kwarg | construction-time flag |
 | Precomputed embeddings | `model(image_embeddings=..., ...)` | `model.prompt_decoder_model(...)` sub-model |
 | Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
-| Automatic mask generation | helpers on `Sam2ImageProcessor`; driver lives in Meta's original repo | helpers re-used from `kmodels.models.sam` + built-in `Sam2GenerateMasks` driver |
+| Automatic mask generation | helpers on `Sam2ImageProcessor`; driver lives in Meta's original repo | helpers re-used from `kerasformers.models.sam` + built-in `Sam2GenerateMasks` driver |
 | Image preprocessing | `keep_aspect_ratio=True` + pad to square | per-axis stretch to 1024×1024 |
 | Box-only prompts | supported (points branch is skipped) | small drift — see the box-prompt note above |
 

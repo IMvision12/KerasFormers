@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "kmodels"
+name = "kerasformers"
 authors = [{ name = "Gitesh Chawda", email = "gitesh.ch.0912@gmail.com" }]
 description = "Pretrained keras 3 vision models"
 readme = "README.md"
@@ -56,23 +56,23 @@ test = [
 ]
 
 [project.scripts]
-kmodels-test = "kmodels._test_runner:main"
+kerasformers-test = "kerasformers._test_runner:main"
 
 [project.urls]
-homepage = "https://github.com/IMvision12/keras-models"
-documentation = "https://github.com/IMvision12/keras-models"
-repository = "https://github.com/IMvision12/keras-models.git"
+homepage = "https://github.com/IMvision12/KerasFormers"
+documentation = "https://github.com/IMvision12/KerasFormers"
+repository = "https://github.com/IMvision12/KerasFormers.git"
 
 [tool.setuptools.packages]
-find = { include = ["kmodels*"] }
+find = { include = ["kerasformers*"] }
 
 [tool.setuptools.dynamic]
-version = { attr = "kmodels.__version__" }
+version = { attr = "kerasformers.__version__" }
 
 [tool.coverage.run]
-source = ["kmodels", "tests"]
+source = ["kerasformers", "tests"]
 omit = [
-    "kmodels/models/*/convert_*.py",
+    "kerasformers/models/*/convert_*.py",
 ]
 
 [tool.coverage.report]

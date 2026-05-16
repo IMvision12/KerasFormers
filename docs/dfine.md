@@ -25,9 +25,9 @@ D-FINE is a real-time object detection model that redefines the bounding box reg
 ## Basic Usage
 
 ```python
-from kmodels.models.dfine import DFineDetect
+from kerasformers.models.dfine import DFineDetect
 
-# D-FINE Large (kmodels release, COCO pre-trained)
+# D-FINE Large (kerasformers release, COCO pre-trained)
 model = DFineDetect.from_weights("dfine-large")
 
 # Other variants
@@ -47,7 +47,7 @@ model = DFineDetect.from_weights("hf:my-username/my-dfine-finetune")
 ## Example Inference
 
 ```python
-from kmodels.models.dfine import DFineDetect, DFineImageProcessor
+from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 from PIL import Image
 
 model = DFineDetect.from_weights("dfine-large")
@@ -106,7 +106,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.dfine import DFineDetect, DFineImageProcessor
+from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 
 model = DFineDetect.from_weights("dfine-large")
 
@@ -163,7 +163,7 @@ Like RT-DETR, D-FINE does **not** apply ImageNet normalization. The model expect
 To convert weights from HuggingFace checkpoints:
 
 ```bash
-KERAS_BACKEND=torch python kmodels/models/dfine/convert_dfine_hf_to_keras.py
+KERAS_BACKEND=torch python kerasformers/models/dfine/convert_dfine_hf_to_keras.py
 ```
 
 This converts all 5 checkpoints from the [ustc-community](https://huggingface.co/ustc-community) organization:
