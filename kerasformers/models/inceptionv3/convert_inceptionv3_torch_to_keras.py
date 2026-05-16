@@ -1,5 +1,3 @@
-"""timm InceptionV3 -> Keras weight transfer."""
-
 import gc
 import re
 from typing import Dict
@@ -34,7 +32,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def _convert_mixed_block_names(name: str) -> str:
-    """Convert Mixed block names: ``Mixed_5b_branch1x1`` -> ``Mixed_5b.branch1x1``."""
     pattern = r"(Mixed_[0-9][a-e])_(.+)"
     match = re.match(pattern, name)
     if match:
@@ -45,7 +42,6 @@ def _convert_mixed_block_names(name: str) -> str:
 def transfer_inceptionv3_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm InceptionV3 state-dict into a Keras :class:`InceptionV3`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

@@ -98,14 +98,12 @@ def _transfer_weights(keras_model, torch_state_dict, name_mapping, is_vit):
 def transfer_dino_vit_weights(
     keras_model: keras.Model, torch_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer DINO V1 ViT weights from a torch.hub state-dict."""
     _transfer_weights(keras_model, torch_state_dict, VIT_NAME_MAPPING, is_vit=True)
 
 
 def transfer_dino_resnet_weights(
     keras_model: keras.Model, torch_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer DINO V1 ResNet weights from a torch.hub state-dict."""
     _transfer_weights(keras_model, torch_state_dict, RESNET_NAME_MAPPING, is_vit=False)
 
 
@@ -151,12 +149,11 @@ if __name__ == "__main__":
             t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
         k_in = np.transpose(x, (0, 2, 3, 1))
         k_raw = keras_model(k_in, training=False)
-        # Backbone output is a list of intermediate features; take last block's CLS token
         last = k_raw[-1]
         last = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )
-        k_out = last[:, 0]  # CLS token
+        k_out = last[:, 0]
         diff = float(np.abs(k_out - t_out).max())
         if diff > 1e-3:
             raise ValueError(f"{variant}: max diff {diff:.2e}")
@@ -201,7 +198,6 @@ if __name__ == "__main__":
             t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
         k_in = np.transpose(x, (0, 2, 3, 1))
         k_raw = keras_model(k_in, training=False)
-        # Backbone output is a list of stage features; pool the last (C5) to match torch
         last = k_raw[-1]
         last = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)

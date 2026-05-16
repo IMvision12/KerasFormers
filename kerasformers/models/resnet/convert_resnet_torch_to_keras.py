@@ -1,10 +1,3 @@
-"""timm ResNet -> Keras weight transfer.
-
-Exposes :func:`transfer_resnet_weights` for both the offline conversion
-``__main__`` block (timm checkpoints -> kerasformers release files) and the
-runtime ``ResNet.from_weights("timm:...")`` path.
-"""
-
 import gc
 from typing import Dict
 
@@ -46,14 +39,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_resnet_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm ResNet state-dict into a Keras :class:`ResNet`.
-
-    Args:
-        keras_model: A built :class:`ResNet` instance.
-        state_dict: Mapping of timm weight names to numpy arrays (e.g.
-            from ``timm.create_model(...).state_dict()`` with each
-            tensor moved to CPU + ``.numpy()``).
-    """
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

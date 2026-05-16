@@ -1,5 +1,3 @@
-"""timm VGG -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -37,7 +35,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_vgg_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm VGG state-dict into a Keras :class:`VGGImageClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

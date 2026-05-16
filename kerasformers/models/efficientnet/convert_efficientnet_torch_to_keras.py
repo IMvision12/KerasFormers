@@ -1,5 +1,3 @@
-"""timm EfficientNet (TF) -> Keras weight transfer."""
-
 import gc
 import re
 from typing import Dict
@@ -52,7 +50,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {**_BASE_MAPPINGS, **_BLOCK_MAPPINGS}
 def transfer_efficientnet_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm EfficientNet state-dict into a Keras :class:`EfficientNet`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

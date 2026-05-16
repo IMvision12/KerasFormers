@@ -76,17 +76,6 @@ HF_REPO = {
 
 
 def transfer_metaclip2_weights(keras_model, hf_state_dict):
-    """Transfer HF MetaCLIP 2 state dict into a Keras MetaClip2Model.
-
-    Used both by the offline ``convert(variant)`` CLI path and by the
-    on-the-fly HF loader (for Tier 3 variants too big for GitHub releases).
-
-    Args:
-        keras_model: Built `MetaClip2Model` instance.
-        hf_state_dict: Dict of ``{torch_name: np.ndarray}`` from
-            ``hf_model.state_dict()`` with tensors converted via
-            ``.cpu().numpy()``.
-    """
     trainable_k, non_trainable_k = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in tqdm(
@@ -139,14 +128,6 @@ def transfer_metaclip2_weights(keras_model, hf_state_dict):
 
 
 def transfer_metaclip2_image_classify_weights(keras_model, hf_state_dict):
-    """Transfer HuggingFace ``MetaClip2ForImageClassification`` weights.
-
-    Loads the MetaCLIP 2 vision encoder (no text encoder, no visual
-    projection, no post-LN — none of those exist in the Keras
-    :class:`MetaClip2ImageClassify` graph) plus the final ``classifier``
-    Dense head. If the source is a base MetaCLIP 2 checkpoint without
-    classifier weights, the head stays randomly initialized.
-    """
     has_classifier = (
         "classifier.weight" in hf_state_dict and "classifier.bias" in hf_state_dict
     )

@@ -1,5 +1,3 @@
-"""HuggingFace MiT (SegformerForImageClassification) -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -56,7 +54,6 @@ _ATTN_REPLACEMENT: Dict[str, str] = {
 
 
 def transfer_mit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a HF SegformerForImageClassification state-dict into a Keras :class:`MiTImageClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

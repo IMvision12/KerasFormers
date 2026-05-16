@@ -1,5 +1,3 @@
-"""timm FlexiViT -> Keras weight transfer (shares ViT mapping)."""
-
 import gc
 
 import keras

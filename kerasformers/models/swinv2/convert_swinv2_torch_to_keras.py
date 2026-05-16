@@ -1,5 +1,3 @@
-"""timm SwinV2 -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -49,7 +47,6 @@ _ATTN_REPLACEMENT: Dict[str, str] = {
 
 
 def transfer_swinv2_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm SwinV2 state-dict into a Keras :class:`SwinV2ImageClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

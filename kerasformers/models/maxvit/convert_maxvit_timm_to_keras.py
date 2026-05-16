@@ -1,5 +1,3 @@
-"""timm MaxViT -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -61,7 +59,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_maxvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm MaxViT state-dict into a Keras :class:`MaxViT`."""
     all_keras_weights = []
     for layer in keras_model.layers:
         for w in layer.weights:

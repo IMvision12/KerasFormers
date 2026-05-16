@@ -23,16 +23,6 @@ backbone_name_mapping: Dict[str, str] = {
 
 
 def transfer_rt_detr_v2_weights(keras_model, state_dict):
-    """Transfer RT-DETR-V2 weights from a ``RTDetrV2ForObjectDetection`` state_dict.
-
-    Same overall structure as RT-DETR (backbone → hybrid encoder →
-    deformable decoder → per-layer heads), with the V2 deformable
-    attention variant in the decoder.
-
-    Args:
-        keras_model: A ``RTDETRV2Detect`` instance.
-        state_dict: Mapping of torch weight names to numpy arrays.
-    """
     sd = state_dict
     block_repeats = keras_model._backbone_block_repeats
     layer_type = keras_model._backbone_layer_type

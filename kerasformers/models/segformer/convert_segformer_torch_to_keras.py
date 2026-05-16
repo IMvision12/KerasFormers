@@ -55,18 +55,6 @@ attn_name_replace: Dict[str, str] = {
 def transfer_segformer_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer SegFormer weights from a HuggingFace state-dict.
-
-    Walks the MiT backbone weights and translates names from the
-    HF convention to ours, then transfers the four decode-head
-    projections, the fusion conv + batch-norm, and the final
-    classifier.
-
-    Args:
-        keras_model: A ``SegFormerSegment`` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``SegformerForSemanticSegmentation.state_dict()``.
-    """
     backbone_weights = list(split_model_weights(keras_model.backbone))
     trainable, non_trainable = backbone_weights
 

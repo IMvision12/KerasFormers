@@ -1,5 +1,3 @@
-"""timm MLP-Mixer -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -40,7 +38,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_mlp_mixer_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm MLP-Mixer state-dict into a Keras :class:`MLPMixer`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

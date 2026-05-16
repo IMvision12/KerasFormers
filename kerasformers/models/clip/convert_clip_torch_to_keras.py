@@ -121,18 +121,6 @@ def transfer_clip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
 def transfer_clip_image_classify_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer HuggingFace ``CLIPForImageClassification`` weights.
-
-    Loads the CLIP vision encoder (no text encoder, no visual
-    projection, no post-LN — none of those exist in the Keras
-    :class:`CLIPImageClassify` graph) plus the final ``classifier``
-    Dense head.
-
-    Args:
-        keras_model: A :class:`CLIPImageClassify` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``CLIPForImageClassification.state_dict()``.
-    """
     state = _strip_model_prefix(hf_state_dict)
     has_classifier = "classifier.weight" in state and "classifier.bias" in state
     trainable, non_trainable = split_model_weights(keras_model)

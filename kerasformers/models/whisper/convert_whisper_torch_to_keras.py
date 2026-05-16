@@ -1,22 +1,3 @@
-"""HuggingFace Whisper -> Keras weight transfer.
-
-The converter is split into a callable :func:`transfer_whisper_weights`
-that takes a Keras :class:`~kerasformers.models.whisper.WhisperModel` and a
-HF state dict (numpy values), and a ``__main__`` block that runs the
-full openai -> kerasformers conversion for every variant.
-
-The transfer function handles two state-dict layouts:
-
-1. ``WhisperForConditionalGeneration`` — keys prefixed with ``model.``
-   (this is what ``WhisperForConditionalGeneration.state_dict()`` and
-   the raw safetensors of the openai checkpoints look like).
-2. ``WhisperModel`` — keys without the ``model.`` prefix (this is what
-   ``WhisperModel.state_dict()`` produces and what some fine-tunes
-   ship on disk).
-
-Both layouts feed into the same internal transfer routine.
-"""
-
 import gc
 import os
 from typing import Dict
@@ -52,13 +33,6 @@ SHARD_THRESHOLD_PARAMS = 500_000_000
 
 
 def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
-    """Strip the ``model.`` prefix from HF keys when present.
-
-    ``WhisperForConditionalGeneration.state_dict()`` wraps the encoder /
-    decoder under a top-level ``model`` submodule; ``WhisperModel`` does
-    not. We normalize to the un-prefixed layout so the transfer code
-    only has to handle one shape.
-    """
     if not any(k.startswith("model.") for k in state_dict):
         return state_dict
     out = {}
@@ -208,20 +182,6 @@ def _transfer_decoder(decoder, state, num_layers):
 
 
 def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer HuggingFace Whisper weights into a Keras :class:`WhisperModel`.
-
-    Handles both ``WhisperForConditionalGeneration`` (``model.encoder.*``,
-    ``model.decoder.*``) and ``WhisperModel`` (``encoder.*``,
-    ``decoder.*``) state-dict layouts. The ``proj_out`` /
-    ``lm_head`` weight is ignored — Whisper ties it to the input
-    embeddings, so the Keras decoder reuses the embedding matrix.
-
-    Args:
-        keras_model: A :class:`WhisperModel` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``WhisperForConditionalGeneration.state_dict()`` or
-            ``WhisperModel.state_dict()``.
-    """
     state = _strip_model_prefix(hf_state_dict)
     _transfer_encoder(keras_model.encoder, state, keras_model.encoder_layers)
     _transfer_decoder(keras_model.decoder, state, keras_model.decoder_layers)
@@ -230,17 +190,6 @@ def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
 def transfer_whisper_audio_classify_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer HuggingFace ``WhisperForAudioClassification`` weights.
-
-    Loads the encoder (encoder only — no decoder), the optional
-    learnable ``layer_weights`` vector for weighted-layer-sum, the
-    ``projector`` Dense, and the final linear ``classifier`` head.
-
-    Args:
-        keras_model: A :class:`WhisperAudioClassify` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``WhisperForAudioClassification.state_dict()``.
-    """
     state = _strip_model_prefix(hf_state_dict)
     _transfer_encoder(keras_model.encoder, state, keras_model.encoder_layers)
 
@@ -283,8 +232,6 @@ if __name__ == "__main__":
             continue
 
         print(f"[1/4] Loading {hf_name}")
-        # Force fp32 — some HF checkpoints (e.g. large-v3) ship as fp16,
-        # which would mismatch the fp32 input we feed during verify.
         torch_model = (
             WhisperForConditionalGeneration.from_pretrained(
                 hf_name, torch_dtype=torch.float32

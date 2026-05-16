@@ -37,7 +37,6 @@ weight_name_mapping: Dict[str, str] = {
 
 
 def _resolve_attention_qkv(keras_weight_path: str):
-    """Return the three HF Q/K/V keys for a fused Keras qkv weight."""
     layer_segment = keras_weight_path.split("/")[-2]
     m = re.match(r"blocks_(\d+)_attn_qkv$", layer_segment)
     if m is None:
@@ -49,7 +48,6 @@ def _resolve_attention_qkv(keras_weight_path: str):
 
 
 def _resolve_attention_proj(keras_weight_path: str):
-    """Map ``blocks_{i}_attn_proj`` to HF attention output dense."""
     layer_segment = keras_weight_path.split("/")[-2]
     m = re.match(r"blocks_(\d+)_attn_proj$", layer_segment)
     if m is None:
@@ -60,7 +58,6 @@ def _resolve_attention_proj(keras_weight_path: str):
 
 
 def _resolve_layer_scale(keras_weight_path: str):
-    """Map ``blocks_{i}_layerscale_{1,2}/variable*`` to HF lambda1."""
     layer_segment = keras_weight_path.split("/")[-2]
     m = re.match(r"blocks_(\d+)_layerscale_(1|2)$", layer_segment)
     if m is None:
@@ -71,7 +68,6 @@ def _resolve_layer_scale(keras_weight_path: str):
 
 
 def _fuse_qkv(state_dict, q_key, k_key, v_key):
-    """Concatenate HF Q, K, V weights along output dim to match fused qkv."""
     q = state_dict[q_key]
     k = state_dict[k_key]
     v = state_dict[v_key]
@@ -81,7 +77,6 @@ def _fuse_qkv(state_dict, q_key, k_key, v_key):
 
 
 def _interpolate_pos_embed(pos_embed, target_num_patches: int):
-    """Bilinearly resize a DINOv2 position-embedding tensor."""
     if not isinstance(pos_embed, torch.Tensor):
         pos_embed = torch.from_numpy(np.asarray(pos_embed))
     cls_pe = pos_embed[:, :1]
@@ -105,13 +100,6 @@ def _interpolate_pos_embed(pos_embed, target_num_patches: int):
 
 
 def _strip_prefix(state_dict, prefix):
-    """Strip a common prefix from all state-dict keys that start with it.
-
-    For ``Dinov2ForImageClassification`` and similar task wrappers, the
-    backbone keys are nested under ``dinov2.*`` and there is an
-    additional ``classifier.*`` head. We strip the prefix from keys
-    that have it; other keys (classifier head, etc.) are dropped.
-    """
     if not any(k.startswith(prefix) for k in state_dict):
         return state_dict
     return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
@@ -120,21 +108,6 @@ def _strip_prefix(state_dict, prefix):
 def transfer_dino_v2_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer DINOv2 weights from a HuggingFace state-dict.
-
-    Handles fused QKV concatenation, attention output projection,
-    LayerScale, and bicubic interpolation of the position embeddings
-    when the Keras input shape differs from HF's training resolution.
-
-    Also strips a ``dinov2.`` prefix when loading from
-    ``Dinov2ForImageClassification`` or other task-head fine-tunes,
-    discarding the classifier head.
-
-    Args:
-        keras_model: A ``DinoV2Backbone`` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``Dinov2Model.state_dict()`` or any ``Dinov2For*`` variant.
-    """
     hf_state_dict = _strip_prefix(hf_state_dict, "dinov2.")
     trainable, non_trainable = split_model_weights(keras_model)
     for keras_weight, keras_weight_name in tqdm(
@@ -248,7 +221,6 @@ if __name__ == "__main__":
             )
         k_in = np.transpose(x_np, (0, 2, 3, 1))
         k_raw = keras_model(k_in, training=False)
-        # Backbone output is a list of intermediate features; take the last block's output
         last = k_raw[-1]
         k_out = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)

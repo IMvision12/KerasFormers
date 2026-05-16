@@ -29,24 +29,6 @@ weight_name_mapping: Dict[str, str] = {
 
 
 def transfer_owlvit_encoder_weights(keras_model, state_dict, prefix=None):
-    """Transfer OWL-ViT vision + text encoder weights from an HF state_dict.
-
-    Loads ``vision_model``, ``text_model``, and ``text_projection``
-    sub-modules. Works for both ``OwlViTModel`` and
-    ``OwlViTForObjectDetection`` state_dicts — the prefix is
-    auto-detected by default.
-
-    Args:
-        keras_model: Either an ``OwlViT`` (encoder) or ``OwlViTDetect``
-            instance — anything that exposes the standard
-            ``vision_model_*`` / ``text_model_*`` named layers.
-        state_dict: Mapping of torch weight names to numpy arrays.
-        prefix: ``""`` for ``OwlViTModel`` checkpoints, ``"owlvit."``
-            for ``OwlViTForObjectDetection`` checkpoints. When ``None``
-            (the default), the prefix is sniffed by checking for
-            ``owlvit.vision_model.embeddings.class_embedding`` in the
-            state_dict.
-    """
     if prefix is None:
         prefix = (
             "owlvit."
@@ -168,13 +150,6 @@ def transfer_owlvit_encoder_weights(keras_model, state_dict, prefix=None):
 
 
 def transfer_owlvit_detection_weights(keras_model, state_dict):
-    """Transfer encoder + detection-head weights from an
-    ``OwlViTForObjectDetection`` state_dict into an ``OwlViTDetect``.
-
-    Calls ``transfer_owlvit_encoder_weights`` with the ``"owlvit."``
-    prefix and then loads ``layer_norm``, ``box_head``, and
-    ``class_head`` on top.
-    """
     transfer_owlvit_encoder_weights(keras_model, state_dict, prefix="owlvit.")
 
     for d in ("dense0", "dense1", "dense2"):

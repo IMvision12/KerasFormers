@@ -25,18 +25,6 @@ vision_encoder_name_mapping = {
 def transfer_sam_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer SAM weights from a HuggingFace state-dict.
-
-    Walks the vision encoder, vision neck, shared image embedding,
-    prompt encoder (point embeddings, no-mask embedding, optional
-    mask conv stack), and the mask decoder (transformer layers,
-    upscale convs, hypernetwork MLPs, IoU head).
-
-    Args:
-        keras_model: A ``SAMPromptableSegment`` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``SamModel.state_dict()``.
-    """
     patch_conv = keras_model.get_layer("vision_encoder_patch_embed_projection")
     transfer_weights(
         "conv_kernel",

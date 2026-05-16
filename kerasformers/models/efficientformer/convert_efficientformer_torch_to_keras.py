@@ -1,5 +1,3 @@
-"""timm EfficientFormer -> Keras weight transfer."""
-
 import gc
 import re
 from typing import Dict
@@ -51,30 +49,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 }
 
 
-# Keras emits conv/attn block indices densely (0..depth-1), but timm
-# interleaves conv (Meta4D) and vit (Meta1D) under a single index space,
-# leaving gaps where the conv→vit transition happens. These maps re-index
-# Keras' contiguous block ids into the sparse timm ids for each variant.
-#
-# L1: last stage has depths=4, num_vit=1 -> conv blocks 0,1,2 then vit block 3
-#     timm skips index 3 for conv -> vit block at index 4
-# L3: last stage has depths=6, num_vit=4 -> conv blocks 0,1 then vit blocks 2,3,4,5
-#     timm skips index 2 for first conv->vit transition, so blocks 2..5 map to 3..6
-# L7: last stage has depths=8, num_vit=8 -> all vit blocks 0..7
-#     no conv blocks in last stage, no skip needed
 def _build_block_index_remap(last_stage_depth: int, num_vit: int) -> Dict[str, str]:
-    """Compute keras block-id -> timm block-id rename for the last stage.
-
-    Keras numbers all blocks in stage 3 contiguously ``0..depth-1`` (conv
-    blocks first, vit blocks last). timm leaves a one-slot gap at the
-    conv→vit transition, so vit blocks live at indices
-    ``depth - num_vit + 1 .. depth`` (or ``1 .. depth`` when all blocks
-    are vit). The remap shifts every keras vit-block index up by 1.
-
-    Iteration order matters: applying the renames in descending source
-    index avoids cascading replacements (e.g. ``blocks.5 -> blocks.6``
-    would later be hit by ``blocks.6 -> blocks.7``).
-    """
     if num_vit == 0:
         return {}
     first_vit_keras = max(0, last_stage_depth - num_vit)
@@ -88,12 +63,6 @@ def transfer_efficientformer_weights(
     keras_model,
     state_dict: Dict[str, np.ndarray],
 ) -> None:
-    """Transfer a timm EfficientFormer state-dict into a Keras :class:`EfficientFormer`.
-
-    Args:
-        keras_model: A built :class:`EfficientFormer` instance.
-        state_dict: Mapping of timm weight names to numpy arrays.
-    """
     block_remap = _build_block_index_remap(
         last_stage_depth=keras_model.depths[-1],
         num_vit=keras_model.num_vit,

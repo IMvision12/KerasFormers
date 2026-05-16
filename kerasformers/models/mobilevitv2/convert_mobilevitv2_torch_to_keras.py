@@ -1,10 +1,3 @@
-"""timm MobileViTV2 -> Keras weight transfer.
-
-Exposes :func:`transfer_mobilevitv2_weights` for both the offline
-conversion ``__main__`` block (timm checkpoints -> kerasformers release
-files) and the runtime ``MobileViTV2.from_weights("timm:...")`` path.
-"""
-
 import gc
 from typing import Dict
 
@@ -59,12 +52,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 def transfer_mobilevitv2_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm MobileViTV2 state-dict into a Keras :class:`MobileViTV2`.
-
-    Args:
-        keras_model: A built :class:`MobileViTV2` instance.
-        state_dict: Mapping of timm weight names to numpy arrays.
-    """
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

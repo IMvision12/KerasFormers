@@ -1,5 +1,3 @@
-"""timm InceptionV4 -> Keras weight transfer."""
-
 import gc
 import re
 from typing import Dict
@@ -39,7 +37,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 def transfer_inceptionv4_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm InceptionV4 state-dict into a Keras :class:`InceptionV4`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

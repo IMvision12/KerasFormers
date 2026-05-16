@@ -1,5 +1,3 @@
-"""timm CaiT -> Keras weight transfer."""
-
 import gc
 import re
 from typing import Dict
@@ -49,7 +47,6 @@ _ATTN_REPLACEMENT: Dict[str, str] = {
 
 
 def transfer_cait_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm CaiT state-dict into a Keras :class:`CaiT`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

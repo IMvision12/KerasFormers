@@ -1,18 +1,10 @@
-"""timm ResNeXtImageClassify -> Keras weight transfer.
-
-The timm-name -> keras-name mapping is identical to ResNet's, so this
-script just re-uses :func:`transfer_resnet_weights`. The ``__main__``
-block iterates :data:`RESNEXT_MODEL_CONFIG` and saves one ``.weights.h5`` per
-variant.
-"""
-
 import gc
 
 import keras
 import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
-from kerasformers.models.resnet.convert_resnet_torch_to_keras import (  # noqa: F401
+from kerasformers.models.resnet.convert_resnet_torch_to_keras import (
     transfer_resnet_weights as transfer_resnext_weights,
 )
 from kerasformers.models.resnext import ResNeXtImageClassify

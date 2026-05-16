@@ -1,5 +1,3 @@
-"""timm Swin Transformer -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -43,7 +41,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_swin_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm Swin state-dict into a Keras :class:`SwinImageClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

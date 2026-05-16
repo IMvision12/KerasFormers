@@ -1,5 +1,3 @@
-"""timm EfficientNetV2 (TF) -> Keras weight transfer."""
-
 import gc
 import re
 from typing import Dict
@@ -22,12 +20,8 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-# Block 0 (stage 1) uses a single fused conv that timm names ``conv``/``bn1``
-# rather than ``conv_pwl``/``bn2`` like the rest of the FMB blocks. The Keras
-# code emits the standard FMB names, so we remap them back to timm's for the
-# first stage only.
 _BLOCK0_REMAP = {}
-for j in range(8):  # XL has the most repeats in stage 0 (4); pad generously.
+for j in range(8):
     prefix = f"blocks.0.{j}"
     _BLOCK0_REMAP[f"{prefix}.conv_pwl"] = f"{prefix}.conv"
     _BLOCK0_REMAP[f"{prefix}.bn2"] = f"{prefix}.bn1"
@@ -56,7 +50,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 def transfer_efficientnetv2_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm EfficientNetV2 state-dict into a Keras :class:`EfficientNetV2`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

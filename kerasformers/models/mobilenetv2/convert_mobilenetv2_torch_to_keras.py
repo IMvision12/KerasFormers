@@ -1,10 +1,3 @@
-"""timm MobileNetV2 -> Keras weight transfer.
-
-Exposes :func:`transfer_mobilenetv2_weights` for both the offline
-conversion ``__main__`` block (timm checkpoints -> kerasformers release
-files) and the runtime ``MobileNetV2.from_weights("timm:...")`` path.
-"""
-
 import gc
 import re
 from typing import Dict
@@ -27,8 +20,6 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-# Block 0.0 has no expansion, so its batchnorms shift down by one and the
-# pointwise-out layer is named conv_pw (no -l suffix) in timm.
 _BLOCK_00 = {
     "blocks.0.0.batchnorm.1": "blocks.0.0.bn1",
     "blocks.0.0.batchnorm.3": "blocks.0.0.bn2",
@@ -61,12 +52,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {**_BLOCK_00, **_BASE_MAPPINGS}
 def transfer_mobilenetv2_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm MobileNetV2 state-dict into a Keras :class:`MobileNetV2`.
-
-    Args:
-        keras_model: A built :class:`MobileNetV2` instance.
-        state_dict: Mapping of timm weight names to numpy arrays.
-    """
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

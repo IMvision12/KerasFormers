@@ -23,18 +23,6 @@ weight_name_mapping: Dict[str, str] = {
 def transfer_eomt_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer EoMT weights from a HuggingFace state-dict.
-
-    Walks the embeddings, transformer encoder layers, query injection,
-    final ``LayerNormalization``, class predictor, mask head, and
-    upscale blocks. Works for both relative and metric checkpoints
-    (V1 and V2 share architecture).
-
-    Args:
-        keras_model: An ``EoMTUniversalSegment`` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``EomtForUniversalSegmentation.state_dict()``.
-    """
     emb = keras_model.get_layer("embeddings")
     transfer_weights(
         "conv_kernel",

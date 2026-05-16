@@ -1,16 +1,10 @@
-"""timm SENetImageClassify -> Keras weight transfer.
-
-Re-uses :func:`transfer_resnet_weights` (the timm naming is identical
-across resnet / resnext / senet families).
-"""
-
 import gc
 
 import keras
 import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
-from kerasformers.models.resnet.convert_resnet_torch_to_keras import (  # noqa: F401
+from kerasformers.models.resnet.convert_resnet_torch_to_keras import (
     transfer_resnet_weights as transfer_senet_weights,
 )
 from kerasformers.models.senet import SENetImageClassify

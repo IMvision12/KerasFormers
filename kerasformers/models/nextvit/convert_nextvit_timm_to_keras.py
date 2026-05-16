@@ -1,5 +1,3 @@
-"""timm NextViT -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -38,7 +36,6 @@ _E_MHSA_NAME_REPLACEMENTS: Dict[str, str] = {"e.mhsa": "e_mhsa"}
 
 
 def transfer_nextvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm NextViT state-dict into a Keras :class:`NextViT`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:

@@ -1,5 +1,3 @@
-"""timm InceptionResNetV2 -> Keras weight transfer."""
-
 import gc
 from typing import Dict
 
@@ -90,7 +88,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 def transfer_inception_resnet_v2_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm InceptionResNetV2 state-dict into a Keras :class:`InceptionResNetV2`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
