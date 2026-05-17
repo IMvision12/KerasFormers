@@ -175,7 +175,7 @@ def sam_mask_embedding(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAMVisionModel(BaseModel):
+class SAMModel(BaseModel):
     """SAM vision encoder + neck (no prompt encoder, no mask decoder).
 
     Wraps the ViT vision encoder used by SAM and exposes the image
@@ -203,6 +203,27 @@ class SAMVisionModel(BaseModel):
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "sam"
 
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config["vision_config"]
+        image_size = vc.get("image_size", VISION_IMAGE_SIZE)
+        return {
+            "vision_hidden_size": vc["hidden_size"],
+            "vision_num_hidden_layers": vc["num_hidden_layers"],
+            "vision_num_attention_heads": vc["num_attention_heads"],
+            "vision_mlp_dim": vc["mlp_dim"],
+            "vision_global_attn_indexes": list(vc["global_attn_indexes"]),
+            "input_shape": (image_size, image_size, 3),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.sam.convert_sam_hf_to_keras import (
+            transfer_sam_encoder_weights,
+        )
+
+        transfer_sam_encoder_weights(keras_model, hf_state_dict)
+
     def __init__(
         self,
         vision_hidden_size=768,
@@ -212,7 +233,7 @@ class SAMVisionModel(BaseModel):
         vision_global_attn_indexes=(2, 5, 8, 11),
         input_shape=None,
         input_tensor=None,
-        name="SAMVisionModel",
+        name="SAMModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -282,10 +303,10 @@ class SAMVisionModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAMModel(BaseModel):
+class SAMPromptableSegment(BaseModel):
     """SAM full promptable segmentation model.
 
-    Composes :class:`SAMVisionModel` with the prompt encoder and mask
+    Composes :class:`SAMModel` with the prompt encoder and mask
     decoder. Takes an image and a set of prompts (points, optionally
     boxes and dense mask inputs) and returns per-prompt mask logits
     and IoU quality scores.
@@ -370,7 +391,7 @@ class SAMModel(BaseModel):
         enable_masks=False,
         input_shape=None,
         input_tensor=None,
-        name="SAMModel",
+        name="SAMPromptableSegment",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()

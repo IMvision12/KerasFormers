@@ -14,7 +14,7 @@ BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
 # Models that cause backend-specific issues during serialization
-SKIP_SERIALIZATION_TF = {"SAM2Model"}
+SKIP_SERIALIZATION_TF = {"SAM2PromptableSegment"}
 
 
 @pytest.mark.serialization

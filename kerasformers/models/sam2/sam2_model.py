@@ -151,8 +151,301 @@ def sam2_mask_embedding(
     return x
 
 
+def sam2_vision_encoder(
+    pixel_values,
+    *,
+    hidden_size,
+    blocks_per_stage,
+    embed_dim_per_stage,
+    num_attention_heads_per_stage,
+    window_size_per_stage,
+    global_attention_blocks,
+    backbone_channel_list,
+    window_pos_embed_bg_size,
+    spatial_h,
+    spatial_w,
+    data_format,
+):
+    """Build the SAM2 Hiera backbone + FPN neck.
+
+    Returns ``(image_embeddings, high_res_feat_s0, high_res_feat_s1)``.
+    Uses ``backbone_*`` / ``neck_*`` / ``no_memory_embedding`` layer
+    names that match HF's weight keys, so the same weight transfer
+    works for both encoder-only and full-pipeline models.
+    """
+    padded = layers.ZeroPadding2D(
+        padding=3,
+        data_format=data_format,
+        name="backbone_patch_embed_padding",
+    )(pixel_values)
+    hidden_states = layers.Conv2D(
+        hidden_size,
+        kernel_size=(7, 7),
+        strides=(4, 4),
+        padding="valid",
+        use_bias=True,
+        data_format=data_format,
+        name="backbone_patch_embed_projection",
+    )(padded)
+
+    pos_embed_h = spatial_h // 4
+    pos_embed_w = spatial_w // 4
+    pos_embed_layer = SAM2HieraPositionEmbedding(
+        hidden_size=hidden_size,
+        spatial_size=(pos_embed_h, pos_embed_w),
+        window_size=window_size_per_stage[0],
+        bg_size=window_pos_embed_bg_size,
+        data_format=data_format,
+        name="backbone_pos_embed",
+    )
+    hidden_states = pos_embed_layer(hidden_states)
+
+    stage_ends = (np.cumsum(blocks_per_stage) - 1).tolist()
+    intermediate_hidden_states = []
+    total_block_idx = 0
+    for stage_idx, num_blocks in enumerate(blocks_per_stage):
+        for block_idx in range(num_blocks):
+            dim_in = (
+                embed_dim_per_stage[stage_idx - 1]
+                if stage_idx > 0 and block_idx == 0
+                else embed_dim_per_stage[stage_idx]
+            )
+            dim_out = embed_dim_per_stage[stage_idx]
+
+            win = (
+                window_size_per_stage[stage_idx - 1]
+                if stage_idx > 0 and block_idx == 0
+                else window_size_per_stage[stage_idx]
+            )
+            if total_block_idx in global_attention_blocks:
+                win = 0
+
+            q_stride = 2 if (0 < stage_idx <= 3 and block_idx == 0) else None
+
+            hidden_states = SAM2MultiScaleBlock(
+                dim=dim_in,
+                dim_out=dim_out,
+                num_heads=num_attention_heads_per_stage[stage_idx],
+                mlp_ratio=4.0,
+                window_size=win,
+                query_stride=q_stride,
+                layer_norm_eps=1e-6,
+                data_format=data_format,
+                name=f"backbone_blocks_{total_block_idx}",
+            )(hidden_states)
+
+            if total_block_idx in stage_ends:
+                intermediate_hidden_states.append(hidden_states)
+
+            total_block_idx += 1
+
+    fpn_convs = []
+    n = len(backbone_channel_list) - 1
+    fpn_hidden_states_list = []
+
+    for i, in_channels in enumerate(backbone_channel_list):
+        conv = layers.Conv2D(
+            256,
+            kernel_size=1,
+            data_format=data_format,
+            name=f"neck_convs_{i}",
+        )
+        fpn_convs.append(conv)
+
+    fpn_top_down_levels = [2, 3]
+
+    prev_features = None
+    for i in range(n, -1, -1):
+        stage_features = intermediate_hidden_states[i]
+        lateral_features = fpn_convs[n - i](stage_features)
+
+        if i not in fpn_top_down_levels or i == n:
+            prev_features = lateral_features
+        else:
+            top_down = layers.UpSampling2D(
+                size=2,
+                interpolation="nearest",
+                data_format=data_format,
+                name=f"neck_upsample_{i}",
+            )(prev_features)
+            prev_features = layers.Add(name=f"neck_add_{i}")(
+                [lateral_features, top_down]
+            )
+
+        fpn_hidden_states_list.append(prev_features)
+
+    fpn_hidden_states_list = fpn_hidden_states_list[-3:][::-1]
+    image_embeddings = fpn_hidden_states_list[-1]
+
+    no_mem_embed_layer = SAM2NoMemoryEmbedding(
+        hidden_size=256,
+        data_format=data_format,
+        name="no_memory_embedding",
+    )
+    image_embeddings = no_mem_embed_layer(image_embeddings)
+
+    high_res_feat_s0 = fpn_hidden_states_list[0]
+    high_res_feat_s1 = fpn_hidden_states_list[1]
+
+    return image_embeddings, high_res_feat_s0, high_res_feat_s1
+
+
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SAM2Model(BaseModel):
+    """SAM2 vision encoder (Hiera backbone + FPN neck).
+
+    Returns multi-scale image embeddings without the prompt encoder or
+    mask decoder. Use this to cache image features when running many
+    prompt combinations or to plug a custom decoder on top.
+
+    Outputs (dict):
+        - ``image_embeddings``: ``(B, 64, 64, 256)``
+        - ``high_res_feat_s0``: ``(B, 256, 256, 256)``
+        - ``high_res_feat_s1``: ``(B, 128, 128, 256)``
+
+    Construction:
+
+    >>> SAM2Model.from_weights("sam2_hiera_tiny")
+    >>> SAM2Model.from_weights("hf:facebook/sam2-hiera-tiny")
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
+    """
+
+    IMAGE_SIZE = 1024
+    WINDOW_POS_EMBED_BG_SIZE = (7, 7)
+
+    BASE_MODEL_CONFIG = SAM2_CONFIG
+    BASE_WEIGHT_CONFIG = None
+    HF_MODEL_TYPE = ("sam2", "sam2_video")
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config["vision_config"]
+        bc = vc["backbone_config"]
+        config = {
+            "hidden_size": bc["hidden_size"],
+            "blocks_per_stage": bc["blocks_per_stage"],
+            "embed_dim_per_stage": bc["embed_dim_per_stage"],
+            "num_attention_heads_per_stage": bc["num_attention_heads_per_stage"],
+            "window_size_per_stage": bc.get("window_size_per_stage", [8, 4, 14, 7]),
+            "global_attention_blocks": bc["global_attention_blocks"],
+            "backbone_channel_list": vc["backbone_channel_list"],
+        }
+        if "window_pos_embed_bg_size" in bc:
+            config["window_pos_embed_bg_size"] = bc["window_pos_embed_bg_size"]
+        return config
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.sam2.convert_sam2_hf_to_keras import (
+            transfer_sam2_encoder_weights,
+        )
+
+        transfer_sam2_encoder_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        hidden_size=96,
+        blocks_per_stage=(1, 2, 7, 2),
+        embed_dim_per_stage=(96, 192, 384, 768),
+        num_attention_heads_per_stage=(1, 2, 4, 8),
+        window_size_per_stage=(8, 4, 14, 7),
+        global_attention_blocks=(5, 7, 9),
+        backbone_channel_list=(768, 384, 192, 96),
+        window_pos_embed_bg_size=None,
+        input_shape=None,
+        input_tensor=None,
+        name="SAM2Model",
+        **kwargs,
+    ):
+        data_format = keras.config.image_data_format()
+
+        if window_pos_embed_bg_size is None:
+            window_pos_embed_bg_size = self.WINDOW_POS_EMBED_BG_SIZE
+
+        if input_shape is None:
+            if data_format == "channels_first":
+                input_shape = (3, self.IMAGE_SIZE, self.IMAGE_SIZE)
+            else:
+                input_shape = (self.IMAGE_SIZE, self.IMAGE_SIZE, 3)
+
+        if input_tensor is not None:
+            if not utils.is_keras_tensor(input_tensor):
+                pixel_values = layers.Input(
+                    tensor=input_tensor, shape=input_shape, name="pixel_values"
+                )
+            else:
+                pixel_values = input_tensor
+        else:
+            pixel_values = layers.Input(shape=input_shape, name="pixel_values")
+
+        if data_format == "channels_first":
+            spatial_h, spatial_w = input_shape[1], input_shape[2]
+        else:
+            spatial_h, spatial_w = input_shape[0], input_shape[1]
+
+        image_embeddings, high_res_feat_s0, high_res_feat_s1 = sam2_vision_encoder(
+            pixel_values,
+            hidden_size=hidden_size,
+            blocks_per_stage=blocks_per_stage,
+            embed_dim_per_stage=embed_dim_per_stage,
+            num_attention_heads_per_stage=num_attention_heads_per_stage,
+            window_size_per_stage=window_size_per_stage,
+            global_attention_blocks=global_attention_blocks,
+            backbone_channel_list=backbone_channel_list,
+            window_pos_embed_bg_size=window_pos_embed_bg_size,
+            spatial_h=spatial_h,
+            spatial_w=spatial_w,
+            data_format=data_format,
+        )
+
+        super().__init__(
+            inputs=pixel_values,
+            outputs={
+                "image_embeddings": image_embeddings,
+                "high_res_feat_s0": high_res_feat_s0,
+                "high_res_feat_s1": high_res_feat_s1,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.hidden_size = hidden_size
+        self.blocks_per_stage = list(blocks_per_stage)
+        self.embed_dim_per_stage = list(embed_dim_per_stage)
+        self.num_attention_heads_per_stage = list(num_attention_heads_per_stage)
+        self.window_size_per_stage = list(window_size_per_stage)
+        self.global_attention_blocks = list(global_attention_blocks)
+        self.backbone_channel_list = list(backbone_channel_list)
+        self.window_pos_embed_bg_size = window_pos_embed_bg_size
+        self._input_shape_val = input_shape
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "blocks_per_stage": self.blocks_per_stage,
+                "embed_dim_per_stage": self.embed_dim_per_stage,
+                "num_attention_heads_per_stage": self.num_attention_heads_per_stage,
+                "window_size_per_stage": self.window_size_per_stage,
+                "global_attention_blocks": self.global_attention_blocks,
+                "backbone_channel_list": self.backbone_channel_list,
+                "window_pos_embed_bg_size": self.window_pos_embed_bg_size,
+                "input_shape": self._input_shape_val,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class SAM2PromptableSegment(BaseModel):
     """Segment Anything Model 2 (SAM2) for promptable image segmentation.
 
     SAM2 treats image segmentation as a promptable task, producing
@@ -174,8 +467,8 @@ class SAM2Model(BaseModel):
 
     Construction:
 
-    >>> SAM2Model.from_weights("sam2_hiera_tiny")              # kerasformers release
-    >>> SAM2Model.from_weights("hf:facebook/sam2-hiera-tiny")  # HF passthrough
+    >>> SAM2PromptableSegment.from_weights("sam2_hiera_tiny")              # kerasformers release
+    >>> SAM2PromptableSegment.from_weights("hf:facebook/sam2-hiera-tiny")  # HF passthrough
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -222,7 +515,7 @@ class SAM2Model(BaseModel):
 
     Example:
         ```python
-        model = SAM2Model.from_weights("sam2_hiera_tiny")
+        model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
         ```
     """
 
@@ -300,7 +593,7 @@ class SAM2Model(BaseModel):
         multimask_output=True,
         input_shape=None,
         input_tensor=None,
-        name="SAM2Model",
+        name="SAM2PromptableSegment",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -358,129 +651,25 @@ class SAM2Model(BaseModel):
                 shape=(), name="has_input_masks", dtype="float32"
             )
 
-        padded = layers.ZeroPadding2D(
-            padding=self.PATCH_PADDING,
-            data_format=data_format,
-            name="backbone_patch_embed_padding",
-        )(pixel_values)
-        hidden_states = layers.Conv2D(
-            hidden_size,
-            kernel_size=self.PATCH_KERNEL,
-            strides=self.PATCH_STRIDE,
-            padding="valid",
-            use_bias=True,
-            data_format=data_format,
-            name="backbone_patch_embed_projection",
-        )(padded)
-
         if data_format == "channels_first":
             spatial_h, spatial_w = input_shape[1], input_shape[2]
         else:
             spatial_h, spatial_w = input_shape[0], input_shape[1]
-        pos_embed_h = spatial_h // self.PATCH_STRIDE[0]
-        pos_embed_w = spatial_w // self.PATCH_STRIDE[1]
-        pos_embed_layer = SAM2HieraPositionEmbedding(
+
+        image_embeddings, high_res_feat_s0, high_res_feat_s1 = sam2_vision_encoder(
+            pixel_values,
             hidden_size=hidden_size,
-            spatial_size=(pos_embed_h, pos_embed_w),
-            window_size=window_size_per_stage[0],
-            bg_size=window_pos_embed_bg_size,
+            blocks_per_stage=blocks_per_stage,
+            embed_dim_per_stage=embed_dim_per_stage,
+            num_attention_heads_per_stage=num_attention_heads_per_stage,
+            window_size_per_stage=window_size_per_stage,
+            global_attention_blocks=global_attention_blocks,
+            backbone_channel_list=backbone_channel_list,
+            window_pos_embed_bg_size=window_pos_embed_bg_size,
+            spatial_h=spatial_h,
+            spatial_w=spatial_w,
             data_format=data_format,
-            name="backbone_pos_embed",
         )
-        hidden_states = pos_embed_layer(hidden_states)
-
-        stage_ends = (np.cumsum(blocks_per_stage) - 1).tolist()
-        intermediate_hidden_states = []
-        total_block_idx = 0
-        for stage_idx, num_blocks in enumerate(blocks_per_stage):
-            for block_idx in range(num_blocks):
-                dim_in = (
-                    embed_dim_per_stage[stage_idx - 1]
-                    if stage_idx > 0 and block_idx == 0
-                    else embed_dim_per_stage[stage_idx]
-                )
-                dim_out = embed_dim_per_stage[stage_idx]
-
-                win = (
-                    window_size_per_stage[stage_idx - 1]
-                    if stage_idx > 0 and block_idx == 0
-                    else window_size_per_stage[stage_idx]
-                )
-                if total_block_idx in global_attention_blocks:
-                    win = 0
-
-                q_stride = (
-                    self.QUERY_STRIDE
-                    if (0 < stage_idx <= self.NUM_QUERY_POOL_STAGES and block_idx == 0)
-                    else None
-                )
-
-                hidden_states = SAM2MultiScaleBlock(
-                    dim=dim_in,
-                    dim_out=dim_out,
-                    num_heads=num_attention_heads_per_stage[stage_idx],
-                    mlp_ratio=self.MLP_RATIO,
-                    window_size=win,
-                    query_stride=q_stride,
-                    layer_norm_eps=self.LAYER_NORM_EPS,
-                    data_format=data_format,
-                    name=f"backbone_blocks_{total_block_idx}",
-                )(hidden_states)
-
-                if total_block_idx in stage_ends:
-                    intermediate_hidden_states.append(hidden_states)
-
-                total_block_idx += 1
-
-        fpn_convs = []
-        n = len(backbone_channel_list) - 1
-        fpn_hidden_states_list = []
-
-        for i, in_channels in enumerate(backbone_channel_list):
-            conv = layers.Conv2D(
-                self.FPN_HIDDEN_SIZE,
-                kernel_size=1,
-                data_format=data_format,
-                name=f"neck_convs_{i}",
-            )
-            fpn_convs.append(conv)
-
-        fpn_top_down_levels = [2, 3]
-
-        prev_features = None
-        for i in range(n, -1, -1):
-            stage_features = intermediate_hidden_states[i]
-            lateral_features = fpn_convs[n - i](stage_features)
-
-            if i not in fpn_top_down_levels or i == n:
-                prev_features = lateral_features
-            else:
-                top_down = layers.UpSampling2D(
-                    size=2,
-                    interpolation="nearest",
-                    data_format=data_format,
-                    name=f"neck_upsample_{i}",
-                )(prev_features)
-                prev_features = layers.Add(name=f"neck_add_{i}")(
-                    [lateral_features, top_down]
-                )
-
-            fpn_hidden_states_list.append(prev_features)
-
-        fpn_hidden_states_list = fpn_hidden_states_list[-self.NUM_FEATURE_LEVELS :][
-            ::-1
-        ]
-        image_embeddings = fpn_hidden_states_list[-1]
-
-        no_mem_embed_layer = SAM2NoMemoryEmbedding(
-            hidden_size=self.FPN_HIDDEN_SIZE,
-            data_format=data_format,
-            name="no_memory_embedding",
-        )
-        image_embeddings = no_mem_embed_layer(image_embeddings)
-
-        high_res_feat_s0 = fpn_hidden_states_list[0]
-        high_res_feat_s1 = fpn_hidden_states_list[1]
 
         image_embedding_size = spatial_h // self.PROMPT_ENCODER_PATCH_SIZE
 

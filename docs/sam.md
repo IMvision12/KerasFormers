@@ -8,8 +8,8 @@ SAM (Segment Anything Model) is a promptable segmentation model that can generat
 
 Two classes are exposed:
 
-- `SAMVisionModel` — ViT vision encoder + neck (no prompt encoder, no mask decoder). Returns image embeddings ``(B, 64, 64, 256)``. Use this to cache image features when running many prompt combinations.
-- `SAMModel` — full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores"}``.
+- `SAMModel` — ViT vision encoder + neck (no prompt encoder, no mask decoder). Returns image embeddings ``(B, 64, 64, 256)``. Use this to cache image features when running many prompt combinations.
+- `SAMPromptableSegment` — full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores"}``.
 
 ## Architecture Highlights
 
@@ -20,7 +20,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `SAMModel.from_weights(variant_id)` for kerasformers releases, or `SAMModel.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
+Pretrained weights are loaded via `SAMPromptableSegment.from_weights(variant_id)` for kerasformers releases, or `SAMPromptableSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant         | Parameters | Backbone   |
 |-----------------|-----------:|------------|
@@ -33,18 +33,18 @@ All variants take a 1024×1024 input. The Huge checkpoint is stored as a sharded
 ## Basic Usage
 
 ```python
-from kerasformers.models.sam import SAMModel
+from kerasformers.models.sam import SAMPromptableSegment
 
 # Build a SAM model with default 1024x1024 input and multi-mask output
-model = SAMModel.from_weights("sam_vit_base")
+model = SAMPromptableSegment.from_weights("sam_vit_base")
 
 # For single best-mask output instead of 3 ambiguity hypotheses
-model_single = SAMModel.from_weights(
+model_single = SAMPromptableSegment.from_weights(
     "sam_vit_base", multimask_output=False
 )
 
 # Build an untrained model
-model_init = SAMModel.from_weights(
+model_init = SAMPromptableSegment.from_weights(
     "sam_vit_base", load_weights=False
 )
 ```
@@ -56,7 +56,7 @@ model_init = SAMModel.from_weights(
 Any HF repo whose `model_type` is `"sam"` (the official `facebook/sam-vit-*` checkpoints or any user fine-tune built on the same architecture) can be loaded directly via `from_weights("hf:<repo>")`. The class reads ViT dims, MLP dim, and global-attention indices straight from the HF config.
 
 ```python
-model = SAMModel.from_weights("hf:facebook/sam-vit-base")
+model = SAMPromptableSegment.from_weights("hf:facebook/sam-vit-base")
 ```
 
 ## Model Inputs
@@ -79,10 +79,10 @@ The SAM model's functional graph requires `pixel_values`, `input_points`, and `i
 import numpy as np
 import keras
 from kerasformers.models.sam import (
-    SAMModel, SAMImageProcessorWithPrompts,
+    SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
-model = SAMModel.from_weights("sam_vit_base")
+model = SAMPromptableSegment.from_weights("sam_vit_base")
 
 processor = SAMImageProcessorWithPrompts(
     input_points=np.array([[[390, 280]]]),  # (x, y) pixel coord on the subject
@@ -134,10 +134,10 @@ Pass a real `(x1, y1, x2, y2)` box and toggle `has_boxes_input=1`. Build the mod
 ```python
 import numpy as np
 from kerasformers.models.sam import (
-    SAMModel, SAMImageProcessorWithPrompts,
+    SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
-model = SAMModel.from_weights("sam_vit_base", enable_boxes=True)
+model = SAMPromptableSegment.from_weights("sam_vit_base", enable_boxes=True)
 
 processor = SAMImageProcessorWithPrompts(
     input_points=np.zeros((1, 1, 1, 2), dtype="float32"),   # placeholder
@@ -162,7 +162,7 @@ Note the shape constraint: `input_boxes` dim‑1 must equal `point_batch`. For a
 Feed a coarse low-resolution mask back in to refine the output. Build the model with `enable_masks=True`; masks must be passed at the 256×256 prompt-encoder resolution:
 
 ```python
-model = SAMModel.from_weights(
+model = SAMPromptableSegment.from_weights(
     "sam_vit_base", enable_masks=True
 )
 # ... initial inference returns outputs["pred_masks"]
@@ -176,7 +176,7 @@ refined = model.predict(inputs, verbose=0)
 
 ## Precomputed Image Embeddings (Multi-Prompt Inference)
 
-For interactive tools that try many prompts on the same image, run the ViT encoder **once** and reuse its output. Every `SAMModel` instance exposes three sub-models:
+For interactive tools that try many prompts on the same image, run the ViT encoder **once** and reuse its output. Every `SAMPromptableSegment` instance exposes three sub-models:
 
 | Attribute | Inputs | Outputs |
 |---|---|---|
@@ -185,9 +185,9 @@ For interactive tools that try many prompts on the same image, run the ViT encod
 | `model.prompt_encoder_model` | prompt inputs | `sparse_embeddings`, `dense_embeddings` |
 
 ```python
-from kerasformers.models.sam import SAMModel, SAMImageProcessor
+from kerasformers.models.sam import SAMPromptableSegment, SAMImageProcessor
 
-model = SAMModel.from_weights("sam_vit_base")
+model = SAMPromptableSegment.from_weights("sam_vit_base")
 processor = SAMImageProcessor()
 pre = processor("photo.jpg")
 
@@ -205,11 +205,11 @@ for (x, y) in [(450, 600), (200, 150), (700, 300)]:
 
 For a 1024×1024 image the ViT is roughly 95% of the compute — the decoder itself runs in milliseconds.
 
-Alternatively use `SAMVisionModel` standalone if you only need image embeddings (no prompt encoder / mask decoder built):
+Alternatively use `SAMModel` standalone if you only need image embeddings (no prompt encoder / mask decoder built):
 
 ```python
-from kerasformers.models.sam import SAMVisionModel
-vision = SAMVisionModel.from_weights("sam_vit_base")
+from kerasformers.models.sam import SAMModel
+vision = SAMModel.from_weights("sam_vit_base")
 image_embeddings = vision(pre["pixel_values"])
 ```
 
@@ -235,7 +235,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kerasformers.models.sam import (
-    SAMModel, SAMImageProcessorWithPrompts,
+    SAMPromptableSegment, SAMImageProcessorWithPrompts,
 )
 
 COLORS = [
@@ -254,7 +254,7 @@ def show_points(coords, ax, color, marker_size=340):
                s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
 
 
-model = SAMModel.from_weights("sam_vit_large")
+model = SAMPromptableSegment.from_weights("sam_vit_large")
 img = Image.open("assets/coco_cats.jpg").convert("RGB")   # COCO val2017/000000039769.jpg
 
 prompts = [
@@ -334,7 +334,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kerasformers.models.sam import SAMModel, SAMGenerateMasks
+from kerasformers.models.sam import SAMPromptableSegment, SAMGenerateMasks
 
 
 def overlay_masks(ax, masks_list):
@@ -351,7 +351,7 @@ def overlay_masks(ax, masks_list):
     ax.imshow(overlay)
 
 
-model = SAMModel.from_weights("sam_vit_large")
+model = SAMPromptableSegment.from_weights("sam_vit_large")
 img = Image.open("assets/coco_cats.jpg").convert("RGB")
 
 result = SAMGenerateMasks(

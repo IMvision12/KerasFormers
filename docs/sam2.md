@@ -6,6 +6,11 @@ SAM2 (Segment Anything Model 2) is the next generation of the Segment Anything M
 
 **Reference:** [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) (Ravi et al., 2024)
 
+Two classes are exposed:
+
+- `SAM2Model` — Hiera backbone + FPN neck (no prompt encoder, no mask decoder). Returns ``{"image_embeddings", "high_res_feat_s0", "high_res_feat_s1"}``. Use this to cache image features when running many prompt combinations.
+- `SAM2PromptableSegment` — full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores", "object_score_logits"}``.
+
 ## Architecture Highlights
 
 - **Hiera Backbone:** Hierarchical vision transformer with windowed / global attention, query pooling at stage transitions, and an FPN neck that emits multi-scale features (64×64, 128×128, 256×256).
@@ -16,7 +21,7 @@ SAM2 (Segment Anything Model 2) is the next generation of the Segment Anything M
 
 ## Available Weights
 
-Pretrained weights are loaded via `SAM2Model.from_weights(variant_id)` for kerasformers releases, or `SAM2Model.from_weights("hf:<repo>")` for HF fine-tunes.
+Pretrained weights are loaded via `SAM2PromptableSegment.from_weights(variant_id)` for kerasformers releases, or `SAM2PromptableSegment.from_weights("hf:<repo>")` for HF fine-tunes.
 
 | Variant                 | Parameters | Backbone     |
 |-------------------------|-----------:|--------------|
@@ -30,18 +35,18 @@ All variants take a 1024×1024 input and are trained on the SA-V dataset (Segmen
 ## Basic Usage
 
 ```python
-from kerasformers.models.sam2 import SAM2Model
+from kerasformers.models.sam2 import SAM2PromptableSegment
 
 # Build a SAM2 model (default 1024x1024 input, 3-mask output)
-model = SAM2Model.from_weights("sam2_hiera_tiny")
+model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
 
 # For single best-mask output (HF ``multimask_output=False`` path):
-model_single = SAM2Model.from_weights(
+model_single = SAM2PromptableSegment.from_weights(
     "sam2_hiera_tiny", multimask_output=False
 )
 
 # Build an untrained model
-model_init = SAM2Model.from_weights(
+model_init = SAM2PromptableSegment.from_weights(
     "sam2_hiera_tiny", load_weights=False
 )
 ```
@@ -67,10 +72,10 @@ The default SAM2 functional graph has three inputs. Box and dense-mask prompts a
 import numpy as np
 import keras
 from kerasformers.models.sam2 import (
-    SAM2Model, SAM2ImageProcessorWithPrompts,
+    SAM2PromptableSegment, SAM2ImageProcessorWithPrompts,
 )
 
-model = SAM2Model.from_weights("sam2_hiera_large")
+model = SAM2PromptableSegment.from_weights("sam2_hiera_large")
 
 # Foreground point in original image pixel coordinates
 processor = SAM2ImageProcessorWithPrompts(
@@ -121,9 +126,9 @@ SAM2 supports two box-prompt paths:
 
 ```python
 import numpy as np
-from kerasformers.models.sam2 import SAM2Model, SAM2ImageProcessorWithPrompts
+from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2ImageProcessorWithPrompts
 
-model = SAM2Model.from_weights("sam2_hiera_small")
+model = SAM2PromptableSegment.from_weights("sam2_hiera_small")
 
 # A box is encoded as two corner points: top-left + bottom-right.
 # Coordinates are in original image pixel space.
@@ -148,9 +153,9 @@ outputs = model({
 
 ```python
 import numpy as np
-from kerasformers.models.sam2 import SAM2Model, SAM2ImageProcessorWithPrompts
+from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2ImageProcessorWithPrompts
 
-model = SAM2Model.from_weights(
+model = SAM2PromptableSegment.from_weights(
     "sam2_hiera_small",
     include_box_input=True,
 )
@@ -189,9 +194,9 @@ For interactive tools that try many prompts on the same image, run the Hiera bac
 ```python
 import numpy as np
 import keras
-from kerasformers.models.sam2 import SAM2Model, SAM2ImageProcessor
+from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2ImageProcessor
 
-model = SAM2Model.from_weights("sam2_hiera_tiny")
+model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
 processor = SAM2ImageProcessor()
 pre = processor("photo.jpg")
 
@@ -219,6 +224,15 @@ for (x, y) in [(450, 600), (200, 150), (700, 300)]:
 
 For a 1024×1024 image the Hiera backbone + FPN is the dominant cost; the mask decoder runs in milliseconds. This is the same path the built-in AMG driver uses under the hood.
 
+Alternatively use `SAM2Model` standalone if you only need image embeddings (no prompt encoder / mask decoder built):
+
+```python
+from kerasformers.models.sam2 import SAM2Model
+encoder = SAM2Model.from_weights("hf:facebook/sam2-hiera-tiny")
+encoder_out = encoder(pre["pixel_values"])
+# encoder_out is the same dict as model.vision_encoder_model: image_embeddings + high_res_feat_s0 + high_res_feat_s1
+```
+
 > **Tensor types.** Keras refuses to mix torch tensors (encoder outputs) and numpy arrays (prompt inputs) in a single call dict. Wrap all the prompt inputs with `keras.ops.convert_to_tensor` as above so everything is on the active backend.
 
 ## Full Inference with Visualization
@@ -235,7 +249,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kerasformers.models.sam2 import (
-    SAM2Model, SAM2ImageProcessorWithPrompts,
+    SAM2PromptableSegment, SAM2ImageProcessorWithPrompts,
 )
 
 COLORS = [
@@ -254,7 +268,7 @@ def show_points(coords, ax, color, marker_size=340):
                s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
 
 
-model = SAM2Model.from_weights("sam2_hiera_large")
+model = SAM2PromptableSegment.from_weights("sam2_hiera_large")
 img = Image.open("assets/coco_horse_dog.jpg").convert("RGB")   # COCO val2017/000000049269.jpg
 img_np = np.array(img)
 
@@ -337,7 +351,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kerasformers.models.sam2 import SAM2Model, SAM2GenerateMasks
+from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2GenerateMasks
 
 
 def overlay_masks(ax, masks_list):
@@ -354,7 +368,7 @@ def overlay_masks(ax, masks_list):
     ax.imshow(overlay)
 
 
-model = SAM2Model.from_weights("sam2_hiera_base_plus")
+model = SAM2PromptableSegment.from_weights("sam2_hiera_base_plus")
 img = Image.open("assets/coco_livingroom.jpg").convert("RGB")
 
 result = SAM2GenerateMasks(

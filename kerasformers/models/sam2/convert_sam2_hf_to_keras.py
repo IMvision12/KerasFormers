@@ -18,7 +18,15 @@ BACKBONE_NAME_MAPPING = {
 }
 
 
-def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
+def transfer_sam2_encoder_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer Hiera backbone + FPN neck + no_memory_embedding weights.
+
+    Works for both ``SAM2Model`` (encoder-only) and
+    ``SAM2PromptableSegment`` (full pipeline) since both build the
+    encoder with identical layer names.
+    """
     patch_conv = keras_model.get_layer("backbone_patch_embed_projection")
     transfer_weights(
         "conv_kernel",
@@ -58,6 +66,11 @@ def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
 
     no_mem_layer = keras_model.get_layer("no_memory_embedding")
     no_mem_layer.embedding.assign(hf_state_dict["no_memory_embedding"].reshape(-1))
+
+
+def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer full SAM2 weights (encoder + prompt encoder + mask decoder)."""
+    transfer_sam2_encoder_weights(keras_model, hf_state_dict)
 
     prompt_enc = keras_model.get_layer("prompt_encoder")
     prompt_enc.shared_embedding.positional_embedding.assign(
@@ -237,7 +250,7 @@ if __name__ == "__main__":
     import torch
     from transformers import Sam2Model as HFSam2Model
 
-    from kerasformers.models.sam2 import SAM2Model
+    from kerasformers.models.sam2 import SAM2PromptableSegment
 
     SAM2_CONVERSION_CONFIG = [
         ("sam2_hiera_tiny", "facebook/sam2-hiera-tiny"),
@@ -256,7 +269,7 @@ if __name__ == "__main__":
         ).eval()
         state = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = SAM2Model.from_weights(variant, load_weights=False)
+        keras_model = SAM2PromptableSegment.from_weights(variant, load_weights=False)
         transfer_sam2_weights(keras_model, state)
 
         np.random.seed(42)

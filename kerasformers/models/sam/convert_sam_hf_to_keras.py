@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import SamModel
 
-from kerasformers.models.sam import SAMModel
+from kerasformers.models.sam import SAMPromptableSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -22,9 +22,15 @@ vision_encoder_name_mapping = {
 }
 
 
-def transfer_sam_weights(
+def transfer_sam_encoder_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
+    """Transfer SAM ViT encoder + neck weights.
+
+    Works for both ``SAMModel`` (encoder-only) and
+    ``SAMPromptableSegment`` (full pipeline) since both build the
+    encoder with identical layer names.
+    """
     patch_conv = keras_model.get_layer("vision_encoder_patch_embed_projection")
     transfer_weights(
         "conv_kernel",
@@ -70,6 +76,13 @@ def transfer_sam_weights(
     neck_ln2 = keras_model.get_layer("vision_encoder_neck_layer_norm2")
     neck_ln2.gamma.assign(hf_state_dict["vision_encoder.neck.layer_norm2.weight"])
     neck_ln2.beta.assign(hf_state_dict["vision_encoder.neck.layer_norm2.bias"])
+
+
+def transfer_sam_weights(
+    keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer full SAM weights (encoder + prompt encoder + mask decoder)."""
+    transfer_sam_encoder_weights(keras_model, hf_state_dict)
 
     image_pe_layer = keras_model.get_layer("image_positional_embeddings")
     image_pe_layer.shared_embedding.positional_embedding.assign(
@@ -266,7 +279,9 @@ if __name__ == "__main__":
         hf_model = SamModel.from_pretrained(hf_id).eval()
         hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model: keras.Model = SAMModel.from_weights(variant, load_weights=False)
+        keras_model: keras.Model = SAMPromptableSegment.from_weights(
+            variant, load_weights=False
+        )
 
         transfer_sam_weights(keras_model, hf_state_dict)
 

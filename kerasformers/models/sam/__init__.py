@@ -3,11 +3,11 @@ from .sam_image_processor import (
     SAMImageProcessor,
     SAMImageProcessorWithPrompts,
 )
-from .sam_model import SAMModel, SAMVisionModel
+from .sam_model import SAMModel, SAMPromptableSegment
 
 __all__ = [
-    "SAMVisionModel",
     "SAMModel",
+    "SAMPromptableSegment",
     "SAMImageProcessor",
     "SAMImageProcessorWithPrompts",
     "SAMGenerateMasks",

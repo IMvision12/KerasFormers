@@ -851,9 +851,9 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 32, 32, 150),
     },
     # ---------- Promptable segmentation ----------
-    "SAMVisionModel": {
+    "SAMModel": {
         "module": "kerasformers.models.sam",
-        "model_cls": "SAMVisionModel",
+        "model_cls": "SAMModel",
         "model_type": "backbone",
         "init_kwargs": {
             "vision_hidden_size": 64,
@@ -866,9 +866,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": None,
     },
-    "SAMModel": {
+    "SAMPromptableSegment": {
         "module": "kerasformers.models.sam",
-        "model_cls": "SAMModel",
+        "model_cls": "SAMPromptableSegment",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
             "vision_hidden_size": 64,
@@ -888,6 +888,23 @@ MODEL_TEST_CONFIGS = {
     "SAM2Model": {
         "module": "kerasformers.models.sam2",
         "model_cls": "SAM2Model",
+        "model_type": "backbone",
+        "init_kwargs": {
+            "hidden_size": 32,
+            "blocks_per_stage": (1, 1, 1, 1),
+            "embed_dim_per_stage": (32, 64, 128, 256),
+            "num_attention_heads_per_stage": (1, 1, 2, 2),
+            "window_size_per_stage": (4, 2, 4, 2),
+            "global_attention_blocks": (),
+            "backbone_channel_list": (256, 128, 64, 32),
+            "input_shape": (64, 64, 3),
+        },
+        "input_shape": (2, 64, 64, 3),
+        "expected_output_shape": None,
+    },
+    "SAM2PromptableSegment": {
+        "module": "kerasformers.models.sam2",
+        "model_cls": "SAM2PromptableSegment",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
             "hidden_size": 32,
