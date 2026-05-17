@@ -53,7 +53,7 @@ class RFDETRChannelLayerNorm(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV2PatchEmbeddings(layers.Layer):
+class RFDETRDinoV2PatchEmbeddings(layers.Layer):
     """Converts pixel values to patch embeddings via a non-overlapping convolution.
 
     Splits the input image into fixed-size patches and projects each patch
@@ -113,7 +113,7 @@ class DinoV2PatchEmbeddings(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV2Embeddings(layers.Layer):
+class RFDETRDinoV2Embeddings(layers.Layer):
     """DINOv2 embedding layer with CLS token, position embeddings, and windowing.
 
     Converts input images into a sequence of patch embeddings with learnable
@@ -162,7 +162,7 @@ class DinoV2Embeddings(layers.Layer):
         self.num_windows = num_windows
         self.positional_encoding_size = positional_encoding_size
         self.num_patches = positional_encoding_size * positional_encoding_size
-        self.patch_embeddings = DinoV2PatchEmbeddings(
+        self.patch_embeddings = RFDETRDinoV2PatchEmbeddings(
             self.hidden_size,
             self.patch_size,
             self.num_channels,
@@ -303,7 +303,7 @@ class DinoV2Embeddings(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV2LayerScale(layers.Layer):
+class RFDETRDinoV2LayerScale(layers.Layer):
     """Learnable per-channel scaling applied to residual branch outputs.
 
     Multiplies input element-wise by a learnable vector (lambda1) of shape

@@ -3,7 +3,7 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientAttention(layers.Layer):
+class NextViTEfficientAttention(layers.Layer):
     """Efficient Multi-Head Self-Attention (E-MHSA) with optional spatial reduction.
 
     Operates on sequence tensors of shape ``(B, N, C)``. When ``sr_ratio > 1``,

@@ -3,8 +3,8 @@ from keras import layers
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Affine(layers.Layer):
-    """Affine transformation layer that applies learnable scale and shift parameters to input tensors.
+class ResMLPAffine(layers.Layer):
+    """ResMLPAffine transformation layer that applies learnable scale and shift parameters to input tensors.
 
     This layer performs an affine transformation on the input tensor of the form:
     output = alpha * input + beta
@@ -33,7 +33,7 @@ class Affine(layers.Layer):
         ```python
         # Apply affine transformation to 16-dim feature vectors
         x = tf.random.normal((32, 10, 16))  # (batch_size, seq_len, channels)
-        affine = Affine()
+        affine = ResMLPAffine()
         output = affine(x)  # shape = (32, 10, 16)
         ```
     """

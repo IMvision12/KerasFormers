@@ -3,7 +3,7 @@ from keras import ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class StdConv2D(keras.layers.Conv2D):
+class ResNetV2StdConv2D(keras.layers.Conv2D):
     """2D Convolution layer with Weight Standardization.
 
     Weight Standardization standardizes the weights in the convolutional layer

@@ -118,7 +118,7 @@ class WhisperAttention(keras.layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SinusoidalPositionEmbedding(keras.layers.Layer):
+class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
     """Fixed sinusoidal position embedding for the Whisper encoder.
 
     Builds a non-trainable ``(max_source_positions, d_model)`` embedding
@@ -130,7 +130,7 @@ class SinusoidalPositionEmbedding(keras.layers.Layer):
     stride-2 conv stem, so ``T == 1500`` for a full 30-second chunk).
 
     Used only by :func:`whisper_encoder` — the decoder uses
-    :class:`LearnedPositionEmbedding` instead.
+    :class:`WhisperLearnedPositionEmbedding` instead.
 
     Args:
         max_source_positions: Number of position rows to materialize.
@@ -189,7 +189,7 @@ class SinusoidalPositionEmbedding(keras.layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class LearnedPositionEmbedding(keras.layers.Layer):
+class WhisperLearnedPositionEmbedding(keras.layers.Layer):
     """Trainable position embedding table for the Whisper decoder.
 
     Mirrors the HF ``nn.Embedding(max_target_positions, d_model)`` used

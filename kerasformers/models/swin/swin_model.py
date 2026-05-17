@@ -5,9 +5,9 @@ from keras.src.applications import imagenet_utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.swin.swin_layers import (
-    RollLayer,
-    WindowAttention,
-    WindowPartition,
+    SwinRollLayer,
+    SwinWindowAttention,
+    SwinWindowPartition,
 )
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -118,9 +118,11 @@ def swin_block(
         )(x)
 
     padded_x = x
-    shifted_x = RollLayer(shift=[-shift_size, -shift_size], axis=[h_ax, w_ax])(padded_x)
+    shifted_x = SwinRollLayer(shift=[-shift_size, -shift_size], axis=[h_ax, w_ax])(
+        padded_x
+    )
 
-    attention_layer = WindowAttention(
+    attention_layer = SwinWindowAttention(
         dim=feature_dim,
         num_heads=num_heads,
         window_size=window_size,
@@ -132,7 +134,7 @@ def swin_block(
     attended_x = attention_layer(
         [shifted_x, window_size, relative_index, attention_mask]
     )
-    unshifted_x = RollLayer(shift=[shift_size, shift_size], axis=[h_ax, w_ax])(
+    unshifted_x = SwinRollLayer(shift=[shift_size, shift_size], axis=[h_ax, w_ax])(
         attended_x
     )
 
@@ -290,7 +292,7 @@ def swin_stage(
     ) + (ops.reshape(rel_pos_y, [-1]) + win_size - 1)
 
     dtype = keras.backend.floatx()
-    partitioner = WindowPartition(
+    partitioner = SwinWindowPartition(
         window_size=win_size, fused=False, data_format="channels_last"
     )
 

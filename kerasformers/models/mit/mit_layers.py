@@ -3,7 +3,7 @@ from keras import InputSpec, layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientMultiheadSelfAttention(layers.Layer):
+class MiTEfficientMultiheadSelfAttention(layers.Layer):
     """Efficient Multi-head Self-Attention layer with hierarchical spatial reduction.
 
     This layer implements an efficient self-attention mechanism that uses convolutional
@@ -125,7 +125,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
 
         if self.input_spec.ndim != 3:
             raise ValueError(
-                f"EfficientMultiheadSelfAttention expects 3D input tensor, but received shape: {input_shape}"
+                f"MiTEfficientMultiheadSelfAttention expects 3D input tensor, but received shape: {input_shape}"
             )
 
         feature_dim = input_shape[-1]

@@ -13,10 +13,10 @@ from .config import (
     WHISPER_WEIGHTS,
 )
 from .whisper_layers import (
-    LearnedPositionEmbedding,
-    SinusoidalPositionEmbedding,
     WhisperAttention,
     WhisperLayerWeights,
+    WhisperLearnedPositionEmbedding,
+    WhisperSinusoidalPositionEmbedding,
 )
 
 _ACTIVATION_ALIASES = {
@@ -227,7 +227,7 @@ def whisper_encoder(
     )(x)
     x = layers.Lambda(activation, name="encoder_conv2_act")(x)
 
-    x = SinusoidalPositionEmbedding(
+    x = WhisperSinusoidalPositionEmbedding(
         max_source_positions=max_source_positions,
         d_model=d_model,
         name="encoder_embed_positions",
@@ -340,7 +340,7 @@ def whisper_decoder(
     if scale_embedding:
         scale = float(d_model) ** 0.5
         x = layers.Lambda(lambda t, s=scale: t * s, name="decoder_embed_scale")(x)
-    x = LearnedPositionEmbedding(
+    x = WhisperLearnedPositionEmbedding(
         max_target_positions=max_target_positions,
         d_model=d_model,
         name="decoder_embed_positions",

@@ -98,7 +98,7 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.
-        use_grn: Boolean, whether to apply GlobalResponseNorm inside each
+        use_grn: Boolean, whether to apply ConvNeXtGlobalResponseNorm inside each
             block (ConvNeXtV2 recipe). Defaults to `False`.
         image_size: Integer, square input resolution used to validate the
             input shape. Defaults to `224`.

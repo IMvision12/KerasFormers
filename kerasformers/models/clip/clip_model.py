@@ -7,8 +7,8 @@ from kerasformers.weight_utils import copy_weights_by_path_suffix
 from .clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
-    TextModelEmbedding,
-    VisionModelEmbedding,
+    CLIPTextModelEmbedding,
+    CLIPVisionModelEmbedding,
 )
 from .config import CLIP_CONFIG, CLIP_WEIGHTS
 
@@ -205,7 +205,7 @@ def clip_vision_features(
     """CLIP vision encoder up through the transformer stack (no projection).
 
     Pipeline: patch ``Conv2D`` → prepend the learned CLS token and add
-    positional embeddings via :class:`VisionModelEmbedding` → pre-LN →
+    positional embeddings via :class:`CLIPVisionModelEmbedding` → pre-LN →
     :func:`clip_encoder`. Output is the full token sequence (CLS at
     index 0), matching HF's ``CLIPVisionModel.last_hidden_state`` —
     useful when you want raw features rather than the projected image
@@ -239,7 +239,7 @@ def clip_vision_features(
         name="vision_model_conv",
     )(inputs)
 
-    embeddings = VisionModelEmbedding(
+    embeddings = CLIPVisionModelEmbedding(
         width, input_resolution, patch_size, data_format, name="vision_model_embeddings"
     )(patch_embeddings)
 
@@ -335,7 +335,7 @@ def clip_text_encoder(
 ):
     """CLIP text encoder with causal attention and EOT-token pooling.
 
-    Pipeline: :class:`TextModelEmbedding` (token + positional) →
+    Pipeline: :class:`CLIPTextModelEmbedding` (token + positional) →
     :func:`clip_encoder` with a strict upper-triangular causal mask
     plus the padding mask → post-encoder LayerNorm → pluck the hidden
     state at each row's EOT position (HF picks the position with the
@@ -361,7 +361,7 @@ def clip_text_encoder(
         Tensor of shape ``(B, embed_dim)`` — the unnormalized text
         embedding.
     """
-    x = TextModelEmbedding(
+    x = CLIPTextModelEmbedding(
         vocab_size=vocab_size,
         context_length=context_length,
         embedding_dim=transformer_width,

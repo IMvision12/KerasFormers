@@ -3,7 +3,7 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class AddPositionEmbs(layers.Layer):
+class CLIPAddPositionEmbs(layers.Layer):
     """
     A custom Keras layer that adds learnable position embeddings to input tensors with support for
     flexible grid sizes and optional class/distillation token handling.
@@ -348,7 +348,7 @@ class CLIPAttention(keras.layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class VisionModelEmbedding(keras.layers.Layer):
+class CLIPVisionModelEmbedding(keras.layers.Layer):
     """Vision Transformer (ViT) embedding layer that processes image patches.
 
     This layer follows the Vision Transformer architecture by:
@@ -387,7 +387,7 @@ class VisionModelEmbedding(keras.layers.Layer):
         self.num_patches = (input_resolution // patch_size) ** 2
         self.grid_size = input_resolution // patch_size
 
-        self.position_embs = AddPositionEmbs(
+        self.position_embs = CLIPAddPositionEmbs(
             grid_h=self.grid_size,
             grid_w=self.grid_size,
             no_embed_class=False,
@@ -435,7 +435,7 @@ class VisionModelEmbedding(keras.layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class TextModelEmbedding(keras.layers.Layer):
+class CLIPTextModelEmbedding(keras.layers.Layer):
     """
     A Keras layer that combines token embeddings and positional embeddings for text models.
 

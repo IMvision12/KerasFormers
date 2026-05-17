@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
-from kerasformers.models.mit.mit_layers import EfficientMultiheadSelfAttention
+from kerasformers.models.mit.mit_layers import MiTEfficientMultiheadSelfAttention
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHT_CONFIG
@@ -142,7 +142,7 @@ def hierarchical_transformer_encoder_block(
         name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_1",
     )(x)
 
-    attn_layer = EfficientMultiheadSelfAttention(
+    attn_layer = MiTEfficientMultiheadSelfAttention(
         project_dim,
         sr_ratio,
         block_prefix=f"block_{pytorch_stage_idx}_{block_idx}",

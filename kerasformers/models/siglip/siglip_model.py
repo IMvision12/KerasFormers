@@ -6,11 +6,11 @@ from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import SIGLIP_CONFIG, SIGLIP_WEIGHTS
 from .siglip_layers import (
-    LogitScaleBias,
-    PositionEmbedding,
-    PositionIDs,
-    Probe,
     SigLIPAttention,
+    SigLIPLogitScaleBias,
+    SigLIPPositionEmbedding,
+    SigLIPPositionIDs,
+    SigLIPProbe,
 )
 
 
@@ -124,7 +124,7 @@ def siglip_attention_pooling(
         input sequence provides both keys and values. The `combined_qkv=True` parameter
         indicates that the attention mechanism uses a combined query-key-value projection.
     """
-    probe_layer = Probe(hidden_dim, name=f"{name}_probe")
+    probe_layer = SigLIPProbe(hidden_dim, name=f"{name}_probe")
     probes = probe_layer(inputs)
 
     hidden_states = SigLIPAttention(
@@ -229,14 +229,14 @@ def siglip_vision_embedding(
             (2, 1),
         )(patch_embeddings)
 
-    position_ids = PositionIDs(
+    position_ids = SigLIPPositionIDs(
         grid_h=num_patches_per_side,
         grid_w=num_patches_per_side,
         use_2d_positions=False,
         name=f"{name}_position_ids",
     )(inputs)
 
-    position_embeddings = PositionEmbedding(
+    position_embeddings = SigLIPPositionEmbedding(
         max_positions=num_positions,
         embedding_dim=hidden_dim,
         embeddings_initializer=initializers.RandomNormal(
@@ -408,14 +408,14 @@ def siglip_text_embedding(
         name=f"{name}_token_embedding",
     )(inputs)
 
-    position_ids = PositionIDs(
+    position_ids = SigLIPPositionIDs(
         grid_h=1,
         grid_w=sequence_length,
         use_2d_positions=False,
         name=f"{name}_position_ids",
     )(inputs)
 
-    embedded_positions = PositionEmbedding(
+    embedded_positions = SigLIPPositionEmbedding(
         max_positions=sequence_length,
         embedding_dim=embedding_dim,
         embeddings_initializer=embeddings_initializer,
@@ -544,7 +544,7 @@ def siglip_head(vision_embedding, text_embedding):
 
     Note:
         The similarity matrix is computed as cosine similarity between L2-normalized
-        embeddings. The LogitScaleBias layer applies learnable scaling and bias
+        embeddings. The SigLIPLogitScaleBias layer applies learnable scaling and bias
         parameters to the similarity scores, which is crucial for contrastive learning
         optimization in SigLIP.
 
@@ -561,7 +561,7 @@ def siglip_head(vision_embedding, text_embedding):
 
     similarity_matrix = ops.matmul(norm_text, ops.transpose(norm_vision))
 
-    text_logits = LogitScaleBias()(similarity_matrix)
+    text_logits = SigLIPLogitScaleBias()(similarity_matrix)
     image_logits = ops.transpose(text_logits)
 
     return image_logits, text_logits

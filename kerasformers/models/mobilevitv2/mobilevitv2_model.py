@@ -5,8 +5,8 @@ from keras.src.applications import imagenet_utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.mobilevit.mobilevit_layers import (
-    ImageToPatchesLayer,
-    PatchesToImageLayer,
+    MobileViTImageToPatchesLayer,
+    MobileViTPatchesToImageLayer,
 )
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -239,7 +239,7 @@ def mobilevitv2_block(
     else:
         h, w = x.shape[-3], x.shape[-2]
 
-    unfold_layer = ImageToPatchesLayer(patch_size)
+    unfold_layer = MobileViTImageToPatchesLayer(patch_size)
     x = unfold_layer(x)
     resize = unfold_layer.resize
 
@@ -291,7 +291,7 @@ def mobilevitv2_block(
         name=f"{name}_groupnorm",
     )(x)
 
-    fold_layer = PatchesToImageLayer(patch_size)
+    fold_layer = MobileViTPatchesToImageLayer(patch_size)
     x = fold_layer(x, original_size=(h, w), resize=resize)
 
     x = layers.Conv2D(

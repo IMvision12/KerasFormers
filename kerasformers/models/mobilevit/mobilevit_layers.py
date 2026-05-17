@@ -3,7 +3,7 @@ from keras import InputSpec, layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ImageToPatchesLayer(layers.Layer):
+class MobileViTImageToPatchesLayer(layers.Layer):
     """A Keras layer that converts images into patches.
 
     This layer takes a batch of images and converts each image into a sequence of patches.
@@ -90,7 +90,7 @@ class ImageToPatchesLayer(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class PatchesToImageLayer(layers.Layer):
+class MobileViTPatchesToImageLayer(layers.Layer):
     """A Keras layer that reconstructs images from patches.
 
     This layer takes a sequence of image patches and reconstructs the original image by
@@ -235,7 +235,7 @@ class PatchesToImageLayer(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MultiHeadSelfAttention(layers.Layer):
+class MobileViTMultiHeadSelfAttention(layers.Layer):
     """Multi-Head Self-Attention layer implementing scaled dot-product attention.
 
     Args:
@@ -324,7 +324,7 @@ class MultiHeadSelfAttention(layers.Layer):
 
         if self.input_spec.ndim not in (3, 4):
             raise ValueError(
-                f"MultiHeadSelfAttention expects 3D or 4D input tensor, but received shape: {input_shape}"
+                f"MobileViTMultiHeadSelfAttention expects 3D or 4D input tensor, but received shape: {input_shape}"
             )
 
         feature_dim = input_shape[-1]

@@ -3,7 +3,7 @@ from keras import InputSpec, layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ClassDistToken(layers.Layer):
+class ViTClassDistToken(layers.Layer):
     """
     Implements learnable class and distillation tokens for Vision Transformer (ViT),
     Data-efficient image Transformer (DeiT), and Pyramid Vision Transformer (PiT) architectures.
@@ -98,7 +98,7 @@ class ClassDistToken(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class AddPositionEmbs(layers.Layer):
+class ViTAddPositionEmbs(layers.Layer):
     """
     A custom Keras layer that adds learnable position embeddings to input tensors with support for
     flexible grid sizes and optional class/distillation token handling.
@@ -329,7 +329,7 @@ class AddPositionEmbs(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MultiHeadSelfAttention(layers.Layer):
+class ViTMultiHeadSelfAttention(layers.Layer):
     """Multi-Head Self-Attention layer implementing scaled dot-product attention.
 
     This layer implements the standard multi-head self-attention mechanism where input is split
@@ -433,7 +433,7 @@ class MultiHeadSelfAttention(layers.Layer):
 
         if self.input_spec.ndim not in (3, 4):
             raise ValueError(
-                f"MultiHeadSelfAttention expects 3D or 4D input tensor, but received shape: {input_shape}"
+                f"ViTMultiHeadSelfAttention expects 3D or 4D input tensor, but received shape: {input_shape}"
             )
 
         feature_dim = input_shape[-1]

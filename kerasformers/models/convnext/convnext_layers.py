@@ -3,7 +3,7 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GlobalResponseNorm(layers.Layer):
+class ConvNeXtGlobalResponseNorm(layers.Layer):
     """
     GRN (Global Response Normalization) layer.
     This layer applies a global normalization to the input tensor, using the square root of the

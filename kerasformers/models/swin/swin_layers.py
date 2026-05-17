@@ -3,7 +3,7 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WindowPartition(layers.Layer):
+class SwinWindowPartition(layers.Layer):
     """Partitions input tensor into non-overlapping windows.
 
     Divides the input feature map into non-overlapping windows for efficient
@@ -155,10 +155,10 @@ class WindowPartition(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WindowReverse(layers.Layer):
+class SwinWindowReverse(layers.Layer):
     """Reconstructs the feature map from partitioned windows.
 
-    Inverse of ``WindowPartition``. Supports both standard and fused modes.
+    Inverse of ``SwinWindowPartition``. Supports both standard and fused modes.
 
     Args:
         window_size: int, size of each window.
@@ -261,7 +261,7 @@ class WindowReverse(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WindowAttention(layers.Layer):
+class SwinWindowAttention(layers.Layer):
     """Window-based Multi-Head Self-Attention with relative positional bias.
 
     Divides the input into windows, computes attention within each window,
@@ -318,14 +318,14 @@ class WindowAttention(layers.Layer):
             dtype=self.dtype_policy,
             name=prefix + "attn_qkv",
         )
-        self.window_partition = WindowPartition(
+        self.window_partition = SwinWindowPartition(
             window_size=self.window_size,
             fused=True,
             num_heads=num_heads,
             qkv_mult=3,
             data_format=data_format,
         )
-        self.window_reverse = WindowReverse(
+        self.window_reverse = SwinWindowReverse(
             window_size=self.window_size,
             fused=True,
             num_heads=num_heads,
@@ -454,7 +454,7 @@ class WindowAttention(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class RollLayer(layers.Layer):
+class SwinRollLayer(layers.Layer):
     """Circular shift of tensor elements along specified axes.
 
     Args:
