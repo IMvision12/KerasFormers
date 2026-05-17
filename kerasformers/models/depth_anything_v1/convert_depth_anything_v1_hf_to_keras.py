@@ -12,63 +12,7 @@ from kerasformers.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
 from kerasformers.weight_utils.custom_exception import WeightMappingError
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
-
-def _transfer_attention(path: str, keras_weight, hf_sd: Dict[str, np.ndarray]) -> None:
-    parts = path.split("/")
-    m = re.search(r"backbone_block_(\d+)_attn", parts[0])
-    if not m:
-        raise WeightMappingError(path, "invalid attention path")
-    layer_idx = m.group(1)
-    suffix = parts[-1]
-    torch_suffix = "weight" if suffix == "kernel" else "bias"
-    hf_prefix = f"backbone.encoder.layer.{layer_idx}.attention"
-
-    if "qkv" in parts[1]:
-        q = hf_sd[f"{hf_prefix}.attention.query.{torch_suffix}"]
-        k = hf_sd[f"{hf_prefix}.attention.key.{torch_suffix}"]
-        v = hf_sd[f"{hf_prefix}.attention.value.{torch_suffix}"]
-        torch_weight = np.concatenate([q, k, v], axis=0)
-    elif "proj" in parts[1]:
-        torch_weight = hf_sd[f"{hf_prefix}.output.dense.{torch_suffix}"]
-    else:
-        raise WeightMappingError(path, f"unknown attention sub-layer {parts[1]}")
-
-    transfer_weights(suffix, keras_weight, torch_weight)
-
-
-def transfer_depth_anything_weights(
-    keras_model, hf_state_dict: Dict[str, np.ndarray]
-) -> None:
-    all_weights = [w for layer in keras_model.layers for w in layer.weights]
-    for w in tqdm(all_weights, desc="Transferring weights"):
-        path = w.path
-
-        if "_attn/" in path:
-            _transfer_attention(path, w, hf_state_dict)
-            continue
-
-        m = re.match(r"backbone_block_(\d+)_ls(\d+)/variable(?:_\d+)?$", path)
-        if m:
-            layer_idx, ls_idx = m.group(1), m.group(2)
-            torch_key = (
-                f"backbone.encoder.layer.{layer_idx}.layer_scale{ls_idx}.lambda1"
-            )
-            w.assign(hf_state_dict[torch_key])
-            continue
-
-        torch_key = path
-        for old, new in weight_name_mapping.items():
-            torch_key = torch_key.replace(old, new)
-
-        if torch_key not in hf_state_dict:
-            raise WeightMappingError(path, torch_key)
-
-        torch_weight = hf_state_dict[torch_key]
-        keras_name = "conv_kernel" if len(w.shape) == 4 else path
-        transfer_weights(keras_name, w, torch_weight)
-
-
-weight_name_mapping: Dict[str, str] = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "/": ".",
     "_": ".",
     ".ln1.": ".norm1.",
@@ -89,49 +33,103 @@ weight_name_mapping: Dict[str, str] = {
     ".beta": ".bias",
 }
 
-DEPTH_ANYTHING_V1_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+
+def transfer_depth_anything_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    all_weights = [w for layer in keras_model.layers for w in layer.weights]
+    for w in tqdm(all_weights, desc="Transferring weights"):
+        path = w.path
+        parts = path.split("/")
+
+        if "_attn/" in path:
+            m = re.search(r"backbone_block_(\d+)_attn", parts[0])
+            if not m:
+                raise WeightMappingError(path, "invalid attention path")
+            layer_idx = m.group(1)
+            suffix = parts[-1]
+            torch_suffix = "weight" if suffix == "kernel" else "bias"
+            hf_prefix = f"backbone.encoder.layer.{layer_idx}.attention"
+            if "qkv" in parts[1]:
+                q = hf_state_dict[f"{hf_prefix}.attention.query.{torch_suffix}"]
+                k = hf_state_dict[f"{hf_prefix}.attention.key.{torch_suffix}"]
+                v = hf_state_dict[f"{hf_prefix}.attention.value.{torch_suffix}"]
+                torch_weight = np.concatenate([q, k, v], axis=0)
+            elif "proj" in parts[1]:
+                torch_weight = hf_state_dict[f"{hf_prefix}.output.dense.{torch_suffix}"]
+            else:
+                raise WeightMappingError(
+                    path, f"unknown attention sub-layer {parts[1]}"
+                )
+            transfer_weights(suffix, w, torch_weight)
+            continue
+
+        m = re.match(r"backbone_block_(\d+)_ls(\d+)/variable(?:_\d+)?$", path)
+        if m:
+            layer_idx, ls_idx = m.group(1), m.group(2)
+            torch_key = (
+                f"backbone.encoder.layer.{layer_idx}.layer_scale{ls_idx}.lambda1"
+            )
+            w.assign(hf_state_dict[torch_key])
+            continue
+
+        torch_key = path
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_key = torch_key.replace(old, new)
+
+        if torch_key not in hf_state_dict:
+            raise WeightMappingError(path, torch_key)
+
+        torch_weight = hf_state_dict[torch_key]
+        keras_name = "conv_kernel" if len(w.shape) == 4 else path
+        transfer_weights(keras_name, w, torch_weight)
+
+
+DEPTH_ANYTHING_V1_VARIANTS: List[Tuple[str, str]] = [
     ("depth_anything_small", "LiheYoung/depth-anything-small-hf"),
     ("depth_anything_base", "LiheYoung/depth-anything-base-hf"),
     ("depth_anything_large", "LiheYoung/depth-anything-large-hf"),
 ]
 
-for variant, hf_id in DEPTH_ANYTHING_V1_CONVERSION_CONFIG:
-    print(f"\n{'=' * 60}")
-    print(f"Converting: {variant}  <-  {hf_id}")
-    print(f"{'=' * 60}")
 
-    hf_model = DepthAnythingForDepthEstimation.from_pretrained(hf_id).eval()
-    hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+if __name__ == "__main__":
+    for variant, hf_id in DEPTH_ANYTHING_V1_VARIANTS:
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  {hf_id}")
+        print(f"{'=' * 60}")
 
-    keras_model: keras.Model = DepthAnythingV1DepthEstimation.from_weights(
-        variant, load_weights=False, input_shape=(518, 518, 3)
-    )
+        hf_model = DepthAnythingForDepthEstimation.from_pretrained(hf_id).eval()
+        hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-    transfer_depth_anything_weights(keras_model, hf_sd)
+        keras_model: keras.Model = DepthAnythingV1DepthEstimation.from_weights(
+            variant, load_weights=False, input_shape=(518, 518, 3)
+        )
 
-    np.random.seed(42)
-    test_image = np.random.rand(1, 518, 518, 3).astype(np.float32)
+        transfer_depth_anything_weights(keras_model, hf_sd)
 
-    keras_depth = keras_model.predict(test_image, verbose=0).squeeze(-1)
+        np.random.seed(42)
+        test_image = np.random.rand(1, 518, 518, 3).astype(np.float32)
 
-    with torch.no_grad():
-        hf_input = torch.from_numpy(test_image.transpose(0, 3, 1, 2))
-        hf_depth = hf_model(pixel_values=hf_input).predicted_depth.cpu().numpy()
+        keras_depth = keras_model.predict(test_image, verbose=0).squeeze(-1)
 
-    max_diff = float(np.max(np.abs(keras_depth - hf_depth)))
-    mean_diff = float(np.mean(np.abs(keras_depth - hf_depth)))
-    print(f"  Max depth diff:  {max_diff:.6f}")
-    print(f"  Mean depth diff: {mean_diff:.6f}")
-    if max_diff > 25.0:
-        raise ValueError(f"{variant}: depth diff {max_diff:.2e} exceeds tolerance")
-    print("  Verification OK")
+        with torch.no_grad():
+            hf_input = torch.from_numpy(test_image.transpose(0, 3, 1, 2))
+            hf_depth = hf_model(pixel_values=hf_input).predicted_depth.cpu().numpy()
 
-    model_filename = f"{variant}.weights.h5"
-    keras_model.save_weights(model_filename)
-    print(f"  Saved -> {model_filename}")
+        max_diff = float(np.max(np.abs(keras_depth - hf_depth)))
+        mean_diff = float(np.mean(np.abs(keras_depth - hf_depth)))
+        print(f"  Max depth diff:  {max_diff:.6f}")
+        print(f"  Mean depth diff: {mean_diff:.6f}")
+        if max_diff > 25.0:
+            raise ValueError(f"{variant}: depth diff {max_diff:.2e} exceeds tolerance")
+        print("  Verification OK")
 
-    del keras_model, hf_model, hf_sd
-    keras.backend.clear_session()
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+        model_filename = f"{variant}.weights.h5"
+        keras_model.save_weights(model_filename)
+        print(f"  Saved -> {model_filename}")
+
+        del keras_model, hf_model, hf_sd
+        keras.backend.clear_session()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()

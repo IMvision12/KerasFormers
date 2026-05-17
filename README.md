@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-Keras Models (kerasformers) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2, Qwen2-VL), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kerasformers) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MobileViT-DeepLabV3), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2, Qwen2-VL), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -24,7 +24,7 @@ pip install -U git+https://github.com/IMvision12/KerasFormers
 
 ## 📑 Documentation
 
-Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below — all share the same `XModel` / `XImageClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT), object detection (DETR variants, D-FINE, OWL-ViT), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
+Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below — all share the same `XModel` / `XImageClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT, [MobileViT](docs/mobilevit.md)), object detection (DETR variants, D-FINE, OWL-ViT), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
 
 ## 📑 Models
 
@@ -51,8 +51,8 @@ Per-model guides with architecture notes, usage examples, and available pretrain
     | MLP-Mixer | [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601) | `timm` |
     | MobileNetV2 | [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381) | `timm` |
     | MobileNetV3 | [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244) | `keras` |
-    | MobileViT | [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178) | `timm` |
-    | MobileViTV2 | [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680) | `timm` |
+    | MobileViT | [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178) | `transformers` |
+    | MobileViTV2 | [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680) | `transformers` |
     | NextViT | [Next-ViT: Next Generation Vision Transformer for Efficient Deployment in Realistic Industrial Scenarios](https://arxiv.org/abs/2207.05501) | `timm` |
     | PiT | [Rethinking Spatial Dimensions of Vision Transformers](https://arxiv.org/abs/2103.16302) | `timm` |
     | PoolFormer | [MetaFormer is Actually What You Need for Vision](https://arxiv.org/abs/2111.11418) | `timm` |
@@ -89,6 +89,8 @@ Per-model guides with architecture notes, usage examples, and available pretrain
     |---------------|-------------------|---------------------|
     | DeepLabV3 | [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587) | `torchvision` |
     | EoMT | [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108) | `transformers` |
+    | MobileViT | [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178) | `transformers` |
+    | MobileViTV2 | [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
     | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
     | SAM3 | [SAM 3: Segment Anything with Concepts](https://arxiv.org/abs/2511.16719) | `transformers` (gated) |

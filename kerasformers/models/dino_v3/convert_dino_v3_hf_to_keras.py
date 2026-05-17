@@ -1,7 +1,7 @@
 import gc
 import os
 import re
-from typing import Dict
+from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
@@ -20,13 +20,13 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-DINOV3_VIT_VARIANTS = [
+DINOV3_VIT_VARIANTS: List[Tuple[str, str]] = [
     ("dinov3_vits16", "facebook/dinov3-vits16-pretrain-lvd1689m"),
     ("dinov3_vitb16", "facebook/dinov3-vitb16-pretrain-lvd1689m"),
     ("dinov3_vitl16", "facebook/dinov3-vitl16-pretrain-lvd1689m"),
 ]
 
-DINOV3_CONVNEXT_VARIANTS = [
+DINOV3_CONVNEXT_VARIANTS: List[Tuple[str, str]] = [
     ("dinov3_convnext_tiny", "facebook/dinov3-convnext-tiny-pretrain-lvd1689m"),
     ("dinov3_convnext_small", "facebook/dinov3-convnext-small-pretrain-lvd1689m"),
     ("dinov3_convnext_base", "facebook/dinov3-convnext-base-pretrain-lvd1689m"),
@@ -50,89 +50,77 @@ DINOV3_VIT_NAME_MAPPING: Dict[str, str] = {
     "beta": "bias",
 }
 
+VAR_MAP: Dict[str, str] = {
+    "kernel": "weight",
+    "gamma": "weight",
+    "bias": "bias",
+    "beta": "bias",
+}
 
-def _resolve_vit_attention(keras_weight_path: str):
-    parts = keras_weight_path.split("/")
-    layer_name = parts[-2]
-    var_name = parts[-1]
-
-    m = re.match(r"blocks_(\d+)_attn_(q|k|v)_proj$", layer_name)
-    if m:
-        idx = int(m.group(1))
-        suffix = "weight" if "kernel" in var_name else "bias"
-        return f"layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
-
-    m = re.match(r"blocks_(\d+)_attn_proj$", layer_name)
-    if m:
-        idx = int(m.group(1))
-        suffix = "weight" if "kernel" in var_name else "bias"
-        return f"layer.{idx}.attention.o_proj.{suffix}"
-
-    return None
-
-
-def _resolve_vit_layer_scale(keras_weight_path: str):
-    layer_name = keras_weight_path.split("/")[-2]
-    m = re.match(r"blocks_(\d+)_layerscale_(1|2)$", layer_name)
-    if m is None:
-        return None
-    idx = int(m.group(1))
-    which = m.group(2)
-    return f"layer.{idx}.layer_scale{which}.lambda1"
-
-
-def _strip_prefix(state_dict, prefix):
-    if not any(k.startswith(prefix) for k in state_dict):
-        return state_dict
-    return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
-
-
-def _strip_model_prefix(state_dict):
-    if not any(k.startswith("model.") for k in state_dict):
-        return state_dict
-    out = {}
-    for k, v in state_dict.items():
-        out[k[len("model.") :] if k.startswith("model.") else k] = v
-    return out
+DINOV3_CONVNEXT_WEIGHT_MAPPING: Dict[str, str] = {
+    r"stem_conv_(kernel|bias)": "stages.0.downsample_layers.0.{v}",
+    r"stem_layernorm_(gamma|beta)": "stages.0.downsample_layers.1.{v}",
+    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "stages.{0}.downsample_layers.0.{v}",
+    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "stages.{0}.downsample_layers.1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "stages.{0}.layers.{1}.gamma",
+    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "stages.{0}.layers.{1}.depthwise_conv.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "stages.{0}.layers.{1}.layer_norm.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv2.{v}",
+    r"final_layernorm_(gamma|beta)": "layer_norm.{v}",
+}
 
 
 def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
-    hf_state_dict = _strip_prefix(hf_state_dict, "dinov3_vit.")
-    hf_state_dict = _strip_model_prefix(hf_state_dict)
-    trainable, non_trainable = split_model_weights(keras_model)
-    all_weights = trainable + non_trainable
+    for prefix in ("dinov3_vit.", "model."):
+        if any(k.startswith(prefix) for k in hf_state_dict):
+            hf_state_dict = {
+                (k[len(prefix) :] if k.startswith(prefix) else k): v
+                for k, v in hf_state_dict.items()
+            }
 
+    trainable, non_trainable = split_model_weights(keras_model)
     for keras_weight, keras_weight_name in tqdm(
-        all_weights,
-        total=len(all_weights),
-        desc="Converting DinoV3",
-        unit="weight",
+        trainable + non_trainable, desc="Transferring DINOv3 ViT weights"
     ):
         path = keras_weight.path
+        layer_name = path.split("/")[-2]
+        var_name = path.split("/")[-1]
 
-        if "cls_token" in path and "cls_token" in path.split("/")[-1]:
-            hf_key = "embeddings.cls_token"
-            if hf_key in hf_state_dict:
-                keras_weight.assign(hf_state_dict[hf_key])
-                continue
+        if "cls_token" in path and "cls_token" in var_name:
+            keras_weight.assign(hf_state_dict["embeddings.cls_token"])
+            continue
 
         if "register_tokens" in path:
-            hf_key = "embeddings.register_tokens"
-            if hf_key in hf_state_dict:
-                keras_weight.assign(hf_state_dict[hf_key])
-                continue
+            keras_weight.assign(hf_state_dict["embeddings.register_tokens"])
+            continue
 
-        if "_attn_" in path:
-            hf_key = _resolve_vit_attention(path)
-            if hf_key is None or hf_key not in hf_state_dict:
-                raise WeightMappingError(keras_weight_name, str(hf_key))
+        m = re.match(r"blocks_(\d+)_attn_(q|k|v)_proj$", layer_name)
+        if m:
+            idx = int(m.group(1))
+            suffix = "weight" if "kernel" in var_name else "bias"
+            hf_key = f"layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
+            if hf_key not in hf_state_dict:
+                raise WeightMappingError(keras_weight_name, hf_key)
             transfer_weights(keras_weight_name, keras_weight, hf_state_dict[hf_key])
             continue
 
-        if "_layerscale_" in path:
-            hf_key = _resolve_vit_layer_scale(path)
-            if hf_key is None or hf_key not in hf_state_dict:
-                raise WeightMappingError(keras_weight_name, str(hf_key))
+        m = re.match(r"blocks_(\d+)_attn_proj$", layer_name)
+        if m:
+            idx = int(m.group(1))
+            suffix = "weight" if "kernel" in var_name else "bias"
+            hf_key = f"layer.{idx}.attention.o_proj.{suffix}"
+            if hf_key not in hf_state_dict:
+                raise WeightMappingError(keras_weight_name, hf_key)
+            transfer_weights(keras_weight_name, keras_weight, hf_state_dict[hf_key])
+            continue
+
+        m = re.match(r"blocks_(\d+)_layerscale_(1|2)$", layer_name)
+        if m:
+            idx = int(m.group(1))
+            hf_key = f"layer.{idx}.layer_scale{m.group(2)}.lambda1"
+            if hf_key not in hf_state_dict:
+                raise WeightMappingError(keras_weight_name, hf_key)
             keras_weight.assign(hf_state_dict[hf_key])
             continue
 
@@ -159,47 +147,29 @@ def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-_VAR_MAP = {"kernel": "weight", "gamma": "weight", "bias": "bias", "beta": "bias"}
-
-DINOV3_CONVNEXT_WEIGHT_MAPPING = {
-    r"stem_conv_(kernel|bias)": "stages.0.downsample_layers.0.{v}",
-    r"stem_layernorm_(gamma|beta)": "stages.0.downsample_layers.1.{v}",
-    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "stages.{0}.downsample_layers.0.{v}",
-    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "stages.{0}.downsample_layers.1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "stages.{0}.layers.{1}.gamma",
-    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "stages.{0}.layers.{1}.depthwise_conv.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "stages.{0}.layers.{1}.layer_norm.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv2.{v}",
-    r"final_layernorm_(gamma|beta)": "layer_norm.{v}",
-}
-
-
-def _keras_to_hf_convnext(keras_name: str):
-    for pattern, template in DINOV3_CONVNEXT_WEIGHT_MAPPING.items():
-        m = re.match(pattern, keras_name)
-        if m:
-            groups = m.groups()
-            var_group = groups[-1] if groups[-1] in _VAR_MAP else None
-            idx_groups = groups if var_group is None else groups[:-1]
-            v = _VAR_MAP[var_group] if var_group else ""
-            return template.format(*idx_groups, v=v)
-    return None
-
-
 def transfer_dinov3_convnext_weights(keras_model, hf_state_dict):
-    hf_state_dict = _strip_prefix(hf_state_dict, "dinov3_convnext.")
-    hf_state_dict = _strip_model_prefix(hf_state_dict)
-    trainable, non_trainable = split_model_weights(keras_model)
-    all_weights = trainable + non_trainable
+    for prefix in ("dinov3_convnext.", "model."):
+        if any(k.startswith(prefix) for k in hf_state_dict):
+            hf_state_dict = {
+                (k[len(prefix) :] if k.startswith(prefix) else k): v
+                for k, v in hf_state_dict.items()
+            }
 
+    trainable, non_trainable = split_model_weights(keras_model)
     for keras_weight, keras_weight_name in tqdm(
-        all_weights,
-        total=len(all_weights),
-        desc="Converting DinoV3",
-        unit="weight",
+        trainable + non_trainable, desc="Transferring DINOv3 ConvNeXt weights"
     ):
-        hf_key = _keras_to_hf_convnext(keras_weight_name)
+        hf_key = None
+        for pattern, template in DINOV3_CONVNEXT_WEIGHT_MAPPING.items():
+            m = re.match(pattern, keras_weight_name)
+            if m:
+                groups = m.groups()
+                var_group = groups[-1] if groups[-1] in VAR_MAP else None
+                idx_groups = groups if var_group is None else groups[:-1]
+                v = VAR_MAP[var_group] if var_group else ""
+                hf_key = template.format(*idx_groups, v=v)
+                break
+
         if hf_key is None or hf_key not in hf_state_dict:
             raise WeightMappingError(keras_weight_name, str(hf_key))
 
@@ -207,7 +177,6 @@ def transfer_dinov3_convnext_weights(keras_model, hf_state_dict):
 
         if "layer_scale" in keras_weight_name:
             keras_weight.assign(hf_w)
-
         elif (
             "pointwise" in hf_key
             and len(hf_w.shape) == 2
@@ -261,7 +230,8 @@ if __name__ == "__main__":
         del keras_model, hf_model, hf_sd
         keras.backend.clear_session()
         gc.collect()
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     for variant, hf_id in DINOV3_CONVNEXT_VARIANTS:
         print(f"\n{'=' * 60}")
@@ -302,4 +272,5 @@ if __name__ == "__main__":
         del keras_model, hf_model, hf_sd
         keras.backend.clear_session()
         gc.collect()
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
