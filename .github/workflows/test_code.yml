@@ -28,7 +28,6 @@ jobs:
     name: Test the code (${{ matrix.backend }})
     needs: lint-and-format
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:

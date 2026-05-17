@@ -1,9 +1,6 @@
 import keras
 from keras import layers
 
-from kerasformers.models.convnext.convert_convnext_torch_to_keras import (
-    transfer_convnext_weights,
-)
 from kerasformers.models.convnext.convnext_model import (
     ConvNeXtImageClassify,
     ConvNeXtModel,
@@ -64,6 +61,10 @@ class ConvNeXtV2Model(ConvNeXtModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from kerasformers.models.convnext.convert_convnext_torch_to_keras import (
+            transfer_convnext_weights,
+        )
+
         transfer_convnext_weights(keras_model, state_dict)
 
     def __init__(self, as_backbone=False, name="ConvNeXtV2Model", **kwargs):
@@ -137,6 +138,10 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from kerasformers.models.convnext.convert_convnext_torch_to_keras import (
+            transfer_convnext_weights,
+        )
+
         transfer_convnext_weights(keras_model, state_dict)
 
     def __init__(
