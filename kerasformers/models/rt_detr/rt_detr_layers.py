@@ -1,14 +1,3 @@
-"""Keras layers for RT-DETR (Real-Time DEtection TRansformer).
-
-Implements the multi-scale deformable attention, decoder layer, and
-position embedding components following the same conventions as
-``kerasformers.models.detr``.
-
-Reference:
-    - `RT-DETR: DETRs Beat YOLOs on Real-time Object Detection
-      <https://arxiv.org/abs/2304.08069>`_
-"""
-
 import keras
 from keras import layers, ops
 

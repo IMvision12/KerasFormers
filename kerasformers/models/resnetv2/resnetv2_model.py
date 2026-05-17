@@ -9,7 +9,6 @@ from kerasformers.models.resnetv2.resnetv2_layers import StdConv2D
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHT_CONFIG
-from .convert_resnetv2_torch_to_keras import transfer_resnetv2_weights
 
 
 def make_divisible(v, divisor=8):
@@ -246,7 +245,7 @@ class ResNetV2Model(BaseModel):
     improves gradient flow and stabilizes training of very deep
     networks. The output tensor is the last layer output before the
     classifier head — the raw final-stage feature map ``(B, H, W, C)``
-    (pre final GroupNorm). :class:`ResNetV2Classify` composes this model
+    (pre final GroupNorm). :class:`ResNetV2ImageClassify` composes this model
     and applies the final GroupNorm + ReLU + GlobalAveragePooling2D +
     optional Dropout + Dense head to produce logits.
 
@@ -302,13 +301,17 @@ class ResNetV2Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ResNetV2Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ResNetV2ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_resnetv2_torch_to_keras import transfer_resnetv2_weights
+
         transfer_resnetv2_weights(keras_model, state_dict)
 
     def __init__(
@@ -406,7 +409,7 @@ class ResNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResNetV2Classify(BaseModel):
+class ResNetV2ImageClassify(BaseModel):
     """Instantiates the ResNetV2 (Pre-activation ResNet / BiT) classifier.
 
     This classifier wraps a :class:`ResNetV2Model` backbone and attaches
@@ -456,7 +459,7 @@ class ResNetV2Classify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ResNetV2Classify"`.
+            named `f"{name}_backbone"`. Defaults to `"ResNetV2ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -471,6 +474,8 @@ class ResNetV2Classify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_resnetv2_torch_to_keras import transfer_resnetv2_weights
+
         transfer_resnetv2_weights(keras_model, state_dict)
 
     def __init__(
@@ -488,7 +493,7 @@ class ResNetV2Classify(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ResNetV2Classify",
+        name="ResNetV2ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

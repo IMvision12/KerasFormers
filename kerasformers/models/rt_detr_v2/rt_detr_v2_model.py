@@ -5,8 +5,7 @@ from keras import layers, ops, utils
 from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
 
-from .config import RT_DETR_V2_CONFIG, RT_DETR_V2_WEIGHTS
-from .convert_rt_detr_v2_hf_to_keras import transfer_rt_detr_v2_weights
+from .config import RT_DETR_V2_MODEL_CONFIG, RT_DETR_V2_WEIGHT_CONFIG
 from .rt_detr_v2_layers import (
     RTDETRV2MultiHeadAttention,
     RTDETRV2MultiScaleDeformableAttention,
@@ -1190,7 +1189,10 @@ class RTDetrV2Model(BaseModel):
           <https://arxiv.org/abs/2407.17140>`_
     """
 
-    BASE_MODEL_CONFIG = RT_DETR_V2_CONFIG
+    BASE_MODEL_CONFIG = {
+        variant: RT_DETR_V2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RT_DETR_V2_WEIGHT_CONFIG.items()
+    }
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rt_detr_v2"
 
@@ -1378,8 +1380,11 @@ class RTDETRV2Detect(BaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = RT_DETR_V2_CONFIG
-    BASE_WEIGHT_CONFIG = RT_DETR_V2_WEIGHTS
+    BASE_MODEL_CONFIG = {
+        variant: RT_DETR_V2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RT_DETR_V2_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = RT_DETR_V2_WEIGHT_CONFIG
     HF_MODEL_TYPE = "rt_detr_v2"
 
     def __init__(
@@ -1544,4 +1549,6 @@ class RTDETRV2Detect(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_rt_detr_v2_hf_to_keras import transfer_rt_detr_v2_weights
+
         transfer_rt_detr_v2_weights(keras_model, hf_state_dict)

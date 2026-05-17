@@ -256,15 +256,6 @@ def sam_post_process_masks(
     return masks_final
 
 
-# ---------------------------------------------------------------------------
-# Automatic mask generation (AMG) pipeline — numpy port of HuggingFace
-# `transformers.models.sam.image_processing_sam` utilities. These helpers are
-# prompt-free: they sample a grid of points over the image (and optionally
-# multi-scale crops), run the model on each prompt, filter by quality and
-# stability, and deduplicate via RLE-based NMS.
-# ---------------------------------------------------------------------------
-
-
 def _build_point_grid(n_per_side: int):
     """Regular ``n_per_side × n_per_side`` point grid in ``[0, 1] × [0, 1]``."""
     offset = 1.0 / (2 * n_per_side)

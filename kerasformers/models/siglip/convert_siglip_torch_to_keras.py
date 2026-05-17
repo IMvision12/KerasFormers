@@ -1,15 +1,11 @@
-"""HuggingFace SigLIP -> Keras weight transfer.
-
-Splits the conversion into a callable :func:`transfer_siglip_weights`
-that takes a Keras :class:`~kerasformers.models.siglip.SigLIPModel` and an
-HF state dict (numpy values), plus a ``__main__`` block that runs the
-google -> kerasformers conversion for every variant.
-"""
-
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+from transformers import SiglipModel
 
+from kerasformers.models.siglip import SigLIPZeroShotClassify
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -60,14 +56,6 @@ ATTN_NAME_REPLACE = {
 
 
 def transfer_siglip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer HuggingFace SigLIP / SigLIP-2 weights into a Keras model.
-
-    Args:
-        keras_model: A :class:`SigLIPModel` or :class:`SigLIPZeroShotClassify`
-            instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``SiglipModel.state_dict()``.
-    """
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -135,14 +123,6 @@ def transfer_siglip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -
 def transfer_siglip_image_classify_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer HuggingFace ``SiglipForImageClassification`` weights.
-
-    Loads the SigLIP vision encoder (no text encoder, no attention
-    pooling, no ``logit_scale``/``logit_bias`` — none of those exist in
-    the Keras :class:`SigLIPImageClassify` graph) plus the final
-    ``classifier`` Dense head. If the source is a base SigLIP checkpoint
-    without classifier weights, the head stays randomly initialized.
-    """
     has_classifier = (
         "classifier.weight" in hf_state_dict and "classifier.bias" in hf_state_dict
     )
@@ -191,13 +171,6 @@ def transfer_siglip_image_classify_weights(
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    from transformers import SiglipModel
-
-    from kerasformers.models.siglip import SigLIPZeroShotClassify
-
     SIGLIP_CONVERSION_CONFIG = [
         ("siglip_base_p16_224", "google/siglip-base-patch16-224"),
         ("siglip_base_p16_256", "google/siglip-base-patch16-256"),

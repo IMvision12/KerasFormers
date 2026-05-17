@@ -1,16 +1,5 @@
-"""HuggingFace SAM 2 -> Keras weight transfer.
-
-Splits the conversion into a callable :func:`transfer_sam2_weights` that
-takes a Keras :class:`~kerasformers.models.sam2.Sam2Model` and an HF state
-dict (numpy values), plus a ``__main__`` block that runs the facebook
-SAM 2 conversion for every variant.
-
-Note: the HF ``facebook/sam2-hiera-*`` repos are ``Sam2VideoModel``
-checkpoints. Only the image-side weights (vision encoder + prompt
-encoder + mask decoder) are transferred; video-only modules (memory
-attention / encoder / fuser) are skipped.
-"""
-
+import gc
+import os
 from typing import Dict
 
 import numpy as np
@@ -30,13 +19,6 @@ BACKBONE_NAME_MAPPING = {
 
 
 def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer HuggingFace SAM 2 (or Sam2Video) image-side weights.
-
-    Args:
-        keras_model: A :class:`Sam2Model` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``Sam2Model.state_dict()`` or ``Sam2VideoModel.state_dict()``.
-    """
     patch_conv = keras_model.get_layer("backbone_patch_embed_projection")
     transfer_weights(
         "conv_kernel",
@@ -249,9 +231,6 @@ def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
 
 
 if __name__ == "__main__":
-    import gc
-    import os
-
     os.environ.setdefault("KERAS_BACKEND", "torch")
 
     import keras

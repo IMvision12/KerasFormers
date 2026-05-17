@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHT_CONFIG
-from .convert_densenet_torch_to_keras import transfer_densenet_weights
 
 
 def conv_block(
@@ -221,7 +220,7 @@ class DenseNetModel(BaseModel):
     average pool) between dense blocks to control channel growth and
     downsample. Output is the last layer output before the classifier
     head: the final feature map ``(B, H, W, C)`` after a final
-    BatchNorm + ReLU. :class:`DenseNetClassify` composes this model and
+    BatchNorm + ReLU. :class:`DenseNetImageClassify` composes this model and
     attaches a GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -272,13 +271,17 @@ class DenseNetModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = DenseNetClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = DenseNetImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_densenet_torch_to_keras import transfer_densenet_weights
+
         transfer_densenet_weights(keras_model, state_dict)
 
     def __init__(
@@ -367,7 +370,7 @@ class DenseNetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DenseNetClassify(BaseModel):
+class DenseNetImageClassify(BaseModel):
     """Instantiates the DenseNet classifier.
 
     This classifier wraps a :class:`DenseNetModel` backbone and attaches
@@ -409,7 +412,7 @@ class DenseNetClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"DenseNetClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"DenseNetImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -424,6 +427,8 @@ class DenseNetClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_densenet_torch_to_keras import transfer_densenet_weights
+
         transfer_densenet_weights(keras_model, state_dict)
 
     def __init__(
@@ -438,7 +443,7 @@ class DenseNetClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="DenseNetClassify",
+        name="DenseNetImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

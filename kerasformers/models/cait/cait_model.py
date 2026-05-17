@@ -13,7 +13,6 @@ from kerasformers.models.cait.cait_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHT_CONFIG
-from .convert_cait_torch_to_keras import transfer_cait_weights
 
 
 def mlp_block(x, hidden_dim, out_dim, drop_rate=0.0, block_prefix=None):
@@ -250,7 +249,7 @@ class CaiTModel(BaseModel):
     Output is the last layer output before the classifier head:
     the final-LN normalized token sequence ``(B, 1+N, D)`` with the CLS
     token at index 0 followed by ``N = (H/patch_size) * (W/patch_size)``
-    patch tokens. :class:`CaiTClassify` composes this model and reads
+    patch tokens. :class:`CaiTImageClassify` composes this model and reads
     ``[:, 0]`` from the output to produce logits.
 
     References:
@@ -306,13 +305,15 @@ class CaiTModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = CaiTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = CaiTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_cait_torch_to_keras import transfer_cait_weights
+
         transfer_cait_weights(keras_model, state_dict)
 
     def __init__(
@@ -408,7 +409,7 @@ class CaiTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CaiTClassify(BaseModel):
+class CaiTImageClassify(BaseModel):
     """Instantiates the Class-Attention in Image Transformers (CaiT) classifier.
 
     This classifier wraps a :class:`CaiTModel` backbone and attaches a
@@ -457,7 +458,7 @@ class CaiTClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"CaiTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"CaiTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -471,6 +472,8 @@ class CaiTClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_cait_torch_to_keras import transfer_cait_weights
+
         transfer_cait_weights(keras_model, state_dict)
 
     def __init__(
@@ -487,7 +490,7 @@ class CaiTClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="CaiTClassify",
+        name="CaiTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

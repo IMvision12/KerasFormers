@@ -1,3 +1,3 @@
-from kerasformers.models.cait.cait_model import CaiTClassify, CaiTModel
+from kerasformers.models.cait.cait_model import CaiTImageClassify, CaiTModel
 
-__all__ = ["CaiTClassify", "CaiTModel"]
+__all__ = ["CaiTImageClassify", "CaiTModel"]

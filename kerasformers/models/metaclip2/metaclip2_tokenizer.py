@@ -21,18 +21,47 @@ DEFAULT_SENTENCEPIECE_URL = (
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MetaClip2Tokenizer(BaseTokenizer):
-    """XLM-RoBERTa SentencePiece tokenizer wrapper for MetaCLIP 2.
+    """XLM-RoBERTa SentencePiece tokenizer for MetaCLIP 2 worldwide variants.
 
-    Wraps ``sentencepiece.SentencePieceProcessor`` to match the exact
-    tokenization used by HuggingFace's ``XLMRobertaTokenizer`` on the
-    MetaCLIP 2 checkpoints (multilingual 901629-token vocab).
+    Wraps :class:`sentencepiece.SentencePieceProcessor` to match HF's
+    ``XLMRobertaTokenizer`` bit-close on the multilingual MetaCLIP 2
+    checkpoints (901 629-token vocab covering ~300 languages).
+
+    Tokenization pipeline:
+
+    1. SentencePiece encode the raw text to integer pieces.
+    2. **Apply the fairseq offset of +1** to every piece id — XLM-R
+       reserves token ids ``0..3`` for ``<s> / <pad> / </s> / <unk>``
+       and shifts the SP vocabulary by one to make room. Without this
+       offset the model would see the wrong embeddings.
+    3. Prepend ``bos_token_id`` and append ``eos_token_id``.
+    4. Truncate (replacing the last token with EOS) or pad with
+       ``pad_token_id`` to ``context_length``.
+    5. Build an attention mask: ``1`` for real tokens, ``0`` for
+       padding.
+
+    Special-token ids match XLM-R exactly: BOS=0, PAD=1, EOS=2, UNK=3,
+    MASK=901628. The MASK id is larger than EOS, which is why
+    :func:`metaclip2_text_encoder` pools by explicit ``token == EOS``
+    match rather than ``argmax``.
 
     Args:
-        sentencepiece_model_file: Path to the ``sentencepiece.bpe.model`` file.
-            When ``None``, downloads it from the default MetaCLIP 2 hub repo.
-        context_length: Maximum sequence length. MetaCLIP 2 uses ``77``.
-        bos_token_id / eos_token_id / pad_token_id / unk_token_id: Override
-            special-token ids. Defaults match XLM-R.
+        sentencepiece_model_file: Path to ``sentencepiece.bpe.model``.
+            When ``None``, downloads it from the default MetaCLIP 2
+            release URL on first use.
+        context_length: Maximum sequence length. Defaults to ``77``
+            (the value used by every MetaCLIP 2 checkpoint).
+        bos_token_id: BOS token id. Defaults to ``0``.
+        eos_token_id: EOS token id. Defaults to ``2``.
+        pad_token_id: PAD token id. Defaults to ``1``.
+        unk_token_id: UNK token id. Defaults to ``3``.
+
+    Example:
+        >>> from kerasformers.models.metaclip2 import MetaClip2Tokenizer
+        >>> tok = MetaClip2Tokenizer()
+        >>> out = tok(["un chat", "a cat"])
+        >>> out["token_ids"].shape       # (2, 77)
+        >>> out["padding_mask"].shape    # (2, 77) — 1 for real tokens
     """
 
     def __init__(

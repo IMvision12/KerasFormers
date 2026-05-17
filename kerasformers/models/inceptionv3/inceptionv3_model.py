@@ -8,7 +8,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTIONV3_MODEL_CONFIG, INCEPTIONV3_WEIGHT_CONFIG
-from .convert_inceptionv3_torch_to_keras import transfer_inceptionv3_weights
 
 
 def conv_block(
@@ -81,11 +80,25 @@ def conv_block(
 
 
 def inception_blocka(inputs, pool_channels, name="inception_block_a"):
-    """Inception block type A (1x1, 5x5, double-3x3, avg-pool).
+    """Inception-A block (35×35 stage of InceptionV3, used at Mixed_5b/5c/5d).
+
+    Four parallel branches concatenated along the channel axis:
+
+    1. **1×1** — 64 channels.
+    2. **5×5 via 1×1 → 5×5** — 48 → 64 channels (factorized
+       dimensionality reduction).
+    3. **Double-3×3 via 1×1 → 3×3 → 3×3** — 64 → 96 → 96 channels
+       (replaces the original 5×5 with a stack of 3×3s).
+    4. **Avg-pool 1×1** — same spatial → ``pool_channels`` channels.
+       Pool-branch width varies across Mixed_5b (32), Mixed_5c (64),
+       Mixed_5d (64).
+
+    Spatial size is preserved (no stride). Output channels =
+    ``64 + 64 + 96 + pool_channels``.
 
     Args:
         inputs: Input Keras tensor.
-        pool_channels: Number of filters for the average-pool 1x1 projection
+        pool_channels: Number of filters for the average-pool 1×1 projection
             branch (differs across Mixed_5b/5c/5d).
         name: Name prefix for layers in the block.
 
@@ -128,7 +141,18 @@ def inception_blocka(inputs, pool_channels, name="inception_block_a"):
 
 
 def inception_blockb(inputs, name="inception_block_b"):
-    """Inception block type B (strided 3x3, double-3x3 strided, maxpool).
+    """Reduction-A block — halves spatial size between Inception-A and -C stages.
+
+    Three parallel branches concatenated along the channel axis:
+
+    1. **Strided 3×3** — 384 channels, stride-2.
+    2. **Double-3×3 with stride** — 64 → 96 → 96 channels, last conv
+       stride-2.
+    3. **Strided max-pool** — 3×3 max-pool, stride-2 (zero-channel
+       contribution; relays input channels).
+
+    Used once in InceptionV3 at the ``Mixed_6a`` position to transition
+    35×35 → 17×17 feature maps before the Inception-C stack.
 
     Args:
         inputs: Input Keras tensor.
@@ -162,11 +186,25 @@ def inception_blockb(inputs, name="inception_block_b"):
 
 
 def inception_blockc(inputs, branch7x7_channels, name="inception_block_c"):
-    """Inception block type C (factorized 7x7 = 1x7 + 7x1).
+    """Inception-C block (17×17 stage of InceptionV3, used at Mixed_6b/6c/6d/6e).
+
+    Four parallel branches with factorized 7×7 convolutions
+    (``7×7 = 1×7 → 7×1``), concatenated along the channel axis:
+
+    1. **1×1** — 192 channels.
+    2. **Single 7×7** via ``1×1 → 1×7 → 7×1`` — ``c7 → c7 → 192``
+       channels.
+    3. **Double 7×7** via ``1×1 → 7×1 → 1×7 → 7×1 → 1×7`` —
+       ``c7 → c7 → c7 → c7 → 192`` channels.
+    4. **Avg-pool 1×1** — 192 channels.
+
+    The inner width ``c7`` widens with depth — 128 at Mixed_6b, 160 at
+    Mixed_6c/6d, 192 at Mixed_6e. Spatial size is preserved. Output
+    channels = ``192 × 4 = 768``.
 
     Args:
         inputs: Input Keras tensor.
-        branch7x7_channels: Inner channel count for the 7x7 / 7x7-double
+        branch7x7_channels: Inner channel count for the 7×7 / 7×7-double
             branches (differs across Mixed_6b/6c/6d/6e).
         name: Name prefix for layers in the block.
 
@@ -216,7 +254,17 @@ def inception_blockc(inputs, branch7x7_channels, name="inception_block_c"):
 
 
 def inception_blockd(inputs, name="inception_block_d"):
-    """Inception block type D (reduction).
+    """Reduction-B block — halves spatial size between Inception-C and -E stages.
+
+    Three parallel branches concatenated along the channel axis:
+
+    1. **1×1 → strided 3×3** — 192 → 320 channels, stride-2.
+    2. **1×1 → 1×7 → 7×1 → strided 3×3** — 192 → 192 → 192 → 192
+       channels (factorized 7×7 followed by a stride-2 3×3).
+    3. **Strided max-pool** — 3×3, stride-2.
+
+    Used once in InceptionV3 at the ``Mixed_7a`` position to transition
+    17×17 → 8×8 feature maps before the Inception-E stack.
 
     Args:
         inputs: Input Keras tensor.
@@ -249,7 +297,21 @@ def inception_blockd(inputs, name="inception_block_d"):
 
 
 def inception_blocke(inputs, name="inception_block_e"):
-    """Inception block type E (parallel factorized 3x3 = 1x3 || 3x1).
+    """Inception-E block (8×8 stage of InceptionV3, used at Mixed_7b/7c).
+
+    Four parallel branches with the **parallel** (not stacked) 3×3
+    factorization — each ``3×3`` is replaced by ``1×3 || 3×1``
+    branches whose outputs are concatenated, producing a wider feature
+    map per branch instead of a deeper stack. Branches:
+
+    1. **1×1** — 320 channels.
+    2. **1×1 → (1×3 ∥ 3×1)** — 384 → 384 || 384 channels (concat = 768).
+    3. **1×1 → 3×3 → (1×3 ∥ 3×1)** — 448 → 384 → 384 || 384 channels
+       (concat = 768).
+    4. **Avg-pool 1×1** — 192 channels.
+
+    Output channels = ``320 + 768 + 768 + 192 = 2048`` — the final
+    InceptionV3 feature width.
 
     Args:
         inputs: Input Keras tensor.
@@ -378,7 +440,7 @@ class InceptionV3Model(BaseModel):
     tensor is the last layer output before the classifier head — the
     final-stage feature map ``(B, H, W, C)`` (after the last Mixed_7c
     Inception-E block), unpooled and head-free.
-    :class:`InceptionV3Classify` composes this model and applies a
+    :class:`InceptionV3ImageClassify` composes this model and applies a
     GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -424,13 +486,17 @@ class InceptionV3Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = InceptionV3Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = InceptionV3ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionv3_torch_to_keras import transfer_inceptionv3_weights
+
         transfer_inceptionv3_weights(keras_model, state_dict)
 
     def __init__(
@@ -503,7 +569,7 @@ class InceptionV3Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionV3Classify(BaseModel):
+class InceptionV3ImageClassify(BaseModel):
     """Instantiates the Inception V3 classifier.
 
     This classifier wraps an :class:`InceptionV3Model` backbone and
@@ -539,7 +605,7 @@ class InceptionV3Classify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"InceptionV3Classify"`.
+            named `f"{name}_backbone"`. Defaults to `"InceptionV3ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -554,6 +620,8 @@ class InceptionV3Classify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionv3_torch_to_keras import transfer_inceptionv3_weights
+
         transfer_inceptionv3_weights(keras_model, state_dict)
 
     def __init__(
@@ -565,7 +633,7 @@ class InceptionV3Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="InceptionV3Classify",
+        name="InceptionV3ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

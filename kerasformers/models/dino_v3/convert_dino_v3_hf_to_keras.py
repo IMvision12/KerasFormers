@@ -1,9 +1,15 @@
+import gc
+import os
 import re
 from typing import Dict
 
+import keras
 import numpy as np
+import torch
 from tqdm import tqdm
+from transformers import AutoModel
 
+from kerasformers.models.dino_v3 import DinoV3ConvNeXtBackbone, DinoV3ViTBackbone
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -76,27 +82,12 @@ def _resolve_vit_layer_scale(keras_weight_path: str):
 
 
 def _strip_prefix(state_dict, prefix):
-    """Strip a common prefix from all state-dict keys (e.g. ``dinov3_vit.``).
-
-    For task-head wrappers like ``Dinov3ForImageClassification``, the
-    backbone keys are nested under ``dinov3_vit.*`` / ``dinov3_convnext.*``
-    and there is an additional ``classifier.*`` head. We strip the
-    prefix and drop non-backbone keys.
-    """
     if not any(k.startswith(prefix) for k in state_dict):
         return state_dict
     return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
 
 
 def _strip_model_prefix(state_dict):
-    """Strip the optional ``model.`` prefix from keys.
-
-    ``AutoModel.from_pretrained`` wraps DinoV3 in a top-level ``model``
-    submodule, so its state-dict keys look like ``model.layer.X.*``.
-    Raw safetensors on disk lack this prefix (``layer.X.*``). The
-    converter targets the raw layout; here we normalize the AutoModel
-    layout to match.
-    """
     if not any(k.startswith("model.") for k in state_dict):
         return state_dict
     out = {}
@@ -228,19 +219,6 @@ def transfer_dinov3_convnext_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
-    import gc
-    import os
-
-    import keras
-    import numpy as np
-    import torch
-    from transformers import AutoModel
-
-    from kerasformers.models.dino_v3 import (
-        DinoV3ConvNeXtBackbone,
-        DinoV3ViTBackbone,
-    )
-
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
     for variant, hf_id in DINOV3_VIT_VARIANTS:
@@ -268,7 +246,6 @@ if __name__ == "__main__":
                 .numpy()
             )
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        # Backbone output is a list of intermediate features; take last
         last = keras_model(k_in, training=False)[-1]
         k_out = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
@@ -310,7 +287,6 @@ if __name__ == "__main__":
             )
             hf_feat = hf_out_obj.hidden_states[-1].permute(0, 2, 3, 1).cpu().numpy()
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        # Backbone output is a list of stage features; compare last
         last = keras_model(k_in, training=False)[-1]
         k_out = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)

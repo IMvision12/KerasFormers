@@ -9,7 +9,6 @@ from kerasformers.models.mit.mit_layers import EfficientMultiheadSelfAttention
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHT_CONFIG
-from .convert_mit_torch_to_keras import transfer_mit_weights
 
 
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
@@ -276,7 +275,7 @@ class MiTModel(BaseModel):
     the final stage's spatial feature map of shape
     ``(B, H_4, W_4, embed_dims[-1])`` (or channels-first equivalent).
     When constructed with ``as_backbone=True``, returns the list of all
-    four per-stage feature maps instead. :class:`MiTClassify` composes
+    four per-stage feature maps instead. :class:`MiTImageClassify` composes
     this model with ``as_backbone=False`` and reads the final feature map
     through a ``GlobalAveragePooling2D`` + Dense head.
 
@@ -327,7 +326,7 @@ class MiTModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = MiTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MiTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -341,6 +340,8 @@ class MiTModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from .convert_mit_torch_to_keras import transfer_mit_weights
+
         transfer_mit_weights(keras_model, state_dict)
 
     def __init__(
@@ -429,7 +430,7 @@ class MiTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MiTClassify(BaseModel):
+class MiTImageClassify(BaseModel):
     """Instantiates the Mix Transformer (MiT) classifier.
 
     This classifier wraps a :class:`MiTModel` backbone and attaches a
@@ -473,7 +474,7 @@ class MiTClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"MiTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"MiTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -495,6 +496,8 @@ class MiTClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from .convert_mit_torch_to_keras import transfer_mit_weights
+
         transfer_mit_weights(keras_model, state_dict)
 
     def __init__(
@@ -509,7 +512,7 @@ class MiTClassify(BaseModel):
         input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MiTClassify",
+        name="MiTImageClassify",
         **kwargs,
     ):
         kwargs.pop("hf_id", None)

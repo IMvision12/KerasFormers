@@ -8,7 +8,6 @@ from kerasformers.models.resmlp.resmlp_layers import Affine
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHT_CONFIG
-from .convert_resmlp_torch_to_keras import transfer_resmlp_weights
 
 
 def resmlp_block(
@@ -165,7 +164,7 @@ class ResMLPModel(BaseModel):
 
     Output is the last layer output before the classifier head: the
     final-Affine normalized patch sequence ``(B, N, D)`` where
-    ``N = (H/patch_size) * (W/patch_size)``. :class:`ResMLPClassify`
+    ``N = (H/patch_size) * (W/patch_size)``. :class:`ResMLPImageClassify`
     composes this model and applies a GlobalAveragePooling1D + Dense
     head.
 
@@ -221,13 +220,15 @@ class ResMLPModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ResMLPClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ResMLPImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_resmlp_torch_to_keras import transfer_resmlp_weights
+
         transfer_resmlp_weights(keras_model, state_dict)
 
     def __init__(
@@ -330,7 +331,7 @@ class ResMLPModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResMLPClassify(BaseModel):
+class ResMLPImageClassify(BaseModel):
     """Instantiates the ResMLP classifier.
 
     This classifier wraps a :class:`ResMLPModel` backbone and attaches a
@@ -378,7 +379,7 @@ class ResMLPClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ResMLPClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"ResMLPImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -393,6 +394,8 @@ class ResMLPClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_resmlp_torch_to_keras import transfer_resmlp_weights
+
         transfer_resmlp_weights(keras_model, state_dict)
 
     def __init__(
@@ -411,7 +414,7 @@ class ResMLPClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ResMLPClassify",
+        name="ResMLPImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

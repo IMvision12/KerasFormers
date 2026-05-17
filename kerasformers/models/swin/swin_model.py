@@ -3,10 +3,7 @@ from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
-from kerasformers.layers import (
-    ImageNormalizationLayer,
-    StochasticDepth,
-)
+from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.swin.swin_layers import (
     RollLayer,
     WindowAttention,
@@ -15,7 +12,6 @@ from kerasformers.models.swin.swin_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHT_CONFIG
-from .convert_swin_torch_to_keras import transfer_swin_weights
 
 
 def spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
@@ -466,7 +462,7 @@ class SwinModel(BaseModel):
 
     Output is the last layer output before the classifier head: the
     final stage feature map ``(B, H, W, C)`` (or ``(B, C, H, W)`` for
-    channels_first), pre-final-norm. :class:`SwinClassify` composes this
+    channels_first), pre-final-norm. :class:`SwinImageClassify` composes this
     model and applies a spatial-LayerNorm + GlobalAveragePooling2D +
     Dense head.
 
@@ -526,13 +522,15 @@ class SwinModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = SwinClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = SwinImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_swin_torch_to_keras import transfer_swin_weights
+
         transfer_swin_weights(keras_model, state_dict)
 
     def __init__(
@@ -637,7 +635,7 @@ class SwinModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinClassify(BaseModel):
+class SwinImageClassify(BaseModel):
     """Instantiates the Swin Transformer classifier.
 
     This classifier wraps a :class:`SwinModel` backbone and attaches a
@@ -690,7 +688,7 @@ class SwinClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"SwinClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"SwinImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -705,6 +703,8 @@ class SwinClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_swin_torch_to_keras import transfer_swin_weights
+
         transfer_swin_weights(keras_model, state_dict)
 
     def __init__(
@@ -723,7 +723,7 @@ class SwinClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="SwinClassify",
+        name="SwinImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

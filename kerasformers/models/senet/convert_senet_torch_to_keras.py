@@ -1,24 +1,17 @@
-"""timm SENetClassify -> Keras weight transfer.
+import gc
 
-Re-uses :func:`transfer_resnet_weights` (the timm naming is identical
-across resnet / resnext / senet families).
-"""
+import keras
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.resnet.convert_resnet_torch_to_keras import (
-    transfer_resnet_weights as transfer_senet_weights,  # noqa: F401
+    transfer_resnet_weights as transfer_senet_weights,
 )
+from kerasformers.models.senet import SENetImageClassify
+from kerasformers.models.senet.config import SENET_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.senet import SENetClassify
-    from kerasformers.models.senet.config import SENET_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in SENET_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
@@ -26,7 +19,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = SENetClassify.from_weights(variant, load_weights=False)
+        keras_model = SENetImageClassify.from_weights(variant, load_weights=False)
         transfer_senet_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

@@ -1,5 +1,3 @@
-"""ConvNeXtV2 as thin :class:`ConvNeXt` subclasses (timm-ported)."""
-
 import keras
 from keras import layers
 
@@ -7,7 +5,7 @@ from kerasformers.models.convnext.convert_convnext_torch_to_keras import (
     transfer_convnext_weights,
 )
 from kerasformers.models.convnext.convnext_model import (
-    ConvNeXtClassify,
+    ConvNeXtImageClassify,
     ConvNeXtModel,
 )
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -24,7 +22,7 @@ class ConvNeXtV2Model(ConvNeXtModel):
     Fully Convolutional Masked Autoencoder (FCMAE) recipe before
     supervised fine-tuning. Output is the last layer output before the
     classifier head: the final stage feature map ``(B, H, W, C)``.
-    :class:`ConvNeXtV2Classify` composes this model and attaches a
+    :class:`ConvNeXtV2ImageClassify` composes this model and attaches a
     GlobalAveragePooling2D + LayerNorm + Dense head to produce logits.
 
     References:
@@ -57,7 +55,9 @@ class ConvNeXtV2Model(ConvNeXtModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ConvNeXtV2Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ConvNeXtV2ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -71,7 +71,7 @@ class ConvNeXtV2Model(ConvNeXtModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ConvNeXtV2Classify(ConvNeXtClassify):
+class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
     """Instantiates the ConvNeXtV2 classifier.
 
     This classifier wraps a :class:`ConvNeXtV2Model` backbone and
@@ -122,7 +122,7 @@ class ConvNeXtV2Classify(ConvNeXtClassify):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ConvNeXtV2Classify"`.
+            named `f"{name}_backbone"`. Defaults to `"ConvNeXtV2ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -154,7 +154,7 @@ class ConvNeXtV2Classify(ConvNeXtClassify):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ConvNeXtV2Classify",
+        name="ConvNeXtV2ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)
@@ -184,8 +184,7 @@ class ConvNeXtV2Classify(ConvNeXtClassify):
             num_classes, activation=classifier_activation, name="predictions"
         )(x)
 
-        # Skip ConvNeXtClassify.__init__; go straight to BaseModel.
-        super(ConvNeXtClassify, self).__init__(
+        super(ConvNeXtImageClassify, self).__init__(
             inputs=backbone.input, outputs=out, name=name, **kwargs
         )
 

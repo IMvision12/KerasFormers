@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import VGG_MODEL_CONFIG, VGG_WEIGHT_CONFIG
-from .convert_vgg_torch_to_keras import transfer_vgg_weights
 
 
 def vgg_block(
@@ -135,7 +134,7 @@ class VGGModel(BaseModel):
     convolutions) that form the classifier head's feature extractor.
     Output is the last layer output before the classifier head: the
     final pre-logits 4096-channel feature map ``(B, H, W, C)``.
-    :class:`VGGClassify` composes this model and attaches a
+    :class:`VGGImageClassify` composes this model and attaches a
     GlobalAveragePooling2D + Dropout + Dense head to produce logits.
 
     References:
@@ -184,13 +183,15 @@ class VGGModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = VGGClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = VGGImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_vgg_torch_to_keras import transfer_vgg_weights
+
         transfer_vgg_weights(keras_model, state_dict)
 
     def __init__(
@@ -278,7 +279,7 @@ class VGGModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class VGGClassify(BaseModel):
+class VGGImageClassify(BaseModel):
     """Instantiates the VGG classifier.
 
     This classifier wraps a :class:`VGGModel` backbone and attaches a
@@ -320,7 +321,7 @@ class VGGClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"VGGClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"VGGImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -335,6 +336,8 @@ class VGGClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_vgg_torch_to_keras import transfer_vgg_weights
+
         transfer_vgg_weights(keras_model, state_dict)
 
     def __init__(
@@ -348,7 +351,7 @@ class VGGClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="VGGClassify",
+        name="VGGImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

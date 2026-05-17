@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHT_CONFIG
-from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
 from .nextvit_layers import EfficientAttention
 
 
@@ -551,7 +550,7 @@ class NextViTModel(BaseModel):
     Output is the last layer output before the classifier head:
     the final stage feature map ``(B, H, W, C)`` (channels-last) /
     ``(B, C, H, W)`` (channels-first) after the trailing BatchNorm,
-    unpooled and head-free. :class:`NextViTClassify` composes this model
+    unpooled and head-free. :class:`NextViTImageClassify` composes this model
     and appends GAP + Dense.
 
     References:
@@ -608,13 +607,17 @@ class NextViTModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = NextViTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = NextViTImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
+
         transfer_nextvit_weights(keras_model, state_dict)
 
     def __init__(
@@ -715,7 +718,7 @@ class NextViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class NextViTClassify(BaseModel):
+class NextViTImageClassify(BaseModel):
     """Instantiates the NextViT classifier.
 
     This classifier wraps a :class:`NextViTModel` backbone and attaches
@@ -764,7 +767,7 @@ class NextViTClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"NextViTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"NextViTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -779,6 +782,8 @@ class NextViTClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_nextvit_timm_to_keras import transfer_nextvit_weights
+
         transfer_nextvit_weights(keras_model, state_dict)
 
     def __init__(
@@ -796,7 +801,7 @@ class NextViTClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="NextViTClassify",
+        name="NextViTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

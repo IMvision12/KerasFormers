@@ -1,3 +1,3 @@
-from kerasformers.models.swin.swin_model import SwinClassify, SwinModel
+from kerasformers.models.swin.swin_model import SwinImageClassify, SwinModel
 
-__all__ = ["SwinClassify", "SwinModel"]
+__all__ = ["SwinImageClassify", "SwinModel"]

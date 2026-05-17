@@ -1,8 +1,13 @@
 from typing import Dict, List
 
+import keras
 import numpy as np
+import torch
+import torchvision.transforms as T
 from tqdm import tqdm
+from transformers import DetrForObjectDetection
 
+from kerasformers.models.detr import DETRDetect
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -29,17 +34,6 @@ backbone_weight_name_mapping: Dict[str, str] = {
 
 
 def transfer_detr_weights(keras_model, state_dict):
-    """Transfer DETR weights from a ``DetrForObjectDetection`` state_dict.
-
-    Handles the ResNet backbone, the input projection, the transformer
-    encoder/decoder, the decoder layer norm, the classifier head, and
-    the bbox MLP head.
-
-    Args:
-        keras_model: A ``DETRDetect`` instance.
-        state_dict: Mapping of torch weight names to numpy arrays from
-            ``DetrForObjectDetection.state_dict()``.
-    """
     backbone_layers = [
         layer for layer in keras_model.layers if layer.name.startswith("backbone_")
     ]
@@ -216,13 +210,6 @@ def transfer_detr_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
-    import keras
-    import torch
-    import torchvision.transforms as T
-    from transformers import DetrForObjectDetection
-
-    from kerasformers.models.detr import DETRDetect
-
     model_configs: List[Dict[str, object]] = [
         {
             "variant": "detr-resnet-50",

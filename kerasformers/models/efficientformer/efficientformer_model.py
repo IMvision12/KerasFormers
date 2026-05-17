@@ -1,5 +1,3 @@
-"""EfficientFormer classifier and backbone (timm-ported)."""
-
 import keras
 import numpy as np
 from keras import layers, ops, utils
@@ -11,7 +9,6 @@ from kerasformers.models.efficientformer.efficientformer_layers import Attention
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTFORMER_MODEL_CONFIG, EFFICIENTFORMER_WEIGHT_CONFIG
-from .convert_efficientformer_torch_to_keras import transfer_efficientformer_weights
 
 
 def conv_mlp_block(
@@ -357,7 +354,7 @@ class EfficientFormerModel(BaseModel):
     Output is the last layer output before the classifier head: a 1D
     token tensor of shape ``(B, N, C)`` when the final stage uses
     transformer blocks (``num_vit > 0``), otherwise a 2D feature map of
-    shape ``(B, H, W, C)``. :class:`EfficientFormerClassify` composes
+    shape ``(B, H, W, C)``. :class:`EfficientFormerImageClassify` composes
     this model and applies a LayerNorm + mean-pool + Dropout + dual
     Dense (head + head_dist) + Average head on top.
 
@@ -420,7 +417,7 @@ class EfficientFormerModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = EfficientFormerClassify.from_weights(
+            src = EfficientFormerImageClassify.from_weights(
                 variant, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
@@ -429,6 +426,10 @@ class EfficientFormerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientformer_torch_to_keras import (
+            transfer_efficientformer_weights,
+        )
+
         transfer_efficientformer_weights(keras_model, state_dict)
 
     def __init__(
@@ -543,7 +544,7 @@ class EfficientFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientFormerClassify(BaseModel):
+class EfficientFormerImageClassify(BaseModel):
     """Instantiates the EfficientFormer classifier.
 
     This classifier wraps a :class:`EfficientFormerModel` backbone and
@@ -601,7 +602,7 @@ class EfficientFormerClassify(BaseModel):
             to return class probabilities. Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`. Defaults to
-            `"EfficientFormerClassify"`.
+            `"EfficientFormerImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -616,6 +617,10 @@ class EfficientFormerClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientformer_torch_to_keras import (
+            transfer_efficientformer_weights,
+        )
+
         transfer_efficientformer_weights(keras_model, state_dict)
 
     def __init__(
@@ -635,7 +640,7 @@ class EfficientFormerClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="EfficientFormerClassify",
+        name="EfficientFormerImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

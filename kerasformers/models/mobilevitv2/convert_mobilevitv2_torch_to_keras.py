@@ -1,14 +1,14 @@
-"""timm MobileViTV2 -> Keras weight transfer.
-
-Exposes :func:`transfer_mobilevitv2_weights` for both the offline
-conversion ``__main__`` block (timm checkpoints -> kerasformers release
-files) and the runtime ``MobileViTV2.from_weights("timm:...")`` path.
-"""
-
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.mobilevitv2 import MobileViTV2ImageClassify as MobileViTV2
+from kerasformers.models.mobilevitv2.config import MOBILEVITV2_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -52,12 +52,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 def transfer_mobilevitv2_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm MobileViTV2 state-dict into a Keras :class:`MobileViTV2`.
-
-    Args:
-        keras_model: A built :class:`MobileViTV2` instance.
-        state_dict: Mapping of timm weight names to numpy arrays.
-    """
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -82,16 +76,6 @@ def transfer_mobilevitv2_weights(
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.mobilevitv2 import MobileViTV2Classify as MobileViTV2
-    from kerasformers.models.mobilevitv2.config import MOBILEVITV2_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

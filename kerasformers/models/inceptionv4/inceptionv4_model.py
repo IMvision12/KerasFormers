@@ -8,7 +8,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTIONV4_MODEL_CONFIG, INCEPTIONV4_WEIGHT_CONFIG
-from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
 
 
 def conv_block(
@@ -81,14 +80,21 @@ def conv_block(
 
 
 def stem_blocks(x, conv_block):
-    """InceptionV4 stem: 3 conv layers before the Mixed blocks.
+    """InceptionV4 initial stem — three Conv→BN→ReLU layers.
+
+    First three layers of the InceptionV4 architecture before the
+    Mixed-3a / Mixed-4a / Mixed-5a reduction sequence: stride-2 3×3 →
+    valid 3×3 → same-padded 3×3 (32 → 32 → 64 channels). Brings the
+    input from full resolution to roughly ``H/2`` at 64 channels before
+    the Mixed blocks start downsampling further.
 
     Args:
         x: Input image tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
 
     Returns:
-        Tensor after the three stem convolutions.
+        Tensor after the three stem convolutions (64 channels, spatial
+        size ≈ ``H/2``).
     """
     x = conv_block(x, 32, kernel_size=3, strides=2, name="features_0")
     x = conv_block(x, 32, kernel_size=3, name="features_1")
@@ -97,11 +103,18 @@ def stem_blocks(x, conv_block):
 
 
 def mixed3a(x, conv_block, name="features_3"):
-    """Mixed3a: MaxPool || strided 3x3 conv.
+    """Mixed-3a stem-reduction block — first 2× downsample after the stem.
+
+    Two parallel branches concatenated along the channel axis:
+
+    1. **3×3 max-pool, stride-2** — passes through input channels (64).
+    2. **Strided 3×3 conv** — 96 channels, stride-2.
+
+    Output has 64 + 96 = 160 channels at half the input spatial size.
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         name: Name prefix for layers in the block.
 
     Returns:
@@ -116,11 +129,21 @@ def mixed3a(x, conv_block, name="features_3"):
 
 
 def mixed4a(x, conv_block, name="features_4"):
-    """Mixed4a: parallel paths with 1x7 + 7x1 factorized convs.
+    """Mixed-4a stem block — two parallel paths with factorized 7×7 convs.
+
+    Spatial size is preserved. Two branches concatenated along the
+    channel axis:
+
+    1. **1×1 → 3×3** — 64 → 96 channels.
+    2. **1×1 → 1×7 → 7×1 → 3×3** — 64 → 64 → 64 → 96 channels
+       (factorized 7×7 sandwiched between 1×1 reductions and a final
+       3×3).
+
+    Output has 96 + 96 = 192 channels.
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         name: Name prefix for layers in the block.
 
     Returns:
@@ -157,11 +180,19 @@ def mixed4a(x, conv_block, name="features_4"):
 
 
 def mixed5a(x, conv_block, name="features_5"):
-    """Mixed5a: strided 3x3 conv || maxpool.
+    """Mixed-5a stem-reduction block — second 2× downsample.
+
+    Two parallel branches concatenated along the channel axis:
+
+    1. **Strided 3×3 conv** — 192 channels, stride-2.
+    2. **3×3 max-pool, stride-2** — passes through input channels (192).
+
+    Output has 192 + 192 = 384 channels at half the input spatial size,
+    ready to feed the Inception-A stack.
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         name: Name prefix for layers in the block.
 
     Returns:
@@ -176,11 +207,22 @@ def mixed5a(x, conv_block, name="features_5"):
 
 
 def inception_a(x, conv_block, block_idx):
-    """Inception-A block (4 parallel branches).
+    """Inception-A block (uniform InceptionV4 module, 4× in stage A).
+
+    Four parallel branches concatenated along the channel axis:
+
+    1. **1×1** — 96 channels.
+    2. **1×1 → 3×3** — 64 → 96 channels.
+    3. **1×1 → 3×3 → 3×3** — 64 → 96 → 96 channels (replaces 5×5 with
+       a stack of 3×3s).
+    4. **Avg-pool → 1×1** — same spatial → 96 channels.
+
+    Spatial size is preserved. Output has 96 × 4 = 384 channels.
+    Used four times consecutively in stage A (after Mixed-5a).
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         block_idx: Integer index used to assemble the ``features_{idx}`` name
             prefix.
 
@@ -218,11 +260,22 @@ def inception_a(x, conv_block, block_idx):
 
 
 def reduction_a(x, conv_block, name="features_10"):
-    """Reduction-A: spatial downsampling stage.
+    """Reduction-A — halves spatial size between Inception-A and -B stages.
+
+    Three parallel branches concatenated along the channel axis:
+
+    1. **Strided 3×3** — 384 channels, stride-2.
+    2. **1×1 → 3×3 → strided 3×3** — 192 → 224 → 256 channels, last
+       conv stride-2.
+    3. **Strided max-pool** — 3×3, stride-2 (passes through input
+       channels, 384).
+
+    Used once between the Inception-A and Inception-B stacks. Output
+    has 384 + 256 + 384 = 1024 channels at half the input spatial size.
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         name: Name prefix for layers in the block.
 
     Returns:
@@ -249,11 +302,25 @@ def reduction_a(x, conv_block, name="features_10"):
 
 
 def inception_b(x, conv_block, block_idx):
-    """Inception-B block with 1x7 and 7x1 factorized convolutions.
+    """Inception-B block (factorized 7×7 module, 7× in stage B).
+
+    Four parallel branches with factorized 7×7 convolutions
+    (``7×7 = 1×7 → 7×1``), concatenated along the channel axis:
+
+    1. **1×1** — 384 channels.
+    2. **1×1 → 1×7 → 7×1** — 192 → 224 → 256 channels (single 7×7
+       factorized).
+    3. **1×1 → 7×1 → 1×7 → 7×1 → 1×7** — 192 → 192 → 224 → 224 → 256
+       channels (double 7×7 factorized).
+    4. **Avg-pool → 1×1** — 128 channels.
+
+    Spatial size is preserved. Output has 384 + 256 + 256 + 128 = 1024
+    channels. Used seven times consecutively in stage B (after
+    Reduction-A).
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         block_idx: Integer index used to assemble the ``features_{idx}`` name
             prefix.
 
@@ -330,11 +397,23 @@ def inception_b(x, conv_block, block_idx):
 
 
 def reduction_b(x, conv_block, name="features_18"):
-    """Reduction-B: spatial downsampling stage.
+    """Reduction-B — halves spatial size between Inception-B and -C stages.
+
+    Three parallel branches concatenated along the channel axis:
+
+    1. **1×1 → strided 3×3** — 192 → 192 channels, last conv stride-2.
+    2. **1×1 → 1×7 → 7×1 → strided 3×3** — 256 → 256 → 320 → 320
+       channels (factorized 7×7 + stride-2 3×3).
+    3. **Strided max-pool** — 3×3, stride-2 (passes through input
+       channels, 1024).
+
+    Used once between the Inception-B and Inception-C stacks. Output
+    has 192 + 320 + 1024 = 1536 channels at half the input spatial
+    size.
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         name: Name prefix for layers in the block.
 
     Returns:
@@ -377,11 +456,27 @@ def reduction_b(x, conv_block, name="features_18"):
 
 
 def inception_c(x, conv_block, block_idx):
-    """Inception-C block with split 1x3 and 3x1 parallel convolutions.
+    """Inception-C block (parallel 3×3 split, 3× in stage C).
+
+    Four parallel branches with the **parallel** (not stacked) 3×3
+    factorization — each ``3×3`` is split into ``1×3 || 3×1`` branches
+    whose outputs are concatenated, producing a wider feature map per
+    branch instead of a deeper stack. Concatenated along the channel
+    axis:
+
+    1. **1×1** — 256 channels.
+    2. **1×1 → (1×3 ∥ 3×1)** — 384 → 256 || 256 channels (concat = 512).
+    3. **1×1 → 3×1 → 1×3 → (1×3 ∥ 3×1)** — 384 → 448 → 512 → 256 || 256
+       channels (concat = 512).
+    4. **Avg-pool → 1×1** — 256 channels.
+
+    Output has 256 + 512 + 512 + 256 = 1536 channels — the final
+    InceptionV4 feature width. Used three times consecutively in stage
+    C (after Reduction-B).
 
     Args:
         x: Input Keras tensor.
-        conv_block: Callable that builds a Conv -> BN -> ReLU block.
+        conv_block: Callable that builds a Conv → BN → ReLU block.
         block_idx: Integer index used to assemble the ``features_{idx}`` name
             prefix.
 
@@ -513,7 +608,7 @@ class InceptionV4Model(BaseModel):
     auxiliary classifier branches. The output tensor is the last layer
     output before the classifier head — the final-stage feature map
     ``(B, H, W, C)`` (after the last Inception-C block), unpooled and
-    head-free. :class:`InceptionV4Classify` composes this model and
+    head-free. :class:`InceptionV4ImageClassify` composes this model and
     applies a GlobalAveragePooling2D + Dense head to produce logits.
 
     References:
@@ -559,13 +654,17 @@ class InceptionV4Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = InceptionV4Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = InceptionV4ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
+
         transfer_inceptionv4_weights(keras_model, state_dict)
 
     def __init__(
@@ -638,7 +737,7 @@ class InceptionV4Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionV4Classify(BaseModel):
+class InceptionV4ImageClassify(BaseModel):
     """Instantiates the Inception V4 classifier.
 
     This classifier wraps an :class:`InceptionV4Model` backbone and
@@ -674,7 +773,7 @@ class InceptionV4Classify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"InceptionV4Classify"`.
+            named `f"{name}_backbone"`. Defaults to `"InceptionV4ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -689,6 +788,8 @@ class InceptionV4Classify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
+
         transfer_inceptionv4_weights(keras_model, state_dict)
 
     def __init__(
@@ -700,7 +801,7 @@ class InceptionV4Classify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="InceptionV4Classify",
+        name="InceptionV4ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

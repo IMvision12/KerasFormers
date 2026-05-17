@@ -4,10 +4,6 @@ from keras import layers, ops
 from kerasformers.base import BaseModel
 
 from .config import OWLVIT_CONFIG, OWLVIT_WEIGHTS
-from .convert_owlvit_hf_to_keras import (
-    transfer_owlvit_detection_weights,
-    transfer_owlvit_encoder_weights,
-)
 from .owlvit_layers import (
     OwlViTAttention,
     OwlViTSplitBatchQueries,
@@ -642,6 +638,8 @@ class OwlViT(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_owlvit_hf_to_keras import transfer_owlvit_encoder_weights
+
         transfer_owlvit_encoder_weights(keras_model, hf_state_dict)
 
 
@@ -770,4 +768,6 @@ class OwlViTDetect(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_owlvit_hf_to_keras import transfer_owlvit_detection_weights
+
         transfer_owlvit_detection_weights(keras_model, hf_state_dict)

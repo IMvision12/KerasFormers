@@ -1,14 +1,14 @@
-"""timm ResNet -> Keras weight transfer.
-
-Exposes :func:`transfer_resnet_weights` for both the offline conversion
-``__main__`` block (timm checkpoints -> kerasformers release files) and the
-runtime ``ResNet.from_weights("timm:...")`` path.
-"""
-
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.resnet import ResNetImageClassify
+from kerasformers.models.resnet.config import RESNET_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -39,14 +39,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_resnet_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm ResNet state-dict into a Keras :class:`ResNet`.
-
-    Args:
-        keras_model: A built :class:`ResNet` instance.
-        state_dict: Mapping of timm weight names to numpy arrays (e.g.
-            from ``timm.create_model(...).state_dict()`` with each
-            tensor moved to CPU + ``.numpy()``).
-    """
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -71,16 +63,6 @@ def transfer_resnet_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.resnet import ResNetClassify
-    from kerasformers.models.resnet.config import RESNET_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in RESNET_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
@@ -88,7 +70,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ResNetClassify.from_weights(variant, load_weights=False)
+        keras_model = ResNetImageClassify.from_weights(variant, load_weights=False)
         transfer_resnet_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

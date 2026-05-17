@@ -94,36 +94,32 @@ DEPTHANYTHINGV2_CONFIG = {
     },
 }
 
-V2_BASE_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2"
-)
-
 DEPTHANYTHINGV2_WEIGHTS = {
     "depth_anything_v2_small": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_small.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_small.weights.h5",
     },
     "depth_anything_v2_base": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_base.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_base.weights.h5",
     },
     "depth_anything_v2_large": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_large.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_large.weights.h5",
     },
     "depth_anything_v2_metric_indoor_small": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_metric_indoor_small.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_metric_indoor_small.weights.h5",
     },
     "depth_anything_v2_metric_indoor_base": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_metric_indoor_base.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_metric_indoor_base.weights.h5",
     },
     "depth_anything_v2_metric_indoor_large": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_metric_indoor_large.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_metric_indoor_large.weights.h5",
     },
     "depth_anything_v2_metric_outdoor_small": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_metric_outdoor_small.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_metric_outdoor_small.weights.h5",
     },
     "depth_anything_v2_metric_outdoor_base": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_metric_outdoor_base.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_metric_outdoor_base.weights.h5",
     },
     "depth_anything_v2_metric_outdoor_large": {
-        "url": f"{V2_BASE_URL}/depth_anything_v2_metric_outdoor_large.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth-anything-v2/depth_anything_v2_metric_outdoor_large.weights.h5",
     },
 }

@@ -1,8 +1,12 @@
 from typing import Any, Dict, List, Tuple
 
+import keras
 import numpy as np
+import torch
 from tqdm import tqdm
+from transformers import RTDetrV2ForObjectDetection
 
+from kerasformers.models.rt_detr_v2 import RTDETRV2Detect
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
@@ -19,16 +23,6 @@ backbone_name_mapping: Dict[str, str] = {
 
 
 def transfer_rt_detr_v2_weights(keras_model, state_dict):
-    """Transfer RT-DETR-V2 weights from a ``RTDetrV2ForObjectDetection`` state_dict.
-
-    Same overall structure as RT-DETR (backbone → hybrid encoder →
-    deformable decoder → per-layer heads), with the V2 deformable
-    attention variant in the decoder.
-
-    Args:
-        keras_model: A ``RTDETRV2Detect`` instance.
-        state_dict: Mapping of torch weight names to numpy arrays.
-    """
     sd = state_dict
     block_repeats = keras_model._backbone_block_repeats
     layer_type = keras_model._backbone_layer_type
@@ -310,12 +304,6 @@ def transfer_rt_detr_v2_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
-    import keras
-    import torch
-    from transformers import RTDetrV2ForObjectDetection
-
-    from kerasformers.models.rt_detr_v2 import RTDETRV2Detect
-
     model_configs: List[Dict[str, Any]] = [
         {
             "variant": "rtdetr-v2-r50vd",

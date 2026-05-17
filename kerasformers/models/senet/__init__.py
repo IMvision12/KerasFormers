@@ -1,6 +1,3 @@
-from kerasformers.models.senet.senet_model import (
-    SENetClassify,
-    SENetModel,
-)
+from kerasformers.models.senet.senet_model import SENetImageClassify, SENetModel
 
-__all__ = ["SENetClassify", "SENetModel"]
+__all__ = ["SENetImageClassify", "SENetModel"]

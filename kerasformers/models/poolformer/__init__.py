@@ -1,6 +1,6 @@
 from kerasformers.models.poolformer.poolformer_model import (
-    PoolFormerClassify,
+    PoolFormerImageClassify,
     PoolFormerModel,
 )
 
-__all__ = ["PoolFormerClassify", "PoolFormerModel"]
+__all__ = ["PoolFormerImageClassify", "PoolFormerModel"]

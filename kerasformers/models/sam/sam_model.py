@@ -2,7 +2,6 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import BaseModel
-from kerasformers.models.sam.convert_sam_hf_to_keras import transfer_sam_weights
 
 from .config import SAM_CONFIG, SAM_WEIGHTS
 from .sam_layers import (
@@ -354,6 +353,8 @@ class SAMPromptableSegment(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.sam.convert_sam_hf_to_keras import transfer_sam_weights
+
         transfer_sam_weights(keras_model, hf_state_dict)
 
     def __init__(

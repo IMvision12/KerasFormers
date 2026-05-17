@@ -81,13 +81,6 @@ _classifier_conv_bn_pairs: List[Tuple[str, str, str, str]] = [
 def transfer_deeplabv3_weights(
     keras_model: keras.Model, torch_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer DeepLabV3 weights from a torchvision state-dict.
-
-    Args:
-        keras_model: A ``DeepLabV3Segment`` instance.
-        torch_state_dict: Mapping of torchvision weight names to numpy
-            arrays.
-    """
     trainable, non_trainable = split_model_weights(keras_model)
     all_keras_weights = trainable + non_trainable
     backbone_weights = [

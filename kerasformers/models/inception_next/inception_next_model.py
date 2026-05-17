@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTION_NEXT_MODEL_CONFIG, INCEPTION_NEXT_WEIGHT_CONFIG
-from .convert_inception_next_torch_to_keras import transfer_inception_next_weights
 
 
 def inception_dwconv2d(
@@ -234,7 +233,7 @@ class InceptionNextModel(BaseModel):
     Output is the last layer output before the classifier head:
     the final stage feature map ``(B, H, W, C)`` (channels-last) /
     ``(B, C, H, W)`` (channels-first), unpooled and head-free.
-    :class:`InceptionNextClassify` composes this model and appends the
+    :class:`InceptionNextImageClassify` composes this model and appends the
     MLP head.
 
     References:
@@ -288,7 +287,7 @@ class InceptionNextModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = InceptionNextClassify.from_weights(
+            src = InceptionNextImageClassify.from_weights(
                 variant, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
@@ -297,6 +296,10 @@ class InceptionNextModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inception_next_torch_to_keras import (
+            transfer_inception_next_weights,
+        )
+
         transfer_inception_next_weights(keras_model, state_dict)
 
     def __init__(
@@ -393,7 +396,7 @@ class InceptionNextModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionNextClassify(BaseModel):
+class InceptionNextImageClassify(BaseModel):
     """Instantiates the InceptionNeXt classifier.
 
     This classifier wraps an :class:`InceptionNextModel` backbone and
@@ -441,7 +444,7 @@ class InceptionNextClassify(BaseModel):
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`.
-            Defaults to `"InceptionNextClassify"`.
+            Defaults to `"InceptionNextImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -456,6 +459,10 @@ class InceptionNextClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_inception_next_torch_to_keras import (
+            transfer_inception_next_weights,
+        )
+
         transfer_inception_next_weights(keras_model, state_dict)
 
     def __init__(
@@ -472,7 +479,7 @@ class InceptionNextClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="InceptionNextClassify",
+        name="InceptionNextImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

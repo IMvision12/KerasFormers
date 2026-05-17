@@ -12,7 +12,6 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MOBILEVIT_MODEL_CONFIG, MOBILEVIT_WEIGHT_CONFIG
-from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -385,7 +384,7 @@ class MobileViTModel(BaseModel):
     Output is the last layer output before the classifier head:
     the final stage feature map ``(B, H, W, C)`` (channels-last) /
     ``(B, C, H, W)`` (channels-first) with ``block_dims[-1]`` channels at
-    spatial resolution ``H/32``. :class:`MobileViTClassify` composes this
+    spatial resolution ``H/32``. :class:`MobileViTImageClassify` composes this
     model and appends the final 1x1 conv + GAP + Dense head.
 
     References:
@@ -439,13 +438,17 @@ class MobileViTModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = MobileViTClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MobileViTImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
+
         transfer_mobilevit_weights(keras_model, state_dict)
 
     def __init__(
@@ -541,7 +544,7 @@ class MobileViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileViTClassify(BaseModel):
+class MobileViTImageClassify(BaseModel):
     """Instantiates the MobileViT classifier.
 
     This classifier wraps a :class:`MobileViTModel` backbone and attaches
@@ -588,7 +591,7 @@ class MobileViTClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"MobileViTClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"MobileViTImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -603,6 +606,8 @@ class MobileViTClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
+
         transfer_mobilevit_weights(keras_model, state_dict)
 
     def __init__(
@@ -619,7 +624,7 @@ class MobileViTClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="MobileViTClassify",
+        name="MobileViTImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

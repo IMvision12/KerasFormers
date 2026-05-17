@@ -1,10 +1,15 @@
-"""timm EfficientNetV2 (TF) -> Keras weight transfer."""
-
+import gc
 import re
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.efficientnetv2 import EfficientNetV2ImageClassify
+from kerasformers.models.efficientnetv2.config import EFFICIENTNETV2_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -15,12 +20,8 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-# Block 0 (stage 1) uses a single fused conv that timm names ``conv``/``bn1``
-# rather than ``conv_pwl``/``bn2`` like the rest of the FMB blocks. The Keras
-# code emits the standard FMB names, so we remap them back to timm's for the
-# first stage only.
 _BLOCK0_REMAP = {}
-for j in range(8):  # XL has the most repeats in stage 0 (4); pad generously.
+for j in range(8):
     prefix = f"blocks.0.{j}"
     _BLOCK0_REMAP[f"{prefix}.conv_pwl"] = f"{prefix}.conv"
     _BLOCK0_REMAP[f"{prefix}.bn2"] = f"{prefix}.bn1"
@@ -49,7 +50,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 def transfer_efficientnetv2_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer a timm EfficientNetV2 state-dict into a Keras :class:`EfficientNetV2`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -77,16 +77,6 @@ def transfer_efficientnetv2_weights(
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.efficientnetv2 import EfficientNetV2Classify
-    from kerasformers.models.efficientnetv2.config import EFFICIENTNETV2_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in EFFICIENTNETV2_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
@@ -94,7 +84,9 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientNetV2Classify.from_weights(variant, load_weights=False)
+        keras_model = EfficientNetV2ImageClassify.from_weights(
+            variant, load_weights=False
+        )
         transfer_efficientnetv2_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

@@ -1,9 +1,9 @@
 from kerasformers.models.efficientnet_lite.efficientnet_lite_model import (
-    EfficientNetLiteClassify,
+    EfficientNetLiteImageClassify,
     EfficientNetLiteModel,
 )
 
 __all__ = [
-    "EfficientNetLiteClassify",
+    "EfficientNetLiteImageClassify",
     "EfficientNetLiteModel",
 ]

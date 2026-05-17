@@ -1,9 +1,14 @@
-"""timm ConvMixerClassify -> Keras weight transfer."""
-
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.convmixer import ConvMixerImageClassify
+from kerasformers.models.convmixer.config import CONVMIXER_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -34,7 +39,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_convmixer_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm ConvMixerClassify state-dict into a Keras :class:`ConvMixerClassify`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -59,16 +63,6 @@ def transfer_convmixer_weights(keras_model, state_dict: Dict[str, np.ndarray]) -
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.convmixer import ConvMixerClassify
-    from kerasformers.models.convmixer.config import CONVMIXER_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in CONVMIXER_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
@@ -76,7 +70,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ConvMixerClassify.from_weights(variant, load_weights=False)
+        keras_model = ConvMixerImageClassify.from_weights(variant, load_weights=False)
         transfer_convmixer_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

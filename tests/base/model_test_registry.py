@@ -13,10 +13,10 @@
 #   that the model's output should have. Use `None` for dynamic shapes.
 
 MODEL_TEST_CONFIGS = {
-    # ---------- Classification: XClassify (full classifier with head) ----------
-    "CaiTClassify": {
+    # ---------- Classification: XImageClassify (full classifier with head) ----------
+    "CaiTImageClassify": {
         "module": "kerasformers.models.cait",
-        "model_cls": "CaiTClassify",
+        "model_cls": "CaiTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "patch_size": 16,
@@ -30,9 +30,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ConvMixerClassify": {
+    "ConvMixerImageClassify": {
         "module": "kerasformers.models.convmixer",
-        "model_cls": "ConvMixerClassify",
+        "model_cls": "ConvMixerImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "dim": 128,
@@ -47,9 +47,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ConvNeXtClassify": {
+    "ConvNeXtImageClassify": {
         "module": "kerasformers.models.convnext",
-        "model_cls": "ConvNeXtClassify",
+        "model_cls": "ConvNeXtImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "depths": (2, 2, 2, 2),
@@ -61,9 +61,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ConvNeXtV2Classify": {
+    "ConvNeXtV2ImageClassify": {
         "module": "kerasformers.models.convnextv2",
-        "model_cls": "ConvNeXtV2Classify",
+        "model_cls": "ConvNeXtV2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "depths": (2, 2, 2, 2),
@@ -78,9 +78,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "DeiTClassify": {
+    "DeiTImageClassify": {
         "module": "kerasformers.models.deit",
-        "model_cls": "DeiTClassify",
+        "model_cls": "DeiTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "patch_size": 16,
@@ -94,9 +94,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "DenseNetClassify": {
+    "DenseNetImageClassify": {
         "module": "kerasformers.models.densenet",
-        "model_cls": "DenseNetClassify",
+        "model_cls": "DenseNetImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "num_blocks": (2, 2, 2, 2),
@@ -109,9 +109,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "EfficientFormerClassify": {
+    "EfficientFormerImageClassify": {
         "module": "kerasformers.models.efficientformer",
-        "model_cls": "EfficientFormerClassify",
+        "model_cls": "EfficientFormerImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "depths": (1, 1, 2, 1),
@@ -124,9 +124,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "EfficientNetClassify": {
+    "EfficientNetImageClassify": {
         "module": "kerasformers.models.efficientnet",
-        "model_cls": "EfficientNetClassify",
+        "model_cls": "EfficientNetImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "width_coefficient": 1.0,
@@ -140,9 +140,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "EfficientNetLiteClassify": {
+    "EfficientNetLiteImageClassify": {
         "module": "kerasformers.models.efficientnet_lite",
-        "model_cls": "EfficientNetLiteClassify",
+        "model_cls": "EfficientNetLiteImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "width_coefficient": 1.0,
@@ -156,9 +156,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "EfficientNetV2Classify": {
+    "EfficientNetV2ImageClassify": {
         "module": "kerasformers.models.efficientnetv2",
-        "model_cls": "EfficientNetV2Classify",
+        "model_cls": "EfficientNetV2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "width_coefficient": 1.0,
@@ -173,9 +173,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "FlexiViTClassify": {
+    "FlexiViTImageClassify": {
         "module": "kerasformers.models.flexivit",
-        "model_cls": "FlexiViTClassify",
+        "model_cls": "FlexiViTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "patch_size": 16,
@@ -190,9 +190,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "InceptionNextClassify": {
+    "InceptionNextImageClassify": {
         "module": "kerasformers.models.inception_next",
-        "model_cls": "InceptionNextClassify",
+        "model_cls": "InceptionNextImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "depths": (2, 2, 2, 2),
@@ -207,9 +207,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "InceptionResNetV2Classify": {
+    "InceptionResNetV2ImageClassify": {
         "module": "kerasformers.models.inception_resnetv2",
-        "model_cls": "InceptionResNetV2Classify",
+        "model_cls": "InceptionResNetV2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "image_size": 75,
@@ -219,9 +219,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 75, 75, 3),
         "expected_output_shape": (2, 1000),
     },
-    "InceptionV3Classify": {
+    "InceptionV3ImageClassify": {
         "module": "kerasformers.models.inceptionv3",
-        "model_cls": "InceptionV3Classify",
+        "model_cls": "InceptionV3ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "image_size": 75,
@@ -231,9 +231,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 75, 75, 3),
         "expected_output_shape": (2, 1000),
     },
-    "InceptionV4Classify": {
+    "InceptionV4ImageClassify": {
         "module": "kerasformers.models.inceptionv4",
-        "model_cls": "InceptionV4Classify",
+        "model_cls": "InceptionV4ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "image_size": 75,
@@ -243,9 +243,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 75, 75, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MaxViTClassify": {
+    "MaxViTImageClassify": {
         "module": "kerasformers.models.maxvit",
-        "model_cls": "MaxViTClassify",
+        "model_cls": "MaxViTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "stem_width": 64,
@@ -260,9 +260,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MiTClassify": {
+    "MiTImageClassify": {
         "module": "kerasformers.models.mit",
-        "model_cls": "MiTClassify",
+        "model_cls": "MiTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "embed_dims": (32, 64, 160, 256),
@@ -274,9 +274,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MLPMixerClassify": {
+    "MLPMixerImageClassify": {
         "module": "kerasformers.models.mlp_mixer",
-        "model_cls": "MLPMixerClassify",
+        "model_cls": "MLPMixerImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "patch_size": 16,
@@ -290,9 +290,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MobileNetV2Classify": {
+    "MobileNetV2ImageClassify": {
         "module": "kerasformers.models.mobilenetv2",
-        "model_cls": "MobileNetV2Classify",
+        "model_cls": "MobileNetV2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "width_multiplier": 0.5,
@@ -305,9 +305,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MobileNetV3Classify": {
+    "MobileNetV3ImageClassify": {
         "module": "kerasformers.models.mobilenetv3",
-        "model_cls": "MobileNetV3Classify",
+        "model_cls": "MobileNetV3ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "width_multiplier": 0.5,
@@ -321,9 +321,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MobileViTClassify": {
+    "MobileViTImageClassify": {
         "module": "kerasformers.models.mobilevit",
-        "model_cls": "MobileViTClassify",
+        "model_cls": "MobileViTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "initial_dims": 16,
@@ -338,9 +338,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 1000),
     },
-    "MobileViTV2Classify": {
+    "MobileViTV2ImageClassify": {
         "module": "kerasformers.models.mobilevitv2",
-        "model_cls": "MobileViTV2Classify",
+        "model_cls": "MobileViTV2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "multiplier": 0.5,
@@ -351,9 +351,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 1000),
     },
-    "NextViTClassify": {
+    "NextViTImageClassify": {
         "module": "kerasformers.models.nextvit",
-        "model_cls": "NextViTClassify",
+        "model_cls": "NextViTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "depths": (1, 1, 5, 1),
@@ -369,9 +369,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "PiTClassify": {
+    "PiTImageClassify": {
         "module": "kerasformers.models.pit",
-        "model_cls": "PiTClassify",
+        "model_cls": "PiTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "patch_size": 16,
@@ -388,9 +388,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "PoolFormerClassify": {
+    "PoolFormerImageClassify": {
         "module": "kerasformers.models.poolformer",
-        "model_cls": "PoolFormerClassify",
+        "model_cls": "PoolFormerImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "embed_dims": (64, 128, 320, 512),
@@ -403,9 +403,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "Res2NetClassify": {
+    "Res2NetImageClassify": {
         "module": "kerasformers.models.res2net",
-        "model_cls": "Res2NetClassify",
+        "model_cls": "Res2NetImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "depth": [1, 1, 1, 1],
@@ -418,9 +418,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ResMLPClassify": {
+    "ResMLPImageClassify": {
         "module": "kerasformers.models.resmlp",
-        "model_cls": "ResMLPClassify",
+        "model_cls": "ResMLPImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "patch_size": 16,
@@ -435,9 +435,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ResNetClassify": {
+    "ResNetImageClassify": {
         "module": "kerasformers.models.resnet",
-        "model_cls": "ResNetClassify",
+        "model_cls": "ResNetImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "block_repeats": [1, 1, 1, 1],
@@ -448,9 +448,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ResNetV2Classify": {
+    "ResNetV2ImageClassify": {
         "module": "kerasformers.models.resnetv2",
-        "model_cls": "ResNetV2Classify",
+        "model_cls": "ResNetV2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "block_repeats": [1, 1, 1, 1],
@@ -462,9 +462,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ResNeXtClassify": {
+    "ResNeXtImageClassify": {
         "module": "kerasformers.models.resnext",
-        "model_cls": "ResNeXtClassify",
+        "model_cls": "ResNeXtImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "block_repeats": [1, 1, 1, 1],
@@ -477,9 +477,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "SENetClassify": {
+    "SENetImageClassify": {
         "module": "kerasformers.models.senet",
-        "model_cls": "SENetClassify",
+        "model_cls": "SENetImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "block_repeats": [1, 1, 1, 1],
@@ -491,9 +491,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "SwinClassify": {
+    "SwinImageClassify": {
         "module": "kerasformers.models.swin",
-        "model_cls": "SwinClassify",
+        "model_cls": "SwinImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "window_size": 2,
@@ -508,9 +508,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "SwinV2Classify": {
+    "SwinV2ImageClassify": {
         "module": "kerasformers.models.swinv2",
-        "model_cls": "SwinV2Classify",
+        "model_cls": "SwinV2ImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "embed_dim": 96,
@@ -526,9 +526,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 1000),
     },
-    "VGGClassify": {
+    "VGGImageClassify": {
         "module": "kerasformers.models.vgg",
-        "model_cls": "VGGClassify",
+        "model_cls": "VGGImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "num_filters": [64, "M", 128, "M", 256, "M"],
@@ -540,9 +540,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 1000),
     },
-    "ViTClassify": {
+    "ViTImageClassify": {
         "module": "kerasformers.models.vit",
-        "model_cls": "ViTClassify",
+        "model_cls": "ViTImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "patch_size": 16,
@@ -559,9 +559,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
-    "XceptionClassify": {
+    "XceptionImageClassify": {
         "module": "kerasformers.models.xception",
-        "model_cls": "XceptionClassify",
+        "model_cls": "XceptionImageClassify",
         "model_type": "classification",
         "init_kwargs": {
             "image_size": 71,

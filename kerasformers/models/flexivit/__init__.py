@@ -1,6 +1,6 @@
 from kerasformers.models.flexivit.flexivit_model import (
-    FlexiViTClassify,
+    FlexiViTImageClassify,
     FlexiViTModel,
 )
 
-__all__ = ["FlexiViTClassify", "FlexiViTModel"]
+__all__ = ["FlexiViTImageClassify", "FlexiViTModel"]

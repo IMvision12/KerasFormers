@@ -1,9 +1,14 @@
-"""timm DenseNet -> Keras weight transfer."""
-
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+import timm
 
+from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.models.densenet import DenseNetImageClassify
+from kerasformers.models.densenet.config import DENSENET_WEIGHT_CONFIG
+from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -38,7 +43,6 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 
 
 def transfer_densenet_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer a timm DenseNet state-dict into a Keras :class:`DenseNet`."""
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
@@ -63,16 +67,6 @@ def transfer_densenet_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    import timm
-
-    from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.densenet import DenseNetClassify
-    from kerasformers.models.densenet.config import DENSENET_WEIGHT_CONFIG
-    from kerasformers.weight_utils import verify_cls_model_equivalence
-
     for variant, meta in DENSENET_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
@@ -80,7 +74,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = DenseNetClassify.from_weights(variant, load_weights=False)
+        keras_model = DenseNetImageClassify.from_weights(variant, load_weights=False)
         transfer_densenet_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()

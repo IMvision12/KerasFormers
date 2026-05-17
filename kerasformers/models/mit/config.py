@@ -1,8 +1,3 @@
-"""MiT (Mix Transformer / SegFormer encoder) variant registry.
-
-Weights are HF checkpoints from ``nvidia/mit-b{0..5}`` (ImageNet-1k).
-"""
-
 MIT_MODEL_CONFIG = {
     "mit_b0": {
         "embed_dims": [32, 64, 160, 256],

@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHT_CONFIG
-from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -300,7 +299,7 @@ class MobileNetV3Model(BaseModel):
 
     Output is the last layer output before the classifier head: the
     post-final-conv 4D feature map of shape ``(B, H, W, C)``.
-    :class:`MobileNetV3Classify` composes this model and adds a
+    :class:`MobileNetV3ImageClassify` composes this model and adds a
     GlobalAveragePooling2D + Dense + activation + Dropout + Dense
     classifier head on top.
 
@@ -356,13 +355,17 @@ class MobileNetV3Model(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = MobileNetV3Classify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MobileNetV3ImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
+
         transfer_mobilenetv3_weights(keras_model, state_dict)
 
     def __init__(
@@ -460,7 +463,7 @@ class MobileNetV3Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileNetV3Classify(BaseModel):
+class MobileNetV3ImageClassify(BaseModel):
     """Instantiates the MobileNetV3 classifier.
 
     This classifier wraps a :class:`MobileNetV3Model` backbone and
@@ -514,7 +517,7 @@ class MobileNetV3Classify(BaseModel):
             ``<= 0``). Defaults to `0.2`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`. Defaults to
-            `"MobileNetV3Classify"`.
+            `"MobileNetV3ImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -529,6 +532,8 @@ class MobileNetV3Classify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
+
         transfer_mobilenetv3_weights(keras_model, state_dict)
 
     def __init__(
@@ -545,7 +550,7 @@ class MobileNetV3Classify(BaseModel):
         num_classes=1000,
         classifier_activation="linear",
         dropout_rate=0.2,
-        name="MobileNetV3Classify",
+        name="MobileNetV3ImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

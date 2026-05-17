@@ -1,36 +1,21 @@
-"""HuggingFace SigLIP 2 -> Keras weight transfer.
-
-SigLIP 2 shares the SigLIP v1 architecture, so the actual transfer is
-:func:`kerasformers.models.siglip.convert_siglip_torch_to_keras.transfer_siglip_weights`.
-This module exists as a thin entrypoint that wires the SigLIP 2 variant
-ids to their HuggingFace repos and runs the conversion through
-:class:`SigLIP2ZeroShotClassify` (so the saved ``.weights.h5`` includes
-the contrastive head).
-"""
-
+import gc
 from typing import Dict
 
+import keras
 import numpy as np
+from transformers import SiglipModel
 
 from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
     transfer_siglip_weights,
 )
+from kerasformers.models.siglip2 import SigLIP2ZeroShotClassify
 
 
 def transfer_siglip2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    """Alias for :func:`transfer_siglip_weights` — kept for API symmetry
-    with the rest of the SigLIP 2 module."""
     transfer_siglip_weights(keras_model, hf_state_dict)
 
 
 if __name__ == "__main__":
-    import gc
-
-    import keras
-    from transformers import SiglipModel
-
-    from kerasformers.models.siglip2 import SigLIP2ZeroShotClassify
-
     SIGLIP2_CONVERSION_CONFIG = [
         ("siglip2_base_p16_224", "google/siglip2-base-patch16-224"),
         ("siglip2_base_p16_256", "google/siglip2-base-patch16-256"),

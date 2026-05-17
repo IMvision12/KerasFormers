@@ -1,9 +1,9 @@
 from kerasformers.models.efficientformer.efficientformer_model import (
-    EfficientFormerClassify,
+    EfficientFormerImageClassify,
     EfficientFormerModel,
 )
 
 __all__ = [
-    "EfficientFormerClassify",
+    "EfficientFormerImageClassify",
     "EfficientFormerModel",
 ]

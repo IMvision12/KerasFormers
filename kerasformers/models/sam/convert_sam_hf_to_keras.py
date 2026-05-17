@@ -7,6 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import SamModel
 
+from kerasformers.models.sam import SAMPromptableSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -24,18 +25,6 @@ vision_encoder_name_mapping = {
 def transfer_sam_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer SAM weights from a HuggingFace state-dict.
-
-    Walks the vision encoder, vision neck, shared image embedding,
-    prompt encoder (point embeddings, no-mask embedding, optional
-    mask conv stack), and the mask decoder (transformer layers,
-    upscale convs, hypernetwork MLPs, IoU head).
-
-    Args:
-        keras_model: A ``SAMPromptableSegment`` instance.
-        hf_state_dict: Mapping of HF weight names to numpy arrays from
-            ``SamModel.state_dict()``.
-    """
     patch_conv = keras_model.get_layer("vision_encoder_patch_embed_projection")
     transfer_weights(
         "conv_kernel",
@@ -269,8 +258,6 @@ SAM_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
-    from kerasformers.models.sam import SAMPromptableSegment
-
     for variant, hf_id in SAM_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

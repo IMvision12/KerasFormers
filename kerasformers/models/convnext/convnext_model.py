@@ -9,7 +9,6 @@ from kerasformers.models.convnext.convnext_layers import GlobalResponseNorm
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHT_CONFIG
-from .convert_convnext_torch_to_keras import transfer_convnext_weights
 
 
 def spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):
@@ -194,7 +193,7 @@ class ConvNeXtModel(BaseModel):
     BatchNorm, GELU activations, and inverted-bottleneck blocks organized
     into 4 hierarchical stages. Output is the last layer output before
     the classifier head: the final stage feature map ``(B, H, W, C)``.
-    :class:`ConvNeXtClassify` composes this model and attaches a
+    :class:`ConvNeXtImageClassify` composes this model and attaches a
     GlobalAveragePooling2D + LayerNorm + Dense head to produce logits.
 
     References:
@@ -252,13 +251,17 @@ class ConvNeXtModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = ConvNeXtClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ConvNeXtImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_convnext_torch_to_keras import transfer_convnext_weights
+
         transfer_convnext_weights(keras_model, state_dict)
 
     def __init__(
@@ -359,7 +362,7 @@ class ConvNeXtModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ConvNeXtClassify(BaseModel):
+class ConvNeXtImageClassify(BaseModel):
     """Instantiates the ConvNeXt classifier.
 
     This classifier wraps a :class:`ConvNeXtModel` backbone and attaches
@@ -409,7 +412,7 @@ class ConvNeXtClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"ConvNeXtClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"ConvNeXtImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -424,6 +427,8 @@ class ConvNeXtClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_convnext_torch_to_keras import transfer_convnext_weights
+
         transfer_convnext_weights(keras_model, state_dict)
 
     def __init__(
@@ -441,7 +446,7 @@ class ConvNeXtClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="ConvNeXtClassify",
+        name="ConvNeXtImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

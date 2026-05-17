@@ -15,10 +15,36 @@ from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
 
 
 def quick_gelu(x):
+    """Quick-GELU approximation — ``x * sigmoid(1.702 * x)``.
+
+    OpenAI's original CLIP activation, kept here so MetaCLIP 2 variants
+    that opt into ``hidden_act="quick_gelu"`` can match those checkpoints
+    bit-close. The default MetaCLIP 2 release uses standard ``"gelu"``
+    instead.
+
+    Args:
+        x: Input tensor of any shape.
+
+    Returns:
+        Tensor of the same shape and dtype as ``x``.
+    """
     return x * ops.sigmoid(1.702 * x)
 
 
-def _activation_layer(hidden_act):
+def activation_layer(hidden_act):
+    """Build the activation layer named in the HF MetaCLIP 2 config.
+
+    Recognizes ``"quick_gelu"`` and wraps :func:`quick_gelu` in a
+    ``Lambda`` (since it is not registered as a Keras activation). Any
+    other name falls through to ``keras.layers.Activation`` (typically
+    ``"gelu"`` for MetaCLIP 2).
+
+    Args:
+        hidden_act: Activation name matching HF's ``hidden_act`` field.
+
+    Returns:
+        A ``keras.layers.Layer`` instance ready to apply to a tensor.
+    """
     if hidden_act == "quick_gelu":
         return keras.layers.Lambda(quick_gelu)
     return keras.layers.Activation(hidden_act)
@@ -35,6 +61,35 @@ def residual_attention_block(
     mlp_ratio=4.0,
     hidden_act="gelu",
 ):
+    """One pre-LN residual transformer block (LN → MHSA → Add → LN → MLP → Add).
+
+    Shared building block for both MetaCLIP 2's vision and text encoders
+    — same shape as the OpenAI CLIP block. All sublayer names are
+    deterministic (``{layer_name_prefix}_{layer_idx}_*``) so the HF
+    state-dict can be transferred by name during conversion.
+
+    Args:
+        x: Input token sequence of shape ``(B, L, proj_dim)``.
+        proj_dim: Hidden / model dimension.
+        num_heads: Number of attention heads. ``proj_dim`` must be
+            divisible by ``num_heads``.
+        layer_name_prefix: Prefix used for every sublayer name (e.g.
+            ``"vision_model_encoder"`` or ``"text_model_encoder"``).
+        layer_idx: Index of this block within its encoder stack.
+        causal_attention_mask: Optional ``(L, L)`` upper-triangular mask
+            (large-negative on disallowed positions) added to the
+            attention logits. ``None`` means bidirectional attention
+            (vision side).
+        attention_mask: Optional broadcastable padding mask. Combined
+            additively with ``causal_attention_mask`` when both are
+            provided.
+        mlp_ratio: MLP hidden expansion ratio — intermediate Dense size
+            is ``int(proj_dim * mlp_ratio)``.
+        hidden_act: MLP activation name (typically ``"gelu"``).
+
+    Returns:
+        Output tensor of shape ``(B, L, proj_dim)``.
+    """
     layer_prefix = f"{layer_name_prefix}_{layer_idx}"
 
     ln_1_output = keras.layers.LayerNormalization(
@@ -67,7 +122,7 @@ def residual_attention_block(
     mlp_output = keras.layers.Dense(
         mlp_intermediate_size, name=f"{layer_prefix}_dense_1"
     )(ln_2_output)
-    mlp_output = _activation_layer(hidden_act)(mlp_output)
+    mlp_output = activation_layer(hidden_act)(mlp_output)
     mlp_output = keras.layers.Dense(proj_dim, name=f"{layer_prefix}_dense_2")(
         mlp_output
     )
@@ -87,6 +142,30 @@ def metaclip2_encoder(
     mlp_ratio=None,
     hidden_act="gelu",
 ):
+    """Stack of ``num_layers`` MetaCLIP 2 transformer blocks.
+
+    Threads the running tensor through :func:`residual_attention_block`
+    ``num_layers`` times. The same ``layer_prefix`` and a per-iteration
+    ``layer_idx`` give every sublayer a unique, stable name, which is
+    what the weight transfer scripts rely on.
+
+    Args:
+        inputs: Token sequence of shape ``(B, L, width)``.
+        width: Hidden dimension.
+        num_layers: Number of transformer blocks to stack.
+        heads: Attention head count per block.
+        layer_prefix: Block-name prefix shared by every layer in this
+            stack.
+        causal_attention_mask: Optional ``(L, L)`` causal mask, forwarded
+            to each block. Used by the text encoder only.
+        attention_mask: Optional padding mask broadcastable over the
+            attention logits.
+        mlp_ratio: MLP expansion ratio passed to each block.
+        hidden_act: MLP activation name (typically ``"gelu"``).
+
+    Returns:
+        Tensor of shape ``(B, L, width)``.
+    """
     x = inputs
     for i in range(num_layers):
         x = residual_attention_block(
@@ -114,11 +193,32 @@ def metaclip2_vision_features(
     hidden_act="gelu",
     data_format="channels_last",
 ):
-    """MetaCLIP 2 vision encoder up through the transformer blocks.
+    """MetaCLIP 2 vision encoder up through the transformer stack (no projection).
 
-    Returns the full token sequence ``(B, 1 + num_patches, width)`` (CLS
-    + patch tokens) before any projection or pooling. Matches HF's
-    ``MetaClip2VisionModel.last_hidden_state``.
+    Pipeline: patch ``Conv2D`` → prepend the learned CLS token and add
+    positional embeddings via :class:`VisionModelEmbedding` → pre-LN →
+    :func:`metaclip2_encoder`. Output is the full token sequence (CLS
+    at index 0), matching HF's
+    ``MetaClip2VisionModel.last_hidden_state`` — useful when you want
+    raw features rather than the projected image embedding.
+
+    Args:
+        inputs: Image tensor. Shape ``(B, H, W, C)`` for
+            ``channels_last`` or ``(B, C, H, W)`` for
+            ``channels_first``.
+        input_resolution: Image side length, used to size the learned
+            positional embeddings.
+        patch_size: Square patch side length.
+        width: Hidden dimension.
+        num_layers: Transformer depth.
+        heads: Attention head count.
+        vision_mlp_ratio: MLP expansion ratio.
+        hidden_act: MLP activation name.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Tensor of shape ``(B, num_patches + 1, width)`` — CLS token at
+        index 0, followed by patch tokens.
     """
     patch_embeddings = keras.layers.Conv2D(
         filters=width,
@@ -160,8 +260,32 @@ def metaclip2_image_encoder(
     hidden_act="gelu",
     data_format="channels_last",
 ):
-    """Full MetaCLIP 2 vision encoder used by the contrastive head — features
-    -> CLS token -> post-LN -> visual projection."""
+    """Full MetaCLIP 2 image encoder: features → CLS → post-LN → visual projection.
+
+    Wraps :func:`metaclip2_vision_features` and finishes the MetaCLIP 2
+    image side — slice the CLS token, apply the post-encoder
+    LayerNorm, then project into the shared ``output_dim`` embedding
+    space with a bias-free Dense (the ``visual_projection`` weight in
+    HF MetaCLIP 2). This is the tensor used by the contrastive head;
+    it is not yet L2-normalized.
+
+    Args:
+        inputs: Image tensor.
+        input_resolution: Image side length.
+        patch_size: ViT patch size.
+        width: Hidden dimension.
+        num_layers: Transformer depth.
+        heads: Attention head count.
+        output_dim: Target embedding dimension (must match the text
+            side's ``embed_dim``).
+        vision_mlp_ratio: MLP expansion ratio.
+        hidden_act: MLP activation name.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Tensor of shape ``(B, output_dim)`` — the unnormalized image
+        embedding.
+    """
     encoded = metaclip2_vision_features(
         inputs,
         input_resolution=input_resolution,
@@ -195,6 +319,41 @@ def metaclip2_text_encoder(
     hidden_act="gelu",
     eos_token_id=METACLIP2_EOS_TOKEN_ID,
 ):
+    """MetaCLIP 2 text encoder with causal attention and EOS-token pooling.
+
+    Pipeline: :class:`TextModelEmbedding` (token + positional) →
+    :func:`metaclip2_encoder` with a strict upper-triangular causal
+    mask plus the padding mask → post-encoder LayerNorm → pluck the
+    hidden state at each row's EOS position → text projection.
+
+    **Difference from OpenAI CLIP**: HF CLIP picks the EOT position
+    via ``argmax(token_ids, axis=-1)`` (works because the EOT id is
+    the largest token id). MetaCLIP 2 uses the XLM-R tokenizer where
+    ``mask_token_id > eos_token_id``, so argmax can pick the wrong
+    column. Instead this encoder finds the EOS position by an explicit
+    equality match (``argmax(token_ids == eos_token_id)``).
+
+    Args:
+        inputs: Token-id tensor of shape ``(B, context_length)``.
+        attention_mask: Padding mask ``(B, context_length)`` — ``1``
+            for real tokens, ``0`` for padding.
+        transformer_width: Text encoder hidden dimension.
+        transformer_layers: Text encoder depth.
+        transformer_heads: Attention head count.
+        vocab_size: Tokenizer vocabulary size (MetaCLIP 2 uses XLM-R,
+            ``901629``).
+        embed_dim: Shared joint embedding dimension.
+        context_length: Maximum sequence length, used both for the
+            causal mask and the positional embedding table.
+        text_mlp_ratio: MLP expansion ratio.
+        hidden_act: MLP activation name.
+        eos_token_id: End-of-sequence token id to locate the pooled
+            position. Defaults to MetaCLIP 2's EOS id.
+
+    Returns:
+        Tensor of shape ``(B, embed_dim)`` — the unnormalized text
+        embedding.
+    """
     x = TextModelEmbedding(
         vocab_size=vocab_size,
         context_length=context_length,
@@ -243,6 +402,24 @@ def metaclip2_text_encoder(
 
 
 def metaclip2_head(image_embeddings, text_embeddings):
+    """L2-normalize embeddings and produce scaled similarity logits.
+
+    Standard CLIP contrastive head. Each side is L2-normalized along
+    its embedding axis (turning the dot product into cosine
+    similarity), then both are passed to :class:`CLIPLogitScale`,
+    which multiplies by the learned ``exp(logit_scale)`` temperature
+    and returns the ``(B, B)`` image-vs-text similarity logit matrix
+    together with its transpose.
+
+    Args:
+        image_embeddings: Image embedding tensor ``(B, embed_dim)``.
+        text_embeddings: Text embedding tensor ``(B, embed_dim)``.
+
+    Returns:
+        Tuple ``(image_logits, text_logits)``, each of shape ``(B, B)``.
+        ``image_logits[i, j]`` is the temperature-scaled cosine
+        similarity between image ``i`` and text ``j``.
+    """
     normalize_image_features = ops.sqrt(
         ops.sum(ops.power(image_embeddings, 2), axis=-1, keepdims=True)
     )
@@ -256,7 +433,29 @@ def metaclip2_head(image_embeddings, text_embeddings):
     return image_logits, text_logits
 
 
-def _metaclip2_resolve_image_shape(input_shape, image_resolution, data_format):
+def metaclip2_resolve_image_shape(input_shape, image_resolution, data_format):
+    """Resolve the concrete image input shape and side length.
+
+    Picks the image side length and channel count from either an
+    explicit ``input_shape`` override or the model's default
+    ``image_resolution``, then assembles the input-shape list in the
+    layout matching ``data_format``.
+
+    Args:
+        input_shape: Optional explicit image input shape (excluding
+            batch dim). ``None`` triggers the default
+            ``(image_resolution, image_resolution, 3)`` /
+            ``(3, image_resolution, image_resolution)`` shape.
+        image_resolution: Default square image side length when
+            ``input_shape`` is ``None``.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Tuple ``(image_input_shape, image_size)`` where
+        ``image_input_shape`` is the list of dims to pass to
+        ``layers.Input(shape=...)`` and ``image_size`` is the resolved
+        square side length used to size the positional embeddings.
+    """
     if input_shape is not None:
         if data_format == "channels_first":
             if len(input_shape) == 3:
@@ -707,7 +906,7 @@ class MetaClip2ImageClassify(BaseModel):
         if vision_heads is None:
             vision_heads = vision_width // 64
         data_format = keras.backend.image_data_format()
-        image_input_shape, image_size = _metaclip2_resolve_image_shape(
+        image_input_shape, image_size = metaclip2_resolve_image_shape(
             input_shape, image_resolution, data_format
         )
 

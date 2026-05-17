@@ -10,7 +10,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTNET_MODEL_CONFIG, EFFICIENTNET_WEIGHT_CONFIG
-from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
 
 DEFAULT_BLOCKS_ARGS = [
     {
@@ -357,7 +356,7 @@ class EfficientNetModel(BaseModel):
 
     Output is the last layer output before the classifier head: the
     post-head-conv 4D feature map of shape ``(B, H, W, C)``.
-    :class:`EfficientNetClassify` composes this model and adds a
+    :class:`EfficientNetImageClassify` composes this model and adds a
     GlobalAveragePooling2D + (optional) Dropout + Dense head on top.
 
     References:
@@ -411,7 +410,7 @@ class EfficientNetModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = EfficientNetClassify.from_weights(
+            src = EfficientNetImageClassify.from_weights(
                 variant, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
@@ -420,6 +419,8 @@ class EfficientNetModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
+
         transfer_efficientnet_weights(keras_model, state_dict)
 
     def __init__(
@@ -511,7 +512,7 @@ class EfficientNetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientNetClassify(BaseModel):
+class EfficientNetImageClassify(BaseModel):
     """Instantiates the EfficientNet classifier.
 
     This classifier wraps a :class:`EfficientNetModel` backbone and
@@ -558,7 +559,7 @@ class EfficientNetClassify(BaseModel):
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`. Defaults to
-            `"EfficientNetClassify"`.
+            `"EfficientNetImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -573,6 +574,8 @@ class EfficientNetClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
+
         transfer_efficientnet_weights(keras_model, state_dict)
 
     def __init__(
@@ -588,7 +591,7 @@ class EfficientNetClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="EfficientNetClassify",
+        name="EfficientNetImageClassify",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()

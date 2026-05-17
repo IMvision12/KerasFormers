@@ -4,12 +4,8 @@ from keras import layers, ops, utils
 from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
 
-from .config import RT_DETR_CONFIG, RT_DETR_WEIGHTS
-from .convert_rt_detr_hf_to_keras import transfer_rt_detr_weights
-from .rt_detr_layers import (
-    RTDETRDecoderLayer,
-    RTDETRMultiHeadAttention,
-)
+from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHT_CONFIG
+from .rt_detr_layers import RTDETRDecoderLayer, RTDETRMultiHeadAttention
 
 
 def rt_detr_sine_pos_embed(height, width, embed_dim, temperature=10000):
@@ -1098,7 +1094,10 @@ class RTDetrModel(BaseModel):
           <https://arxiv.org/abs/2304.08069>`_
     """
 
-    BASE_MODEL_CONFIG = RT_DETR_CONFIG
+    BASE_MODEL_CONFIG = {
+        variant: RT_DETR_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RT_DETR_WEIGHT_CONFIG.items()
+    }
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rt_detr"
 
@@ -1286,8 +1285,11 @@ class RTDETRDetect(BaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = RT_DETR_CONFIG
-    BASE_WEIGHT_CONFIG = RT_DETR_WEIGHTS
+    BASE_MODEL_CONFIG = {
+        variant: RT_DETR_MODEL_CONFIG[meta["model"]]
+        for variant, meta in RT_DETR_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = RT_DETR_WEIGHT_CONFIG
     HF_MODEL_TYPE = "rt_detr"
 
     def __init__(
@@ -1452,4 +1454,6 @@ class RTDETRDetect(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_rt_detr_hf_to_keras import transfer_rt_detr_weights
+
         transfer_rt_detr_weights(keras_model, hf_state_dict)

@@ -7,7 +7,6 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHT_CONFIG
-from .convert_xception_org_keras_to_keras import transfer_xception_weights
 
 
 def conv_block(
@@ -184,7 +183,7 @@ class XceptionModel(BaseModel):
     residual skip connections around each block. Output is the last
     layer output before the classifier head: the final 2048-channel
     feature map ``(B, H, W, C)`` from the exit flow.
-    :class:`XceptionClassify` composes this model and attaches a
+    :class:`XceptionImageClassify` composes this model and attaches a
     GlobalAveragePooling2D + Dense head to produce logits.
 
     Note: This is the *original* Keras Xception (Chollet 2017),
@@ -234,13 +233,17 @@ class XceptionModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = XceptionClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = XceptionImageClassify.from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_xception_org_keras_to_keras import transfer_xception_weights
+
         transfer_xception_weights(keras_model, state_dict)
 
     def __init__(
@@ -311,7 +314,7 @@ class XceptionModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XceptionClassify(BaseModel):
+class XceptionImageClassify(BaseModel):
     """Instantiates the Xception classifier.
 
     This classifier wraps an :class:`XceptionModel` backbone and
@@ -352,7 +355,7 @@ class XceptionClassify(BaseModel):
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
         name: String, the name of the model. The internal backbone is
-            named `f"{name}_backbone"`. Defaults to `"XceptionClassify"`.
+            named `f"{name}_backbone"`. Defaults to `"XceptionImageClassify"`.
 
     Returns:
         A Keras `Model` instance.
@@ -367,6 +370,8 @@ class XceptionClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_xception_org_keras_to_keras import transfer_xception_weights
+
         transfer_xception_weights(keras_model, state_dict)
 
     def __init__(
@@ -378,7 +383,7 @@ class XceptionClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
-        name="XceptionClassify",
+        name="XceptionImageClassify",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

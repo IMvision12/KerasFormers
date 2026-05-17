@@ -1,5 +1,3 @@
-"""Preprocessing and postprocessing for DeepLabV3 semantic segmentation."""
-
 from typing import Dict, List, Optional, Tuple, Union
 
 import keras

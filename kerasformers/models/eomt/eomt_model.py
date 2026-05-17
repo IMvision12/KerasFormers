@@ -15,7 +15,22 @@ from .eomt_layers import (
 
 
 def eomt_mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
-    """Standard two-layer MLP with GELU activation."""
+    """Standard two-layer transformer MLP — Dense → GELU → Dense.
+
+    Used in EoMT encoder layers when ``use_swiglu_ffn=False`` (matches the
+    standard DINOv2 MLP).
+
+    Args:
+        x: Input token sequence of shape ``(B, N, hidden_size)``.
+        hidden_size: Token / model dimension.
+        mlp_ratio: Hidden expansion factor — the intermediate Dense
+            width is ``int(hidden_size * mlp_ratio)``.
+        block_prefix: Prefix used to name the inner Dense / Activation
+            layers.
+
+    Returns:
+        Tensor of shape ``(B, N, hidden_size)``.
+    """
     hidden_features = int(hidden_size * mlp_ratio)
     x = layers.Dense(hidden_features, name=f"{block_prefix}_mlp_fc1")(x)
     x = layers.Activation("gelu", name=f"{block_prefix}_mlp_gelu")(x)
@@ -24,7 +39,29 @@ def eomt_mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
 
 
 def eomt_swiglu_ffn(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
-    """SwiGLU gated feed-forward network."""
+    """SwiGLU gated feed-forward network.
+
+    Single fused ``Dense`` projects up to ``2 * hidden_features`` and
+    the result is split into a value branch and a gate branch — the
+    gate is passed through SiLU then multiplied with the value, and a
+    final ``Dense`` projects back to ``hidden_size``. Matches the
+    DINOv2-style SwiGLU used by the SwiGLU EoMT variants.
+
+    The hidden width is computed as ``int(hidden_size * mlp_ratio)``,
+    then scaled by ``2/3`` and rounded up to the nearest multiple of 8
+    (the canonical DINOv2 / Llama recipe — keeps total params close to
+    the standard MLP while being kernel-friendly).
+
+    Args:
+        x: Input token sequence of shape ``(B, N, hidden_size)``.
+        hidden_size: Token / model dimension.
+        mlp_ratio: Pre-scaling expansion factor before the ``2/3``
+            SwiGLU correction.
+        block_prefix: Prefix used to name the inner layers.
+
+    Returns:
+        Tensor of shape ``(B, N, hidden_size)``.
+    """
     hidden_features = int(hidden_size * mlp_ratio)
     hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
     x = layers.Dense(2 * hidden_features, name=f"{block_prefix}_mlp_weights_in")(x)
@@ -47,7 +84,41 @@ def eomt_encoder_layer(
     layer_norm_eps=1e-6,
     block_prefix="layers_0",
 ):
-    """Single EoMT transformer encoder layer with pre-norm design."""
+    """One pre-LN DINOv2-style encoder block with LayerScale + stochastic depth.
+
+    Structure (matches the EoMT / DINOv2 reference):
+
+    1. Pre-norm → :class:`EoMTAttention` → :class:`EoMTLayerScale` →
+       :class:`StochasticDepth` (if ``drop_path_rate > 0``) → residual.
+    2. Pre-norm → :func:`eomt_mlp` *or* :func:`eomt_swiglu_ffn`
+       (selected by ``use_swiglu_ffn``) → :class:`EoMTLayerScale` →
+       :class:`StochasticDepth` → residual.
+
+    All sublayer names are deterministic (``{block_prefix}_*``) so the
+    HF EoMT state-dict can be transferred by name.
+
+    Reference:
+        - `Your ViT is Secretly an Image Segmentation Model
+          <https://arxiv.org/abs/2503.19108>`_
+
+    Args:
+        hidden_states: Input token sequence of shape
+            ``(B, N, hidden_size)``.
+        hidden_size: Token / model dimension.
+        num_heads: Number of attention heads.
+        mlp_ratio: MLP / SwiGLU expansion ratio.
+        layerscale_value: Initial value for the per-channel LayerScale
+            gammas on both residual branches.
+        drop_path_rate: Stochastic-depth drop probability. ``0`` disables it.
+        attention_dropout: Dropout applied inside the attention layer.
+        use_swiglu_ffn: If ``True``, use :func:`eomt_swiglu_ffn`;
+            otherwise use the standard GELU :func:`eomt_mlp`.
+        layer_norm_eps: Epsilon for both pre-norm LayerNorms.
+        block_prefix: Prefix used to name every sublayer in this block.
+
+    Returns:
+        Tensor of shape ``(B, N, hidden_size)``.
+    """
     residual = hidden_states
     hidden_states = layers.LayerNormalization(
         epsilon=layer_norm_eps, name=f"{block_prefix}_norm1"
@@ -89,7 +160,26 @@ def eomt_encoder_layer(
 
 
 def eomt_scale_layer(x, hidden_size, data_format, block_prefix="upscale_block_0"):
-    """Single 2x spatial upscaling layer for mask feature decoding."""
+    """One 2× spatial-upscale block for the mask-feature pyramid.
+
+    ``Conv2DTranspose(stride=2)`` → GELU → depthwise 3×3 conv →
+    channels-last LayerNorm. The LayerNorm is always run in
+    ``channels_last`` (with explicit permutes for the
+    ``channels_first`` path) because Keras' :class:`LayerNormalization`
+    normalizes the last axis. Each call doubles the spatial resolution.
+
+    Args:
+        x: Input feature map. Shape ``(B, H, W, C)`` for
+            ``channels_last`` or ``(B, C, H, W)`` for ``channels_first``.
+        hidden_size: Output channel dimension produced by the transposed
+            conv.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        block_prefix: Prefix used to name every sublayer.
+
+    Returns:
+        Tensor with the same channel layout as ``x``, with spatial
+        dimensions doubled (``H, W → 2H, 2W``).
+    """
     x = layers.Conv2DTranspose(
         hidden_size,
         kernel_size=2,
@@ -116,7 +206,23 @@ def eomt_scale_layer(x, hidden_size, data_format, block_prefix="upscale_block_0"
 
 
 def eomt_scale_block(x, hidden_size, num_upscale_blocks, data_format):
-    """Stack of spatial upscaling layers."""
+    """Stack ``num_upscale_blocks`` consecutive :func:`eomt_scale_layer` blocks.
+
+    Each block doubles the spatial resolution, so total upscale factor
+    is ``2 ** num_upscale_blocks``. Each block is named
+    ``upscale_block_{i}`` so the HF EoMT state-dict maps directly.
+
+    Args:
+        x: Input feature map from the reshaped patch tokens.
+        hidden_size: Output channel dimension carried through every
+            upscale block.
+        num_upscale_blocks: How many 2× upscale layers to chain.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Upscaled feature map with spatial dims multiplied by
+        ``2 ** num_upscale_blocks``.
+    """
     for i in range(num_upscale_blocks):
         x = eomt_scale_layer(
             x, hidden_size, data_format=data_format, block_prefix=f"upscale_block_{i}"
@@ -125,7 +231,21 @@ def eomt_scale_block(x, hidden_size, num_upscale_blocks, data_format):
 
 
 def eomt_mask_head(x, hidden_size):
-    """Mask prediction head with three dense layers and GELU activations."""
+    """Per-query mask-token MLP — Dense → GELU → Dense → GELU → Dense.
+
+    Applied to each object-query embedding to produce a ``hidden_size``
+    "mask token". The mask token is then bilinearly broadcast against
+    the upscaled spatial features (via einsum) to produce per-query
+    mask logits.
+
+    Args:
+        x: Query embeddings of shape ``(B, num_queries, hidden_size)``.
+        hidden_size: Dimension used for every Dense layer in this head.
+
+    Returns:
+        Tensor of shape ``(B, num_queries, hidden_size)`` — per-query
+        mask tokens.
+    """
     x = layers.Dense(hidden_size, name="mask_head_fc1")(x)
     x = layers.Activation("gelu", name="mask_head_gelu1")(x)
     x = layers.Dense(hidden_size, name="mask_head_fc2")(x)
@@ -152,14 +272,46 @@ def eomt_functional(
 ):
     """Build the EoMT encoder graph (no task heads).
 
-    Patch + register + CLS embeddings → ``num_hidden_layers`` encoder
-    blocks with the final ``num_blocks`` receiving injected object
-    queries → final ``LayerNormalization``. Returns the full sequence
-    output.
+    Pipeline: :class:`EoMTEmbeddings` (patch + register + CLS) →
+    ``num_hidden_layers`` :func:`eomt_encoder_layer` blocks → final
+    ``LayerNormalization``. The learned object queries are injected via
+    :class:`EoMTQueryInjection` right before the last ``num_blocks``
+    encoder layers, so only those blocks attend over the
+    ``(queries, prefix, patches)`` joint sequence.
 
     Reference:
         - `Your ViT is Secretly an Image Segmentation Model
           <https://arxiv.org/abs/2503.19108>`_
+
+    Args:
+        inputs: Image tensor — ``(B, H, W, 3)`` for ``channels_last`` or
+            ``(B, 3, H, W)`` for ``channels_first``.
+        hidden_size: Transformer hidden dimension.
+        num_hidden_layers: Total number of encoder blocks.
+        num_attention_heads: Attention heads per block.
+        num_blocks: Number of final encoder blocks that receive the
+            object-query injection (queries are prepended just before
+            block ``num_hidden_layers - num_blocks``).
+        num_queries: Number of learned object queries.
+        layerscale_value: Initial value for the per-block LayerScale
+            gammas.
+        patch_size: ViT patch size.
+        num_register_tokens: Number of DINOv2-style register tokens
+            inserted between CLS and the patch tokens.
+        mlp_ratio: MLP / SwiGLU expansion ratio inside each block.
+        drop_path_rate: Stochastic-depth drop rate.
+        attention_dropout: Dropout applied inside each attention layer.
+        use_swiglu_ffn: If ``True``, blocks use :func:`eomt_swiglu_ffn`;
+            otherwise :func:`eomt_mlp`.
+        layer_norm_eps: Epsilon for every LayerNorm.
+
+    Returns:
+        Sequence-output tensor of shape
+        ``(B, num_queries + 1 + num_register_tokens + num_patches,
+        hidden_size)`` after the final LayerNorm. Queries occupy
+        ``[:, :num_queries]``, the prefix (CLS + registers) lives at
+        ``[:, num_queries : num_queries + 1 + num_register_tokens]``,
+        and patches fill the tail.
     """
     data_format = keras.config.image_data_format()
     image_size = inputs.shape[2] if data_format == "channels_first" else inputs.shape[1]
