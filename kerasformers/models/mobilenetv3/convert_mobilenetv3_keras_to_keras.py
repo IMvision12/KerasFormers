@@ -71,7 +71,9 @@ def transfer_mobilenetv3_weights(
     for keras_weight, keras_weight_name in trainable + non_trainable:
         torch_weight_name = re.sub(
             r"ir_block_(\d+)_",
-            lambda m: f"blocks.{flat_to_stage[int(m.group(1))][0]}.{flat_to_stage[int(m.group(1))][1]}.",
+            lambda m: (
+                f"blocks.{flat_to_stage[int(m.group(1))][0]}.{flat_to_stage[int(m.group(1))][1]}."
+            ),
             keras_weight_name,
         ).replace("_", ".")
         for old, new in mapping.items():
