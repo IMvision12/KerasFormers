@@ -3,7 +3,7 @@ from keras import InputSpec, layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ClassDistToken(layers.Layer):
+class CaiTClassDistToken(layers.Layer):
     """
     Implements learnable class and distillation tokens for Vision Transformer (ViT),
     Data-efficient image Transformer (DeiT), and Pyramid Vision Transformer (PiT) architectures.
@@ -95,7 +95,7 @@ class ClassDistToken(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class AddPositionEmbs(layers.Layer):
+class CaiTAddPositionEmbs(layers.Layer):
     """Adds learnable position embeddings to input tensors.
 
     Supports standard mode (patches + class token) and no_embed_class mode
@@ -282,7 +282,7 @@ class AddPositionEmbs(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ClassAttention(layers.Layer):
+class CaiTClassAttention(layers.Layer):
     """Class Attention layer for transformer architectures.
 
     This layer implements a specialized attention mechanism where queries are generated
@@ -396,7 +396,7 @@ class ClassAttention(layers.Layer):
 
         if self.input_spec.ndim != 3:
             raise ValueError(
-                f"ClassAttention expects 3D input tensor, but received shape: {input_shape}"
+                f"CaiTClassAttention expects 3D input tensor, but received shape: {input_shape}"
             )
 
         if self.data_format == "channels_last":
@@ -475,7 +475,7 @@ class ClassAttention(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class TalkingHeadAttention(layers.Layer):
+class CaiTTalkingHeadAttention(layers.Layer):
     """Talking-Head Attention layer implementing enhanced attention mechanism.
 
     This layer implements the Talking-Head Attention mechanism described in the paper
@@ -587,7 +587,7 @@ class TalkingHeadAttention(layers.Layer):
 
         if self.input_spec.ndim != 3:
             raise ValueError(
-                f"TalkingHeadAttention expects 3D input tensor, but received shape: {input_shape}"
+                f"CaiTTalkingHeadAttention expects 3D input tensor, but received shape: {input_shape}"
             )
 
         feature_dim_idx = 1 if self.data_format == "channels_first" else -1

@@ -4,7 +4,7 @@ from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
-from kerasformers.models.resmlp.resmlp_layers import Affine
+from kerasformers.models.resmlp.resmlp_layers import ResMLPAffine
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHT_CONFIG
@@ -37,7 +37,7 @@ def resmlp_block(
     """
     inputs = x
 
-    x = Affine(name=f"blocks_{block_idx}_affine_1")(inputs)
+    x = ResMLPAffine(name=f"blocks_{block_idx}_affine_1")(inputs)
     x_t = layers.Permute((2, 1), name=f"blocks_{block_idx}_permute_1")(x)
     x_t = layers.Dense(
         seq_len,
@@ -51,7 +51,7 @@ def resmlp_block(
     x = layers.Add(name=f"blocks_{block_idx}_add_1")([inputs, x_t])
 
     inputs = x
-    x = Affine(name=f"blocks_{block_idx}_affine_2")(x)
+    x = ResMLPAffine(name=f"blocks_{block_idx}_affine_2")(x)
     x = layers.Dense(
         dim * mlp_ratio,
         activation="gelu",
@@ -82,7 +82,7 @@ def resmlp_backbone_feature(
     data_format,
     return_stages=False,
 ):
-    """ResMLP stem (patch embed) + ``depth`` ResMLP blocks + final Affine.
+    """ResMLP stem (patch embed) + ``depth`` ResMLP blocks + final ResMLPAffine.
 
     Args:
         inputs: Input image tensor of shape ``(B, H, W, C)`` or ``(B, C, H, W)``.
@@ -98,10 +98,10 @@ def resmlp_backbone_feature(
         return_stages: If True, return a list of per-block (post-residual)
             outputs (one per ResMLP block, ``depth`` total). ResMLP is
             isotropic — shape is constant across blocks. If False (default),
-            return the single post-final-Affine sequence.
+            return the single post-final-ResMLPAffine sequence.
 
     Returns:
-        Post-Affine patch sequence of shape ``(B, num_patches, embed_dim)``,
+        Post-ResMLPAffine patch sequence of shape ``(B, num_patches, embed_dim)``,
         or a list of ``depth`` per-block outputs when ``return_stages=True``.
     """
     x = layers.Conv2D(
@@ -146,7 +146,7 @@ def resmlp_backbone_feature(
     if return_stages:
         return stages
 
-    x = Affine(name="Final_affine")(x)
+    x = ResMLPAffine(name="Final_affine")(x)
     return x
 
 
@@ -155,15 +155,15 @@ class ResMLPModel(BaseModel):
     """Instantiates the ResMLP (Residual MLP) backbone.
 
     ResMLP is a Mixer-style architecture where per-channel learnable
-    Affine layers replace LayerNorm and a residual structure (Affine
+    ResMLPAffine layers replace LayerNorm and a residual structure (ResMLPAffine
     pre-norm + LayerScale + residual add on each branch) scales to very
     deep models with stable, data-efficient training. Like Mixer it
     alternates a cross-patch linear and a channel MLP, but the
-    normalization-free Affine design and LayerScale residuals are what
+    normalization-free ResMLPAffine design and LayerScale residuals are what
     make deep stacks trainable.
 
     Output is the last layer output before the classifier head: the
-    final-Affine normalized patch sequence ``(B, N, D)`` where
+    final-ResMLPAffine normalized patch sequence ``(B, N, D)`` where
     ``N = (H/patch_size) * (W/patch_size)``. :class:`ResMLPImageClassify`
     composes this model and applies a GlobalAveragePooling1D + Dense
     head.

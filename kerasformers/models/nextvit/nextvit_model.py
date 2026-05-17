@@ -7,7 +7,7 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHT_CONFIG
-from .nextvit_layers import EfficientAttention
+from .nextvit_layers import NextViTEfficientAttention
 
 
 def nextvit_conv_attention(x, out_chs, head_dim, channels_axis, data_format, prefix=""):
@@ -331,7 +331,7 @@ def next_transformer_block(
         out = layers.Permute((2, 3, 1), name=prefix + "to_seq_perm")(out)
     out = layers.Reshape((-1, mhsa_out_chs), name=prefix + "reshape_to_seq")(out)
 
-    out = EfficientAttention(
+    out = NextViTEfficientAttention(
         mhsa_out_chs,
         head_dim=head_dim,
         sr_ratio=sr_ratio,

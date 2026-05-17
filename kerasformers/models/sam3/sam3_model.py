@@ -7,11 +7,11 @@ from kerasformers.base import BaseModel
 from .config import SAM3_CONFIG, SAM3_WEIGHTS
 from .sam3_clip_tokenizer import SAM3_VOCAB_SIZE
 from .sam3_layers import (
-    CLIPCausalMask,
-    CLIPPositionEmbedding,
     SAM3AddPositionEmbedding,
     SAM3BoxRPB,
     SAM3CLIPAttention,
+    SAM3CLIPCausalMask,
+    SAM3CLIPPositionEmbedding,
     SAM3DecoderMLP,
     SAM3GeometryEncoder,
     SAM3LearnableEmbedding,
@@ -2031,11 +2031,11 @@ def build_text_encoder(
         input_ids
     )
 
-    hidden_states = CLIPPositionEmbedding(
+    hidden_states = SAM3CLIPPositionEmbedding(
         max_position_embeddings, hidden_size, name="add_position"
     )(hidden_states)
 
-    combined_mask = CLIPCausalMask(max_position_embeddings, name="causal_mask")(
+    combined_mask = SAM3CLIPCausalMask(max_position_embeddings, name="causal_mask")(
         attention_mask
     )
 

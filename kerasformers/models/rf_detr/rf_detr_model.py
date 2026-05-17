@@ -7,10 +7,10 @@ from kerasformers.base import BaseModel
 
 from .config import RF_DETR_CONFIG, RF_DETR_WEIGHTS
 from .rf_detr_layers import (
-    DinoV2Embeddings,
-    DinoV2LayerScale,
     RFDETRChannelLayerNorm,
     RFDETRDecoderLayer,
+    RFDETRDinoV2Embeddings,
+    RFDETRDinoV2LayerScale,
     RFDETRLearnedEmbedding,
 )
 
@@ -620,7 +620,9 @@ def rf_detr_dinov2_block(
             [-1, full_shape[1] // nw2, full_shape[2]],
         )
 
-    attn_out = DinoV2LayerScale(hidden_size, name=f"{name}_layer_scale1")(attn_out)
+    attn_out = RFDETRDinoV2LayerScale(hidden_size, name=f"{name}_layer_scale1")(
+        attn_out
+    )
     x = attn_out + shortcut
 
     shortcut2 = x
@@ -639,7 +641,7 @@ def rf_detr_dinov2_block(
             mlp_ratio,
             name=f"{name}_mlp",
         )
-    mlp_out = DinoV2LayerScale(hidden_size, name=f"{name}_layer_scale2")(mlp_out)
+    mlp_out = RFDETRDinoV2LayerScale(hidden_size, name=f"{name}_layer_scale2")(mlp_out)
     x = mlp_out + shortcut2
     return x
 
@@ -725,7 +727,7 @@ def rf_detr_backbone(
 ):
     """Build RF-DETR's DINOv2 backbone with windowed attention.
 
-    Patch-embeds the input image with :class:`DinoV2Embeddings`, runs
+    Patch-embeds the input image with :class:`RFDETRDinoV2Embeddings`, runs
     a stack of ``num_layers`` DINOv2 transformer blocks (windowed
     attention everywhere except at ``out_feature_indexes`` layers,
     which use full attention), extracts intermediate features at each
@@ -759,7 +761,7 @@ def rf_detr_backbone(
             ``(B, hidden_size, num_h, num_w)`` for channels_first).
         spatial_shape: ``(num_h, num_w)`` patch grid size.
     """
-    embeddings = DinoV2Embeddings(
+    embeddings = RFDETRDinoV2Embeddings(
         hidden_size=hidden_size,
         patch_size=patch_size,
         num_channels=3,

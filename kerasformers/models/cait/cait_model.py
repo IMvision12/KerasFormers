@@ -5,10 +5,10 @@ from keras.src.applications import imagenet_utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kerasformers.models.cait.cait_layers import (
-    AddPositionEmbs,
-    ClassAttention,
-    ClassDistToken,
-    TalkingHeadAttention,
+    CaiTAddPositionEmbs,
+    CaiTClassAttention,
+    CaiTClassDistToken,
+    CaiTTalkingHeadAttention,
 )
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -65,7 +65,7 @@ def layer_scale_talking_head_block(
         Tensor of shape ``(B, N, embed_dim)`` after both residual branches.
     """
     y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_1")(x)
-    attn = TalkingHeadAttention(
+    attn = CaiTTalkingHeadAttention(
         dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
@@ -118,7 +118,7 @@ def layer_scale_class_attn_block(
     y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_1")(
         concat
     )
-    cls = ClassAttention(
+    cls = CaiTClassAttention(
         dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
@@ -194,7 +194,7 @@ def cait_backbone_feature(
         grid_w = inputs.shape[2] // patch_size
 
     x = layers.Reshape((-1, embed_dim))(x)
-    x = AddPositionEmbs(
+    x = CaiTAddPositionEmbs(
         grid_h=grid_h, grid_w=grid_w, no_embed_class=True, name="pos_embed"
     )(x)
 
@@ -211,7 +211,7 @@ def cait_backbone_feature(
         )
         stages.append(x)
 
-    cls_token = ClassDistToken(name="cls_token")(x)
+    cls_token = CaiTClassDistToken(name="cls_token")(x)
     for i in range(depth_token_only):
         cls_token = layer_scale_class_attn_block(
             cls_token,

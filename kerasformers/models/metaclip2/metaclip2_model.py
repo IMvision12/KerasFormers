@@ -5,8 +5,8 @@ from kerasformers.base import BaseModel
 from kerasformers.models.clip.clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
-    TextModelEmbedding,
-    VisionModelEmbedding,
+    CLIPTextModelEmbedding,
+    CLIPVisionModelEmbedding,
 )
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -196,7 +196,7 @@ def metaclip2_vision_features(
     """MetaCLIP 2 vision encoder up through the transformer stack (no projection).
 
     Pipeline: patch ``Conv2D`` → prepend the learned CLS token and add
-    positional embeddings via :class:`VisionModelEmbedding` → pre-LN →
+    positional embeddings via :class:`CLIPVisionModelEmbedding` → pre-LN →
     :func:`metaclip2_encoder`. Output is the full token sequence (CLS
     at index 0), matching HF's
     ``MetaClip2VisionModel.last_hidden_state`` — useful when you want
@@ -230,7 +230,7 @@ def metaclip2_vision_features(
         name="vision_model_conv",
     )(inputs)
 
-    embeddings = VisionModelEmbedding(
+    embeddings = CLIPVisionModelEmbedding(
         width, input_resolution, patch_size, data_format, name="vision_model_embeddings"
     )(patch_embeddings)
 
@@ -321,7 +321,7 @@ def metaclip2_text_encoder(
 ):
     """MetaCLIP 2 text encoder with causal attention and EOS-token pooling.
 
-    Pipeline: :class:`TextModelEmbedding` (token + positional) →
+    Pipeline: :class:`CLIPTextModelEmbedding` (token + positional) →
     :func:`metaclip2_encoder` with a strict upper-triangular causal
     mask plus the padding mask → post-encoder LayerNorm → pluck the
     hidden state at each row's EOS position → text projection.
@@ -354,7 +354,7 @@ def metaclip2_text_encoder(
         Tensor of shape ``(B, embed_dim)`` — the unnormalized text
         embedding.
     """
-    x = TextModelEmbedding(
+    x = CLIPTextModelEmbedding(
         vocab_size=vocab_size,
         context_length=context_length,
         embedding_dim=transformer_width,

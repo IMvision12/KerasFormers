@@ -4,9 +4,9 @@ from keras import layers, ops
 from kerasformers.base import BaseModel
 from kerasformers.layers import LayerScale
 from kerasformers.models.vit.vit_layers import (
-    AddPositionEmbs,
-    ClassDistToken,
-    MultiHeadSelfAttention,
+    ViTAddPositionEmbs,
+    ViTClassDistToken,
+    ViTMultiHeadSelfAttention,
 )
 
 from .config import DEPTHANYTHINGV1_CONFIG, DEPTHANYTHINGV1_WEIGHTS
@@ -262,8 +262,8 @@ def depth_anything_v1_dino_backbone(
         name=f"{name}_patch_embed",
     )(pixel_values)
     x = layers.Reshape((-1, backbone_dim))(x)
-    x = ClassDistToken(use_distillation=False, name=f"{name}_cls_token")(x)
-    x = AddPositionEmbs(
+    x = ViTClassDistToken(use_distillation=False, name=f"{name}_cls_token")(x)
+    x = ViTAddPositionEmbs(
         name=f"{name}_pos_embed",
         no_embed_class=False,
         use_distillation=False,
@@ -276,7 +276,7 @@ def depth_anything_v1_dino_backbone(
         x_norm = layers.LayerNormalization(
             epsilon=1e-6, axis=-1, name=f"{name}_block_{i}_ln1"
         )(x)
-        x_attn = MultiHeadSelfAttention(
+        x_attn = ViTMultiHeadSelfAttention(
             dim=backbone_dim,
             num_heads=backbone_num_heads,
             qkv_bias=True,

@@ -3,7 +3,7 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Attention4D(layers.Layer):
+class EfficientFormerAttention4D(layers.Layer):
     """Multi-head self-attention with learnable relative position bias.
 
     Computes multi-head attention using a fused QKV projection and adds

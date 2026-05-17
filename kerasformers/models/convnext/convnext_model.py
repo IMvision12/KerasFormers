@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
-from kerasformers.models.convnext.convnext_layers import GlobalResponseNorm
+from kerasformers.models.convnext.convnext_layers import ConvNeXtGlobalResponseNorm
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHT_CONFIG
@@ -52,7 +52,7 @@ def convnext_block(
         drop_path_rate: Stochastic depth drop probability for this block.
         layer_scale_init_value: Initial value for LayerScale; pass ``None`` to skip.
         name: Name prefix for sub-layers inside the block.
-        use_grn: Whether to apply GlobalResponseNorm (ConvNeXtV2 style).
+        use_grn: Whether to apply ConvNeXtGlobalResponseNorm (ConvNeXtV2 style).
         use_conv: If True, use 1x1 Conv2D for the MLP; else use Dense layers.
 
     Returns:
@@ -81,7 +81,7 @@ def convnext_block(
         x = layers.Dense(4 * projection_dim, name=name + "_dense_1")(x)
     x = layers.Activation("gelu", name=name + "_gelu")(x)
     if use_grn:
-        x = GlobalResponseNorm(name=name + "_grn")(x)
+        x = ConvNeXtGlobalResponseNorm(name=name + "_grn")(x)
     if use_conv:
         x = layers.Conv2D(
             projection_dim,
@@ -126,7 +126,7 @@ def convnext_backbone_feature(
         drop_path_rate: Maximum stochastic-depth rate; linearly scaled across blocks.
         layer_scale_init_value: LayerScale init; pass ``None`` to disable.
         use_conv: Use 1x1 Conv2D inside blocks instead of Dense.
-        use_grn: Enable GlobalResponseNorm (ConvNeXtV2 style).
+        use_grn: Enable ConvNeXtGlobalResponseNorm (ConvNeXtV2 style).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis index of the channels dimension.
         return_stages: If True, return a list of per-stage feature maps
@@ -216,7 +216,7 @@ class ConvNeXtModel(BaseModel):
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.
-        use_grn: Boolean, whether to apply GlobalResponseNorm inside each
+        use_grn: Boolean, whether to apply ConvNeXtGlobalResponseNorm inside each
             block (ConvNeXtV2 recipe). Defaults to `False`.
         image_size: Integer, square input resolution used to validate the
             input shape. Defaults to `224`.
@@ -387,7 +387,7 @@ class ConvNeXtImageClassify(BaseModel):
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.
-        use_grn: Boolean, whether to apply GlobalResponseNorm inside each
+        use_grn: Boolean, whether to apply ConvNeXtGlobalResponseNorm inside each
             block (ConvNeXtV2 recipe). Defaults to `False`.
         image_size: Integer, square input resolution used to validate the
             input shape. Defaults to `224`.

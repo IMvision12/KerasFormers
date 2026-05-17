@@ -5,7 +5,9 @@ from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
-from kerasformers.models.efficientformer.efficientformer_layers import Attention4D
+from kerasformers.models.efficientformer.efficientformer_layers import (
+    EfficientFormerAttention4D,
+)
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTFORMER_MODEL_CONFIG, EFFICIENTFORMER_WEIGHT_CONFIG
@@ -168,7 +170,9 @@ def meta_block_1d(
         Output token tensor of shape ``(B, N, dim)``.
     """
     y = layers.LayerNormalization(epsilon=1e-6, axis=-1, name=f"{name}_norm1")(inputs)
-    y = Attention4D(dim=dim, resolution=resolution, name=f"{name}_attn")(y)
+    y = EfficientFormerAttention4D(dim=dim, resolution=resolution, name=f"{name}_attn")(
+        y
+    )
     y = LayerScale(layer_scale_init_value, name=f"{name}_ls1")(y)
     if drop_path > 0.0:
         y = StochasticDepth(drop_path, name=f"{name}_drop_path1")(y)

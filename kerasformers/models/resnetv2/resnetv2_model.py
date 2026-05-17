@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
-from kerasformers.models.resnetv2.resnetv2_layers import StdConv2D
+from kerasformers.models.resnetv2.resnetv2_layers import ResNetV2StdConv2D
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHT_CONFIG
@@ -47,7 +47,7 @@ def conv_block(
         kernel_size: Size of the convolution kernel.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         strides: Stride of the convolution.
-        padding: Padding mode passed to :class:`StdConv2D` when no explicit
+        padding: Padding mode passed to :class:`ResNetV2StdConv2D` when no explicit
             zero-padding is applied.
         use_bias: Whether the convolution uses a bias term.
         name: Optional name for the convolution layer.
@@ -60,7 +60,7 @@ def conv_block(
         x = layers.ZeroPadding2D(padding=(pad, pad))(x)
         padding = "valid"
 
-    x = StdConv2D(
+    x = ResNetV2StdConv2D(
         filters=filters,
         kernel_size=kernel_size,
         strides=strides,

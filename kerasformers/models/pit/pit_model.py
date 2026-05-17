@@ -5,9 +5,9 @@ from keras.src.applications import imagenet_utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.vit.vit_layers import (
-    AddPositionEmbs,
-    ClassDistToken,
-    MultiHeadSelfAttention,
+    ViTAddPositionEmbs,
+    ViTClassDistToken,
+    ViTMultiHeadSelfAttention,
 )
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -53,7 +53,7 @@ def transformer_block(inputs, dim, num_heads, mlp_ratio, block_prefix=None):
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=block_prefix + "_layernorm_1"
     )(inputs)
-    x = MultiHeadSelfAttention(
+    x = ViTMultiHeadSelfAttention(
         dim=dim,
         num_heads=num_heads,
         qkv_bias=True,
@@ -188,14 +188,14 @@ def pit_backbone_feature(
         x = layers.Permute((2, 3, 1), name="patch_to_nhwc")(x)
     x = layers.Reshape((grid_h * grid_w, embed_dim[0]), name="patch_tokens_reshape")(x)
 
-    x = AddPositionEmbs(
+    x = ViTAddPositionEmbs(
         grid_h=grid_h,
         grid_w=grid_w,
         no_embed_class=True,
         use_distillation=distilled,
         name="pos_embed",
     )(x)
-    x = ClassDistToken(
+    x = ViTClassDistToken(
         use_distillation=distilled,
         combine_tokens=True,
         name="class_dist_token",

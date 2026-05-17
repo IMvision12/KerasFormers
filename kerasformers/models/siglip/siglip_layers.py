@@ -166,7 +166,7 @@ class SigLIPAttention(keras.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Probe(layers.Layer):
+class SigLIPProbe(layers.Layer):
     """Learnable probe parameter layer.
 
     This layer creates a learnable parameter that can be used as a probe token
@@ -183,11 +183,11 @@ class Probe(layers.Layer):
         probe (Variable): Learnable probe parameter of shape (1, 1, hidden_dim).
 
     Returns:
-        Tensor: Probe tensor repeated for each batch element,
+        Tensor: SigLIPProbe tensor repeated for each batch element,
                shape (batch_size, 1, hidden_dim).
 
     Example:
-        >>> probe_layer = Probe(hidden_dim=512)
+        >>> probe_layer = SigLIPProbe(hidden_dim=512)
         >>> probe_tokens = probe_layer(inputs)  # Shape: (batch_size, 1, 512)
     """
 
@@ -214,7 +214,7 @@ class Probe(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="siglip")
-class PositionIDs(layers.Layer):
+class SigLIPPositionIDs(layers.Layer):
     """A Keras layer that generates position IDs for vision transformers.
 
     This layer creates position identifiers for a 2D grid of patches, commonly used
@@ -244,10 +244,10 @@ class PositionIDs(layers.Layer):
     Example:
         ```python
         # Create 1D position IDs for a 14x14 grid
-        pos_layer = PositionIDs(grid_h=14, grid_w=14, use_2d_positions=False)
+        pos_layer = SigLIPPositionIDs(grid_h=14, grid_w=14, use_2d_positions=False)
 
         # Create 2D coordinate position IDs for a 16x16 grid
-        pos_layer_2d = PositionIDs(grid_h=16, grid_w=16, use_2d_positions=True)
+        pos_layer_2d = SigLIPPositionIDs(grid_h=16, grid_w=16, use_2d_positions=True)
         ```
     """
 
@@ -324,7 +324,7 @@ class PositionIDs(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class LogitScaleBias(layers.Layer):
+class SigLIPLogitScaleBias(layers.Layer):
     """Learnable logit scaling and bias layer for contrastive learning.
 
     This layer applies learnable scaling and bias to similarity matrices, commonly
@@ -339,7 +339,7 @@ class LogitScaleBias(layers.Layer):
         Tensor: Scaled and biased similarity matrix of the same shape as input.
 
     Example:
-        >>> scale_bias = LogitScaleBias()
+        >>> scale_bias = SigLIPLogitScaleBias()
         >>> scaled_logits = scale_bias(similarity_matrix)
     """
 
@@ -365,7 +365,7 @@ class LogitScaleBias(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="siglip")
-class PositionEmbedding(layers.Layer):
+class SigLIPPositionEmbedding(layers.Layer):
     """
     Position embedding layer that can handle different grid sizes through interpolation.
 
@@ -404,12 +404,12 @@ class PositionEmbedding(layers.Layer):
     Examples:
         ```python
         # Basic usage for sequence positions
-        pos_embed = PositionEmbedding(max_positions=100, embedding_dim=256)
+        pos_embed = SigLIPPositionEmbedding(max_positions=100, embedding_dim=256)
         position_ids = tf.range(10)  # [0, 1, 2, ..., 9]
         embeddings = pos_embed(position_ids)  # Shape: (10, 256)
 
         # For 2D grid positions (e.g., 4x4 image patches)
-        pos_embed_2d = PositionEmbedding(max_positions=16, embedding_dim=128)
+        pos_embed_2d = SigLIPPositionEmbedding(max_positions=16, embedding_dim=128)
         # Position IDs for a 4x4 grid: [0, 1, 2, ..., 15]
         grid_positions = tf.range(16)
         grid_embeddings = pos_embed_2d(grid_positions)  # Shape: (16, 128)

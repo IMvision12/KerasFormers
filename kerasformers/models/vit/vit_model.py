@@ -5,9 +5,9 @@ from keras.src.applications import imagenet_utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.models.vit.vit_layers import (
-    AddPositionEmbs,
-    ClassDistToken,
-    MultiHeadSelfAttention,
+    ViTAddPositionEmbs,
+    ViTClassDistToken,
+    ViTMultiHeadSelfAttention,
 )
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -71,7 +71,7 @@ def transformer_block(
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
-    x = MultiHeadSelfAttention(
+    x = ViTMultiHeadSelfAttention(
         dim=dim,
         num_heads=num_heads,
         qkv_bias=qkv_bias,
@@ -180,8 +180,8 @@ def vit_backbone_feature(
         name="conv1",
     )(inputs)
     x = layers.Reshape((-1, dim))(x)
-    x = ClassDistToken(use_distillation=use_distillation, name="cls_token")(x)
-    x = AddPositionEmbs(
+    x = ViTClassDistToken(use_distillation=use_distillation, name="cls_token")(x)
+    x = ViTAddPositionEmbs(
         name="pos_embed",
         no_embed_class=no_embed_class,
         use_distillation=use_distillation,

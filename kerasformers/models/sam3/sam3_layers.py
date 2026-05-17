@@ -1177,7 +1177,7 @@ class SAM3CLIPAttention(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPPositionEmbedding(layers.Layer):
+class SAM3CLIPPositionEmbedding(layers.Layer):
     """Learnable absolute position embedding for the CLIP text encoder.
 
     Adds a fixed-length position embedding to token embeddings using
@@ -1216,7 +1216,7 @@ class CLIPPositionEmbedding(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPCausalMask(layers.Layer):
+class SAM3CLIPCausalMask(layers.Layer):
     """Causal attention mask with padding for the CLIP text encoder.
 
     Combines an upper-triangular causal mask with a padding mask derived
