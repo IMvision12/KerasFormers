@@ -21,13 +21,12 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
 )
 
 _BLOCK_00 = {
-    "blocks.0.0.batchnorm.1": "blocks.0.0.bn1",
+    "blocks.0.0.batchnorm.2": "blocks.0.0.bn1",
     "blocks.0.0.batchnorm.3": "blocks.0.0.bn2",
     "blocks.0.0.conv.pwl": "blocks.0.0.conv_pw",
 }
 
 _BASE_MAPPINGS = {
-    "_": ".",
     "stem.conv": "conv_stem",
     "stem.batchnorm": "bn1",
     "head.conv": "conv_head",
@@ -55,12 +54,11 @@ def transfer_mobilenetv2_weights(
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
-        torch_weight_name = keras_weight_name
         torch_weight_name = re.sub(
             r"blocks_(\d+)_(\d+)_",
             lambda m: f"blocks.{m.group(1)}.{m.group(2)}.",
-            torch_weight_name,
-        )
+            keras_weight_name,
+        ).replace("_", ".")
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
 
@@ -88,14 +86,17 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = MobileNetV2ImageClassify.from_weights(variant, load_weights=False)
+        keras_model = MobileNetV2ImageClassify.from_weights(
+            variant, load_weights=False, include_normalization=False
+        )
         transfer_mobilenetv2_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()
+        image_size = keras_model.image_size
         results = verify_cls_model_equivalence(
             model_a=torch_model,
             model_b=keras_model,
-            input_shape=keras_model.input_shape[1:],
+            input_shape=(image_size, image_size, 3),
             output_specs={"num_classes": keras_model.output_shape[-1]},
             comparison_type="torch_to_keras",
             run_performance=False,

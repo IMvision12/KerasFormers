@@ -74,15 +74,17 @@ def inverted_residual_block(
         )(x)
         x = layers.BatchNormalization(
             axis=channels_axis,
-            epsilon=1e-3,
+            epsilon=1e-5,
             momentum=0.999,
             name=f"{prefix}_batchnorm_1",
         )(x)
         x = layers.Activation(activation, name=f"{prefix}_activation_1")(x)
 
-    if stride == 1:
-        pad_h = pad_w = kernel_size // 2
-        x = layers.ZeroPadding2D(data_format=data_format, padding=(pad_h, pad_w))(x)
+    if stride > 1:
+        pad = kernel_size // 2
+        x = layers.ZeroPadding2D(
+            data_format=data_format, padding=((pad, pad), (pad, pad))
+        )(x)
         padding = "valid"
     else:
         padding = "same"
@@ -97,7 +99,7 @@ def inverted_residual_block(
     )(x)
     x = layers.BatchNormalization(
         axis=channels_axis,
-        epsilon=1e-3,
+        epsilon=1e-5,
         momentum=0.999,
         name=f"{prefix}_batchnorm_2",
     )(x)
@@ -135,7 +137,7 @@ def inverted_residual_block(
     )(x)
     x = layers.BatchNormalization(
         axis=channels_axis,
-        epsilon=1e-3,
+        epsilon=1e-5,
         momentum=0.999,
         name=f"{prefix}_batchnorm_3",
     )(x)
@@ -212,18 +214,21 @@ def mobilenetv3_backbone_feature(
     """
     blocks = _LARGE_BLOCKS if config == "large" else _SMALL_BLOCKS
 
+    x = layers.ZeroPadding2D(
+        padding=((1, 1), (1, 1)), data_format=data_format, name="stem_padding"
+    )(inputs)
     x = layers.Conv2D(
         16,
         kernel_size=3,
         strides=(2, 2),
-        padding="same",
+        padding="valid",
         use_bias=False,
         data_format=data_format,
         name="stem_conv",
-    )(inputs)
+    )(x)
     x = layers.BatchNormalization(
         axis=channels_axis,
-        epsilon=1e-3,
+        epsilon=1e-5,
         momentum=0.999,
         name="stem_batchnorm",
     )(x)
@@ -272,7 +277,7 @@ def mobilenetv3_backbone_feature(
     )(x)
     x = layers.BatchNormalization(
         axis=channels_axis,
-        epsilon=1e-3,
+        epsilon=1e-5,
         momentum=0.999,
         name="final_batchnorm",
     )(x)

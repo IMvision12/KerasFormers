@@ -70,7 +70,7 @@ Both classes use the same variant registry, so any string you can pass to one wo
 ```python
 ResNetImageClassify.from_weights("resnet50_a1_in1k")
 ResNetModel.from_weights("resnet50_a1_in1k")            # same weights, no Dense head
-ResNetModel.from_weights("timm:timm/resnet50.a1_in1k")  # any timm variant via the timm: prefix
+ResNetModel.from_weights("hf:timm/resnet50.a1_in1k")    # any timm variant via the hf: prefix
 ```
 
 Under the hood `XModel.from_release` warm-starts from `XImageClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
@@ -143,7 +143,7 @@ model = ResNetImageClassify.from_weights(
 
 **Trade-off:** `skip_mismatch=True` is shape-based, not name-based. If you point it at a wrong variant or a corrupt file, it will *quietly* skip more than the head and leave parts of the backbone randomly initialized. Keras emits `warnings.warn` per skipped layer, but warnings are easy to miss — especially in notebook stderr streams. For sensitive training runs, prefer **Path A**.
 
-**Scope:** `skip_mismatch=True` only affects the kerasformers-release weight path (the `.h5` / `.json` URLs from the GitHub release). The `hf:` and `timm:` prefixes go through hand-mapped `transfer_from_*` functions that ignore the flag.
+**Scope:** `skip_mismatch=True` only affects the kerasformers-release weight path (the `.h5` / `.json` URLs from the GitHub release). The `hf:` prefix goes through hand-mapped `transfer_from_*` functions that ignore the flag.
 
 ### Feature extractor (frozen backbone)
 

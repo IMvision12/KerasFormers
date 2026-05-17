@@ -1,7 +1,6 @@
 import keras
 from keras import layers
 
-from kerasformers.models.vit.convert_vit_torch_to_keras import transfer_vit_weights
 from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -71,6 +70,10 @@ class FlexiViTModel(ViTModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from kerasformers.models.vit.convert_vit_torch_to_keras import (
+            transfer_vit_weights,
+        )
+
         transfer_vit_weights(keras_model, state_dict)
 
     def __init__(self, as_backbone=False, name="FlexiViTModel", **kwargs):
@@ -162,6 +165,10 @@ class FlexiViTImageClassify(ViTImageClassify):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
+        from kerasformers.models.vit.convert_vit_torch_to_keras import (
+            transfer_vit_weights,
+        )
+
         transfer_vit_weights(keras_model, state_dict)
 
     def __init__(

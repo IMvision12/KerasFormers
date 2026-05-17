@@ -7,7 +7,6 @@ from huggingface_hub.utils import EntryNotFoundError
 from kerasformers.weight_utils import download_file
 
 _HF_PREFIX = "hf:"
-_TIMM_PREFIX = "timm:"
 
 
 def hf_num_labels(hf_config):
@@ -157,21 +156,16 @@ class BaseModel(keras.Model):
         """Build a model and (optionally) load pretrained weights.
 
         Args:
-            identifier: One of three forms:
+            identifier: One of two forms:
 
                 * a kerasformers variant string (e.g. ``"resnet50_a1_in1k"``)
                   — resolves against ``cls.BASE_MODEL_CONFIG`` /
                   ``cls.BASE_WEIGHT_CONFIG``.
                 * ``"hf:<org>/<repo>"`` — pulls config and weights from
-                  HuggingFace transformers-style repos. Requires the
-                  class to implement ``config_from_hf`` /
-                  ``transfer_from_hf``.
-                * ``"timm:<org>/<repo>"`` — pulls a timm-style
-                  safetensors checkpoint from HuggingFace and converts
-                  it on the fly. Requires the class to implement
-                  ``from_timm``. Pass ``variant=<kerasformers_variant_id>``
-                  via kwargs to select the architecture (auto-inferred
-                  from the timm repo name when omitted).
+                  HuggingFace Hub. Dispatches to :meth:`from_hf`, which
+                  handles both transformers-style repos (CLIP, SigLIP,
+                  DETR, …) and timm-style repos
+                  (``hf:timm/resnet50.a1_in1k``).
 
             load_weights: If ``False``, only the architecture is built
                 (random init). For HF ids, ``config.json`` is still
@@ -183,10 +177,10 @@ class BaseModel(keras.Model):
                 ``num_classes=N, skip_mismatch=True`` to swap in a new
                 classifier head while loading the rest of the backbone.
                 Only applied on the kerasformers-release path (``.h5`` /
-                ``.json`` URLs); ``hf:`` and ``timm:`` paths go through
-                hand-mapped transfer functions and ignore this flag.
+                ``.json`` URLs); ``hf:`` paths go through hand-mapped
+                transfer functions and ignore this flag.
             **kwargs: Forwarded to the model constructor (or to
-                ``from_hf`` / ``from_timm`` when applicable).
+                ``from_hf`` when applicable).
 
         Returns:
             An initialized model instance.
@@ -194,9 +188,6 @@ class BaseModel(keras.Model):
         if identifier.startswith(_HF_PREFIX):
             hf_id = identifier[len(_HF_PREFIX) :]
             return cls.from_hf(hf_id, load_weights=load_weights, **kwargs)
-        if identifier.startswith(_TIMM_PREFIX):
-            timm_id = identifier[len(_TIMM_PREFIX) :]
-            return cls.from_timm(timm_id, load_weights=load_weights, **kwargs)
         return cls.from_release(
             identifier,
             load_weights=load_weights,
@@ -205,57 +196,20 @@ class BaseModel(keras.Model):
         )
 
     @classmethod
-    def from_timm(cls, timm_id, variant=None, load_weights=True, **kwargs):
-        """Load a timm-style checkpoint from HuggingFace and convert.
-
-        Builds the model from ``cls.BASE_MODEL_CONFIG[variant]`` and then
-        applies the timm state-dict via ``cls.transfer_from_timm``.
-        Subclasses opt in by setting ``BASE_MODEL_CONFIG`` and overriding
-        ``transfer_from_timm``.
-
-        Args:
-            timm_id: HuggingFace Hub id of a timm-style safetensors
-                checkpoint (e.g., ``"timm/resnet50.a1_in1k"`` or a user
-                fine-tune of one).
-            variant: kerasformers variant id (e.g., ``"resnet50_a1_in1k"``)
-                whose ``BASE_MODEL_CONFIG`` entry sizes the model. If
-                ``None``, inferred from the trailing segment of
-                ``timm_id`` (``timm/resnet50.a1_in1k`` →
-                ``resnet50_a1_in1k``).
-            load_weights: If ``False``, only the architecture is built.
-            **kwargs: Forwarded to the model constructor.
-        """
-        if variant is None:
-            tail = timm_id.split("/")[-1]
-            stem = tail.replace(".", "_")
-            for candidate in cls.BASE_MODEL_CONFIG or {}:
-                if stem == candidate or stem.startswith(candidate + "_"):
-                    variant = candidate
-                    break
-            if variant is None:
-                raise ValueError(
-                    f"Cannot infer kerasformers variant from timm_id '{timm_id}'. "
-                    f"Pass `variant=` explicitly. Available variants: "
-                    f"{sorted(cls.BASE_MODEL_CONFIG or {})}"
-                )
-        model = cls.from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            state_dict = download_hf_state_dict(timm_id)
-            cls.transfer_from_timm(model, state_dict)
-        return model
-
-    @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
         """Map a timm state-dict onto ``keras_model``'s weights.
 
         Default raises :class:`NotImplementedError`. Subclasses opt in
         by implementing the per-family timm-name → keras-weight mapping
         (typically delegating to a module-level
-        ``transfer_<family>_weights`` function).
+        ``transfer_<family>_weights`` function). Reached via
+        :meth:`from_hf` when ``HF_MODEL_TYPE is None`` (i.e., the
+        family loads from timm-style HF repos, not transformers-style
+        ones).
         """
         raise NotImplementedError(
-            f"{cls.__name__} does not support `timm:` loading. "
-            f"Implement `transfer_from_timm` to enable it."
+            f"{cls.__name__} does not support loading from timm-style HF "
+            f"repos. Implement `transfer_from_timm` to enable it."
         )
 
     @classmethod
@@ -334,7 +288,57 @@ class BaseModel(keras.Model):
         return model
 
     @classmethod
-    def from_hf(cls, hf_id, load_weights=True, **kwargs):
+    def from_hf(cls, hf_id, load_weights=True, variant=None, **kwargs):
+        """Load a model from a HuggingFace Hub repo.
+
+        Two flavours, auto-detected by :attr:`HF_MODEL_TYPE`:
+
+        1. **Transformers-style repos** (``HF_MODEL_TYPE`` set — CLIP,
+           SigLIP, DETR, EoMT, …): pulls ``config.json``, validates
+           ``model_type``, builds via :meth:`config_from_hf`, and
+           dispatches to :meth:`transfer_from_hf`.
+        2. **Timm-style repos** (``HF_MODEL_TYPE is None`` — ResNet,
+           ConvNeXt, EfficientNet, …): infers the kerasformers
+           variant from the repo's trailing path segment, builds via
+           :attr:`BASE_MODEL_CONFIG`, and dispatches to
+           :meth:`transfer_from_timm`. No ``config.json`` is parsed
+           (timm checkpoints don't carry a transformers-style
+           ``model_type``).
+
+        Args:
+            hf_id: HuggingFace Hub id, e.g.
+                ``"openai/clip-vit-base-patch16"`` (transformers-style)
+                or ``"timm/resnet50.a1_in1k"`` (timm-style).
+            load_weights: If ``False``, only the architecture is built.
+            variant: For timm-style repos, override the inferred
+                kerasformers variant id (e.g., for community fine-tunes
+                whose repo name doesn't follow the timm convention).
+                Ignored for transformers-style repos.
+            **kwargs: Forwarded to the model constructor.
+
+        Returns:
+            An initialized model instance.
+        """
+        if cls.HF_MODEL_TYPE is None:
+            if variant is None:
+                tail = hf_id.split("/")[-1]
+                stem = tail.replace(".", "_")
+                for candidate in cls.BASE_MODEL_CONFIG or {}:
+                    if stem == candidate or stem.startswith(candidate + "_"):
+                        variant = candidate
+                        break
+                if variant is None:
+                    raise ValueError(
+                        f"Cannot infer kerasformers variant from hf_id "
+                        f"'{hf_id}'. Pass `variant=` explicitly. Available "
+                        f"variants: {sorted(cls.BASE_MODEL_CONFIG or {})}"
+                    )
+            model = cls.from_release(variant, load_weights=False, **kwargs)
+            if load_weights:
+                state_dict = download_hf_state_dict(hf_id)
+                cls.transfer_from_timm(model, state_dict)
+            return model
+
         with open(hf_hub_download(hf_id, "config.json"), "r") as f:
             hf_config = json.load(f)
         cls.assert_hf_model_type(hf_id, hf_config)

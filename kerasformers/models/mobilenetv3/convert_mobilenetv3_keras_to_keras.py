@@ -1,6 +1,6 @@
 import gc
 import re
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import keras
 import numpy as np
@@ -20,33 +20,18 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-_LARGE_STAGES: List[int] = [1, 2, 3, 4, 2, 3]
-_SMALL_STAGES: List[int] = [1, 2, 3, 2, 3]
+_LARGE_STAGES = [1, 2, 3, 4, 2, 3]
+_SMALL_STAGES = [1, 2, 3, 2, 3]
 
-
-def _flat_to_stage_map(stage_sizes: List[int]) -> List[Tuple[int, int]]:
-    out: List[Tuple[int, int]] = []
-    for stage_idx, count in enumerate(stage_sizes):
-        for b in range(count):
-            out.append((stage_idx, b))
-    return out
-
-
-_LARGE_FLAT_TO_STAGE = _flat_to_stage_map(_LARGE_STAGES)
-_SMALL_FLAT_TO_STAGE = _flat_to_stage_map(_SMALL_STAGES)
-
-_BLOCK_00_KW: Dict[str, str] = {
+_BLOCK_00 = {
     "blocks.0.0.batchnorm.2": "blocks.0.0.bn1",
     "blocks.0.0.batchnorm.3": "blocks.0.0.bn2",
     "blocks.0.0.conv.pwl": "blocks.0.0.conv_pw",
 }
 
-_BASE_MAPPINGS: Dict[str, str] = {
-    "_": ".",
+_BASE_MAPPINGS = {
     "stem.conv": "conv_stem",
     "stem.batchnorm": "bn1",
-    "final.conv": "conv_head",
-    "final.batchnorm": "bn2",
     "head.conv": "conv_head",
     "se.conv.1": "se.conv_reduce",
     "se.conv.2": "se.conv_expand",
@@ -65,36 +50,43 @@ _BASE_MAPPINGS: Dict[str, str] = {
 }
 
 
-def _ir_block_to_timm(name: str, flat_to_stage: List[Tuple[int, int]]) -> str:
-    def _sub(m):
-        flat_idx = int(m.group(1))
-        s, b = flat_to_stage[flat_idx]
-        return f"blocks.{s}.{b}."
-
-    return re.sub(r"ir.block.(\d+).", _sub, name)
-
-
 def transfer_mobilenetv3_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    flat_to_stage = (
-        _LARGE_FLAT_TO_STAGE
+    stages = (
+        _LARGE_STAGES
         if getattr(keras_model, "config", "large") == "large"
-        else _SMALL_FLAT_TO_STAGE
+        else _SMALL_STAGES
     )
+    flat_to_stage = [(s, b) for s, n in enumerate(stages) for b in range(n)]
+    final_stage = len(stages)
+    final_mapping = {
+        "final.conv": f"blocks.{final_stage}.0.conv",
+        "final.batchnorm": f"blocks.{final_stage}.0.bn1",
+    }
+    mapping = {**_BLOCK_00, **final_mapping, **_BASE_MAPPINGS}
 
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
-        torch_weight_name = keras_weight_name
-        torch_weight_name = _ir_block_to_timm(torch_weight_name, flat_to_stage)
-        for old, new in {**_BLOCK_00_KW, **_BASE_MAPPINGS}.items():
+        torch_weight_name = re.sub(
+            r"ir_block_(\d+)_",
+            lambda m: f"blocks.{flat_to_stage[int(m.group(1))][0]}.{flat_to_stage[int(m.group(1))][1]}.",
+            keras_weight_name,
+        ).replace("_", ".")
+        for old, new in mapping.items():
             torch_weight_name = torch_weight_name.replace(old, new)
 
         if torch_weight_name not in state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
 
         torch_weight = state_dict[torch_weight_name]
+        if (
+            keras_weight.ndim == 2
+            and torch_weight.ndim == 4
+            and torch_weight.shape[-2:] == (1, 1)
+        ):
+            torch_weight = torch_weight.squeeze(axis=(-1, -2))
         if not compare_keras_torch_names(
             keras_weight_name, keras_weight, torch_weight_name, torch_weight
         ):
@@ -115,14 +107,17 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = MobileNetV3ImageClassify.from_weights(variant, load_weights=False)
+        keras_model = MobileNetV3ImageClassify.from_weights(
+            variant, load_weights=False, include_normalization=False
+        )
         transfer_mobilenetv3_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()
+        image_size = keras_model.image_size
         results = verify_cls_model_equivalence(
             model_a=torch_model,
             model_b=keras_model,
-            input_shape=keras_model.input_shape[1:],
+            input_shape=(image_size, image_size, 3),
             output_specs={"num_classes": keras_model.output_shape[-1]},
             comparison_type="torch_to_keras",
             run_performance=False,
