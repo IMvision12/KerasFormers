@@ -26,22 +26,22 @@ On first use, weights are downloaded, converted to Keras, and cached at `~/.cach
 ## Basic Usage
 
 ```python
-from kerasformers.models.sam3 import SAM3
+from kerasformers.models.sam3 import SAM3Model
 
 # First call: downloads from HF, converts, caches (~5 min)
 # Subsequent calls: loads from cache instantly
-model = SAM3(input_shape=(1008, 1008, 3), weights="saco")
+model = SAM3Model(input_shape=(1008, 1008, 3), weights="saco")
 ```
 
 ## Object Detection
 
 ```python
-from kerasformers.models.sam3.sam3_downstream import SAM3ObjectDetection
+from kerasformers.models.sam3 import SAM3Detect
 from PIL import Image
 
 image = Image.open("photo.jpg")
 
-detector = SAM3ObjectDetection(model)
+detector = SAM3Detect(model=model)
 results = detector.predict(images=image, text="cat")
 
 for det in results:
@@ -51,9 +51,9 @@ for det in results:
 ## Instance Segmentation
 
 ```python
-from kerasformers.models.sam3.sam3_downstream import SAM3InstanceSegmentation
+from kerasformers.models.sam3 import SAM3InstanceSegment
 
-segmenter = SAM3InstanceSegmentation(model)
+segmenter = SAM3InstanceSegment(model=model)
 results = segmenter.predict(images=image, text="cat")
 
 for r in results:
@@ -65,9 +65,9 @@ for r in results:
 ## Semantic Segmentation
 
 ```python
-from kerasformers.models.sam3.sam3_downstream import SAM3SemanticSegmentation
+from kerasformers.models.sam3 import SAM3SemanticSegment
 
-sem_seg = SAM3SemanticSegmentation(model)
+sem_seg = SAM3SemanticSegment(model=model)
 masks = sem_seg.predict(images=image, text="cat")
 
 # masks[0] is a (H, W) binary mask at original image size
@@ -112,7 +112,7 @@ vis.save("semantic_seg.jpg")
 When running multiple text prompts on the same image, compute vision features once and reuse:
 
 ```python
-detector = SAM3ObjectDetection(model)
+detector = SAM3Detect(model=model)
 
 # Run backbone once
 features = detector.get_vision_features(image)
@@ -172,7 +172,7 @@ SAM3 supports both `channels_last` (default) and `channels_first`:
 import keras
 keras.config.set_image_data_format("channels_first")
 
-model = SAM3(input_shape=(3, 1008, 1008), weights=None)
+model = SAM3Model(input_shape=(3, 1008, 1008), weights=None)
 ```
 
 All Conv2D, UpSampling2D, and GroupNormalization layers use the configured data format. The ViT backbone processes internally in NHWC and permutes at boundaries when channels_first is set.
@@ -204,10 +204,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kerasformers.models.sam3 import SAM3
-from kerasformers.models.sam3.sam3_downstream import (
-    SAM3ObjectDetection,
-    SAM3InstanceSegmentation,
+from kerasformers.models.sam3 import (
+    SAM3Model,
+    SAM3Detect,
+    SAM3InstanceSegment,
 )
 from kerasformers.models.sam3.sam3_utils import (
     draw_detections,
@@ -215,17 +215,17 @@ from kerasformers.models.sam3.sam3_utils import (
 )
 
 # First call: downloads from HF, converts, caches (~5 min)
-model = SAM3(input_shape=(1008, 1008, 3), weights="saco")
+model = SAM3Model(input_shape=(1008, 1008, 3), weights="saco")
 
 image = Image.open("assets/coco_horse_dog.jpg").convert("RGB")
 
 # 1) Object detection on the same image with multiple text prompts
-detector = SAM3ObjectDetection(model)
+detector = SAM3Detect(model=model)
 det_dog = detector.predict(images=image, text="dog")[0]
 det_horse = detector.predict(images=image, text="horse")[0]
 
 # 2) Instance segmentation for the dog
-segmenter = SAM3InstanceSegmentation(model)
+segmenter = SAM3InstanceSegment(model=model)
 inst_dog = segmenter.predict(images=image, text="dog")[0]
 
 # 3) Render: detections on the left, instance masks on the right

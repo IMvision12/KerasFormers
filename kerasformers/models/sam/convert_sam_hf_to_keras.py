@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import SamModel
 
-from kerasformers.models.sam import SAMPromptableSegment
+from kerasformers.models.sam import SAMModel
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -266,9 +266,7 @@ if __name__ == "__main__":
         hf_model = SamModel.from_pretrained(hf_id).eval()
         hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model: keras.Model = SAMPromptableSegment.from_weights(
-            variant, load_weights=False
-        )
+        keras_model: keras.Model = SAMModel.from_weights(variant, load_weights=False)
 
         transfer_sam_weights(keras_model, hf_state_dict)
 

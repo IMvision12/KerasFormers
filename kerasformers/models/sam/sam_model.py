@@ -282,7 +282,7 @@ class SAMVisionModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAMPromptableSegment(BaseModel):
+class SAMModel(BaseModel):
     """SAM full promptable segmentation model.
 
     Composes :class:`SAMVisionModel` with the prompt encoder and mask
@@ -370,7 +370,7 @@ class SAMPromptableSegment(BaseModel):
         enable_masks=False,
         input_shape=None,
         input_tensor=None,
-        name="SAMPromptableSegment",
+        name="SAMModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()

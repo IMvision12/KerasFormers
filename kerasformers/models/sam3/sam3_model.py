@@ -922,7 +922,7 @@ def sam3_mask_decoder(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Sam3(BaseModel):
+class SAM3Model(BaseModel):
     """SAM3: unified open-vocabulary detector, segmenter, and promptable model.
 
     Builds the complete detection pipeline as a functional graph:
@@ -932,14 +932,14 @@ class Sam3(BaseModel):
     ``keras.config.image_data_format()``.
 
     Weights are gated on HuggingFace (``facebook/sam3``). On first use
-    with ``Sam3.from_weights("sam3_saco")``, the model is downloaded
+    with ``SAM3Model.from_weights("sam3_saco")``, the model is downloaded
     from HuggingFace, converted to Keras format, and cached locally at
     ``~/.cache/kerasformers/sam3_saco/``.
 
     Construction:
 
-    >>> Sam3.from_weights("sam3_saco")
-    >>> Sam3.from_weights("sam3_saco", load_weights=False)  # random init
+    >>> SAM3Model.from_weights("sam3_saco")
+    >>> SAM3Model.from_weights("sam3_saco", load_weights=False)  # random init
 
     Args:
         vit_hidden_size (int): ViT hidden dimension. Defaults to ``1024``.
@@ -1021,7 +1021,7 @@ class Sam3(BaseModel):
         text_projection_dim=512,
         input_shape=None,
         input_tensor=None,
-        name="Sam3",
+        name="SAM3Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -1370,7 +1370,7 @@ class Sam3(BaseModel):
         sub = self._submodel_cache.get("identity_text_decoder")
         if sub is None:
             cfg = self.get_config()
-            sub = Sam3(
+            sub = SAM3Model(
                 input_shape=self._input_shape_val,
                 text_hidden_size=cfg["detr_encoder_hidden_size"],
                 **{
@@ -1580,7 +1580,7 @@ class Sam3(BaseModel):
 
         if self.geometry_encoder is None:
             raise ValueError(
-                "geometry_encoder is required for box prompts, but this Sam3 "
+                "geometry_encoder is required for box prompts, but this SAM3Model "
                 "instance was built without one."
             )
 
@@ -1857,14 +1857,14 @@ class Sam3(BaseModel):
 
 
 class _SAM3Task:
-    """Task-specific wrapper around a :class:`Sam3` model.
+    """Task-specific wrapper around a :class:`SAM3Model` model.
 
-    Holds a single ``Sam3`` instance (created lazily on first use if
+    Holds a single ``SAM3Model`` instance (created lazily on first use if
     none is supplied) and exposes ``predict`` along with the shared
     ``encode_image`` / ``encode_text`` shortcuts.
 
     Subclasses implement task-specific post-processing by delegating
-    to one of the ``Sam3`` inference methods (``detect`` /
+    to one of the ``SAM3Model`` inference methods (``detect`` /
     ``segment_instances`` / ``segment_semantic``).
     """
 
@@ -1872,10 +1872,10 @@ class _SAM3Task:
 
     def __init__(self, model=None, variant="sam3_saco", load_weights=True):
         if model is None:
-            model = Sam3.from_weights(variant, load_weights=load_weights)
-        if not isinstance(model, Sam3):
+            model = SAM3Model.from_weights(variant, load_weights=load_weights)
+        if not isinstance(model, SAM3Model):
             raise TypeError(
-                f"`model` must be a Sam3 instance, got {type(model).__name__}"
+                f"`model` must be a SAM3Model instance, got {type(model).__name__}"
             )
         self.model = model
 
@@ -1896,7 +1896,7 @@ class _SAM3Task:
 class SAM3Detect(_SAM3Task):
     """SAM3 open-vocabulary object detector.
 
-    Thin wrapper around :meth:`Sam3.detect`. Holds a ``Sam3`` instance
+    Thin wrapper around :meth:`SAM3Model.detect`. Holds a ``SAM3Model`` instance
     (auto-loaded from ``"sam3_saco"`` on first use unless ``model`` is
     passed explicitly) and exposes ``predict`` that returns one
     ``{"scores", "boxes"}`` dict per image.
@@ -1917,7 +1917,7 @@ class SAM3Detect(_SAM3Task):
 class SAM3InstanceSegment(_SAM3Task):
     """SAM3 open-vocabulary instance segmenter.
 
-    Thin wrapper around :meth:`Sam3.segment_instances`. Returns
+    Thin wrapper around :meth:`SAM3Model.segment_instances`. Returns
     ``{"scores", "boxes", "masks"}`` per image, with ``masks`` as
     ``(N, H, W)`` int32 binary masks at the original resolution.
     """
@@ -1928,7 +1928,7 @@ class SAM3InstanceSegment(_SAM3Task):
 class SAM3SemanticSegment(_SAM3Task):
     """SAM3 open-vocabulary semantic segmenter.
 
-    Thin wrapper around :meth:`Sam3.segment_semantic`. Returns a list
+    Thin wrapper around :meth:`SAM3Model.segment_semantic`. Returns a list
     of ``(H, W)`` int32 binary masks, one per image.
     """
 

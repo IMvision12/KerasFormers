@@ -235,9 +235,9 @@ if __name__ == "__main__":
 
     import keras
     import torch
-    from transformers import Sam2Model
+    from transformers import Sam2Model as HFSam2Model
 
-    from kerasformers.models.sam2 import Sam2Model as KerasSam2Model
+    from kerasformers.models.sam2 import SAM2Model
 
     SAM2_CONVERSION_CONFIG = [
         ("sam2_hiera_tiny", "facebook/sam2-hiera-tiny"),
@@ -251,10 +251,12 @@ if __name__ == "__main__":
         print(f"Converting: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
-        hf_model = Sam2Model.from_pretrained(hf_id, attn_implementation="eager").eval()
+        hf_model = HFSam2Model.from_pretrained(
+            hf_id, attn_implementation="eager"
+        ).eval()
         state = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = KerasSam2Model.from_weights(variant, load_weights=False)
+        keras_model = SAM2Model.from_weights(variant, load_weights=False)
         transfer_sam2_weights(keras_model, state)
 
         np.random.seed(42)

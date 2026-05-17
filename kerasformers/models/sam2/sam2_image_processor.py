@@ -17,12 +17,12 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-class Sam2ImageProcessor(BaseImageProcessor):
+class SAM2ImageProcessor(BaseImageProcessor):
     """Preprocess images for Sam2 inference.
 
     Resizes the image to ``(target_length, target_length)`` with
     antialiased bilinear interpolation (no aspect-ratio preservation,
-    matching HF ``Sam2ImageProcessor``), applies ImageNet
+    matching HF ``SAM2ImageProcessor``), applies ImageNet
     normalization, and prepares default prompt placeholders so the
     model can run with just an image.
 
@@ -110,10 +110,10 @@ class Sam2ImageProcessor(BaseImageProcessor):
         )
 
 
-class Sam2ImageProcessorWithPrompts(Sam2ImageProcessor):
+class SAM2ImageProcessorWithPrompts(SAM2ImageProcessor):
     """Preprocess an image plus optional point prompts for Sam2 inference.
 
-    Extends :class:`Sam2ImageProcessor` by also encoding point prompts.
+    Extends :class:`SAM2ImageProcessor` by also encoding point prompts.
     Since SAM 2 stretches images independently per axis, point
     coordinates are scaled per axis as well
     (``x_new = x * target / orig_w``, ``y_new = y * target / orig_h``).
@@ -133,7 +133,7 @@ class Sam2ImageProcessorWithPrompts(Sam2ImageProcessor):
         input_points: Optional[np.ndarray] = None,
         input_labels: Optional[np.ndarray] = None,
     ) -> Dict[str, "keras.KerasTensor"]:
-        result = Sam2ImageProcessor.call(self, image)
+        result = SAM2ImageProcessor.call(self, image)
 
         orig_h, orig_w = result["original_size"]
         scale_x = self.target_length / float(orig_w)
@@ -270,7 +270,7 @@ def _stretch_preprocess_crop(
     return normalized
 
 
-def Sam2GenerateMasks(
+def SAM2GenerateMasks(
     model,
     image: Union[str, np.ndarray, "Image.Image"],
     points_per_side: int = 32,
@@ -303,10 +303,10 @@ def Sam2GenerateMasks(
     deduplicates across crops via NMS on those boxes.
 
     Args:
-        model: A built :class:`kerasformers.models.sam2.Sam2Model` instance.
+        model: A built :class:`kerasformers.models.sam2.SAM2Model` instance.
             Must expose ``vision_encoder_model`` and
             ``prompt_decoder_model`` (both are attached automatically
-            in :meth:`Sam2Model.__init__`). The model should be built with
+            in :meth:`SAM2Model.__init__`). The model should be built with
             the default ``include_box_input=False``,
             ``include_mask_input=False`` flags so the decoder
             sub-model accepts the point-only prompt interface used
@@ -352,10 +352,10 @@ def Sam2GenerateMasks(
 
     Example:
         ```python
-        from kerasformers.models.sam2 import Sam2Model, Sam2GenerateMasks
+        from kerasformers.models.sam2 import SAM2Model, SAM2GenerateMasks
 
-        model = Sam2Model.from_weights("sam2_hiera_tiny")
-        out = Sam2GenerateMasks(model, "photo.jpg", points_per_side=16)
+        model = SAM2Model.from_weights("sam2_hiera_tiny")
+        out = SAM2GenerateMasks(model, "photo.jpg", points_per_side=16)
         print(len(out["masks"]), "masks found")
         ```
     """
@@ -366,7 +366,7 @@ def Sam2GenerateMasks(
 
     if model.include_mask_input or model.include_box_input:
         raise ValueError(
-            "Sam2GenerateMasks requires a SAM2 model built with the "
+            "SAM2GenerateMasks requires a SAM2 model built with the "
             "default point-only prompt interface "
             "(include_box_input=False, include_mask_input=False). "
             "The AMG driver samples grid points and does not supply "

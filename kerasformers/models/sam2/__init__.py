@@ -1,13 +1,13 @@
 from .sam2_image_processor import (
-    Sam2GenerateMasks,
-    Sam2ImageProcessor,
-    Sam2ImageProcessorWithPrompts,
+    SAM2GenerateMasks,
+    SAM2ImageProcessor,
+    SAM2ImageProcessorWithPrompts,
 )
-from .sam2_model import Sam2Model
+from .sam2_model import SAM2Model
 
 __all__ = [
-    "Sam2Model",
-    "Sam2ImageProcessor",
-    "Sam2ImageProcessorWithPrompts",
-    "Sam2GenerateMasks",
+    "SAM2GenerateMasks",
+    "SAM2ImageProcessor",
+    "SAM2ImageProcessorWithPrompts",
+    "SAM2Model",
 ]

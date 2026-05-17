@@ -14,35 +14,35 @@ SAM2 (Segment Anything Model 2) is the next generation of the Segment Anything M
 - **Object Score Head:** An extra head predicts whether a valid object is actually present, usable as a rejection signal for weak prompts.
 - **Ambiguity Awareness:** Like SAM v1, predicts multiple valid mask hypotheses for underspecified prompts (part vs whole).
 
-## Available Models
+## Available Weights
 
-| Model         | Parameters | Backbone     | Description                       | Weights |
-|---------------|-----------|--------------|-----------------------------------|---------|
-| `Sam2Tiny`    | ~38M      | Hiera-Tiny   | Smallest and fastest variant      | `sav`   |
-| `Sam2Small`   | ~46M      | Hiera-Small  | Balanced speed and accuracy       | `sav`   |
-| `Sam2BasePlus`| ~80M      | Hiera-Base+  | Enhanced base model               | `sav`   |
-| `Sam2Large`   | ~224M     | Hiera-Large  | Largest and most accurate         | `sav`   |
+Pretrained weights are loaded via `SAM2Model.from_weights(variant_id)` for kerasformers releases, or `SAM2Model.from_weights("hf:<repo>")` for HF fine-tunes.
 
-All models use a 1024×1024 input resolution and are trained on the SA-V dataset (Segment Anything in Videos).
+| Variant                 | Parameters | Backbone     |
+|-------------------------|-----------:|--------------|
+| `sam2_hiera_tiny`       |     ~38 M  | Hiera-Tiny   |
+| `sam2_hiera_small`      |     ~46 M  | Hiera-Small  |
+| `sam2_hiera_base_plus`  |     ~80 M  | Hiera-Base+  |
+| `sam2_hiera_large`      |    ~224 M  | Hiera-Large  |
+
+All variants take a 1024×1024 input and are trained on the SA-V dataset (Segment Anything in Videos).
 
 ## Basic Usage
 
 ```python
-import kerasformers
-
-# List available SAM2 models
-print(kerasformers.list_models("sam2"))
+from kerasformers.models.sam2 import SAM2Model
 
 # Build a SAM2 model (default 1024x1024 input, 3-mask output)
-model = kerasformers.models.sam2.Sam2Tiny(
-    input_shape=(1024, 1024, 3),
-    weights="sav",
-)
+model = SAM2Model.from_weights("sam2_hiera_tiny")
 
 # For single best-mask output (HF ``multimask_output=False`` path):
-model_single = kerasformers.models.sam2.Sam2Tiny(
-    weights="sav",
-    multimask_output=False,
+model_single = SAM2Model.from_weights(
+    "sam2_hiera_tiny", multimask_output=False
+)
+
+# Build an untrained model
+model_init = SAM2Model.from_weights(
+    "sam2_hiera_tiny", load_weights=False
 )
 ```
 
@@ -67,13 +67,13 @@ The default SAM2 functional graph has three inputs. Box and dense-mask prompts a
 import numpy as np
 import keras
 from kerasformers.models.sam2 import (
-    Sam2Large, Sam2ImageProcessorWithPrompts,
+    SAM2Model, SAM2ImageProcessorWithPrompts,
 )
 
-model = Sam2Large(input_shape=(1024, 1024, 3), weights="sav")
+model = SAM2Model.from_weights("sam2_hiera_large")
 
 # Foreground point in original image pixel coordinates
-processor = Sam2ImageProcessorWithPrompts(
+processor = SAM2ImageProcessorWithPrompts(
     input_points=np.array([[[450, 600]]], dtype=np.float32),
     input_labels=np.array([[1]], dtype=np.int32)
 )
@@ -100,11 +100,11 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-processor = Sam2ImageProcessor()
+processor = SAM2ImageProcessor()
 inputs = processor("photo.jpg")
 
 # force channels_first for this call only
-processor = Sam2ImageProcessor(data_format="channels_first")
+processor = SAM2ImageProcessor(data_format="channels_first")
 inputs = processor("photo.jpg")
 ```
 
@@ -121,9 +121,9 @@ SAM2 supports two box-prompt paths:
 
 ```python
 import numpy as np
-from kerasformers.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
+from kerasformers.models.sam2 import SAM2Model, SAM2ImageProcessorWithPrompts
 
-model = Sam2Small(input_shape=(1024, 1024, 3), weights="sav")
+model = SAM2Model.from_weights("sam2_hiera_small")
 
 # A box is encoded as two corner points: top-left + bottom-right.
 # Coordinates are in original image pixel space.
@@ -131,7 +131,7 @@ box_corners = np.array([[[100, 200], [400, 500]]], dtype=np.float32)
 # Labels: 2 = top-left corner, 3 = bottom-right corner
 box_labels = np.array([[2, 3]], dtype=np.int32)
 
-processor = Sam2ImageProcessorWithPrompts(
+processor = SAM2ImageProcessorWithPrompts(
     input_points=box_corners,
     input_labels=box_labels
 )
@@ -148,15 +148,14 @@ outputs = model({
 
 ```python
 import numpy as np
-from kerasformers.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
+from kerasformers.models.sam2 import SAM2Model, SAM2ImageProcessorWithPrompts
 
-model = Sam2Small(
-    input_shape=(1024, 1024, 3),
-    weights="sav",
+model = SAM2Model.from_weights(
+    "sam2_hiera_small",
     include_box_input=True,
 )
 
-processor = Sam2ImageProcessorWithPrompts(
+processor = SAM2ImageProcessorWithPrompts(
     input_points=np.array([[[450, 600]]], dtype=np.float32),
     input_labels=np.array([[1]], dtype=np.int32)
 )
@@ -190,10 +189,10 @@ For interactive tools that try many prompts on the same image, run the Hiera bac
 ```python
 import numpy as np
 import keras
-from kerasformers.models.sam2 import Sam2Tiny, Sam2ImageProcessor
+from kerasformers.models.sam2 import SAM2Model, SAM2ImageProcessor
 
-model = Sam2Tiny(weights="sav")
-processor = Sam2ImageProcessor()
+model = SAM2Model.from_weights("sam2_hiera_tiny")
+processor = SAM2ImageProcessor()
 pre = processor("photo.jpg")
 
 # Run the Hiera + FPN encoder once
@@ -236,7 +235,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kerasformers.models.sam2 import (
-    Sam2Large, Sam2ImageProcessorWithPrompts,
+    SAM2Model, SAM2ImageProcessorWithPrompts,
 )
 
 COLORS = [
@@ -255,7 +254,7 @@ def show_points(coords, ax, color, marker_size=340):
                s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
 
 
-model = Sam2Large(input_shape=(1024, 1024, 3), weights="sav")
+model = SAM2Model.from_weights("sam2_hiera_large")
 img = Image.open("assets/coco_horse_dog.jpg").convert("RGB")   # COCO val2017/000000049269.jpg
 img_np = np.array(img)
 
@@ -270,7 +269,7 @@ ax.imshow(img_np)
 
 for i, prompt in enumerate(prompts):
     px, py = prompt["point"]
-    processor = Sam2ImageProcessorWithPrompts(
+    processor = SAM2ImageProcessorWithPrompts(
         input_points=np.array([[[px, py]]], dtype=np.float32),
         input_labels=np.array([[1]], dtype=np.int32)
 )
@@ -321,7 +320,7 @@ The kerasformers port provides:
 | `generate_crop_boxes` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.generate_crop_boxes` |
 | `filter_masks` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.filter_masks` |
 | `post_process_for_mask_generation` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.post_process_for_mask_generation` |
-| `Sam2GenerateMasks` | `SAM2AutomaticMaskGenerator` (Meta original) |
+| `SAM2GenerateMasks` | `SAM2AutomaticMaskGenerator` (Meta original) |
 
 All helpers run on `keras.ops` tensors and work on any backend.
 
@@ -338,7 +337,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kerasformers.models.sam2 import Sam2BasePlus, Sam2GenerateMasks
+from kerasformers.models.sam2 import SAM2Model, SAM2GenerateMasks
 
 
 def overlay_masks(ax, masks_list):
@@ -355,10 +354,10 @@ def overlay_masks(ax, masks_list):
     ax.imshow(overlay)
 
 
-model = Sam2BasePlus(weights="sav")
+model = SAM2Model.from_weights("sam2_hiera_base_plus")
 img = Image.open("assets/coco_livingroom.jpg").convert("RGB")
 
-result = Sam2GenerateMasks(
+result = SAM2GenerateMasks(
     model,
     np.array(img, dtype="float32"),
     points_per_side=16,          # 16 × 16 = 256 grid points
@@ -397,11 +396,11 @@ Under the hood the driver:
 3. Applies `filter_masks` per crop (IoU threshold, stability score, crop-edge filter, pad back to original image, encode as RLE).
 4. Applies `post_process_for_mask_generation` (single-class NMS on predicted boxes) to deduplicate across crops.
 
-`Sam2GenerateMasks` requires a SAM2 model built with the default point-only prompt interface (`include_box_input=False`, `include_mask_input=False`) — it raises `ValueError` otherwise. If you need AMG alongside a box-enabled model, build two instances.
+`SAM2GenerateMasks` requires a SAM2 model built with the default point-only prompt interface (`include_box_input=False`, `include_mask_input=False`) — it raises `ValueError` otherwise. If you need AMG alongside a box-enabled model, build two instances.
 
 ### Rolling your own driver
 
-If you want HuggingFace-parity behavior exactly, import the helpers from the SAM submodule and skip `Sam2GenerateMasks`:
+If you want HuggingFace-parity behavior exactly, import the helpers from the SAM submodule and skip `SAM2GenerateMasks`:
 
 ```python
 from kerasformers.models.sam.sam_image_processor import (
@@ -409,7 +408,7 @@ from kerasformers.models.sam.sam_image_processor import (
 )
 ```
 
-These are architecture-agnostic — the SAM2 AMG driver reuses the same helpers verbatim — so you can mirror any custom pipeline written against `transformers`' `Sam2ImageProcessor`. They are not part of the top-level public API; keep `Sam2GenerateMasks` as the recommended entry point.
+These are architecture-agnostic — the SAM2 AMG driver reuses the same helpers verbatim — so you can mirror any custom pipeline written against `transformers`' `Sam2ImageProcessor`. They are not part of the top-level public API; keep `SAM2GenerateMasks` as the recommended entry point.
 
 ## Architecture
 
@@ -439,7 +438,7 @@ The Keras port intentionally differs from the PyTorch/HuggingFace `Sam2Model` AP
 | `multimask_output` | runtime kwarg | construction-time flag |
 | Precomputed embeddings | `model(image_embeddings=..., ...)` | `model.prompt_decoder_model(...)` sub-model |
 | Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
-| Automatic mask generation | helpers on `Sam2ImageProcessor`; driver lives in Meta's original repo | helpers re-used from `kerasformers.models.sam` + built-in `Sam2GenerateMasks` driver |
+| Automatic mask generation | helpers on `Sam2ImageProcessor`; driver lives in Meta's original repo | helpers re-used from `kerasformers.models.sam` + built-in `SAM2GenerateMasks` driver |
 | Image preprocessing | `keep_aspect_ratio=True` + pad to square | per-axis stretch to 1024×1024 |
 | Box-only prompts | supported (points branch is skipped) | small drift — see the box-prompt note above |
 

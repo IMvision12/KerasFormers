@@ -1,9 +1,9 @@
 import os
 
 from tqdm import tqdm
-from transformers import Sam3Model
+from transformers import Sam3Model as HFSam3Model
 
-from kerasformers.models.sam3 import Sam3
+from kerasformers.models.sam3 import SAM3Model
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -351,15 +351,15 @@ if __name__ == "__main__":
     OUTPUT = "sam3_saco.weights.h5"
 
     print("Loading HF Sam3Model...")
-    hf_model = Sam3Model.from_pretrained(
+    hf_model = HFSam3Model.from_pretrained(
         "facebook/sam3", attn_implementation="eager", token=HF_TOKEN
     ).eval()
     hf = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
     print(f"HF: {len(hf)} keys")
     del hf_model
 
-    print("\nBuilding Keras Sam3...")
-    sam3 = Sam3.from_weights("sam3_saco", load_weights=False)
+    print("\nBuilding Keras SAM3Model...")
+    sam3 = SAM3Model.from_weights("sam3_saco", load_weights=False)
 
     print("\nTransferring detector weights...")
     transfer_sam3_weights(sam3, hf)

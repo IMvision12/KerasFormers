@@ -37,7 +37,7 @@ from kerasformers.models.metaclip2 import MetaClip2ImageProcessor
 from kerasformers.models.rt_detr import RTDETRImageProcessor
 from kerasformers.models.rt_detr_v2 import RTDETRV2ImageProcessor
 from kerasformers.models.sam import SAMImageProcessor
-from kerasformers.models.sam2 import Sam2ImageProcessor
+from kerasformers.models.sam2 import SAM2ImageProcessor
 from kerasformers.models.segformer.segformer_image_processor import (
     SegFormerImageProcessor,
 )
@@ -183,7 +183,7 @@ def _run_sam(data_format):
 
 def _run_sam2(data_format):
     ours = _as_numpy(
-        Sam2ImageProcessor(data_format=data_format)(ASSET_PATH)["pixel_values"]
+        SAM2ImageProcessor(data_format=data_format)(ASSET_PATH)["pixel_values"]
     )
     hf = HFSam2ImageProcessor()(images=_pil_image(), return_tensors="np")[
         "pixel_values"

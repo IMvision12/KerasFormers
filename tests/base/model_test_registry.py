@@ -866,9 +866,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": None,
     },
-    "SAMPromptableSegment": {
+    "SAMModel": {
         "module": "kerasformers.models.sam",
-        "model_cls": "SAMPromptableSegment",
+        "model_cls": "SAMModel",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
             "vision_hidden_size": 64,
@@ -885,9 +885,9 @@ MODEL_TEST_CONFIGS = {
             "iou_scores": None,
         },
     },
-    "Sam2Model": {
+    "SAM2Model": {
         "module": "kerasformers.models.sam2",
-        "model_cls": "Sam2Model",
+        "model_cls": "SAM2Model",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
             "hidden_size": 32,

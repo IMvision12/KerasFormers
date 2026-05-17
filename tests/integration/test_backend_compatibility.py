@@ -13,7 +13,7 @@ BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
 # TF CPU segfaults in tf.matmul for large SAM models (known TF bug).
-SKIP_TF_CPU = {"SAMVisionModel", "SAMPromptableSegment", "Sam2Model"}
+SKIP_TF_CPU = {"SAMVisionModel", "SAMModel", "SAM2Model"}
 
 
 def _skip_if_incompatible(model_name):

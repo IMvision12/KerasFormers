@@ -152,7 +152,7 @@ def sam2_mask_embedding(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Sam2Model(BaseModel):
+class SAM2Model(BaseModel):
     """Segment Anything Model 2 (SAM2) for promptable image segmentation.
 
     SAM2 treats image segmentation as a promptable task, producing
@@ -174,8 +174,8 @@ class Sam2Model(BaseModel):
 
     Construction:
 
-    >>> Sam2Model.from_weights("sam2_hiera_tiny")              # kerasformers release
-    >>> Sam2Model.from_weights("hf:facebook/sam2-hiera-tiny")  # HF passthrough
+    >>> SAM2Model.from_weights("sam2_hiera_tiny")              # kerasformers release
+    >>> SAM2Model.from_weights("hf:facebook/sam2-hiera-tiny")  # HF passthrough
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -222,9 +222,7 @@ class Sam2Model(BaseModel):
 
     Example:
         ```python
-        model = kerasformers.models.sam2.Sam2Tiny(
-            input_shape=(1024, 1024, 3),
-        )
+        model = SAM2Model.from_weights("sam2_hiera_tiny")
         ```
     """
 
@@ -302,7 +300,7 @@ class Sam2Model(BaseModel):
         multimask_output=True,
         input_shape=None,
         input_tensor=None,
-        name="Sam2Model",
+        name="SAM2Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
