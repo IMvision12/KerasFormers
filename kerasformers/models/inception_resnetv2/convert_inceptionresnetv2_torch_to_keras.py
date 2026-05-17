@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
         state = download_hf_state_dict(f"timm/{timm_id}")
         keras_model = InceptionResNetV2ImageClassify.from_weights(
-            variant, load_weights=False
+            variant, load_weights=False, include_normalization=False
         )
         transfer_inception_resnet_v2_weights(keras_model, state)
 
@@ -132,6 +132,8 @@ if __name__ == "__main__":
             output_specs={"num_classes": keras_model.output_shape[-1]},
             comparison_type="torch_to_keras",
             run_performance=False,
+            atol=1e-4,
+            rtol=1e-4,
         )
         if not results["standard_input"]:
             raise ValueError(

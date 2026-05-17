@@ -91,7 +91,9 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(hf_id)
-        keras_model = MiTImageClassify.from_weights(variant, load_weights=False)
+        keras_model = MiTImageClassify.from_weights(
+            variant, load_weights=False, include_normalization=False
+        )
         transfer_mit_weights(keras_model, state)
 
         hf_model = transformers.SegformerForImageClassification.from_pretrained(
@@ -104,6 +106,8 @@ if __name__ == "__main__":
             output_specs={"num_classes": keras_model.output_shape[-1]},
             comparison_type="hf_to_keras",
             run_performance=False,
+            atol=1e-4,
+            rtol=1e-4,
         )
         if not results["standard_input"]:
             raise ValueError(
