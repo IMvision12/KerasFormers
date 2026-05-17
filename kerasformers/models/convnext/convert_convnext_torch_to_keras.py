@@ -99,9 +99,15 @@ if __name__ == "__main__":
                 "Model equivalence test failed - model outputs do not match for standard input"
             )
 
+        total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
+        total_gb = (total_params * 4) / (1024**3)
         out_path = f"{variant}.weights.h5"
-        keras_model.save_weights(out_path)
-        print(f"  Saved -> {out_path}")
+        if total_gb > 2:
+            keras_model.save_weights(out_path, max_shard_size=2)
+            print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
+        else:
+            keras_model.save_weights(out_path)
+            print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
 
         del keras_model, state, torch_model
         keras.backend.clear_session()

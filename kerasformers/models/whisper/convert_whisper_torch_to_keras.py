@@ -29,8 +29,6 @@ DENSE_MAP = {"kernel": "weight"}
 LN_MAP = {"gamma": "weight", "beta": "bias"}
 EMBED_MAP = {"embeddings": "weight"}
 
-SHARD_THRESHOLD_PARAMS = 500_000_000
-
 
 def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
     if not any(k.startswith("model.") for k in state_dict):
@@ -275,13 +273,16 @@ if __name__ == "__main__":
         if diff > 1e-3:
             print(f"  WARNING: parity above 1e-3 (saw {diff:.6e})")
 
-        if model.count_params() > SHARD_THRESHOLD_PARAMS:
+        total_params = sum(int(np.prod(w.shape)) for w in model.weights)
+        total_gb = (total_params * 4) / (1024**3)
+        if total_gb > 2:
             out_path = f"{base}.weights.json"
-            model.save_weights(out_path, max_shard_size=1.5)
+            model.save_weights(out_path, max_shard_size=2)
+            print(f"Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
         else:
             out_path = f"{base}.weights.h5"
             model.save_weights(out_path)
-        print(f"Saved -> {out_path}")
+            print(f"Saved -> {out_path} (~{total_gb:.2f} GB)")
 
         assert diff < 5e-3, f"{variant}: logit diff too high: {diff:.6e}"
 

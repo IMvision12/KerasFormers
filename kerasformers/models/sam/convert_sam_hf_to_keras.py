@@ -324,13 +324,16 @@ if __name__ == "__main__":
             raise ValueError(f"{variant}: iou diff {iou_diff:.6f} > 1e-2")
         print("  Verification OK")
 
-        if variant == "sam_vit_huge":
+        total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
+        total_gb = (total_params * 4) / (1024**3)
+        if total_gb > 2:
             model_filename = f"{variant}.weights.json"
-            keras_model.save_weights(model_filename, max_shard_size=1.5)
+            keras_model.save_weights(model_filename, max_shard_size=2)
+            print(f"  Saved -> {model_filename} (sharded, ~{total_gb:.2f} GB)")
         else:
             model_filename = f"{variant}.weights.h5"
             keras_model.save_weights(model_filename)
-        print(f"  Saved -> {model_filename}")
+            print(f"  Saved -> {model_filename} (~{total_gb:.2f} GB)")
 
         del keras_model, hf_model, hf_state_dict
         keras.backend.clear_session()
