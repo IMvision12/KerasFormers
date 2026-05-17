@@ -8,6 +8,7 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
     MobileViTImageToPatchesLayer,
     MobileViTPatchesToImageLayer,
 )
+from kerasformers.models.mobilevit.mobilevit_model import mobilevit_aspp_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MOBILEVITV2_MODEL_CONFIG, MOBILEVITV2_WEIGHT_CONFIG
@@ -41,6 +42,7 @@ def inverted_residual_block(
     data_format,
     strides=1,
     expansion_ratio=2.0,
+    dilation=1,
     name="inverted_residual_block",
 ):
     """MobileViTV2 inverted residual (MBConv) block.
@@ -78,7 +80,7 @@ def inverted_residual_block(
     )(x)
     x = layers.Activation("swish", name=f"{name}_ir_act_1")(x)
 
-    if strides > 1:
+    if strides > 1 and dilation == 1:
         x = layers.ZeroPadding2D(
             padding=1,
             data_format=data_format,
@@ -92,6 +94,7 @@ def inverted_residual_block(
         kernel_size=3,
         strides=strides,
         padding=padding,
+        dilation_rate=dilation,
         use_bias=False,
         data_format=data_format,
         name=f"{name}_ir_dwconv",
@@ -182,6 +185,7 @@ def mobilevitv2_block(
     transformer_dim=None,
     transformer_depth=2,
     patch_size=2,
+    dilation=1,
     name="mobilevitv2_block",
 ):
     """MobileViTV2 transformer fusion block with linear self-attention.
@@ -214,6 +218,7 @@ def mobilevitv2_block(
         kernel_size,
         strides=1,
         padding="same",
+        dilation_rate=dilation,
         use_bias=False,
         data_format=data_format,
         name=f"{name}_mv2_dwconv",
@@ -319,6 +324,7 @@ def mobilevitv2_backbone_feature(
     multiplier,
     data_format,
     channels_axis,
+    output_stride=32,
     return_stages=False,
 ):
     """MobileViTV2 stem + 5 stages.
@@ -355,18 +361,31 @@ def mobilevitv2_backbone_feature(
     )(x)
     x = layers.Activation("swish", name="stem_act")(x)
 
+    stage_strides_default = [1, 2, 2, 2, 2]
+    stage_dilations_default = [1, 1, 1, 1, 1]
+    if output_stride == 16:
+        stage_strides_default[4] = 1
+        stage_dilations_default[4] = 2
+    elif output_stride == 8:
+        stage_strides_default[3] = 1
+        stage_strides_default[4] = 1
+        stage_dilations_default[3] = 2
+        stage_dilations_default[4] = 4
+    elif output_stride != 32:
+        raise ValueError(f"output_stride must be 8, 16, or 32, got {output_stride}")
+
     stages = []
     for stage in range(5):
         channels = int(([64, 128, 256, 384, 512][stage]) * multiplier)
-        stride = 1 if stage == 0 else 2
 
         x = inverted_residual_block(
             x,
             channels,
             channels_axis,
             data_format,
-            strides=stride,
+            strides=stage_strides_default[stage],
             expansion_ratio=2.0,
+            dilation=1,
             name=f"stages_{stage}_0",
         )
 
@@ -391,6 +410,7 @@ def mobilevitv2_backbone_feature(
                 expansion_ratio=0.5,
                 transformer_depth=[2, 4, 3][stage - 2],
                 patch_size=2,
+                dilation=stage_dilations_default[stage],
                 name=f"stages_{stage}_1",
             )
 
@@ -456,7 +476,7 @@ class MobileViTV2Model(BaseModel):
         for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
     }
     BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHT_CONFIG
-    HF_MODEL_TYPE = None
+    HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
@@ -470,15 +490,24 @@ class MobileViTV2Model(BaseModel):
         return model
 
     @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilevitv2_torch_to_keras import transfer_mobilevitv2_weights
+    def config_from_hf(cls, hf_config):
+        return {
+            "multiplier": float(hf_config.get("width_multiplier", 1.0)),
+            "image_size": hf_config["image_size"],
+            "output_stride": hf_config.get("output_stride", 32),
+        }
 
-        transfer_mobilevitv2_weights(keras_model, state_dict)
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_mobilevitv2_hf_to_keras import transfer_mobilevitv2_weights
+
+        transfer_mobilevitv2_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
         multiplier=1.0,
         image_size=256,
+        output_stride=32,
         include_normalization=True,
         normalization_mode="zero_to_one",
         input_shape=None,
@@ -519,6 +548,7 @@ class MobileViTV2Model(BaseModel):
             multiplier=multiplier,
             data_format=data_format,
             channels_axis=channels_axis,
+            output_stride=output_stride,
             return_stages=as_backbone,
         )
 
@@ -526,6 +556,7 @@ class MobileViTV2Model(BaseModel):
 
         self.multiplier = multiplier
         self.image_size = image_size
+        self.output_stride = output_stride
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -537,6 +568,7 @@ class MobileViTV2Model(BaseModel):
             {
                 "multiplier": self.multiplier,
                 "image_size": self.image_size,
+                "output_stride": self.output_stride,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
@@ -603,13 +635,24 @@ class MobileViTV2ImageClassify(BaseModel):
         for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
     }
     BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHT_CONFIG
-    HF_MODEL_TYPE = None
+    HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilevitv2_torch_to_keras import transfer_mobilevitv2_weights
+    def config_from_hf(cls, hf_config):
+        num_classes = hf_config.get("num_labels")
+        if num_classes is None and hf_config.get("id2label"):
+            num_classes = len(hf_config["id2label"])
+        return {
+            "multiplier": float(hf_config.get("width_multiplier", 1.0)),
+            "image_size": hf_config["image_size"],
+            "num_classes": num_classes if num_classes is not None else 1000,
+        }
 
-        transfer_mobilevitv2_weights(keras_model, state_dict)
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_mobilevitv2_hf_to_keras import transfer_mobilevitv2_weights
+
+        transfer_mobilevitv2_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
@@ -631,6 +674,7 @@ class MobileViTV2ImageClassify(BaseModel):
         backbone = MobileViTV2Model(
             multiplier=multiplier,
             image_size=image_size,
+            output_stride=32,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_shape=input_shape,
@@ -669,6 +713,130 @@ class MobileViTV2ImageClassify(BaseModel):
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class MobileViTV2Segment(BaseModel):
+    """MobileViTV2 + DeepLabV3 semantic segmentation head.
+
+    Composes :class:`MobileViTV2Model` with ASPP and a 1x1 classifier conv to
+    produce per-pixel class logits at the segmentation feature resolution
+    (input ``H / output_stride``). The backbone runs with
+    ``output_stride=16`` and atrous convolutions in the last stage to
+    preserve spatial detail.
+
+    References:
+    - [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680)
+    - [DeepLabV3](https://arxiv.org/abs/1706.05587)
+    """
+
+    BASE_MODEL_CONFIG = {
+        variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = None
+    HF_MODEL_TYPE = "mobilevitv2"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        num_classes = hf_config.get("num_labels")
+        if num_classes is None and hf_config.get("id2label"):
+            num_classes = len(hf_config["id2label"])
+        return {
+            "multiplier": float(hf_config.get("width_multiplier", 1.0)),
+            "image_size": hf_config["image_size"],
+            "output_stride": hf_config.get("output_stride", 16),
+            "atrous_rates": list(hf_config.get("atrous_rates", [6, 12, 18])),
+            "aspp_out_channels": hf_config.get("aspp_out_channels", 512),
+            "aspp_dropout_prob": hf_config.get("aspp_dropout_prob", 0.1),
+            "num_classes": num_classes if num_classes is not None else 21,
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_mobilevitv2_hf_to_keras import transfer_mobilevitv2_weights
+
+        transfer_mobilevitv2_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        multiplier=1.0,
+        image_size=512,
+        output_stride=16,
+        atrous_rates: list = [6, 12, 18],
+        aspp_out_channels=512,
+        aspp_dropout_prob=0.1,
+        include_normalization=True,
+        normalization_mode="zero_to_one",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=21,
+        name="MobileViTV2Segment",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
+        backbone = MobileViTV2Model(
+            multiplier=multiplier,
+            image_size=image_size,
+            output_stride=output_stride,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        features = backbone.output
+        out = mobilevit_aspp_head(
+            features,
+            aspp_out_channels=aspp_out_channels,
+            atrous_rates=atrous_rates,
+            aspp_dropout_prob=aspp_dropout_prob,
+            num_classes=num_classes,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            name="seg",
+        )
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
+
+        self.multiplier = multiplier
+        self.image_size = image_size
+        self.output_stride = output_stride
+        self.atrous_rates = atrous_rates
+        self.aspp_out_channels = aspp_out_channels
+        self.aspp_dropout_prob = aspp_dropout_prob
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "multiplier": self.multiplier,
+                "image_size": self.image_size,
+                "output_stride": self.output_stride,
+                "atrous_rates": self.atrous_rates,
+                "aspp_out_channels": self.aspp_out_channels,
+                "aspp_dropout_prob": self.aspp_dropout_prob,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
                 "name": self.name,
             }
         )

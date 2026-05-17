@@ -42,6 +42,7 @@ def inverted_residual_block(
     data_format,
     strides=1,
     expansion_ratio=1.0,
+    dilation=1,
     name: str = "inverted_residual_block",
 ):
     """Inverted residual (MBConv) block as used in MobileNetV2 / MobileViT.
@@ -55,6 +56,9 @@ def inverted_residual_block(
         strides: Spatial stride for the depthwise conv. Defaults to ``1``.
         expansion_ratio: Channel expansion factor for the hidden layer.
             Defaults to ``1.0``.
+        dilation: Dilation rate for the depthwise conv. When ``>1``, the
+            spatial stride is effectively replaced with atrous convolution
+            (DeepLab-style output_stride reduction). Defaults to ``1``.
         name: Prefix for layer names within this block.
 
     Returns:
@@ -80,7 +84,7 @@ def inverted_residual_block(
     )(x)
     x = layers.Activation("swish", name=f"{name}_ir_act_1")(x)
 
-    if strides > 1:
+    if strides > 1 and dilation == 1:
         x = layers.ZeroPadding2D(
             padding=(1, 1),
             data_format=data_format,
@@ -94,6 +98,7 @@ def inverted_residual_block(
         kernel_size=3,
         strides=strides,
         padding=padding,
+        dilation_rate=dilation,
         use_bias=False,
         data_format=data_format,
         name=f"{name}_ir_dwconv",
@@ -136,6 +141,7 @@ def mobilevit_block(
     attention_dims=None,
     num_attention_blocks=2,
     patch_size=8,
+    dilation=1,
     name="mobilevit_transformer_block",
 ):
     """MobileViT transformer fusion block (local conv + global self-attention).
@@ -167,6 +173,7 @@ def mobilevit_block(
         kernel_size=3,
         strides=1,
         padding="same",
+        dilation_rate=dilation,
         use_bias=False,
         data_format=data_format,
         name=f"{name}_mv_conv_1",
@@ -279,6 +286,7 @@ def mobilevit_backbone_feature(
     attention_dims,
     data_format,
     channels_axis,
+    output_stride=32,
     return_stages=False,
 ):
     """MobileViT stem + 5 stages.
@@ -319,6 +327,19 @@ def mobilevit_backbone_feature(
     )(x)
     x = layers.Activation("swish", name="stem_act")(x)
 
+    stage_strides_default = [1, 2, 2, 2, 2]
+    stage_dilations_default = [1, 1, 1, 1, 1]
+    if output_stride == 16:
+        stage_strides_default[4] = 1
+        stage_dilations_default[4] = 2
+    elif output_stride == 8:
+        stage_strides_default[3] = 1
+        stage_strides_default[4] = 1
+        stage_dilations_default[3] = 2
+        stage_dilations_default[4] = 4
+    elif output_stride != 32:
+        raise ValueError(f"output_stride must be 8, 16, or 32, got {output_stride}")
+
     stages = []
     for i in range(5):
         x = inverted_residual_block(
@@ -326,8 +347,9 @@ def mobilevit_backbone_feature(
             filters=block_dims[i],
             channels_axis=channels_axis,
             data_format=data_format,
-            strides=2 if i > 0 else 1,
+            strides=stage_strides_default[i],
             expansion_ratio=expansion_ratio[i],
+            dilation=1,
             name=f"stages_{i}_0",
         )
 
@@ -360,6 +382,7 @@ def mobilevit_backbone_feature(
                 attention_dims=attention_dims[i],
                 num_attention_blocks=2 if i == 2 else 4 if i == 3 else 3,
                 patch_size=2,
+                dilation=stage_dilations_default[i],
                 name=f"stages_{i}_1",
             )
 
@@ -432,7 +455,7 @@ class MobileViTModel(BaseModel):
         for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
     }
     BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = None
+    HF_MODEL_TYPE = "mobilevit"
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
@@ -446,10 +469,24 @@ class MobileViTModel(BaseModel):
         return model
 
     @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
+    def config_from_hf(cls, hf_config):
+        neck = hf_config["neck_hidden_sizes"]
+        hidden_sizes = hf_config["hidden_sizes"]
+        return {
+            "initial_dims": neck[0],
+            "block_dims": list(neck[1:6]),
+            "head_dims": neck[6],
+            "attention_dims": [None, None] + list(hidden_sizes),
+            "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
+            "image_size": hf_config["image_size"],
+            "output_stride": hf_config.get("output_stride", 32),
+        }
 
-        transfer_mobilevit_weights(keras_model, state_dict)
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_mobilevit_hf_to_keras import transfer_mobilevit_weights
+
+        transfer_mobilevit_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
@@ -459,6 +496,7 @@ class MobileViTModel(BaseModel):
         expansion_ratio: list = [4.0, 4.0, 4.0, 4.0, 4.0],
         attention_dims: list = [None, None, 144, 192, 240],
         image_size=256,
+        output_stride=32,
         include_normalization=True,
         normalization_mode="imagenet",
         input_shape=None,
@@ -502,6 +540,7 @@ class MobileViTModel(BaseModel):
             attention_dims=attention_dims,
             data_format=data_format,
             channels_axis=channels_axis,
+            output_stride=output_stride,
             return_stages=as_backbone,
         )
 
@@ -513,6 +552,7 @@ class MobileViTModel(BaseModel):
         self.expansion_ratio = expansion_ratio
         self.attention_dims = attention_dims
         self.image_size = image_size
+        self.output_stride = output_stride
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -528,6 +568,7 @@ class MobileViTModel(BaseModel):
                 "expansion_ratio": self.expansion_ratio,
                 "attention_dims": self.attention_dims,
                 "image_size": self.image_size,
+                "output_stride": self.output_stride,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
@@ -602,13 +643,30 @@ class MobileViTImageClassify(BaseModel):
         for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
     }
     BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = None
+    HF_MODEL_TYPE = "mobilevit"
 
     @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilevit_torch_to_keras import transfer_mobilevit_weights
+    def config_from_hf(cls, hf_config):
+        neck = hf_config["neck_hidden_sizes"]
+        hidden_sizes = hf_config["hidden_sizes"]
+        num_classes = hf_config.get("num_labels")
+        if num_classes is None and hf_config.get("id2label"):
+            num_classes = len(hf_config["id2label"])
+        return {
+            "initial_dims": neck[0],
+            "block_dims": list(neck[1:6]),
+            "head_dims": neck[6],
+            "attention_dims": [None, None] + list(hidden_sizes),
+            "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
+            "image_size": hf_config["image_size"],
+            "num_classes": num_classes if num_classes is not None else 1000,
+        }
 
-        transfer_mobilevit_weights(keras_model, state_dict)
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_mobilevit_hf_to_keras import transfer_mobilevit_weights
+
+        transfer_mobilevit_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
@@ -639,6 +697,7 @@ class MobileViTImageClassify(BaseModel):
             expansion_ratio=expansion_ratio,
             attention_dims=attention_dims,
             image_size=image_size,
+            output_stride=32,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_shape=input_shape,
@@ -698,6 +757,267 @@ class MobileViTImageClassify(BaseModel):
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+def mobilevit_aspp_head(
+    inputs,
+    *,
+    aspp_out_channels,
+    atrous_rates,
+    aspp_dropout_prob,
+    num_classes,
+    data_format,
+    channels_axis,
+    name="seg",
+):
+    """DeepLabV3 ASPP + 1x1 classifier head for MobileViT segmentation."""
+    branches = []
+
+    # Branch 0: 1x1 conv
+    b = layers.Conv2D(
+        aspp_out_channels,
+        kernel_size=1,
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_aspp_conv1_1x1_conv",
+    )(inputs)
+    b = layers.BatchNormalization(
+        axis=channels_axis,
+        momentum=0.9,
+        epsilon=1e-5,
+        name=f"{name}_aspp_conv1_1x1_batchnorm",
+    )(b)
+    b = layers.Activation("relu", name=f"{name}_aspp_conv1_1x1_act")(b)
+    branches.append(b)
+
+    # Branches 1-3: 3x3 dilated convs
+    for i, rate in enumerate(atrous_rates, start=2):
+        b = layers.Conv2D(
+            aspp_out_channels,
+            kernel_size=3,
+            padding="same",
+            dilation_rate=rate,
+            use_bias=False,
+            data_format=data_format,
+            name=f"{name}_aspp_conv{i}_3x3_conv",
+        )(inputs)
+        b = layers.BatchNormalization(
+            axis=channels_axis,
+            momentum=0.9,
+            epsilon=1e-5,
+            name=f"{name}_aspp_conv{i}_3x3_batchnorm",
+        )(b)
+        b = layers.Activation("relu", name=f"{name}_aspp_conv{i}_3x3_act")(b)
+        branches.append(b)
+
+    # Branch 4: image pooling + 1x1 conv + upsample
+    if data_format == "channels_first":
+        h_axis, w_axis = 2, 3
+    else:
+        h_axis, w_axis = 1, 2
+
+    pooled = layers.GlobalAveragePooling2D(
+        data_format=data_format, keepdims=True, name=f"{name}_aspp_pool_gap"
+    )(inputs)
+    pooled = layers.Conv2D(
+        aspp_out_channels,
+        kernel_size=1,
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_aspp_pool_1x1_conv",
+    )(pooled)
+    pooled = layers.BatchNormalization(
+        axis=channels_axis,
+        momentum=0.9,
+        epsilon=1e-5,
+        name=f"{name}_aspp_pool_1x1_batchnorm",
+    )(pooled)
+    pooled = layers.Activation("relu", name=f"{name}_aspp_pool_1x1_act")(pooled)
+
+    def resize_pooled(args):
+        feat, ref = args
+        if data_format == "channels_first":
+            feat = keras.ops.transpose(feat, (0, 2, 3, 1))
+        size = (keras.ops.shape(ref)[h_axis], keras.ops.shape(ref)[w_axis])
+        feat = keras.ops.image.resize(feat, size, interpolation="bilinear")
+        if data_format == "channels_first":
+            feat = keras.ops.transpose(feat, (0, 3, 1, 2))
+        return feat
+
+    pooled = layers.Lambda(resize_pooled, name=f"{name}_aspp_pool_resize")(
+        [pooled, inputs]
+    )
+    branches.append(pooled)
+
+    x = layers.Concatenate(axis=channels_axis, name=f"{name}_aspp_concat")(branches)
+    x = layers.Conv2D(
+        aspp_out_channels,
+        kernel_size=1,
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_aspp_project_conv",
+    )(x)
+    x = layers.BatchNormalization(
+        axis=channels_axis,
+        momentum=0.9,
+        epsilon=1e-5,
+        name=f"{name}_aspp_project_batchnorm",
+    )(x)
+    x = layers.Activation("relu", name=f"{name}_aspp_project_act")(x)
+    x = layers.Dropout(aspp_dropout_prob, name=f"{name}_aspp_dropout")(x)
+    x = layers.Conv2D(
+        num_classes,
+        kernel_size=1,
+        use_bias=True,
+        data_format=data_format,
+        name="seg_classifier_conv",
+    )(x)
+    return x
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class MobileViTSegment(BaseModel):
+    """MobileViT + DeepLabV3 semantic segmentation head.
+
+    Composes :class:`MobileViTModel` (with ``output_stride=16`` and atrous
+    convolutions in the last stage) with an ASPP module and a 1x1
+    classifier convolution to produce per-pixel class logits at the input
+    spatial resolution.
+
+    References:
+    - [MobileViT](https://arxiv.org/abs/2110.02178)
+    - [DeepLabV3](https://arxiv.org/abs/1706.05587)
+    """
+
+    BASE_MODEL_CONFIG = {
+        variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = None
+    HF_MODEL_TYPE = "mobilevit"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        neck = hf_config["neck_hidden_sizes"]
+        hidden_sizes = hf_config["hidden_sizes"]
+        num_classes = hf_config.get("num_labels")
+        if num_classes is None and hf_config.get("id2label"):
+            num_classes = len(hf_config["id2label"])
+        return {
+            "initial_dims": neck[0],
+            "block_dims": list(neck[1:6]),
+            "head_dims": neck[6],
+            "attention_dims": [None, None] + list(hidden_sizes),
+            "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
+            "image_size": hf_config["image_size"],
+            "output_stride": hf_config.get("output_stride", 16),
+            "atrous_rates": list(hf_config.get("atrous_rates", [6, 12, 18])),
+            "aspp_out_channels": hf_config.get("aspp_out_channels", 256),
+            "aspp_dropout_prob": hf_config.get("aspp_dropout_prob", 0.1),
+            "num_classes": num_classes if num_classes is not None else 21,
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_mobilevit_hf_to_keras import transfer_mobilevit_weights
+
+        transfer_mobilevit_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        initial_dims: int = 16,
+        head_dims: int = 320,
+        block_dims: list = [16, 24, 48, 64, 80],
+        expansion_ratio: list = [2.0, 2.0, 2.0, 2.0, 2.0],
+        attention_dims: list = [None, None, 64, 80, 96],
+        image_size=512,
+        output_stride=16,
+        atrous_rates: list = [6, 12, 18],
+        aspp_out_channels=256,
+        aspp_dropout_prob=0.1,
+        include_normalization=True,
+        normalization_mode="imagenet",
+        input_shape=None,
+        input_tensor=None,
+        num_classes=21,
+        name="MobileViTSegment",
+        **kwargs,
+    ):
+        kwargs.pop("timm_id", None)
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
+        backbone = MobileViTModel(
+            initial_dims=initial_dims,
+            head_dims=head_dims,
+            block_dims=block_dims,
+            expansion_ratio=expansion_ratio,
+            attention_dims=attention_dims,
+            image_size=image_size,
+            output_stride=output_stride,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=f"{name}_backbone",
+        )
+
+        features = backbone.output
+        out = mobilevit_aspp_head(
+            features,
+            aspp_out_channels=aspp_out_channels,
+            atrous_rates=atrous_rates,
+            aspp_dropout_prob=aspp_dropout_prob,
+            num_classes=num_classes,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            name="seg",
+        )
+
+        super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
+
+        self.initial_dims = initial_dims
+        self.head_dims = head_dims
+        self.block_dims = block_dims
+        self.expansion_ratio = expansion_ratio
+        self.attention_dims = attention_dims
+        self.image_size = image_size
+        self.output_stride = output_stride
+        self.atrous_rates = atrous_rates
+        self.aspp_out_channels = aspp_out_channels
+        self.aspp_dropout_prob = aspp_dropout_prob
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
+        self.input_tensor = input_tensor
+        self.num_classes = num_classes
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "initial_dims": self.initial_dims,
+                "head_dims": self.head_dims,
+                "block_dims": self.block_dims,
+                "expansion_ratio": self.expansion_ratio,
+                "attention_dims": self.attention_dims,
+                "image_size": self.image_size,
+                "output_stride": self.output_stride,
+                "atrous_rates": self.atrous_rates,
+                "aspp_out_channels": self.aspp_out_channels,
+                "aspp_dropout_prob": self.aspp_dropout_prob,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
                 "name": self.name,
             }
         )
