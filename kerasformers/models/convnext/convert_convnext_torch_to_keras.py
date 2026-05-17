@@ -1,4 +1,5 @@
 import gc
+import re
 from typing import Dict
 
 import keras
@@ -49,6 +50,9 @@ def transfer_convnext_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
         torch_weight_name = keras_weight_name
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
+        torch_weight_name = re.sub(
+            r"\.layer\.scale\.variable(?:\.\d+)?$", ".gamma", torch_weight_name
+        )
 
         if torch_weight_name not in state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
