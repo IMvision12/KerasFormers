@@ -1,4 +1,5 @@
 import gc
+import os
 import re
 from typing import Dict, List, Tuple
 
@@ -19,7 +20,7 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-weight_name_mapping: Dict[str, str] = {
+DINOV2_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "conv1": "embeddings.patch_embeddings.projection",
     "pos.embed.pos.embed": "embeddings.position_embeddings",
@@ -36,115 +37,68 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 
-def _resolve_attention_qkv(keras_weight_path: str):
-    layer_segment = keras_weight_path.split("/")[-2]
-    m = re.match(r"blocks_(\d+)_attn_qkv$", layer_segment)
-    if m is None:
-        return None
-    idx = int(m.group(1))
-    base = f"encoder.layer.{idx}.attention.attention"
-    suffix = "weight" if "kernel" in keras_weight_path else "bias"
-    return (f"{base}.query.{suffix}", f"{base}.key.{suffix}", f"{base}.value.{suffix}")
-
-
-def _resolve_attention_proj(keras_weight_path: str):
-    layer_segment = keras_weight_path.split("/")[-2]
-    m = re.match(r"blocks_(\d+)_attn_proj$", layer_segment)
-    if m is None:
-        return None
-    idx = int(m.group(1))
-    suffix = "weight" if "kernel" in keras_weight_path else "bias"
-    return f"encoder.layer.{idx}.attention.output.dense.{suffix}"
-
-
-def _resolve_layer_scale(keras_weight_path: str):
-    layer_segment = keras_weight_path.split("/")[-2]
-    m = re.match(r"blocks_(\d+)_layerscale_(1|2)$", layer_segment)
-    if m is None:
-        return None
-    idx = int(m.group(1))
-    which = m.group(2)
-    return f"encoder.layer.{idx}.layer_scale{which}.lambda1"
-
-
-def _fuse_qkv(state_dict, q_key, k_key, v_key):
-    q = state_dict[q_key]
-    k = state_dict[k_key]
-    v = state_dict[v_key]
-    if hasattr(q, "numpy"):
-        q, k, v = q.numpy(), k.numpy(), v.numpy()
-    return np.concatenate([q, k, v], axis=0)
-
-
-def _interpolate_pos_embed(pos_embed, target_num_patches: int):
-    if not isinstance(pos_embed, torch.Tensor):
-        pos_embed = torch.from_numpy(np.asarray(pos_embed))
-    cls_pe = pos_embed[:, :1]
-    spatial_pe = pos_embed[:, 1:]
-    src_num = spatial_pe.shape[1]
-    src_size = int(round(src_num**0.5))
-    tgt_size = int(round(target_num_patches**0.5))
-    if src_size == tgt_size:
-        return pos_embed.numpy()
-
-    dim = spatial_pe.shape[-1]
-    spatial_pe = spatial_pe.reshape(1, src_size, src_size, dim).permute(0, 3, 1, 2)
-    spatial_pe = torch.nn.functional.interpolate(
-        spatial_pe.float(),
-        size=(tgt_size, tgt_size),
-        mode="bicubic",
-        align_corners=False,
-    )
-    spatial_pe = spatial_pe.permute(0, 2, 3, 1).reshape(1, tgt_size * tgt_size, dim)
-    return torch.cat([cls_pe, spatial_pe], dim=1).numpy()
-
-
-def _strip_prefix(state_dict, prefix):
-    if not any(k.startswith(prefix) for k in state_dict):
-        return state_dict
-    return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}
-
-
-def transfer_dino_v2_weights(
+def transfer_dinov2_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    hf_state_dict = _strip_prefix(hf_state_dict, "dinov2.")
+    if any(k.startswith("dinov2.") for k in hf_state_dict):
+        hf_state_dict = {
+            k[len("dinov2.") :]: v
+            for k, v in hf_state_dict.items()
+            if k.startswith("dinov2.")
+        }
+
     trainable, non_trainable = split_model_weights(keras_model)
     for keras_weight, keras_weight_name in tqdm(
         trainable + non_trainable, desc="Transferring DINOv2 weights"
     ):
         path = keras_weight.path
+        layer_segment = path.split("/")[-2]
 
-        if "_attn_qkv" in path:
-            qkv_keys = _resolve_attention_qkv(path)
-            if qkv_keys is None:
-                raise WeightMappingError(keras_weight_name, path)
-            for key in qkv_keys:
+        m = re.match(r"blocks_(\d+)_attn_qkv$", layer_segment)
+        if m:
+            idx = int(m.group(1))
+            suffix = "weight" if "kernel" in path else "bias"
+            base = f"encoder.layer.{idx}.attention.attention"
+            q_key = f"{base}.query.{suffix}"
+            k_key = f"{base}.key.{suffix}"
+            v_key = f"{base}.value.{suffix}"
+            for key in (q_key, k_key, v_key):
                 if key not in hf_state_dict:
                     raise WeightMappingError(keras_weight_name, key)
-            fused = _fuse_qkv(hf_state_dict, *qkv_keys)
+            q, k, v = (
+                hf_state_dict[q_key],
+                hf_state_dict[k_key],
+                hf_state_dict[v_key],
+            )
+            if hasattr(q, "numpy"):
+                q, k, v = q.numpy(), k.numpy(), v.numpy()
+            fused = np.concatenate([q, k, v], axis=0)
             transfer_weights(keras_weight_name, keras_weight, fused)
             continue
 
-        if "_attn_proj" in path:
-            hf_key = _resolve_attention_proj(path)
-            if hf_key is None or hf_key not in hf_state_dict:
-                raise WeightMappingError(keras_weight_name, str(hf_key))
+        m = re.match(r"blocks_(\d+)_attn_proj$", layer_segment)
+        if m:
+            idx = int(m.group(1))
+            suffix = "weight" if "kernel" in path else "bias"
+            hf_key = f"encoder.layer.{idx}.attention.output.dense.{suffix}"
+            if hf_key not in hf_state_dict:
+                raise WeightMappingError(keras_weight_name, hf_key)
             transfer_weights(keras_weight_name, keras_weight, hf_state_dict[hf_key])
             continue
 
-        if "_layerscale_" in path:
-            hf_key = _resolve_layer_scale(path)
-            if hf_key is None or hf_key not in hf_state_dict:
-                raise WeightMappingError(keras_weight_name, str(hf_key))
+        m = re.match(r"blocks_(\d+)_layerscale_(1|2)$", layer_segment)
+        if m:
+            idx = int(m.group(1))
+            hf_key = f"encoder.layer.{idx}.layer_scale{m.group(2)}.lambda1"
+            if hf_key not in hf_state_dict:
+                raise WeightMappingError(keras_weight_name, hf_key)
             w = hf_state_dict[hf_key]
             keras_weight.assign(w.numpy() if hasattr(w, "numpy") else w)
             continue
 
         torch_weight_name = keras_weight_name
-        for old, new in weight_name_mapping.items():
+        for old, new in DINOV2_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
-
         torch_weight_name = re.sub(
             r"pos_embed_variable_\d+$",
             "embeddings.position_embeddings",
@@ -169,8 +123,31 @@ def transfer_dino_v2_weights(
 
         if torch_weight_name == "embeddings.position_embeddings":
             target_num_patches = keras_weight.shape[1] - 1
-            resized = _interpolate_pos_embed(torch_weight, target_num_patches)
-            keras_weight.assign(resized)
+            pe = (
+                torch_weight
+                if isinstance(torch_weight, torch.Tensor)
+                else torch.from_numpy(np.asarray(torch_weight))
+            )
+            cls_pe, spatial_pe = pe[:, :1], pe[:, 1:]
+            src_size = int(round(spatial_pe.shape[1] ** 0.5))
+            tgt_size = int(round(target_num_patches**0.5))
+            if src_size == tgt_size:
+                keras_weight.assign(pe.numpy())
+            else:
+                dim = spatial_pe.shape[-1]
+                spatial_pe = spatial_pe.reshape(1, src_size, src_size, dim).permute(
+                    0, 3, 1, 2
+                )
+                spatial_pe = torch.nn.functional.interpolate(
+                    spatial_pe.float(),
+                    size=(tgt_size, tgt_size),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                spatial_pe = spatial_pe.permute(0, 2, 3, 1).reshape(
+                    1, tgt_size * tgt_size, dim
+                )
+                keras_weight.assign(torch.cat([cls_pe, spatial_pe], dim=1).numpy())
             continue
 
         if not compare_keras_torch_names(
@@ -186,7 +163,7 @@ def transfer_dino_v2_weights(
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-DINOV2_CONVERSION_CONFIG: List[Tuple[str, str]] = [
+DINOV2_VARIANTS: List[Tuple[str, str]] = [
     ("dinov2_vits14", "facebook/dinov2-small"),
     ("dinov2_vitb14", "facebook/dinov2-base"),
     ("dinov2_vitl14", "facebook/dinov2-large"),
@@ -194,12 +171,14 @@ DINOV2_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
-    for variant, hf_id in DINOV2_CONVERSION_CONFIG:
+    HF_TOKEN = os.environ.get("HF_TOKEN")
+
+    for variant, hf_id in DINOV2_VARIANTS:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
-        hf_model = Dinov2Model.from_pretrained(hf_id).eval()
+        hf_model = Dinov2Model.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_state_dict = dict(hf_model.state_dict())
 
         keras_model = DinoV2Backbone.from_weights(
@@ -209,7 +188,7 @@ if __name__ == "__main__":
             include_normalization=False,
         )
 
-        transfer_dino_v2_weights(keras_model, hf_state_dict)
+        transfer_dinov2_weights(keras_model, hf_state_dict)
 
         rng = np.random.default_rng(0)
         x_np = rng.standard_normal((1, 3, 224, 224)).astype(np.float32)
@@ -220,8 +199,7 @@ if __name__ == "__main__":
                 .numpy()
             )
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        k_raw = keras_model(k_in, training=False)
-        last = k_raw[-1]
+        last = keras_model(k_in, training=False)[-1]
         k_out = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )
