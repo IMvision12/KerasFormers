@@ -150,7 +150,7 @@ if __name__ == "__main__":
         print(f"{'=' * 60}")
 
         keras_model: keras.Model = DeepLabV3Segment.from_weights(
-            variant, load_weights=False, include_normalization=False
+            variant, load_weights=False
         )
         torch_model = torch_model_fn(weights=torch_weights).eval()
 

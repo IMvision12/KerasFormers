@@ -2,7 +2,6 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
 
 from .config import DEEPLABV3_CONFIG, DEEPLABV3_WEIGHTS
 
@@ -10,8 +9,6 @@ from .config import DEEPLABV3_CONFIG, DEEPLABV3_WEIGHTS
 def deeplabv3_dilated_resnet_backbone(
     inputs,
     backbone_variant,
-    include_normalization=False,
-    normalization_mode="imagenet",
 ):
     """Build a dilated ResNet backbone for DeepLabV3.
 
@@ -23,9 +20,6 @@ def deeplabv3_dilated_resnet_backbone(
     Args:
         inputs: Input Keras tensor.
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
-        include_normalization: Whether to prepend
-            :class:`ImageNormalizationLayer`.
-        normalization_mode: Normalization preset.
 
     Returns:
         C5 feature tensor at 1/8 of the input spatial resolution.
@@ -38,11 +32,7 @@ def deeplabv3_dilated_resnet_backbone(
         "ResNet101": [3, 4, 23, 3],
     }[backbone_variant]
 
-    x = (
-        ImageNormalizationLayer(mode=normalization_mode)(inputs)
-        if include_normalization
-        else inputs
-    )
+    x = inputs
 
     x = layers.ZeroPadding2D(padding=3, data_format=data_format)(x)
     x = layers.Conv2D(
@@ -342,9 +332,6 @@ class DeepLabV3Model(BaseModel):
 
     Args:
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
-        include_normalization: Whether to add an
-            :class:`ImageNormalizationLayer` at the input.
-        normalization_mode: Normalization preset (e.g. ``"imagenet"``).
         input_shape: Image input shape excluding batch dim. Defaults
             to ``(520, 520, 3)``.
         input_tensor: Optional pre-existing Keras input tensor.
@@ -358,8 +345,6 @@ class DeepLabV3Model(BaseModel):
     def __init__(
         self,
         backbone_variant="ResNet50",
-        include_normalization=False,
-        normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
         name="DeepLabV3Model",
@@ -379,8 +364,6 @@ class DeepLabV3Model(BaseModel):
         backbone_features = deeplabv3_dilated_resnet_backbone(
             img_input,
             backbone_variant=backbone_variant,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
         )
 
         super().__init__(
@@ -388,8 +371,6 @@ class DeepLabV3Model(BaseModel):
         )
 
         self.backbone_variant = backbone_variant
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
         self._input_shape_val = input_shape
         self.input_tensor = input_tensor
 
@@ -398,8 +379,6 @@ class DeepLabV3Model(BaseModel):
         config.update(
             {
                 "backbone_variant": self.backbone_variant,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
                 "input_shape": self._input_shape_val,
                 "name": self.name,
             }
@@ -427,9 +406,6 @@ class DeepLabV3Segment(BaseModel):
     Args:
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
         num_classes: Number of segmentation classes.
-        include_normalization: Whether to add an
-            :class:`ImageNormalizationLayer` at the input.
-        normalization_mode: Normalization preset (e.g. ``"imagenet"``).
         input_shape: Image input shape excluding batch dim.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
@@ -443,8 +419,6 @@ class DeepLabV3Segment(BaseModel):
         self,
         backbone_variant="ResNet50",
         num_classes=21,
-        include_normalization=False,
-        normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
         name="DeepLabV3Segment",
@@ -455,8 +429,6 @@ class DeepLabV3Segment(BaseModel):
 
         base = DeepLabV3Model(
             backbone_variant=backbone_variant,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
             input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
@@ -476,8 +448,6 @@ class DeepLabV3Segment(BaseModel):
 
         self.backbone_variant = backbone_variant
         self.num_classes = num_classes
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
         self._input_shape_val = input_shape
         self.input_tensor = input_tensor
 
@@ -487,8 +457,6 @@ class DeepLabV3Segment(BaseModel):
             {
                 "backbone_variant": self.backbone_variant,
                 "num_classes": self.num_classes,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
                 "input_shape": self._input_shape_val,
                 "name": self.name,
             }
