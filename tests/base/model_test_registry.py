@@ -762,7 +762,7 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": (2, 42, 42, 1),
     },
-    "DepthAnythingV2DepthMetric": {
+    "DepthAnythingV2DepthEstimation_metric": {
         "module": "kerasformers.models.depth_anything_v2",
         "model_cls": "DepthAnythingV2DepthEstimation",
         "model_type": "depth_estimation",
