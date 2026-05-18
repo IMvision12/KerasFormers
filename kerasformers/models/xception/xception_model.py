@@ -6,7 +6,7 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
-from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHTS_CONFIG
+from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHT_CONFIG
 
 # Per-variant block configs. Each entry is a list of dicts; each dict configures
 # one ``xception_module`` (or ``pre_xception_module`` when ``preact=True``).
@@ -489,30 +489,23 @@ class XceptionModel(BaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = XCEPTION_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHTS_CONFIG
+    BASE_MODEL_CONFIG = {
+        variant: XCEPTION_MODEL_CONFIG[meta["model"]]
+        for variant, meta in XCEPTION_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(
-        cls,
-        variant,
-        load_weights=True,
-        skip_mismatch=False,
-        recipe="tf_in1k",
-        **kwargs,
-    ):
-        backbone = cls(**{**XCEPTION_MODEL_CONFIG[variant], **kwargs})
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = XceptionImageClassify.from_release(
-                variant,
-                load_weights=True,
-                skip_mismatch=skip_mismatch,
-                recipe=recipe,
+                variant, skip_mismatch=skip_mismatch
             )
-            copy_weights_by_path_suffix(src, backbone)
+            copy_weights_by_path_suffix(src, model)
             del src
-        return backbone
+        return model
 
     def __init__(
         self,
@@ -651,40 +644,12 @@ class XceptionImageClassify(BaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = XCEPTION_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHTS_CONFIG
+    BASE_MODEL_CONFIG = {
+        variant: XCEPTION_MODEL_CONFIG[meta["model"]]
+        for variant, meta in XCEPTION_WEIGHT_CONFIG.items()
+    }
+    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
-
-    @classmethod
-    def from_release(
-        cls,
-        variant,
-        load_weights=True,
-        skip_mismatch=False,
-        recipe="tf_in1k",
-        **kwargs,
-    ):
-        if variant not in cls.BASE_MODEL_CONFIG:
-            raise ValueError(
-                f"Unknown variant '{variant}' for {cls.__name__}. "
-                f"Available variants: {sorted(cls.BASE_MODEL_CONFIG)}"
-            )
-        config = dict(cls.BASE_MODEL_CONFIG[variant])
-        config.update(kwargs)
-        model = cls(**config)
-
-        if load_weights:
-            recipes = cls.BASE_WEIGHT_CONFIG.get(variant, {})
-            if recipe not in recipes:
-                raise ValueError(
-                    f"Unknown recipe '{recipe}' for variant '{variant}'. "
-                    f"Available recipes: {sorted(recipes)}"
-                )
-            from kerasformers.weight_utils import download_file
-
-            weights_path = download_file(recipes[recipe]["url"])
-            model.load_weights(weights_path, skip_mismatch=skip_mismatch)
-        return model
 
     def __init__(
         self,

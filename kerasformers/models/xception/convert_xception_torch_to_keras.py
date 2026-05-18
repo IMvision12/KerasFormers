@@ -1,8 +1,8 @@
 """Port pretrained Aligned Xception weights from ``timm`` into
 :class:`XceptionImageClassify` for every variant declared in
-``XCEPTION_WEIGHTS_CONFIG``.
+``XCEPTION_WEIGHT_CONFIG``.
 
-Source weights come from ``timm.create_model(<arch>.<recipe>, pretrained=True)``.
+Source weights come from ``timm.create_model(<timm_id>, pretrained=True)``.
 Per-variant flags (``config``, ``preact``, ``bn_epsilon``) drive both the
 keras model build and the weight-name mapping below.
 """
@@ -19,7 +19,7 @@ import timm
 from kerasformers.models.xception import XceptionImageClassify
 from kerasformers.models.xception.config import (
     XCEPTION_MODEL_CONFIG,
-    XCEPTION_WEIGHTS_CONFIG,
+    XCEPTION_WEIGHT_CONFIG,
 )
 from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
@@ -31,16 +31,6 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
 )
-
-# kerasformers variant -> timm architecture prefix (before the recipe tag)
-TIMM_ARCH = {
-    "Xception41": "xception41",
-    "Xception41p": "xception41p",
-    "Xception65": "xception65",
-    "Xception65p": "xception65p",
-    "Xception71": "xception71",
-}
-
 
 # Common mappings applied to the dotted keras weight name after the
 # leading ``_`` → ``.`` substitution. Most timm submodule names contain
@@ -111,48 +101,47 @@ def transfer_xception_weights(
 if __name__ == "__main__":
     sys.setrecursionlimit(10000)
 
-    for variant, recipes in XCEPTION_WEIGHTS_CONFIG.items():
-        model_cfg = XCEPTION_MODEL_CONFIG[variant]
-        timm_arch = TIMM_ARCH[variant]
+    for variant, meta in XCEPTION_WEIGHT_CONFIG.items():
+        model_cfg = dict(XCEPTION_MODEL_CONFIG[meta["model"]])
+        model_cfg.pop("num_classes", None)
         preact = model_cfg["preact"]
+        timm_id = meta["timm_id"]
 
-        for recipe in recipes:
-            timm_id = f"{timm_arch}.{recipe}"
-            print(f"\n{'=' * 60}")
-            print(f"Converting: {variant} ({recipe})  <-  timm/{timm_id}")
-            print(f"{'=' * 60}")
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  timm/{timm_id}")
+        print(f"{'=' * 60}")
 
-            torch_model = timm.create_model(timm_id, pretrained=True).eval()
-            state = {
-                k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()
-            }
-            num_classes = int(state["head.fc.weight"].shape[0])
+        torch_model = timm.create_model(timm_id, pretrained=True).eval()
+        state = {
+            k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()
+        }
+        num_classes = int(state["head.fc.weight"].shape[0])
 
-            keras_model = XceptionImageClassify(
-                **model_cfg,
-                num_classes=num_classes,
-                include_normalization=False,
-            )
+        keras_model = XceptionImageClassify(
+            **model_cfg,
+            num_classes=num_classes,
+            include_normalization=False,
+        )
 
-            transfer_xception_weights(keras_model, state, preact)
+        transfer_xception_weights(keras_model, state, preact)
 
-            results = verify_cls_model_equivalence(
-                model_a=torch_model,
-                model_b=keras_model,
-                input_shape=keras_model.input_shape[1:],
-                output_specs={"num_classes": keras_model.output_shape[-1]},
-                comparison_type="torch_to_keras",
-                run_performance=False,
-                atol=1e-4,
-                rtol=1e-4,
-            )
-            if not results["standard_input"]:
-                raise ValueError(f"{variant}/{recipe}: model equivalence test failed")
+        results = verify_cls_model_equivalence(
+            model_a=torch_model,
+            model_b=keras_model,
+            input_shape=keras_model.input_shape[1:],
+            output_specs={"num_classes": keras_model.output_shape[-1]},
+            comparison_type="torch_to_keras",
+            run_performance=False,
+            atol=1e-4,
+            rtol=1e-4,
+        )
+        if not results["standard_input"]:
+            raise ValueError(f"{variant}: model equivalence test failed")
 
-            out_path = f"{timm_arch}_{recipe}.weights.h5"
-            keras_model.save_weights(out_path)
-            print(f"  Saved -> {out_path}")
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
 
-            del keras_model, state, torch_model
-            keras.backend.clear_session()
-            gc.collect()
+        del keras_model, state, torch_model
+        keras.backend.clear_session()
+        gc.collect()

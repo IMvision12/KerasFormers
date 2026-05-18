@@ -11,7 +11,7 @@ import timm
 from kerasformers.models.mobilenetv3 import MobileNetV3ImageClassify
 from kerasformers.models.mobilenetv3.config import (
     MOBILENETV3_MODEL_CONFIG,
-    MOBILENETV3_WEIGHTS_CONFIG,
+    MOBILENETV3_WEIGHT_CONFIG,
 )
 from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
@@ -23,16 +23,6 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
 )
-
-# kerasformers variant -> timm architecture prefix (before the recipe tag)
-TIMM_ARCH = {
-    "MobileNetV3Small050": "mobilenetv3_small_050",
-    "MobileNetV3Small075": "mobilenetv3_small_075",
-    "MobileNetV3Small100": "mobilenetv3_small_100",
-    "MobileNetV3Large100": "mobilenetv3_large_100",
-    "MobileNetV3Large150d": "mobilenetv3_large_150d",
-    "MobileNetV3Rw": "mobilenetv3_rw",
-}
 
 _BASE_LARGE_STAGES = [1, 2, 3, 4, 2, 3]
 _BASE_SMALL_STAGES = [1, 2, 3, 2, 3]
@@ -141,52 +131,49 @@ def transfer_mobilenetv3_weights(
 if __name__ == "__main__":
     sys.setrecursionlimit(10000)
 
-    for variant, recipes in MOBILENETV3_WEIGHTS_CONFIG.items():
-        model_cfg = MOBILENETV3_MODEL_CONFIG[variant]
-        timm_arch = TIMM_ARCH[variant]
+    for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items():
+        model_cfg = dict(MOBILENETV3_MODEL_CONFIG[meta["model"]])
+        model_cfg.pop("num_classes", None)
         block_count_multiplier = model_cfg.get("block_count_multiplier", 1.0)
         head_count_multiplier = model_cfg.get("head_count_multiplier", 1)
         scounts = stage_counts(model_cfg["config"], block_count_multiplier)
 
-        for recipe in recipes:
-            timm_id = f"{timm_arch}.{recipe}"
-            print(f"\n{'=' * 60}")
-            print(f"Converting: {variant} ({recipe})  <-  timm/{timm_id}")
-            print(f"{'=' * 60}")
+        timm_id = meta["timm_id"]
+        print(f"\n{'=' * 60}")
+        print(f"Converting: {variant}  <-  timm/{timm_id}")
+        print(f"{'=' * 60}")
 
-            torch_model = timm.create_model(timm_id, pretrained=True).eval()
-            state = {
-                k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()
-            }
-            num_classes = int(state["classifier.weight"].shape[0])
+        torch_model = timm.create_model(timm_id, pretrained=True).eval()
+        state = {
+            k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()
+        }
+        num_classes = int(state["classifier.weight"].shape[0])
 
-            keras_model = MobileNetV3ImageClassify(
-                **model_cfg,
-                num_classes=num_classes,
-                include_normalization=False,
-            )
+        keras_model = MobileNetV3ImageClassify(
+            **model_cfg,
+            num_classes=num_classes,
+            include_normalization=False,
+        )
 
-            transfer_mobilenetv3_weights(
-                keras_model, state, scounts, head_count_multiplier
-            )
+        transfer_mobilenetv3_weights(keras_model, state, scounts, head_count_multiplier)
 
-            results = verify_cls_model_equivalence(
-                model_a=torch_model,
-                model_b=keras_model,
-                input_shape=keras_model.input_shape[1:],
-                output_specs={"num_classes": keras_model.output_shape[-1]},
-                comparison_type="torch_to_keras",
-                run_performance=False,
-                atol=1e-4,
-                rtol=1e-4,
-            )
-            if not results["standard_input"]:
-                raise ValueError(f"{variant}/{recipe}: model equivalence test failed")
+        results = verify_cls_model_equivalence(
+            model_a=torch_model,
+            model_b=keras_model,
+            input_shape=keras_model.input_shape[1:],
+            output_specs={"num_classes": keras_model.output_shape[-1]},
+            comparison_type="torch_to_keras",
+            run_performance=False,
+            atol=1e-4,
+            rtol=1e-4,
+        )
+        if not results["standard_input"]:
+            raise ValueError(f"{variant}: model equivalence test failed")
 
-            out_path = f"{timm_arch}_{recipe}.weights.h5"
-            keras_model.save_weights(out_path)
-            print(f"  Saved -> {out_path}")
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
 
-            del keras_model, state, torch_model
-            keras.backend.clear_session()
-            gc.collect()
+        del keras_model, state, torch_model
+        keras.backend.clear_session()
+        gc.collect()
