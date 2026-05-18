@@ -10,7 +10,7 @@ SAM3 is an open-vocabulary, promptable detection and segmentation model. It comb
 
 | Model | Parameters | Backbone | Description | Weights |
 |-------|-----------|----------|-------------|---------|
-| `SAM3` | ~839M | ViT-L/14 | Open-vocabulary detector + segmenter | `sam3` |
+| `SAM3Model` | ~839M | ViT-L/14 | Open-vocabulary detector + segmenter | `sam3_saco` |
 
 The model uses 1008x1008 input resolution and includes a CLIP text encoder (24 layers, 1024d) and geometry encoder for box prompts.
 

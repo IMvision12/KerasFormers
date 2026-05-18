@@ -123,6 +123,8 @@ if __name__ == "__main__":
             output_specs={"num_classes": keras_model.output_shape[-1]},
             comparison_type="torch_to_keras",
             run_performance=False,
+            atol=1e-4,
+            rtol=1e-4,
         )
         if not results["standard_input"]:
             raise ValueError(

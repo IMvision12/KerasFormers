@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 from tqdm import tqdm
 from transformers import Sam3Model as HFSam3Model
 
@@ -348,7 +349,7 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
 
 if __name__ == "__main__":
     HF_TOKEN = os.environ.get("HF_TOKEN")
-    OUTPUT = "sam3_saco.weights.h5"
+    variant = "sam3_saco"
 
     print("Loading HF Sam3Model...")
     hf_model = HFSam3Model.from_pretrained(
@@ -359,19 +360,24 @@ if __name__ == "__main__":
     del hf_model
 
     print("\nBuilding Keras SAM3Model...")
-    sam3 = SAM3Model.from_weights("sam3_saco", load_weights=False)
+    sam3 = SAM3Model.from_weights(variant, load_weights=False)
 
     print("\nTransferring detector weights...")
     transfer_sam3_weights(sam3, hf)
 
-    print(f"\nSaving {OUTPUT}...")
     all_weights = (
         sam3.weights + sam3.text_encoder.weights + sam3.geometry_encoder.weights
     )
-    total_params = sum(w.numpy().size for w in all_weights)
-    print(f"  Total params: {total_params:,}")
-    sam3.save_weights(OUTPUT, max_shard_size=1.5)
-    size_mb = os.path.getsize(OUTPUT) / (1024 * 1024)
-    print(f"  Saved: {OUTPUT} ({size_mb:.0f} MB)")
+    total_params = sum(int(np.prod(w.shape)) for w in all_weights)
+    total_gb = (total_params * 4) / (1024**3)
+    print(f"\n  Total params: {total_params:,}  (~{total_gb:.2f} GB)")
+    if total_gb > 1.7:
+        out_path = f"{variant}.weights.json"
+        sam3.save_weights(out_path, max_shard_size=1.7)
+        print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
+    else:
+        out_path = f"{variant}.weights.h5"
+        sam3.save_weights(out_path)
+        print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
 
     print("\nDone!")
