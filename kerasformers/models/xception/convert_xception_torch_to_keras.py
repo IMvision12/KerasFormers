@@ -1,0 +1,158 @@
+"""Port pretrained Aligned Xception weights from ``timm`` into
+:class:`XceptionImageClassify` for every variant declared in
+``XCEPTION_WEIGHTS_CONFIG``.
+
+Source weights come from ``timm.create_model(<arch>.<recipe>, pretrained=True)``.
+Per-variant flags (``config``, ``preact``, ``bn_epsilon``) drive both the
+keras model build and the weight-name mapping below.
+"""
+
+import gc
+import re
+import sys
+from typing import Dict
+
+import keras
+import numpy as np
+import timm
+
+from kerasformers.models.xception import XceptionImageClassify
+from kerasformers.models.xception.config import (
+    XCEPTION_MODEL_CONFIG,
+    XCEPTION_WEIGHTS_CONFIG,
+)
+from kerasformers.weight_utils import verify_cls_model_equivalence
+from kerasformers.weight_utils.custom_exception import (
+    WeightMappingError,
+    WeightShapeMismatchError,
+)
+from kerasformers.weight_utils.weight_split_torch_and_keras import split_model_weights
+from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+    compare_keras_torch_names,
+    transfer_weights,
+)
+
+# kerasformers variant -> timm architecture prefix (before the recipe tag)
+TIMM_ARCH = {
+    "Xception41": "xception41",
+    "Xception41p": "xception41p",
+    "Xception65": "xception65",
+    "Xception65p": "xception65p",
+    "Xception71": "xception71",
+}
+
+
+# Common mappings applied to the dotted keras weight name after the
+# leading ``_`` → ``.`` substitution. Most timm submodule names contain
+# an underscore (``conv_dw``, ``bn_dw``, etc.) which the wholesale dot
+# substitution accidentally splits; the entries below restore those
+# joined identifiers before the standard kernel/gamma/etc. renames.
+_BASE_MAPPINGS = {
+    "block.": "blocks.",
+    "dwconv": "conv_dw",
+    "conv.pw": "conv_pw",
+    "bn.dw": "bn_dw",
+    "bn.pw": "bn_pw",
+    "norm.bn": "norm",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+    "moving.mean": "running_mean",
+    "moving.variance": "running_var",
+    "predictions": "head.fc",
+}
+
+
+def transfer_xception_weights(
+    keras_model,
+    state_dict: Dict[str, np.ndarray],
+    preact: bool,
+) -> None:
+    trainable, non_trainable = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in trainable + non_trainable:
+        torch_weight_name = keras_weight_name.replace("_", ".")
+        for old, new in _BASE_MAPPINGS.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
+        if preact:
+            # In preact, stem.1 is a bare Conv2d (no inner ``conv`` attr)
+            # and the per-block shortcut is also a bare Conv2d.
+            torch_weight_name = torch_weight_name.replace(
+                "stem.1.conv.weight", "stem.1.weight"
+            )
+            torch_weight_name = re.sub(
+                r"blocks\.(\d+)\.shortcut\.conv\.weight",
+                r"blocks.\1.shortcut.weight",
+                torch_weight_name,
+            )
+
+        if torch_weight_name not in state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = state_dict[torch_weight_name]
+        if (
+            keras_weight.ndim == 2
+            and torch_weight.ndim == 4
+            and torch_weight.shape[-2:] == (1, 1)
+        ):
+            torch_weight = torch_weight.squeeze(axis=(-1, -2))
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+
+if __name__ == "__main__":
+    sys.setrecursionlimit(10000)
+
+    for variant, recipes in XCEPTION_WEIGHTS_CONFIG.items():
+        model_cfg = XCEPTION_MODEL_CONFIG[variant]
+        timm_arch = TIMM_ARCH[variant]
+        preact = model_cfg["preact"]
+
+        for recipe in recipes:
+            timm_id = f"{timm_arch}.{recipe}"
+            print(f"\n{'=' * 60}")
+            print(f"Converting: {variant} ({recipe})  <-  timm/{timm_id}")
+            print(f"{'=' * 60}")
+
+            torch_model = timm.create_model(timm_id, pretrained=True).eval()
+            state = {
+                k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()
+            }
+            num_classes = int(state["head.fc.weight"].shape[0])
+
+            keras_model = XceptionImageClassify(
+                **model_cfg,
+                num_classes=num_classes,
+                include_normalization=False,
+            )
+
+            transfer_xception_weights(keras_model, state, preact)
+
+            results = verify_cls_model_equivalence(
+                model_a=torch_model,
+                model_b=keras_model,
+                input_shape=keras_model.input_shape[1:],
+                output_specs={"num_classes": keras_model.output_shape[-1]},
+                comparison_type="torch_to_keras",
+                run_performance=False,
+                atol=1e-4,
+                rtol=1e-4,
+            )
+            if not results["standard_input"]:
+                raise ValueError(f"{variant}/{recipe}: model equivalence test failed")
+
+            out_path = f"{timm_arch}_{recipe}.weights.h5"
+            keras_model.save_weights(out_path)
+            print(f"  Saved -> {out_path}")
+
+            del keras_model, state, torch_model
+            keras.backend.clear_session()
+            gc.collect()

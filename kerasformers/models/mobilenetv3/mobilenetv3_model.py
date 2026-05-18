@@ -1,3 +1,5 @@
+import math
+
 import keras
 from keras import layers, utils
 
@@ -6,7 +8,7 @@ from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
-from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHT_CONFIG
+from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHTS_CONFIG
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -40,6 +42,10 @@ def inverted_residual_block(
     block_id,
     data_format,
     channels_axis,
+    noskip=False,
+    se_round_divisor=8,
+    se_activation="relu",
+    bn_epsilon=1e-5,
 ):
     """MobileNetV3-style inverted residual block with optional Squeeze-and-Excitation.
 
@@ -54,6 +60,18 @@ def inverted_residual_block(
         block_id: Block index used to construct unique layer names.
         data_format: Keras data-format string.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
+        noskip: If True, never add the residual connection even when shapes
+            allow it. Defaults to False.
+        se_round_divisor: Divisor used to round the SE reduce channel count
+            via :func:`make_divisible`. If ``None``, the SE reduce channel
+            count is computed as ``int(expanded_filters * se_ratio)`` with no
+            rounding (matches the timm ``rw`` variant). Defaults to ``8``.
+        se_activation: Activation used inside the SE block (between the two
+            1x1 SE convs). Defaults to ``"relu"`` (matches timm's standard
+            mobilenetv3 which forces ReLU via ``force_act_layer=nn.ReLU``).
+            The timm ``rw`` variant omits ``force_act_layer`` so the SE
+            activation follows the block's own activation — callers should
+            pass ``activation`` (the block's act) in that case.
 
     Returns:
         Output feature tensor with ``filters`` channels.
@@ -74,7 +92,7 @@ def inverted_residual_block(
         )(x)
         x = layers.BatchNormalization(
             axis=channels_axis,
-            epsilon=1e-5,
+            epsilon=bn_epsilon,
             momentum=0.999,
             name=f"{prefix}_batchnorm_1",
         )(x)
@@ -99,24 +117,30 @@ def inverted_residual_block(
     )(x)
     x = layers.BatchNormalization(
         axis=channels_axis,
-        epsilon=1e-5,
+        epsilon=bn_epsilon,
         momentum=0.999,
         name=f"{prefix}_batchnorm_2",
     )(x)
     x = layers.Activation(activation, name=f"{prefix}_activation_2")(x)
 
     if se_ratio:
+        if se_round_divisor is None:
+            se_filters = int(expanded_filters * se_ratio)
+        else:
+            se_filters = make_divisible(
+                expanded_filters * se_ratio, divisor=se_round_divisor
+            )
         x_se = layers.GlobalAveragePooling2D(
             keepdims=True, data_format=data_format, name=f"{prefix}_se_pool"
         )(x)
         x_se = layers.Conv2D(
-            make_divisible(expanded_filters * se_ratio),
+            se_filters,
             kernel_size=1,
             padding="same",
             data_format=data_format,
             name=f"{prefix}_se_conv_1",
         )(x_se)
-        x_se = layers.ReLU(name=f"{prefix}_se_activation_1")(x_se)
+        x_se = layers.Activation(se_activation, name=f"{prefix}_se_activation_1")(x_se)
         x_se = layers.Conv2D(
             expanded_filters,
             kernel_size=1,
@@ -137,48 +161,62 @@ def inverted_residual_block(
     )(x)
     x = layers.BatchNormalization(
         axis=channels_axis,
-        epsilon=1e-5,
+        epsilon=bn_epsilon,
         momentum=0.999,
         name=f"{prefix}_batchnorm_3",
     )(x)
 
-    if stride == 1 and input_filters == filters:
+    if not noskip and stride == 1 and input_filters == filters:
         x = layers.Add(name=f"{prefix}_add")([shortcut, x])
     return x
 
 
-_SMALL_BLOCKS = [
-    # [expansion_ratio, filters, kernel_size, stride, se_ratio, activation]
-    [1, 16, 3, 2, 0.25, "relu"],
-    [72.0 / 16, 24, 3, 2, None, "relu"],
-    [88.0 / 24, 24, 3, 1, None, "relu"],
-    [4, 40, 5, 2, 0.25, "hard_swish"],
-    [6, 40, 5, 1, 0.25, "hard_swish"],
-    [6, 40, 5, 1, 0.25, "hard_swish"],
-    [3, 48, 5, 1, 0.25, "hard_swish"],
-    [3, 48, 5, 1, 0.25, "hard_swish"],
-    [6, 96, 5, 2, 0.25, "hard_swish"],
-    [6, 96, 5, 1, 0.25, "hard_swish"],
-    [6, 96, 5, 1, 0.25, "hard_swish"],
+# Each stage is a list of sub-groups; each sub-group is
+# (expansion_ratio, filters, kernel_size, stride, se_ratio, activation, repeat_count).
+# Layout mirrors timm's ``arch_def`` (groups within a stage) so that
+# ``block_count_multiplier`` is distributed across sub-groups via
+# :func:`scale_stage_depth` (matching timm's ``_scale_stage_depth``).
+# Only the first block of a stage carries its stride; all subsequent blocks
+# in the stage are forced to stride=1.
+_SMALL_STAGE_GROUPS = [
+    [(1, 16, 3, 2, 0.25, "relu", 1)],
+    [(72.0 / 16, 24, 3, 2, None, "relu", 1), (88.0 / 24, 24, 3, 1, None, "relu", 1)],
+    [(4, 40, 5, 2, 0.25, "hard_swish", 1), (6, 40, 5, 1, 0.25, "hard_swish", 2)],
+    [(3, 48, 5, 1, 0.25, "hard_swish", 2)],
+    [(6, 96, 5, 2, 0.25, "hard_swish", 1), (6, 96, 5, 1, 0.25, "hard_swish", 2)],
 ]
 
-_LARGE_BLOCKS = [
-    [1, 16, 3, 1, None, "relu"],
-    [4, 24, 3, 2, None, "relu"],
-    [3, 24, 3, 1, None, "relu"],
-    [3, 40, 5, 2, 0.25, "relu"],
-    [3, 40, 5, 1, 0.25, "relu"],
-    [3, 40, 5, 1, 0.25, "relu"],
-    [6, 80, 3, 2, None, "hard_swish"],
-    [2.5, 80, 3, 1, None, "hard_swish"],
-    [2.3, 80, 3, 1, None, "hard_swish"],
-    [2.3, 80, 3, 1, None, "hard_swish"],
-    [6, 112, 3, 1, 0.25, "hard_swish"],
-    [6, 112, 3, 1, 0.25, "hard_swish"],
-    [6, 160, 5, 2, 0.25, "hard_swish"],
-    [6, 160, 5, 1, 0.25, "hard_swish"],
-    [6, 160, 5, 1, 0.25, "hard_swish"],
+_LARGE_STAGE_GROUPS = [
+    [(1, 16, 3, 1, None, "relu", 1)],
+    [(4, 24, 3, 2, None, "relu", 1), (3, 24, 3, 1, None, "relu", 1)],
+    [(3, 40, 5, 2, 0.25, "relu", 3)],
+    [
+        (6, 80, 3, 2, None, "hard_swish", 1),
+        (2.5, 80, 3, 1, None, "hard_swish", 1),
+        (2.3, 80, 3, 1, None, "hard_swish", 2),
+    ],
+    [(6, 112, 3, 1, 0.25, "hard_swish", 2)],
+    [(6, 160, 5, 2, 0.25, "hard_swish", 3)],
 ]
+
+
+def scale_stage_depth(repeats, depth_multiplier):
+    """Replicate timm's ``_scale_stage_depth``.
+
+    Scale the total repeat count of a stage by ``depth_multiplier`` (ceil)
+    and distribute the scaled total back across the stage's sub-groups in
+    reverse order, so the first sub-group is least likely to grow. Returns
+    a per-sub-group list of repeats.
+    """
+    num_repeat = sum(repeats)
+    num_repeat_scaled = int(math.ceil(num_repeat * depth_multiplier))
+    repeats_scaled = []
+    for r in repeats[::-1]:
+        rs = max(1, round(r / num_repeat * num_repeat_scaled))
+        repeats_scaled.append(rs)
+        num_repeat -= r
+        num_repeat_scaled -= rs
+    return repeats_scaled[::-1]
 
 
 def mobilenetv3_backbone_feature(
@@ -191,13 +229,19 @@ def mobilenetv3_backbone_feature(
     data_format,
     channels_axis,
     return_stages=False,
+    block_count_multiplier=1.0,
+    head_count_multiplier=1,
+    first_block_noskip=False,
+    se_round_divisor=8,
+    se_use_block_act=False,
+    bn_epsilon=1e-5,
 ):
-    """MobileNetV3 stem + inverted-residual stages + final 1x1 conv.
+    """MobileNetV3 stem + inverted-residual stages + final 1x1 conv head.
 
     Args:
         inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
             or ``(B, C, H, W)`` for channels-first.
-        config: Variant key, ``"large"`` or ``"small"``, selecting the block table.
+        config: Variant key, ``"large"`` or ``"small"``, selecting the stage table.
         width_multiplier: Multiplier applied to per-stage channel counts.
         depth_multiplier: Multiplier applied to per-block expansion ratios.
         minimal: If True, force kernel size 3, ReLU activations, and disable SE
@@ -207,18 +251,48 @@ def mobilenetv3_backbone_feature(
         return_stages: If True, return a list of per-stage feature maps grouped
             by stride boundary (pre-final-conv); otherwise return the
             post-final-conv tensor.
+        block_count_multiplier: Multiplier applied to the per-stage repeat
+            counts. The total repeat count for each stage is scaled (ceil)
+            and then redistributed across the stage's sub-groups via
+            :func:`scale_stage_depth` (timm's ``_scale_stage_depth``). Used
+            by timm's ``large_150d`` variant. Defaults to ``1.0``.
+        head_count_multiplier: Number of times the final 1x1 conv head
+            (conv + BN + activation) is repeated. Used by timm's ``large_150d``
+            variant whose head has two consecutive 1x1 convs. Defaults to ``1``.
+        first_block_noskip: If True, disable the residual add in the very first
+            IR block of the network (block_id 0). Used by timm's ``rw`` variant
+            whose first depthwise-separable block carries ``noskip``.
+            Defaults to ``False``.
+        se_round_divisor: Divisor for SE reduce-channel rounding. ``None``
+            disables rounding (``int(c * r)`` is used directly). Defaults to ``8``.
+        se_use_block_act: If True, the SE inner activation follows the block's
+            own activation (matches timm's ``rw`` variant which omits
+            ``force_act_layer``). If False, the SE inner activation is forced
+            to ReLU (matches timm's standard mobilenetv3 ``se_layer`` partial).
+            Defaults to ``False``.
+        bn_epsilon: Epsilon used for every BatchNormalization layer in the
+            network. The timm ``mobilenetv3_rw`` registration calls
+            ``kwargs.setdefault('bn_eps', BN_EPS_TF_DEFAULT=1e-3)`` so rw uses
+            1e-3 instead of the PyTorch default 1e-5. Defaults to ``1e-5``.
 
     Returns:
         Final 4D feature tensor after the final 1x1 conv (post BN + activation),
         or a list of per-stage feature tensors when ``return_stages`` is True.
     """
-    blocks = _LARGE_BLOCKS if config == "large" else _SMALL_BLOCKS
+    stage_groups = _LARGE_STAGE_GROUPS if config == "large" else _SMALL_STAGE_GROUPS
+
+    # Match timm: stem channels are kept fixed at 16 when width_multiplier < 0.75
+    # (see ``fix_stem`` in timm.models.mobilenetv3._gen_mobilenet_v3).
+    if width_multiplier < 0.75:
+        stem_channels = 16
+    else:
+        stem_channels = make_divisible(16 * width_multiplier)
 
     x = layers.ZeroPadding2D(
         padding=((1, 1), (1, 1)), data_format=data_format, name="stem_padding"
     )(inputs)
     x = layers.Conv2D(
-        16,
+        stem_channels,
         kernel_size=3,
         strides=(2, 2),
         padding="valid",
@@ -228,7 +302,7 @@ def mobilenetv3_backbone_feature(
     )(x)
     x = layers.BatchNormalization(
         axis=channels_axis,
-        epsilon=1e-5,
+        epsilon=bn_epsilon,
         momentum=0.999,
         name="stem_batchnorm",
     )(x)
@@ -236,54 +310,93 @@ def mobilenetv3_backbone_feature(
         "hard_swish" if not minimal else "relu", name="stem_activation"
     )(x)
 
-    stages = []
-    for idx, layer_config in enumerate(blocks):
-        expansion_ratio, filters, kernel_size, stride, se_ratio, activation = (
-            layer_config
-        )
-        if minimal:
-            kernel_size = 3
-            activation = "relu"
-            se_ratio = None
+    stage_outputs = []
+    block_id = 0
+    for groups in stage_groups:
+        repeats = [g[6] for g in groups]
+        scaled_repeats = scale_stage_depth(repeats, block_count_multiplier)
 
-        if return_stages and stride == 2:
-            stages.append(x)
+        stage_block_configs = []
+        for group, rep in zip(groups, scaled_repeats):
+            expansion_ratio, filters, kernel_size, stride, se_ratio, activation, _ = (
+                group
+            )
+            for _ in range(rep):
+                stage_block_configs.append(
+                    (
+                        expansion_ratio,
+                        filters,
+                        kernel_size,
+                        stride,
+                        se_ratio,
+                        activation,
+                    )
+                )
 
-        x = inverted_residual_block(
-            x,
-            expansion_ratio=expansion_ratio * depth_multiplier,
-            filters=make_divisible(filters * width_multiplier),
-            kernel_size=kernel_size,
-            stride=stride,
-            se_ratio=se_ratio,
-            activation=activation,
-            block_id=idx,
-            data_format=data_format,
-            channels_axis=channels_axis,
-        )
+        for blk_idx, layer_config in enumerate(stage_block_configs):
+            (
+                expansion_ratio,
+                filters,
+                kernel_size,
+                stride,
+                se_ratio,
+                activation,
+            ) = layer_config
+            # Match timm: only the first block of each stage carries its
+            # stride; every subsequent block in the stage is forced to 1.
+            if blk_idx >= 1:
+                stride = 1
+            if minimal:
+                kernel_size = 3
+                activation = "relu"
+                se_ratio = None
+
+            if return_stages and stride == 2:
+                stage_outputs.append(x)
+
+            noskip = first_block_noskip and block_id == 0
+            x = inverted_residual_block(
+                x,
+                expansion_ratio=expansion_ratio * depth_multiplier,
+                filters=make_divisible(filters * width_multiplier),
+                kernel_size=kernel_size,
+                stride=stride,
+                se_ratio=se_ratio,
+                activation=activation,
+                block_id=block_id,
+                data_format=data_format,
+                channels_axis=channels_axis,
+                noskip=noskip,
+                se_round_divisor=se_round_divisor,
+                se_activation=activation if se_use_block_act else "relu",
+                bn_epsilon=bn_epsilon,
+            )
+            block_id += 1
 
     if return_stages:
-        stages.append(x)
-        return stages
+        stage_outputs.append(x)
+        return stage_outputs
 
     final_conv_channels = make_divisible(x.shape[channels_axis] * 6)
-    x = layers.Conv2D(
-        final_conv_channels,
-        kernel_size=1,
-        padding="same",
-        use_bias=False,
-        data_format=data_format,
-        name="final_conv",
-    )(x)
-    x = layers.BatchNormalization(
-        axis=channels_axis,
-        epsilon=1e-5,
-        momentum=0.999,
-        name="final_batchnorm",
-    )(x)
-    x = layers.Activation(
-        "hard_swish" if not minimal else "relu", name="final_activation"
-    )(x)
+    for head_idx in range(head_count_multiplier):
+        suffix = "" if head_count_multiplier == 1 else f"_{head_idx}"
+        x = layers.Conv2D(
+            final_conv_channels,
+            kernel_size=1,
+            padding="same",
+            use_bias=False,
+            data_format=data_format,
+            name=f"final_conv{suffix}",
+        )(x)
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=bn_epsilon,
+            momentum=0.999,
+            name=f"final_batchnorm{suffix}",
+        )(x)
+        x = layers.Activation(
+            "hard_swish" if not minimal else "relu", name=f"final_activation{suffix}"
+        )(x)
 
     return x
 
@@ -350,29 +463,30 @@ class MobileNetV3Model(BaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHT_CONFIG
+    BASE_MODEL_CONFIG = MOBILENETV3_MODEL_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHTS_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_release(
+        cls,
+        variant,
+        load_weights=True,
+        skip_mismatch=False,
+        recipe="in1k",
+        **kwargs,
+    ):
+        backbone = cls(**{**MOBILENETV3_MODEL_CONFIG[variant], **kwargs})
         if load_weights:
-            src = MobileNetV3ImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+            src = MobileNetV3ImageClassify.from_release(
+                variant,
+                load_weights=True,
+                skip_mismatch=skip_mismatch,
+                recipe=recipe,
             )
-            copy_weights_by_path_suffix(src, model)
+            copy_weights_by_path_suffix(src, backbone)
             del src
-        return model
-
-    @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
-
-        transfer_mobilenetv3_weights(keras_model, state_dict)
+        return backbone
 
     def __init__(
         self,
@@ -380,6 +494,12 @@ class MobileNetV3Model(BaseModel):
         depth_multiplier=1.0,
         config="large",
         minimal=False,
+        block_count_multiplier=1.0,
+        head_count_multiplier=1,
+        first_block_noskip=False,
+        se_round_divisor=8,
+        se_use_block_act=False,
+        bn_epsilon=1e-5,
         input_image_shape=224,
         include_normalization=True,
         normalization_mode="inception",
@@ -422,6 +542,12 @@ class MobileNetV3Model(BaseModel):
             data_format=data_format,
             channels_axis=channels_axis,
             return_stages=as_backbone,
+            block_count_multiplier=block_count_multiplier,
+            head_count_multiplier=head_count_multiplier,
+            first_block_noskip=first_block_noskip,
+            se_round_divisor=se_round_divisor,
+            se_use_block_act=se_use_block_act,
+            bn_epsilon=bn_epsilon,
         )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
@@ -430,6 +556,12 @@ class MobileNetV3Model(BaseModel):
         self.depth_multiplier = depth_multiplier
         self.config = config
         self.minimal = minimal
+        self.block_count_multiplier = block_count_multiplier
+        self.head_count_multiplier = head_count_multiplier
+        self.first_block_noskip = first_block_noskip
+        self.se_round_divisor = se_round_divisor
+        self.se_use_block_act = se_use_block_act
+        self.bn_epsilon = bn_epsilon
         self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -444,6 +576,12 @@ class MobileNetV3Model(BaseModel):
                 "depth_multiplier": self.depth_multiplier,
                 "config": self.config,
                 "minimal": self.minimal,
+                "block_count_multiplier": self.block_count_multiplier,
+                "head_count_multiplier": self.head_count_multiplier,
+                "first_block_noskip": self.first_block_noskip,
+                "se_round_divisor": self.se_round_divisor,
+                "se_use_block_act": self.se_use_block_act,
+                "bn_epsilon": self.bn_epsilon,
                 "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
@@ -521,18 +659,40 @@ class MobileNetV3ImageClassify(BaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHT_CONFIG
+    BASE_MODEL_CONFIG = MOBILENETV3_MODEL_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHTS_CONFIG
     HF_MODEL_TYPE = None
 
     @classmethod
-    def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilenetv3_keras_to_keras import transfer_mobilenetv3_weights
+    def from_release(
+        cls,
+        variant,
+        load_weights=True,
+        skip_mismatch=False,
+        recipe="in1k",
+        **kwargs,
+    ):
+        if variant not in cls.BASE_MODEL_CONFIG:
+            raise ValueError(
+                f"Unknown variant '{variant}' for {cls.__name__}. "
+                f"Available variants: {sorted(cls.BASE_MODEL_CONFIG)}"
+            )
+        config = dict(cls.BASE_MODEL_CONFIG[variant])
+        config.update(kwargs)
+        model = cls(**config)
 
-        transfer_mobilenetv3_weights(keras_model, state_dict)
+        if load_weights:
+            recipes = cls.BASE_WEIGHT_CONFIG.get(variant, {})
+            if recipe not in recipes:
+                raise ValueError(
+                    f"Unknown recipe '{recipe}' for variant '{variant}'. "
+                    f"Available recipes: {sorted(recipes)}"
+                )
+            from kerasformers.weight_utils import download_file
+
+            weights_path = download_file(recipes[recipe]["url"])
+            model.load_weights(weights_path, skip_mismatch=skip_mismatch)
+        return model
 
     def __init__(
         self,
@@ -540,6 +700,13 @@ class MobileNetV3ImageClassify(BaseModel):
         depth_multiplier=1.0,
         config="large",
         minimal=False,
+        block_count_multiplier=1.0,
+        head_count_multiplier=1,
+        first_block_noskip=False,
+        se_round_divisor=8,
+        se_use_block_act=False,
+        bn_epsilon=1e-5,
+        head_use_bias=True,
         input_image_shape=224,
         include_normalization=True,
         normalization_mode="inception",
@@ -564,6 +731,12 @@ class MobileNetV3ImageClassify(BaseModel):
             depth_multiplier=depth_multiplier,
             config=config,
             minimal=minimal,
+            block_count_multiplier=block_count_multiplier,
+            head_count_multiplier=head_count_multiplier,
+            first_block_noskip=first_block_noskip,
+            se_round_divisor=se_round_divisor,
+            se_use_block_act=se_use_block_act,
+            bn_epsilon=bn_epsilon,
             input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
@@ -577,7 +750,7 @@ class MobileNetV3ImageClassify(BaseModel):
         )
         x = layers.Dense(
             head_channels,
-            use_bias=True,
+            use_bias=head_use_bias,
             name="head_conv",
         )(x)
         x = layers.Activation(
@@ -597,6 +770,13 @@ class MobileNetV3ImageClassify(BaseModel):
         self.depth_multiplier = depth_multiplier
         self.config = config
         self.minimal = minimal
+        self.block_count_multiplier = block_count_multiplier
+        self.head_count_multiplier = head_count_multiplier
+        self.first_block_noskip = first_block_noskip
+        self.se_round_divisor = se_round_divisor
+        self.se_use_block_act = se_use_block_act
+        self.bn_epsilon = bn_epsilon
+        self.head_use_bias = head_use_bias
         self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -613,6 +793,13 @@ class MobileNetV3ImageClassify(BaseModel):
                 "depth_multiplier": self.depth_multiplier,
                 "config": self.config,
                 "minimal": self.minimal,
+                "block_count_multiplier": self.block_count_multiplier,
+                "head_count_multiplier": self.head_count_multiplier,
+                "first_block_noskip": self.first_block_noskip,
+                "se_round_divisor": self.se_round_divisor,
+                "se_use_block_act": self.se_use_block_act,
+                "bn_epsilon": self.bn_epsilon,
+                "head_use_bias": self.head_use_bias,
                 "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
