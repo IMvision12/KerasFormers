@@ -27,13 +27,6 @@ DENSENET_MODEL_CONFIG = {
         "input_image_shape": 224,
         "num_classes": 1000,
     },
-    "densenet264d": {
-        "num_blocks": [6, 12, 64, 48],
-        "growth_rate": 48,
-        "initial_filter": 96,
-        "input_image_shape": 224,
-        "num_classes": 1000,
-    },
 }
 
 DENSENET_WEIGHT_CONFIG = {
@@ -56,10 +49,5 @@ DENSENET_WEIGHT_CONFIG = {
         "model": "densenet201",
         "timm_id": "densenet201.tv_in1k",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/densenet201_tv_in1k.weights.h5",
-    },
-    "densenet264d_ra_in1k": {
-        "model": "densenet264d",
-        "timm_id": "densenet264d.ra_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/densenet264d_ra_in1k.weights.h5",
     },
 }
