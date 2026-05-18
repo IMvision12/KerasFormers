@@ -193,9 +193,9 @@ if __name__ == "__main__":
 
         total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
         total_gb = (total_params * 4) / (1024**3)
-        if total_gb > 2:
+        if total_gb > 1.7:
             out_path = f"{variant}.weights.json"
-            keras_model.save_weights(out_path, max_shard_size=2)
+            keras_model.save_weights(out_path, max_shard_size=1.7)
             print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
         else:
             out_path = f"{variant}.weights.h5"
