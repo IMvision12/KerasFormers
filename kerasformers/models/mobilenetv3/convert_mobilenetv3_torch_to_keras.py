@@ -29,11 +29,6 @@ _BASE_SMALL_STAGES = [1, 2, 3, 2, 3]
 
 
 def build_stage0_mapping(num_stage0_blocks: int):
-    """Stage 0 in MobileNetV3 contains DS-style blocks (expansion=1) — timm names
-    them with ``conv_pw`` / ``bn1`` / ``bn2`` (no expansion conv, so only two
-    BNs). Our keras model uses the IR layout (``conv_pwl`` / ``bn2`` / ``bn3``)
-    uniformly. Rewrite the stage-0 names for each block in stage 0.
-    """
     mapping = {}
     for i in range(num_stage0_blocks):
         mapping[f"blocks.0.{i}.batchnorm.2"] = f"blocks.0.{i}.bn1"
@@ -42,7 +37,7 @@ def build_stage0_mapping(num_stage0_blocks: int):
     return mapping
 
 
-_BASE_MAPPINGS = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "stem.conv": "conv_stem",
     "stem.batchnorm": "bn1",
     "head.conv": "conv_head",
@@ -90,7 +85,7 @@ def transfer_mobilenetv3_weights(
     flat_to_stage = [(s, b) for s, n in enumerate(stage_counts_list) for b in range(n)]
     final_mapping = build_final_mapping(stage_counts_list, head_count_multiplier)
     stage0_mapping = build_stage0_mapping(stage_counts_list[0])
-    mapping = {**stage0_mapping, **final_mapping, **_BASE_MAPPINGS}
+    mapping = {**stage0_mapping, **final_mapping, **WEIGHT_NAME_MAPPING}
 
     trainable, non_trainable = split_model_weights(keras_model)
 

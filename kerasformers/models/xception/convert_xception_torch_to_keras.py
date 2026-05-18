@@ -1,12 +1,3 @@
-"""Port pretrained Aligned Xception weights from ``timm`` into
-:class:`XceptionImageClassify` for every variant declared in
-``XCEPTION_WEIGHT_CONFIG``.
-
-Source weights come from ``timm.create_model(<timm_id>, pretrained=True)``.
-Per-variant flags (``config``, ``preact``, ``bn_epsilon``) drive both the
-keras model build and the weight-name mapping below.
-"""
-
 import gc
 import re
 import sys
@@ -32,12 +23,7 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-# Common mappings applied to the dotted keras weight name after the
-# leading ``_`` → ``.`` substitution. Most timm submodule names contain
-# an underscore (``conv_dw``, ``bn_dw``, etc.) which the wholesale dot
-# substitution accidentally splits; the entries below restore those
-# joined identifiers before the standard kernel/gamma/etc. renames.
-_BASE_MAPPINGS = {
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "block.": "blocks.",
     "dwconv": "conv_dw",
     "conv.pw": "conv_pw",
@@ -62,11 +48,9 @@ def transfer_xception_weights(
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
         torch_weight_name = keras_weight_name.replace("_", ".")
-        for old, new in _BASE_MAPPINGS.items():
+        for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
         if preact:
-            # In preact, stem.1 is a bare Conv2d (no inner ``conv`` attr)
-            # and the per-block shortcut is also a bare Conv2d.
             torch_weight_name = torch_weight_name.replace(
                 "stem.1.conv.weight", "stem.1.weight"
             )
