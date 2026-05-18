@@ -5,7 +5,7 @@ RESMLP_MODEL_CONFIG = {
         "depth": 12,
         "mlp_ratio": 4,
         "init_values": 1e-4,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "resmlp_24": {
@@ -14,7 +14,7 @@ RESMLP_MODEL_CONFIG = {
         "depth": 24,
         "mlp_ratio": 4,
         "init_values": 1e-5,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "resmlp_36": {
@@ -23,7 +23,7 @@ RESMLP_MODEL_CONFIG = {
         "depth": 36,
         "mlp_ratio": 4,
         "init_values": 1e-6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "resmlp_big_24": {
@@ -32,7 +32,7 @@ RESMLP_MODEL_CONFIG = {
         "depth": 24,
         "mlp_ratio": 4,
         "init_values": 1e-6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
 }

@@ -4,7 +4,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "small",
         "minimal": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_small_075": {
@@ -12,7 +12,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "small",
         "minimal": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_small_100": {
@@ -20,7 +20,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "small",
         "minimal": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_large_075": {
@@ -28,7 +28,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "large",
         "minimal": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_large_100": {
@@ -36,7 +36,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "large",
         "minimal": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_small_minimal_100": {
@@ -44,7 +44,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "small",
         "minimal": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_large_minimal_100": {
@@ -52,7 +52,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "large",
         "minimal": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
 }

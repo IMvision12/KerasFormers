@@ -5,7 +5,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "use_conv": True,
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_femto": {
@@ -14,7 +14,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "use_conv": True,
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_pico": {
@@ -23,7 +23,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "use_conv": True,
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_nano": {
@@ -32,7 +32,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "use_conv": True,
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_nano_384": {
@@ -41,7 +41,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "use_conv": True,
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "convnextv2_tiny": {
@@ -49,7 +49,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [96, 192, 384, 768],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_tiny_384": {
@@ -57,7 +57,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [96, 192, 384, 768],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "convnextv2_base": {
@@ -65,7 +65,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [128, 256, 512, 1024],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_base_384": {
@@ -73,7 +73,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [128, 256, 512, 1024],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "convnextv2_large": {
@@ -81,7 +81,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [192, 384, 768, 1536],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_large_384": {
@@ -89,7 +89,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [192, 384, 768, 1536],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "convnextv2_huge": {
@@ -97,7 +97,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [352, 704, 1408, 2816],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "convnextv2_huge_384": {
@@ -105,7 +105,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [352, 704, 1408, 2816],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "convnextv2_huge_512": {
@@ -113,7 +113,7 @@ CONVNEXTV2_MODEL_CONFIG = {
         "projection_dims": [352, 704, 1408, 2816],
         "use_grn": True,
         "layer_scale_init_value": None,
-        "image_size": 512,
+        "input_image_shape": 512,
         "num_classes": 1000,
     },
 }

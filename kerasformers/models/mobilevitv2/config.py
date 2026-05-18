@@ -1,52 +1,52 @@
 MOBILEVITV2_MODEL_CONFIG = {
     "mobilevitv2_050": {
         "multiplier": 0.5,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "mobilevitv2_075": {
         "multiplier": 0.75,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "mobilevitv2_100": {
         "multiplier": 1.0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "mobilevitv2_125": {
         "multiplier": 1.25,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "mobilevitv2_150": {
         "multiplier": 1.5,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "mobilevitv2_150_384": {
         "multiplier": 1.5,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "mobilevitv2_175": {
         "multiplier": 1.75,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "mobilevitv2_175_384": {
         "multiplier": 1.75,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "mobilevitv2_200": {
         "multiplier": 2.0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "mobilevitv2_200_384": {
         "multiplier": 2.0,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
 }

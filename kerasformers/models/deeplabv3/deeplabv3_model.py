@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
+from kerasformers.utils import standardize_input_shape
 
 from .config import DEEPLABV3_CONFIG, DEEPLABV3_WEIGHTS
 
@@ -332,8 +333,12 @@ class DeepLabV3Model(BaseModel):
 
     Args:
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
-        input_shape: Image input shape excluding batch dim. Defaults
-            to ``(520, 520, 3)``.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `520`.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
     """
@@ -345,19 +350,19 @@ class DeepLabV3Model(BaseModel):
     def __init__(
         self,
         backbone_variant="ResNet50",
-        input_shape=None,
+        input_image_shape=520,
         input_tensor=None,
         name="DeepLabV3Model",
         **kwargs,
     ):
-        if input_shape is None:
-            input_shape = (520, 520, 3)
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
             else:
                 img_input = input_tensor
 
@@ -371,7 +376,7 @@ class DeepLabV3Model(BaseModel):
         )
 
         self.backbone_variant = backbone_variant
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -379,7 +384,7 @@ class DeepLabV3Model(BaseModel):
         config.update(
             {
                 "backbone_variant": self.backbone_variant,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )
@@ -406,7 +411,12 @@ class DeepLabV3Segment(BaseModel):
     Args:
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
         num_classes: Number of segmentation classes.
-        input_shape: Image input shape excluding batch dim.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `520`.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
     """
@@ -419,17 +429,14 @@ class DeepLabV3Segment(BaseModel):
         self,
         backbone_variant="ResNet50",
         num_classes=21,
-        input_shape=None,
+        input_image_shape=520,
         input_tensor=None,
         name="DeepLabV3Segment",
         **kwargs,
     ):
-        if input_shape is None:
-            input_shape = (520, 520, 3)
-
         base = DeepLabV3Model(
             backbone_variant=backbone_variant,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -437,9 +444,20 @@ class DeepLabV3Segment(BaseModel):
         x = deeplabv3_aspp(base.output, name="classifier_0")
         x = deeplabv3_classifier_head(x, num_classes, name="classifier")
 
+        data_format = keras.config.image_data_format()
+        if data_format == "channels_first":
+            upsample_h, upsample_w = (
+                base.input_image_shape[1],
+                base.input_image_shape[2],
+            )
+        else:
+            upsample_h, upsample_w = (
+                base.input_image_shape[0],
+                base.input_image_shape[1],
+            )
         x = layers.Resizing(
-            height=input_shape[0],
-            width=input_shape[1],
+            height=upsample_h,
+            width=upsample_w,
             interpolation="bilinear",
             name="final_upsampling",
         )(x)
@@ -448,7 +466,7 @@ class DeepLabV3Segment(BaseModel):
 
         self.backbone_variant = backbone_variant
         self.num_classes = num_classes
-        self._input_shape_val = input_shape
+        self.input_image_shape = base.input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -457,7 +475,7 @@ class DeepLabV3Segment(BaseModel):
             {
                 "backbone_variant": self.backbone_variant,
                 "num_classes": self.num_classes,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )

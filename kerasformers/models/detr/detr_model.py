@@ -9,6 +9,7 @@ from kerasformers.models.detr.detr_layers import (
     DETRMultiHeadAttention,
     DETRPositionEmbeddingSine,
 )
+from kerasformers.utils import standardize_input_shape
 
 from .config import DETR_CONFIG, DETR_WEIGHTS
 
@@ -624,9 +625,12 @@ class DetrModel(BaseModel):
         num_queries: Number of learned object queries — also the
             number of detections produced per image.
             Defaults to ``100``.
-        input_shape: Image input shape excluding the batch axis. When
-            ``None``, defaults to ``(800, 800, 3)``. Input is expected
-            to be pre-normalized via :class:`DETRImageProcessor`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `800`.
         input_tensor: Optional pre-existing Keras tensor to use as the
             model input instead of creating a new :class:`Input`.
             Defaults to ``None``.
@@ -649,19 +653,19 @@ class DetrModel(BaseModel):
         dim_feedforward=2048,
         dropout_rate=0.1,
         num_queries=100,
-        input_shape=None,
+        input_image_shape=800,
         input_tensor=None,
         name="DetrModel",
         **kwargs,
     ):
-        if input_shape is None:
-            input_shape = (800, 800, 3)
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
             else:
                 img_input = input_tensor
 
@@ -689,6 +693,7 @@ class DetrModel(BaseModel):
         self.dim_feedforward = dim_feedforward
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -703,7 +708,7 @@ class DetrModel(BaseModel):
                 "dim_feedforward": self.dim_feedforward,
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
-                "input_shape": self.input_shape[1:],
+                "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -756,7 +761,7 @@ class DETRDetect(BaseModel):
         dropout_rate=0.1,
         num_queries=100,
         num_classes=92,
-        input_shape=None,
+        input_image_shape=800,
         input_tensor=None,
         name="DETRDetect",
         **kwargs,
@@ -770,7 +775,7 @@ class DETRDetect(BaseModel):
             dim_feedforward=dim_feedforward,
             dropout_rate=dropout_rate,
             num_queries=num_queries,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -803,6 +808,7 @@ class DETRDetect(BaseModel):
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
         self.num_classes = num_classes
+        self.input_image_shape = base.input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -818,7 +824,7 @@ class DETRDetect(BaseModel):
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "input_shape": self.input_shape[1:],
+                "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }

@@ -1,10 +1,10 @@
 import keras
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTION_RESNETV2_MODEL_CONFIG, INCEPTION_RESNETV2_WEIGHT_CONFIG
@@ -425,8 +425,12 @@ class InceptionResNetV2Model(BaseModel):
             boundaries (after the A-stack, after the B-stack, and after
             the C-stack, before the trailing 1x1 head conv).
             Defaults to `False`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `299`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -435,9 +439,6 @@ class InceptionResNetV2Model(BaseModel):
             use. Must be one of: `'imagenet'`, `'inception'` (default),
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -476,10 +477,9 @@ class InceptionResNetV2Model(BaseModel):
 
     def __init__(
         self,
-        image_size=299,
+        input_image_shape=299,
         include_normalization=True,
         normalization_mode="inception",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="InceptionResNetV2Model",
@@ -490,19 +490,12 @@ class InceptionResNetV2Model(BaseModel):
 
         data_format = keras.config.image_data_format()
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=75,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -517,7 +510,7 @@ class InceptionResNetV2Model(BaseModel):
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -527,10 +520,9 @@ class InceptionResNetV2Model(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -557,8 +549,12 @@ class InceptionResNetV2ImageClassify(BaseModel):
     - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261)
 
     Args:
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `299`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -567,9 +563,6 @@ class InceptionResNetV2ImageClassify(BaseModel):
             use. Must be one of: `'imagenet'`, `'inception'` (default),
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -604,10 +597,9 @@ class InceptionResNetV2ImageClassify(BaseModel):
 
     def __init__(
         self,
-        image_size=299,
+        input_image_shape=299,
         include_normalization=True,
         normalization_mode="inception",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -617,10 +609,9 @@ class InceptionResNetV2ImageClassify(BaseModel):
         kwargs.pop("timm_id", None)
 
         backbone = InceptionResNetV2Model(
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -634,7 +625,7 @@ class InceptionResNetV2ImageClassify(BaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -645,10 +636,9 @@ class InceptionResNetV2ImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

@@ -1,7 +1,7 @@
 CLIP_CONFIG = {
     "clip_vit_base_16": {
         "embed_dim": 512,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 768,
         "vision_patch_size": 16,
@@ -16,7 +16,7 @@ CLIP_CONFIG = {
     },
     "clip_vit_base_32": {
         "embed_dim": 512,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 768,
         "vision_patch_size": 32,
@@ -31,7 +31,7 @@ CLIP_CONFIG = {
     },
     "clip_vit_large_14": {
         "embed_dim": 768,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 24,
         "vision_width": 1024,
         "vision_patch_size": 14,
@@ -46,7 +46,7 @@ CLIP_CONFIG = {
     },
     "clip_vit_large_14_336": {
         "embed_dim": 768,
-        "image_resolution": 336,
+        "input_image_shape": 336,
         "vision_layers": 24,
         "vision_width": 1024,
         "vision_patch_size": 14,
@@ -61,7 +61,7 @@ CLIP_CONFIG = {
     },
     "clip_vit_g_14": {
         "embed_dim": 1024,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 40,
         "vision_width": 1408,
         "vision_patch_size": 14,
@@ -76,7 +76,7 @@ CLIP_CONFIG = {
     },
     "clip_vit_bigg_14": {
         "embed_dim": 1280,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 48,
         "vision_width": 1664,
         "vision_patch_size": 14,

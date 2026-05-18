@@ -3,6 +3,7 @@ import numpy as np
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
+from kerasformers.utils import standardize_input_shape
 
 from .config import SAM3_CONFIG, SAM3_WEIGHTS
 from .sam3_clip_tokenizer import SAM3_VOCAB_SIZE
@@ -970,7 +971,12 @@ class SAM3Model(BaseModel):
         mask_decoder_num_attention_heads (int): Mask decoder heads.
         text_hidden_size (int): Text encoder dimension. Defaults to ``1024``.
         text_projection_dim (int): Text projection dimension.
-        input_shape (tuple or None): Model input shape.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `1008`.
         input_tensor: Optional input tensor.
         name (str): Model name. Defaults to ``"SAM3"``.
         **kwargs: Additional keyword arguments.
@@ -1019,28 +1025,24 @@ class SAM3Model(BaseModel):
         mask_decoder_num_attention_heads=8,
         text_hidden_size=1024,
         text_projection_dim=512,
-        input_shape=None,
+        input_image_shape=1008,
         input_tensor=None,
         name="SAM3Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
 
-        if input_shape is None:
-            if data_format == "channels_first":
-                input_shape = (3, vit_image_size, vit_image_size)
-            else:
-                input_shape = (vit_image_size, vit_image_size, 3)
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
-                    tensor=input_tensor, shape=input_shape, name="pixel_values"
+                    tensor=input_tensor, shape=input_image_shape, name="pixel_values"
                 )
             else:
                 pixel_values = input_tensor
         else:
-            pixel_values = layers.Input(shape=input_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
 
         text_features_input = layers.Input(
             shape=(None, text_hidden_size), name="text_features", dtype="float32"
@@ -1184,7 +1186,7 @@ class SAM3Model(BaseModel):
         self.mask_decoder_num_attention_heads = mask_decoder_num_attention_heads
         self.text_hidden_size = text_hidden_size
         self.text_projection_dim = text_projection_dim
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
         self._data_format = data_format
         self._tokenizer = None
@@ -1371,14 +1373,14 @@ class SAM3Model(BaseModel):
         if sub is None:
             cfg = self.get_config()
             sub = SAM3Model(
-                input_shape=self._input_shape_val,
+                input_image_shape=self.input_image_shape,
                 text_hidden_size=cfg["detr_encoder_hidden_size"],
                 **{
                     k: v
                     for k, v in cfg.items()
                     if k
                     not in (
-                        "input_shape",
+                        "input_image_shape",
                         "text_hidden_size",
                         "name",
                         "input_tensor",
@@ -1846,7 +1848,7 @@ class SAM3Model(BaseModel):
                 "mask_decoder_num_attention_heads": self.mask_decoder_num_attention_heads,
                 "text_hidden_size": self.text_hidden_size,
                 "text_projection_dim": self.text_projection_dim,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
             }
         )
         return config

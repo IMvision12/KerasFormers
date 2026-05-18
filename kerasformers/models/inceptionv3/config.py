@@ -1,6 +1,6 @@
 INCEPTIONV3_MODEL_CONFIG = {
     "inception_v3": {
-        "image_size": 299,
+        "input_image_shape": 299,
         "num_classes": 1000,
     },
 }

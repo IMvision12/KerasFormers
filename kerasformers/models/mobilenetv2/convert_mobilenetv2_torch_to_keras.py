@@ -92,11 +92,10 @@ if __name__ == "__main__":
         transfer_mobilenetv2_weights(keras_model, state)
 
         torch_model = timm.create_model(timm_id, pretrained=True).eval()
-        image_size = keras_model.image_size
         results = verify_cls_model_equivalence(
             model_a=torch_model,
             model_b=keras_model,
-            input_shape=(image_size, image_size, 3),
+            input_shape=keras_model.input_shape[1:],
             output_specs={"num_classes": keras_model.output_shape[-1]},
             comparison_type="torch_to_keras",
             run_performance=False,

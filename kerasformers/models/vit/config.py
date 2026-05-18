@@ -12,7 +12,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vit_tiny_patch16_384": {
@@ -23,7 +23,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "vit_tiny_patch16_224_in21k": {
@@ -34,7 +34,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "vit_small_patch16_224": {
@@ -45,7 +45,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vit_small_patch16_384": {
@@ -56,7 +56,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "vit_small_patch16_224_in21k": {
@@ -67,7 +67,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "vit_small_patch32_224": {
@@ -78,7 +78,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vit_small_patch32_384": {
@@ -89,7 +89,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "vit_small_patch32_224_in21k": {
@@ -100,7 +100,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "vit_base_patch16_224": {
@@ -111,7 +111,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vit_base_patch16_384": {
@@ -122,7 +122,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "vit_base_patch16_224_in21k": {
@@ -133,7 +133,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "vit_base_patch32_224": {
@@ -144,7 +144,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vit_base_patch32_384": {
@@ -155,7 +155,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "vit_base_patch32_224_in21k": {
@@ -166,7 +166,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "vit_large_patch16_224": {
@@ -177,7 +177,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vit_large_patch16_384": {
@@ -188,7 +188,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "vit_large_patch16_224_in21k": {
@@ -199,7 +199,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "vit_large_patch32_384": {
@@ -210,7 +210,7 @@ VIT_MODEL_CONFIG = {
         "mlp_ratio": 4.0,
         "qkv_bias": True,
         "qk_norm": False,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
 }

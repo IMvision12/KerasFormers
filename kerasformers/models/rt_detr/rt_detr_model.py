@@ -3,6 +3,7 @@ from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
+from kerasformers.utils import standardize_input_shape
 
 from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHT_CONFIG
 from .rt_detr_layers import RTDETRDecoderLayer, RTDETRMultiHeadAttention
@@ -1126,18 +1127,19 @@ class RTDetrModel(BaseModel):
         feat_strides=(8, 16, 32),
         num_queries=300,
         num_labels=80,
-        input_shape=None,
+        input_image_shape=640,
         input_tensor=None,
         name="RTDetrModel",
         **kwargs,
     ):
-        if input_shape is None:
-            input_shape = (640, 640, 3)
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
             else:
                 img_input = input_tensor
 
@@ -1165,7 +1167,7 @@ class RTDetrModel(BaseModel):
             feat_strides=feat_strides,
             num_queries=num_queries,
             num_labels=num_labels,
-            input_shape=input_shape,
+            input_shape=input_image_shape,
         )
 
         outputs = {"last_hidden_state": hs_last, "last_boxes": last_boxes}
@@ -1194,6 +1196,7 @@ class RTDetrModel(BaseModel):
         self._feat_strides = list(feat_strides)
         self._num_queries = num_queries
         self._num_labels = num_labels
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -1223,7 +1226,7 @@ class RTDetrModel(BaseModel):
                 "feat_strides": self._feat_strides,
                 "num_queries": self._num_queries,
                 "num_labels": self._num_labels,
-                "input_shape": self.input_shape[1:],
+                "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -1280,7 +1283,12 @@ class RTDETRDetect(BaseModel):
         num_queries: Number of object queries.
         num_labels: Number of object classes (COCO: 80).
         weights: Pre-trained weight identifier or file path.
-        input_shape: Input image shape as ``(H, W, C)``.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `640`.
         input_tensor: Optional input Keras tensor.
         name: Model name.
     """
@@ -1317,7 +1325,7 @@ class RTDETRDetect(BaseModel):
         feat_strides=(8, 16, 32),
         num_queries=300,
         num_labels=80,
-        input_shape=None,
+        input_image_shape=640,
         input_tensor=None,
         name="RTDETRDetect",
         **kwargs,
@@ -1346,7 +1354,7 @@ class RTDETRDetect(BaseModel):
             feat_strides=feat_strides,
             num_queries=num_queries,
             num_labels=num_labels,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -1383,6 +1391,7 @@ class RTDETRDetect(BaseModel):
         self._feat_strides = list(feat_strides)
         self._num_queries = num_queries
         self._num_labels = num_labels
+        self.input_image_shape = base.input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -1412,7 +1421,7 @@ class RTDETRDetect(BaseModel):
                 "feat_strides": self._feat_strides,
                 "num_queries": self._num_queries,
                 "num_labels": self._num_labels,
-                "input_shape": self.input_shape[1:],
+                "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }

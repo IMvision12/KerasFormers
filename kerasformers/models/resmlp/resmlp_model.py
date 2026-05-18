@@ -1,10 +1,10 @@
 import keras
-from keras import layers, utils
-from keras.src.applications import imagenet_utils
+from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.models.resmlp.resmlp_layers import ResMLPAffine
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHT_CONFIG
@@ -78,7 +78,6 @@ def resmlp_backbone_feature(
     mlp_ratio,
     init_values,
     drop_path_rate,
-    input_shape,
     data_format,
     return_stages=False,
 ):
@@ -93,7 +92,6 @@ def resmlp_backbone_feature(
         init_values: Initial LayerScale value applied at the end of each residual branch.
         drop_path_rate: Maximum stochastic-depth-style dropout rate (scaled linearly
             with block index).
-        input_shape: Image input shape used to derive sequence length.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         return_stages: If True, return a list of per-block (post-residual)
             outputs (one per ResMLP block, ``depth`` total). ResMLP is
@@ -113,15 +111,11 @@ def resmlp_backbone_feature(
     )(inputs)
 
     if data_format == "channels_first":
-        if len(input_shape) == 3:
-            _, height, width = input_shape
-        else:
-            height, width = input_shape[1:]
+        height = inputs.shape[2]
+        width = inputs.shape[3]
     else:
-        if len(input_shape) == 3:
-            height, width, _ = input_shape
-        else:
-            height, width = input_shape[:2]
+        height = inputs.shape[1]
+        width = inputs.shape[2]
 
     num_patches = (height // patch_size) * (width // patch_size)
 
@@ -184,8 +178,12 @@ class ResMLPModel(BaseModel):
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
             rate (scaled linearly with block index). Defaults to `0.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -194,9 +192,6 @@ class ResMLPModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -240,10 +235,9 @@ class ResMLPModel(BaseModel):
         init_values=1e-4,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="ResMLPModel",
@@ -254,19 +248,12 @@ class ResMLPModel(BaseModel):
 
         data_format = keras.config.image_data_format()
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -283,7 +270,6 @@ class ResMLPModel(BaseModel):
             mlp_ratio=mlp_ratio,
             init_values=init_values,
             drop_path_rate=drop_path_rate,
-            input_shape=input_shape,
             data_format=data_format,
             return_stages=as_backbone,
         )
@@ -297,7 +283,7 @@ class ResMLPModel(BaseModel):
         self.init_values = init_values
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -314,10 +300,9 @@ class ResMLPModel(BaseModel):
                 "init_values": self.init_values,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -356,8 +341,12 @@ class ResMLPImageClassify(BaseModel):
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
             rate (scaled linearly with block index). Defaults to `0.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -366,9 +355,6 @@ class ResMLPImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -407,10 +393,9 @@ class ResMLPImageClassify(BaseModel):
         init_values=1e-4,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -427,15 +412,14 @@ class ResMLPImageClassify(BaseModel):
             init_values=init_values,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
 
-        x = layers.GlobalAveragePooling1D(name="avg_pool")(backbone.output)
+        x = ops.mean(backbone.output, axis=1)
         out = layers.Dense(
             num_classes,
             activation=classifier_activation,
@@ -451,7 +435,7 @@ class ResMLPImageClassify(BaseModel):
         self.init_values = init_values
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -469,10 +453,9 @@ class ResMLPImageClassify(BaseModel):
                 "init_values": self.init_values,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

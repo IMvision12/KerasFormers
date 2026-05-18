@@ -4,7 +4,7 @@ MLP_MIXER_MODEL_CONFIG = {
         "num_blocks": 12,
         "embed_dim": 768,
         "mlp_ratio": (0.5, 4.0),
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "mixer_b16_224": {
@@ -12,7 +12,7 @@ MLP_MIXER_MODEL_CONFIG = {
         "num_blocks": 12,
         "embed_dim": 768,
         "mlp_ratio": (0.5, 4.0),
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mixer_l16_224_in21k": {
@@ -20,7 +20,7 @@ MLP_MIXER_MODEL_CONFIG = {
         "num_blocks": 24,
         "embed_dim": 1024,
         "mlp_ratio": (0.5, 4.0),
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "mixer_l16_224": {
@@ -28,7 +28,7 @@ MLP_MIXER_MODEL_CONFIG = {
         "num_blocks": 24,
         "embed_dim": 1024,
         "mlp_ratio": (0.5, 4.0),
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
 }

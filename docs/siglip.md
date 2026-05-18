@@ -27,7 +27,7 @@ import kerasformers
 processor = kerasformers.models.siglip.SigLIPProcessor()
 model = kerasformers.models.siglip.SigLIPBaseP16(
    weights="google_224",
-   input_shape=(224, 224, 3),
+   input_image_shape=(224, 224, 3),
 )
 inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")
 output = model(
@@ -88,7 +88,7 @@ import keras
 import kerasformers
 
 processor = kerasformers.models.siglip.SigLIPProcessor(multilingual=True)
-model = kerasformers.models.siglip.SigLIPBaseP16(weights="google_multilingual_256", input_shape=(224, 224, 3))
+model = kerasformers.models.siglip.SigLIPBaseP16(weights="google_multilingual_256", input_image_shape=(224, 224, 3))
 
 multilingual_labels = [
     "un gato",   # Spanish: a cat

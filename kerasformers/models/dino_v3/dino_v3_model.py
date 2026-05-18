@@ -4,6 +4,7 @@ from keras import layers, ops, utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.models.convnext.convnext_model import convnext_backbone_feature
+from kerasformers.utils import standardize_input_shape
 
 from .config import (
     DINOV3_CONVNEXT_CONFIG,
@@ -220,8 +221,12 @@ class DinoV3ViTBackbone(BaseModel):
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_shape: Image input shape excluding batch dim. Defaults to
-            ``(224, 224, 3)``.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
     """
@@ -280,27 +285,26 @@ class DinoV3ViTBackbone(BaseModel):
         layer_norm_eps=1e-5,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
+        input_image_shape=224,
         input_tensor=None,
         name="DinoV3ViTBackbone",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        if input_shape is None and input_tensor is None:
-            input_shape = (224, 224, 3)
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
             else:
                 img_input = input_tensor
 
         if data_format == "channels_first":
-            height, width = input_shape[1], input_shape[2]
+            height, width = input_image_shape[1], input_image_shape[2]
         else:
-            height, width = input_shape[0], input_shape[1]
+            height, width = input_image_shape[0], input_image_shape[1]
 
         grid_h = height // patch_size
         grid_w = width // patch_size
@@ -380,7 +384,7 @@ class DinoV3ViTBackbone(BaseModel):
         self.layer_norm_eps = layer_norm_eps
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -404,7 +408,7 @@ class DinoV3ViTBackbone(BaseModel):
                 "layer_norm_eps": self.layer_norm_eps,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )
@@ -437,8 +441,12 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_shape: Image input shape excluding batch dim. Defaults to
-            ``(224, 224, 3)``.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
     """
@@ -468,7 +476,7 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         projection_dims=None,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
+        input_image_shape=224,
         input_tensor=None,
         name="DinoV3ConvNeXtBackbone",
         **kwargs,
@@ -477,16 +485,15 @@ class DinoV3ConvNeXtBackbone(BaseModel):
             depths = [3, 3, 9, 3]
         if projection_dims is None:
             projection_dims = [96, 192, 384, 768]
-        if input_shape is None and input_tensor is None:
-            input_shape = (224, 224, 3)
 
         data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
         channels_axis = -1 if data_format == "channels_last" else 1
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -514,7 +521,7 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         self.projection_dims = list(projection_dims)
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -525,7 +532,7 @@ class DinoV3ConvNeXtBackbone(BaseModel):
                 "projection_dims": self.projection_dims,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )

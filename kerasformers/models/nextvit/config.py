@@ -6,7 +6,7 @@ NEXTVIT_MODEL_CONFIG = {
         "mix_block_ratio": 0.75,
         "sr_ratios": [8, 4, 2, 1],
         "drop_path_rate": 0.1,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "nextvit_small_384": {
@@ -16,7 +16,7 @@ NEXTVIT_MODEL_CONFIG = {
         "mix_block_ratio": 0.75,
         "sr_ratios": [8, 4, 2, 1],
         "drop_path_rate": 0.1,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "nextvit_base": {
@@ -26,7 +26,7 @@ NEXTVIT_MODEL_CONFIG = {
         "mix_block_ratio": 0.75,
         "sr_ratios": [8, 4, 2, 1],
         "drop_path_rate": 0.1,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "nextvit_base_384": {
@@ -36,7 +36,7 @@ NEXTVIT_MODEL_CONFIG = {
         "mix_block_ratio": 0.75,
         "sr_ratios": [8, 4, 2, 1],
         "drop_path_rate": 0.1,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "nextvit_large": {
@@ -46,7 +46,7 @@ NEXTVIT_MODEL_CONFIG = {
         "mix_block_ratio": 0.75,
         "sr_ratios": [8, 4, 2, 1],
         "drop_path_rate": 0.1,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "nextvit_large_384": {
@@ -56,7 +56,7 @@ NEXTVIT_MODEL_CONFIG = {
         "mix_block_ratio": 0.75,
         "sr_ratios": [8, 4, 2, 1],
         "drop_path_rate": 0.1,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
 }

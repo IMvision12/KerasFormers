@@ -3,6 +3,7 @@ import numpy as np
 from keras import layers, utils
 
 from kerasformers.base import BaseModel
+from kerasformers.utils import standardize_input_shape
 
 from .config import SAM2_CONFIG, SAM2_WEIGHTS
 from .sam2_layers import (
@@ -354,7 +355,7 @@ class SAM2Model(BaseModel):
         global_attention_blocks=(5, 7, 9),
         backbone_channel_list=(768, 384, 192, 96),
         window_pos_embed_bg_size=None,
-        input_shape=None,
+        input_image_shape=1024,
         input_tensor=None,
         name="SAM2Model",
         **kwargs,
@@ -364,26 +365,22 @@ class SAM2Model(BaseModel):
         if window_pos_embed_bg_size is None:
             window_pos_embed_bg_size = self.WINDOW_POS_EMBED_BG_SIZE
 
-        if input_shape is None:
-            if data_format == "channels_first":
-                input_shape = (3, self.IMAGE_SIZE, self.IMAGE_SIZE)
-            else:
-                input_shape = (self.IMAGE_SIZE, self.IMAGE_SIZE, 3)
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
-                    tensor=input_tensor, shape=input_shape, name="pixel_values"
+                    tensor=input_tensor, shape=input_image_shape, name="pixel_values"
                 )
             else:
                 pixel_values = input_tensor
         else:
-            pixel_values = layers.Input(shape=input_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
 
         if data_format == "channels_first":
-            spatial_h, spatial_w = input_shape[1], input_shape[2]
+            spatial_h, spatial_w = input_image_shape[1], input_image_shape[2]
         else:
-            spatial_h, spatial_w = input_shape[0], input_shape[1]
+            spatial_h, spatial_w = input_image_shape[0], input_image_shape[1]
 
         image_embeddings, high_res_feat_s0, high_res_feat_s1 = sam2_vision_encoder(
             pixel_values,
@@ -419,7 +416,7 @@ class SAM2Model(BaseModel):
         self.global_attention_blocks = list(global_attention_blocks)
         self.backbone_channel_list = list(backbone_channel_list)
         self.window_pos_embed_bg_size = window_pos_embed_bg_size
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -434,7 +431,7 @@ class SAM2Model(BaseModel):
                 "global_attention_blocks": self.global_attention_blocks,
                 "backbone_channel_list": self.backbone_channel_list,
                 "window_pos_embed_bg_size": self.window_pos_embed_bg_size,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
             }
         )
         return config
@@ -495,9 +492,12 @@ class SAM2PromptableSegment(BaseModel):
             Defaults to ``(7, 7)``.
         num_multimask_outputs: Integer, number of mask outputs
             beyond the single-mask token. Defaults to ``3``.
-        input_shape: Optional tuple of integers specifying the
-            input image shape ``(H, W, C)``. Defaults to
-            ``(1024, 1024, 3)``.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `1024`.
         input_tensor: Optional Keras tensor to use as the model
             input.
         name: String, the name of the model.
@@ -591,7 +591,7 @@ class SAM2PromptableSegment(BaseModel):
         include_box_input=False,
         include_mask_input=False,
         multimask_output=True,
-        input_shape=None,
+        input_image_shape=1024,
         input_tensor=None,
         name="SAM2PromptableSegment",
         **kwargs,
@@ -601,21 +601,17 @@ class SAM2PromptableSegment(BaseModel):
         if window_pos_embed_bg_size is None:
             window_pos_embed_bg_size = self.WINDOW_POS_EMBED_BG_SIZE
 
-        if input_shape is None:
-            if data_format == "channels_first":
-                input_shape = (3, self.IMAGE_SIZE, self.IMAGE_SIZE)
-            else:
-                input_shape = (self.IMAGE_SIZE, self.IMAGE_SIZE, 3)
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
-                    tensor=input_tensor, shape=input_shape, name="pixel_values"
+                    tensor=input_tensor, shape=input_image_shape, name="pixel_values"
                 )
             else:
                 pixel_values = input_tensor
         else:
-            pixel_values = layers.Input(shape=input_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
 
         input_points = layers.Input(
             shape=(None, None, 2), name="input_points", dtype="float32"
@@ -631,9 +627,9 @@ class SAM2PromptableSegment(BaseModel):
         input_masks = None
         has_input_masks = None
         if data_format == "channels_first":
-            mask_input_size = input_shape[1] // 4
+            mask_input_size = input_image_shape[1] // 4
         else:
-            mask_input_size = input_shape[0] // 4
+            mask_input_size = input_image_shape[0] // 4
         if include_mask_input:
             if data_format == "channels_first":
                 input_masks = layers.Input(
@@ -652,9 +648,9 @@ class SAM2PromptableSegment(BaseModel):
             )
 
         if data_format == "channels_first":
-            spatial_h, spatial_w = input_shape[1], input_shape[2]
+            spatial_h, spatial_w = input_image_shape[1], input_image_shape[2]
         else:
-            spatial_h, spatial_w = input_shape[0], input_shape[1]
+            spatial_h, spatial_w = input_image_shape[0], input_image_shape[1]
 
         image_embeddings, high_res_feat_s0, high_res_feat_s1 = sam2_vision_encoder(
             pixel_values,
@@ -805,7 +801,7 @@ class SAM2PromptableSegment(BaseModel):
         self.multimask_output = multimask_output
         self.image_embedding_size = image_embedding_size
         self.mask_input_size = mask_input_size
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
         self._image_pe_layer = image_pe_layer
@@ -948,7 +944,7 @@ class SAM2PromptableSegment(BaseModel):
                 "include_box_input": self.include_box_input,
                 "include_mask_input": self.include_mask_input,
                 "multimask_output": self.multimask_output,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
             }
         )
         return config

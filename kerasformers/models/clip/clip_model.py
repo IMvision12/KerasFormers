@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .clip_layers import (
@@ -465,7 +466,12 @@ class CLIPModel(BaseModel):
 
     Args:
         embed_dim: Shared embedding dim (= HF ``projection_dim``).
-        image_resolution: Input image size (height = width).
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         vision_layers: ViT encoder depth.
         vision_width: ViT hidden dim.
         vision_patch_size: ViT patch size.
@@ -480,7 +486,6 @@ class CLIPModel(BaseModel):
             OpenAI CLIP; ``"gelu"`` / ``"gelu_new"`` for LAION /
             community variants.
         layer_norm_eps: Epsilon for every LayerNorm. Defaults to ``1e-5``.
-        input_shape: Optional image input shape override.
         input_tensor: Optional dict of pre-existing input tensors.
         name: Model name.
     """
@@ -495,7 +500,7 @@ class CLIPModel(BaseModel):
         tc = hf_config["text_config"]
         return {
             "embed_dim": hf_config["projection_dim"],
-            "image_resolution": vc.get("image_size", 224),
+            "input_image_shape": vc.get("image_size", 224),
             "vision_layers": vc["num_hidden_layers"],
             "vision_width": vc["hidden_size"],
             "vision_patch_size": vc["patch_size"],
@@ -519,7 +524,7 @@ class CLIPModel(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        image_resolution=224,
+        input_image_shape=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=32,
@@ -532,40 +537,21 @@ class CLIPModel(BaseModel):
         text_mlp_ratio=4.0,
         hidden_act="quick_gelu",
         layer_norm_eps=1e-5,
-        input_shape=None,
         input_tensor=None,
         name="CLIPModel",
         **kwargs,
     ):
         vision_heads = vision_width // 64
-        data_format = keras.backend.image_data_format()
-
-        if input_shape is not None:
-            if data_format == "channels_first":
-                channels = input_shape[0] if len(input_shape) == 3 else 3
-                image_size = (
-                    min(input_shape[1], input_shape[2])
-                    if len(input_shape) == 3
-                    else input_shape[0]
-                )
-            else:
-                if len(input_shape) >= 2:
-                    image_size = min(input_shape[0], input_shape[1])
-                else:
-                    image_size = input_shape[0]
-                channels = input_shape[2] if len(input_shape) == 3 else 3
-        else:
-            image_size = image_resolution
-            channels = 3
-
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
         if data_format == "channels_first":
-            image_input_shape = [channels, image_size, image_size]
+            image_size = input_image_shape[1]
         else:
-            image_input_shape = [image_size, image_size, channels]
+            image_size = input_image_shape[0]
 
         if isinstance(input_tensor, dict):
             images_input = input_tensor.get("images") or layers.Input(
-                shape=image_input_shape, name="images"
+                shape=input_image_shape, name="images"
             )
             token_ids_input = input_tensor.get("token_ids") or layers.Input(
                 shape=[context_length], name="token_ids"
@@ -574,7 +560,7 @@ class CLIPModel(BaseModel):
                 shape=[context_length], name="padding_mask"
             )
         else:
-            images_input = layers.Input(shape=image_input_shape, name="images")
+            images_input = layers.Input(shape=input_image_shape, name="images")
             token_ids_input = layers.Input(shape=[context_length], name="token_ids")
             padding_mask_input = layers.Input(
                 shape=[context_length], name="padding_mask"
@@ -621,7 +607,7 @@ class CLIPModel(BaseModel):
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
         self.embed_dim = embed_dim
-        self.image_resolution = image_size
+        self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -638,16 +624,10 @@ class CLIPModel(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = tuple(self.input["images"].shape)
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,
@@ -696,11 +676,10 @@ class CLIPZeroShotClassify(BaseModel):
     >>> CLIPZeroShotClassify.from_weights("hf:openai/clip-vit-base-patch16")
 
     Args (identical to :class:`CLIPModel`):
-        embed_dim, image_resolution, vision_layers, vision_width,
+        embed_dim, input_image_shape, vision_layers, vision_width,
         vision_patch_size, context_length, vocab_size, transformer_width,
         transformer_heads, transformer_layers, vision_mlp_ratio,
-        text_mlp_ratio, hidden_act, layer_norm_eps, input_shape,
-        input_tensor, name.
+        text_mlp_ratio, hidden_act, layer_norm_eps, input_tensor, name.
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
@@ -720,7 +699,7 @@ class CLIPZeroShotClassify(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        image_resolution=224,
+        input_image_shape=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=32,
@@ -733,14 +712,13 @@ class CLIPZeroShotClassify(BaseModel):
         text_mlp_ratio=4.0,
         hidden_act="quick_gelu",
         layer_norm_eps=1e-5,
-        input_shape=None,
         input_tensor=None,
         name="CLIPZeroShotClassify",
         **kwargs,
     ):
         base = CLIPModel(
             embed_dim=embed_dim,
-            image_resolution=image_resolution,
+            input_image_shape=input_image_shape,
             vision_layers=vision_layers,
             vision_width=vision_width,
             vision_patch_size=vision_patch_size,
@@ -753,7 +731,6 @@ class CLIPZeroShotClassify(BaseModel):
             text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_base",
         )
@@ -770,7 +747,7 @@ class CLIPZeroShotClassify(BaseModel):
         )
 
         self.embed_dim = embed_dim
-        self.image_resolution = image_resolution
+        self.input_image_shape = base.input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -787,16 +764,10 @@ class CLIPZeroShotClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = tuple(self.input["images"].shape)
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,
@@ -838,7 +809,12 @@ class CLIPImageClassify(BaseModel):
 
     Args:
         num_labels: Number of output classes.
-        image_resolution: Input image size.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         vision_layers: ViT encoder depth.
         vision_width: ViT hidden dim.
         vision_patch_size: ViT patch size.
@@ -846,7 +822,6 @@ class CLIPImageClassify(BaseModel):
         hidden_act: MLP activation. ``"quick_gelu"`` for OpenAI,
             ``"gelu"`` / ``"gelu_new"`` for community variants.
         layer_norm_eps: Epsilon for every LayerNorm. Defaults to ``1e-5``.
-        input_shape: Optional override (defaults to ``image_resolution``).
         input_tensor: Optional pre-existing input tensor.
         name: Model name.
     """
@@ -884,14 +859,13 @@ class CLIPImageClassify(BaseModel):
     def __init__(
         self,
         num_labels=1000,
-        image_resolution=224,
+        input_image_shape=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=16,
         vision_mlp_ratio=4.0,
         hidden_act="quick_gelu",
         layer_norm_eps=1e-5,
-        input_shape=None,
         input_tensor=None,
         name="CLIPImageClassify",
         **kwargs,
@@ -908,34 +882,15 @@ class CLIPImageClassify(BaseModel):
             kwargs.pop(k, None)
 
         vision_heads = vision_width // 64
-        data_format = keras.backend.image_data_format()
-
-        if input_shape is not None:
-            if data_format == "channels_first":
-                channels = input_shape[0] if len(input_shape) == 3 else 3
-                image_size = (
-                    min(input_shape[1], input_shape[2])
-                    if len(input_shape) == 3
-                    else input_shape[0]
-                )
-            else:
-                image_size = (
-                    min(input_shape[0], input_shape[1])
-                    if len(input_shape) >= 2
-                    else input_shape[0]
-                )
-                channels = input_shape[2] if len(input_shape) == 3 else 3
-        else:
-            image_size = image_resolution
-            channels = 3
-
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
         if data_format == "channels_first":
-            image_input_shape = [channels, image_size, image_size]
+            image_size = input_image_shape[1]
         else:
-            image_input_shape = [image_size, image_size, channels]
+            image_size = input_image_shape[0]
 
         if input_tensor is None:
-            images_input = layers.Input(shape=image_input_shape, name="images")
+            images_input = layers.Input(shape=input_image_shape, name="images")
         else:
             images_input = input_tensor
 
@@ -952,14 +907,13 @@ class CLIPImageClassify(BaseModel):
             data_format=data_format,
         )
 
-        patches = layers.Lambda(lambda t: t[:, 1:, :], name="drop_cls")(encoded)
-        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(patches)
+        pooled = ops.mean(encoded[:, 1:, :], axis=1)
         logits = layers.Dense(num_labels, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.num_labels = num_labels
-        self.image_resolution = image_size
+        self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -970,16 +924,10 @@ class CLIPImageClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = self.input_shape
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
                 "num_labels": self.num_labels,
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,

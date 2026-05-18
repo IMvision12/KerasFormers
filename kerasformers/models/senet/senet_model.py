@@ -65,7 +65,7 @@ class SENetModel(ResNetModel):
             ``block_fn_name`` (selects bottleneck vs. ResNeXt block),
             ``block_repeats``, ``filters``, ``groups``, ``width_factor``,
             ``include_normalization``, ``normalization_mode``,
-            ``input_shape``, and ``input_tensor``.
+            ``input_image_shape``, and ``input_tensor``.
 
     Returns:
         A Keras `Model` instance.
@@ -133,9 +133,12 @@ class SENetImageClassify(ResNetImageClassify):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from the active Keras data format
-            with a default size of 224. Defaults to `None`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -166,9 +169,9 @@ class SENetImageClassify(ResNetImageClassify):
         groups=32,
         senet=True,
         width_factor=2,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -189,9 +192,9 @@ class SENetImageClassify(ResNetImageClassify):
             groups=groups,
             senet=senet,
             width_factor=width_factor,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -216,6 +219,7 @@ class SENetImageClassify(ResNetImageClassify):
         self.groups = groups
         self.senet = senet
         self.width_factor = width_factor
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor

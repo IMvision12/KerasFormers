@@ -7,7 +7,7 @@ FLEXIVIT_MODEL_CONFIG = {
         "depth": 12,
         "num_heads": 6,
         "no_embed_class": True,
-        "image_size": 240,
+        "input_image_shape": 240,
         "num_classes": 1000,
     },
     "flexivit_base": {
@@ -16,7 +16,7 @@ FLEXIVIT_MODEL_CONFIG = {
         "depth": 12,
         "num_heads": 12,
         "no_embed_class": True,
-        "image_size": 240,
+        "input_image_shape": 240,
         "num_classes": 1000,
     },
     "flexivit_base_in21k": {
@@ -25,7 +25,7 @@ FLEXIVIT_MODEL_CONFIG = {
         "depth": 12,
         "num_heads": 12,
         "no_embed_class": True,
-        "image_size": 240,
+        "input_image_shape": 240,
         "num_classes": 21843,
     },
     "flexivit_large": {
@@ -34,7 +34,7 @@ FLEXIVIT_MODEL_CONFIG = {
         "depth": 24,
         "num_heads": 16,
         "no_embed_class": True,
-        "image_size": 240,
+        "input_image_shape": 240,
         "num_classes": 1000,
     },
 }

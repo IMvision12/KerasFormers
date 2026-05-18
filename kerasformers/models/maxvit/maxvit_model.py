@@ -1,9 +1,9 @@
 import keras
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHT_CONFIG
@@ -260,7 +260,6 @@ def maxvit_backbone_feature(
     mlp_ratio,
     se_ratio,
     expand_ratio,
-    image_size,
     data_format,
     channels_axis,
     return_stages=False,
@@ -278,8 +277,6 @@ def maxvit_backbone_feature(
         mlp_ratio: Hidden-dim expansion ratio inside the attention-block MLPs.
         se_ratio: Squeeze-and-Excitation reduction ratio for MBConv blocks.
         expand_ratio: Channel expansion ratio for MBConv blocks.
-        image_size: Input spatial size (assumed square); used to track the
-            current ``(H, W)`` for window/grid partition layers.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis index.
         return_stages: If ``True``, return a list of the 4 per-stage feature
@@ -290,7 +287,10 @@ def maxvit_backbone_feature(
         resolution ``H/32`` when ``return_stages=False``. When
         ``return_stages=True``, a list of 4 per-stage feature maps.
     """
-    H = W = image_size
+    if data_format == "channels_first":
+        H, W = inputs.shape[2], inputs.shape[3]
+    else:
+        H, W = inputs.shape[1], inputs.shape[2]
 
     x = layers.Conv2D(
         stem_width,
@@ -415,9 +415,12 @@ class MaxViTModel(BaseModel):
             MBConv blocks. Defaults to `0.0625`.
         expand_ratio: Integer, channel expansion ratio for MBConv
             blocks. Defaults to `4`.
-        image_size: Integer, square input resolution. Used to track the
-            current ``(H, W)`` for window/grid partition layers.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -426,9 +429,6 @@ class MaxViTModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -470,10 +470,9 @@ class MaxViTModel(BaseModel):
         mlp_ratio=4.0,
         se_ratio=0.0625,
         expand_ratio=4,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="MaxViTModel",
@@ -485,19 +484,12 @@ class MaxViTModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -516,7 +508,6 @@ class MaxViTModel(BaseModel):
             mlp_ratio=mlp_ratio,
             se_ratio=se_ratio,
             expand_ratio=expand_ratio,
-            image_size=image_size,
             data_format=data_format,
             channels_axis=channels_axis,
             return_stages=as_backbone,
@@ -532,7 +523,7 @@ class MaxViTModel(BaseModel):
         self.mlp_ratio = mlp_ratio
         self.se_ratio = se_ratio
         self.expand_ratio = expand_ratio
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -550,10 +541,9 @@ class MaxViTModel(BaseModel):
                 "mlp_ratio": self.mlp_ratio,
                 "se_ratio": self.se_ratio,
                 "expand_ratio": self.expand_ratio,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -596,9 +586,12 @@ class MaxViTImageClassify(BaseModel):
             MBConv blocks. Defaults to `0.0625`.
         expand_ratio: Integer, channel expansion ratio for MBConv
             blocks. Defaults to `4`.
-        image_size: Integer, square input resolution. Used to track the
-            current ``(H, W)`` for window/grid partition layers.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -607,9 +600,6 @@ class MaxViTImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -649,10 +639,9 @@ class MaxViTImageClassify(BaseModel):
         mlp_ratio=4.0,
         se_ratio=0.0625,
         expand_ratio=4,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -672,10 +661,9 @@ class MaxViTImageClassify(BaseModel):
             mlp_ratio=mlp_ratio,
             se_ratio=se_ratio,
             expand_ratio=expand_ratio,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -700,7 +688,7 @@ class MaxViTImageClassify(BaseModel):
         self.mlp_ratio = mlp_ratio
         self.se_ratio = se_ratio
         self.expand_ratio = expand_ratio
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -719,10 +707,9 @@ class MaxViTImageClassify(BaseModel):
                 "mlp_ratio": self.mlp_ratio,
                 "se_ratio": self.se_ratio,
                 "expand_ratio": self.expand_ratio,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

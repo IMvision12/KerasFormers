@@ -1,6 +1,5 @@
 import keras
 from keras import layers, ops, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
@@ -10,6 +9,7 @@ from kerasformers.models.cait.cait_layers import (
     CaiTClassDistToken,
     CaiTTalkingHeadAttention,
 )
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHT_CONFIG
@@ -148,7 +148,6 @@ def cait_backbone_feature(
     depth,
     num_heads,
     drop_path_rate,
-    image_size,
     data_format,
     depth_token_only=2,
     return_stages=False,
@@ -164,7 +163,6 @@ def cait_backbone_feature(
         num_heads: Number of attention heads per block.
         drop_path_rate: Maximum stochastic-depth drop rate (linearly scaled
             across the ``depth`` blocks).
-        image_size: Input image resolution (documentation only).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         depth_token_only: Number of trailing class-attention blocks.
         return_stages: If ``True``, return a list of per-block (talking-head
@@ -272,9 +270,12 @@ class CaiTModel(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across the
             ``depth`` patch blocks. Defaults to `0.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape and to size the positional embedding.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -283,9 +284,6 @@ class CaiTModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -324,10 +322,9 @@ class CaiTModel(BaseModel):
         depth=24,
         num_heads=4,
         drop_path_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         name="CaiTModel",
         **kwargs,
@@ -336,20 +333,12 @@ class CaiTModel(BaseModel):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
-
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -365,7 +354,6 @@ class CaiTModel(BaseModel):
             depth=depth,
             num_heads=num_heads,
             drop_path_rate=drop_path_rate,
-            image_size=image_size,
             data_format=data_format,
             return_stages=as_backbone,
         )
@@ -378,7 +366,7 @@ class CaiTModel(BaseModel):
         self.depth = depth
         self.num_heads = num_heads
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -393,10 +381,9 @@ class CaiTModel(BaseModel):
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -434,9 +421,12 @@ class CaiTImageClassify(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across the
             ``depth`` patch blocks. Defaults to `0.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape and to size the positional embedding.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -445,9 +435,6 @@ class CaiTImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -483,10 +470,9 @@ class CaiTImageClassify(BaseModel):
         depth=24,
         num_heads=4,
         drop_path_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -501,10 +487,9 @@ class CaiTImageClassify(BaseModel):
             depth=depth,
             num_heads=num_heads,
             drop_path_rate=drop_path_rate,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -520,7 +505,7 @@ class CaiTImageClassify(BaseModel):
         self.depth = depth
         self.num_heads = num_heads
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -536,10 +521,9 @@ class CaiTImageClassify(BaseModel):
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

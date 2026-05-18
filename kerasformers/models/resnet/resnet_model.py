@@ -2,10 +2,10 @@ from typing import Optional
 
 import keras
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHT_CONFIG
@@ -348,9 +348,12 @@ class ResNetModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from the active Keras data format
-            with a default size of 224. Defaults to `None`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -394,9 +397,9 @@ class ResNetModel(BaseModel):
         groups=32,
         senet=False,
         width_factor=2,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="ResNetModel",
@@ -408,19 +411,12 @@ class ResNetModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -450,6 +446,7 @@ class ResNetModel(BaseModel):
         self.groups = groups
         self.senet = senet
         self.width_factor = width_factor
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -479,9 +476,9 @@ class ResNetModel(BaseModel):
                 "groups": self.groups,
                 "senet": self.senet,
                 "width_factor": self.width_factor,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -548,9 +545,12 @@ class ResNetImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from the active Keras data format
-            with a default size of 224. Defaults to `None`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -588,9 +588,9 @@ class ResNetImageClassify(BaseModel):
         groups=32,
         senet=False,
         width_factor=2,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -608,9 +608,9 @@ class ResNetImageClassify(BaseModel):
             groups=groups,
             senet=senet,
             width_factor=width_factor,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -633,6 +633,7 @@ class ResNetImageClassify(BaseModel):
         self.groups = groups
         self.senet = senet
         self.width_factor = width_factor
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -665,9 +666,9 @@ class ResNetImageClassify(BaseModel):
                 "groups": self.groups,
                 "senet": self.senet,
                 "width_factor": self.width_factor,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

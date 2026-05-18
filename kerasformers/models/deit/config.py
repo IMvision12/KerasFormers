@@ -6,7 +6,7 @@ DEIT_MODEL_CONFIG = {
         "dim": 192,
         "depth": 12,
         "num_heads": 3,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit_small_patch16_224": {
@@ -14,7 +14,7 @@ DEIT_MODEL_CONFIG = {
         "dim": 384,
         "depth": 12,
         "num_heads": 6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit_base_patch16_224": {
@@ -22,7 +22,7 @@ DEIT_MODEL_CONFIG = {
         "dim": 768,
         "depth": 12,
         "num_heads": 12,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit_base_patch16_384": {
@@ -30,7 +30,7 @@ DEIT_MODEL_CONFIG = {
         "dim": 768,
         "depth": 12,
         "num_heads": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "deit_tiny_distilled_patch16_224": {
@@ -39,7 +39,7 @@ DEIT_MODEL_CONFIG = {
         "depth": 12,
         "num_heads": 3,
         "use_distillation": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit_small_distilled_patch16_224": {
@@ -48,7 +48,7 @@ DEIT_MODEL_CONFIG = {
         "depth": 12,
         "num_heads": 6,
         "use_distillation": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit_base_distilled_patch16_224": {
@@ -57,7 +57,7 @@ DEIT_MODEL_CONFIG = {
         "depth": 12,
         "num_heads": 12,
         "use_distillation": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit_base_distilled_patch16_384": {
@@ -66,7 +66,7 @@ DEIT_MODEL_CONFIG = {
         "depth": 12,
         "num_heads": 12,
         "use_distillation": True,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "deit3_small_patch16_224": {
@@ -76,7 +76,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 6,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit3_small_patch16_384": {
@@ -86,7 +86,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 6,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "deit3_medium_patch16_224": {
@@ -96,7 +96,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 8,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit3_base_patch16_224": {
@@ -106,7 +106,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 12,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit3_base_patch16_384": {
@@ -116,7 +116,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 12,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "deit3_large_patch16_224": {
@@ -126,7 +126,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 16,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "deit3_large_patch16_384": {
@@ -136,7 +136,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 16,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "deit3_huge_patch14_224": {
@@ -146,7 +146,7 @@ DEIT_MODEL_CONFIG = {
         "num_heads": 16,
         "no_embed_class": True,
         "init_values": 1e-6,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
 }

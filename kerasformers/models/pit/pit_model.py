@@ -1,6 +1,5 @@
 import keras
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
@@ -9,6 +8,7 @@ from kerasformers.models.vit.vit_layers import (
     ViTClassDistToken,
     ViTMultiHeadSelfAttention,
 )
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import PIT_MODEL_CONFIG, PIT_WEIGHT_CONFIG
@@ -134,7 +134,6 @@ def pit_backbone_feature(
     mlp_ratio,
     distilled,
     drop_rate,
-    image_size,
     data_format,
     return_stages=False,
     return_final_spatial=False,
@@ -153,7 +152,6 @@ def pit_backbone_feature(
         distilled: If ``True``, also use a distillation token in addition to
             the class token.
         drop_rate: Dropout rate applied after the position embedding.
-        image_size: Input image resolution (documentation only).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         return_stages: If ``True``, return a list of intermediate stage
             outputs as described below.
@@ -290,9 +288,12 @@ class PiTModel(BaseModel):
             Defaults to `False`.
         drop_rate: Float, dropout rate applied after the position
             embedding. Defaults to `0.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape and to size the positional embedding.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -304,9 +305,6 @@ class PiTModel(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         name: String, the name of the model. Defaults to `"PiTModel"`.
 
     Returns:
@@ -345,11 +343,10 @@ class PiTModel(BaseModel):
         mlp_ratio=4.0,
         distilled=False,
         drop_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         name="PiTModel",
         **kwargs,
     ):
@@ -358,19 +355,12 @@ class PiTModel(BaseModel):
 
         data_format = keras.config.image_data_format()
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -389,7 +379,6 @@ class PiTModel(BaseModel):
             mlp_ratio=mlp_ratio,
             distilled=distilled,
             drop_rate=drop_rate,
-            image_size=image_size,
             data_format=data_format,
             return_stages=as_backbone,
         )
@@ -405,7 +394,7 @@ class PiTModel(BaseModel):
         self.mlp_ratio = mlp_ratio
         self.distilled = distilled
         self.drop_rate = drop_rate
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -423,10 +412,9 @@ class PiTModel(BaseModel):
                 "mlp_ratio": self.mlp_ratio,
                 "distilled": self.distilled,
                 "drop_rate": self.drop_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -473,9 +461,12 @@ class PiTImageClassify(BaseModel):
             `False`.
         drop_rate: Float, dropout rate applied after the position
             embedding and before the classifier head. Defaults to `0.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape and to size the positional embedding.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -487,9 +478,6 @@ class PiTImageClassify(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         num_classes: Integer, the number of output classes for
             classification. Defaults to `1000`.
         classifier_activation: String or callable, activation function
@@ -525,11 +513,10 @@ class PiTImageClassify(BaseModel):
         mlp_ratio=4.0,
         distilled=False,
         drop_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
         name="PiTImageClassify",
@@ -546,11 +533,10 @@ class PiTImageClassify(BaseModel):
             mlp_ratio=mlp_ratio,
             distilled=distilled,
             drop_rate=drop_rate,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
-            input_shape=input_shape,
             name=f"{name}_backbone",
         )
 
@@ -588,7 +574,7 @@ class PiTImageClassify(BaseModel):
         self.mlp_ratio = mlp_ratio
         self.distilled = distilled
         self.drop_rate = drop_rate
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -607,10 +593,9 @@ class PiTImageClassify(BaseModel):
                 "mlp_ratio": self.mlp_ratio,
                 "distilled": self.distilled,
                 "drop_rate": self.drop_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

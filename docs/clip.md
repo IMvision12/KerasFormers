@@ -152,7 +152,7 @@ Construct from scratch for fine-tuning on a new dataset:
 ```python
 model = CLIPImageClassify(
     num_labels=10,                   # your class count
-    image_resolution=224,
+    input_image_shape=224,
     vision_layers=12, vision_width=768, vision_patch_size=16,
     vision_mlp_ratio=4.0,
     hidden_act="quick_gelu",         # or "gelu" / "gelu_new"
@@ -165,7 +165,7 @@ You can also warm-start the vision encoder from a `CLIPModel` checkpoint (the en
 ```python
 src = CLIPModel.from_weights("clip_vit_base_16")
 ac = CLIPImageClassify(
-    num_labels=10, image_resolution=224, vision_layers=12,
+    num_labels=10, input_image_shape=224, vision_layers=12,
     vision_width=768, vision_patch_size=16, vision_mlp_ratio=4.0,
 )
 # Transfer the vision encoder weights; leave the classifier random

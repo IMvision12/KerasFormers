@@ -1,11 +1,11 @@
 import keras
 import numpy as np
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.resnetv2.resnetv2_layers import ResNetV2StdConv2D
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHT_CONFIG
@@ -265,8 +265,12 @@ class ResNetV2Model(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop
             probability; linearly interpolated across all blocks.
             Defaults to `0.0`.
-        image_size: Integer, square input resolution used to validate
-            and infer the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -278,9 +282,6 @@ class ResNetV2Model(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         as_backbone: Boolean, whether to output intermediate features for
             use as a backbone network. When True, returns a list of
             per-stage feature maps. Defaults to `False`.
@@ -321,11 +322,10 @@ class ResNetV2Model(BaseModel):
         width_factor=1,
         stem_width=64,
         drop_path_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         as_backbone=False,
         name="ResNetV2Model",
         **kwargs,
@@ -336,19 +336,12 @@ class ResNetV2Model(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -376,7 +369,7 @@ class ResNetV2Model(BaseModel):
         self.width_factor = width_factor
         self.stem_width = stem_width
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -391,10 +384,9 @@ class ResNetV2Model(BaseModel):
                 "width_factor": self.width_factor,
                 "stem_width": self.stem_width,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -436,8 +428,12 @@ class ResNetV2ImageClassify(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop
             probability; linearly interpolated across all blocks.
             Defaults to `0.0`.
-        image_size: Integer, square input resolution used to validate
-            and infer the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -449,9 +445,6 @@ class ResNetV2ImageClassify(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         num_classes: Integer, the number of output classes for
             classification. Defaults to `1000`.
         classifier_activation: String or callable, activation function
@@ -486,11 +479,10 @@ class ResNetV2ImageClassify(BaseModel):
         stem_width=64,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
         name="ResNetV2ImageClassify",
@@ -507,11 +499,10 @@ class ResNetV2ImageClassify(BaseModel):
             width_factor=width_factor,
             stem_width=stem_width,
             drop_path_rate=drop_path_rate,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
-            input_shape=input_shape,
             name=f"{name}_backbone",
         )
 
@@ -534,7 +525,7 @@ class ResNetV2ImageClassify(BaseModel):
         self.stem_width = stem_width
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -551,10 +542,9 @@ class ResNetV2ImageClassify(BaseModel):
                 "stem_width": self.stem_width,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

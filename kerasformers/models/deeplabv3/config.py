@@ -2,12 +2,12 @@ DEEPLABV3_CONFIG = {
     "deeplabv3_resnet50_coco_voc": {
         "backbone_variant": "ResNet50",
         "num_classes": 21,
-        "input_shape": (520, 520, 3),
+        "input_image_shape": 520,
     },
     "deeplabv3_resnet101_coco_voc": {
         "backbone_variant": "ResNet101",
         "num_classes": 21,
-        "input_shape": (520, 520, 3),
+        "input_image_shape": 520,
     },
 }
 

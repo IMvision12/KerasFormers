@@ -35,7 +35,7 @@ class ConvNeXtV2Model(ConvNeXtModel):
             Defaults to `"ConvNeXtV2Model"`.
         **kwargs: Additional keyword arguments forwarded to
             :class:`ConvNeXtModel` (e.g. ``depths``, ``projection_dims``,
-            ``use_grn``, ``image_size``, ``include_normalization``).
+            ``use_grn``, ``input_image_shape``, ``include_normalization``).
 
     Returns:
         A Keras `Model` instance.
@@ -100,8 +100,12 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
             block's MLP; otherwise use Dense layers. Defaults to `False`.
         use_grn: Boolean, whether to apply ConvNeXtGlobalResponseNorm inside each
             block (ConvNeXtV2 recipe). Defaults to `False`.
-        image_size: Integer, square input resolution used to validate the
-            input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -110,9 +114,6 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -152,10 +153,9 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
         layer_scale_init_value=1e-6,
         use_conv=False,
         use_grn=False,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -173,10 +173,9 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
             layer_scale_init_value=layer_scale_init_value,
             use_conv=use_conv,
             use_grn=use_grn,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -199,7 +198,7 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
         self.layer_scale_init_value = layer_scale_init_value
         self.use_conv = use_conv
         self.use_grn = use_grn
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor

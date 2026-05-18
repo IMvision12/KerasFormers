@@ -1,6 +1,5 @@
 import keras
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
@@ -9,6 +8,7 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
     MobileViTPatchesToImageLayer,
 )
 from kerasformers.models.mobilevit.mobilevit_model import mobilevit_aspp_head
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MOBILEVITV2_MODEL_CONFIG, MOBILEVITV2_WEIGHT_CONFIG
@@ -448,8 +448,12 @@ class MobileViTV2Model(BaseModel):
             5 per-stage feature maps. Defaults to `False`.
         multiplier: Float, width multiplier applied to every stage's
             channel count. Defaults to `1.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `256`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -458,9 +462,6 @@ class MobileViTV2Model(BaseModel):
             use. Must be one of: `'imagenet'`, `'inception'`, `'dpn'`,
             `'clip'`, `'zero_to_one'` (default), or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -493,7 +494,7 @@ class MobileViTV2Model(BaseModel):
     def config_from_hf(cls, hf_config):
         return {
             "multiplier": float(hf_config.get("width_multiplier", 1.0)),
-            "image_size": hf_config["image_size"],
+            "input_image_shape": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 32),
         }
 
@@ -506,11 +507,10 @@ class MobileViTV2Model(BaseModel):
     def __init__(
         self,
         multiplier=1.0,
-        image_size=256,
+        input_image_shape=256,
         output_stride=32,
         include_normalization=True,
         normalization_mode="zero_to_one",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="MobileViTV2Model",
@@ -522,19 +522,12 @@ class MobileViTV2Model(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -555,7 +548,7 @@ class MobileViTV2Model(BaseModel):
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.multiplier = multiplier
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.output_stride = output_stride
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -567,11 +560,10 @@ class MobileViTV2Model(BaseModel):
         config.update(
             {
                 "multiplier": self.multiplier,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "output_stride": self.output_stride,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -600,8 +592,12 @@ class MobileViTV2ImageClassify(BaseModel):
     Args:
         multiplier: Float, width multiplier applied to every stage's
             channel count. Defaults to `1.0`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `256`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -610,9 +606,6 @@ class MobileViTV2ImageClassify(BaseModel):
             use. Must be one of: `'imagenet'`, `'inception'`, `'dpn'`,
             `'clip'`, `'zero_to_one'` (default), or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -644,7 +637,7 @@ class MobileViTV2ImageClassify(BaseModel):
             num_classes = len(hf_config["id2label"])
         return {
             "multiplier": float(hf_config.get("width_multiplier", 1.0)),
-            "image_size": hf_config["image_size"],
+            "input_image_shape": hf_config["image_size"],
             "num_classes": num_classes if num_classes is not None else 1000,
         }
 
@@ -657,10 +650,9 @@ class MobileViTV2ImageClassify(BaseModel):
     def __init__(
         self,
         multiplier=1.0,
-        image_size=256,
+        input_image_shape=256,
         include_normalization=True,
         normalization_mode="zero_to_one",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -673,11 +665,10 @@ class MobileViTV2ImageClassify(BaseModel):
 
         backbone = MobileViTV2Model(
             multiplier=multiplier,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             output_stride=32,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -694,7 +685,7 @@ class MobileViTV2ImageClassify(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.multiplier = multiplier
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -706,10 +697,9 @@ class MobileViTV2ImageClassify(BaseModel):
         config.update(
             {
                 "multiplier": self.multiplier,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
@@ -752,7 +742,7 @@ class MobileViTV2Segment(BaseModel):
             num_classes = len(hf_config["id2label"])
         return {
             "multiplier": float(hf_config.get("width_multiplier", 1.0)),
-            "image_size": hf_config["image_size"],
+            "input_image_shape": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 16),
             "atrous_rates": list(hf_config.get("atrous_rates", [6, 12, 18])),
             "aspp_out_channels": hf_config.get("aspp_out_channels", 512),
@@ -769,12 +759,11 @@ class MobileViTV2Segment(BaseModel):
     def __init__(
         self,
         multiplier=1.0,
-        image_size=512,
+        input_image_shape=512,
         output_stride=16,
         atrous_rates: list = [6, 12, 18],
         aspp_out_channels=512,
         aspp_dropout_prob=0.1,
-        input_shape=None,
         input_tensor=None,
         num_classes=21,
         name="MobileViTV2Segment",
@@ -786,10 +775,9 @@ class MobileViTV2Segment(BaseModel):
 
         backbone = MobileViTV2Model(
             multiplier=multiplier,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             output_stride=output_stride,
             include_normalization=False,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -809,7 +797,7 @@ class MobileViTV2Segment(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.multiplier = multiplier
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.output_stride = output_stride
         self.atrous_rates = atrous_rates
         self.aspp_out_channels = aspp_out_channels
@@ -822,12 +810,11 @@ class MobileViTV2Segment(BaseModel):
         config.update(
             {
                 "multiplier": self.multiplier,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "output_stride": self.output_stride,
                 "atrous_rates": self.atrous_rates,
                 "aspp_out_channels": self.aspp_out_channels,
                 "aspp_dropout_prob": self.aspp_dropout_prob,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "name": self.name,

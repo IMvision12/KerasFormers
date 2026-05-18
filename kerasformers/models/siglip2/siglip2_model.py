@@ -72,7 +72,7 @@ class SigLIP2ZeroShotClassify(BaseModel):
 
     def __init__(
         self,
-        image_resolution=224,
+        input_image_shape=224,
         patch_size=16,
         vision_hidden_dim=768,
         vision_num_layers=12,
@@ -85,13 +85,12 @@ class SigLIP2ZeroShotClassify(BaseModel):
         text_num_heads=12,
         text_intermediate_dim=3072,
         max_sequence_length=64,
-        input_shape=None,
         input_tensor=None,
         name="SigLIP2ZeroShotClassify",
         **kwargs,
     ):
         base = SigLIP2Model(
-            image_resolution=image_resolution,
+            input_image_shape=input_image_shape,
             patch_size=patch_size,
             vision_hidden_dim=vision_hidden_dim,
             vision_num_layers=vision_num_layers,
@@ -104,7 +103,6 @@ class SigLIP2ZeroShotClassify(BaseModel):
             text_num_heads=text_num_heads,
             text_intermediate_dim=text_intermediate_dim,
             max_sequence_length=max_sequence_length,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_base",
         )
@@ -119,7 +117,7 @@ class SigLIP2ZeroShotClassify(BaseModel):
             **kwargs,
         )
 
-        self.image_resolution = image_resolution
+        self.input_image_shape = base.input_image_shape
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
@@ -136,15 +134,9 @@ class SigLIP2ZeroShotClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = tuple(self.input["images"].shape)
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_num_layers": self.vision_num_layers,

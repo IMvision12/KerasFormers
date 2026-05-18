@@ -1,6 +1,5 @@
 import keras
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
@@ -9,6 +8,7 @@ from kerasformers.models.vit.vit_layers import (
     ViTClassDistToken,
     ViTMultiHeadSelfAttention,
 )
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import VIT_MODEL_CONFIG, VIT_WEIGHT_CONFIG
@@ -269,9 +269,12 @@ class ViTModel(BaseModel):
         init_values: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape and to size the positional embedding.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -280,9 +283,6 @@ class ViTModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -328,10 +328,9 @@ class ViTModel(BaseModel):
         no_embed_class=False,
         use_distillation=False,
         init_values=None,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         name="ViTModel",
         **kwargs,
@@ -341,19 +340,17 @@ class ViTModel(BaseModel):
 
         data_format = keras.config.image_data_format()
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = (
+            input_image_shape[0]
+            if data_format == "channels_last"
+            else input_image_shape[1]
         )
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -396,7 +393,7 @@ class ViTModel(BaseModel):
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
         self.init_values = init_values
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -418,10 +415,9 @@ class ViTModel(BaseModel):
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
                 "init_values": self.init_values,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "name": self.name,
                 "trainable": self.trainable,
@@ -479,9 +475,12 @@ class ViTImageClassify(BaseModel):
         init_values: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape and to size the positional embedding.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -490,9 +489,6 @@ class ViTImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -535,10 +531,9 @@ class ViTImageClassify(BaseModel):
         no_embed_class=False,
         use_distillation=False,
         init_values=None,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -560,10 +555,9 @@ class ViTImageClassify(BaseModel):
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
             init_values=init_values,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -604,7 +598,7 @@ class ViTImageClassify(BaseModel):
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
         self.init_values = init_values
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -627,10 +621,9 @@ class ViTImageClassify(BaseModel):
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
                 "init_values": self.init_values,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

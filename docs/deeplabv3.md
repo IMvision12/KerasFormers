@@ -42,7 +42,7 @@ custom = DeepLabV3Segment.from_weights(
     "deeplabv3_resnet50_coco_voc",
     load_weights=False,
     num_classes=10,
-    input_shape=(512, 512, 3),
+    input_image_shape=(512, 512, 3),
 )
 ```
 

@@ -4,7 +4,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 1.0,
         "dropout_rate": 0.2,
         "default_size": 224,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "efficientnet_b1": {
@@ -12,7 +12,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 1.1,
         "dropout_rate": 0.2,
         "default_size": 240,
-        "image_size": 240,
+        "input_image_shape": 240,
         "num_classes": 1000,
     },
     "efficientnet_b2": {
@@ -20,7 +20,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 1.2,
         "dropout_rate": 0.3,
         "default_size": 260,
-        "image_size": 260,
+        "input_image_shape": 260,
         "num_classes": 1000,
     },
     "efficientnet_b3": {
@@ -28,7 +28,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 1.4,
         "dropout_rate": 0.3,
         "default_size": 300,
-        "image_size": 300,
+        "input_image_shape": 300,
         "num_classes": 1000,
     },
     "efficientnet_b4": {
@@ -36,7 +36,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 1.8,
         "dropout_rate": 0.4,
         "default_size": 380,
-        "image_size": 380,
+        "input_image_shape": 380,
         "num_classes": 1000,
     },
     "efficientnet_b5": {
@@ -44,7 +44,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 2.2,
         "dropout_rate": 0.4,
         "default_size": 456,
-        "image_size": 456,
+        "input_image_shape": 456,
         "num_classes": 1000,
     },
     "efficientnet_b6": {
@@ -52,7 +52,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 2.6,
         "dropout_rate": 0.5,
         "default_size": 528,
-        "image_size": 528,
+        "input_image_shape": 528,
         "num_classes": 1000,
     },
     "efficientnet_b7": {
@@ -60,7 +60,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 3.1,
         "dropout_rate": 0.5,
         "default_size": 600,
-        "image_size": 600,
+        "input_image_shape": 600,
         "num_classes": 1000,
     },
     "efficientnet_b8": {
@@ -68,7 +68,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 3.6,
         "dropout_rate": 0.5,
         "default_size": 672,
-        "image_size": 672,
+        "input_image_shape": 672,
         "num_classes": 1000,
     },
     "efficientnet_l2_800": {
@@ -76,7 +76,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 5.3,
         "dropout_rate": 0.5,
         "default_size": 800,
-        "image_size": 800,
+        "input_image_shape": 800,
         "num_classes": 1000,
     },
     "efficientnet_l2_475": {
@@ -84,7 +84,7 @@ EFFICIENTNET_MODEL_CONFIG = {
         "depth_coefficient": 5.3,
         "dropout_rate": 0.5,
         "default_size": 800,
-        "image_size": 475,
+        "input_image_shape": 475,
         "num_classes": 1000,
     },
 }

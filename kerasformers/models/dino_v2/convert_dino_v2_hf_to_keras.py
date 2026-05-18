@@ -184,7 +184,7 @@ if __name__ == "__main__":
         keras_model = DinoV2Backbone.from_weights(
             variant,
             load_weights=False,
-            input_shape=(224, 224, 3),
+            input_image_shape=224,
             include_normalization=False,
         )
 

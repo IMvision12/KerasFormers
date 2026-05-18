@@ -7,7 +7,7 @@ EOMT_CONFIG = {
         "layerscale_value": 1.0,
         "num_queries": 200,
         "num_labels": 133,
-        "input_shape": (640, 640, 3),
+        "input_image_shape": 640,
     },
     "eomt_base_coco_panoptic_640": {
         "hidden_size": 768,
@@ -17,7 +17,7 @@ EOMT_CONFIG = {
         "layerscale_value": 1.0,
         "num_queries": 200,
         "num_labels": 133,
-        "input_shape": (640, 640, 3),
+        "input_image_shape": 640,
     },
     "eomt_large_coco_panoptic_640": {
         "hidden_size": 1024,
@@ -27,7 +27,7 @@ EOMT_CONFIG = {
         "layerscale_value": 1e-5,
         "num_queries": 200,
         "num_labels": 133,
-        "input_shape": (640, 640, 3),
+        "input_image_shape": 640,
     },
     "eomt_large_coco_instance_640": {
         "hidden_size": 1024,
@@ -37,7 +37,7 @@ EOMT_CONFIG = {
         "layerscale_value": 1e-5,
         "num_queries": 200,
         "num_labels": 80,
-        "input_shape": (640, 640, 3),
+        "input_image_shape": 640,
     },
     "eomt_large_ade20k_semantic_512": {
         "hidden_size": 1024,
@@ -47,7 +47,7 @@ EOMT_CONFIG = {
         "layerscale_value": 1e-5,
         "num_queries": 100,
         "num_labels": 150,
-        "input_shape": (512, 512, 3),
+        "input_image_shape": 512,
     },
 }
 
