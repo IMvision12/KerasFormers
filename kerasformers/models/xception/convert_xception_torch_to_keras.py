@@ -1,13 +1,17 @@
 import gc
 import re
+import sys
 from typing import Dict
 
 import keras
 import numpy as np
 import timm
 
-from kerasformers.models.mobilenetv3 import MobileNetV3ImageClassify
-from kerasformers.models.mobilenetv3.config import MOBILENETV3_WEIGHT_CONFIG
+from kerasformers.models.xception import XceptionImageClassify
+from kerasformers.models.xception.config import (
+    XCEPTION_MODEL_CONFIG,
+    XCEPTION_WEIGHT_CONFIG,
+)
 from kerasformers.weight_utils import verify_cls_model_equivalence
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
@@ -19,64 +23,42 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-_LARGE_STAGES = [1, 2, 3, 4, 2, 3]
-_SMALL_STAGES = [1, 2, 3, 2, 3]
-
-_BLOCK_00 = {
-    "blocks.0.0.batchnorm.2": "blocks.0.0.bn1",
-    "blocks.0.0.batchnorm.3": "blocks.0.0.bn2",
-    "blocks.0.0.conv.pwl": "blocks.0.0.conv_pw",
-}
-
-_BASE_MAPPINGS = {
-    "stem.conv": "conv_stem",
-    "stem.batchnorm": "bn1",
-    "head.conv": "conv_head",
-    "se.conv.1": "se.conv_reduce",
-    "se.conv.2": "se.conv_expand",
-    "batchnorm.1": "bn1",
-    "batchnorm.2": "bn2",
-    "batchnorm.3": "bn3",
-    "conv.pw": "conv_pw",
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
+    "block.": "blocks.",
     "dwconv": "conv_dw",
+    "conv.pw": "conv_pw",
+    "bn.dw": "bn_dw",
+    "bn.pw": "bn_pw",
+    "norm.bn": "norm",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
-    "bias": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
-    "predictions": "classifier",
+    "predictions": "head.fc",
 }
 
 
-def transfer_mobilenetv3_weights(
-    keras_model, state_dict: Dict[str, np.ndarray]
+def transfer_xception_weights(
+    keras_model,
+    state_dict: Dict[str, np.ndarray],
+    preact: bool,
 ) -> None:
-    stages = (
-        _LARGE_STAGES
-        if getattr(keras_model, "config", "large") == "large"
-        else _SMALL_STAGES
-    )
-    flat_to_stage = [(s, b) for s, n in enumerate(stages) for b in range(n)]
-    final_stage = len(stages)
-    final_mapping = {
-        "final.conv": f"blocks.{final_stage}.0.conv",
-        "final.batchnorm": f"blocks.{final_stage}.0.bn1",
-    }
-    mapping = {**_BLOCK_00, **final_mapping, **_BASE_MAPPINGS}
-
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
-        torch_weight_name = re.sub(
-            r"ir_block_(\d+)_",
-            lambda m: (
-                f"blocks.{flat_to_stage[int(m.group(1))][0]}.{flat_to_stage[int(m.group(1))][1]}."
-            ),
-            keras_weight_name,
-        ).replace("_", ".")
-        for old, new in mapping.items():
+        torch_weight_name = keras_weight_name.replace("_", ".")
+        for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
+        if preact:
+            torch_weight_name = torch_weight_name.replace(
+                "stem.1.conv.weight", "stem.1.weight"
+            )
+            torch_weight_name = re.sub(
+                r"blocks\.(\d+)\.shortcut\.conv\.weight",
+                r"blocks.\1.shortcut.weight",
+                torch_weight_name,
+            )
 
         if torch_weight_name not in state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
@@ -101,8 +83,14 @@ def transfer_mobilenetv3_weights(
 
 
 if __name__ == "__main__":
-    for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items():
+    sys.setrecursionlimit(10000)
+
+    for variant, meta in XCEPTION_WEIGHT_CONFIG.items():
+        model_cfg = dict(XCEPTION_MODEL_CONFIG[meta["model"]])
+        model_cfg.pop("num_classes", None)
+        preact = model_cfg["preact"]
         timm_id = meta["timm_id"]
+
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
@@ -111,10 +99,15 @@ if __name__ == "__main__":
         state = {
             k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()
         }
-        keras_model = MobileNetV3ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        num_classes = int(state["head.fc.weight"].shape[0])
+
+        keras_model = XceptionImageClassify(
+            **model_cfg,
+            num_classes=num_classes,
+            include_normalization=False,
         )
-        transfer_mobilenetv3_weights(keras_model, state)
+
+        transfer_xception_weights(keras_model, state, preact)
 
         results = verify_cls_model_equivalence(
             model_a=torch_model,
@@ -127,9 +120,7 @@ if __name__ == "__main__":
             rtol=1e-4,
         )
         if not results["standard_input"]:
-            raise ValueError(
-                "Model equivalence test failed - model outputs do not match for standard input"
-            )
+            raise ValueError(f"{variant}: model equivalence test failed")
 
         out_path = f"{variant}.weights.h5"
         keras_model.save_weights(out_path)

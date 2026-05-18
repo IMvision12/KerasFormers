@@ -8,197 +8,459 @@ from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHT_CONFIG
 
+# Per-variant block configs. Each entry is a list of dicts; each dict configures
+# one ``xception_module`` (or ``pre_xception_module`` when ``preact=True``).
+# Matches timm/models/xception_aligned.py.
+_XCEPTION_BLOCK_CFGS = {
+    "41": [
+        # entry flow
+        {"in_chs": 64, "out_chs": 128, "stride": 2},
+        {"in_chs": 128, "out_chs": 256, "stride": 2},
+        {"in_chs": 256, "out_chs": 728, "stride": 2},
+        # middle flow (8 blocks)
+        *[{"in_chs": 728, "out_chs": 728, "stride": 1} for _ in range(8)],
+        # exit flow
+        {"in_chs": 728, "out_chs": (728, 1024, 1024), "stride": 2},
+        {
+            "in_chs": 1024,
+            "out_chs": (1536, 1536, 2048),
+            "stride": 1,
+            "no_skip": True,
+            "start_with_relu": False,
+        },
+    ],
+    "65": [
+        {"in_chs": 64, "out_chs": 128, "stride": 2},
+        {"in_chs": 128, "out_chs": 256, "stride": 2},
+        {"in_chs": 256, "out_chs": 728, "stride": 2},
+        *[{"in_chs": 728, "out_chs": 728, "stride": 1} for _ in range(16)],
+        {"in_chs": 728, "out_chs": (728, 1024, 1024), "stride": 2},
+        {
+            "in_chs": 1024,
+            "out_chs": (1536, 1536, 2048),
+            "stride": 1,
+            "no_skip": True,
+            "start_with_relu": False,
+        },
+    ],
+    "71": [
+        {"in_chs": 64, "out_chs": 128, "stride": 2},
+        {"in_chs": 128, "out_chs": 256, "stride": 1},
+        {"in_chs": 256, "out_chs": 256, "stride": 2},
+        {"in_chs": 256, "out_chs": 728, "stride": 1},
+        {"in_chs": 728, "out_chs": 728, "stride": 2},
+        *[{"in_chs": 728, "out_chs": 728, "stride": 1} for _ in range(16)],
+        {"in_chs": 728, "out_chs": (728, 1024, 1024), "stride": 2},
+        {
+            "in_chs": 1024,
+            "out_chs": (1536, 1536, 2048),
+            "stride": 1,
+            "no_skip": True,
+            "start_with_relu": False,
+        },
+    ],
+    "41p": [
+        # preact variants don't take ``start_with_relu`` — PreXceptionModule
+        # always applies a leading norm+act block-wide.
+        {"in_chs": 64, "out_chs": 128, "stride": 2},
+        {"in_chs": 128, "out_chs": 256, "stride": 2},
+        {"in_chs": 256, "out_chs": 728, "stride": 2},
+        *[{"in_chs": 728, "out_chs": 728, "stride": 1} for _ in range(8)],
+        {"in_chs": 728, "out_chs": (728, 1024, 1024), "stride": 2},
+        {"in_chs": 1024, "out_chs": (1536, 1536, 2048), "stride": 1, "no_skip": True},
+    ],
+    "65p": [
+        {"in_chs": 64, "out_chs": 128, "stride": 2},
+        {"in_chs": 128, "out_chs": 256, "stride": 2},
+        {"in_chs": 256, "out_chs": 728, "stride": 2},
+        *[{"in_chs": 728, "out_chs": 728, "stride": 1} for _ in range(16)],
+        {"in_chs": 728, "out_chs": (728, 1024, 1024), "stride": 2},
+        {"in_chs": 1024, "out_chs": (1536, 1536, 2048), "stride": 1, "no_skip": True},
+    ],
+}
 
-def conv_block(
+
+def separable_conv_block(
     x,
-    filters,
-    kernel_size,
-    strides=(1, 1),
-    padding="same",
-    separable=False,
-    use_activation=True,
-    use_preactivation=False,
-    use_bias=False,
+    out_chs,
+    *,
+    kernel_size=3,
+    stride=1,
+    act_layer="relu",
+    bn_epsilon=1e-3,
+    channels_axis=-1,
+    data_format="channels_last",
+    name,
 ):
-    """Standard or separable Conv -> BatchNorm with optional pre / post ReLU.
+    """Aligned Xception ``SeparableConv2d``: depthwise → bn_dw → (act) →
+    pointwise → bn_pw → (act).
 
-    Args:
-        x: Input feature tensor.
-        filters: Output channel count of the convolution.
-        kernel_size: Convolution kernel size (int or tuple).
-        strides: Convolution strides.
-        padding: ``"same"`` or ``"valid"`` padding mode.
-        separable: If True, use ``SeparableConv2D`` instead of ``Conv2D``.
-        use_activation: If True, apply ReLU after BatchNorm (post-activation).
-        use_preactivation: If True, apply ReLU before the convolution.
-        use_bias: Whether the convolution uses a bias term.
-
-    Returns:
-        Tensor produced by the configured Conv + BN (+ activation) chain.
+    When ``act_layer`` is ``None`` the two internal activations are
+    Identity (the timm ``start_with_relu=True`` case where activations
+    sit between the sub-convs of ``XceptionModule`` rather than inside
+    each ``SeparableConv2d``).
     """
-    data_format = keras.config.image_data_format()
-    channels_axis = -1 if data_format == "channels_last" else 1
+    if stride > 1:
+        pad = kernel_size // 2
+        x = layers.ZeroPadding2D(
+            padding=((pad, pad), (pad, pad)),
+            data_format=data_format,
+            name=f"{name}_pad",
+        )(x)
+        padding = "valid"
+    else:
+        padding = "same"
 
-    x = layers.Activation("relu")(x) if use_preactivation else x
-
-    conv_layer = layers.SeparableConv2D if separable else layers.Conv2D
-    x = conv_layer(
-        filters=filters,
-        kernel_size=kernel_size,
-        strides=strides,
+    x = layers.DepthwiseConv2D(
+        kernel_size,
+        strides=stride,
         padding=padding,
-        use_bias=use_bias,
+        use_bias=False,
         data_format=data_format,
+        name=f"{name}_dwconv",
     )(x)
+    x = layers.BatchNormalization(
+        axis=channels_axis,
+        epsilon=bn_epsilon,
+        momentum=0.9,
+        name=f"{name}_bn_dw",
+    )(x)
+    if act_layer is not None:
+        x = layers.Activation(act_layer, name=f"{name}_act_dw")(x)
 
-    x = layers.BatchNormalization(axis=channels_axis)(x)
-    x = layers.Activation("relu")(x) if use_activation else x
+    x = layers.Conv2D(
+        out_chs,
+        kernel_size=1,
+        padding="same",
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_conv_pw",
+    )(x)
+    x = layers.BatchNormalization(
+        axis=channels_axis,
+        epsilon=bn_epsilon,
+        momentum=0.9,
+        name=f"{name}_bn_pw",
+    )(x)
+    if act_layer is not None:
+        x = layers.Activation(act_layer, name=f"{name}_act_pw")(x)
     return x
 
 
-def entry_flow(x):
-    """Entry flow (blocks 1-4).
-
-    Args:
-        x: Input image tensor (post-normalization).
-
-    Returns:
-        Feature tensor at 728 channels and 1/16 input spatial resolution.
+def pre_separable_conv_block(
+    x,
+    out_chs,
+    *,
+    kernel_size=3,
+    stride=1,
+    first_act=True,
+    act_layer="relu",
+    bn_epsilon=1e-5,
+    channels_axis=-1,
+    data_format="channels_last",
+    name,
+):
+    """Aligned Xception ``PreSeparableConv2d``: (optional norm+act) →
+    depthwise → pointwise. No BN between the two convs — the next
+    sub-conv's norm acts as that BN.
     """
-    x = conv_block(x, 32, (3, 3), strides=(2, 2), padding="valid")
-    x = conv_block(x, 64, (3, 3), padding="valid")
+    if first_act:
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=bn_epsilon,
+            momentum=0.9,
+            name=f"{name}_norm_bn",
+        )(x)
+        x = layers.Activation(act_layer, name=f"{name}_norm_act")(x)
 
-    residual = conv_block(x, 128, (1, 1), strides=(2, 2), use_activation=False)
+    if stride > 1:
+        pad = kernel_size // 2
+        x = layers.ZeroPadding2D(
+            padding=((pad, pad), (pad, pad)),
+            data_format=data_format,
+            name=f"{name}_pad",
+        )(x)
+        padding = "valid"
+    else:
+        padding = "same"
 
-    x = conv_block(x, 128, (3, 3), separable=True)
-    x = conv_block(x, 128, (3, 3), separable=True, use_activation=False)
-    x = layers.MaxPooling2D(
-        (3, 3),
-        strides=(2, 2),
-        data_format=keras.config.image_data_format(),
-        padding="same",
+    x = layers.DepthwiseConv2D(
+        kernel_size,
+        strides=stride,
+        padding=padding,
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_dwconv",
     )(x)
-    x = layers.add([x, residual])
-
-    residual = conv_block(
-        x, 256, (1, 1), strides=(2, 2), use_bias=False, use_activation=False
-    )
-    x = conv_block(x, 256, (3, 3), use_preactivation=True, separable=True)
-    x = conv_block(x, 256, (3, 3), use_activation=False, separable=True)
-    x = layers.MaxPooling2D(
-        (3, 3),
-        strides=(2, 2),
-        data_format=keras.config.image_data_format(),
+    x = layers.Conv2D(
+        out_chs,
+        kernel_size=1,
         padding="same",
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_conv_pw",
     )(x)
-    x = layers.add([x, residual])
-
-    residual = conv_block(x, 728, (1, 1), strides=(2, 2), use_activation=False)
-    x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
-    x = conv_block(x, 728, (3, 3), separable=True, use_activation=False)
-    x = layers.MaxPooling2D(
-        (3, 3),
-        strides=(2, 2),
-        data_format=keras.config.image_data_format(),
-        padding="same",
-    )(x)
-    x = layers.add([x, residual])
-
     return x
 
 
-def middle_flow(x):
-    """Middle flow (8 repeated 728-channel blocks).
+def xception_module(
+    x,
+    *,
+    in_chs,
+    out_chs,
+    stride=1,
+    start_with_relu=True,
+    no_skip=False,
+    act_layer="relu",
+    bn_epsilon=1e-3,
+    channels_axis=-1,
+    data_format="channels_last",
+    name,
+):
+    """Standard (non-preact) ``XceptionModule``: stack of 3 SeparableConv2d
+    with an outer shortcut. The block's ``stride`` is applied to the third
+    sub-conv's depthwise.
 
-    Args:
-        x: Feature tensor from the entry flow (728 channels).
-
-    Returns:
-        Tensor with the same shape as ``x`` after 8 residual separable blocks.
+    When ``start_with_relu=True`` the activations are *outside* each
+    SeparableConv2d (one ReLU before each sub-conv) and the SeparableConv2d
+    itself has no internal activations. When ``start_with_relu=False`` the
+    activations are *inside* each SeparableConv2d (so each one ends with
+    two ReLUs, post-dw and post-pw).
     """
-    for i in range(8):
-        residual = x
-        x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
-        x = conv_block(x, 728, (3, 3), separable=True)
-        x = conv_block(x, 728, (3, 3), separable=True, use_activation=False)
-        x = layers.add([x, residual])
+    if not isinstance(out_chs, (list, tuple)):
+        out_chs = (out_chs, out_chs, out_chs)
+    out_channels = out_chs[-1]
+
+    skip = x
+    separable_act = None if start_with_relu else act_layer
+
+    for i in range(3):
+        if start_with_relu:
+            x = layers.Activation(act_layer, name=f"{name}_stack_act{i + 1}")(x)
+        cur_stride = stride if i == 2 else 1
+        x = separable_conv_block(
+            x,
+            out_chs[i],
+            stride=cur_stride,
+            act_layer=separable_act,
+            bn_epsilon=bn_epsilon,
+            channels_axis=channels_axis,
+            data_format=data_format,
+            name=f"{name}_stack_conv{i + 1}",
+        )
+
+    if not no_skip:
+        if out_channels != in_chs or stride != 1:
+            shortcut = layers.Conv2D(
+                out_channels,
+                kernel_size=1,
+                strides=stride,
+                padding="same",
+                use_bias=False,
+                data_format=data_format,
+                name=f"{name}_shortcut_conv",
+            )(skip)
+            shortcut = layers.BatchNormalization(
+                axis=channels_axis,
+                epsilon=bn_epsilon,
+                momentum=0.9,
+                name=f"{name}_shortcut_bn",
+            )(shortcut)
+        else:
+            shortcut = skip
+        x = layers.Add(name=f"{name}_add")([x, shortcut])
     return x
 
 
-def exit_flow(x):
-    """Exit flow (blocks 13-14).
-
-    Args:
-        x: Feature tensor from the middle flow (728 channels).
-
-    Returns:
-        Final feature tensor at 2048 channels and 1/32 input spatial resolution.
+def pre_xception_module(
+    x,
+    *,
+    in_chs,
+    out_chs,
+    stride=1,
+    no_skip=False,
+    act_layer="relu",
+    bn_epsilon=1e-5,
+    channels_axis=-1,
+    data_format="channels_last",
+    name,
+):
+    """Preact ``PreXceptionModule``: an outer norm+act feeds both the
+    shortcut path and a stack of 3 ``PreSeparableConv2d``. The first
+    PreSeparableConv2d skips its own norm+act (the module's outer norm
+    serves that role); the next two carry their own norm+act.
     """
-    residual = conv_block(x, 1024, (1, 1), strides=(2, 2), use_activation=False)
+    if not isinstance(out_chs, (list, tuple)):
+        out_chs = (out_chs, out_chs, out_chs)
+    out_channels = out_chs[-1]
 
-    x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
-    x = conv_block(x, 1024, (3, 3), separable=True, use_activation=False)
-    x = layers.MaxPooling2D(
-        (3, 3),
-        strides=(2, 2),
-        data_format=keras.config.image_data_format(),
-        padding="same",
+    x = layers.BatchNormalization(
+        axis=channels_axis,
+        epsilon=bn_epsilon,
+        momentum=0.9,
+        name=f"{name}_norm_bn",
     )(x)
-    x = layers.add([x, residual])
+    x = layers.Activation(act_layer, name=f"{name}_norm_act")(x)
+    skip = x  # shortcut path branches AFTER the outer norm+act in preact
 
-    x = conv_block(x, 1536, (3, 3), separable=True)
-    x = conv_block(x, 2048, (3, 3), separable=True)
+    for i in range(3):
+        cur_stride = stride if i == 2 else 1
+        x = pre_separable_conv_block(
+            x,
+            out_chs[i],
+            stride=cur_stride,
+            first_act=i > 0,
+            act_layer=act_layer,
+            bn_epsilon=bn_epsilon,
+            channels_axis=channels_axis,
+            data_format=data_format,
+            name=f"{name}_stack_conv{i + 1}",
+        )
 
+    if not no_skip:
+        if out_channels != in_chs or stride != 1:
+            shortcut = layers.Conv2D(
+                out_channels,
+                kernel_size=1,
+                strides=stride,
+                padding="same",
+                use_bias=False,
+                data_format=data_format,
+                name=f"{name}_shortcut_conv",
+            )(skip)
+        else:
+            shortcut = skip
+        x = layers.Add(name=f"{name}_add")([x, shortcut])
     return x
 
 
-def xception_backbone_feature(inputs, *, return_stages=False):
-    """Xception entry / middle / exit flows, returns the final feature map.
+def xception_aligned_backbone(
+    inputs,
+    *,
+    config,
+    preact,
+    bn_epsilon,
+    data_format,
+    channels_axis,
+    return_stages=False,
+):
+    """Aligned Xception stem + blocks + (preact-only) trailing activation.
 
     Args:
-        inputs: Input image tensor (post-normalization).
-        return_stages: If True, return a list of per-stage feature maps
-            ``[entry, middle, exit]`` (3 stages, one per flow). If False
-            (default), return only the final exit-flow feature map.
+        inputs: Input image tensor.
+        config: Variant string keying into :data:`_XCEPTION_BLOCK_CFGS`.
+        preact: If True, use PreXception modules and a preact-style stem
+            (second stem conv has no BN/act).
+        bn_epsilon: Epsilon for every BatchNormalization layer.
+        data_format: Keras data-format string.
+        channels_axis: Channel axis index.
+        return_stages: If True, return a list of feature maps captured
+            before each stride-2 block (plus the final output).
 
     Returns:
-        Final feature map ``(B, H, W, C)`` from the exit flow, or a list of
-        ``[entry, middle, exit]`` feature maps when ``return_stages=True``.
+        Final feature tensor, or a list of stage feature tensors when
+        ``return_stages=True``.
     """
-    entry = entry_flow(inputs)
-    middle = middle_flow(entry)
-    exit_ = exit_flow(middle)
+    block_cfg = _XCEPTION_BLOCK_CFGS[config]
+
+    # stem.0: ConvNormAct(3 -> 32, 3x3, stride=2)
+    pad = 3 // 2
+    x = layers.ZeroPadding2D(
+        padding=((pad, pad), (pad, pad)),
+        data_format=data_format,
+        name="stem_0_pad",
+    )(inputs)
+    x = layers.Conv2D(
+        32,
+        kernel_size=3,
+        strides=2,
+        padding="valid",
+        use_bias=False,
+        data_format=data_format,
+        name="stem_0_conv",
+    )(x)
+    x = layers.BatchNormalization(
+        axis=channels_axis,
+        epsilon=bn_epsilon,
+        momentum=0.9,
+        name="stem_0_bn",
+    )(x)
+    x = layers.Activation("relu", name="stem_0_act")(x)
+
+    # stem.1: ConvNormAct(32 -> 64, 3x3, stride=1) for non-preact;
+    #         bare Conv2d for preact (the first block's norm absorbs the
+    #         post-conv normalization).
+    x = layers.Conv2D(
+        64,
+        kernel_size=3,
+        strides=1,
+        padding="same",
+        use_bias=False,
+        data_format=data_format,
+        name="stem_1_conv",
+    )(x)
+    if not preact:
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=bn_epsilon,
+            momentum=0.9,
+            name="stem_1_bn",
+        )(x)
+        x = layers.Activation("relu", name="stem_1_act")(x)
+
+    stage_outputs = []
+    module_fn = pre_xception_module if preact else xception_module
+    for i, b in enumerate(block_cfg):
+        if return_stages and b.get("stride", 1) > 1:
+            stage_outputs.append(x)
+        x = module_fn(
+            x,
+            bn_epsilon=bn_epsilon,
+            channels_axis=channels_axis,
+            data_format=data_format,
+            name=f"block_{i}",
+            **b,
+        )
+
+    if preact:
+        x = layers.Activation("relu", name="final_act")(x)
+
     if return_stages:
-        return [entry, middle, exit_]
-    return exit_
+        stage_outputs.append(x)
+        return stage_outputs
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class XceptionModel(BaseModel):
-    """Instantiates the Xception backbone.
+    """Instantiates the Aligned Xception backbone (timm-compatible).
 
-    Xception ("extreme Inception") replaces standard convolutions with
-    depthwise-separable convolutions throughout an entry flow, a
-    middle flow of 8 repeated 728-channel blocks, and an exit flow, with
-    residual skip connections around each block. Output is the last
-    layer output before the classifier head: the final 2048-channel
-    feature map ``(B, H, W, C)`` from the exit flow.
+    Aligned Xception (Chen et al., DeepLab) is a refinement of the
+    original Xception (Chollet 2017): each block stacks three
+    SeparableConv2d, the strided downsamples move to the depthwise
+    convs at the end of each block, and the entry/middle/exit flows
+    are merged into a single ``block_cfg``-driven sequence. The
+    ``*p`` variants are pre-activation variants where the block's
+    leading BN+ReLU feeds both the shortcut and the stack.
+
+    Output is the last layer output before the classifier head: the
+    final 2048-channel feature map ``(B, H, W, C)``.
     :class:`XceptionImageClassify` composes this model and attaches a
     GlobalAveragePooling2D + Dense head to produce logits.
 
-    Note: This is the *original* Keras Xception (Chollet 2017),
-    warm-started from ``keras.applications.Xception``. timm's
-    xception41/65/71 families use a different *Aligned Xception*
-    backbone that is not implemented in this module.
-
     References:
     - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357)
+    - [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587)
 
     Args:
-        as_backbone: Boolean, whether to output intermediate features for
-            use as a backbone network. When True, returns a list of
-            per-stage feature maps ``[entry, middle, exit]`` (one per
-            flow). Defaults to `False`.
+        config: String, variant key selecting the block configuration.
+            One of ``"41"``, ``"41p"``, ``"65"``, ``"65p"``, ``"71"``.
+            Defaults to `"41"`.
+        preact: Boolean, whether to use the preact (``*p``) module
+            structure. Must match ``config``. Defaults to `False`.
+        bn_epsilon: Float, epsilon for every BatchNormalization layer.
+            timm uses 1e-3 for all variants except ``xception41p`` which
+            uses 1e-5. Defaults to `1e-3`.
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -216,6 +478,10 @@ class XceptionModel(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
+        as_backbone: Boolean, whether to output intermediate features for
+            use as a backbone network. When True, returns a list of
+            per-stage feature maps grouped by stride boundary.
+            Defaults to `False`.
         name: String, the name of the model.
             Defaults to `"XceptionModel"`.
 
@@ -234,7 +500,7 @@ class XceptionModel(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = XceptionImageClassify.from_weights(
+            src = XceptionImageClassify.from_release(
                 variant, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
@@ -243,12 +509,15 @@ class XceptionModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_xception_org_keras_to_keras import transfer_xception_weights
+        from .convert_xception_torch_to_keras import transfer_xception_weights
 
-        transfer_xception_weights(keras_model, state_dict)
+        transfer_xception_weights(keras_model, state_dict, keras_model.preact)
 
     def __init__(
         self,
+        config="41",
+        preact=False,
+        bn_epsilon=1e-3,
         input_image_shape=299,
         include_normalization=True,
         normalization_mode="inception",
@@ -257,10 +526,17 @@ class XceptionModel(BaseModel):
         name="XceptionModel",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
+        for k in ("num_classes", "classifier_activation", "dropout_rate", "timm_id"):
             kwargs.pop(k, None)
 
+        if config not in _XCEPTION_BLOCK_CFGS:
+            raise ValueError(
+                f"Invalid config. Expected one of {sorted(_XCEPTION_BLOCK_CFGS)}, "
+                f"got {config!r}"
+            )
+
         data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
@@ -276,10 +552,21 @@ class XceptionModel(BaseModel):
             if include_normalization
             else img_input
         )
-        x = xception_backbone_feature(x, return_stages=as_backbone)
+        x = xception_aligned_backbone(
+            x,
+            config=config,
+            preact=preact,
+            bn_epsilon=bn_epsilon,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            return_stages=as_backbone,
+        )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
+        self.config = config
+        self.preact = preact
+        self.bn_epsilon = bn_epsilon
         self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -290,6 +577,9 @@ class XceptionModel(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "config": self.config,
+                "preact": self.preact,
+                "bn_epsilon": self.bn_epsilon,
                 "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
@@ -307,23 +597,27 @@ class XceptionModel(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class XceptionImageClassify(BaseModel):
-    """Instantiates the Xception classifier.
+    """Instantiates the Aligned Xception classifier.
 
     This classifier wraps an :class:`XceptionModel` backbone and
-    attaches a GlobalAveragePooling2D + Dense head to produce
-    ``num_classes`` class logits. All architectural parameters are
-    forwarded to the underlying :class:`XceptionModel`; only
-    ``num_classes`` and ``classifier_activation`` are head-specific.
-
-    Note: This is the *original* Keras Xception (Chollet 2017),
-    warm-started from ``keras.applications.Xception``. timm's
-    xception41/65/71 families use a different *Aligned Xception*
-    backbone that is not implemented in this module.
+    attaches a GlobalAveragePooling2D + Dropout + Dense head to produce
+    ``num_classes`` class logits (mirrors timm's ``ClassifierHead``).
+    All architectural parameters are forwarded to the underlying
+    :class:`XceptionModel`; ``num_classes``, ``classifier_activation``,
+    and ``dropout_rate`` are head-specific.
 
     References:
     - [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357)
+    - [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587)
 
     Args:
+        config: String, variant key selecting the block configuration.
+            One of ``"41"``, ``"41p"``, ``"65"``, ``"65p"``, ``"71"``.
+            Defaults to `"41"`.
+        preact: Boolean, whether to use the preact (``*p``) module
+            structure. Must match ``config``. Defaults to `False`.
+        bn_epsilon: Float, epsilon for every BatchNormalization layer.
+            Defaults to `1e-3`.
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -347,6 +641,8 @@ class XceptionImageClassify(BaseModel):
             for the final Dense layer. Use `"linear"` to return raw
             logits or `"softmax"` to return class probabilities.
             Defaults to `"linear"`.
+        dropout_rate: Float, dropout rate applied between the pool and
+            the final Dense classifier (skipped when ``<= 0``). Defaults to `0.0`.
         name: String, the name of the model. The internal backbone is
             named `f"{name}_backbone"`. Defaults to `"XceptionImageClassify"`.
 
@@ -363,18 +659,22 @@ class XceptionImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_xception_org_keras_to_keras import transfer_xception_weights
+        from .convert_xception_torch_to_keras import transfer_xception_weights
 
-        transfer_xception_weights(keras_model, state_dict)
+        transfer_xception_weights(keras_model, state_dict, keras_model.preact)
 
     def __init__(
         self,
+        config="41",
+        preact=False,
+        bn_epsilon=1e-3,
         input_image_shape=299,
         include_normalization=True,
         normalization_mode="inception",
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
+        dropout_rate=0.0,
         name="XceptionImageClassify",
         **kwargs,
     ):
@@ -383,6 +683,9 @@ class XceptionImageClassify(BaseModel):
         data_format = keras.config.image_data_format()
 
         backbone = XceptionModel(
+            config=config,
+            preact=preact,
+            bn_epsilon=bn_epsilon,
             input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
@@ -393,29 +696,39 @@ class XceptionImageClassify(BaseModel):
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
             backbone.output
         )
+        if dropout_rate > 0:
+            x = layers.Dropout(dropout_rate, name="head_dropout")(x)
         out = layers.Dense(
             num_classes, activation=classifier_activation, name="predictions"
         )(x)
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
+        self.config = config
+        self.preact = preact
+        self.bn_epsilon = bn_epsilon
         self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
+        self.dropout_rate = dropout_rate
 
     def get_config(self) -> dict:
         config = super().get_config()
         config.update(
             {
+                "config": self.config,
+                "preact": self.preact,
+                "bn_epsilon": self.bn_epsilon,
                 "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
+                "dropout_rate": self.dropout_rate,
                 "name": self.name,
             }
         )
