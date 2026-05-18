@@ -481,6 +481,18 @@ class MobileNetV3Model(BaseModel):
             del src
         return model
 
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilenetv3_torch_to_keras import (
+            stage_counts,
+            transfer_mobilenetv3_weights,
+        )
+
+        scounts = stage_counts(keras_model.config, keras_model.block_count_multiplier)
+        transfer_mobilenetv3_weights(
+            keras_model, state_dict, scounts, keras_model.head_count_multiplier
+        )
+
     def __init__(
         self,
         width_multiplier=1.0,
@@ -658,6 +670,18 @@ class MobileNetV3ImageClassify(BaseModel):
     }
     BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHT_CONFIG
     HF_MODEL_TYPE = None
+
+    @classmethod
+    def transfer_from_timm(cls, keras_model, state_dict):
+        from .convert_mobilenetv3_torch_to_keras import (
+            stage_counts,
+            transfer_mobilenetv3_weights,
+        )
+
+        scounts = stage_counts(keras_model.config, keras_model.block_count_multiplier)
+        transfer_mobilenetv3_weights(
+            keras_model, state_dict, scounts, keras_model.head_count_multiplier
+        )
 
     def __init__(
         self,
