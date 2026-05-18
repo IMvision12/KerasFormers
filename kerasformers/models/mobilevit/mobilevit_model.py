@@ -943,8 +943,6 @@ class MobileViTSegment(BaseModel):
         atrous_rates: list = [6, 12, 18],
         aspp_out_channels=256,
         aspp_dropout_prob=0.1,
-        include_normalization=True,
-        normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
         num_classes=21,
@@ -963,8 +961,7 @@ class MobileViTSegment(BaseModel):
             attention_dims=attention_dims,
             image_size=image_size,
             output_stride=output_stride,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
+            include_normalization=False,
             input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
@@ -994,8 +991,6 @@ class MobileViTSegment(BaseModel):
         self.atrous_rates = atrous_rates
         self.aspp_out_channels = aspp_out_channels
         self.aspp_dropout_prob = aspp_dropout_prob
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.num_classes = num_classes
 
@@ -1013,8 +1008,6 @@ class MobileViTSegment(BaseModel):
                 "atrous_rates": self.atrous_rates,
                 "aspp_out_channels": self.aspp_out_channels,
                 "aspp_dropout_prob": self.aspp_dropout_prob,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,

@@ -3,7 +3,6 @@ from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
-from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
     DETRFlattenFeatures,
@@ -218,8 +217,6 @@ def detr_decoder_layer(
 def detr_backbone(
     input_tensor,
     backbone_variant,
-    include_normalization,
-    normalization_mode,
     data_format="channels_last",
     channels_axis=-1,
 ):
@@ -239,14 +236,10 @@ def detr_backbone(
     Args:
         input_tensor: Input image tensor — ``(B, H, W, 3)`` for
             ``channels_last`` or ``(B, 3, H, W)`` for ``channels_first``.
+            Expected to be pre-normalized by
+            :class:`DETRImageProcessor` (ImageNet mean/std).
         backbone_variant: ``"ResNet50"`` (block repeats 3-4-6-3) or
             ``"ResNet101"`` (3-4-23-3).
-        include_normalization: If ``True``, prepend an
-            :class:`ImageNormalizationLayer` so the model can ingest
-            raw ``[0, 1]`` images.
-        normalization_mode: Normalization preset (e.g. ``"imagenet"``),
-            forwarded to :class:`ImageNormalizationLayer` when
-            ``include_normalization`` is ``True``.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel axis matching ``data_format``
             (``-1`` for ``channels_last``, ``1`` for ``channels_first``).
@@ -262,11 +255,7 @@ def detr_backbone(
         "ResNet101": [3, 4, 23, 3],
     }[backbone_variant]
 
-    x = (
-        ImageNormalizationLayer(mode=normalization_mode)(input_tensor)
-        if include_normalization
-        else input_tensor
-    )
+    x = input_tensor
 
     x = layers.ZeroPadding2D(padding=3, data_format=data_format)(x)
     x = layers.Conv2D(
@@ -532,8 +521,6 @@ def detr_functional(
     dim_feedforward,
     dropout_rate,
     num_queries,
-    include_normalization,
-    normalization_mode,
 ):
     """Build the full DETR architecture from an input tensor (no class heads).
 
@@ -554,7 +541,8 @@ def detr_functional(
 
     Args:
         inputs: Keras input tensor of shape ``(B, H, W, 3)`` (or
-            ``(B, 3, H, W)`` for ``channels_first``).
+            ``(B, 3, H, W)`` for ``channels_first``). Expected to be
+            pre-normalized by :class:`DETRImageProcessor`.
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
         hidden_dim: Transformer model dimension.
         num_heads: Number of attention heads in encoder and decoder.
@@ -563,10 +551,6 @@ def detr_functional(
         dim_feedforward: FFN dimension inside each transformer layer.
         dropout_rate: Dropout probability inside attention/FFN.
         num_queries: Number of learned object queries.
-        include_normalization: Whether to prepend an
-            :class:`ImageNormalizationLayer` (apply only when ``inputs``
-            is in raw ``[0, 255]`` pixel space).
-        normalization_mode: Normalization preset (e.g. ``"imagenet"``).
 
     Returns:
         Decoder ``last_hidden_state`` of shape
@@ -578,8 +562,6 @@ def detr_functional(
     backbone_features = detr_backbone(
         inputs,
         backbone_variant=backbone_variant,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
         data_format=data_format,
         channels_axis=channels_axis,
     )
@@ -642,17 +624,9 @@ class DetrModel(BaseModel):
         num_queries: Number of learned object queries — also the
             number of detections produced per image.
             Defaults to ``100``.
-        include_normalization: If ``True``, prepend an
-            :class:`ImageNormalizationLayer` to the backbone so the
-            model accepts raw ``[0, 255]`` pixel values. Set to
-            ``False`` when inputs are already pre-normalized.
-            Defaults to ``True``.
-        normalization_mode: Normalization preset passed to the
-            built-in normalization layer (e.g. ``"imagenet"``).
-            Ignored when ``include_normalization=False``.
-            Defaults to ``"imagenet"``.
         input_shape: Image input shape excluding the batch axis. When
-            ``None``, defaults to ``(800, 800, 3)``.
+            ``None``, defaults to ``(800, 800, 3)``. Input is expected
+            to be pre-normalized via :class:`DETRImageProcessor`.
         input_tensor: Optional pre-existing Keras tensor to use as the
             model input instead of creating a new :class:`Input`.
             Defaults to ``None``.
@@ -675,8 +649,6 @@ class DetrModel(BaseModel):
         dim_feedforward=2048,
         dropout_rate=0.1,
         num_queries=100,
-        include_normalization=True,
-        normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
         name="DetrModel",
@@ -703,8 +675,6 @@ class DetrModel(BaseModel):
             dim_feedforward=dim_feedforward,
             dropout_rate=dropout_rate,
             num_queries=num_queries,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
         )
 
         super().__init__(
@@ -719,8 +689,6 @@ class DetrModel(BaseModel):
         self.dim_feedforward = dim_feedforward
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -735,8 +703,6 @@ class DetrModel(BaseModel):
                 "dim_feedforward": self.dim_feedforward,
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -761,7 +727,6 @@ class DetrModel(BaseModel):
             "dim_feedforward": hf_config["encoder_ffn_dim"],
             "dropout_rate": hf_config["dropout"],
             "num_queries": hf_config["num_queries"],
-            "include_normalization": False,
         }
 
 
@@ -791,8 +756,6 @@ class DETRDetect(BaseModel):
         dropout_rate=0.1,
         num_queries=100,
         num_classes=92,
-        include_normalization=True,
-        normalization_mode="imagenet",
         input_shape=None,
         input_tensor=None,
         name="DETRDetect",
@@ -807,8 +770,6 @@ class DETRDetect(BaseModel):
             dim_feedforward=dim_feedforward,
             dropout_rate=dropout_rate,
             num_queries=num_queries,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
             input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
@@ -842,8 +803,6 @@ class DETRDetect(BaseModel):
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
         self.num_classes = num_classes
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -859,8 +818,6 @@ class DETRDetect(BaseModel):
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -886,7 +843,6 @@ class DETRDetect(BaseModel):
             "dropout_rate": hf_config["dropout"],
             "num_queries": hf_config["num_queries"],
             "num_classes": hf_num_labels(hf_config) + 1,
-            "include_normalization": False,
         }
 
     @classmethod

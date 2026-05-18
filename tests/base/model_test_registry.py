@@ -671,7 +671,6 @@ MODEL_TEST_CONFIGS = {
             "input_shape": (32, 32, 3),
             "num_classes": 92,
             "num_queries": 10,
-            "include_normalization": False,
         },
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": {

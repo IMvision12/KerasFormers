@@ -240,7 +240,6 @@ if __name__ == "__main__":
             input_shape=cfg["input_shape"],
             num_classes=cfg["num_classes"],
             num_queries=cfg["num_queries"],
-            include_normalization=False,
         )
 
         torch_model: torch.nn.Module = DetrForObjectDetection.from_pretrained(
