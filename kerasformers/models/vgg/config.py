@@ -16,7 +16,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vgg11_bn": {
@@ -36,7 +36,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vgg13": {
@@ -58,7 +58,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vgg13_bn": {
@@ -80,7 +80,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vgg16": {
@@ -105,7 +105,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vgg16_bn": {
@@ -130,7 +130,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vgg19": {
@@ -158,7 +158,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": False,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "vgg19_bn": {
@@ -186,7 +186,7 @@ VGG_MODEL_CONFIG = {
             "M",
         ],
         "batch_norm": True,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
 }

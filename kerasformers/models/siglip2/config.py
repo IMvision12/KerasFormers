@@ -1,6 +1,6 @@
 SIGLIP2_CONFIG = {
     "siglip2_base_p16_224": {
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "patch_size": 16,
         "vision_hidden_dim": 768,
         "vision_num_layers": 12,
@@ -15,7 +15,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_base_p16_256": {
-        "image_resolution": 256,
+        "input_image_shape": 256,
         "patch_size": 16,
         "vision_hidden_dim": 768,
         "vision_num_layers": 12,
@@ -30,7 +30,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_base_p16_384": {
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "patch_size": 16,
         "vision_hidden_dim": 768,
         "vision_num_layers": 12,
@@ -45,7 +45,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_base_p16_512": {
-        "image_resolution": 512,
+        "input_image_shape": 512,
         "patch_size": 16,
         "vision_hidden_dim": 768,
         "vision_num_layers": 12,
@@ -60,7 +60,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_base_p32_256": {
-        "image_resolution": 256,
+        "input_image_shape": 256,
         "patch_size": 32,
         "vision_hidden_dim": 768,
         "vision_num_layers": 12,
@@ -75,7 +75,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_large_p16_256": {
-        "image_resolution": 256,
+        "input_image_shape": 256,
         "patch_size": 16,
         "vision_hidden_dim": 1024,
         "vision_num_layers": 24,
@@ -90,7 +90,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_large_p16_384": {
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "patch_size": 16,
         "vision_hidden_dim": 1024,
         "vision_num_layers": 24,
@@ -105,7 +105,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_large_p16_512": {
-        "image_resolution": 512,
+        "input_image_shape": 512,
         "patch_size": 16,
         "vision_hidden_dim": 1024,
         "vision_num_layers": 24,
@@ -120,7 +120,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_so400m_p14_224": {
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "patch_size": 14,
         "vision_hidden_dim": 1152,
         "vision_num_layers": 27,
@@ -135,7 +135,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_so400m_p14_384": {
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "patch_size": 14,
         "vision_hidden_dim": 1152,
         "vision_num_layers": 27,
@@ -150,7 +150,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_so400m_p16_256": {
-        "image_resolution": 256,
+        "input_image_shape": 256,
         "patch_size": 16,
         "vision_hidden_dim": 1152,
         "vision_num_layers": 27,
@@ -165,7 +165,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_so400m_p16_384": {
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "patch_size": 16,
         "vision_hidden_dim": 1152,
         "vision_num_layers": 27,
@@ -180,7 +180,7 @@ SIGLIP2_CONFIG = {
         "max_sequence_length": 64,
     },
     "siglip2_so400m_p16_512": {
-        "image_resolution": 512,
+        "input_image_shape": 512,
         "patch_size": 16,
         "vision_hidden_dim": 1152,
         "vision_num_layers": 27,

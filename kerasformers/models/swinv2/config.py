@@ -6,7 +6,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 8,
         "pretrain_size": 256,
         "pretrained_window_size": 0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_tiny_window16_256": {
@@ -16,7 +16,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 16,
         "pretrain_size": 256,
         "pretrained_window_size": 0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_small_window8_256": {
@@ -26,7 +26,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 8,
         "pretrain_size": 256,
         "pretrained_window_size": 0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_small_window16_256": {
@@ -36,7 +36,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 16,
         "pretrain_size": 256,
         "pretrained_window_size": 0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_base_window8_256": {
@@ -46,7 +46,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 8,
         "pretrain_size": 256,
         "pretrained_window_size": 0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_base_window12_192": {
@@ -56,7 +56,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 12,
         "pretrain_size": 192,
         "pretrained_window_size": 0,
-        "image_size": 192,
+        "input_image_shape": 192,
         "num_classes": 21841,
     },
     "swinv2_base_window12to16_192to256": {
@@ -66,7 +66,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 16,
         "pretrain_size": 192,
         "pretrained_window_size": 12,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_base_window12to24_192to384": {
@@ -76,7 +76,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 24,
         "pretrain_size": 192,
         "pretrained_window_size": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "swinv2_base_window16_256": {
@@ -86,7 +86,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 16,
         "pretrain_size": 256,
         "pretrained_window_size": 0,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_large_window12_192": {
@@ -96,7 +96,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 12,
         "pretrain_size": 192,
         "pretrained_window_size": 0,
-        "image_size": 192,
+        "input_image_shape": 192,
         "num_classes": 21841,
     },
     "swinv2_large_window12to16_192to256": {
@@ -106,7 +106,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 16,
         "pretrain_size": 192,
         "pretrained_window_size": 12,
-        "image_size": 256,
+        "input_image_shape": 256,
         "num_classes": 1000,
     },
     "swinv2_large_window12to24_192to384": {
@@ -116,7 +116,7 @@ SWINV2_MODEL_CONFIG = {
         "window_size": 24,
         "pretrain_size": 192,
         "pretrained_window_size": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
 }

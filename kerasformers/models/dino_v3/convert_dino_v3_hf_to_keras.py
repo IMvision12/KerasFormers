@@ -201,7 +201,7 @@ if __name__ == "__main__":
         keras_model = DinoV3ViTBackbone.from_weights(
             variant,
             load_weights=False,
-            input_shape=(224, 224, 3),
+            input_image_shape=224,
             include_normalization=False,
         )
         transfer_dinov3_vit_weights(keras_model, hf_sd)
@@ -244,7 +244,7 @@ if __name__ == "__main__":
         keras_model = DinoV3ConvNeXtBackbone.from_weights(
             variant,
             load_weights=False,
-            input_shape=(224, 224, 3),
+            input_image_shape=224,
             include_normalization=False,
         )
         transfer_dinov3_convnext_weights(keras_model, hf_sd)

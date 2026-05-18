@@ -236,7 +236,7 @@ from kerasformers.models.depth_anything_v2 import DepthAnythingV2DepthEstimation
 
 model = DepthAnythingV2DepthEstimation.from_weights(
     "hf:depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
-    input_shape=(518, 518, 3),
+    input_image_shape=(518, 518, 3),
 )
 ```
 
@@ -246,7 +246,7 @@ Both versions accept any input shape whose height and width are
 multiples of 14. The DINOv2 position embeddings are resampled to the new
 patch grid when the pretrained weights are loaded (via
 `AddPositionEmbs.load_own_variables`), and the fusion-block upsample
-targets are derived from the model's construction-time `input_shape`, so
+targets are derived from the model's construction-time `input_image_shape`, so
 each instance is locked to the shape you pick at build time.
 
 ```python
@@ -258,7 +258,7 @@ from kerasformers.models.depth_anything_v2 import (
 # Non-square 392x784 (28x56 patch grid) with pretrained weights
 model = DepthAnythingV2DepthEstimation.from_weights(
     "depth_anything_v2_small",
-    input_shape=(392, 784, 3),
+    input_image_shape=(392, 784, 3),
 )
 processor = DepthAnythingV2ImageProcessor(target_size=(392, 784))
 inputs = processor("photo.jpg")

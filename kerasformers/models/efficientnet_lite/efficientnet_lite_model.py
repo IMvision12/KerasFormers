@@ -7,6 +7,7 @@ from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTNET_LITE_MODEL_CONFIG, EFFICIENTNET_LITE_WEIGHT_CONFIG
@@ -336,8 +337,12 @@ class EfficientNetLiteModel(BaseModel):
             Defaults to `0.2`.
         drop_connect_rate: Float, stochastic-depth drop rate ramped
             linearly across the MBConv-Lite blocks. Defaults to `0.2`.
-        image_size: Integer, square input resolution used to derive the
-            input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -349,9 +354,6 @@ class EfficientNetLiteModel(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         as_backbone: Boolean, whether to output intermediate features for
             use as a backbone network. When True, returns a list of
             feature maps grouped by stride boundary (pre-head-conv).
@@ -396,11 +398,10 @@ class EfficientNetLiteModel(BaseModel):
         default_size=224,
         dropout_rate=0.2,
         drop_connect_rate=0.2,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         as_backbone=False,
         name="EfficientNetLiteModel",
         **kwargs,
@@ -411,19 +412,12 @@ class EfficientNetLiteModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -449,7 +443,7 @@ class EfficientNetLiteModel(BaseModel):
         self.default_size = default_size
         self.dropout_rate = dropout_rate
         self.drop_connect_rate = drop_connect_rate
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -464,10 +458,9 @@ class EfficientNetLiteModel(BaseModel):
                 "default_size": self.default_size,
                 "dropout_rate": self.dropout_rate,
                 "drop_connect_rate": self.drop_connect_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -506,8 +499,12 @@ class EfficientNetLiteImageClassify(BaseModel):
             classifier. Defaults to `0.2`.
         drop_connect_rate: Float, stochastic-depth drop rate ramped
             linearly across the MBConv-Lite blocks. Defaults to `0.2`.
-        image_size: Integer, square input resolution used to derive the
-            input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -519,9 +516,6 @@ class EfficientNetLiteImageClassify(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         num_classes: Integer, the number of output classes for
             classification. Defaults to `1000`.
         classifier_activation: String or callable, activation function
@@ -558,11 +552,10 @@ class EfficientNetLiteImageClassify(BaseModel):
         default_size=224,
         dropout_rate=0.2,
         drop_connect_rate=0.2,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
         name="EfficientNetLiteImageClassify",
@@ -578,11 +571,10 @@ class EfficientNetLiteImageClassify(BaseModel):
             default_size=default_size,
             dropout_rate=dropout_rate,
             drop_connect_rate=drop_connect_rate,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
-            input_shape=input_shape,
             name=f"{name}_backbone",
         )
 
@@ -605,7 +597,7 @@ class EfficientNetLiteImageClassify(BaseModel):
         self.default_size = default_size
         self.dropout_rate = dropout_rate
         self.drop_connect_rate = drop_connect_rate
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -621,10 +613,9 @@ class EfficientNetLiteImageClassify(BaseModel):
                 "default_size": self.default_size,
                 "dropout_rate": self.dropout_rate,
                 "drop_connect_rate": self.drop_connect_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

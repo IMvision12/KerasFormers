@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
+from kerasformers.utils import standardize_input_shape
 
 from .config import OWLVIT_CONFIG, OWLVIT_WEIGHTS
 from .owlvit_layers import (
@@ -529,20 +530,17 @@ class OwlViT(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_shape=None,
+        input_image_shape=768,
         text_input_shape=None,
         name="OwlViT",
         **kwargs,
     ):
-        if input_shape is None:
-            if keras.config.image_data_format() == "channels_first":
-                input_shape = (3, vision_image_size, vision_image_size)
-            else:
-                input_shape = (vision_image_size, vision_image_size, 3)
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
         if text_input_shape is None:
             text_input_shape = (text_max_position_embeddings,)
 
-        pixel_values = layers.Input(shape=input_shape, name="pixel_values")
+        pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
         input_ids = layers.Input(
             shape=text_input_shape, dtype="int32", name="input_ids"
         )
@@ -585,7 +583,7 @@ class OwlViT(BaseModel):
         self.text_max_position_embeddings = text_max_position_embeddings
         self.text_vocab_size = text_vocab_size
         self.projection_dim = projection_dim
-        self._input_shape_arg = input_shape
+        self.input_image_shape = input_image_shape
         self._text_input_shape_arg = text_input_shape
 
     def get_config(self):
@@ -605,7 +603,7 @@ class OwlViT(BaseModel):
                 "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
-                "input_shape": self._input_shape_arg,
+                "input_image_shape": self.input_image_shape,
                 "text_input_shape": self._text_input_shape_arg,
                 "name": self.name,
             }
@@ -675,7 +673,7 @@ class OwlViTDetect(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_shape=None,
+        input_image_shape=768,
         text_input_shape=None,
         name="OwlViTDetect",
         **kwargs,
@@ -697,7 +695,7 @@ class OwlViTDetect(BaseModel):
             text_max_position_embeddings=text_max_position_embeddings,
             text_vocab_size=text_vocab_size,
             projection_dim=projection_dim,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             text_input_shape=text_input_shape,
             name=f"{name}_model",
         )
@@ -731,7 +729,7 @@ class OwlViTDetect(BaseModel):
         self.projection_dim = projection_dim
         self.num_patches_h = num_patches_h
         self.num_patches_w = num_patches_w
-        self._input_shape_arg = input_shape
+        self.input_image_shape = base.input_image_shape
         self._text_input_shape_arg = text_input_shape
 
     def get_config(self):
@@ -751,7 +749,7 @@ class OwlViTDetect(BaseModel):
                 "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
-                "input_shape": self._input_shape_arg,
+                "input_image_shape": self.input_image_shape,
                 "text_input_shape": self._text_input_shape_arg,
                 "name": self.name,
             }

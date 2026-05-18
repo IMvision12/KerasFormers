@@ -4,6 +4,7 @@ from keras import layers, ops, utils
 from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
 from kerasformers.layers import StochasticDepth
+from kerasformers.utils import standardize_input_shape
 
 from .config import EOMT_CONFIG, EOMT_WEIGHTS
 from .eomt_layers import (
@@ -381,7 +382,12 @@ class EoMTModel(BaseModel):
         attention_dropout: Dropout rate for the attention weights.
         use_swiglu_ffn: Whether to use SwiGLU instead of the GELU MLP.
         layer_norm_eps: Epsilon for layer normalization.
-        input_shape: Image input shape excluding batch dim.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `640`.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
     """
@@ -405,19 +411,19 @@ class EoMTModel(BaseModel):
         attention_dropout=0.0,
         use_swiglu_ffn=False,
         layer_norm_eps=1e-6,
-        input_shape=None,
+        input_image_shape=640,
         input_tensor=None,
         name="EoMTModel",
         **kwargs,
     ):
-        if input_shape is None:
-            input_shape = (640, 640, 3)
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
             else:
                 img_input = input_tensor
 
@@ -453,7 +459,7 @@ class EoMTModel(BaseModel):
         self.attention_dropout = attention_dropout
         self.use_swiglu_ffn = use_swiglu_ffn
         self.layer_norm_eps = layer_norm_eps
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -473,7 +479,7 @@ class EoMTModel(BaseModel):
                 "attention_dropout": self.attention_dropout,
                 "use_swiglu_ffn": self.use_swiglu_ffn,
                 "layer_norm_eps": self.layer_norm_eps,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )
@@ -528,7 +534,7 @@ class EoMTUniversalSegment(BaseModel):
             "use_swiglu_ffn": hf_config.get("use_swiglu_ffn", False),
             "num_upscale_blocks": hf_config.get("num_upscale_blocks", 2),
             "num_labels": hf_num_labels(hf_config),
-            "input_shape": (image_size, image_size, 3),
+            "input_image_shape": image_size,
         }
 
     @classmethod
@@ -556,14 +562,11 @@ class EoMTUniversalSegment(BaseModel):
         attention_dropout=0.0,
         use_swiglu_ffn=False,
         layer_norm_eps=1e-6,
-        input_shape=None,
+        input_image_shape=640,
         input_tensor=None,
         name="EoMTUniversalSegment",
         **kwargs,
     ):
-        if input_shape is None:
-            input_shape = (640, 640, 3)
-
         base = EoMTModel(
             hidden_size=hidden_size,
             num_hidden_layers=num_hidden_layers,
@@ -578,15 +581,18 @@ class EoMTUniversalSegment(BaseModel):
             attention_dropout=attention_dropout,
             use_swiglu_ffn=use_swiglu_ffn,
             layer_norm_eps=layer_norm_eps,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
         sequence_output = base.output
 
         data_format = keras.config.image_data_format()
+        input_image_shape = base.input_image_shape
         image_size = (
-            input_shape[1] if data_format == "channels_first" else input_shape[0]
+            input_image_shape[1]
+            if data_format == "channels_first"
+            else input_image_shape[0]
         )
         grid_h = grid_w = image_size // patch_size
         num_prefix_tokens = 1 + num_register_tokens
@@ -640,7 +646,7 @@ class EoMTUniversalSegment(BaseModel):
         self.attention_dropout = attention_dropout
         self.use_swiglu_ffn = use_swiglu_ffn
         self.layer_norm_eps = layer_norm_eps
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -662,7 +668,7 @@ class EoMTUniversalSegment(BaseModel):
                 "attention_dropout": self.attention_dropout,
                 "use_swiglu_ffn": self.use_swiglu_ffn,
                 "layer_norm_eps": self.layer_norm_eps,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )

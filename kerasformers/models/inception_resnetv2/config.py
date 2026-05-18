@@ -1,6 +1,6 @@
 INCEPTION_RESNETV2_MODEL_CONFIG = {
     "inception_resnet_v2": {
-        "image_size": 299,
+        "input_image_shape": 299,
         "num_classes": 1000,
     },
 }

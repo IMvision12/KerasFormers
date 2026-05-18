@@ -43,8 +43,8 @@ class FlexiViTModel(ViTModel):
             (``patch_size``, ``dim``, ``depth``, ``num_heads``,
             ``mlp_ratio``, ``qkv_bias``, ``qk_norm``, ``drop_rate``,
             ``attn_drop_rate``, ``no_embed_class``, ``use_distillation``,
-            ``init_values``, ``image_size``, ``include_normalization``,
-            ``normalization_mode``, ``input_shape``, ``input_tensor``)
+            ``init_values``, ``include_normalization``,
+            ``normalization_mode``, ``input_tensor``)
             are forwarded to the parent class.
 
     Returns:
@@ -76,8 +76,19 @@ class FlexiViTModel(ViTModel):
 
         transfer_vit_weights(keras_model, state_dict)
 
-    def __init__(self, as_backbone=False, name="FlexiViTModel", **kwargs):
-        super().__init__(as_backbone=as_backbone, name=name, **kwargs)
+    def __init__(
+        self,
+        as_backbone=False,
+        input_image_shape=240,
+        name="FlexiViTModel",
+        **kwargs,
+    ):
+        super().__init__(
+            as_backbone=as_backbone,
+            input_image_shape=input_image_shape,
+            name=name,
+            **kwargs,
+        )
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -127,9 +138,12 @@ class FlexiViTImageClassify(ViTImageClassify):
         init_values: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape and to size the positional embedding.
-            Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `240`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -138,9 +152,6 @@ class FlexiViTImageClassify(ViTImageClassify):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -185,10 +196,9 @@ class FlexiViTImageClassify(ViTImageClassify):
         no_embed_class=False,
         use_distillation=False,
         init_values=None,
-        image_size=224,
+        input_image_shape=240,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -210,10 +220,9 @@ class FlexiViTImageClassify(ViTImageClassify):
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
             init_values=init_values,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -256,9 +265,37 @@ class FlexiViTImageClassify(ViTImageClassify):
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
         self.init_values = init_values
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
+
+    def get_config(self):
+        config = super(ViTImageClassify, self).get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "dim": self.dim,
+                "depth": self.depth,
+                "num_heads": self.num_heads,
+                "mlp_ratio": self.mlp_ratio,
+                "qkv_bias": self.qkv_bias,
+                "qk_norm": self.qk_norm,
+                "drop_rate": self.drop_rate,
+                "attn_drop_rate": self.attn_drop_rate,
+                "no_embed_class": self.no_embed_class,
+                "use_distillation": self.use_distillation,
+                "init_values": self.init_values,
+                "input_image_shape": self.input_image_shape,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_tensor": self.input_tensor,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config

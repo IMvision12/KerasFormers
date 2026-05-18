@@ -8,6 +8,7 @@ from kerasformers.models.vit.vit_layers import (
     ViTClassDistToken,
     ViTMultiHeadSelfAttention,
 )
+from kerasformers.utils import standardize_input_shape
 
 from .config import DEPTHANYTHINGV1_CONFIG, DEPTHANYTHINGV1_WEIGHTS
 
@@ -646,7 +647,7 @@ class DepthAnythingV1Model(BaseModel):
         neck_hidden_sizes=None,
         fusion_hidden_size=64,
         reassemble_factors=None,
-        input_shape=None,
+        input_image_shape=IMAGE_SIZE,
         input_tensor=None,
         name="DepthAnythingV1Model",
         **kwargs,
@@ -659,26 +660,22 @@ class DepthAnythingV1Model(BaseModel):
             reassemble_factors = [4, 2, 1, 0.5]
 
         data_format = keras.config.image_data_format()
-        if input_shape is None:
-            if data_format == "channels_first":
-                input_shape = (3, IMAGE_SIZE, IMAGE_SIZE)
-            else:
-                input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3)
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is not None:
             if not keras.utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
-                    tensor=input_tensor, shape=input_shape, name="pixel_values"
+                    tensor=input_tensor, shape=input_image_shape, name="pixel_values"
                 )
             else:
                 pixel_values = input_tensor
         else:
-            pixel_values = layers.Input(shape=input_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
 
         if data_format == "channels_first":
-            height, width = input_shape[1], input_shape[2]
+            height, width = input_image_shape[1], input_image_shape[2]
         else:
-            height, width = input_shape[0], input_shape[1]
+            height, width = input_image_shape[0], input_image_shape[1]
 
         fused = depth_anything_v1_functional(
             pixel_values,
@@ -702,7 +699,7 @@ class DepthAnythingV1Model(BaseModel):
         self.neck_hidden_sizes = list(neck_hidden_sizes)
         self.fusion_hidden_size = fusion_hidden_size
         self.reassemble_factors = list(reassemble_factors)
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -716,7 +713,7 @@ class DepthAnythingV1Model(BaseModel):
                 "neck_hidden_sizes": self.neck_hidden_sizes,
                 "fusion_hidden_size": self.fusion_hidden_size,
                 "reassemble_factors": self.reassemble_factors,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )
@@ -762,7 +759,12 @@ class DepthAnythingV1DepthEstimation(BaseModel):
             switch — the metric variants use ``"metric"``).
         max_depth: Metric-depth scale factor; only used when
             ``depth_estimation_type == "metric"``.
-        input_shape: Image input shape excluding batch dim.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `518`.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
     """
@@ -806,17 +808,13 @@ class DepthAnythingV1DepthEstimation(BaseModel):
         reassemble_factors=None,
         depth_estimation_type="relative",
         max_depth=1.0,
-        input_shape=None,
+        input_image_shape=IMAGE_SIZE,
         input_tensor=None,
         name="DepthAnythingV1DepthEstimation",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        if input_shape is None:
-            if data_format == "channels_first":
-                input_shape = (3, IMAGE_SIZE, IMAGE_SIZE)
-            else:
-                input_shape = (IMAGE_SIZE, IMAGE_SIZE, 3)
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         base = DepthAnythingV1Model(
             backbone_dim=backbone_dim,
@@ -826,16 +824,16 @@ class DepthAnythingV1DepthEstimation(BaseModel):
             neck_hidden_sizes=neck_hidden_sizes,
             fusion_hidden_size=fusion_hidden_size,
             reassemble_factors=reassemble_factors,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
         fused = base.output
 
         if data_format == "channels_first":
-            height, width = input_shape[1], input_shape[2]
+            height, width = input_image_shape[1], input_image_shape[2]
         else:
-            height, width = input_shape[0], input_shape[1]
+            height, width = input_image_shape[0], input_image_shape[1]
 
         predicted_depth = depth_anything_v1_head(
             fused,
@@ -862,7 +860,7 @@ class DepthAnythingV1DepthEstimation(BaseModel):
         self.reassemble_factors = list(base.reassemble_factors)
         self.depth_estimation_type = depth_estimation_type
         self.max_depth = max_depth
-        self._input_shape_val = input_shape
+        self.input_image_shape = base.input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -878,7 +876,7 @@ class DepthAnythingV1DepthEstimation(BaseModel):
                 "reassemble_factors": self.reassemble_factors,
                 "depth_estimation_type": self.depth_estimation_type,
                 "max_depth": self.max_depth,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )

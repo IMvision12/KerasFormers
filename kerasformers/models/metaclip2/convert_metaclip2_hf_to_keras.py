@@ -182,14 +182,16 @@ if __name__ == "__main__":
     keras_model = MetaClip2ZeroShotClassify.from_weights(variant, load_weights=False)
     transfer_metaclip2_weights(keras_model, state)
 
-    out_path = f"{variant}.weights.h5"
-    total_gb = keras_model.count_params() * 4 / (1024**3)
-    if total_gb > 2.0:
+    total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
+    total_gb = (total_params * 4) / (1024**3)
+    if total_gb > 1.7:
         out_path = f"{variant}.weights.json"
-        keras_model.save_weights(out_path, max_shard_size=1.5)
+        keras_model.save_weights(out_path, max_shard_size=1.7)
+        print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
     else:
+        out_path = f"{variant}.weights.h5"
         keras_model.save_weights(out_path)
-    print(f"Saved {out_path} ({total_gb:.2f} GB)")
+        print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
 
     del keras_model, hf_model, state
     keras.backend.clear_session()

@@ -10,7 +10,7 @@ SAM3 is an open-vocabulary, promptable detection and segmentation model. It comb
 
 | Model | Parameters | Backbone | Description | Weights |
 |-------|-----------|----------|-------------|---------|
-| `SAM3` | ~839M | ViT-L/14 | Open-vocabulary detector + segmenter | `sam3` |
+| `SAM3Model` | ~839M | ViT-L/14 | Open-vocabulary detector + segmenter | `sam3_saco` |
 
 The model uses 1008x1008 input resolution and includes a CLIP text encoder (24 layers, 1024d) and geometry encoder for box prompts.
 
@@ -30,7 +30,7 @@ from kerasformers.models.sam3 import SAM3Model
 
 # First call: downloads from HF, converts, caches (~5 min)
 # Subsequent calls: loads from cache instantly
-model = SAM3Model(input_shape=(1008, 1008, 3), weights="saco")
+model = SAM3Model(input_image_shape=(1008, 1008, 3), weights="saco")
 ```
 
 ## Object Detection
@@ -172,7 +172,7 @@ SAM3 supports both `channels_last` (default) and `channels_first`:
 import keras
 keras.config.set_image_data_format("channels_first")
 
-model = SAM3Model(input_shape=(3, 1008, 1008), weights=None)
+model = SAM3Model(input_image_shape=(3, 1008, 1008), weights=None)
 ```
 
 All Conv2D, UpSampling2D, and GroupNormalization layers use the configured data format. The ViT backbone processes internally in NHWC and permutes at boundaries when channels_first is set.
@@ -215,7 +215,7 @@ from kerasformers.models.sam3.sam3_utils import (
 )
 
 # First call: downloads from HF, converts, caches (~5 min)
-model = SAM3Model(input_shape=(1008, 1008, 3), weights="saco")
+model = SAM3Model(input_image_shape=(1008, 1008, 3), weights="saco")
 
 image = Image.open("assets/coco_horse_dog.jpg").convert("RGB")
 

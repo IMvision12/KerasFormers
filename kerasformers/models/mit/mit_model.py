@@ -1,11 +1,11 @@
 import keras
 import numpy as np
 from keras import layers, ops, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.mit.mit_layers import MiTEfficientMultiheadSelfAttention
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHT_CONFIG
@@ -294,8 +294,12 @@ class MiTModel(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across all
             blocks in the network. Defaults to `0.1`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -307,9 +311,6 @@ class MiTModel(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         name: String, the name of the model. Defaults to `"MiTModel"`.
 
     Returns:
@@ -350,11 +351,10 @@ class MiTModel(BaseModel):
         embed_dims=(32, 64, 160, 256),
         depths=(2, 2, 2, 2),
         drop_path_rate=0.1,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         name="MiTModel",
         **kwargs,
     ):
@@ -364,19 +364,12 @@ class MiTModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -401,7 +394,7 @@ class MiTModel(BaseModel):
         self.embed_dims = list(embed_dims)
         self.depths = list(depths)
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -414,10 +407,9 @@ class MiTModel(BaseModel):
                 "embed_dims": self.embed_dims,
                 "depths": self.depths,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -451,8 +443,12 @@ class MiTImageClassify(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across all
             blocks in the network. Defaults to `0.1`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -464,9 +460,6 @@ class MiTImageClassify(BaseModel):
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         num_classes: Integer, the number of output classes for
             classification. Defaults to `1000`.
         classifier_activation: String or callable, activation function
@@ -505,11 +498,10 @@ class MiTImageClassify(BaseModel):
         embed_dims=(32, 64, 160, 256),
         depths=(2, 2, 2, 2),
         drop_path_rate=0.1,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
-        input_shape=None,
         num_classes=1000,
         classifier_activation="linear",
         name="MiTImageClassify",
@@ -523,11 +515,10 @@ class MiTImageClassify(BaseModel):
             embed_dims=embed_dims,
             depths=depths,
             drop_path_rate=drop_path_rate,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
-            input_shape=input_shape,
             name=f"{name}_backbone",
         )
 
@@ -543,7 +534,7 @@ class MiTImageClassify(BaseModel):
         self.embed_dims = list(embed_dims)
         self.depths = list(depths)
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -557,10 +548,9 @@ class MiTImageClassify(BaseModel):
                 "embed_dims": self.embed_dims,
                 "depths": self.depths,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

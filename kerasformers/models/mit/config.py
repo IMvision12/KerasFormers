@@ -2,37 +2,37 @@ MIT_MODEL_CONFIG = {
     "mit_b0": {
         "embed_dims": [32, 64, 160, 256],
         "depths": [2, 2, 2, 2],
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mit_b1": {
         "embed_dims": [64, 128, 320, 512],
         "depths": [2, 2, 2, 2],
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mit_b2": {
         "embed_dims": [64, 128, 320, 512],
         "depths": [3, 4, 6, 3],
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mit_b3": {
         "embed_dims": [64, 128, 320, 512],
         "depths": [3, 4, 18, 3],
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mit_b4": {
         "embed_dims": [64, 128, 320, 512],
         "depths": [3, 8, 27, 3],
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "mit_b5": {
         "embed_dims": [64, 128, 320, 512],
         "depths": [3, 6, 40, 3],
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
 }

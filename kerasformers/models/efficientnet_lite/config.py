@@ -4,7 +4,7 @@ EFFICIENTNET_LITE_MODEL_CONFIG = {
         "depth_coefficient": 1.0,
         "dropout_rate": 0.2,
         "default_size": 224,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "efficientnet_lite_b1": {
@@ -12,7 +12,7 @@ EFFICIENTNET_LITE_MODEL_CONFIG = {
         "depth_coefficient": 1.1,
         "dropout_rate": 0.2,
         "default_size": 240,
-        "image_size": 240,
+        "input_image_shape": 240,
         "num_classes": 1000,
     },
     "efficientnet_lite_b2": {
@@ -20,7 +20,7 @@ EFFICIENTNET_LITE_MODEL_CONFIG = {
         "depth_coefficient": 1.2,
         "dropout_rate": 0.3,
         "default_size": 260,
-        "image_size": 260,
+        "input_image_shape": 260,
         "num_classes": 1000,
     },
     "efficientnet_lite_b3": {
@@ -28,7 +28,7 @@ EFFICIENTNET_LITE_MODEL_CONFIG = {
         "depth_coefficient": 1.4,
         "dropout_rate": 0.3,
         "default_size": 300,
-        "image_size": 300,
+        "input_image_shape": 300,
         "num_classes": 1000,
     },
     "efficientnet_lite_b4": {
@@ -36,7 +36,7 @@ EFFICIENTNET_LITE_MODEL_CONFIG = {
         "depth_coefficient": 1.8,
         "dropout_rate": 0.3,
         "default_size": 380,
-        "image_size": 380,
+        "input_image_shape": 380,
         "num_classes": 1000,
     },
 }

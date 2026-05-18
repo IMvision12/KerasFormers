@@ -8,6 +8,7 @@ from kerasformers.models.clip.clip_layers import (
     CLIPTextModelEmbedding,
     CLIPVisionModelEmbedding,
 )
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import METACLIP2_CONFIG, METACLIP2_WEIGHTS
@@ -433,52 +434,6 @@ def metaclip2_head(image_embeddings, text_embeddings):
     return image_logits, text_logits
 
 
-def metaclip2_resolve_image_shape(input_shape, image_resolution, data_format):
-    """Resolve the concrete image input shape and side length.
-
-    Picks the image side length and channel count from either an
-    explicit ``input_shape`` override or the model's default
-    ``image_resolution``, then assembles the input-shape list in the
-    layout matching ``data_format``.
-
-    Args:
-        input_shape: Optional explicit image input shape (excluding
-            batch dim). ``None`` triggers the default
-            ``(image_resolution, image_resolution, 3)`` /
-            ``(3, image_resolution, image_resolution)`` shape.
-        image_resolution: Default square image side length when
-            ``input_shape`` is ``None``.
-        data_format: ``"channels_last"`` or ``"channels_first"``.
-
-    Returns:
-        Tuple ``(image_input_shape, image_size)`` where
-        ``image_input_shape`` is the list of dims to pass to
-        ``layers.Input(shape=...)`` and ``image_size`` is the resolved
-        square side length used to size the positional embeddings.
-    """
-    if input_shape is not None:
-        if data_format == "channels_first":
-            if len(input_shape) == 3:
-                channels = input_shape[0]
-                image_size = min(input_shape[1], input_shape[2])
-            else:
-                channels = 3
-                image_size = input_shape[0] if len(input_shape) >= 1 else 224
-        else:
-            if len(input_shape) >= 2:
-                image_size = min(input_shape[0], input_shape[1])
-            else:
-                image_size = input_shape[0] if len(input_shape) >= 1 else 224
-            channels = input_shape[2] if len(input_shape) == 3 else 3
-    else:
-        image_size, channels = image_resolution, 3
-    return (
-        [channels, image_size, image_size]
-        if data_format == "channels_first"
-        else [image_size, image_size, channels]
-    ), image_size
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MetaClip2Model(BaseModel):
     """MetaCLIP 2 (multilingual / worldwide) contrastive vision-language model.
@@ -512,7 +467,7 @@ class MetaClip2Model(BaseModel):
         tc = hf_config["text_config"]
         return {
             "embed_dim": hf_config["projection_dim"],
-            "image_resolution": vc.get("image_size", 224),
+            "input_image_shape": vc.get("image_size", 224),
             "vision_layers": vc["num_hidden_layers"],
             "vision_width": vc["hidden_size"],
             "vision_patch_size": vc["patch_size"],
@@ -539,7 +494,7 @@ class MetaClip2Model(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        image_resolution=224,
+        input_image_shape=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=32,
@@ -553,41 +508,22 @@ class MetaClip2Model(BaseModel):
         text_mlp_ratio=4.0,
         hidden_act="gelu",
         eos_token_id=METACLIP2_EOS_TOKEN_ID,
-        input_shape=None,
         input_tensor=None,
         name="MetaClip2Model",
         **kwargs,
     ):
         if vision_heads is None:
             vision_heads = vision_width // 64
-        data_format = keras.backend.image_data_format()
-
-        if input_shape is not None:
-            if data_format == "channels_first":
-                if len(input_shape) == 3:
-                    channels = input_shape[0]
-                    image_size = min(input_shape[1], input_shape[2])
-                else:
-                    channels = 3
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
-            else:
-                if len(input_shape) >= 2:
-                    image_size = min(input_shape[0], input_shape[1])
-                else:
-                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
-                channels = input_shape[2] if len(input_shape) == 3 else 3
-        else:
-            image_size = image_resolution
-            channels = 3
-
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
         if data_format == "channels_first":
-            image_input_shape = [channels, image_size, image_size]
+            image_size = input_image_shape[1]
         else:
-            image_input_shape = [image_size, image_size, channels]
+            image_size = input_image_shape[0]
 
         if isinstance(input_tensor, dict):
             images_input = input_tensor.get("images") or layers.Input(
-                shape=image_input_shape, name="images"
+                shape=input_image_shape, name="images"
             )
             token_ids_input = input_tensor.get("token_ids") or layers.Input(
                 shape=[context_length], name="token_ids"
@@ -596,7 +532,7 @@ class MetaClip2Model(BaseModel):
                 shape=[context_length], name="padding_mask"
             )
         else:
-            images_input = layers.Input(shape=image_input_shape, name="images")
+            images_input = layers.Input(shape=input_image_shape, name="images")
             token_ids_input = layers.Input(shape=[context_length], name="token_ids")
             padding_mask_input = layers.Input(
                 shape=[context_length], name="padding_mask"
@@ -642,7 +578,7 @@ class MetaClip2Model(BaseModel):
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
         self.embed_dim = embed_dim
-        self.image_resolution = image_resolution
+        self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -660,16 +596,10 @@ class MetaClip2Model(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = self.input_shape[0]
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,
@@ -727,7 +657,7 @@ class MetaClip2ZeroShotClassify(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        image_resolution=224,
+        input_image_shape=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=32,
@@ -741,14 +671,13 @@ class MetaClip2ZeroShotClassify(BaseModel):
         text_mlp_ratio=4.0,
         hidden_act="gelu",
         eos_token_id=METACLIP2_EOS_TOKEN_ID,
-        input_shape=None,
         input_tensor=None,
         name="MetaClip2ZeroShotClassify",
         **kwargs,
     ):
         base = MetaClip2Model(
             embed_dim=embed_dim,
-            image_resolution=image_resolution,
+            input_image_shape=input_image_shape,
             vision_layers=vision_layers,
             vision_width=vision_width,
             vision_patch_size=vision_patch_size,
@@ -762,7 +691,6 @@ class MetaClip2ZeroShotClassify(BaseModel):
             text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
             eos_token_id=eos_token_id,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_base",
         )
@@ -778,7 +706,7 @@ class MetaClip2ZeroShotClassify(BaseModel):
         )
 
         self.embed_dim = embed_dim
-        self.image_resolution = image_resolution
+        self.input_image_shape = base.input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -798,16 +726,10 @@ class MetaClip2ZeroShotClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = tuple(self.input["images"].shape)
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,
@@ -879,14 +801,13 @@ class MetaClip2ImageClassify(BaseModel):
     def __init__(
         self,
         num_labels=1000,
-        image_resolution=224,
+        input_image_shape=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=16,
         vision_heads=None,
         vision_mlp_ratio=4.0,
         hidden_act="gelu",
-        input_shape=None,
         input_tensor=None,
         name="MetaClip2ImageClassify",
         **kwargs,
@@ -905,13 +826,15 @@ class MetaClip2ImageClassify(BaseModel):
 
         if vision_heads is None:
             vision_heads = vision_width // 64
-        data_format = keras.backend.image_data_format()
-        image_input_shape, image_size = metaclip2_resolve_image_shape(
-            input_shape, image_resolution, data_format
-        )
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        if data_format == "channels_first":
+            image_size = input_image_shape[1]
+        else:
+            image_size = input_image_shape[0]
 
         if input_tensor is None:
-            images_input = layers.Input(shape=image_input_shape, name="images")
+            images_input = layers.Input(shape=input_image_shape, name="images")
         else:
             images_input = input_tensor
 
@@ -927,14 +850,13 @@ class MetaClip2ImageClassify(BaseModel):
             data_format=data_format,
         )
 
-        patches = layers.Lambda(lambda t: t[:, 1:, :], name="drop_cls")(encoded)
-        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(patches)
+        pooled = ops.mean(encoded[:, 1:, :], axis=1)
         logits = layers.Dense(num_labels, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.num_labels = num_labels
-        self.image_resolution = image_size
+        self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -945,16 +867,10 @@ class MetaClip2ImageClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = self.input_shape
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
                 "num_labels": self.num_labels,
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,

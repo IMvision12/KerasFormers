@@ -1,9 +1,9 @@
 import keras
 from keras import layers, ops, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHT_CONFIG
@@ -574,8 +574,12 @@ class NextViTModel(BaseModel):
             for E-MHSA (length 4). Defaults to `(8, 4, 2, 1)`.
         drop_path_rate: Float, maximum stochastic-depth drop rate.
             Linearly ramped per block. Defaults to `0.1`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -584,9 +588,6 @@ class NextViTModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -628,10 +629,9 @@ class NextViTModel(BaseModel):
         mix_block_ratio=0.75,
         sr_ratios=(8, 4, 2, 1),
         drop_path_rate=0.1,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="NextViTModel",
@@ -643,19 +643,12 @@ class NextViTModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -685,7 +678,7 @@ class NextViTModel(BaseModel):
         self.mix_block_ratio = mix_block_ratio
         self.sr_ratios = list(sr_ratios)
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -701,10 +694,9 @@ class NextViTModel(BaseModel):
                 "mix_block_ratio": self.mix_block_ratio,
                 "sr_ratios": self.sr_ratios,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -744,8 +736,12 @@ class NextViTImageClassify(BaseModel):
             for E-MHSA (length 4). Defaults to `(8, 4, 2, 1)`.
         drop_path_rate: Float, maximum stochastic-depth drop rate.
             Linearly ramped per block. Defaults to `0.1`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `224`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -754,9 +750,6 @@ class NextViTImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -794,10 +787,9 @@ class NextViTImageClassify(BaseModel):
         mix_block_ratio=0.75,
         sr_ratios=(8, 4, 2, 1),
         drop_path_rate=0.1,
-        image_size=224,
+        input_image_shape=224,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -815,10 +807,9 @@ class NextViTImageClassify(BaseModel):
             mix_block_ratio=mix_block_ratio,
             sr_ratios=sr_ratios,
             drop_path_rate=drop_path_rate,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -841,7 +832,7 @@ class NextViTImageClassify(BaseModel):
         self.mix_block_ratio = mix_block_ratio
         self.sr_ratios = list(sr_ratios)
         self.drop_path_rate = drop_path_rate
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -858,10 +849,9 @@ class NextViTImageClassify(BaseModel):
                 "mix_block_ratio": self.mix_block_ratio,
                 "sr_ratios": self.sr_ratios,
                 "drop_path_rate": self.drop_path_rate,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

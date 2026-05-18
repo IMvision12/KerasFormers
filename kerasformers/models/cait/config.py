@@ -4,7 +4,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 192,
         "depth": 24,
         "num_heads": 4,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "cait_xxs24_384": {
@@ -12,7 +12,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 192,
         "depth": 24,
         "num_heads": 4,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "cait_xxs36_224": {
@@ -20,7 +20,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 192,
         "depth": 36,
         "num_heads": 4,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "cait_xxs36_384": {
@@ -28,7 +28,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 192,
         "depth": 36,
         "num_heads": 4,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "cait_xs24_384": {
@@ -36,7 +36,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 288,
         "depth": 24,
         "num_heads": 6,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "cait_s24_224": {
@@ -44,7 +44,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 384,
         "depth": 24,
         "num_heads": 8,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "cait_s24_384": {
@@ -52,7 +52,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 384,
         "depth": 24,
         "num_heads": 8,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "cait_s36_384": {
@@ -60,7 +60,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 384,
         "depth": 36,
         "num_heads": 8,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "cait_m36_384": {
@@ -68,7 +68,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 768,
         "depth": 36,
         "num_heads": 16,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "cait_m48_448": {
@@ -76,7 +76,7 @@ CAIT_MODEL_CONFIG = {
         "embed_dim": 768,
         "depth": 48,
         "num_heads": 16,
-        "image_size": 448,
+        "input_image_shape": 448,
         "num_classes": 1000,
     },
 }

@@ -4,6 +4,7 @@ from keras import layers, utils
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.vit.vit_model import vit_backbone_feature
+from kerasformers.utils import standardize_input_shape
 
 from .config import DINOV2_CONFIG, DINOV2_WEIGHTS
 
@@ -37,8 +38,12 @@ class DinoV2Backbone(BaseModel):
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_shape: Image input shape excluding batch dim. Defaults
-            to ``(224, 224, 3)``.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `224`.
         input_tensor: Optional pre-existing Keras input tensor.
         name: Model name.
     """
@@ -80,20 +85,23 @@ class DinoV2Backbone(BaseModel):
         init_values=1.0,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
+        input_image_shape=224,
         input_tensor=None,
         name="DinoV2Backbone",
         **kwargs,
     ):
-        if input_shape is None and input_tensor is None:
-            input_shape = (224, 224, 3)
-
         data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = (
+            input_image_shape[0]
+            if data_format == "channels_last"
+            else input_image_shape[1]
+        )
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -116,7 +124,7 @@ class DinoV2Backbone(BaseModel):
             no_embed_class=False,
             use_distillation=False,
             init_values=init_values,
-            image_size=input_shape[0] if input_shape else 224,
+            image_size=image_size,
             data_format=data_format,
             return_intermediates=True,
         )
@@ -139,7 +147,7 @@ class DinoV2Backbone(BaseModel):
         self.init_values = init_values
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -158,7 +166,7 @@ class DinoV2Backbone(BaseModel):
                 "init_values": self.init_values,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )

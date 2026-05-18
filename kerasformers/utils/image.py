@@ -33,6 +33,82 @@ def get_data_format(data_format: Optional[str] = None) -> str:
     return data_format
 
 
+def standardize_input_shape(
+    input_image_shape: Union[int, Tuple[int, ...]],
+    data_format: Optional[str] = None,
+) -> Tuple[int, int, int]:
+    """Normalize a flexible ``input_image_shape`` into a canonical 3-tuple.
+
+    Accepts:
+
+    * ``int N`` — square image, builds ``(N, N, 3)`` for ``channels_last``
+      or ``(3, N, N)`` for ``channels_first``.
+    * ``(H, W)`` — rectangular image, adds a 3-channel dim per data format.
+    * ``(H, W, C)`` or ``(C, H, W)`` — already a 3-tuple. The channel
+      dimension (``C in {1, 3, 4}``) must sit in the position required by
+      the active data format; mismatches raise ``ValueError``.
+
+    Args:
+        input_image_shape: Flexible spec — int, 2-tuple, or 3-tuple.
+        data_format: ``"channels_first"`` / ``"channels_last"`` / ``None``.
+            ``None`` defaults to ``keras.config.image_data_format()``.
+
+    Returns:
+        A length-3 tuple ordered to match the resolved ``data_format``.
+    """
+    data_format = get_data_format(data_format)
+
+    if isinstance(input_image_shape, int):
+        if input_image_shape <= 0:
+            raise ValueError(
+                f"input_image_shape int must be positive, got {input_image_shape}."
+            )
+        if data_format == "channels_last":
+            return (input_image_shape, input_image_shape, 3)
+        return (3, input_image_shape, input_image_shape)
+
+    if not isinstance(input_image_shape, (tuple, list)):
+        raise TypeError(
+            "input_image_shape must be int, 2-tuple, or 3-tuple; got "
+            f"{type(input_image_shape).__name__}."
+        )
+
+    shape = tuple(int(d) for d in input_image_shape)
+
+    if any(d <= 0 for d in shape):
+        raise ValueError(f"input_image_shape dimensions must be positive, got {shape}.")
+
+    if len(shape) == 2:
+        h, w = shape
+        if data_format == "channels_last":
+            return (h, w, 3)
+        return (3, h, w)
+
+    if len(shape) == 3:
+        if data_format == "channels_last":
+            if shape[-1] not in (1, 3, 4):
+                raise ValueError(
+                    f"input_image_shape {shape} does not match data_format "
+                    "'channels_last'. Expected (H, W, C) with C in {1, 3, 4}; "
+                    "for channels_first inputs call "
+                    "keras.config.set_image_data_format('channels_first')."
+                )
+            return shape
+        if shape[0] not in (1, 3, 4):
+            raise ValueError(
+                f"input_image_shape {shape} does not match data_format "
+                "'channels_first'. Expected (C, H, W) with C in {1, 3, 4}; "
+                "for channels_last inputs call "
+                "keras.config.set_image_data_format('channels_last')."
+            )
+        return shape
+
+    raise ValueError(
+        "input_image_shape must be int, 2-tuple, or 3-tuple; got tuple of "
+        f"length {len(shape)}."
+    )
+
+
 def load_image(image: ImageInput) -> np.ndarray:
     """Load an image from common sources into an ``(H, W, 3)`` uint8 RGB array.
 

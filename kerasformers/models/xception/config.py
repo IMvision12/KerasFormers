@@ -12,7 +12,7 @@ groups-aware Aligned Xception backbone and is not implemented here.
 
 XCEPTION_MODEL_CONFIG = {
     "xception": {
-        "image_size": 299,
+        "input_image_shape": 299,
         "num_classes": 1000,
     },
 }

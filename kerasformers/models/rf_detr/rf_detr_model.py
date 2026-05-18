@@ -4,6 +4,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
+from kerasformers.utils import standardize_input_shape
 
 from .config import RF_DETR_CONFIG, RF_DETR_WEIGHTS
 from .rf_detr_layers import (
@@ -1331,7 +1332,7 @@ class RFDetrModel(BaseModel):
         lite_refpoint_refine=True,
         group_detr=13,
         dim_feedforward=2048,
-        input_shape=None,
+        input_image_shape=560,
         input_tensor=None,
         name="RFDetrModel",
         **kwargs,
@@ -1339,13 +1340,14 @@ class RFDetrModel(BaseModel):
         if out_feature_indexes is None:
             out_feature_indexes = [2, 5, 8, 11]
 
-        if input_shape is None:
-            input_shape = (resolution, resolution, 3)
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
             else:
                 img_input = input_tensor
 
@@ -1372,7 +1374,7 @@ class RFDetrModel(BaseModel):
             bbox_reparam=bbox_reparam,
             lite_refpoint_refine=lite_refpoint_refine,
             dim_feedforward=dim_feedforward,
-            input_shape=input_shape,
+            input_shape=input_image_shape,
         )
 
         outputs = {"last_hidden_state": last_hidden_state, "pred_boxes": pred_boxes}
@@ -1401,6 +1403,7 @@ class RFDetrModel(BaseModel):
         self.lite_refpoint_refine = lite_refpoint_refine
         self.group_detr = group_detr
         self.dim_feedforward = dim_feedforward
+        self.input_image_shape = input_image_shape
         self._input_tensor = input_tensor
 
     def get_config(self):
@@ -1430,7 +1433,7 @@ class RFDetrModel(BaseModel):
                 "lite_refpoint_refine": self.lite_refpoint_refine,
                 "group_detr": self.group_detr,
                 "dim_feedforward": self.dim_feedforward,
-                "input_shape": self.input_shape[1:],
+                "input_image_shape": self.input_image_shape,
                 "input_tensor": self._input_tensor,
                 "name": self.name,
             }
@@ -1487,7 +1490,13 @@ class RFDETRDetect(BaseModel):
         group_detr: Number of DETR groups (training only, inference uses 1).
         dim_feedforward: FFN dimension in decoder.
         weights: Pre-trained weight identifier or file path.
-        input_shape: Input image shape as (H, W, C).
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `resolution` (an N x N x 3
+            square at the per-variant resolution).
         input_tensor: Optional input Keras tensor.
         name: Model name.
     """
@@ -1520,7 +1529,7 @@ class RFDETRDetect(BaseModel):
         lite_refpoint_refine=True,
         group_detr=13,
         dim_feedforward=2048,
-        input_shape=None,
+        input_image_shape=None,
         input_tensor=None,
         name="RFDETRDetect",
         **kwargs,
@@ -1528,8 +1537,8 @@ class RFDETRDetect(BaseModel):
         if out_feature_indexes is None:
             out_feature_indexes = [2, 5, 8, 11]
 
-        if input_shape is None:
-            input_shape = (resolution, resolution, 3)
+        if input_image_shape is None:
+            input_image_shape = resolution
 
         base = RFDetrModel(
             hidden_dim=hidden_dim,
@@ -1555,7 +1564,7 @@ class RFDETRDetect(BaseModel):
             lite_refpoint_refine=lite_refpoint_refine,
             group_detr=group_detr,
             dim_feedforward=dim_feedforward,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -1590,6 +1599,7 @@ class RFDETRDetect(BaseModel):
         self.lite_refpoint_refine = lite_refpoint_refine
         self.group_detr = group_detr
         self.dim_feedforward = dim_feedforward
+        self.input_image_shape = base.input_image_shape
         self._input_tensor = input_tensor
 
     def get_config(self):
@@ -1619,7 +1629,7 @@ class RFDETRDetect(BaseModel):
                 "lite_refpoint_refine": self.lite_refpoint_refine,
                 "group_detr": self.group_detr,
                 "dim_feedforward": self.dim_feedforward,
-                "input_shape": self.input_shape[1:],
+                "input_image_shape": self.input_image_shape,
                 "input_tensor": self._input_tensor,
                 "name": self.name,
             }

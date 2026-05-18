@@ -5,7 +5,7 @@ SAM_CONFIG = {
         "vision_num_attention_heads": 12,
         "vision_mlp_dim": 3072,
         "vision_global_attn_indexes": [2, 5, 8, 11],
-        "input_shape": (1024, 1024, 3),
+        "input_image_shape": 1024,
     },
     "sam_vit_large": {
         "vision_hidden_size": 1024,
@@ -13,7 +13,7 @@ SAM_CONFIG = {
         "vision_num_attention_heads": 16,
         "vision_mlp_dim": 4096,
         "vision_global_attn_indexes": [5, 11, 17, 23],
-        "input_shape": (1024, 1024, 3),
+        "input_image_shape": 1024,
     },
     "sam_vit_huge": {
         "vision_hidden_size": 1280,
@@ -21,7 +21,7 @@ SAM_CONFIG = {
         "vision_num_attention_heads": 16,
         "vision_mlp_dim": 5120,
         "vision_global_attn_indexes": [7, 15, 23, 31],
-        "input_shape": (1024, 1024, 3),
+        "input_image_shape": 1024,
     },
 }
 

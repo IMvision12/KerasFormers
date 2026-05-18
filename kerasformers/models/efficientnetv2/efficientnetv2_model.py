@@ -3,10 +3,10 @@ import math
 
 import keras
 from keras import initializers, layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTNETV2_MODEL_CONFIG, EFFICIENTNETV2_WEIGHT_CONFIG
@@ -820,8 +820,12 @@ class EfficientNetV2Model(BaseModel):
             Defaults to `"EfficientNetV2S"`.
         head_filters: Integer, output channel count of the final 1x1
             head conv. Defaults to `1280`.
-        image_size: Integer, square input resolution used to derive the
-            input shape. Defaults to `300`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `300`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -830,9 +834,6 @@ class EfficientNetV2Model(BaseModel):
             use. Must be one of: `'imagenet'`, `'inception'` (default),
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -880,10 +881,9 @@ class EfficientNetV2Model(BaseModel):
         default_size=300,
         block_arch="EfficientNetV2S",
         head_filters=1280,
-        image_size=300,
+        input_image_shape=300,
         include_normalization=True,
         normalization_mode="inception",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="EfficientNetV2Model",
@@ -895,19 +895,12 @@ class EfficientNetV2Model(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=False,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -934,7 +927,7 @@ class EfficientNetV2Model(BaseModel):
         self.default_size = default_size
         self.block_arch = block_arch
         self.head_filters = head_filters
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -949,10 +942,9 @@ class EfficientNetV2Model(BaseModel):
                 "default_size": self.default_size,
                 "block_arch": self.block_arch,
                 "head_filters": self.head_filters,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -993,8 +985,12 @@ class EfficientNetV2ImageClassify(BaseModel):
             Defaults to `"EfficientNetV2S"`.
         head_filters: Integer, output channel count of the final 1x1
             head conv inside the backbone. Defaults to `1280`.
-        image_size: Integer, square input resolution used to derive the
-            input shape. Defaults to `300`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `300`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -1003,9 +999,6 @@ class EfficientNetV2ImageClassify(BaseModel):
             use. Must be one of: `'imagenet'`, `'inception'` (default),
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -1045,10 +1038,9 @@ class EfficientNetV2ImageClassify(BaseModel):
         default_size=300,
         block_arch="EfficientNetV2S",
         head_filters=1280,
-        image_size=300,
+        input_image_shape=300,
         include_normalization=True,
         normalization_mode="inception",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -1065,10 +1057,9 @@ class EfficientNetV2ImageClassify(BaseModel):
             default_size=default_size,
             block_arch=block_arch,
             head_filters=head_filters,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -1092,7 +1083,7 @@ class EfficientNetV2ImageClassify(BaseModel):
         self.default_size = default_size
         self.block_arch = block_arch
         self.head_filters = head_filters
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -1108,10 +1099,9 @@ class EfficientNetV2ImageClassify(BaseModel):
                 "default_size": self.default_size,
                 "block_arch": self.block_arch,
                 "head_filters": self.head_filters,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,

@@ -1,7 +1,7 @@
 METACLIP2_CONFIG = {
     "metaclip2_worldwide_s16_224": {
         "embed_dim": 384,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 384,
         "vision_patch_size": 16,
@@ -17,7 +17,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_s16_384": {
         "embed_dim": 384,
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "vision_layers": 12,
         "vision_width": 384,
         "vision_patch_size": 16,
@@ -33,7 +33,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_m16_224": {
         "embed_dim": 512,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 512,
         "vision_patch_size": 16,
@@ -49,7 +49,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_m16_384": {
         "embed_dim": 512,
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "vision_layers": 12,
         "vision_width": 512,
         "vision_patch_size": 16,
@@ -65,7 +65,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_b16_224": {
         "embed_dim": 512,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 768,
         "vision_patch_size": 16,
@@ -81,7 +81,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_b16_384": {
         "embed_dim": 512,
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "vision_layers": 12,
         "vision_width": 768,
         "vision_patch_size": 16,
@@ -97,7 +97,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_b32_224": {
         "embed_dim": 512,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 768,
         "vision_patch_size": 32,
@@ -113,7 +113,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_b32_384": {
         "embed_dim": 512,
-        "image_resolution": 384,
+        "input_image_shape": 384,
         "vision_layers": 12,
         "vision_width": 768,
         "vision_patch_size": 32,
@@ -129,7 +129,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_l14_224": {
         "embed_dim": 768,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 24,
         "vision_width": 1024,
         "vision_patch_size": 14,
@@ -145,7 +145,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_huge_quickgelu": {
         "embed_dim": 1024,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 32,
         "vision_width": 1280,
         "vision_patch_size": 14,
@@ -161,7 +161,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_huge_378": {
         "embed_dim": 1024,
-        "image_resolution": 378,
+        "input_image_shape": 378,
         "vision_layers": 32,
         "vision_width": 1280,
         "vision_patch_size": 14,
@@ -177,7 +177,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_giant_224": {
         "embed_dim": 1280,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 48,
         "vision_width": 1664,
         "vision_patch_size": 14,
@@ -193,7 +193,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_worldwide_giant_378": {
         "embed_dim": 1280,
-        "image_resolution": 378,
+        "input_image_shape": 378,
         "vision_layers": 48,
         "vision_width": 1664,
         "vision_patch_size": 14,
@@ -209,7 +209,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_mt5_worldwide_s16_224": {
         "embed_dim": 384,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 384,
         "vision_patch_size": 16,
@@ -226,7 +226,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_mt5_worldwide_m16_224": {
         "embed_dim": 512,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 512,
         "vision_patch_size": 16,
@@ -243,7 +243,7 @@ METACLIP2_CONFIG = {
     },
     "metaclip2_mt5_worldwide_b32_224": {
         "embed_dim": 512,
-        "image_resolution": 224,
+        "input_image_shape": 224,
         "vision_layers": 12,
         "vision_width": 768,
         "vision_patch_size": 32,

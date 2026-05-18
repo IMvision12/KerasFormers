@@ -820,7 +820,7 @@ class WhisperAudioClassify(BaseModel):
             x = encoder_out
 
         x = layers.Dense(classifier_proj_size, name="projector")(x)
-        x = layers.GlobalAveragePooling1D(name="audio_pool")(x)
+        x = ops.mean(x, axis=1)
         logits = layers.Dense(num_labels, name="classifier")(x)
 
         super().__init__(inputs=input_features, outputs=logits, name=name, **kwargs)

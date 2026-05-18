@@ -1,6 +1,5 @@
 import keras
 from keras import layers, utils
-from keras.src.applications import imagenet_utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
@@ -9,6 +8,7 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
     MobileViTMultiHeadSelfAttention,
     MobileViTPatchesToImageLayer,
 )
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MOBILEVIT_MODEL_CONFIG, MOBILEVIT_WEIGHT_CONFIG
@@ -428,8 +428,12 @@ class MobileViTModel(BaseModel):
         attention_dims: List, per-stage transformer attention dims
             (length 5). Entries may be `None` for stages without a
             transformer block. Defaults to `[None, None, 144, 192, 240]`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `256`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -438,9 +442,6 @@ class MobileViTModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -478,7 +479,7 @@ class MobileViTModel(BaseModel):
             "head_dims": neck[6],
             "attention_dims": [None, None] + list(hidden_sizes),
             "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
-            "image_size": hf_config["image_size"],
+            "input_image_shape": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 32),
         }
 
@@ -495,11 +496,10 @@ class MobileViTModel(BaseModel):
         block_dims: list = [32, 64, 96, 128, 160],
         expansion_ratio: list = [4.0, 4.0, 4.0, 4.0, 4.0],
         attention_dims: list = [None, None, 144, 192, 240],
-        image_size=256,
+        input_image_shape=256,
         output_stride=32,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         as_backbone=False,
         name="MobileViTModel",
@@ -511,19 +511,12 @@ class MobileViTModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=image_size,
-            min_size=32,
-            data_format=data_format,
-            require_flatten=True,
-            weights=None,
-        )
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_shape)
+            img_input = layers.Input(shape=input_image_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
         else:
             img_input = input_tensor
 
@@ -551,7 +544,7 @@ class MobileViTModel(BaseModel):
         self.block_dims = block_dims
         self.expansion_ratio = expansion_ratio
         self.attention_dims = attention_dims
-        self.image_size = image_size
+        self.input_image_shape = input_image_shape
         self.output_stride = output_stride
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -567,11 +560,10 @@ class MobileViTModel(BaseModel):
                 "block_dims": self.block_dims,
                 "expansion_ratio": self.expansion_ratio,
                 "attention_dims": self.attention_dims,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "output_stride": self.output_stride,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "as_backbone": self.as_backbone,
                 "name": self.name,
@@ -609,8 +601,12 @@ class MobileViTImageClassify(BaseModel):
         attention_dims: List, per-stage transformer attention dims
             (length 5). Entries may be `None` for stages without a
             transformer block. Defaults to `[None, None, 144, 192, 240]`.
-        image_size: Integer, square input resolution. Used to validate
-            the input shape. Defaults to `256`.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
             :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
             of the network. When True, input images should be in uint8
@@ -619,9 +615,6 @@ class MobileViTImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_shape: Optional tuple specifying the shape of the input
-            data. If `None`, derived from ``image_size`` and the active
-            Keras data format. Defaults to `None`.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -658,7 +651,7 @@ class MobileViTImageClassify(BaseModel):
             "head_dims": neck[6],
             "attention_dims": [None, None] + list(hidden_sizes),
             "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
-            "image_size": hf_config["image_size"],
+            "input_image_shape": hf_config["image_size"],
             "num_classes": num_classes if num_classes is not None else 1000,
         }
 
@@ -675,10 +668,9 @@ class MobileViTImageClassify(BaseModel):
         block_dims: list = [32, 64, 96, 128, 160],
         expansion_ratio: list = [4.0, 4.0, 4.0, 4.0, 4.0],
         attention_dims: list = [None, None, 144, 192, 240],
-        image_size=256,
+        input_image_shape=256,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
@@ -696,11 +688,10 @@ class MobileViTImageClassify(BaseModel):
             block_dims=block_dims,
             expansion_ratio=expansion_ratio,
             attention_dims=attention_dims,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             output_stride=32,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -734,7 +725,7 @@ class MobileViTImageClassify(BaseModel):
         self.block_dims = block_dims
         self.expansion_ratio = expansion_ratio
         self.attention_dims = attention_dims
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -750,10 +741,9 @@ class MobileViTImageClassify(BaseModel):
                 "block_dims": self.block_dims,
                 "expansion_ratio": self.expansion_ratio,
                 "attention_dims": self.attention_dims,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
@@ -844,12 +834,10 @@ def mobilevit_aspp_head(
 
     def resize_pooled(args):
         feat, ref = args
-        if data_format == "channels_first":
-            feat = keras.ops.transpose(feat, (0, 2, 3, 1))
         size = (keras.ops.shape(ref)[h_axis], keras.ops.shape(ref)[w_axis])
-        feat = keras.ops.image.resize(feat, size, interpolation="bilinear")
-        if data_format == "channels_first":
-            feat = keras.ops.transpose(feat, (0, 3, 1, 2))
+        feat = keras.ops.image.resize(
+            feat, size, interpolation="bilinear", data_format=data_format
+        )
         return feat
 
     pooled = layers.Lambda(resize_pooled, name=f"{name}_aspp_pool_resize")(
@@ -917,7 +905,7 @@ class MobileViTSegment(BaseModel):
             "head_dims": neck[6],
             "attention_dims": [None, None] + list(hidden_sizes),
             "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
-            "image_size": hf_config["image_size"],
+            "input_image_shape": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 16),
             "atrous_rates": list(hf_config.get("atrous_rates", [6, 12, 18])),
             "aspp_out_channels": hf_config.get("aspp_out_channels", 256),
@@ -938,14 +926,11 @@ class MobileViTSegment(BaseModel):
         block_dims: list = [16, 24, 48, 64, 80],
         expansion_ratio: list = [2.0, 2.0, 2.0, 2.0, 2.0],
         attention_dims: list = [None, None, 64, 80, 96],
-        image_size=512,
+        input_image_shape=512,
         output_stride=16,
         atrous_rates: list = [6, 12, 18],
         aspp_out_channels=256,
         aspp_dropout_prob=0.1,
-        include_normalization=True,
-        normalization_mode="imagenet",
-        input_shape=None,
         input_tensor=None,
         num_classes=21,
         name="MobileViTSegment",
@@ -961,11 +946,9 @@ class MobileViTSegment(BaseModel):
             block_dims=block_dims,
             expansion_ratio=expansion_ratio,
             attention_dims=attention_dims,
-            image_size=image_size,
+            input_image_shape=input_image_shape,
             output_stride=output_stride,
-            include_normalization=include_normalization,
-            normalization_mode=normalization_mode,
-            input_shape=input_shape,
+            include_normalization=False,
             input_tensor=input_tensor,
             name=f"{name}_backbone",
         )
@@ -989,13 +972,11 @@ class MobileViTSegment(BaseModel):
         self.block_dims = block_dims
         self.expansion_ratio = expansion_ratio
         self.attention_dims = attention_dims
-        self.image_size = image_size
+        self.input_image_shape = backbone.input_image_shape
         self.output_stride = output_stride
         self.atrous_rates = atrous_rates
         self.aspp_out_channels = aspp_out_channels
         self.aspp_dropout_prob = aspp_dropout_prob
-        self.include_normalization = include_normalization
-        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.num_classes = num_classes
 
@@ -1008,14 +989,11 @@ class MobileViTSegment(BaseModel):
                 "block_dims": self.block_dims,
                 "expansion_ratio": self.expansion_ratio,
                 "attention_dims": self.attention_dims,
-                "image_size": self.image_size,
+                "input_image_shape": self.input_image_shape,
                 "output_stride": self.output_stride,
                 "atrous_rates": self.atrous_rates,
                 "aspp_out_channels": self.aspp_out_channels,
                 "aspp_dropout_prob": self.aspp_dropout_prob,
-                "include_normalization": self.include_normalization,
-                "normalization_mode": self.normalization_mode,
-                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "name": self.name,

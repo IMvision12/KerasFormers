@@ -2,6 +2,7 @@ import keras
 from keras import initializers, layers, ops
 
 from kerasformers.base import BaseModel
+from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import SIGLIP_CONFIG, SIGLIP_WEIGHTS
@@ -567,47 +568,6 @@ def siglip_head(vision_embedding, text_embedding):
     return image_logits, text_logits
 
 
-def _siglip_resolve_image_shape(input_shape, image_resolution, data_format):
-    """Normalize a SigLIP image input shape and extract its square edge length.
-
-    Falls back to ``(image_resolution, image_resolution, 3)`` when
-    ``input_shape`` is None; otherwise reshapes the provided shape to be square
-    using the smaller spatial side and the channel count of the original.
-
-    Args:
-        input_shape: Optional user-provided input shape (with or without the
-            channel dim), or ``None``.
-        image_resolution: Default square image side to fall back to.
-        data_format: ``"channels_last"`` or ``"channels_first"``.
-
-    Returns:
-        Tuple ``(shape_list, image_size)`` where ``shape_list`` is the resolved
-        ``[C, H, W]`` / ``[H, W, C]`` list and ``image_size`` is the square edge
-        length.
-    """
-    if input_shape is not None:
-        if data_format == "channels_first":
-            channels = input_shape[0] if len(input_shape) == 3 else 3
-            image_size = (
-                min(input_shape[1], input_shape[2])
-                if len(input_shape) == 3
-                else input_shape[0]
-            )
-        else:
-            if len(input_shape) >= 2:
-                image_size = min(input_shape[0], input_shape[1])
-            else:
-                image_size = input_shape[0]
-            channels = input_shape[2] if len(input_shape) == 3 else 3
-    else:
-        image_size, channels = image_resolution, 3
-    return (
-        [channels, image_size, image_size]
-        if data_format == "channels_first"
-        else [image_size, image_size, channels]
-    ), image_size
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIPModel(BaseModel):
     """SigLIP / SigLIP2 dual encoder (no contrastive head).
@@ -639,7 +599,7 @@ class SigLIPModel(BaseModel):
         vc = hf_config["vision_config"]
         tc = hf_config["text_config"]
         return {
-            "image_resolution": vc.get("image_size", 224),
+            "input_image_shape": vc.get("image_size", 224),
             "patch_size": vc.get("patch_size", 16),
             "vision_hidden_dim": vc.get("hidden_size", 768),
             "vision_num_layers": vc.get("num_hidden_layers", 12),
@@ -664,7 +624,7 @@ class SigLIPModel(BaseModel):
 
     def __init__(
         self,
-        image_resolution=224,
+        input_image_shape=224,
         patch_size=16,
         vision_hidden_dim=768,
         vision_num_layers=12,
@@ -677,25 +637,22 @@ class SigLIPModel(BaseModel):
         text_num_heads=12,
         text_intermediate_dim=3072,
         max_sequence_length=64,
-        input_shape=None,
         input_tensor=None,
         name="SigLIPModel",
         **kwargs,
     ):
-        data_format = keras.backend.image_data_format()
-        image_input_shape, image_size = _siglip_resolve_image_shape(
-            input_shape, image_resolution, data_format
-        )
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if isinstance(input_tensor, dict):
             images_input = input_tensor.get("images") or layers.Input(
-                shape=image_input_shape, name="images"
+                shape=input_image_shape, name="images"
             )
             token_ids_input = input_tensor.get("token_ids") or layers.Input(
                 shape=(None,), name="token_ids"
             )
         else:
-            images_input = layers.Input(shape=image_input_shape, name="images")
+            images_input = layers.Input(shape=input_image_shape, name="images")
             token_ids_input = layers.Input(shape=(None,), name="token_ids")
 
         vision_embeddings = siglip_vision_encoder(
@@ -727,7 +684,7 @@ class SigLIPModel(BaseModel):
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
-        self.image_resolution = image_size
+        self.input_image_shape = input_image_shape
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
@@ -744,15 +701,9 @@ class SigLIPModel(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = tuple(self.input["images"].shape)
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_num_layers": self.vision_num_layers,
@@ -807,7 +758,7 @@ class SigLIPZeroShotClassify(BaseModel):
 
     def __init__(
         self,
-        image_resolution=224,
+        input_image_shape=224,
         patch_size=16,
         vision_hidden_dim=768,
         vision_num_layers=12,
@@ -820,13 +771,12 @@ class SigLIPZeroShotClassify(BaseModel):
         text_num_heads=12,
         text_intermediate_dim=3072,
         max_sequence_length=64,
-        input_shape=None,
         input_tensor=None,
         name="SigLIPZeroShotClassify",
         **kwargs,
     ):
         base = SigLIPModel(
-            image_resolution=image_resolution,
+            input_image_shape=input_image_shape,
             patch_size=patch_size,
             vision_hidden_dim=vision_hidden_dim,
             vision_num_layers=vision_num_layers,
@@ -839,7 +789,6 @@ class SigLIPZeroShotClassify(BaseModel):
             text_num_heads=text_num_heads,
             text_intermediate_dim=text_intermediate_dim,
             max_sequence_length=max_sequence_length,
-            input_shape=input_shape,
             input_tensor=input_tensor,
             name=f"{name}_base",
         )
@@ -854,7 +803,7 @@ class SigLIPZeroShotClassify(BaseModel):
             **kwargs,
         )
 
-        self.image_resolution = image_resolution
+        self.input_image_shape = base.input_image_shape
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
@@ -871,15 +820,9 @@ class SigLIPZeroShotClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = tuple(self.input["images"].shape)
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_num_layers": self.vision_num_layers,
@@ -959,13 +902,12 @@ class SigLIPImageClassify(BaseModel):
     def __init__(
         self,
         num_labels=1000,
-        image_resolution=224,
+        input_image_shape=224,
         patch_size=16,
         vision_hidden_dim=768,
         vision_num_layers=12,
         vision_num_heads=12,
         vision_intermediate_dim=3072,
-        input_shape=None,
         input_tensor=None,
         name="SigLIPImageClassify",
         **kwargs,
@@ -981,13 +923,11 @@ class SigLIPImageClassify(BaseModel):
         ):
             kwargs.pop(k, None)
 
-        data_format = keras.backend.image_data_format()
-        image_input_shape, image_size = _siglip_resolve_image_shape(
-            input_shape, image_resolution, data_format
-        )
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if input_tensor is None:
-            images_input = layers.Input(shape=image_input_shape, name="images")
+            images_input = layers.Input(shape=input_image_shape, name="images")
         else:
             images_input = input_tensor
 
@@ -1001,13 +941,13 @@ class SigLIPImageClassify(BaseModel):
             data_format=data_format,
         )
 
-        pooled = layers.GlobalAveragePooling1D(name="patch_pool")(encoded)
+        pooled = ops.mean(encoded, axis=1)
         logits = layers.Dense(num_labels, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.num_labels = num_labels
-        self.image_resolution = image_size
+        self.input_image_shape = input_image_shape
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
@@ -1017,16 +957,10 @@ class SigLIPImageClassify(BaseModel):
 
     def get_config(self):
         config = super().get_config()
-        image_shape_with_batch = self.input_shape
-        if image_shape_with_batch[0] is None:
-            image_input_shape = image_shape_with_batch[1:]
-        else:
-            image_input_shape = image_shape_with_batch
         config.update(
             {
                 "num_labels": self.num_labels,
-                "image_resolution": self.image_resolution,
-                "input_shape": image_input_shape,
+                "input_image_shape": self.input_image_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_num_layers": self.vision_num_layers,

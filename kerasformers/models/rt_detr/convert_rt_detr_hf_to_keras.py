@@ -338,7 +338,7 @@ if __name__ == "__main__":
         keras_model = RTDETRDetect.from_weights(
             cfg["variant"],
             load_weights=False,
-            input_shape=(640, 640, 3),
+            input_image_shape=640,
             num_queries=300,
             num_labels=80,
         )

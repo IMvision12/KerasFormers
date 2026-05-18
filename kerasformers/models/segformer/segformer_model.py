@@ -4,6 +4,7 @@ from keras import layers
 from kerasformers.base import BaseModel
 from kerasformers.base.base_model import hf_num_labels
 from kerasformers.models.mit.mit_model import MiTModel
+from kerasformers.utils import standardize_input_shape
 
 from .config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS
 
@@ -112,7 +113,12 @@ class SegFormerModel(BaseModel):
         embed_dims: Per-stage hidden dimensions for the four MiT
             stages.
         depths: Per-stage transformer-block counts.
-        input_shape: Image input shape excluding the batch axis.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `512`.
         input_tensor: Optional pre-existing Keras tensor to use as the
             model input.
         name: Model name.
@@ -126,7 +132,7 @@ class SegFormerModel(BaseModel):
         self,
         embed_dims=None,
         depths=None,
-        input_shape=None,
+        input_image_shape=512,
         input_tensor=None,
         name="SegFormerModel",
         **kwargs,
@@ -135,14 +141,15 @@ class SegFormerModel(BaseModel):
             embed_dims = [32, 64, 160, 256]
         if depths is None:
             depths = [2, 2, 2, 2]
-        if input_shape is None:
-            input_shape = (512, 512, 3)
+
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         backbone = MiTModel(
             embed_dims=embed_dims,
             depths=depths,
             include_normalization=False,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             as_backbone=True,
             name=f"{name}_backbone",
@@ -155,7 +162,7 @@ class SegFormerModel(BaseModel):
         self.backbone = backbone
         self.embed_dims = list(embed_dims)
         self.depths = list(depths)
-        self._input_shape_val = input_shape
+        self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -164,7 +171,7 @@ class SegFormerModel(BaseModel):
             {
                 "embed_dims": self.embed_dims,
                 "depths": self.depths,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )
@@ -198,7 +205,12 @@ class SegFormerSegment(BaseModel):
             B2-B5.
         dropout_rate: Dropout applied before the final classifier.
         num_classes: Number of segmentation classes.
-        input_shape: Image input shape excluding the batch axis.
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
+            match the active ``keras.config.image_data_format()`` —
+            ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
+            ``channels_first``. Defaults to `512`.
         input_tensor: Optional pre-existing Keras tensor to use as the
             model input.
         name: Model name.
@@ -216,7 +228,7 @@ class SegFormerSegment(BaseModel):
             "depths": list(hf_config["depths"]),
             "decode_head_dim": hf_config["decoder_hidden_size"],
             "num_classes": hf_num_labels(hf_config),
-            "input_shape": (image_size, image_size, 3),
+            "input_image_shape": image_size,
         }
 
     @classmethod
@@ -234,7 +246,7 @@ class SegFormerSegment(BaseModel):
         decode_head_dim=256,
         dropout_rate=0.1,
         num_classes=19,
-        input_shape=None,
+        input_image_shape=512,
         input_tensor=None,
         name="SegFormerSegment",
         **kwargs,
@@ -243,13 +255,11 @@ class SegFormerSegment(BaseModel):
             embed_dims = [32, 64, 160, 256]
         if depths is None:
             depths = [2, 2, 2, 2]
-        if input_shape is None:
-            input_shape = (512, 512, 3)
 
         base = SegFormerModel(
             embed_dims=embed_dims,
             depths=depths,
-            input_shape=input_shape,
+            input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -264,9 +274,15 @@ class SegFormerSegment(BaseModel):
 
         data_format = keras.config.image_data_format()
         if data_format == "channels_first":
-            upsample_h, upsample_w = input_shape[1], input_shape[2]
+            upsample_h, upsample_w = (
+                base.input_image_shape[1],
+                base.input_image_shape[2],
+            )
         else:
-            upsample_h, upsample_w = input_shape[0], input_shape[1]
+            upsample_h, upsample_w = (
+                base.input_image_shape[0],
+                base.input_image_shape[1],
+            )
         x = layers.Resizing(
             height=upsample_h,
             width=upsample_w,
@@ -283,7 +299,7 @@ class SegFormerSegment(BaseModel):
         self.decode_head_dim = decode_head_dim
         self.dropout_rate = dropout_rate
         self.num_classes = num_classes
-        self._input_shape_val = input_shape
+        self.input_image_shape = base.input_image_shape
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -295,7 +311,7 @@ class SegFormerSegment(BaseModel):
                 "decode_head_dim": self.decode_head_dim,
                 "dropout_rate": self.dropout_rate,
                 "num_classes": self.num_classes,
-                "input_shape": self._input_shape_val,
+                "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
         )

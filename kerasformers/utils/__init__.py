@@ -6,6 +6,7 @@ from kerasformers.utils.image import (
     load_image,
     normalize_image,
     preprocess_image,
+    standardize_input_shape,
 )
 from kerasformers.utils.video import (
     VIDEO_DECODERS,

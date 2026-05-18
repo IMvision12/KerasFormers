@@ -5,7 +5,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [64, 128, 256, 512],
         "num_heads": [2, 4, 8, 16],
         "window_size": 7,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "maxvit_tiny_384": {
@@ -14,7 +14,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [64, 128, 256, 512],
         "num_heads": [2, 4, 8, 16],
         "window_size": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "maxvit_tiny_512": {
@@ -23,7 +23,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [64, 128, 256, 512],
         "num_heads": [2, 4, 8, 16],
         "window_size": 16,
-        "image_size": 512,
+        "input_image_shape": 512,
         "num_classes": 1000,
     },
     "maxvit_small_224": {
@@ -32,7 +32,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [96, 192, 384, 768],
         "num_heads": [3, 6, 12, 24],
         "window_size": 7,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "maxvit_small_384": {
@@ -41,7 +41,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [96, 192, 384, 768],
         "num_heads": [3, 6, 12, 24],
         "window_size": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "maxvit_small_512": {
@@ -50,7 +50,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [96, 192, 384, 768],
         "num_heads": [3, 6, 12, 24],
         "window_size": 16,
-        "image_size": 512,
+        "input_image_shape": 512,
         "num_classes": 1000,
     },
     "maxvit_base_224": {
@@ -59,7 +59,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [96, 192, 384, 768],
         "num_heads": [3, 6, 12, 24],
         "window_size": 7,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "maxvit_base_384": {
@@ -68,7 +68,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [96, 192, 384, 768],
         "num_heads": [3, 6, 12, 24],
         "window_size": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "maxvit_base_512": {
@@ -77,7 +77,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [96, 192, 384, 768],
         "num_heads": [3, 6, 12, 24],
         "window_size": 16,
-        "image_size": 512,
+        "input_image_shape": 512,
         "num_classes": 1000,
     },
     "maxvit_base_224_in21k": {
@@ -86,7 +86,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [96, 192, 384, 768],
         "num_heads": [3, 6, 12, 24],
         "window_size": 7,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "maxvit_large_224": {
@@ -95,7 +95,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [128, 256, 512, 1024],
         "num_heads": [4, 8, 16, 32],
         "window_size": 7,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 1000,
     },
     "maxvit_large_384": {
@@ -104,7 +104,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [128, 256, 512, 1024],
         "num_heads": [4, 8, 16, 32],
         "window_size": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "maxvit_large_512": {
@@ -113,7 +113,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [128, 256, 512, 1024],
         "num_heads": [4, 8, 16, 32],
         "window_size": 16,
-        "image_size": 512,
+        "input_image_shape": 512,
         "num_classes": 1000,
     },
     "maxvit_large_224_in21k": {
@@ -122,7 +122,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [128, 256, 512, 1024],
         "num_heads": [4, 8, 16, 32],
         "window_size": 7,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "maxvit_xlarge_224_in21k": {
@@ -131,7 +131,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [192, 384, 768, 1536],
         "num_heads": [6, 12, 24, 48],
         "window_size": 7,
-        "image_size": 224,
+        "input_image_shape": 224,
         "num_classes": 21843,
     },
     "maxvit_xlarge_384": {
@@ -140,7 +140,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [192, 384, 768, 1536],
         "num_heads": [6, 12, 24, 48],
         "window_size": 12,
-        "image_size": 384,
+        "input_image_shape": 384,
         "num_classes": 1000,
     },
     "maxvit_xlarge_512": {
@@ -149,7 +149,7 @@ MAXVIT_MODEL_CONFIG = {
         "embed_dim": [192, 384, 768, 1536],
         "num_heads": [6, 12, 24, 48],
         "window_size": 16,
-        "image_size": 512,
+        "input_image_shape": 512,
         "num_classes": 1000,
     },
 }
