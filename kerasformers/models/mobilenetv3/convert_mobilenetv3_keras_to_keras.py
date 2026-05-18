@@ -6,7 +6,6 @@ import keras
 import numpy as np
 import timm
 
-from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.mobilenetv3 import MobileNetV3ImageClassify
 from kerasformers.models.mobilenetv3.config import MOBILENETV3_WEIGHT_CONFIG
 from kerasformers.weight_utils import verify_cls_model_equivalence
@@ -108,13 +107,15 @@ if __name__ == "__main__":
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
-        state = download_hf_state_dict(f"timm/{timm_id}")
+        torch_model = timm.create_model(timm_id, pretrained=True).eval()
+        state = {
+            k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()
+        }
         keras_model = MobileNetV3ImageClassify.from_weights(
             variant, load_weights=False, include_normalization=False
         )
         transfer_mobilenetv3_weights(keras_model, state)
 
-        torch_model = timm.create_model(timm_id, pretrained=True).eval()
         results = verify_cls_model_equivalence(
             model_a=torch_model,
             model_b=keras_model,
