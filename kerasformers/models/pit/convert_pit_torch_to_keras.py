@@ -73,6 +73,10 @@ def transfer_pit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
             continue
 
         if torch_weight_name == "pos_embed":
+            if torch_weight.ndim == 4:
+                # timm stores pos_embed as (1, C, H, W); flatten to (1, H*W, C).
+                _, c, h, w = torch_weight.shape
+                torch_weight = torch_weight.reshape(1, c, h * w).transpose(0, 2, 1)
             if torch_weight.shape[1] == keras_weight.shape[1] + 1:
                 torch_weight = torch_weight[:, 1:, :]
             keras_weight.assign(torch_weight)
