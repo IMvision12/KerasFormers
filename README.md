@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-Keras Models (kerasformers) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MobileViT-DeepLabV3), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kerasformers) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, MobileViT-DeepLabV3), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -24,7 +24,7 @@ pip install -U git+https://github.com/IMvision12/KerasFormers
 
 ## 📑 Documentation
 
-Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below — all share the same `XModel` / `XImageClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT, [MobileViT](docs/mobilevit.md)), object detection (DETR variants, D-FINE, OWL-ViT, OWLv2), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
+Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below — all share the same `XModel` / `XImageClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT, [MaskFormer](docs/maskformer.md), [Mask2Former](docs/mask2former.md), [MobileViT](docs/mobilevit.md)), object detection (DETR variants, D-FINE, OWL-ViT, OWLv2), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
 
 ## 📑 Models
 
@@ -90,6 +90,8 @@ Per-model guides with architecture notes, usage examples, and available pretrain
     |---------------|-------------------|---------------------|
     | DeepLabV3 | [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587) | `torchvision` |
     | EoMT | [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108) | `transformers` |
+    | MaskFormer | [Per-Pixel Classification is Not All You Need for Semantic Segmentation](https://arxiv.org/abs/2107.06278) | `transformers` |
+    | Mask2Former | [Masked-attention Mask Transformer for Universal Image Segmentation](https://arxiv.org/abs/2112.01527) | `transformers` |
     | MobileViT | [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178) | `transformers` |
     | MobileViTV2 | [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
