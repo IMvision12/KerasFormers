@@ -259,27 +259,24 @@ def clip_vision_features(
     )
 
 
-def clip_image_encoder(
+def clip_vision_backbone(
     inputs,
     input_resolution=224,
     patch_size=16,
     width=768,
     num_layers=12,
     heads=12,
-    output_dim=512,
     vision_mlp_ratio=4.0,
     hidden_act="quick_gelu",
     layer_norm_eps=1e-5,
     data_format="channels_last",
 ):
-    """Full CLIP image encoder: features → CLS → post-LN → visual projection.
+    """CLIP vision encoder up through post-encoder LayerNorm — no projection.
 
-    Wraps :func:`clip_vision_features` and finishes the CLIP image side
-    — slice the CLS token, apply the post-encoder LayerNorm, then
-    project into the shared ``output_dim`` embedding space with a
-    bias-free Dense layer (the ``visual_projection`` weight in HF CLIP).
-    This is the tensor used by the contrastive head; it is not yet
-    L2-normalized.
+    Mirrors HF's ``CLIPVisionModel`` outputs. Pipeline:
+    :func:`clip_vision_features` → slice CLS at index 0 → post-encoder
+    LayerNorm. Returns the full token-sequence ``last_hidden_state``
+    plus the CLS-pooled, post-layernormed ``pooler_output``.
 
     Args:
         inputs: Image tensor.
@@ -288,18 +285,16 @@ def clip_image_encoder(
         width: Hidden dimension.
         num_layers: Transformer depth.
         heads: Attention head count.
-        output_dim: Target embedding dimension (must match the text
-            side's ``embed_dim``).
         vision_mlp_ratio: MLP expansion ratio.
         hidden_act: MLP activation name.
         layer_norm_eps: LayerNorm epsilon.
         data_format: ``"channels_last"`` or ``"channels_first"``.
 
     Returns:
-        Tensor of shape ``(B, output_dim)`` — the unnormalized image
-        embedding.
+        Tuple ``(last_hidden_state, pooler_output)`` of shapes
+        ``(B, num_patches + 1, width)`` and ``(B, width)``.
     """
-    encoded = clip_vision_features(
+    last_hidden_state = clip_vision_features(
         inputs,
         input_resolution=input_resolution,
         patch_size=patch_size,
@@ -311,37 +306,34 @@ def clip_image_encoder(
         layer_norm_eps=layer_norm_eps,
         data_format=data_format,
     )
-
     class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
-        encoded
+        last_hidden_state
     )
-    x = keras.layers.LayerNormalization(
+    pooler_output = keras.layers.LayerNormalization(
         epsilon=layer_norm_eps, name="vision_model_layernorm_2"
     )(class_token)
-    return keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(x)
+    return last_hidden_state, pooler_output
 
 
-def clip_text_encoder(
+def clip_text_backbone(
     inputs,
     attention_mask,
     transformer_width,
     transformer_layers,
     transformer_heads,
     vocab_size,
-    embed_dim,
     context_length,
     text_mlp_ratio,
     hidden_act="quick_gelu",
     layer_norm_eps=1e-5,
 ):
-    """CLIP text encoder with causal attention and EOT-token pooling.
+    """CLIP text encoder up through final LayerNorm + EOT pluck — no projection.
 
-    Pipeline: :class:`CLIPTextModelEmbedding` (token + positional) →
-    :func:`clip_encoder` with a strict upper-triangular causal mask
-    plus the padding mask → post-encoder LayerNorm → pluck the hidden
+    Mirrors HF's ``CLIPTextModel`` outputs. Pipeline:
+    :class:`CLIPTextModelEmbedding` → causal + padding-masked
+    :func:`clip_encoder` → post-encoder LayerNorm → pluck the hidden
     state at each row's EOT position (HF picks the position with the
-    largest ``token_id`` — typically the end-of-text token) → text
-    projection. Yields one ``(B, embed_dim)`` feature per caption.
+    largest ``token_id``).
 
     Args:
         inputs: Token-id tensor of shape ``(B, context_length)``.
@@ -351,16 +343,15 @@ def clip_text_encoder(
         transformer_layers: Text encoder depth.
         transformer_heads: Attention head count.
         vocab_size: Tokenizer vocabulary size.
-        embed_dim: Shared joint embedding dimension.
-        context_length: Maximum sequence length, used both for the
-            causal mask and the positional embedding table.
+        context_length: Maximum sequence length.
         text_mlp_ratio: MLP expansion ratio.
         hidden_act: MLP activation name.
         layer_norm_eps: LayerNorm epsilon.
 
     Returns:
-        Tensor of shape ``(B, embed_dim)`` — the unnormalized text
-        embedding.
+        Tuple ``(last_hidden_state, pooler_output)`` of shapes
+        ``(B, context_length, transformer_width)`` and
+        ``(B, transformer_width)``.
     """
     x = CLIPTextModelEmbedding(
         vocab_size=vocab_size,
@@ -391,20 +382,15 @@ def clip_text_encoder(
         layer_norm_eps=layer_norm_eps,
     )
 
-    layer_norm = keras.layers.LayerNormalization(
+    last_hidden_state = keras.layers.LayerNormalization(
         epsilon=layer_norm_eps, name="text_model_layernorm"
     )(encoded_output)
 
     indices = ops.argmax(inputs, axis=-1)
     one_hot_indices = ops.one_hot(indices, context_length)
-    selected_features = ops.einsum("bi,bij->bj", one_hot_indices, layer_norm)
-    selected_features = ops.expand_dims(selected_features, axis=1)
+    pooler_output = ops.einsum("bi,bij->bj", one_hot_indices, last_hidden_state)
 
-    text_features = keras.layers.Dense(
-        embed_dim, name="text_projection", use_bias=False
-    )(selected_features)
-
-    return ops.squeeze(text_features, axis=1)
+    return last_hidden_state, pooler_output
 
 
 def clip_head(image_embeddings, text_embeddings):
@@ -434,6 +420,320 @@ def clip_head(image_embeddings, text_embeddings):
     )
     logit_scale_layer = CLIPLogitScale(initial_value=0.07, name="logit_scale")
     return logit_scale_layer([image_embeddings, text_embeddings])
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class CLIPVisionModel(BaseModel):
+    """CLIP vision tower as a standalone model — no text encoder, no projection.
+
+    Mirrors HuggingFace's ``CLIPVisionModel``: the patch-embedding +
+    transformer stack from CLIP, ending at the post-encoder LayerNorm.
+    Use this when you only need image features and don't want to
+    instantiate the text tower or carry the ``visual_projection`` Dense.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(images)
+        out["last_hidden_state"]   # (B, num_patches + 1, vision_width)
+        out["pooler_output"]       # (B, vision_width) — post-LN CLS token
+
+    Construction:
+
+    >>> CLIPVisionModel.from_weights("clip_vit_base_16")
+    >>> CLIPVisionModel.from_weights("hf:openai/clip-vit-base-patch16")
+
+    Loading from a full CLIP checkpoint silently ignores the text-tower,
+    ``visual_projection``, and ``logit_scale`` entries.
+
+    Args:
+        input_image_shape: Input image specification. Accepts an integer
+            ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
+            ``(H, W)``, or a 3-tuple in the active data format's order.
+        vision_layers: ViT encoder depth.
+        vision_width: ViT hidden dim.
+        vision_patch_size: ViT patch size.
+        vision_mlp_ratio: MLP expansion ratio in vision blocks.
+        hidden_act: MLP activation name.
+        layer_norm_eps: Epsilon for every LayerNorm.
+        input_tensor: Optional pre-existing input tensor.
+        name: Model name.
+    """
+
+    BASE_MODEL_CONFIG = CLIP_CONFIG
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    HF_MODEL_TYPE = "clip"
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return CLIPModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_clip_torch_to_keras import transfer_clip_weights
+
+        transfer_clip_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        input_image_shape=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=32,
+        vision_mlp_ratio=4.0,
+        hidden_act="quick_gelu",
+        layer_norm_eps=1e-5,
+        input_tensor=None,
+        name="CLIPVisionModel",
+        **kwargs,
+    ):
+        for k in (
+            "embed_dim",
+            "context_length",
+            "vocab_size",
+            "transformer_width",
+            "transformer_heads",
+            "transformer_layers",
+            "text_mlp_ratio",
+        ):
+            kwargs.pop(k, None)
+
+        vision_heads = vision_width // 64
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        if data_format == "channels_first":
+            image_size = input_image_shape[1]
+        else:
+            image_size = input_image_shape[0]
+
+        if input_tensor is None:
+            images_input = layers.Input(shape=input_image_shape, name="images")
+        else:
+            images_input = input_tensor
+
+        last_hidden_state, pooler_output = clip_vision_backbone(
+            images_input,
+            input_resolution=image_size,
+            patch_size=vision_patch_size,
+            width=vision_width,
+            num_layers=vision_layers,
+            heads=vision_heads,
+            vision_mlp_ratio=vision_mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            data_format=data_format,
+        )
+
+        super().__init__(
+            inputs=images_input,
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.input_image_shape = input_image_shape
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "input_image_shape": self.input_image_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class CLIPTextModel(BaseModel):
+    """CLIP text tower as a standalone model — no vision encoder, no projection.
+
+    Mirrors HuggingFace's ``CLIPTextModel``: token + positional
+    embedding, causal-masked transformer stack, post-encoder LayerNorm,
+    and EOT-position pluck. Use this when you only need text features
+    and don't want to instantiate the vision tower or carry the
+    ``text_projection`` Dense.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({"token_ids": ..., "padding_mask": ...})
+        out["last_hidden_state"]   # (B, context_length, transformer_width)
+        out["pooler_output"]       # (B, transformer_width) — EOT-position hidden state
+
+    Construction:
+
+    >>> CLIPTextModel.from_weights("clip_vit_base_16")
+    >>> CLIPTextModel.from_weights("hf:openai/clip-vit-base-patch16")
+
+    Loading from a full CLIP checkpoint silently ignores the
+    vision-tower, ``text_projection``, and ``logit_scale`` entries.
+
+    Args:
+        context_length: Text input length.
+        vocab_size: Tokenizer vocab size.
+        transformer_width: Text encoder hidden dim.
+        transformer_heads: Text encoder head count.
+        transformer_layers: Text encoder depth.
+        text_mlp_ratio: MLP expansion ratio in text blocks.
+        hidden_act: MLP activation name.
+        layer_norm_eps: Epsilon for every LayerNorm.
+        input_tensor: Optional dict of pre-existing input tensors with
+            keys ``"token_ids"`` and ``"padding_mask"``.
+        name: Model name.
+    """
+
+    BASE_MODEL_CONFIG = CLIP_CONFIG
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    HF_MODEL_TYPE = "clip"
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return CLIPModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_clip_torch_to_keras import transfer_clip_weights
+
+        transfer_clip_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        context_length=77,
+        vocab_size=49408,
+        transformer_width=512,
+        transformer_heads=8,
+        transformer_layers=12,
+        text_mlp_ratio=4.0,
+        hidden_act="quick_gelu",
+        layer_norm_eps=1e-5,
+        input_tensor=None,
+        name="CLIPTextModel",
+        **kwargs,
+    ):
+        for k in (
+            "embed_dim",
+            "input_image_shape",
+            "vision_layers",
+            "vision_width",
+            "vision_patch_size",
+            "vision_mlp_ratio",
+        ):
+            kwargs.pop(k, None)
+
+        if isinstance(input_tensor, dict):
+            token_ids_input = input_tensor.get("token_ids")
+            if token_ids_input is None:
+                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = input_tensor.get("padding_mask")
+            if padding_mask_input is None:
+                padding_mask_input = layers.Input(
+                    shape=[context_length], name="padding_mask"
+                )
+        else:
+            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = layers.Input(
+                shape=[context_length], name="padding_mask"
+            )
+
+        last_hidden_state, pooler_output = clip_text_backbone(
+            token_ids_input,
+            attention_mask=padding_mask_input,
+            transformer_width=transformer_width,
+            transformer_layers=transformer_layers,
+            transformer_heads=transformer_heads,
+            vocab_size=vocab_size,
+            context_length=context_length,
+            text_mlp_ratio=text_mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+        )
+
+        super().__init__(
+            inputs={
+                "token_ids": token_ids_input,
+                "padding_mask": padding_mask_input,
+            },
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+        self.transformer_width = transformer_width
+        self.transformer_heads = transformer_heads
+        self.transformer_layers = transformer_layers
+        self.text_mlp_ratio = text_mlp_ratio
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "context_length": self.context_length,
+                "vocab_size": self.vocab_size,
+                "transformer_width": self.transformer_width,
+                "transformer_heads": self.transformer_heads,
+                "transformer_layers": self.transformer_layers,
+                "text_mlp_ratio": self.text_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -541,24 +841,21 @@ class CLIPModel(BaseModel):
         name="CLIPModel",
         **kwargs,
     ):
-        vision_heads = vision_width // 64
         data_format = keras.config.image_data_format()
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
-        if data_format == "channels_first":
-            image_size = input_image_shape[1]
-        else:
-            image_size = input_image_shape[0]
 
         if isinstance(input_tensor, dict):
-            images_input = input_tensor.get("images") or layers.Input(
-                shape=input_image_shape, name="images"
-            )
-            token_ids_input = input_tensor.get("token_ids") or layers.Input(
-                shape=[context_length], name="token_ids"
-            )
-            padding_mask_input = input_tensor.get("padding_mask") or layers.Input(
-                shape=[context_length], name="padding_mask"
-            )
+            images_input = input_tensor.get("images")
+            if images_input is None:
+                images_input = layers.Input(shape=input_image_shape, name="images")
+            token_ids_input = input_tensor.get("token_ids")
+            if token_ids_input is None:
+                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = input_tensor.get("padding_mask")
+            if padding_mask_input is None:
+                padding_mask_input = layers.Input(
+                    shape=[context_length], name="padding_mask"
+                )
         else:
             images_input = layers.Input(shape=input_image_shape, name="images")
             token_ids_input = layers.Input(shape=[context_length], name="token_ids")
@@ -566,33 +863,42 @@ class CLIPModel(BaseModel):
                 shape=[context_length], name="padding_mask"
             )
 
-        image_embeddings = clip_image_encoder(
-            images_input,
-            input_resolution=image_size,
-            patch_size=vision_patch_size,
-            width=vision_width,
-            num_layers=vision_layers,
-            heads=vision_heads,
-            output_dim=embed_dim,
+        vision_model = CLIPVisionModel(
+            input_image_shape=input_image_shape,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
-            data_format=data_format,
+            input_tensor=images_input,
+            name=f"{name}_vision_tower",
         )
-
-        text_embeddings = clip_text_encoder(
-            token_ids_input,
-            attention_mask=padding_mask_input,
-            transformer_width=transformer_width,
-            transformer_layers=transformer_layers,
-            transformer_heads=transformer_heads,
-            vocab_size=vocab_size,
-            embed_dim=embed_dim,
-            text_mlp_ratio=text_mlp_ratio,
+        text_model = CLIPTextModel(
             context_length=context_length,
+            vocab_size=vocab_size,
+            transformer_width=transformer_width,
+            transformer_heads=transformer_heads,
+            transformer_layers=transformer_layers,
+            text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
+            input_tensor={
+                "token_ids": token_ids_input,
+                "padding_mask": padding_mask_input,
+            },
+            name=f"{name}_text_tower",
         )
+
+        image_embeddings = layers.Dense(
+            embed_dim, use_bias=False, name="visual_projection"
+        )(vision_model.output["pooler_output"])
+
+        text_pooler_3d = ops.expand_dims(text_model.output["pooler_output"], axis=1)
+        text_proj = layers.Dense(embed_dim, use_bias=False, name="text_projection")(
+            text_pooler_3d
+        )
+        text_embeddings = ops.squeeze(text_proj, axis=1)
 
         outputs = {
             "image_embeddings": image_embeddings,
@@ -606,6 +912,8 @@ class CLIPModel(BaseModel):
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
+        self.vision_model = vision_model
+        self.text_model = text_model
         self.embed_dim = embed_dim
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
@@ -881,37 +1189,33 @@ class CLIPImageClassify(BaseModel):
         ):
             kwargs.pop(k, None)
 
-        vision_heads = vision_width // 64
         data_format = keras.config.image_data_format()
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
-        if data_format == "channels_first":
-            image_size = input_image_shape[1]
-        else:
-            image_size = input_image_shape[0]
 
         if input_tensor is None:
             images_input = layers.Input(shape=input_image_shape, name="images")
         else:
             images_input = input_tensor
 
-        encoded = clip_vision_features(
-            images_input,
-            input_resolution=image_size,
-            patch_size=vision_patch_size,
-            width=vision_width,
-            num_layers=vision_layers,
-            heads=vision_heads,
+        vision_model = CLIPVisionModel(
+            input_image_shape=input_image_shape,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
-            data_format=data_format,
+            input_tensor=images_input,
+            name=f"{name}_vision_tower",
         )
+        encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded[:, 1:, :], axis=1)
         logits = layers.Dense(num_labels, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
+        self.vision_model = vision_model
         self.num_labels = num_labels
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
