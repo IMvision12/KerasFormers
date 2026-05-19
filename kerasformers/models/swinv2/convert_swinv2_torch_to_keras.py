@@ -45,20 +45,48 @@ _ATTN_REPLACEMENT: Dict[str, str] = {
     "cpb.mlp": "cpb_mlp",
 }
 
+_DIRECT_ATTN_WEIGHTS: Dict[str, str] = {
+    "attn.logit.scale": "attn.logit_scale",
+    "attn.q.bias": "attn.q_bias",
+    "attn.v.bias": "attn.v_bias",
+}
+
+_SKIP_DIRECT_ATTN: tuple = (
+    "attn.relative.coords.table",
+    "attn.relative.position.index",
+)
+
 
 def transfer_swinv2_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in trainable + non_trainable:
-        torch_weight_name = keras_weight_name
-        for old, new in WEIGHT_NAME_MAPPING.items():
-            torch_weight_name = torch_weight_name.replace(old, new)
+        path_parts = keras_weight.path.split("/")
 
-        if "window.attention" in torch_weight_name or "cpb.mlp" in torch_weight_name:
+        if len(path_parts) == 2:
+            flat = path_parts[-1].replace("_", ".")
+            if any(skip in flat for skip in _SKIP_DIRECT_ATTN):
+                continue
+            matched = next((k for k in _DIRECT_ATTN_WEIGHTS if k in flat), None)
+            if matched is not None:
+                torch_name = flat.replace(matched, _DIRECT_ATTN_WEIGHTS[matched])
+                if torch_name not in state_dict:
+                    raise WeightMappingError(keras_weight_name, torch_name)
+                value = np.asarray(state_dict[torch_name])
+                if value.shape != tuple(keras_weight.shape):
+                    value = value.reshape(tuple(keras_weight.shape))
+                keras_weight.assign(value)
+                continue
+
+        if len(path_parts) >= 3 and "_attn_" in path_parts[-2]:
             transfer_attention_weights(
                 keras_weight_name, keras_weight, state_dict, _ATTN_REPLACEMENT
             )
             continue
+
+        torch_weight_name = keras_weight_name
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            torch_weight_name = torch_weight_name.replace(old, new)
 
         if torch_weight_name not in state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
