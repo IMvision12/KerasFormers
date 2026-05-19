@@ -1607,6 +1607,11 @@ class SAM2HieraPositionEmbedding(layers.Layer):
         window_pos = ops.tile(self.pos_embed_window, (1, tile_h, tile_w, 1))
         self._full_pos.assign(pos + window_pos)
 
+    def load_own_variables(self, store):
+        self.pos_embed.assign(store["0"])
+        self.pos_embed_window.assign(store["1"])
+        self._recompute_full_pos()
+
     def call(self, hidden_states):
         pos = ops.convert_to_tensor(self._full_pos)
         if self.data_format == "channels_first":

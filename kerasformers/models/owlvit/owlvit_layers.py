@@ -1,9 +1,50 @@
+import math
+
 import keras
+import numpy as np
 from keras import layers, ops
 
 
 def quick_gelu(x):
     return x * ops.sigmoid(1.702 * x)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class OwlViTPositionEmbedding(layers.Embedding):
+    """Position-embedding lookup with on-load grid interpolation.
+
+    Subclasses :class:`keras.layers.Embedding` so the saved kernel of
+    shape ``(num_positions, hidden_size)`` is resized to the layer's
+    current ``input_dim`` whenever a checkpoint trained at a different
+    image resolution is loaded. The first row stays as the CLS-position;
+    the remaining ``num_positions - 1`` rows are treated as a square
+    grid, bilinearly resized with antialiasing, and flattened back.
+    """
+
+    def load_own_variables(self, store):
+        source = np.asarray(store["0"])
+        target_shape = tuple(self.embeddings.shape)
+        if tuple(source.shape) == target_shape:
+            self.embeddings.assign(source)
+            return
+        target_num_positions, hidden_size = target_shape
+        source_num_positions = source.shape[0]
+        source_grid = int(round(math.sqrt(source_num_positions - 1)))
+        target_grid = int(round(math.sqrt(target_num_positions - 1)))
+        source = ops.cast(source, dtype="float32")
+        cls = source[:1]
+        spatial = source[1:]
+        spatial = ops.reshape(spatial, [1, source_grid, source_grid, hidden_size])
+        spatial = ops.image.resize(
+            spatial,
+            size=[target_grid, target_grid],
+            interpolation="bilinear",
+            antialias=True,
+            data_format="channels_last",
+        )
+        spatial = ops.reshape(spatial, [target_grid * target_grid, hidden_size])
+        new_kernel = ops.concatenate([cls, spatial], axis=0)
+        self.embeddings.assign(new_kernel)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -54,7 +95,7 @@ class OwlViTVisionEmbeddings(layers.Layer):
             data_format=self._data_format,
             name="patch_embedding",
         )
-        self.position_embedding = layers.Embedding(
+        self.position_embedding = OwlViTPositionEmbedding(
             self.num_positions,
             hidden_size,
             name="position_embedding",
