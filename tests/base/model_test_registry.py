@@ -1240,6 +1240,35 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 16, 4),
         },
     },
+    "Owlv2Detect": {
+        "module": "kerasformers.models.owlv2",
+        "model_cls": "Owlv2Detect",
+        "model_type": "object_detection",
+        "init_kwargs": {
+            "vision_image_size": 64,
+            "vision_patch_size": 16,
+            "vision_hidden_size": 32,
+            "vision_intermediate_size": 64,
+            "vision_num_hidden_layers": 2,
+            "vision_num_attention_heads": 2,
+            "text_hidden_size": 16,
+            "text_intermediate_size": 32,
+            "text_num_attention_heads": 2,
+            "projection_dim": 16,
+            "input_image_shape": 64,
+        },
+        "input_factory": "owlvit_input",
+        "input_factory_kwargs": {
+            "image_size": 64,
+            "context_length": 16,
+            "num_queries": 2,
+        },
+        "expected_output_shape": {
+            "logits": (2, 16, 2),
+            "objectness_logits": (2, 16),
+            "pred_boxes": (2, 16, 4),
+        },
+    },
 }
 
 

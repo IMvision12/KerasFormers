@@ -4,18 +4,18 @@ from keras import layers, ops
 from kerasformers.base import BaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import OWLVIT_CONFIG, OWLVIT_WEIGHTS
-from .owlvit_layers import (
-    OwlViTAttention,
-    OwlViTSplitBatchQueries,
-    OwlViTTextEmbeddings,
-    OwlViTVisionEmbeddings,
+from .config import OWLV2_CONFIG, OWLV2_WEIGHTS
+from .owlv2_layers import (
+    Owlv2Attention,
+    Owlv2SplitBatchQueries,
+    Owlv2TextEmbeddings,
+    Owlv2VisionEmbeddings,
     compute_box_bias,
     quick_gelu,
 )
 
 
-def owlvit_mlp(x, hidden_size, intermediate_size, block_prefix):
+def owlv2_mlp(x, hidden_size, intermediate_size, block_prefix):
     """Two-layer feed-forward MLP block (``fc1`` → quick_gelu → ``fc2``).
 
     The CLIP-style MLP used in both the vision and text towers: a Dense
@@ -23,8 +23,8 @@ def owlvit_mlp(x, hidden_size, intermediate_size, block_prefix):
     a Dense projecting back to ``hidden_size``.
 
     Reference:
-        - `Simple Open-Vocabulary Object Detection with Vision Transformers
-          <https://arxiv.org/abs/2205.06230>`_
+        - `Scaling Open-Vocabulary Object Detection
+          <https://arxiv.org/abs/2306.09683>`_
 
     Args:
         x: Input tensor of shape ``(B, seq_len, hidden_size)``.
@@ -41,7 +41,7 @@ def owlvit_mlp(x, hidden_size, intermediate_size, block_prefix):
     return x
 
 
-def owlvit_transformer_block(
+def owlv2_transformer_block(
     x,
     attention_mask,
     num_layers,
@@ -53,8 +53,8 @@ def owlvit_transformer_block(
     """Stack of pre-norm transformer blocks shared by the vision and text towers.
 
     Each layer applies pre-norm self-attention (LayerNorm →
-    :class:`OwlViTAttention` → residual) followed by pre-norm MLP
-    (LayerNorm → :func:`owlvit_mlp` → residual). The vision tower
+    :class:`Owlv2Attention` → residual) followed by pre-norm MLP
+    (LayerNorm → :func:`owlv2_mlp` → residual). The vision tower
     passes ``attention_mask=None`` for bidirectional attention; the
     text tower passes a causal mask for autoregressive-style attention.
 
@@ -77,7 +77,7 @@ def owlvit_transformer_block(
         prefix = f"{block_prefix}_layers_{i}"
         residual = x
         x = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_layer_norm1")(x)
-        x = OwlViTAttention(
+        x = Owlv2Attention(
             hidden_size=hidden_size,
             num_heads=num_heads,
             name=f"{prefix}_self_attn",
@@ -86,7 +86,7 @@ def owlvit_transformer_block(
 
         residual = x
         x = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_layer_norm2")(x)
-        x = owlvit_mlp(
+        x = owlv2_mlp(
             x,
             hidden_size=hidden_size,
             intermediate_size=intermediate_size,
@@ -96,7 +96,7 @@ def owlvit_transformer_block(
     return x
 
 
-def owlvit_vision_transformer(
+def owlv2_vision_transformer(
     pixel_values,
     hidden_size,
     image_size,
@@ -106,15 +106,15 @@ def owlvit_vision_transformer(
     intermediate_size,
     block_prefix,
 ):
-    """OWL-ViT vision tower: patch embeddings → pre-LN → encoder → post-LN.
+    """OWLv2 vision tower: patch embeddings → pre-LN → encoder → post-LN.
 
     Builds the CLIP-style vision encoder: a learned patch + position +
-    CLS embedding via :class:`OwlViTVisionEmbeddings`, a pre-encoder
+    CLS embedding via :class:`Owlv2VisionEmbeddings`, a pre-encoder
     LayerNorm, ``num_hidden_layers`` pre-norm transformer blocks, and
     a post-encoder LayerNorm. The output keeps the CLS token at
-    index 0; detection heads in :class:`OwlViTDetect` use the CLS
-    token to modulate the patch tokens before the box / class
-    predictors.
+    index 0; detection heads in :class:`Owlv2Detect` use the CLS
+    token to modulate the patch tokens before the box / class /
+    objectness predictors.
 
     Args:
         pixel_values: Image input tensor of shape ``(B, H, W, 3)`` (or
@@ -131,14 +131,14 @@ def owlvit_vision_transformer(
         ``(B, num_patches + 1, hidden_size)`` vision encoder output
         (CLS token at index 0 followed by patch tokens).
     """
-    x = OwlViTVisionEmbeddings(
+    x = Owlv2VisionEmbeddings(
         hidden_size=hidden_size,
         image_size=image_size,
         patch_size=patch_size,
         name=f"{block_prefix}_embeddings",
     )(pixel_values)
     x = layers.LayerNormalization(epsilon=1e-5, name=f"{block_prefix}_pre_layernorm")(x)
-    x = owlvit_transformer_block(
+    x = owlv2_transformer_block(
         x,
         attention_mask=None,
         num_layers=num_hidden_layers,
@@ -153,7 +153,7 @@ def owlvit_vision_transformer(
     return x
 
 
-def owlvit_text_transformer(
+def owlv2_text_transformer(
     input_ids,
     vocab_size,
     hidden_size,
@@ -163,10 +163,10 @@ def owlvit_text_transformer(
     intermediate_size,
     block_prefix,
 ):
-    """OWL-ViT text tower: token embeddings → causal encoder → LN → EOS pool.
+    """OWLv2 text tower: token embeddings → causal encoder → LN → EOS pool.
 
     Builds a CLIP-style text encoder: token + position embeddings via
-    :class:`OwlViTTextEmbeddings`, ``num_hidden_layers`` pre-norm
+    :class:`Owlv2TextEmbeddings`, ``num_hidden_layers`` pre-norm
     transformer blocks with a causal attention mask, a final
     LayerNorm, and an EOS-token pooling step. The EOS token is taken
     as the highest-id token in each sequence, so ``argmax(input_ids)``
@@ -186,7 +186,7 @@ def owlvit_text_transformer(
     Returns:
         ``(B, hidden_size)`` EOS-pooled text feature.
     """
-    x = OwlViTTextEmbeddings(
+    x = Owlv2TextEmbeddings(
         vocab_size=vocab_size,
         hidden_size=hidden_size,
         max_position_embeddings=max_position_embeddings,
@@ -199,7 +199,7 @@ def owlvit_text_transformer(
     causal = ops.where(j > i, ops.cast(-1e9, "float32"), ops.cast(0.0, "float32"))
     causal = ops.reshape(causal, (1, 1, seq_len, seq_len))
 
-    x = owlvit_transformer_block(
+    x = owlv2_transformer_block(
         x,
         attention_mask=causal,
         num_layers=num_hidden_layers,
@@ -219,33 +219,34 @@ def owlvit_text_transformer(
     return pooled
 
 
-def owlvit_box_predictor(image_features, hidden_size, block_prefix):
-    """3-layer MLP predicting raw ``(cx, cy, w, h)`` boxes per patch.
+def owlv2_box_predictor(image_features, hidden_size, out_dim, block_prefix):
+    """3-layer MLP predicting per-patch box-style outputs.
 
-    Applies ``Dense → GELU → Dense → GELU → Dense(4)``. The output is
-    a per-patch delta in logit space; :func:`owlvit_detection_head`
-    adds an explicit grid bias from :func:`compute_box_bias` and a
-    sigmoid so the final boxes lie in normalized ``[0, 1]``
-    coordinates.
+    Applies ``Dense → GELU → Dense → GELU → Dense(out_dim)``. With
+    ``out_dim=4`` this is the standard box predictor (delta in logit
+    space, paired with :func:`compute_box_bias` and a sigmoid in
+    :func:`owlv2_detection_head`). With ``out_dim=1`` it is reused as
+    the OWLv2 objectness head producing a per-patch objectness logit.
 
     Args:
         image_features: Per-patch image features of shape
             ``(B, num_patches, hidden_size)``.
         hidden_size: MLP hidden dimension.
+        out_dim: Output dimension (``4`` for box, ``1`` for objectness).
         block_prefix: Layer name prefix.
 
     Returns:
-        ``(B, num_patches, 4)`` raw box predictions (no sigmoid).
+        ``(B, num_patches, out_dim)`` prediction tensor.
     """
     x = layers.Dense(hidden_size, name=f"{block_prefix}_dense0")(image_features)
     x = ops.gelu(x, approximate=False)
     x = layers.Dense(hidden_size, name=f"{block_prefix}_dense1")(x)
     x = ops.gelu(x, approximate=False)
-    x = layers.Dense(4, name=f"{block_prefix}_dense2")(x)
+    x = layers.Dense(out_dim, name=f"{block_prefix}_dense2")(x)
     return x
 
 
-def owlvit_class_predictor(
+def owlv2_class_predictor(
     image_embeds, query_embeds, query_mask, out_dim, block_prefix
 ):
     """Text-conditional class predictor with L2-normalized cosine similarity.
@@ -315,7 +316,7 @@ def owlvit_class_predictor(
     return pred_logits, image_class_embeds_n
 
 
-def owlvit_functional(
+def owlv2_functional(
     pixel_values,
     input_ids,
     *,
@@ -333,23 +334,17 @@ def owlvit_functional(
     text_vocab_size,
     projection_dim,
 ):
-    """Build the OWL-ViT dual-tower encoder graph (no detection heads).
+    """Build the OWLv2 dual-tower encoder graph (no detection heads).
 
     Top-level orchestrator that wires the three encoder stages:
 
-    1. :func:`owlvit_vision_transformer` — CLIP-style ViT vision
+    1. :func:`owlv2_vision_transformer` — CLIP-style ViT vision
        tower producing patch + CLS tokens.
-    2. :func:`owlvit_text_transformer` — CLIP-style causal text tower
+    2. :func:`owlv2_text_transformer` — CLIP-style causal text tower
        with EOS pooling.
     3. A linear text projection to ``projection_dim`` followed by
        L2-normalization, producing the text features used for
        zero-shot class scoring.
-
-    Detection heads (CLS-modulated patch features, box predictor,
-    class predictor) are intentionally not built here — they live in
-    :func:`owlvit_detection_head` and are added by
-    :class:`OwlViTDetect`, which composes :class:`OwlViTModel` around this
-    graph.
 
     Args:
         pixel_values: Image input tensor.
@@ -375,10 +370,9 @@ def owlvit_functional(
         text_embeds: L2-normalized text projection
             ``(B, projection_dim)``.
         text_pooled: Unprojected EOS-pooled text feature
-            ``(B, text_hidden_size)`` — useful for downstream consumers
-            that want the pre-projection representation.
+            ``(B, text_hidden_size)``.
     """
-    image_embeds_raw = owlvit_vision_transformer(
+    image_embeds_raw = owlv2_vision_transformer(
         pixel_values,
         hidden_size=vision_hidden_size,
         image_size=vision_image_size,
@@ -389,7 +383,7 @@ def owlvit_functional(
         block_prefix="vision_model",
     )
 
-    text_pooled = owlvit_text_transformer(
+    text_pooled = owlv2_text_transformer(
         input_ids,
         vocab_size=text_vocab_size,
         hidden_size=text_hidden_size,
@@ -408,7 +402,7 @@ def owlvit_functional(
     return image_embeds_raw, text_embeds, text_pooled
 
 
-def owlvit_detection_head(
+def owlv2_detection_head(
     image_embeds_raw,
     text_embeds,
     input_ids,
@@ -417,15 +411,21 @@ def owlvit_detection_head(
     num_patches_h,
     num_patches_w,
 ):
-    """Build OWL-ViT detection heads on top of the dual-tower embeddings.
+    """Build OWLv2 detection heads on top of the dual-tower embeddings.
 
     Mixes the vision CLS token into the patch tokens (elementwise
     multiplication, then LayerNorm), broadcasts the per-batch text
-    queries across image samples via :class:`OwlViTSplitBatchQueries`,
-    and applies the per-patch box predictor + text-conditional class
-    predictor. The box predictor produces raw box deltas; an explicit
-    grid bias from :func:`compute_box_bias` is added before sigmoid so
-    final boxes lie in normalized ``[0, 1]`` coordinates.
+    queries across image samples via :class:`Owlv2SplitBatchQueries`,
+    and applies the per-patch box predictor, objectness predictor, and
+    text-conditional class predictor. The box predictor produces raw
+    box deltas; an explicit grid bias from :func:`compute_box_bias` is
+    added before sigmoid so final boxes lie in normalized ``[0, 1]``
+    coordinates.
+
+    The objectness predictor is the OWLv2 delta vs OWL-ViT: a separate
+    3-layer MLP outputting a scalar objectness logit per patch, used at
+    inference to filter low-objectness patches before applying the
+    text-conditional class scores.
 
     Args:
         image_embeds_raw: Raw vision encoder output
@@ -444,6 +444,9 @@ def owlvit_detection_head(
     Returns:
         Dict with keys:
         - ``logits``: ``(B, num_patches, num_queries)`` class logits.
+        - ``objectness_logits``: ``(B, num_patches)`` per-patch
+          objectness logits — multiply with sigmoid(logits) at
+          inference to score detection proposals.
         - ``pred_boxes``: ``(B, num_patches, 4)`` sigmoid-bounded
           boxes in ``(cx, cy, w, h)``.
         - ``text_embeds``: Per-image broadcast query embeddings.
@@ -465,15 +468,15 @@ def owlvit_detection_head(
     )
     image_feats = ops.reshape(patch_embeds, (-1, num_patches, vision_hidden_size))
 
-    query_embeds = OwlViTSplitBatchQueries(name="split_text_embeds")(
+    query_embeds = Owlv2SplitBatchQueries(name="split_text_embeds")(
         text_embeds, patch_embeds
     )
-    input_ids_b = OwlViTSplitBatchQueries(name="split_input_ids")(
+    input_ids_b = Owlv2SplitBatchQueries(name="split_input_ids")(
         input_ids, patch_embeds
     )
     query_mask = input_ids_b[..., 0] > 0
 
-    pred_logits, class_embeds = owlvit_class_predictor(
+    pred_logits, class_embeds = owlv2_class_predictor(
         image_feats,
         query_embeds,
         query_mask,
@@ -482,16 +485,26 @@ def owlvit_detection_head(
     )
 
     box_bias = ops.cast(compute_box_bias(num_patches_h, num_patches_w), "float32")
-    pred_boxes = owlvit_box_predictor(
+    pred_boxes = owlv2_box_predictor(
         image_feats,
         hidden_size=vision_hidden_size,
+        out_dim=4,
         block_prefix="box_head",
     )
     pred_boxes = pred_boxes + ops.cast(box_bias, pred_boxes.dtype)
     pred_boxes = ops.sigmoid(pred_boxes)
 
+    objectness_logits = owlv2_box_predictor(
+        image_feats,
+        hidden_size=vision_hidden_size,
+        out_dim=1,
+        block_prefix="objectness_head",
+    )
+    objectness_logits = ops.squeeze(objectness_logits, axis=-1)
+
     return {
         "logits": pred_logits,
+        "objectness_logits": objectness_logits,
         "pred_boxes": pred_boxes,
         "text_embeds": query_embeds,
         "image_embeds": feature_map,
@@ -500,20 +513,21 @@ def owlvit_detection_head(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class OwlViTModel(BaseModel):
-    """OWL-ViT vision + text encoder (no detection heads).
+class Owlv2Model(BaseModel):
+    """OWLv2 vision + text encoder (no detection heads).
 
-    Mirrors HuggingFace's ``OwlViTModel``. Returns the raw vision
+    Mirrors HuggingFace's ``Owlv2Model``. Returns the raw vision
     encoder output and the L2-normalized text projection — suitable
     for zero-shot similarity scoring or as a backbone for custom heads.
-    For full detection, use ``OwlViTDetect``.
+    For full detection (with the objectness predictor), use
+    :class:`Owlv2Detect`.
 
     Reference:
-    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+    - [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683)
     """
 
-    BASE_MODEL_CONFIG = OWLVIT_CONFIG
-    HF_MODEL_TYPE = "owlvit"
+    BASE_MODEL_CONFIG = OWLV2_CONFIG
+    HF_MODEL_TYPE = "owlv2"
 
     def __init__(
         self,
@@ -530,11 +544,13 @@ class OwlViTModel(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_image_shape=768,
+        input_image_shape=None,
         text_input_shape=None,
-        name="OwlViTModel",
+        name="Owlv2Model",
         **kwargs,
     ):
+        if input_image_shape is None:
+            input_image_shape = vision_image_size
         data_format = keras.config.image_data_format()
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
         if text_input_shape is None:
@@ -545,7 +561,7 @@ class OwlViTModel(BaseModel):
             shape=text_input_shape, dtype="int32", name="input_ids"
         )
 
-        image_embeds, text_embeds, _ = owlvit_functional(
+        image_embeds, text_embeds, _ = owlv2_functional(
             pixel_values,
             input_ids,
             vision_image_size=vision_image_size,
@@ -636,27 +652,29 @@ class OwlViTModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_owlvit_hf_to_keras import transfer_owlvit_encoder_weights
+        from .convert_owlv2_hf_to_keras import transfer_owlv2_encoder_weights
 
-        transfer_owlvit_encoder_weights(keras_model, hf_state_dict)
+        transfer_owlv2_encoder_weights(keras_model, hf_state_dict)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class OwlViTDetect(BaseModel):
-    """OWL-ViT object detection model (encoder + class/box heads).
+class Owlv2Detect(BaseModel):
+    """OWLv2 object detection model (encoder + class/box/objectness heads).
 
-    Mirrors HuggingFace's ``OwlViTForObjectDetection``. Produces
-    per-patch boxes and text-conditional class similarity logits, so
-    the set of detection classes is the set of text queries provided
-    at inference time rather than a fixed softmax head.
+    Mirrors HuggingFace's ``Owlv2ForObjectDetection``. Produces
+    per-patch boxes, per-patch objectness logits, and text-conditional
+    class similarity logits. The set of detection classes is the set of
+    text queries provided at inference time. The objectness head (new
+    in OWLv2) lets the model rank patches by general "is-an-object"
+    score independent of the text queries.
 
     Reference:
-    - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
+    - [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683)
     """
 
-    BASE_MODEL_CONFIG = OWLVIT_CONFIG
-    BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS
-    HF_MODEL_TYPE = "owlvit"
+    BASE_MODEL_CONFIG = OWLV2_CONFIG
+    BASE_WEIGHT_CONFIG = OWLV2_WEIGHTS
+    HF_MODEL_TYPE = "owlv2"
 
     def __init__(
         self,
@@ -673,15 +691,15 @@ class OwlViTDetect(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_image_shape=768,
+        input_image_shape=None,
         text_input_shape=None,
-        name="OwlViTDetect",
+        name="Owlv2Detect",
         **kwargs,
     ):
         num_patches_h = vision_image_size // vision_patch_size
         num_patches_w = vision_image_size // vision_patch_size
 
-        base = OwlViTModel(
+        base = Owlv2Model(
             vision_image_size=vision_image_size,
             vision_patch_size=vision_patch_size,
             vision_hidden_size=vision_hidden_size,
@@ -703,7 +721,7 @@ class OwlViTDetect(BaseModel):
         text_embeds = base.output["text_embeds"]
         input_ids = base.input["input_ids"]
 
-        outputs = owlvit_detection_head(
+        outputs = owlv2_detection_head(
             image_embeds_raw,
             text_embeds,
             input_ids,
@@ -762,10 +780,10 @@ class OwlViTDetect(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return OwlViTModel.config_from_hf(hf_config)
+        return Owlv2Model.config_from_hf(hf_config)
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_owlvit_hf_to_keras import transfer_owlvit_detection_weights
+        from .convert_owlv2_hf_to_keras import transfer_owlv2_detection_weights
 
-        transfer_owlvit_detection_weights(keras_model, hf_state_dict)
+        transfer_owlv2_detection_weights(keras_model, hf_state_dict)

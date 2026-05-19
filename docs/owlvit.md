@@ -35,7 +35,7 @@ similarity score.
 
 Two classes are exposed:
 
-- `OwlViT` — vision + text encoder only (returns `image_embeds`, `text_embeds`).
+- `OwlViTModel` — vision + text encoder only (returns `image_embeds`, `text_embeds`).
 - `OwlViTDetect` — encoder + class/box heads for object detection (returns `logits`, `pred_boxes`, …).
 
 The text tower is fixed across variants (12 layers, hidden 512 / 768,
