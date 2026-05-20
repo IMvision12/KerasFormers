@@ -451,7 +451,7 @@ class OwlViTVisionModel(BaseModel):
         vision_intermediate_size,
         vision_num_hidden_layers,
         vision_num_attention_heads,
-        input_image_shape=768,
+        input_image_shape=None,
         input_tensor=None,
         name="OwlViTVisionModel",
         **kwargs,
@@ -468,8 +468,16 @@ class OwlViTVisionModel(BaseModel):
         ):
             kwargs.pop(k, None)
 
+        if input_image_shape is None:
+            input_image_shape = vision_image_size
         data_format = keras.config.image_data_format()
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
+
+        image_edge = (
+            input_image_shape[1]
+            if data_format == "channels_first"
+            else input_image_shape[0]
+        )
 
         if input_tensor is None:
             pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
@@ -479,7 +487,7 @@ class OwlViTVisionModel(BaseModel):
         last_hidden_state = owlvit_vision_transformer(
             pixel_values,
             hidden_size=vision_hidden_size,
-            image_size=vision_image_size,
+            image_size=image_edge,
             patch_size=vision_patch_size,
             num_hidden_layers=vision_num_hidden_layers,
             num_heads=vision_num_attention_heads,
@@ -689,11 +697,13 @@ class OwlViTModel(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_image_shape=768,
+        input_image_shape=None,
         text_input_shape=None,
         name="OwlViTModel",
         **kwargs,
     ):
+        if input_image_shape is None:
+            input_image_shape = vision_image_size
         data_format = keras.config.image_data_format()
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
         if text_input_shape is None:
@@ -849,13 +859,21 @@ class OwlViTDetect(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_image_shape=768,
+        input_image_shape=None,
         text_input_shape=None,
         name="OwlViTDetect",
         **kwargs,
     ):
-        num_patches_h = vision_image_size // vision_patch_size
-        num_patches_w = vision_image_size // vision_patch_size
+        # Resolution is driven by ``input_image_shape``; ``vision_image_size``
+        # is only the native default. The patch grid (and detection-head box
+        # bias) must match the actual input resolution.
+        if input_image_shape is None:
+            input_image_shape = vision_image_size
+        _data_format = keras.config.image_data_format()
+        _resolved = standardize_input_shape(input_image_shape, _data_format)
+        image_edge = _resolved[1] if _data_format == "channels_first" else _resolved[0]
+        num_patches_h = image_edge // vision_patch_size
+        num_patches_w = image_edge // vision_patch_size
 
         base = OwlViTModel(
             vision_image_size=vision_image_size,
