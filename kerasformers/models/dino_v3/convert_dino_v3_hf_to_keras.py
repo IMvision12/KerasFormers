@@ -9,7 +9,7 @@ import torch
 from tqdm import tqdm
 from transformers import AutoModel
 
-from kerasformers.models.dino_v3 import DinoV3ConvNeXtBackbone, DinoV3ViTBackbone
+from kerasformers.models.dino_v3 import DinoV3ConvNeXtModel, DinoV3ViTModel
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -198,7 +198,7 @@ if __name__ == "__main__":
         hf_model = AutoModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = DinoV3ViTBackbone.from_weights(
+        keras_model = DinoV3ViTModel.from_weights(
             variant,
             load_weights=False,
             input_image_shape=224,
@@ -215,7 +215,7 @@ if __name__ == "__main__":
                 .numpy()
             )
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        last = keras_model(k_in, training=False)[-1]
+        last = keras_model(k_in, training=False)
         k_out = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )
@@ -241,7 +241,7 @@ if __name__ == "__main__":
         hf_model = AutoModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = DinoV3ConvNeXtBackbone.from_weights(
+        keras_model = DinoV3ConvNeXtModel.from_weights(
             variant,
             load_weights=False,
             input_image_shape=224,
@@ -257,7 +257,7 @@ if __name__ == "__main__":
             )
             hf_feat = hf_out_obj.hidden_states[-1].permute(0, 2, 3, 1).cpu().numpy()
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        last = keras_model(k_in, training=False)[-1]
+        last = keras_model(k_in, training=False)
         k_out = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )

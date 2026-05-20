@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from kerasformers.models.dino import DinoResNetBackbone, DinoViTBackbone
+from kerasformers.models.dino import DinoResNetModel, DinoViTModel
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -134,7 +134,7 @@ if __name__ == "__main__":
             for k, v in {**trainable_torch, **non_trainable_torch}.items()
         }
 
-        keras_model = DinoViTBackbone.from_weights(
+        keras_model = DinoViTModel.from_weights(
             variant,
             load_weights=False,
             input_image_shape=224,
@@ -148,8 +148,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
         k_in = np.transpose(x, (0, 2, 3, 1))
-        k_raw = keras_model(k_in, training=False)
-        last = k_raw[-1]
+        last = keras_model(k_in, training=False)
         last = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )
@@ -183,7 +182,7 @@ if __name__ == "__main__":
             for k, v in {**trainable_torch, **non_trainable_torch}.items()
         }
 
-        keras_model = DinoResNetBackbone.from_weights(
+        keras_model = DinoResNetModel.from_weights(
             variant,
             load_weights=False,
             input_image_shape=224,
@@ -197,8 +196,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
         k_in = np.transpose(x, (0, 2, 3, 1))
-        k_raw = keras_model(k_in, training=False)
-        last = k_raw[-1]
+        last = keras_model(k_in, training=False)
         last = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )

@@ -7,29 +7,29 @@ DINO (self-**DI**stillation with **NO** labels) is a self-supervised learning me
 
 DINOv2 improves on DINO with a larger curated dataset (LVD-142M), LayerScale, and stronger training recipe, producing state-of-the-art visual features.
 
-DINO and DINOv2 are pure feature extractors — no classification head. Three backbone classes are exposed:
+DINO and DINOv2 are pure feature extractors — no classification head. Three model classes are exposed:
 
-- `DinoViTBackbone` — DINO V1 ViT (4 variants).
-- `DinoResNetBackbone` — DINO V1 ResNet-50.
-- `DinoV2Backbone` — DINOv2 ViT (3 variants). Supports `from_weights("hf:<repo>")` for HF Hub fine-tunes.
+- `DinoViTModel` — DINO V1 ViT (4 variants).
+- `DinoResNetModel` — DINO V1 ResNet-50.
+- `DinoV2Model` — DINOv2 ViT (3 variants). Supports `from_weights("hf:<repo>")` for HF Hub fine-tunes.
 
-All three return a list of intermediate feature maps from each block / stage, suitable for feeding into detection / segmentation / depth necks.
+`DinoViTModel` and `DinoResNetModel` accept an `as_backbone` flag (like the classification models): with `as_backbone=True` they return the list of intermediate feature maps from each block / stage (suitable for detection / segmentation / depth necks); with `as_backbone=False` (default) they return only the final output (ViT: the LN-normalized token sequence; ResNet: the final-stage feature map).
 
 ## Available Weights
 
-Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Backbone` also supports `from_weights("hf:<repo>")` for arbitrary HF fine-tunes whose `model_type` is `"dinov2"`.
+Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Model` also supports `from_weights("hf:<repo>")` for arbitrary HF fine-tunes whose `model_type` is `"dinov2"`.
 
-### DINO V1 (`DinoViTBackbone` and `DinoResNetBackbone`)
+### DINO V1 (`DinoViTModel` and `DinoResNetModel`)
 
-| Variant            | Class                | Backbone   | Patch | Parameters |
-|--------------------|----------------------|------------|------:|-----------:|
-| `dino_vits16`      | `DinoViTBackbone`    | ViT-S/16   |    16 |     ~21 M  |
-| `dino_vits8`       | `DinoViTBackbone`    | ViT-S/8    |     8 |     ~21 M  |
-| `dino_vitb16`      | `DinoViTBackbone`    | ViT-B/16   |    16 |     ~85 M  |
-| `dino_vitb8`       | `DinoViTBackbone`    | ViT-B/8    |     8 |     ~85 M  |
-| `dino_resnet50`    | `DinoResNetBackbone` | ResNet-50  |     — |     ~23 M  |
+| Variant            | Class               | Backbone   | Patch | Parameters |
+|--------------------|---------------------|------------|------:|-----------:|
+| `dino_vits16`      | `DinoViTModel`      | ViT-S/16   |    16 |     ~21 M  |
+| `dino_vits8`       | `DinoViTModel`      | ViT-S/8    |     8 |     ~21 M  |
+| `dino_vitb16`      | `DinoViTModel`      | ViT-B/16   |    16 |     ~85 M  |
+| `dino_vitb8`       | `DinoViTModel`      | ViT-B/8    |     8 |     ~85 M  |
+| `dino_resnet50`    | `DinoResNetModel`   | ResNet-50  |     — |     ~23 M  |
 
-### DINOv2 (`DinoV2Backbone`)
+### DINOv2 (`DinoV2Model`)
 
 | Variant           | Backbone   | Patch | Parameters |
 |-------------------|------------|------:|-----------:|
@@ -41,23 +41,33 @@ Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Backbon
 
 ```python
 import numpy as np
-from kerasformers.models.dino import DinoViTBackbone, DinoResNetBackbone
-from kerasformers.models.dino_v2 import DinoV2Backbone
+from kerasformers.models.dino import DinoViTModel, DinoResNetModel
+from kerasformers.models.dino_v2 import DinoV2Model
 
-# DINO V1 ViT — returns 13 intermediate feature maps (embed + 12 blocks)
-model = DinoViTBackbone.from_weights("dino_vits16")
+# DINO V1 ViT, as a backbone — returns 13 intermediate feature maps (embed + 12 blocks)
+model = DinoViTModel.from_weights("dino_vits16", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)  # 13, (1, 197, 384)
 
-# DINO V1 ResNet — returns 5 stage feature maps
-model = DinoResNetBackbone.from_weights("dino_resnet50")
+# Default (as_backbone=False) — returns only the final LN-normalized token sequence
+model = DinoViTModel.from_weights("dino_vits16")
+out = model(np.random.rand(1, 224, 224, 3).astype("float32"))
+print(out.shape)  # (1, 197, 384)
+
+# DINO V1 ResNet, as a backbone — returns 5 stage feature maps
+model = DinoResNetModel.from_weights("dino_resnet50", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)  # 5, (1, 7, 7, 2048)
 
-# DINOv2 — returns 13 intermediate feature maps
-model = DinoV2Backbone.from_weights("dinov2_vits14")
+# DINOv2, as a backbone — returns 13 intermediate feature maps
+model = DinoV2Model.from_weights("dinov2_vits14", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)  # 13, (1, 257, 384)
+
+# Default (as_backbone=False) — returns only the final LN-normalized token sequence
+model = DinoV2Model.from_weights("dinov2_vits14")
+out = model(np.random.rand(1, 224, 224, 3).astype("float32"))
+print(out.shape)  # (1, 257, 384)
 ```
 
 ## Loading HF fine-tunes (DINOv2)
@@ -65,13 +75,13 @@ print(len(features), features[-1].shape)  # 13, (1, 257, 384)
 Any HF repo whose `model_type` is `"dinov2"` (the official `facebook/dinov2-*` checkpoints or any user fine-tune) can be loaded directly via `from_weights("hf:<repo>")`. The class reads ViT dims, depth, num heads, and LayerScale value straight from the HF config; position embeddings are bicubically resampled if your `input_image_shape` differs from HF's training resolution. The backbone's last feature map matches HF's `last_hidden_state` (the final LayerNorm is included). For `Dinov2For*` task-head wrappers, the `dinov2.` prefix on state-dict keys is stripped automatically and any classifier head is dropped.
 
 ```python
-from kerasformers.models.dino_v2 import DinoV2Backbone
+from kerasformers.models.dino_v2 import DinoV2Model
 
 # Canonical
-model = DinoV2Backbone.from_weights("hf:facebook/dinov2-base")
+model = DinoV2Model.from_weights("hf:facebook/dinov2-base")
 
 # User fine-tune at a different resolution
-model = DinoV2Backbone.from_weights(
+model = DinoV2Model.from_weights(
     "hf:Jayanth2002/dinov2-base-finetuned-SkinDisease",
     input_image_shape=(518, 518, 3),
 )
@@ -81,13 +91,12 @@ model = DinoV2Backbone.from_weights(
 
 ```python
 import keras
-from kerasformers.models.dino_v2 import DinoV2Backbone
+from kerasformers.models.dino_v2 import DinoV2Model
 
-backbone = DinoV2Backbone.from_weights("dinov2_vits14")
-# Take the last feature map and CLS token, then add a head
+backbone = DinoV2Model.from_weights("dinov2_vits14")
+# Default output is the final LN-normalized token sequence; take the CLS token
 inputs = backbone.input
-features = backbone.output  # list
-cls_token = features[-1][:, 0]
+cls_token = backbone.output[:, 0]
 logits = keras.layers.Dense(10, activation="softmax")(cls_token)
 model = keras.Model(inputs=inputs, outputs=logits)
 

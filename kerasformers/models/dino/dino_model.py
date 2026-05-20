@@ -19,12 +19,16 @@ from .config import (
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoViTBackbone(BaseModel):
-    """DINO Vision Transformer backbone.
+class DinoViTModel(BaseModel):
+    """DINO Vision Transformer model.
 
     Standard ViT pretrained with the DINO self-supervised method.
-    Returns the list of intermediate feature maps from each
-    transformer block, suitable for feeding into detection /
+
+    When ``as_backbone=False`` (default), returns the final
+    LayerNorm-normalized token sequence ``(B, num_tokens, dim)`` (CLS at
+    index 0). When ``as_backbone=True``, returns the list of
+    intermediate feature maps from each transformer block (with the
+    last LayerNorm-normalized), suitable for feeding into detection /
     segmentation / depth necks.
 
     Reference:
@@ -32,6 +36,10 @@ class DinoViTBackbone(BaseModel):
           <https://arxiv.org/abs/2104.14294>`_
 
     Args:
+        as_backbone: If ``True``, output the list of per-block
+            intermediate features (last LayerNorm-normalized) for use as
+            a backbone. If ``False`` (default), output only the final
+            LayerNorm-normalized token sequence.
         patch_size: ViT patch size (8 or 16).
         dim: Hidden dimension.
         depth: Number of transformer encoder layers.
@@ -61,6 +69,7 @@ class DinoViTBackbone(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         patch_size=16,
         dim=384,
         depth=12,
@@ -74,7 +83,7 @@ class DinoViTBackbone(BaseModel):
         normalization_mode="imagenet",
         input_image_shape=224,
         input_tensor=None,
-        name="DinoViTBackbone",
+        name="DinoViTModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -120,8 +129,10 @@ class DinoViTBackbone(BaseModel):
         )
         features[-1] = final_ln(features[-1])
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        outputs = features if as_backbone else features[-1]
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.patch_size = patch_size
         self.dim = dim
         self.depth = depth
@@ -140,6 +151,7 @@ class DinoViTBackbone(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
                 "dim": self.dim,
                 "depth": self.depth,
@@ -163,17 +175,24 @@ class DinoViTBackbone(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoResNetBackbone(BaseModel):
-    """DINO ResNet backbone.
+class DinoResNetModel(BaseModel):
+    """DINO ResNet model.
 
-    ResNet-50 pretrained with the DINO self-supervised method. Returns
-    the list of intermediate feature maps from each ResNet stage.
+    ResNet-50 pretrained with the DINO self-supervised method.
+
+    When ``as_backbone=False`` (default), returns the final-stage
+    feature map ``(B, H/32, W/32, C)``. When ``as_backbone=True``,
+    returns the list of per-stage feature maps, suitable for feeding
+    into detection / segmentation / depth necks.
 
     Reference:
         - `Emerging Properties in Self-Supervised Vision Transformers
           <https://arxiv.org/abs/2104.14294>`_
 
     Args:
+        as_backbone: If ``True``, output the list of per-stage feature
+            maps for use as a backbone. If ``False`` (default), output
+            only the final-stage feature map.
         block_repeats: Per-stage block counts.
         filters: Per-stage filter counts.
         include_normalization: Whether to prepend
@@ -195,13 +214,14 @@ class DinoResNetBackbone(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         block_repeats=None,
         filters=None,
         include_normalization=True,
         normalization_mode="imagenet",
         input_image_shape=224,
         input_tensor=None,
-        name="DinoResNetBackbone",
+        name="DinoResNetModel",
         **kwargs,
     ):
         if block_repeats is None:
@@ -238,8 +258,10 @@ class DinoResNetBackbone(BaseModel):
             return_stages=True,
         )
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        outputs = features if as_backbone else features[-1]
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.block_repeats = list(block_repeats)
         self.filters = list(filters)
         self.include_normalization = include_normalization
@@ -251,6 +273,7 @@ class DinoResNetBackbone(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "block_repeats": self.block_repeats,
                 "filters": self.filters,
                 "include_normalization": self.include_normalization,

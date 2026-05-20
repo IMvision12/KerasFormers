@@ -540,11 +540,12 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     # ---------- Self-supervised vision backbones ----------
-    "DinoViTBackbone": {
+    "DinoViTModel": {
         "module": "kerasformers.models.dino",
-        "model_cls": "DinoViTBackbone",
+        "model_cls": "DinoViTModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "patch_size": 16,
             "dim": 384,
             "depth": 2,
@@ -554,21 +555,23 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": None,
     },
-    "DinoResNetBackbone": {
+    "DinoResNetModel": {
         "module": "kerasformers.models.dino",
-        "model_cls": "DinoResNetBackbone",
+        "model_cls": "DinoResNetModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "input_image_shape": (32, 32, 3),
         },
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": None,
     },
-    "DinoV2Backbone": {
+    "DinoV2Model": {
         "module": "kerasformers.models.dino_v2",
-        "model_cls": "DinoV2Backbone",
+        "model_cls": "DinoV2Model",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "patch_size": 14,
             "dim": 384,
             "depth": 2,
@@ -578,11 +581,12 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": None,
     },
-    "DinoV3ViTBackbone": {
+    "DinoV3ViTModel": {
         "module": "kerasformers.models.dino_v3",
-        "model_cls": "DinoV3ViTBackbone",
+        "model_cls": "DinoV3ViTModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "patch_size": 16,
             "dim": 384,
             "depth": 2,
@@ -592,11 +596,12 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": None,
     },
-    "DinoV3ConvNeXtBackbone": {
+    "DinoV3ConvNeXtModel": {
         "module": "kerasformers.models.dino_v3",
-        "model_cls": "DinoV3ConvNeXtBackbone",
+        "model_cls": "DinoV3ConvNeXtModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "depths": [2, 2, 2, 2],
             "projection_dims": [96, 192, 384, 768],
             "input_image_shape": (32, 32, 3),
