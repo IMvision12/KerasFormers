@@ -1,7 +1,9 @@
 from .clip_image_processor import CLIPImageProcessor
 from .clip_model import (
     CLIPImageClassify,
+    CLIPImageEmbed,
     CLIPModel,
+    CLIPTextEmbed,
     CLIPTextModel,
     CLIPVisionModel,
     CLIPZeroShotClassify,
@@ -13,6 +15,8 @@ __all__ = [
     "CLIPModel",
     "CLIPVisionModel",
     "CLIPTextModel",
+    "CLIPImageEmbed",
+    "CLIPTextEmbed",
     "CLIPZeroShotClassify",
     "CLIPImageClassify",
     "CLIPImageProcessor",

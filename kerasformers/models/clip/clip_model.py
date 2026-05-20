@@ -737,6 +737,341 @@ class CLIPTextModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
+class CLIPImageEmbed(BaseModel):
+    """CLIP vision tower + ``visual_projection`` — joint-space image embeddings.
+
+    Mirrors HuggingFace's ``CLIPVisionModelWithProjection``: composes
+    :class:`CLIPVisionModel` and applies the bias-free
+    ``visual_projection`` Dense, producing the same image side as
+    :class:`CLIPModel` but without instantiating the text tower or the
+    ``logit_scale``. The projection weights are **pretrained** — loaded
+    from the same CLIP checkpoint as :class:`CLIPModel`'s
+    ``visual_projection`` — so the output already lives in the joint
+    image/text space used by the contrastive head.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(images)
+        out["image_embeds"]        # (B, embed_dim) — joint-space, unnormalized
+        out["last_hidden_state"]   # (B, num_patches + 1, vision_width)
+
+    Construction:
+
+    >>> CLIPImageEmbed.from_weights("clip_vit_base_16")
+    >>> CLIPImageEmbed.from_weights("hf:openai/clip-vit-base-patch16")
+
+    The text tower and ``logit_scale`` entries in the source checkpoint
+    are silently ignored.
+
+    Args:
+        embed_dim: Shared joint embedding dim (= HF ``projection_dim``).
+            Defaults to ``512``.
+        input_image_shape: Input image specification. Defaults to ``224``.
+        vision_layers: ViT encoder depth. Defaults to ``12``.
+        vision_width: ViT hidden dim. Defaults to ``768``.
+        vision_patch_size: ViT patch size. Defaults to ``32``.
+        vision_mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
+        hidden_act: MLP activation name. Defaults to ``"quick_gelu"``.
+        layer_norm_eps: LayerNorm epsilon. Defaults to ``1e-5``.
+        input_tensor: Optional pre-existing Keras tensor for the
+            ``images`` input.
+        name: Model name. Defaults to ``"CLIPImageEmbed"``.
+    """
+
+    BASE_MODEL_CONFIG = CLIP_CONFIG
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    HF_MODEL_TYPE = "clip"
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return CLIPModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_clip_torch_to_keras import transfer_clip_weights
+
+        transfer_clip_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        embed_dim=512,
+        input_image_shape=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=32,
+        vision_mlp_ratio=4.0,
+        hidden_act="quick_gelu",
+        layer_norm_eps=1e-5,
+        input_tensor=None,
+        name="CLIPImageEmbed",
+        **kwargs,
+    ):
+        for k in (
+            "context_length",
+            "vocab_size",
+            "transformer_width",
+            "transformer_heads",
+            "transformer_layers",
+            "text_mlp_ratio",
+        ):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+
+        if input_tensor is None:
+            images_input = layers.Input(shape=input_image_shape, name="images")
+        else:
+            images_input = input_tensor
+
+        vision_model = CLIPVisionModel(
+            input_image_shape=input_image_shape,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
+            vision_mlp_ratio=vision_mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            input_tensor=images_input,
+            name=f"{name}_vision_tower",
+        )
+
+        image_embeds = layers.Dense(
+            embed_dim, use_bias=False, name="visual_projection"
+        )(vision_model.output["pooler_output"])
+
+        super().__init__(
+            inputs=images_input,
+            outputs={
+                "image_embeds": image_embeds,
+                "last_hidden_state": vision_model.output["last_hidden_state"],
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.vision_model = vision_model
+        self.embed_dim = embed_dim
+        self.input_image_shape = input_image_shape
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "embed_dim": self.embed_dim,
+                "input_image_shape": self.input_image_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class CLIPTextEmbed(BaseModel):
+    """CLIP text tower + ``text_projection`` — joint-space text embeddings.
+
+    Mirrors HuggingFace's ``CLIPTextModelWithProjection``: composes
+    :class:`CLIPTextModel` and applies the bias-free ``text_projection``
+    Dense, producing the same text side as :class:`CLIPModel` but
+    without instantiating the vision tower or the ``logit_scale``. The
+    projection weights are **pretrained** — loaded from the same CLIP
+    checkpoint as :class:`CLIPModel`'s ``text_projection`` — so the
+    output already lives in the joint image/text space.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({"token_ids": ..., "padding_mask": ...})
+        out["text_embeds"]         # (B, embed_dim) — joint-space, unnormalized
+        out["last_hidden_state"]   # (B, context_length, transformer_width)
+
+    Construction:
+
+    >>> CLIPTextEmbed.from_weights("clip_vit_base_16")
+    >>> CLIPTextEmbed.from_weights("hf:openai/clip-vit-base-patch16")
+
+    The vision tower and ``logit_scale`` entries in the source
+    checkpoint are silently ignored.
+
+    Args:
+        embed_dim: Shared joint embedding dim. Defaults to ``512``.
+        context_length: Text input length. Defaults to ``77``.
+        vocab_size: Tokenizer vocab size. Defaults to ``49408``.
+        transformer_width: Text encoder hidden dim. Defaults to ``512``.
+        transformer_heads: Text encoder head count. Defaults to ``8``.
+        transformer_layers: Text encoder depth. Defaults to ``12``.
+        text_mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
+        hidden_act: MLP activation. Defaults to ``"quick_gelu"``.
+        layer_norm_eps: LayerNorm epsilon. Defaults to ``1e-5``.
+        input_tensor: Optional dict of pre-existing Keras tensors with
+            keys ``"token_ids"`` and ``"padding_mask"``.
+        name: Model name. Defaults to ``"CLIPTextEmbed"``.
+    """
+
+    BASE_MODEL_CONFIG = CLIP_CONFIG
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    HF_MODEL_TYPE = "clip"
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return CLIPModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_clip_torch_to_keras import transfer_clip_weights
+
+        transfer_clip_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        embed_dim=512,
+        context_length=77,
+        vocab_size=49408,
+        transformer_width=512,
+        transformer_heads=8,
+        transformer_layers=12,
+        text_mlp_ratio=4.0,
+        hidden_act="quick_gelu",
+        layer_norm_eps=1e-5,
+        input_tensor=None,
+        name="CLIPTextEmbed",
+        **kwargs,
+    ):
+        for k in (
+            "input_image_shape",
+            "vision_layers",
+            "vision_width",
+            "vision_patch_size",
+            "vision_mlp_ratio",
+        ):
+            kwargs.pop(k, None)
+
+        if isinstance(input_tensor, dict):
+            token_ids_input = input_tensor.get("token_ids")
+            if token_ids_input is None:
+                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = input_tensor.get("padding_mask")
+            if padding_mask_input is None:
+                padding_mask_input = layers.Input(
+                    shape=[context_length], name="padding_mask"
+                )
+        else:
+            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = layers.Input(
+                shape=[context_length], name="padding_mask"
+            )
+
+        text_model = CLIPTextModel(
+            context_length=context_length,
+            vocab_size=vocab_size,
+            transformer_width=transformer_width,
+            transformer_heads=transformer_heads,
+            transformer_layers=transformer_layers,
+            text_mlp_ratio=text_mlp_ratio,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            input_tensor={
+                "token_ids": token_ids_input,
+                "padding_mask": padding_mask_input,
+            },
+            name=f"{name}_text_tower",
+        )
+
+        text_pooler_3d = ops.expand_dims(text_model.output["pooler_output"], axis=1)
+        text_proj = layers.Dense(embed_dim, use_bias=False, name="text_projection")(
+            text_pooler_3d
+        )
+        text_embeds = ops.squeeze(text_proj, axis=1)
+
+        super().__init__(
+            inputs={
+                "token_ids": token_ids_input,
+                "padding_mask": padding_mask_input,
+            },
+            outputs={
+                "text_embeds": text_embeds,
+                "last_hidden_state": text_model.output["last_hidden_state"],
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.text_model = text_model
+        self.embed_dim = embed_dim
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+        self.transformer_width = transformer_width
+        self.transformer_heads = transformer_heads
+        self.transformer_layers = transformer_layers
+        self.text_mlp_ratio = text_mlp_ratio
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "embed_dim": self.embed_dim,
+                "context_length": self.context_length,
+                "vocab_size": self.vocab_size,
+                "transformer_width": self.transformer_width,
+                "transformer_heads": self.transformer_heads,
+                "transformer_layers": self.transformer_layers,
+                "text_mlp_ratio": self.text_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPModel(BaseModel):
     """Contrastive Language-Image Pre-training (CLIP) dual encoder.
 
