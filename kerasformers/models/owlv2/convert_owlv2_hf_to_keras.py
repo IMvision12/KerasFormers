@@ -29,6 +29,14 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 
+def _has_layer(keras_model, name):
+    try:
+        keras_model.get_layer(name)
+        return True
+    except ValueError:
+        return False
+
+
 def transfer_owlv2_encoder_weights(keras_model, state_dict, prefix=None):
     if prefix is None:
         prefix = (
@@ -37,117 +45,128 @@ def transfer_owlv2_encoder_weights(keras_model, state_dict, prefix=None):
             else ""
         )
 
-    vision_layers = keras_model.vision_num_hidden_layers
-    text_layers = keras_model.text_num_hidden_layers
+    has_vision = _has_layer(keras_model, "vision_model_embeddings")
+    has_text = _has_layer(keras_model, "text_model_embeddings")
 
-    embed = keras_model.get_layer("vision_model_embeddings")
-    cls_torch_name = f"{prefix}vision_model.embeddings.class_embedding"
-    if cls_torch_name not in state_dict:
-        raise WeightMappingError(
-            "vision_model_embeddings/class_embedding", cls_torch_name
-        )
-    cls_torch = state_dict[cls_torch_name]
-    if not compare_keras_torch_names(
-        "class_embedding", embed.class_embedding, cls_torch_name, cls_torch
-    ):
-        raise WeightShapeMismatchError(
-            "vision_model_embeddings/class_embedding",
-            tuple(embed.class_embedding.shape),
-            cls_torch_name,
-            cls_torch.shape,
-        )
-    embed.class_embedding.assign(cls_torch)
+    if has_vision:
+        vision_layers = getattr(keras_model, "vision_num_hidden_layers", None)
+        if vision_layers is None:
+            vision_layers = keras_model.vision_model.vision_num_hidden_layers
 
-    patch_torch_name = f"{prefix}vision_model.embeddings.patch_embedding.weight"
-    if patch_torch_name not in state_dict:
-        raise WeightMappingError(
-            "vision_model_embeddings/patch_embedding/kernel", patch_torch_name
-        )
-    transfer_weights(
-        "conv_kernel",
-        embed.patch_embedding.kernel,
-        state_dict[patch_torch_name],
-    )
-
-    pos_torch_name = f"{prefix}vision_model.embeddings.position_embedding.weight"
-    if pos_torch_name not in state_dict:
-        raise WeightMappingError(
-            "vision_model_embeddings/position_embedding/embeddings", pos_torch_name
-        )
-    transfer_weights(
-        "position_embedding/embeddings",
-        embed.position_embedding.weights[0],
-        state_dict[pos_torch_name],
-    )
-
-    transfer_nested_layer_weights(
-        keras_layer=keras_model.get_layer("vision_model_pre_layernorm"),
-        torch_weights_dict=state_dict,
-        torch_prefix=f"{prefix}vision_model.pre_layernorm",
-        name_mapping=weight_name_mapping,
-    )
-    transfer_nested_layer_weights(
-        keras_layer=keras_model.get_layer("vision_model_post_layernorm"),
-        torch_weights_dict=state_dict,
-        torch_prefix=f"{prefix}vision_model.post_layernorm",
-        name_mapping=weight_name_mapping,
-    )
-
-    for i in tqdm(range(vision_layers), desc="Transferring vision encoder weights"):
-        kp = f"vision_model_layers_{i}"
-        tp = f"{prefix}vision_model.encoder.layers.{i}"
-        for sublayer in ("self_attn", "layer_norm1", "layer_norm2"):
-            transfer_nested_layer_weights(
-                keras_layer=keras_model.get_layer(f"{kp}_{sublayer}"),
-                torch_weights_dict=state_dict,
-                torch_prefix=f"{tp}.{sublayer}",
-                name_mapping=weight_name_mapping,
+        embed = keras_model.get_layer("vision_model_embeddings")
+        cls_torch_name = f"{prefix}vision_model.embeddings.class_embedding"
+        if cls_torch_name not in state_dict:
+            raise WeightMappingError(
+                "vision_model_embeddings/class_embedding", cls_torch_name
             )
-        for fc in ("fc1", "fc2"):
-            transfer_nested_layer_weights(
-                keras_layer=keras_model.get_layer(f"{kp}_mlp_{fc}"),
-                torch_weights_dict=state_dict,
-                torch_prefix=f"{tp}.mlp.{fc}",
-                name_mapping=weight_name_mapping,
+        cls_torch = state_dict[cls_torch_name]
+        if not compare_keras_torch_names(
+            "class_embedding", embed.class_embedding, cls_torch_name, cls_torch
+        ):
+            raise WeightShapeMismatchError(
+                "vision_model_embeddings/class_embedding",
+                tuple(embed.class_embedding.shape),
+                cls_torch_name,
+                cls_torch.shape,
             )
+        embed.class_embedding.assign(cls_torch)
 
-    transfer_nested_layer_weights(
-        keras_layer=keras_model.get_layer("text_model_embeddings"),
-        torch_weights_dict=state_dict,
-        torch_prefix=f"{prefix}text_model.embeddings",
-        name_mapping=weight_name_mapping,
-    )
-    transfer_nested_layer_weights(
-        keras_layer=keras_model.get_layer("text_model_final_layer_norm"),
-        torch_weights_dict=state_dict,
-        torch_prefix=f"{prefix}text_model.final_layer_norm",
-        name_mapping=weight_name_mapping,
-    )
-
-    for i in tqdm(range(text_layers), desc="Transferring text encoder weights"):
-        kp = f"text_model_layers_{i}"
-        tp = f"{prefix}text_model.encoder.layers.{i}"
-        for sublayer in ("self_attn", "layer_norm1", "layer_norm2"):
-            transfer_nested_layer_weights(
-                keras_layer=keras_model.get_layer(f"{kp}_{sublayer}"),
-                torch_weights_dict=state_dict,
-                torch_prefix=f"{tp}.{sublayer}",
-                name_mapping=weight_name_mapping,
+        patch_torch_name = f"{prefix}vision_model.embeddings.patch_embedding.weight"
+        if patch_torch_name not in state_dict:
+            raise WeightMappingError(
+                "vision_model_embeddings/patch_embedding/kernel", patch_torch_name
             )
-        for fc in ("fc1", "fc2"):
-            transfer_nested_layer_weights(
-                keras_layer=keras_model.get_layer(f"{kp}_mlp_{fc}"),
-                torch_weights_dict=state_dict,
-                torch_prefix=f"{tp}.mlp.{fc}",
-                name_mapping=weight_name_mapping,
-            )
+        transfer_weights(
+            "conv_kernel",
+            embed.patch_embedding.kernel,
+            state_dict[patch_torch_name],
+        )
 
-    transfer_nested_layer_weights(
-        keras_layer=keras_model.get_layer("text_projection"),
-        torch_weights_dict=state_dict,
-        torch_prefix=f"{prefix}text_projection",
-        name_mapping=weight_name_mapping,
-    )
+        pos_torch_name = f"{prefix}vision_model.embeddings.position_embedding.weight"
+        if pos_torch_name not in state_dict:
+            raise WeightMappingError(
+                "vision_model_embeddings/position_embedding/embeddings", pos_torch_name
+            )
+        transfer_weights(
+            "position_embedding/embeddings",
+            embed.position_embedding.weights[0],
+            state_dict[pos_torch_name],
+        )
+
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer("vision_model_pre_layernorm"),
+            torch_weights_dict=state_dict,
+            torch_prefix=f"{prefix}vision_model.pre_layernorm",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer("vision_model_post_layernorm"),
+            torch_weights_dict=state_dict,
+            torch_prefix=f"{prefix}vision_model.post_layernorm",
+            name_mapping=weight_name_mapping,
+        )
+
+        for i in tqdm(range(vision_layers), desc="Transferring vision encoder weights"):
+            kp = f"vision_model_layers_{i}"
+            tp = f"{prefix}vision_model.encoder.layers.{i}"
+            for sublayer in ("self_attn", "layer_norm1", "layer_norm2"):
+                transfer_nested_layer_weights(
+                    keras_layer=keras_model.get_layer(f"{kp}_{sublayer}"),
+                    torch_weights_dict=state_dict,
+                    torch_prefix=f"{tp}.{sublayer}",
+                    name_mapping=weight_name_mapping,
+                )
+            for fc in ("fc1", "fc2"):
+                transfer_nested_layer_weights(
+                    keras_layer=keras_model.get_layer(f"{kp}_mlp_{fc}"),
+                    torch_weights_dict=state_dict,
+                    torch_prefix=f"{tp}.mlp.{fc}",
+                    name_mapping=weight_name_mapping,
+                )
+
+    if has_text:
+        text_layers = getattr(keras_model, "text_num_hidden_layers", None)
+        if text_layers is None:
+            text_layers = keras_model.text_model.text_num_hidden_layers
+
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer("text_model_embeddings"),
+            torch_weights_dict=state_dict,
+            torch_prefix=f"{prefix}text_model.embeddings",
+            name_mapping=weight_name_mapping,
+        )
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer("text_model_final_layer_norm"),
+            torch_weights_dict=state_dict,
+            torch_prefix=f"{prefix}text_model.final_layer_norm",
+            name_mapping=weight_name_mapping,
+        )
+
+        for i in tqdm(range(text_layers), desc="Transferring text encoder weights"):
+            kp = f"text_model_layers_{i}"
+            tp = f"{prefix}text_model.encoder.layers.{i}"
+            for sublayer in ("self_attn", "layer_norm1", "layer_norm2"):
+                transfer_nested_layer_weights(
+                    keras_layer=keras_model.get_layer(f"{kp}_{sublayer}"),
+                    torch_weights_dict=state_dict,
+                    torch_prefix=f"{tp}.{sublayer}",
+                    name_mapping=weight_name_mapping,
+                )
+            for fc in ("fc1", "fc2"):
+                transfer_nested_layer_weights(
+                    keras_layer=keras_model.get_layer(f"{kp}_mlp_{fc}"),
+                    torch_weights_dict=state_dict,
+                    torch_prefix=f"{tp}.mlp.{fc}",
+                    name_mapping=weight_name_mapping,
+                )
+
+    if _has_layer(keras_model, "text_projection"):
+        transfer_nested_layer_weights(
+            keras_layer=keras_model.get_layer("text_projection"),
+            torch_weights_dict=state_dict,
+            torch_prefix=f"{prefix}text_projection",
+            name_mapping=weight_name_mapping,
+        )
 
 
 def transfer_owlv2_detection_weights(keras_model, state_dict):
