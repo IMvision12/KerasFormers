@@ -478,23 +478,34 @@ if __name__ == "__main__":
         keras_logits = np.asarray(keras_output["logits"])
         keras_boxes = np.asarray(keras_output["pred_boxes"])
 
-        logits_diff = np.max(np.abs(hf_logits - keras_logits))
-        boxes_diff = np.max(np.abs(hf_boxes - keras_boxes))
+        raw_logits_diff = float(np.max(np.abs(hf_logits - keras_logits)))
+        raw_boxes_diff = float(np.max(np.abs(hf_boxes - keras_boxes)))
 
-        hf_flat = hf_logits.flatten()
-        k_flat = keras_logits.flatten()
-        logits_cos = float(
-            np.dot(hf_flat, k_flat)
-            / (np.linalg.norm(hf_flat) * np.linalg.norm(k_flat) + 1e-8)
-        )
+        matched_logits_diff = 0.0
+        matched_boxes_diff = 0.0
+        for b in range(hf_logits.shape[0]):
+            cost = np.linalg.norm(
+                hf_logits[b][:, None, :] - keras_logits[b][None, :, :], axis=-1
+            )
+            match = cost.argmin(axis=1)
+            matched_logits_diff = max(
+                matched_logits_diff,
+                float(np.abs(hf_logits[b] - keras_logits[b][match]).max()),
+            )
+            matched_boxes_diff = max(
+                matched_boxes_diff,
+                float(np.abs(hf_boxes[b] - keras_boxes[b][match]).max()),
+            )
 
-        print(f"Max logits diff:   {logits_diff:.6f}")
-        print(f"Max boxes diff:    {boxes_diff:.6f}")
-        print(f"Logits cosine sim: {logits_cos:.6f}")
+        print(f"Max logits diff (raw):       {raw_logits_diff:.6f}")
+        print(f"Max boxes diff  (raw):       {raw_boxes_diff:.6f}")
+        print(f"Max logits diff (matched):   {matched_logits_diff:.6f}")
+        print(f"Max boxes diff  (matched):   {matched_boxes_diff:.6f}")
 
-        if logits_cos < 0.95:
+        if matched_logits_diff > 1e-2 or matched_boxes_diff > 1e-2:
             raise ValueError(
-                f"Equivalence test failed: logits cosine similarity {logits_cos:.4f} < 0.95"
+                "Equivalence test failed (query-matched): "
+                f"logits {matched_logits_diff:.4f}, boxes {matched_boxes_diff:.4f}"
             )
         print("Equivalence test passed!")
 
