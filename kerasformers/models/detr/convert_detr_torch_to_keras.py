@@ -209,6 +209,65 @@ def transfer_detr_weights(keras_model, state_dict):
         )
 
 
+def transfer_detr_segment_weights(keras_model, state_dict):
+    """Transfer HF ``DetrForSegmentation`` weights into :class:`DETRSegment`.
+
+    The HF state dict nests the entire detection model under ``detr.*``
+    and adds top-level ``bbox_attention.*`` / ``mask_head.*`` keys for
+    the segmentation head. This wraps :func:`transfer_detr_weights` for
+    the detection portion (after stripping the ``detr.`` prefix) and
+    copies the segmentation head weights directly.
+    """
+
+    detection_state = {}
+    for k, v in state_dict.items():
+        if k.startswith("detr."):
+            detection_state[k[len("detr.") :]] = v
+        else:
+            detection_state[k] = v
+
+    transfer_detr_weights(keras_model, detection_state)
+
+    bbox_attn = keras_model.get_layer("bbox_attention")
+    bbox_attn.q_linear.kernel.assign(
+        np.transpose(state_dict["bbox_attention.q_proj.weight"])
+    )
+    bbox_attn.q_linear.bias.assign(state_dict["bbox_attention.q_proj.bias"])
+    bbox_attn.k_linear.kernel.assign(
+        np.transpose(state_dict["bbox_attention.k_proj.weight"])
+    )
+    bbox_attn.k_linear.bias.assign(state_dict["bbox_attention.k_proj.bias"])
+
+    mask_head = keras_model.get_layer("mask_head")
+
+    def _assign_conv(keras_conv, hf_weight_key):
+        hf_weight = state_dict[f"{hf_weight_key}.weight"]
+        hf_bias = state_dict[f"{hf_weight_key}.bias"]
+        keras_conv.kernel.assign(np.transpose(hf_weight, (2, 3, 1, 0)))
+        keras_conv.bias.assign(hf_bias)
+
+    def _assign_gn(keras_gn, hf_weight_key):
+        keras_gn.gamma.assign(state_dict[f"{hf_weight_key}.weight"])
+        keras_gn.beta.assign(state_dict[f"{hf_weight_key}.bias"])
+
+    _assign_conv(mask_head.lay1, "mask_head.conv1.conv")
+    _assign_gn(mask_head.gn1, "mask_head.conv1.norm")
+    _assign_conv(mask_head.lay2, "mask_head.conv2.conv")
+    _assign_gn(mask_head.gn2, "mask_head.conv2.norm")
+
+    fpn_stage_to_layer = [
+        ("0", mask_head.adapter1, mask_head.lay3, mask_head.gn3),
+        ("1", mask_head.adapter2, mask_head.lay4, mask_head.gn4),
+        ("2", mask_head.adapter3, mask_head.lay5, mask_head.gn5),
+    ]
+    for stage_idx, adapter, refine_conv, refine_gn in fpn_stage_to_layer:
+        _assign_conv(adapter, f"mask_head.fpn_stages.{stage_idx}.fpn_adapter")
+        _assign_conv(refine_conv, f"mask_head.fpn_stages.{stage_idx}.refine.conv")
+        _assign_gn(refine_gn, f"mask_head.fpn_stages.{stage_idx}.refine.norm")
+
+    _assign_conv(mask_head.out_lay, "mask_head.output_conv")
+
+
 if __name__ == "__main__":
     model_configs: List[Dict[str, object]] = [
         {

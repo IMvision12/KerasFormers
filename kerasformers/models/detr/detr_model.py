@@ -6,6 +6,8 @@ from kerasformers.base.base_model import hf_num_labels
 from kerasformers.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
     DETRFlattenFeatures,
+    DETRMaskHeadSmallConv,
+    DETRMHAttentionMap,
     DETRMultiHeadAttention,
     DETRPositionEmbeddingSine,
 )
@@ -224,10 +226,10 @@ def detr_backbone(
     """ResNet-50 / ResNet-101 backbone used by DETR.
 
     Standard torchvision-style ResNet (7×7 stem → max-pool → 4 stages
-    of bottleneck residual blocks → final C5 feature map at stride 32).
-    Returns the last-stage activation **without** any pooling or
-    classifier head — the DETR transformer expects a spatial feature
-    map of shape ``(B, H/32, W/32, 2048)`` to flatten into tokens.
+    of bottleneck residual blocks). Returns the **four** stage outputs
+    (C2/C3/C4/C5 at strides 4/8/16/32) so downstream heads can do
+    FPN-style fusion. The DETR encoder uses only the last (C5);
+    :class:`DETRSegment`'s mask head uses C2/C3/C4 as well.
 
     Sublayer names mirror HuggingFace's DETR backbone naming
     (``backbone_conv1``, ``backbone_layer{stage}_{block}_*``,
@@ -247,9 +249,10 @@ def detr_backbone(
             Used to align ``BatchNormalization`` axes.
 
     Returns:
-        Tensor of shape ``(B, H/32, W/32, 2048)`` (``channels_last``)
-        or ``(B, 2048, H/32, W/32)`` (``channels_first``) — the C5
-        feature map fed into the DETR encoder.
+        Tuple ``(c2, c3, c4, c5)`` — feature maps after stages 1..4 at
+        strides 4, 8, 16, 32 with channel widths 256, 512, 1024, 2048.
+        For ``channels_last`` shapes are ``(B, H/stride, W/stride, C)``;
+        for ``channels_first`` they are ``(B, C, H/stride, W/stride)``.
     """
     block_repeats = {
         "ResNet50": [3, 4, 6, 3],
@@ -284,6 +287,7 @@ def detr_backbone(
     )(x)
 
     filters_list = [64, 128, 256, 512]
+    stage_outputs = []
 
     for stage_idx, num_blocks in enumerate(block_repeats):
         filters = filters_list[stage_idx]
@@ -379,8 +383,9 @@ def detr_backbone(
 
             x = layers.Add()([x, residual])
             x = layers.ReLU()(x)
+        stage_outputs.append(x)
 
-    return x
+    return tuple(stage_outputs)
 
 
 def detr_encoder(
@@ -413,6 +418,9 @@ def detr_encoder(
         encoder_output: ``(B, H*W, hidden_dim)`` encoded token sequence.
         pos: ``(B, H*W, hidden_dim)`` flattened position embeddings,
             reused by the decoder's cross-attention.
+        projected: ``(B, H/32, W/32, hidden_dim)`` pre-encoder spatial
+            map (the 1×1 ``input_projection`` output). Used by
+            :class:`DETRSegment` as the mask head's ``features`` input.
     """
     data_format = keras.config.image_data_format()
 
@@ -444,7 +452,7 @@ def detr_encoder(
             block_prefix=f"encoder_layers_{i}",
         )
 
-    return encoder_output, pos
+    return encoder_output, pos, projected
 
 
 def detr_decoder(
@@ -522,13 +530,14 @@ def detr_functional(
     dim_feedforward,
     dropout_rate,
     num_queries,
+    return_intermediates=False,
 ):
     """Build the full DETR architecture from an input tensor (no class heads).
 
     Top-level orchestrator that wires the three architectural stages:
 
-    1. :func:`detr_backbone` — ResNet-50 / ResNet-101 produces a
-       ``(B, H/32, W/32, 2048)`` feature map.
+    1. :func:`detr_backbone` — ResNet-50 / ResNet-101 produces multi-scale
+       feature maps; the C5 (stride-32) map feeds the transformer.
     2. :func:`detr_encoder` — 1x1 input projection + sine position
        embedding + flatten + ``num_encoder_layers`` transformer encoder
        layers.
@@ -539,6 +548,9 @@ def detr_functional(
     Classification + bounding-box prediction heads are intentionally
     not built here — they are added by :class:`DETRDetect`, which
     composes :class:`DetrModel` around this graph.
+    :class:`DETRSegment` uses ``return_intermediates=True`` to also
+    grab the multi-scale backbone features and the encoder output for
+    its mask head.
 
     Args:
         inputs: Keras input tensor of shape ``(B, H, W, 3)`` (or
@@ -552,10 +564,20 @@ def detr_functional(
         dim_feedforward: FFN dimension inside each transformer layer.
         dropout_rate: Dropout probability inside attention/FFN.
         num_queries: Number of learned object queries.
+        return_intermediates: If ``True``, return a dict with keys
+            ``"last_hidden_state"``, ``"encoder_output"``,
+            ``"backbone_features"`` (tuple of C2/C3/C4/C5). If
+            ``False`` (default), return only the decoder
+            ``last_hidden_state``.
 
     Returns:
-        Decoder ``last_hidden_state`` of shape
-        ``(B, num_queries, hidden_dim)``.
+        If ``return_intermediates=False``: decoder
+        ``last_hidden_state`` of shape ``(B, num_queries, hidden_dim)``.
+
+        If ``return_intermediates=True``: dict with
+        ``last_hidden_state`` ``(B, num_queries, hidden_dim)``,
+        ``encoder_output`` ``(B, H*W, hidden_dim)``, and
+        ``backbone_features`` (tuple of 4 stage feature maps).
     """
     data_format = keras.config.image_data_format()
     channels_axis = -1 if data_format == "channels_last" else 1
@@ -566,15 +588,15 @@ def detr_functional(
         data_format=data_format,
         channels_axis=channels_axis,
     )
-    encoder_output, pos = detr_encoder(
-        backbone_features,
+    encoder_output, pos, projected_features = detr_encoder(
+        backbone_features[-1],
         hidden_dim=hidden_dim,
         num_heads=num_heads,
         num_encoder_layers=num_encoder_layers,
         dim_feedforward=dim_feedforward,
         dropout_rate=dropout_rate,
     )
-    return detr_decoder(
+    last_hidden_state = detr_decoder(
         encoder_output,
         pos,
         hidden_dim=hidden_dim,
@@ -584,6 +606,14 @@ def detr_functional(
         dropout_rate=dropout_rate,
         num_queries=num_queries,
     )
+    if return_intermediates:
+        return {
+            "last_hidden_state": last_hidden_state,
+            "encoder_output": encoder_output,
+            "projected_features": projected_features,
+            "backbone_features": backbone_features,
+        }
+    return last_hidden_state
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -856,3 +886,223 @@ class DETRDetect(BaseModel):
         from .convert_detr_torch_to_keras import transfer_detr_weights
 
         transfer_detr_weights(keras_model, hf_state_dict)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class DETRSegment(BaseModel):
+    """DETR for panoptic / instance segmentation — detection + per-query masks.
+
+    Mirrors HuggingFace's ``DetrForSegmentation``: composes the
+    detection model (class + bbox heads identical to
+    :class:`DETRDetect`) and adds the segmentation head — a multi-head
+    attention map between decoder queries and encoder features
+    (:class:`DETRMHAttentionMap`) plus a small FPN-style mask CNN
+    (:class:`DETRMaskHeadSmallConv`) that fuses the attention map with
+    multi-scale backbone features (C2 / C3 / C4 at strides 4 / 8 / 16)
+    through three nearest-neighbour upsampling stages.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(images)
+        out["logits"]      # (B, num_queries, num_classes) — class logits
+        out["pred_boxes"]  # (B, num_queries, 4) — sigmoid cxcywh in [0, 1]
+        out["pred_masks"]  # (B, num_queries, H/4, W/4) — mask logits
+
+    Construction:
+
+    >>> DETRSegment.from_weights("hf:facebook/detr-resnet-50-panoptic")
+
+    Reference:
+        - `End-to-End Object Detection with Transformers
+          <https://arxiv.org/abs/2005.12872>`_ (section 5 covers
+          panoptic segmentation).
+
+    Args:
+        backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
+            Defaults to ``"ResNet50"``.
+        hidden_dim: Transformer model dimension. Defaults to ``256``.
+        num_heads: Attention head count in the transformer (also the
+            head count of :class:`DETRMHAttentionMap`). Defaults to ``8``.
+        num_encoder_layers: Number of transformer encoder layers.
+            Defaults to ``6``.
+        num_decoder_layers: Number of transformer decoder layers.
+            Defaults to ``6``.
+        dim_feedforward: FFN intermediate dimension. Defaults to ``2048``.
+        dropout_rate: Attention / FFN dropout rate. Defaults to ``0.1``.
+        num_queries: Number of learned object queries (= number of
+            mask + class + bbox predictions per image).
+            Defaults to ``100``.
+        num_classes: Class-head output dim (HF panoptic checkpoints
+            use ``250``). Defaults to ``250``.
+        input_image_shape: Input image specification. Defaults to ``800``.
+        input_tensor: Optional pre-existing Keras tensor for the
+            ``images`` input.
+        name: Model name. Defaults to ``"DETRSegment"``.
+        **kwargs: Additional keyword arguments forwarded to
+            :class:`BaseModel`.
+    """
+
+    BASE_MODEL_CONFIG = DETR_CONFIG
+    BASE_WEIGHT_CONFIG = DETR_WEIGHTS
+    HF_MODEL_TYPE = "detr"
+
+    def __init__(
+        self,
+        backbone_variant="ResNet50",
+        hidden_dim=256,
+        num_heads=8,
+        num_encoder_layers=6,
+        num_decoder_layers=6,
+        dim_feedforward=2048,
+        dropout_rate=0.1,
+        num_queries=100,
+        num_classes=250,
+        input_image_shape=800,
+        input_tensor=None,
+        name="DETRSegment",
+        **kwargs,
+    ):
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+
+        if data_format == "channels_first":
+            image_h = input_image_shape[1]
+            image_w = input_image_shape[2]
+        else:
+            image_h = input_image_shape[0]
+            image_w = input_image_shape[1]
+        h32 = image_h // 32
+        w32 = image_w // 32
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=input_image_shape)
+        else:
+            if not utils.is_keras_tensor(input_tensor):
+                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            else:
+                img_input = input_tensor
+
+        intermediates = detr_functional(
+            img_input,
+            backbone_variant=backbone_variant,
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            num_encoder_layers=num_encoder_layers,
+            num_decoder_layers=num_decoder_layers,
+            dim_feedforward=dim_feedforward,
+            dropout_rate=dropout_rate,
+            num_queries=num_queries,
+            return_intermediates=True,
+        )
+        last_hidden_state = intermediates["last_hidden_state"]
+        encoder_output = intermediates["encoder_output"]
+        projected_features = intermediates["projected_features"]
+        backbone_features = intermediates["backbone_features"]
+        c2, c3, c4, _ = backbone_features
+
+        logits = layers.Dense(num_classes, name="class_labels_classifier")(
+            last_hidden_state
+        )
+        bbox = layers.Dense(hidden_dim, activation="relu", name="bbox_predictor_0")(
+            last_hidden_state
+        )
+        bbox = layers.Dense(hidden_dim, activation="relu", name="bbox_predictor_1")(
+            bbox
+        )
+        bbox = layers.Dense(4, name="bbox_predictor_2")(bbox)
+        bbox = layers.Activation("sigmoid", name="bbox_sigmoid")(bbox)
+
+        memory = layers.Reshape((h32, w32, hidden_dim), name="memory_reshape")(
+            encoder_output
+        )
+        if data_format == "channels_first":
+            c2_cl = layers.Permute((2, 3, 1), name="c2_to_channels_last")(c2)
+            c3_cl = layers.Permute((2, 3, 1), name="c3_to_channels_last")(c3)
+            c4_cl = layers.Permute((2, 3, 1), name="c4_to_channels_last")(c4)
+            features_cl = layers.Permute((2, 3, 1), name="projected_to_channels_last")(
+                projected_features
+            )
+        else:
+            c2_cl, c3_cl, c4_cl, features_cl = c2, c3, c4, projected_features
+
+        bbox_mask = DETRMHAttentionMap(
+            hidden_dim=hidden_dim,
+            num_heads=num_heads,
+            name="bbox_attention",
+        )(last_hidden_state, memory)
+
+        fpn_dims = (c4_cl.shape[-1], c3_cl.shape[-1], c2_cl.shape[-1])
+        seg_masks = DETRMaskHeadSmallConv(
+            dim=hidden_dim + num_heads,
+            fpn_dims=fpn_dims,
+            context_dim=hidden_dim,
+            name="mask_head",
+        )(features_cl, bbox_mask, [c4_cl, c3_cl, c2_cl])
+
+        outputs = {
+            "logits": logits,
+            "pred_boxes": bbox,
+            "pred_masks": seg_masks,
+        }
+
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
+
+        self.backbone_variant = backbone_variant
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.num_encoder_layers = num_encoder_layers
+        self.num_decoder_layers = num_decoder_layers
+        self.dim_feedforward = dim_feedforward
+        self.dropout_rate = dropout_rate
+        self.num_queries = num_queries
+        self.num_classes = num_classes
+        self.input_image_shape = input_image_shape
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "backbone_variant": self.backbone_variant,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
+                "num_encoder_layers": self.num_encoder_layers,
+                "num_decoder_layers": self.num_decoder_layers,
+                "dim_feedforward": self.dim_feedforward,
+                "dropout_rate": self.dropout_rate,
+                "num_queries": self.num_queries,
+                "num_classes": self.num_classes,
+                "input_image_shape": self.input_image_shape,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        backbone = hf_config.get("backbone", "resnet50") or "resnet50"
+        backbone_variant = "ResNet101" if "101" in backbone else "ResNet50"
+        return {
+            "backbone_variant": backbone_variant,
+            "hidden_dim": hf_config["d_model"],
+            "num_heads": hf_config["encoder_attention_heads"],
+            "num_encoder_layers": hf_config["encoder_layers"],
+            "num_decoder_layers": hf_config["decoder_layers"],
+            "dim_feedforward": hf_config["encoder_ffn_dim"],
+            "dropout_rate": hf_config["dropout"],
+            "num_queries": hf_config["num_queries"],
+            "num_classes": hf_num_labels(hf_config) + 1,
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_detr_torch_to_keras import transfer_detr_segment_weights
+
+        transfer_detr_segment_weights(keras_model, hf_state_dict)
