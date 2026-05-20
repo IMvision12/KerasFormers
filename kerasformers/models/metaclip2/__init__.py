@@ -5,6 +5,8 @@ from kerasformers.models.metaclip2.metaclip2_image_processor import (
 from kerasformers.models.metaclip2.metaclip2_model import (
     MetaClip2ImageClassify,
     MetaClip2Model,
+    MetaClip2TextModel,
+    MetaClip2VisionModel,
     MetaClip2ZeroShotClassify,
 )
 from kerasformers.models.metaclip2.metaclip2_mt5_tokenizer import MetaClip2Mt5Tokenizer
@@ -14,6 +16,8 @@ from kerasformers.models.metaclip2.metaclip2_tokenizer import MetaClip2Tokenizer
 __all__ = [
     "config",
     "MetaClip2Model",
+    "MetaClip2VisionModel",
+    "MetaClip2TextModel",
     "MetaClip2ZeroShotClassify",
     "MetaClip2ImageClassify",
     "MetaClip2ImageProcessor",

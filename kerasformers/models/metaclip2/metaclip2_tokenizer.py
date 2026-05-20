@@ -42,7 +42,7 @@ class MetaClip2Tokenizer(BaseTokenizer):
 
     Special-token ids match XLM-R exactly: BOS=0, PAD=1, EOS=2, UNK=3,
     MASK=901628. The MASK id is larger than EOS, which is why
-    :func:`metaclip2_text_encoder` pools by explicit ``token == EOS``
+    :func:`metaclip2_text_backbone` pools by explicit ``token == EOS``
     match rather than ``argmax``.
 
     Args:

@@ -249,45 +249,42 @@ def metaclip2_vision_features(
     )
 
 
-def metaclip2_image_encoder(
+def metaclip2_vision_backbone(
     inputs,
     input_resolution=224,
     patch_size=16,
     width=768,
     num_layers=12,
     heads=12,
-    output_dim=512,
     vision_mlp_ratio=4.0,
     hidden_act="gelu",
     data_format="channels_last",
 ):
-    """Full MetaCLIP 2 image encoder: features → CLS → post-LN → visual projection.
+    """MetaCLIP 2 vision encoder up through post-encoder LayerNorm — no projection.
 
-    Wraps :func:`metaclip2_vision_features` and finishes the MetaCLIP 2
-    image side — slice the CLS token, apply the post-encoder
-    LayerNorm, then project into the shared ``output_dim`` embedding
-    space with a bias-free Dense (the ``visual_projection`` weight in
-    HF MetaCLIP 2). This is the tensor used by the contrastive head;
-    it is not yet L2-normalized.
+    Mirrors HF ``MetaClip2VisionModel`` outputs. Pipeline:
+    :func:`metaclip2_vision_features` → slice CLS at index 0 →
+    post-encoder LayerNorm. Returns the full token-sequence
+    ``last_hidden_state`` plus the CLS-pooled, post-layernormed
+    ``pooler_output``.
 
     Args:
         inputs: Image tensor.
-        input_resolution: Image side length.
+        input_resolution: Image side length, used to size the learned
+            positional embeddings.
         patch_size: ViT patch size.
         width: Hidden dimension.
         num_layers: Transformer depth.
         heads: Attention head count.
-        output_dim: Target embedding dimension (must match the text
-            side's ``embed_dim``).
         vision_mlp_ratio: MLP expansion ratio.
         hidden_act: MLP activation name.
         data_format: ``"channels_last"`` or ``"channels_first"``.
 
     Returns:
-        Tensor of shape ``(B, output_dim)`` — the unnormalized image
-        embedding.
+        Tuple ``(last_hidden_state, pooler_output)`` of shapes
+        ``(B, num_patches + 1, width)`` and ``(B, width)``.
     """
-    encoded = metaclip2_vision_features(
+    last_hidden_state = metaclip2_vision_features(
         inputs,
         input_resolution=input_resolution,
         patch_size=patch_size,
@@ -299,33 +296,32 @@ def metaclip2_image_encoder(
         data_format=data_format,
     )
     class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
-        encoded
+        last_hidden_state
     )
-    x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_2")(
-        class_token
-    )
-    return keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(x)
+    pooler_output = keras.layers.LayerNormalization(
+        epsilon=1e-5, name="vision_model_layernorm_2"
+    )(class_token)
+    return last_hidden_state, pooler_output
 
 
-def metaclip2_text_encoder(
+def metaclip2_text_backbone(
     inputs,
     attention_mask,
     transformer_width,
     transformer_layers,
     transformer_heads,
     vocab_size,
-    embed_dim,
     context_length,
     text_mlp_ratio,
     hidden_act="gelu",
     eos_token_id=METACLIP2_EOS_TOKEN_ID,
 ):
-    """MetaCLIP 2 text encoder with causal attention and EOS-token pooling.
+    """MetaCLIP 2 text encoder up through final LN + EOS pluck — no projection.
 
-    Pipeline: :class:`CLIPTextModelEmbedding` (token + positional) →
-    :func:`metaclip2_encoder` with a strict upper-triangular causal
-    mask plus the padding mask → post-encoder LayerNorm → pluck the
-    hidden state at each row's EOS position → text projection.
+    Mirrors HF ``MetaClip2TextModel`` outputs. Pipeline:
+    :class:`CLIPTextModelEmbedding` → causal + padding-masked
+    :func:`metaclip2_encoder` → post-encoder LayerNorm → pluck the
+    hidden state at each row's EOS position.
 
     **Difference from OpenAI CLIP**: HF CLIP picks the EOT position
     via ``argmax(token_ids, axis=-1)`` (works because the EOT id is
@@ -343,7 +339,6 @@ def metaclip2_text_encoder(
         transformer_heads: Attention head count.
         vocab_size: Tokenizer vocabulary size (MetaCLIP 2 uses XLM-R,
             ``901629``).
-        embed_dim: Shared joint embedding dimension.
         context_length: Maximum sequence length, used both for the
             causal mask and the positional embedding table.
         text_mlp_ratio: MLP expansion ratio.
@@ -352,8 +347,9 @@ def metaclip2_text_encoder(
             position. Defaults to MetaCLIP 2's EOS id.
 
     Returns:
-        Tensor of shape ``(B, embed_dim)`` — the unnormalized text
-        embedding.
+        Tuple ``(last_hidden_state, pooler_output)`` of shapes
+        ``(B, context_length, transformer_width)`` and
+        ``(B, transformer_width)``.
     """
     x = CLIPTextModelEmbedding(
         vocab_size=vocab_size,
@@ -383,7 +379,7 @@ def metaclip2_text_encoder(
         layer_prefix="text_model_encoder",
     )
 
-    layer_norm = keras.layers.LayerNormalization(name="text_model_layernorm")(
+    last_hidden_state = keras.layers.LayerNormalization(name="text_model_layernorm")(
         encoded_output
     )
 
@@ -391,15 +387,9 @@ def metaclip2_text_encoder(
     indices = ops.argmax(eos_mask, axis=-1)
 
     one_hot_indices = ops.one_hot(indices, context_length)
-    selected_features = ops.einsum("bi,bij->bj", one_hot_indices, layer_norm)
-    selected_features = ops.expand_dims(selected_features, axis=1)
+    pooler_output = ops.einsum("bi,bij->bj", one_hot_indices, last_hidden_state)
 
-    text_features = keras.layers.Dense(
-        embed_dim, name="text_projection", use_bias=False
-    )(selected_features)
-
-    output = ops.squeeze(text_features, axis=1)
-    return output
+    return last_hidden_state, pooler_output
 
 
 def metaclip2_head(image_embeddings, text_embeddings):
@@ -432,6 +422,340 @@ def metaclip2_head(image_embeddings, text_embeddings):
     logit_scale_layer = CLIPLogitScale(initial_value=0.07, name="logit_scale")
     image_logits, text_logits = logit_scale_layer([image_embeddings, text_embeddings])
     return image_logits, text_logits
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class MetaClip2VisionModel(BaseModel):
+    """MetaCLIP 2 vision tower as a standalone model — no text encoder, no projection.
+
+    Mirrors HuggingFace's ``MetaClip2VisionModel``: the patch-embedding +
+    transformer stack from MetaCLIP 2, ending at the post-encoder
+    LayerNorm. Use this when you only need image features and don't
+    want to instantiate the text tower or carry the
+    ``visual_projection`` Dense.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(images)
+        out["last_hidden_state"]   # (B, num_patches + 1, vision_width)
+        out["pooler_output"]       # (B, vision_width) — post-LN CLS token
+
+    Construction:
+
+    >>> MetaClip2VisionModel.from_weights("metaclip2_worldwide_b32_224")
+    >>> MetaClip2VisionModel.from_weights("hf:facebook/metaclip-2-worldwide-b32")
+
+    Loading from a full MetaCLIP 2 checkpoint silently ignores the
+    text-tower, ``visual_projection``, and ``logit_scale`` entries.
+
+    Reference:
+        - `MetaCLIP 2 <https://arxiv.org/abs/2507.22062>`_
+
+    Args:
+        input_image_shape: Input image specification. Accepts an
+            integer ``N`` (builds an ``N x N x 3`` square input), a
+            2-tuple ``(H, W)``, or a 3-tuple in the active data
+            format's order. Defaults to ``224``.
+        vision_layers: ViT encoder depth. Defaults to ``12``.
+        vision_width: ViT hidden dim. Defaults to ``768``.
+        vision_patch_size: ViT patch size. Defaults to ``32``.
+        vision_heads: Number of vision attention heads. ``None`` uses
+            ``vision_width // 64``.
+        vision_mlp_ratio: MLP expansion ratio in vision blocks.
+            Defaults to ``4.0``.
+        hidden_act: MLP activation. ``"gelu"`` for MetaCLIP 2;
+            ``"quick_gelu"`` for legacy OpenAI-style checkpoints.
+        input_tensor: Optional pre-existing Keras tensor to use as the
+            ``images`` input.
+        name: Model name. Defaults to ``"MetaClip2VisionModel"``.
+    """
+
+    BASE_MODEL_CONFIG = METACLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
+    HF_MODEL_TYPE = "metaclip_2"
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = MetaClip2Model.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return MetaClip2Model.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.metaclip2.convert_metaclip2_hf_to_keras import (
+            transfer_metaclip2_weights,
+        )
+
+        transfer_metaclip2_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        input_image_shape=224,
+        vision_layers=12,
+        vision_width=768,
+        vision_patch_size=32,
+        vision_heads=None,
+        vision_mlp_ratio=4.0,
+        hidden_act="gelu",
+        input_tensor=None,
+        name="MetaClip2VisionModel",
+        **kwargs,
+    ):
+        for k in (
+            "embed_dim",
+            "context_length",
+            "vocab_size",
+            "transformer_width",
+            "transformer_heads",
+            "transformer_layers",
+            "text_mlp_ratio",
+            "eos_token_id",
+        ):
+            kwargs.pop(k, None)
+
+        if vision_heads is None:
+            vision_heads = vision_width // 64
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        if data_format == "channels_first":
+            image_size = input_image_shape[1]
+        else:
+            image_size = input_image_shape[0]
+
+        if input_tensor is None:
+            images_input = layers.Input(shape=input_image_shape, name="images")
+        else:
+            images_input = input_tensor
+
+        last_hidden_state, pooler_output = metaclip2_vision_backbone(
+            images_input,
+            input_resolution=image_size,
+            patch_size=vision_patch_size,
+            width=vision_width,
+            num_layers=vision_layers,
+            heads=vision_heads,
+            vision_mlp_ratio=vision_mlp_ratio,
+            hidden_act=hidden_act,
+            data_format=data_format,
+        )
+
+        super().__init__(
+            inputs=images_input,
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.input_image_shape = input_image_shape
+        self.vision_layers = vision_layers
+        self.vision_width = vision_width
+        self.vision_patch_size = vision_patch_size
+        self.vision_heads = vision_heads
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.hidden_act = hidden_act
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "input_image_shape": self.input_image_shape,
+                "vision_layers": self.vision_layers,
+                "vision_width": self.vision_width,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_heads": self.vision_heads,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class MetaClip2TextModel(BaseModel):
+    """MetaCLIP 2 text tower as a standalone model — no vision encoder, no projection.
+
+    Mirrors HuggingFace's ``MetaClip2TextModel``: token + positional
+    embedding, causal-masked transformer stack, post-encoder LayerNorm,
+    and EOS-position pluck. Use this when you only need text features
+    and don't want to instantiate the vision tower or carry the
+    ``text_projection`` Dense.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({"token_ids": ..., "padding_mask": ...})
+        out["last_hidden_state"]   # (B, context_length, transformer_width)
+        out["pooler_output"]       # (B, transformer_width) — EOS-position hidden state
+
+    Construction:
+
+    >>> MetaClip2TextModel.from_weights("metaclip2_worldwide_b32_224")
+    >>> MetaClip2TextModel.from_weights("hf:facebook/metaclip-2-worldwide-b32")
+
+    Loading from a full MetaCLIP 2 checkpoint silently ignores the
+    vision-tower, ``text_projection``, and ``logit_scale`` entries.
+
+    Reference:
+        - `MetaCLIP 2 <https://arxiv.org/abs/2507.22062>`_
+
+    Args:
+        context_length: Text input length. Defaults to ``77``.
+        vocab_size: Tokenizer vocab size (XLM-R). Defaults to ``901629``.
+        transformer_width: Text encoder hidden dim. Defaults to ``512``.
+        transformer_heads: Text encoder head count. Defaults to ``8``.
+        transformer_layers: Text encoder depth. Defaults to ``12``.
+        text_mlp_ratio: MLP expansion ratio in text blocks.
+            Defaults to ``4.0``.
+        hidden_act: MLP activation. Defaults to ``"gelu"``.
+        eos_token_id: End-of-sequence token id used to locate the
+            pooled position.
+        input_tensor: Optional dict of pre-existing Keras tensors with
+            keys ``"token_ids"`` and ``"padding_mask"``.
+        name: Model name. Defaults to ``"MetaClip2TextModel"``.
+    """
+
+    BASE_MODEL_CONFIG = METACLIP2_CONFIG
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
+    HF_MODEL_TYPE = "metaclip_2"
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = MetaClip2Model.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return MetaClip2Model.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.metaclip2.convert_metaclip2_hf_to_keras import (
+            transfer_metaclip2_weights,
+        )
+
+        transfer_metaclip2_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        context_length=77,
+        vocab_size=901629,
+        transformer_width=512,
+        transformer_heads=8,
+        transformer_layers=12,
+        text_mlp_ratio=4.0,
+        hidden_act="gelu",
+        eos_token_id=METACLIP2_EOS_TOKEN_ID,
+        input_tensor=None,
+        name="MetaClip2TextModel",
+        **kwargs,
+    ):
+        for k in (
+            "embed_dim",
+            "input_image_shape",
+            "vision_layers",
+            "vision_width",
+            "vision_patch_size",
+            "vision_heads",
+            "vision_mlp_ratio",
+        ):
+            kwargs.pop(k, None)
+
+        if isinstance(input_tensor, dict):
+            token_ids_input = input_tensor.get("token_ids")
+            if token_ids_input is None:
+                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = input_tensor.get("padding_mask")
+            if padding_mask_input is None:
+                padding_mask_input = layers.Input(
+                    shape=[context_length], name="padding_mask"
+                )
+        else:
+            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = layers.Input(
+                shape=[context_length], name="padding_mask"
+            )
+
+        last_hidden_state, pooler_output = metaclip2_text_backbone(
+            token_ids_input,
+            attention_mask=padding_mask_input,
+            transformer_width=transformer_width,
+            transformer_layers=transformer_layers,
+            transformer_heads=transformer_heads,
+            vocab_size=vocab_size,
+            context_length=context_length,
+            text_mlp_ratio=text_mlp_ratio,
+            hidden_act=hidden_act,
+            eos_token_id=eos_token_id,
+        )
+
+        super().__init__(
+            inputs={
+                "token_ids": token_ids_input,
+                "padding_mask": padding_mask_input,
+            },
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+        self.transformer_width = transformer_width
+        self.transformer_heads = transformer_heads
+        self.transformer_layers = transformer_layers
+        self.text_mlp_ratio = text_mlp_ratio
+        self.hidden_act = hidden_act
+        self.eos_token_id = eos_token_id
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "context_length": self.context_length,
+                "vocab_size": self.vocab_size,
+                "transformer_width": self.transformer_width,
+                "transformer_heads": self.transformer_heads,
+                "transformer_layers": self.transformer_layers,
+                "text_mlp_ratio": self.text_mlp_ratio,
+                "hidden_act": self.hidden_act,
+                "eos_token_id": self.eos_token_id,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -516,21 +840,19 @@ class MetaClip2Model(BaseModel):
             vision_heads = vision_width // 64
         data_format = keras.config.image_data_format()
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
-        if data_format == "channels_first":
-            image_size = input_image_shape[1]
-        else:
-            image_size = input_image_shape[0]
 
         if isinstance(input_tensor, dict):
-            images_input = input_tensor.get("images") or layers.Input(
-                shape=input_image_shape, name="images"
-            )
-            token_ids_input = input_tensor.get("token_ids") or layers.Input(
-                shape=[context_length], name="token_ids"
-            )
-            padding_mask_input = input_tensor.get("padding_mask") or layers.Input(
-                shape=[context_length], name="padding_mask"
-            )
+            images_input = input_tensor.get("images")
+            if images_input is None:
+                images_input = layers.Input(shape=input_image_shape, name="images")
+            token_ids_input = input_tensor.get("token_ids")
+            if token_ids_input is None:
+                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+            padding_mask_input = input_tensor.get("padding_mask")
+            if padding_mask_input is None:
+                padding_mask_input = layers.Input(
+                    shape=[context_length], name="padding_mask"
+                )
         else:
             images_input = layers.Input(shape=input_image_shape, name="images")
             token_ids_input = layers.Input(shape=[context_length], name="token_ids")
@@ -538,32 +860,42 @@ class MetaClip2Model(BaseModel):
                 shape=[context_length], name="padding_mask"
             )
 
-        image_embeddings = metaclip2_image_encoder(
-            images_input,
-            input_resolution=image_size,
-            patch_size=vision_patch_size,
-            width=vision_width,
-            num_layers=vision_layers,
-            heads=vision_heads,
-            output_dim=embed_dim,
+        vision_model = MetaClip2VisionModel(
+            input_image_shape=input_image_shape,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
+            vision_heads=vision_heads,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
-            data_format=data_format,
+            input_tensor=images_input,
+            name=f"{name}_vision_tower",
         )
-
-        text_embeddings = metaclip2_text_encoder(
-            token_ids_input,
-            attention_mask=padding_mask_input,
-            transformer_width=transformer_width,
-            transformer_layers=transformer_layers,
-            transformer_heads=transformer_heads,
-            vocab_size=vocab_size,
-            embed_dim=embed_dim,
-            text_mlp_ratio=text_mlp_ratio,
+        text_model = MetaClip2TextModel(
             context_length=context_length,
+            vocab_size=vocab_size,
+            transformer_width=transformer_width,
+            transformer_heads=transformer_heads,
+            transformer_layers=transformer_layers,
+            text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
             eos_token_id=eos_token_id,
+            input_tensor={
+                "token_ids": token_ids_input,
+                "padding_mask": padding_mask_input,
+            },
+            name=f"{name}_text_tower",
         )
+
+        image_embeddings = layers.Dense(
+            embed_dim, use_bias=False, name="visual_projection"
+        )(vision_model.output["pooler_output"])
+
+        text_pooler_3d = ops.expand_dims(text_model.output["pooler_output"], axis=1)
+        text_proj = layers.Dense(embed_dim, use_bias=False, name="text_projection")(
+            text_pooler_3d
+        )
+        text_embeddings = ops.squeeze(text_proj, axis=1)
 
         outputs = {
             "image_embeddings": image_embeddings,
@@ -577,6 +909,8 @@ class MetaClip2Model(BaseModel):
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
+        self.vision_model = vision_model
+        self.text_model = text_model
         self.embed_dim = embed_dim
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
@@ -828,33 +1162,31 @@ class MetaClip2ImageClassify(BaseModel):
             vision_heads = vision_width // 64
         data_format = keras.config.image_data_format()
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
-        if data_format == "channels_first":
-            image_size = input_image_shape[1]
-        else:
-            image_size = input_image_shape[0]
 
         if input_tensor is None:
             images_input = layers.Input(shape=input_image_shape, name="images")
         else:
             images_input = input_tensor
 
-        encoded = metaclip2_vision_features(
-            images_input,
-            input_resolution=image_size,
-            patch_size=vision_patch_size,
-            width=vision_width,
-            num_layers=vision_layers,
-            heads=vision_heads,
+        vision_model = MetaClip2VisionModel(
+            input_image_shape=input_image_shape,
+            vision_layers=vision_layers,
+            vision_width=vision_width,
+            vision_patch_size=vision_patch_size,
+            vision_heads=vision_heads,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
-            data_format=data_format,
+            input_tensor=images_input,
+            name=f"{name}_vision_tower",
         )
+        encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded[:, 1:, :], axis=1)
         logits = layers.Dense(num_labels, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
+        self.vision_model = vision_model
         self.num_labels = num_labels
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
