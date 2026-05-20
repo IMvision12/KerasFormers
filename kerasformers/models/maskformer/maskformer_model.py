@@ -394,7 +394,7 @@ class MaskFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MaskFormerSegment(BaseModel):
+class MaskFormerUniversalSegment(BaseModel):
     """MaskFormer universal segmentation model.
 
     Composes :class:`MaskFormerModel` and exposes the prediction output
@@ -425,7 +425,7 @@ class MaskFormerSegment(BaseModel):
         num_queries=100,
         num_labels=150,
         input_image_shape=512,
-        name="MaskFormerSegment",
+        name="MaskFormerUniversalSegment",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()

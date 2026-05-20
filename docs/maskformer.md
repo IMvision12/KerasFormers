@@ -7,7 +7,7 @@ MaskFormer reformulates per-pixel segmentation as a *mask classification* proble
 Two classes are exposed:
 
 - `MaskFormerModel` — Swin backbone + FPN pixel decoder + DETR-style transformer decoder + class/mask heads. Returns the segmentation output dict.
-- `MaskFormerSegment` — alias with the pretrained-weights registry attached (use this for `from_weights("hf:…")` or release variants).
+- `MaskFormerUniversalSegment` — alias with the pretrained-weights registry attached (use this for `from_weights("hf:…")` or release variants).
 
 ## Architecture Highlights
 
@@ -18,7 +18,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `MaskFormerSegment.from_weights(variant_id)` for kerasformers releases, or `MaskFormerSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
+Pretrained weights are loaded via `MaskFormerUniversalSegment.from_weights(variant_id)` for kerasformers releases, or `MaskFormerUniversalSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant | Backbone | Dataset | Classes | Queries | Input |
 |---|---|---|---:|---:|---|
@@ -31,16 +31,16 @@ Pretrained weights are loaded via `MaskFormerSegment.from_weights(variant_id)` f
 ## Basic Usage
 
 ```python
-from kerasformers.models.maskformer import MaskFormerSegment
+from kerasformers.models.maskformer import MaskFormerUniversalSegment
 
 # ADE20K semantic (Tiny)
-model = MaskFormerSegment.from_weights("maskformer-swin-tiny-ade")
+model = MaskFormerUniversalSegment.from_weights("maskformer-swin-tiny-ade")
 
 # Direct HF load
-model = MaskFormerSegment.from_weights("hf:facebook/maskformer-swin-tiny-coco")
+model = MaskFormerUniversalSegment.from_weights("hf:facebook/maskformer-swin-tiny-coco")
 
 # Build untrained architecture with a custom number of labels for fine-tuning
-custom = MaskFormerSegment.from_weights(
+custom = MaskFormerUniversalSegment.from_weights(
     "maskformer-swin-tiny-ade",
     load_weights=False,
     num_labels=12,
@@ -50,10 +50,10 @@ custom = MaskFormerSegment.from_weights(
 ## Inference Example
 
 ```python
-from kerasformers.models.maskformer import MaskFormerSegment, MaskFormerImageProcessor
+from kerasformers.models.maskformer import MaskFormerUniversalSegment, MaskFormerImageProcessor
 from PIL import Image
 
-model = MaskFormerSegment.from_weights("maskformer-swin-tiny-ade")
+model = MaskFormerUniversalSegment.from_weights("maskformer-swin-tiny-ade")
 
 image = Image.open("image.jpg").convert("RGB")
 original_h, original_w = image.size[1], image.size[0]
@@ -100,5 +100,5 @@ panoptic = processor.post_process_panoptic_segmentation(
 Any HF repo whose `model_type` is `"maskformer"` (the official `facebook/...` checkpoints or arbitrary user fine-tunes) loads directly via `from_weights("hf:<repo>")`. The class reads backbone config, decoder dims, and num_labels from the HF `config.json`.
 
 ```python
-model = MaskFormerSegment.from_weights("hf:facebook/maskformer-swin-base-coco")
+model = MaskFormerUniversalSegment.from_weights("hf:facebook/maskformer-swin-base-coco")
 ```

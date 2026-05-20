@@ -77,32 +77,32 @@ RESNETV2_WEIGHT_CONFIG = {
     "resnetv2_50x1_bit_goog_in21k": {
         "model": "resnetv2_50x1_in21k",
         "timm_id": "resnetv2_50x1_bit.goog_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_50x1_bit_goog_in21k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_50x1_bit_goog_in21k.weights.h5",
     },
     "resnetv2_50x1_bit_goog_in21k_ft_in1k": {
         "model": "resnetv2_50x1_in1k",
         "timm_id": "resnetv2_50x1_bit.goog_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_50x1_bit_goog_in21k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_50x1_bit_goog_in21k_ft_in1k.weights.h5",
     },
     "resnetv2_50x3_bit_goog_in21k": {
         "model": "resnetv2_50x3_in21k",
         "timm_id": "resnetv2_50x3_bit.goog_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_50x3_bit_goog_in21k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_50x3_bit_goog_in21k.weights.h5",
     },
     "resnetv2_50x3_bit_goog_in21k_ft_in1k": {
         "model": "resnetv2_50x3_in1k",
         "timm_id": "resnetv2_50x3_bit.goog_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_50x3_bit_goog_in21k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_50x3_bit_goog_in21k_ft_in1k.weights.h5",
     },
     "resnetv2_101x1_bit_goog_in21k": {
         "model": "resnetv2_101x1_in21k",
         "timm_id": "resnetv2_101x1_bit.goog_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_101x1_bit_goog_in21k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_101x1_bit_goog_in21k.weights.h5",
     },
     "resnetv2_101x1_bit_goog_in21k_ft_in1k": {
         "model": "resnetv2_101x1_in1k",
         "timm_id": "resnetv2_101x1_bit.goog_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_101x1_bit_goog_in21k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_101x1_bit_goog_in21k_ft_in1k.weights.h5",
     },
     "resnetv2_101x3_bit_goog_in21k": {
         "model": "resnetv2_101x3_in21k",
@@ -112,17 +112,17 @@ RESNETV2_WEIGHT_CONFIG = {
     "resnetv2_101x3_bit_goog_in21k_ft_in1k": {
         "model": "resnetv2_101x3_in1k",
         "timm_id": "resnetv2_101x3_bit.goog_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_101x3_bit_goog_in21k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_101x3_bit_goog_in21k_ft_in1k.weights.h5",
     },
     "resnetv2_152x2_bit_goog_in21k": {
         "model": "resnetv2_152x2_in21k",
         "timm_id": "resnetv2_152x2_bit.goog_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_152x2_bit_goog_in21k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_152x2_bit_goog_in21k.weights.h5",
     },
     "resnetv2_152x2_bit_goog_in21k_ft_in1k": {
         "model": "resnetv2_152x2_in1k",
         "timm_id": "resnetv2_152x2_bit.goog_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/resnetv2_152x2_bit_goog_in21k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnetv2_152x2_bit_goog_in21k_ft_in1k.weights.h5",
     },
     "resnetv2_152x4_bit_goog_in21k": {
         "model": "resnetv2_152x4_in21k",

@@ -26,16 +26,16 @@ EFFICIENTFORMER_WEIGHT_CONFIG = {
     "efficientformer_l1_snap_dist_in1k": {
         "model": "efficientformer_l1",
         "timm_id": "efficientformer_l1.snap_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EfficientFormer/efficientformer_l1_snap_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/efficientformer_l1_snap_dist_in1k.weights.h5",
     },
     "efficientformer_l3_snap_dist_in1k": {
         "model": "efficientformer_l3",
         "timm_id": "efficientformer_l3.snap_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EfficientFormer/efficientformer_l3_snap_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/efficientformer_l3_snap_dist_in1k.weights.h5",
     },
     "efficientformer_l7_snap_dist_in1k": {
         "model": "efficientformer_l7",
         "timm_id": "efficientformer_l7.snap_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EfficientFormer/efficientformer_l7_snap_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/efficientformer_l7_snap_dist_in1k.weights.h5",
     },
 }

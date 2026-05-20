@@ -65,61 +65,61 @@ NEXTVIT_WEIGHT_CONFIG = {
     "nextvit_small_bd_in1k": {
         "model": "nextvit_small",
         "timm_id": "nextvit_small.bd_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_small_bd_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_in1k.weights.h5",
     },
     "nextvit_small_bd_in1k_384": {
         "model": "nextvit_small_384",
         "timm_id": "nextvit_small.bd_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_small_bd_in1k_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_in1k_384.weights.h5",
     },
     "nextvit_small_bd_ssld_6m_in1k": {
         "model": "nextvit_small",
         "timm_id": "nextvit_small.bd_ssld_6m_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_small_bd_ssld_6m_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_ssld_6m_in1k.weights.h5",
     },
     "nextvit_small_bd_ssld_6m_in1k_384": {
         "model": "nextvit_small_384",
         "timm_id": "nextvit_small.bd_ssld_6m_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_small_bd_ssld_6m_in1k_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_ssld_6m_in1k_384.weights.h5",
     },
     "nextvit_base_bd_in1k": {
         "model": "nextvit_base",
         "timm_id": "nextvit_base.bd_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_base_bd_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_in1k.weights.h5",
     },
     "nextvit_base_bd_in1k_384": {
         "model": "nextvit_base_384",
         "timm_id": "nextvit_base.bd_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_base_bd_in1k_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_in1k_384.weights.h5",
     },
     "nextvit_base_bd_ssld_6m_in1k": {
         "model": "nextvit_base",
         "timm_id": "nextvit_base.bd_ssld_6m_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_base_bd_ssld_6m_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_ssld_6m_in1k.weights.h5",
     },
     "nextvit_base_bd_ssld_6m_in1k_384": {
         "model": "nextvit_base_384",
         "timm_id": "nextvit_base.bd_ssld_6m_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_base_bd_ssld_6m_in1k_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_ssld_6m_in1k_384.weights.h5",
     },
     "nextvit_large_bd_in1k": {
         "model": "nextvit_large",
         "timm_id": "nextvit_large.bd_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_large_bd_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_in1k.weights.h5",
     },
     "nextvit_large_bd_in1k_384": {
         "model": "nextvit_large_384",
         "timm_id": "nextvit_large.bd_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_large_bd_in1k_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_in1k_384.weights.h5",
     },
     "nextvit_large_bd_ssld_6m_in1k": {
         "model": "nextvit_large",
         "timm_id": "nextvit_large.bd_ssld_6m_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_large_bd_ssld_6m_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_ssld_6m_in1k.weights.h5",
     },
     "nextvit_large_bd_ssld_6m_in1k_384": {
         "model": "nextvit_large_384",
         "timm_id": "nextvit_large.bd_ssld_6m_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/nextvit/nextvit_large_bd_ssld_6m_in1k_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_ssld_6m_in1k_384.weights.h5",
     },
 }

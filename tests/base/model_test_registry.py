@@ -540,11 +540,12 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 1000),
     },
     # ---------- Self-supervised vision backbones ----------
-    "DinoViTBackbone": {
+    "DinoViTModel": {
         "module": "kerasformers.models.dino",
-        "model_cls": "DinoViTBackbone",
+        "model_cls": "DinoViTModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "patch_size": 16,
             "dim": 384,
             "depth": 2,
@@ -554,21 +555,23 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": None,
     },
-    "DinoResNetBackbone": {
+    "DinoResNetModel": {
         "module": "kerasformers.models.dino",
-        "model_cls": "DinoResNetBackbone",
+        "model_cls": "DinoResNetModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "input_image_shape": (32, 32, 3),
         },
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": None,
     },
-    "DinoV2Backbone": {
+    "DinoV2Model": {
         "module": "kerasformers.models.dino_v2",
-        "model_cls": "DinoV2Backbone",
+        "model_cls": "DinoV2Model",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "patch_size": 14,
             "dim": 384,
             "depth": 2,
@@ -578,11 +581,12 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": None,
     },
-    "DinoV3ViTBackbone": {
+    "DinoV3ViTModel": {
         "module": "kerasformers.models.dino_v3",
-        "model_cls": "DinoV3ViTBackbone",
+        "model_cls": "DinoV3ViTModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "patch_size": 16,
             "dim": 384,
             "depth": 2,
@@ -592,11 +596,12 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": None,
     },
-    "DinoV3ConvNeXtBackbone": {
+    "DinoV3ConvNeXtModel": {
         "module": "kerasformers.models.dino_v3",
-        "model_cls": "DinoV3ConvNeXtBackbone",
+        "model_cls": "DinoV3ConvNeXtModel",
         "model_type": "backbone",
         "init_kwargs": {
+            "as_backbone": True,
             "depths": [2, 2, 2, 2],
             "projection_dims": [96, 192, 384, 768],
             "input_image_shape": (32, 32, 3),
@@ -742,9 +747,9 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 42, 42, 1),
     },
     # ---------- Semantic / universal segmentation ----------
-    "DeepLabV3Segment": {
+    "DeepLabV3SemanticSegment": {
         "module": "kerasformers.models.deeplabv3",
-        "model_cls": "DeepLabV3Segment",
+        "model_cls": "DeepLabV3SemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "backbone_variant": "ResNet50",
@@ -774,9 +779,9 @@ MODEL_TEST_CONFIGS = {
             "mask_logits": (2, 100, 16, 16),
         },
     },
-    "MaskFormerSegment": {
+    "MaskFormerUniversalSegment": {
         "module": "kerasformers.models.maskformer",
-        "model_cls": "MaskFormerSegment",
+        "model_cls": "MaskFormerUniversalSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "backbone_embed_dim": 32,
@@ -799,9 +804,9 @@ MODEL_TEST_CONFIGS = {
             "masks_queries_logits": (2, 8, 56, 56),
         },
     },
-    "Mask2FormerSegment": {
+    "Mask2FormerUniversalSegment": {
         "module": "kerasformers.models.mask2former",
-        "model_cls": "Mask2FormerSegment",
+        "model_cls": "Mask2FormerUniversalSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "backbone_embed_dim": 32,
@@ -825,9 +830,9 @@ MODEL_TEST_CONFIGS = {
             "masks_queries_logits": (2, 8, 56, 56),
         },
     },
-    "MobileViTSegment": {
+    "MobileViTSemanticSegment": {
         "module": "kerasformers.models.mobilevit",
-        "model_cls": "MobileViTSegment",
+        "model_cls": "MobileViTSemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "initial_dims": 16,
@@ -842,9 +847,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 128, 128, 3),
         "expected_output_shape": (2, 8, 8, 21),
     },
-    "MobileViTV2Segment": {
+    "MobileViTV2SemanticSegment": {
         "module": "kerasformers.models.mobilevitv2",
-        "model_cls": "MobileViTV2Segment",
+        "model_cls": "MobileViTV2SemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "multiplier": 0.5,
@@ -855,9 +860,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 128, 128, 3),
         "expected_output_shape": (2, 8, 8, 21),
     },
-    "SegFormerSegment": {
+    "SegFormerSemanticSegment": {
         "module": "kerasformers.models.segformer",
-        "model_cls": "SegFormerSegment",
+        "model_cls": "SegFormerSemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "input_image_shape": 32,

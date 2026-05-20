@@ -184,7 +184,9 @@ def owlvit_text_transformer(
         block_prefix: Layer name prefix.
 
     Returns:
-        ``(B, hidden_size)`` EOS-pooled text feature.
+        last_hidden_state: ``(B, seq_len, hidden_size)`` post-LN encoder
+            output (full token sequence).
+        pooled: ``(B, hidden_size)`` EOS-pooled text feature.
     """
     x = OwlViTTextEmbeddings(
         vocab_size=vocab_size,
@@ -208,15 +210,15 @@ def owlvit_text_transformer(
         intermediate_size=intermediate_size,
         block_prefix=block_prefix,
     )
-    x = layers.LayerNormalization(
+    last_hidden_state = layers.LayerNormalization(
         epsilon=1e-5, name=f"{block_prefix}_final_layer_norm"
     )(x)
 
     pool_indices = ops.cast(ops.argmax(input_ids, axis=-1), "int32")
     gather = ops.expand_dims(ops.expand_dims(pool_indices, -1), -1)
-    pooled = ops.take_along_axis(x, gather, axis=1)
+    pooled = ops.take_along_axis(last_hidden_state, gather, axis=1)
     pooled = ops.squeeze(pooled, axis=1)
-    return pooled
+    return last_hidden_state, pooled
 
 
 def owlvit_box_predictor(image_features, hidden_size, block_prefix):
@@ -315,99 +317,6 @@ def owlvit_class_predictor(
     return pred_logits, image_class_embeds_n
 
 
-def owlvit_functional(
-    pixel_values,
-    input_ids,
-    *,
-    vision_image_size,
-    vision_patch_size,
-    vision_hidden_size,
-    vision_intermediate_size,
-    vision_num_hidden_layers,
-    vision_num_attention_heads,
-    text_hidden_size,
-    text_intermediate_size,
-    text_num_attention_heads,
-    text_num_hidden_layers,
-    text_max_position_embeddings,
-    text_vocab_size,
-    projection_dim,
-):
-    """Build the OWL-ViT dual-tower encoder graph (no detection heads).
-
-    Top-level orchestrator that wires the three encoder stages:
-
-    1. :func:`owlvit_vision_transformer` — CLIP-style ViT vision
-       tower producing patch + CLS tokens.
-    2. :func:`owlvit_text_transformer` — CLIP-style causal text tower
-       with EOS pooling.
-    3. A linear text projection to ``projection_dim`` followed by
-       L2-normalization, producing the text features used for
-       zero-shot class scoring.
-
-    Detection heads (CLS-modulated patch features, box predictor,
-    class predictor) are intentionally not built here — they live in
-    :func:`owlvit_detection_head` and are added by
-    :class:`OwlViTDetect`, which composes :class:`OwlViTModel` around this
-    graph.
-
-    Args:
-        pixel_values: Image input tensor.
-        input_ids: Text input token IDs.
-        vision_image_size: Image side length in pixels.
-        vision_patch_size: ViT patch size.
-        vision_hidden_size: Vision tower hidden dimension.
-        vision_intermediate_size: Vision FFN intermediate dimension.
-        vision_num_hidden_layers: Number of vision transformer layers.
-        vision_num_attention_heads: Vision attention heads.
-        text_hidden_size: Text tower hidden dimension.
-        text_intermediate_size: Text FFN intermediate dimension.
-        text_num_attention_heads: Text attention heads.
-        text_num_hidden_layers: Number of text transformer layers.
-        text_max_position_embeddings: Maximum text sequence length.
-        text_vocab_size: Tokenizer vocabulary size.
-        projection_dim: Output dimension of the text projection.
-
-    Returns:
-        image_embeds_raw: Raw vision encoder output
-            ``(B, num_patches + 1, vision_hidden_size)`` (CLS at
-            index 0).
-        text_embeds: L2-normalized text projection
-            ``(B, projection_dim)``.
-        text_pooled: Unprojected EOS-pooled text feature
-            ``(B, text_hidden_size)`` — useful for downstream consumers
-            that want the pre-projection representation.
-    """
-    image_embeds_raw = owlvit_vision_transformer(
-        pixel_values,
-        hidden_size=vision_hidden_size,
-        image_size=vision_image_size,
-        patch_size=vision_patch_size,
-        num_hidden_layers=vision_num_hidden_layers,
-        num_heads=vision_num_attention_heads,
-        intermediate_size=vision_intermediate_size,
-        block_prefix="vision_model",
-    )
-
-    text_pooled = owlvit_text_transformer(
-        input_ids,
-        vocab_size=text_vocab_size,
-        hidden_size=text_hidden_size,
-        max_position_embeddings=text_max_position_embeddings,
-        num_hidden_layers=text_num_hidden_layers,
-        num_heads=text_num_attention_heads,
-        intermediate_size=text_intermediate_size,
-        block_prefix="text_model",
-    )
-    text_embeds = layers.Dense(projection_dim, use_bias=False, name="text_projection")(
-        text_pooled
-    )
-    norm = ops.sqrt(ops.sum(text_embeds * text_embeds, axis=-1, keepdims=True) + 1e-12)
-    text_embeds = text_embeds / norm
-
-    return image_embeds_raw, text_embeds, text_pooled
-
-
 def owlvit_detection_head(
     image_embeds_raw,
     text_embeds,
@@ -500,13 +409,263 @@ def owlvit_detection_head(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
+class OwlViTVisionModel(BaseModel):
+    """OWL-ViT vision tower as a standalone model.
+
+    Mirrors HuggingFace's ``OwlViTVisionModel``: patch + position + CLS
+    embeddings, pre-LN, transformer encoder, and post-LN. Use this when
+    you only need image features and don't want to instantiate the text
+    tower. Composed by :class:`OwlViTModel`.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(pixel_values)
+        out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_size)
+        out["pooler_output"]       # (B, vision_hidden_size) — CLS token
+
+    Reference:
+        - `Simple Open-Vocabulary Object Detection with Vision Transformers
+          <https://arxiv.org/abs/2205.06230>`_
+    """
+
+    BASE_MODEL_CONFIG = OWLVIT_CONFIG
+    HF_MODEL_TYPE = "owlvit"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return OwlViTModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_owlvit_hf_to_keras import transfer_owlvit_encoder_weights
+
+        transfer_owlvit_encoder_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        vision_image_size,
+        vision_patch_size,
+        vision_hidden_size,
+        vision_intermediate_size,
+        vision_num_hidden_layers,
+        vision_num_attention_heads,
+        input_image_shape=768,
+        input_tensor=None,
+        name="OwlViTVisionModel",
+        **kwargs,
+    ):
+        for k in (
+            "text_hidden_size",
+            "text_intermediate_size",
+            "text_num_attention_heads",
+            "text_num_hidden_layers",
+            "text_max_position_embeddings",
+            "text_vocab_size",
+            "projection_dim",
+            "text_input_shape",
+        ):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+
+        if input_tensor is None:
+            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+        else:
+            pixel_values = input_tensor
+
+        last_hidden_state = owlvit_vision_transformer(
+            pixel_values,
+            hidden_size=vision_hidden_size,
+            image_size=vision_image_size,
+            patch_size=vision_patch_size,
+            num_hidden_layers=vision_num_hidden_layers,
+            num_heads=vision_num_attention_heads,
+            intermediate_size=vision_intermediate_size,
+            block_prefix="vision_model",
+        )
+        pooler_output = layers.Lambda(lambda t: t[:, 0, :], name="vision_pooler")(
+            last_hidden_state
+        )
+
+        super().__init__(
+            inputs=pixel_values,
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.vision_image_size = vision_image_size
+        self.vision_patch_size = vision_patch_size
+        self.vision_hidden_size = vision_hidden_size
+        self.vision_intermediate_size = vision_intermediate_size
+        self.vision_num_hidden_layers = vision_num_hidden_layers
+        self.vision_num_attention_heads = vision_num_attention_heads
+        self.input_image_shape = input_image_shape
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vision_image_size": self.vision_image_size,
+                "vision_patch_size": self.vision_patch_size,
+                "vision_hidden_size": self.vision_hidden_size,
+                "vision_intermediate_size": self.vision_intermediate_size,
+                "vision_num_hidden_layers": self.vision_num_hidden_layers,
+                "vision_num_attention_heads": self.vision_num_attention_heads,
+                "input_image_shape": self.input_image_shape,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class OwlViTTextModel(BaseModel):
+    """OWL-ViT text tower as a standalone model.
+
+    Mirrors HuggingFace's ``OwlViTTextModel``: token + position
+    embeddings, causal-masked transformer encoder, final LayerNorm, and
+    EOS-token pooling. Use this when you only need text features and
+    don't want to instantiate the vision tower. Composed by
+    :class:`OwlViTModel`. The ``text_projection`` Dense lives in
+    :class:`OwlViTModel`, not here.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(input_ids)
+        out["last_hidden_state"]   # (B, seq_len, text_hidden_size)
+        out["pooler_output"]       # (B, text_hidden_size) — EOS token
+
+    Reference:
+        - `Simple Open-Vocabulary Object Detection with Vision Transformers
+          <https://arxiv.org/abs/2205.06230>`_
+    """
+
+    BASE_MODEL_CONFIG = OWLVIT_CONFIG
+    HF_MODEL_TYPE = "owlvit"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return OwlViTModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_owlvit_hf_to_keras import transfer_owlvit_encoder_weights
+
+        transfer_owlvit_encoder_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        text_hidden_size,
+        text_intermediate_size,
+        text_num_attention_heads,
+        text_num_hidden_layers=12,
+        text_max_position_embeddings=16,
+        text_vocab_size=49408,
+        text_input_shape=None,
+        input_tensor=None,
+        name="OwlViTTextModel",
+        **kwargs,
+    ):
+        for k in (
+            "vision_image_size",
+            "vision_patch_size",
+            "vision_hidden_size",
+            "vision_intermediate_size",
+            "vision_num_hidden_layers",
+            "vision_num_attention_heads",
+            "projection_dim",
+            "input_image_shape",
+        ):
+            kwargs.pop(k, None)
+
+        if text_input_shape is None:
+            text_input_shape = (text_max_position_embeddings,)
+
+        if input_tensor is None:
+            input_ids = layers.Input(
+                shape=text_input_shape, dtype="int32", name="input_ids"
+            )
+        else:
+            input_ids = input_tensor
+
+        last_hidden_state, pooler_output = owlvit_text_transformer(
+            input_ids,
+            vocab_size=text_vocab_size,
+            hidden_size=text_hidden_size,
+            max_position_embeddings=text_max_position_embeddings,
+            num_hidden_layers=text_num_hidden_layers,
+            num_heads=text_num_attention_heads,
+            intermediate_size=text_intermediate_size,
+            block_prefix="text_model",
+        )
+
+        super().__init__(
+            inputs=input_ids,
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.text_hidden_size = text_hidden_size
+        self.text_intermediate_size = text_intermediate_size
+        self.text_num_attention_heads = text_num_attention_heads
+        self.text_num_hidden_layers = text_num_hidden_layers
+        self.text_max_position_embeddings = text_max_position_embeddings
+        self.text_vocab_size = text_vocab_size
+        self.input_tensor = input_tensor
+        self._text_input_shape_arg = text_input_shape
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "text_hidden_size": self.text_hidden_size,
+                "text_intermediate_size": self.text_intermediate_size,
+                "text_num_attention_heads": self.text_num_attention_heads,
+                "text_num_hidden_layers": self.text_num_hidden_layers,
+                "text_max_position_embeddings": self.text_max_position_embeddings,
+                "text_vocab_size": self.text_vocab_size,
+                "text_input_shape": self._text_input_shape_arg,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
 class OwlViTModel(BaseModel):
     """OWL-ViT vision + text encoder (no detection heads).
 
-    Mirrors HuggingFace's ``OwlViTModel``. Returns the raw vision
-    encoder output and the L2-normalized text projection — suitable
-    for zero-shot similarity scoring or as a backbone for custom heads.
-    For full detection, use ``OwlViTDetect``.
+    Mirrors HuggingFace's ``OwlViTModel``. Composes
+    :class:`OwlViTVisionModel` and :class:`OwlViTTextModel` (exposed as
+    ``model.vision_model`` / ``model.text_model``), and applies the
+    ``text_projection`` + L2-normalization on the text side. Returns the
+    raw vision encoder output and the L2-normalized text projection —
+    suitable for zero-shot similarity scoring or as a backbone for
+    custom heads. For full detection, use ``OwlViTDetect``.
 
     Reference:
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
@@ -545,23 +704,38 @@ class OwlViTModel(BaseModel):
             shape=text_input_shape, dtype="int32", name="input_ids"
         )
 
-        image_embeds, text_embeds, _ = owlvit_functional(
-            pixel_values,
-            input_ids,
+        vision_model = OwlViTVisionModel(
             vision_image_size=vision_image_size,
             vision_patch_size=vision_patch_size,
             vision_hidden_size=vision_hidden_size,
             vision_intermediate_size=vision_intermediate_size,
             vision_num_hidden_layers=vision_num_hidden_layers,
             vision_num_attention_heads=vision_num_attention_heads,
+            input_image_shape=input_image_shape,
+            input_tensor=pixel_values,
+            name=f"{name}_vision_tower",
+        )
+        text_model = OwlViTTextModel(
             text_hidden_size=text_hidden_size,
             text_intermediate_size=text_intermediate_size,
             text_num_attention_heads=text_num_attention_heads,
             text_num_hidden_layers=text_num_hidden_layers,
             text_max_position_embeddings=text_max_position_embeddings,
             text_vocab_size=text_vocab_size,
-            projection_dim=projection_dim,
+            text_input_shape=text_input_shape,
+            input_tensor=input_ids,
+            name=f"{name}_text_tower",
         )
+
+        image_embeds = vision_model.output["last_hidden_state"]
+        text_pooled = text_model.output["pooler_output"]
+        text_embeds = layers.Dense(
+            projection_dim, use_bias=False, name="text_projection"
+        )(text_pooled)
+        norm = ops.sqrt(
+            ops.sum(text_embeds * text_embeds, axis=-1, keepdims=True) + 1e-12
+        )
+        text_embeds = text_embeds / norm
 
         outputs = {
             "image_embeds": image_embeds,
@@ -570,6 +744,8 @@ class OwlViTModel(BaseModel):
         inputs = {"pixel_values": pixel_values, "input_ids": input_ids}
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
+        self.vision_model = vision_model
+        self.text_model = text_model
         self.vision_image_size = vision_image_size
         self.vision_patch_size = vision_patch_size
         self.vision_hidden_size = vision_hidden_size

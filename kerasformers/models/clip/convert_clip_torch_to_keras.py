@@ -172,6 +172,8 @@ if __name__ == "__main__":
         ("clip_vit_base_32", "openai/clip-vit-base-patch32"),
         ("clip_vit_large_14", "openai/clip-vit-large-patch14"),
         ("clip_vit_large_14_336", "openai/clip-vit-large-patch14-336"),
+        ("clip_vit_g_14", "laion/CLIP-ViT-g-14-laion2B-s12B-b42K"),
+        ("clip_vit_bigg_14", "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"),
     ]
 
     for variant, hf_id in CLIP_CONVERSION_CONFIG:

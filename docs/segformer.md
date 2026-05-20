@@ -7,11 +7,11 @@ SegFormer is a simple, efficient yet powerful semantic segmentation framework wh
 Two classes are exposed:
 
 - `SegFormerModel` — MiT hierarchical Transformer backbone (no decode head). Use as a feature extractor or to attach a custom head.
-- `SegFormerSegment` — full semantic-segmentation model with the all-MLP decode head + classifier + bilinear upsample. This is what you instantiate to predict masks.
+- `SegFormerSemanticSegment` — full semantic-segmentation model with the all-MLP decode head + classifier + bilinear upsample. This is what you instantiate to predict masks.
 
 ## Available Weights
 
-Pretrained weights are loaded via `SegFormerSegment.from_weights(variant_id)` for kerasformers releases, or `SegFormerSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
+Pretrained weights are loaded via `SegFormerSemanticSegment.from_weights(variant_id)` for kerasformers releases, or `SegFormerSemanticSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant                          | Backbone | Dataset    | Classes | Input    |
 |----------------------------------|----------|------------|--------:|----------|
@@ -32,15 +32,15 @@ Pretrained weights are loaded via `SegFormerSegment.from_weights(variant_id)` fo
 ## Basic Usage
 
 ```python
-from kerasformers.models.segformer import SegFormerSegment
+from kerasformers.models.segformer import SegFormerSemanticSegment
 
-model = SegFormerSegment.from_weights("segformer_b0_ade_512")
+model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")
 ```
 
 Build an untrained model (architecture only) for fine-tuning from scratch:
 
 ```python
-model = SegFormerSegment.from_weights(
+model = SegFormerSemanticSegment.from_weights(
     "segformer_b0_ade_512", load_weights=False
 )
 ```
@@ -48,7 +48,7 @@ model = SegFormerSegment.from_weights(
 Override any per-variant default (e.g. `num_classes` for fine-tuning):
 
 ```python
-model = SegFormerSegment.from_weights(
+model = SegFormerSemanticSegment.from_weights(
     "segformer_b0_ade_512",
     load_weights=False,
     num_classes=10,
@@ -60,7 +60,7 @@ model = SegFormerSegment.from_weights(
 Any HF repo whose `model_type` is `"segformer"` (the official NVIDIA checkpoints or arbitrary user fine-tunes) can be loaded directly via `from_weights("hf:<repo>")`. The class reads MiT dims, decoder dim, num classes, and image size straight from the HF config.
 
 ```python
-model = SegFormerSegment.from_weights(
+model = SegFormerSemanticSegment.from_weights(
     "hf:nvidia/segformer-b0-finetuned-ade-512-512"
 )
 ```
@@ -68,9 +68,9 @@ model = SegFormerSegment.from_weights(
 ## Inference Example
 
 ```python
-from kerasformers.models.segformer import SegFormerSegment, SegFormerImageProcessor
+from kerasformers.models.segformer import SegFormerSemanticSegment, SegFormerImageProcessor
 
-model = SegFormerSegment.from_weights("segformer_b0_ade_512")
+model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")
 
 processor = SegFormerImageProcessor(size={"height": 512, "width": 512})
 inputs = processor("image.jpg")
@@ -113,9 +113,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kerasformers.models.segformer import SegFormerSegment, SegFormerImageProcessor
+from kerasformers.models.segformer import SegFormerSemanticSegment, SegFormerImageProcessor
 
-model = SegFormerSegment.from_weights("segformer_b0_ade_512")
+model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")
 
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)

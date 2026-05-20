@@ -9,7 +9,7 @@ import torch
 from tqdm import tqdm
 from transformers import Dinov2Model
 
-from kerasformers.models.dino_v2 import DinoV2Backbone
+from kerasformers.models.dino_v2 import DinoV2Model
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -181,7 +181,7 @@ if __name__ == "__main__":
         hf_model = Dinov2Model.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_state_dict = dict(hf_model.state_dict())
 
-        keras_model = DinoV2Backbone.from_weights(
+        keras_model = DinoV2Model.from_weights(
             variant,
             load_weights=False,
             input_image_shape=224,
@@ -199,7 +199,7 @@ if __name__ == "__main__":
                 .numpy()
             )
         k_in = np.transpose(x_np, (0, 2, 3, 1))
-        last = keras_model(k_in, training=False)[-1]
+        last = keras_model(k_in, training=False)
         k_out = (
             last.detach().cpu().numpy() if hasattr(last, "detach") else np.asarray(last)
         )

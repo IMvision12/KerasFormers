@@ -7,7 +7,7 @@ import torchvision.transforms as T
 from tqdm import tqdm
 from transformers import DetrForObjectDetection
 
-from kerasformers.models.detr import DETRDetect
+from kerasformers.models.detr import DETRDetect, DETRSegment
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -209,6 +209,65 @@ def transfer_detr_weights(keras_model, state_dict):
         )
 
 
+def transfer_detr_segment_weights(keras_model, state_dict):
+    """Transfer HF ``DetrForSegmentation`` weights into :class:`DETRSegment`.
+
+    The HF state dict nests the entire detection model under ``detr.*``
+    and adds top-level ``bbox_attention.*`` / ``mask_head.*`` keys for
+    the segmentation head. This wraps :func:`transfer_detr_weights` for
+    the detection portion (after stripping the ``detr.`` prefix) and
+    copies the segmentation head weights directly.
+    """
+
+    detection_state = {}
+    for k, v in state_dict.items():
+        if k.startswith("detr."):
+            detection_state[k[len("detr.") :]] = v
+        else:
+            detection_state[k] = v
+
+    transfer_detr_weights(keras_model, detection_state)
+
+    bbox_attn = keras_model.get_layer("bbox_attention")
+    bbox_attn.q_linear.kernel.assign(
+        np.transpose(state_dict["bbox_attention.q_proj.weight"])
+    )
+    bbox_attn.q_linear.bias.assign(state_dict["bbox_attention.q_proj.bias"])
+    bbox_attn.k_linear.kernel.assign(
+        np.transpose(state_dict["bbox_attention.k_proj.weight"])
+    )
+    bbox_attn.k_linear.bias.assign(state_dict["bbox_attention.k_proj.bias"])
+
+    mask_head = keras_model.get_layer("mask_head")
+
+    def _assign_conv(keras_conv, hf_weight_key):
+        hf_weight = state_dict[f"{hf_weight_key}.weight"]
+        hf_bias = state_dict[f"{hf_weight_key}.bias"]
+        keras_conv.kernel.assign(np.transpose(hf_weight, (2, 3, 1, 0)))
+        keras_conv.bias.assign(hf_bias)
+
+    def _assign_gn(keras_gn, hf_weight_key):
+        keras_gn.gamma.assign(state_dict[f"{hf_weight_key}.weight"])
+        keras_gn.beta.assign(state_dict[f"{hf_weight_key}.bias"])
+
+    _assign_conv(mask_head.lay1, "mask_head.conv1.conv")
+    _assign_gn(mask_head.gn1, "mask_head.conv1.norm")
+    _assign_conv(mask_head.lay2, "mask_head.conv2.conv")
+    _assign_gn(mask_head.gn2, "mask_head.conv2.norm")
+
+    fpn_stage_to_layer = [
+        ("0", mask_head.adapter1, mask_head.lay3, mask_head.gn3),
+        ("1", mask_head.adapter2, mask_head.lay4, mask_head.gn4),
+        ("2", mask_head.adapter3, mask_head.lay5, mask_head.gn5),
+    ]
+    for stage_idx, adapter, refine_conv, refine_gn in fpn_stage_to_layer:
+        _assign_conv(adapter, f"mask_head.fpn_stages.{stage_idx}.fpn_adapter")
+        _assign_conv(refine_conv, f"mask_head.fpn_stages.{stage_idx}.refine.conv")
+        _assign_gn(refine_gn, f"mask_head.fpn_stages.{stage_idx}.refine.norm")
+
+    _assign_conv(mask_head.out_lay, "mask_head.output_conv")
+
+
 if __name__ == "__main__":
     model_configs: List[Dict[str, object]] = [
         {
@@ -283,6 +342,97 @@ if __name__ == "__main__":
             raise ValueError(
                 "Model equivalence test failed - model outputs do not match "
                 f"(logits: {logits_diff:.6f}, boxes: {boxes_diff:.6f})"
+            )
+
+        print("Model equivalence test passed!")
+
+        model_filename = cfg["output"]
+        keras_model.save_weights(model_filename)
+        print(f"Model saved successfully as {model_filename}")
+
+        del keras_model, torch_model, pytorch_state_dict
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+
+    segment_configs: List[Dict[str, object]] = [
+        {
+            "variant": "detr-resnet-50-panoptic",
+            "hf_model_name": "facebook/detr-resnet-50-panoptic",
+            "output": "detr_resnet50_panoptic.weights.h5",
+            "input_image_shape": 800,
+            "num_classes": 251,
+            "num_queries": 100,
+        },
+        {
+            "variant": "detr-resnet-101-panoptic",
+            "hf_model_name": "facebook/detr-resnet-101-panoptic",
+            "output": "detr_resnet101_panoptic.weights.h5",
+            "input_image_shape": 800,
+            "num_classes": 251,
+            "num_queries": 100,
+        },
+    ]
+
+    from transformers import DetrForSegmentation
+
+    for cfg in segment_configs:
+        print(f"\n{'=' * 60}")
+        print(f"Converting {cfg['hf_model_name']}...")
+        print(f"{'=' * 60}")
+
+        keras_model = DETRSegment.from_weights(
+            cfg["variant"],
+            load_weights=False,
+            input_image_shape=cfg["input_image_shape"],
+            num_classes=cfg["num_classes"],
+            num_queries=cfg["num_queries"],
+        )
+
+        torch_model: torch.nn.Module = DetrForSegmentation.from_pretrained(
+            cfg["hf_model_name"]
+        ).eval()
+        pytorch_state_dict: Dict[str, np.ndarray] = {
+            k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
+        }
+
+        transfer_detr_segment_weights(keras_model, pytorch_state_dict)
+
+        print("\nVerifying model equivalence...")
+
+        np.random.seed(42)
+        test_input = np.random.rand(1, 800, 800, 3).astype(np.float32)
+
+        hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
+        normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        hf_input_norm = normalize(hf_input)
+
+        with torch.no_grad():
+            hf_output = torch_model(hf_input_norm)
+            hf_logits = hf_output.logits.numpy()
+            hf_boxes = hf_output.pred_boxes.numpy()
+            hf_masks = hf_output.pred_masks.numpy()
+
+        mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
+        std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
+        keras_input_norm = (test_input - mean) / std
+
+        keras_output = keras_model(keras_input_norm.astype(np.float32), training=False)
+        keras_logits = keras.ops.convert_to_numpy(keras_output["logits"])
+        keras_boxes = keras.ops.convert_to_numpy(keras_output["pred_boxes"])
+        keras_masks = keras.ops.convert_to_numpy(keras_output["pred_masks"])
+
+        logits_diff = np.max(np.abs(hf_logits - keras_logits))
+        boxes_diff = np.max(np.abs(hf_boxes - keras_boxes))
+        masks_diff = np.max(np.abs(hf_masks - keras_masks))
+
+        print(f"Max logits diff:  {logits_diff:.6f}")
+        print(f"Max boxes diff:   {boxes_diff:.6f}")
+        print(f"Max masks diff:   {masks_diff:.6f}")
+
+        if logits_diff > 1e-3 or boxes_diff > 1e-3 or masks_diff > 1e-2:
+            raise ValueError(
+                "Model equivalence test failed - model outputs do not match "
+                f"(logits: {logits_diff:.6f}, boxes: {boxes_diff:.6f}, "
+                f"masks: {masks_diff:.6f})"
             )
 
         print("Model equivalence test passed!")

@@ -45,26 +45,26 @@ EFFICIENTNET_LITE_WEIGHT_CONFIG = {
     "tf_efficientnet_lite0_in1k": {
         "model": "efficientnet_lite_b0",
         "timm_id": "tf_efficientnet_lite0.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/tf_efficientnet_lite0_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite0_in1k.weights.h5",
     },
     "tf_efficientnet_lite1_in1k": {
         "model": "efficientnet_lite_b1",
         "timm_id": "tf_efficientnet_lite1.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/tf_efficientnet_lite1_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite1_in1k.weights.h5",
     },
     "tf_efficientnet_lite2_in1k": {
         "model": "efficientnet_lite_b2",
         "timm_id": "tf_efficientnet_lite2.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/tf_efficientnet_lite2_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite2_in1k.weights.h5",
     },
     "tf_efficientnet_lite3_in1k": {
         "model": "efficientnet_lite_b3",
         "timm_id": "tf_efficientnet_lite3.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/tf_efficientnet_lite3_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite3_in1k.weights.h5",
     },
     "tf_efficientnet_lite4_in1k": {
         "model": "efficientnet_lite_b4",
         "timm_id": "tf_efficientnet_lite4.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/tf_efficientnet_lite4_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite4_in1k.weights.h5",
     },
 }

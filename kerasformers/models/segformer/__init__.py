@@ -1,8 +1,8 @@
 from .segformer_image_processor import SegFormerImageProcessor
-from .segformer_model import SegFormerModel, SegFormerSegment
+from .segformer_model import SegFormerModel, SegFormerSemanticSegment
 
 __all__ = [
     "SegFormerModel",
-    "SegFormerSegment",
+    "SegFormerSemanticSegment",
     "SegFormerImageProcessor",
 ]

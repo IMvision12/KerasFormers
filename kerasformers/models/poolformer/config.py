@@ -40,26 +40,26 @@ POOLFORMER_WEIGHT_CONFIG = {
     "poolformer_s12_sail_in1k": {
         "model": "poolformer_s12",
         "timm_id": "poolformer_s12.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/poolformer_s12_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_s12_sail_in1k.weights.h5",
     },
     "poolformer_s24_sail_in1k": {
         "model": "poolformer_s24",
         "timm_id": "poolformer_s24.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/poolformer_s24_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_s24_sail_in1k.weights.h5",
     },
     "poolformer_s36_sail_in1k": {
         "model": "poolformer_s36",
         "timm_id": "poolformer_s36.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/poolformer_s36_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_s36_sail_in1k.weights.h5",
     },
     "poolformer_m36_sail_in1k": {
         "model": "poolformer_m36",
         "timm_id": "poolformer_m36.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/poolformer_m36_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_m36_sail_in1k.weights.h5",
     },
     "poolformer_m48_sail_in1k": {
         "model": "poolformer_m48",
         "timm_id": "poolformer_m48.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/poolformer_m48_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_m48_sail_in1k.weights.h5",
     },
 }

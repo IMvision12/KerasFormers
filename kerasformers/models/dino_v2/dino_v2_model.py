@@ -10,20 +10,28 @@ from .config import DINOV2_CONFIG, DINOV2_WEIGHTS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV2Backbone(BaseModel):
-    """DINOv2 Vision Transformer backbone.
+class DinoV2Model(BaseModel):
+    """DINOv2 Vision Transformer model.
 
     Standard ViT with LayerScale pretrained with the DINOv2
-    self-supervised method. Returns the list of intermediate feature
-    maps from each transformer block, suitable for feeding into
-    detection / segmentation / depth necks (e.g. Depth Anything,
-    OwlViT).
+    self-supervised method.
+
+    When ``as_backbone=False`` (default), returns the final
+    LayerNorm-normalized token sequence ``(B, num_tokens, dim)`` (CLS at
+    index 0). When ``as_backbone=True``, returns the list of
+    intermediate feature maps from each transformer block (with the
+    last LayerNorm-normalized), suitable for feeding into detection /
+    segmentation / depth necks (e.g. Depth Anything, OwlViT).
 
     Reference:
         - `DINOv2: Learning Robust Visual Features without Supervision
           <https://arxiv.org/abs/2304.07193>`_
 
     Args:
+        as_backbone: If ``True``, output the list of per-block
+            intermediate features (last LayerNorm-normalized) for use as
+            a backbone. If ``False`` (default), output only the final
+            LayerNorm-normalized token sequence.
         patch_size: ViT patch size. DINOv2 uses 14.
         dim: Hidden dimension.
         depth: Number of transformer encoder layers.
@@ -73,6 +81,7 @@ class DinoV2Backbone(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         patch_size=14,
         dim=384,
         depth=12,
@@ -87,7 +96,7 @@ class DinoV2Backbone(BaseModel):
         normalization_mode="imagenet",
         input_image_shape=224,
         input_tensor=None,
-        name="DinoV2Backbone",
+        name="DinoV2Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -133,8 +142,10 @@ class DinoV2Backbone(BaseModel):
         )
         features[-1] = final_ln(features[-1])
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        outputs = features if as_backbone else features[-1]
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.patch_size = patch_size
         self.dim = dim
         self.depth = depth
@@ -154,6 +165,7 @@ class DinoV2Backbone(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
                 "dim": self.dim,
                 "depth": self.depth,

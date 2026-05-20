@@ -7,7 +7,7 @@ Mask2Former replaces MaskFormer's FPN pixel decoder with a 6-layer multi-scale d
 Two classes are exposed:
 
 - `Mask2FormerModel` — Swin backbone + MSDeformAttn pixel decoder + masked-attention transformer decoder + class/mask heads.
-- `Mask2FormerSegment` — alias with the pretrained-weights registry attached.
+- `Mask2FormerUniversalSegment` — alias with the pretrained-weights registry attached.
 
 ## Architecture Highlights
 
@@ -19,7 +19,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `Mask2FormerSegment.from_weights(variant_id)` for kerasformers releases, or `Mask2FormerSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
+Pretrained weights are loaded via `Mask2FormerUniversalSegment.from_weights(variant_id)` for kerasformers releases, or `Mask2FormerUniversalSegment.from_weights("hf:<repo>")` for arbitrary HF fine-tunes.
 
 | Variant | Backbone | Dataset | Classes | Queries | Input |
 |---|---|---|---:|---:|---|
@@ -33,18 +33,18 @@ Pretrained weights are loaded via `Mask2FormerSegment.from_weights(variant_id)` 
 ## Basic Usage
 
 ```python
-from kerasformers.models.mask2former import Mask2FormerSegment
+from kerasformers.models.mask2former import Mask2FormerUniversalSegment
 
 # COCO instance segmentation (Tiny)
-model = Mask2FormerSegment.from_weights("mask2former-swin-tiny-coco-instance")
+model = Mask2FormerUniversalSegment.from_weights("mask2former-swin-tiny-coco-instance")
 
 # Direct HF load
-model = Mask2FormerSegment.from_weights(
+model = Mask2FormerUniversalSegment.from_weights(
     "hf:facebook/mask2former-swin-tiny-coco-instance"
 )
 
 # Build untrained architecture with a custom number of labels for fine-tuning
-custom = Mask2FormerSegment.from_weights(
+custom = Mask2FormerUniversalSegment.from_weights(
     "mask2former-swin-tiny-coco-instance",
     load_weights=False,
     num_labels=12,
@@ -55,12 +55,12 @@ custom = Mask2FormerSegment.from_weights(
 
 ```python
 from kerasformers.models.mask2former import (
-    Mask2FormerSegment,
+    Mask2FormerUniversalSegment,
     Mask2FormerImageProcessor,
 )
 from PIL import Image
 
-model = Mask2FormerSegment.from_weights("mask2former-swin-tiny-coco-instance")
+model = Mask2FormerUniversalSegment.from_weights("mask2former-swin-tiny-coco-instance")
 
 image = Image.open("image.jpg").convert("RGB")
 
@@ -77,7 +77,7 @@ output = model(inputs["pixel_values"], training=False)
 Any HF repo whose `model_type` is `"mask2former"` loads directly via `from_weights("hf:<repo>")`. The class reads backbone config, hidden dim, decoder/encoder layers, and num_labels from the HF `config.json`.
 
 ```python
-model = Mask2FormerSegment.from_weights(
+model = Mask2FormerUniversalSegment.from_weights(
     "hf:facebook/mask2former-swin-base-coco-panoptic"
 )
 ```

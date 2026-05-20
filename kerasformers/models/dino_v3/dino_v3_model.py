@@ -182,12 +182,15 @@ def dinov3_transformer_block(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV3ViTBackbone(BaseModel):
-    """DINOv3 Vision Transformer backbone with 2D RoPE and register tokens.
+class DinoV3ViTModel(BaseModel):
+    """DINOv3 Vision Transformer model with 2D RoPE and register tokens.
 
-    Returns the list of intermediate feature maps (initial embedding +
-    each transformer block), suitable for feeding into detection /
-    segmentation / depth necks.
+    When ``as_backbone=False`` (default), returns the final
+    LayerNorm-normalized token sequence ``(B, num_tokens, dim)`` (CLS +
+    register tokens followed by patch tokens). When ``as_backbone=True``,
+    returns the list of intermediate feature maps (initial embedding +
+    each transformer block, last LayerNorm-normalized), suitable for
+    feeding into detection / segmentation / depth necks.
 
     Weights are gated on HuggingFace — see
     https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m for
@@ -198,6 +201,10 @@ class DinoV3ViTBackbone(BaseModel):
         - `DINOv3 <https://arxiv.org/abs/2508.10104>`_
 
     Args:
+        as_backbone: If ``True``, output the list of intermediate
+            features (last LayerNorm-normalized) for use as a backbone.
+            If ``False`` (default), output only the final
+            LayerNorm-normalized token sequence.
         patch_size: ViT patch size. DINOv3 uses 16.
         dim: Hidden dimension.
         depth: Number of transformer encoder layers.
@@ -268,6 +275,7 @@ class DinoV3ViTBackbone(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         patch_size=16,
         dim=768,
         depth=12,
@@ -287,7 +295,7 @@ class DinoV3ViTBackbone(BaseModel):
         normalization_mode="imagenet",
         input_image_shape=224,
         input_tensor=None,
-        name="DinoV3ViTBackbone",
+        name="DinoV3ViTModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -365,8 +373,10 @@ class DinoV3ViTBackbone(BaseModel):
             epsilon=layer_norm_eps, axis=-1, name="final_layernorm"
         )(features[-1])
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        outputs = features if as_backbone else features[-1]
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.patch_size = patch_size
         self.dim = dim
         self.depth = depth
@@ -391,6 +401,7 @@ class DinoV3ViTBackbone(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
                 "dim": self.dim,
                 "depth": self.depth,
@@ -420,12 +431,13 @@ class DinoV3ViTBackbone(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV3ConvNeXtBackbone(BaseModel):
-    """DINOv3 ConvNeXt backbone.
+class DinoV3ConvNeXtModel(BaseModel):
+    """DINOv3 ConvNeXt model.
 
-    Returns the list of intermediate feature maps from each ConvNeXt
-    stage, suitable for feeding into detection / segmentation / depth
-    necks.
+    When ``as_backbone=False`` (default), returns the final-stage
+    feature map ``(B, H/32, W/32, C)``. When ``as_backbone=True``,
+    returns the list of per-stage feature maps, suitable for feeding
+    into detection / segmentation / depth necks.
 
     Weights are gated on HuggingFace — see
     https://huggingface.co/facebook/dinov3-convnext-tiny-pretrain-lvd1689m
@@ -436,6 +448,9 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         - `DINOv3 <https://arxiv.org/abs/2508.10104>`_
 
     Args:
+        as_backbone: If ``True``, output the list of per-stage feature
+            maps for use as a backbone. If ``False`` (default), output
+            only the final-stage feature map.
         depths: Per-stage block counts.
         projection_dims: Per-stage channel counts.
         include_normalization: Whether to prepend
@@ -472,13 +487,14 @@ class DinoV3ConvNeXtBackbone(BaseModel):
 
     def __init__(
         self,
+        as_backbone=False,
         depths=None,
         projection_dims=None,
         include_normalization=True,
         normalization_mode="imagenet",
         input_image_shape=224,
         input_tensor=None,
-        name="DinoV3ConvNeXtBackbone",
+        name="DinoV3ConvNeXtModel",
         **kwargs,
     ):
         if depths is None:
@@ -515,8 +531,10 @@ class DinoV3ConvNeXtBackbone(BaseModel):
             return_stages=True,
         )
 
-        super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
+        outputs = features if as_backbone else features[-1]
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
 
+        self.as_backbone = as_backbone
         self.depths = list(depths)
         self.projection_dims = list(projection_dims)
         self.include_normalization = include_normalization
@@ -528,6 +546,7 @@ class DinoV3ConvNeXtBackbone(BaseModel):
         config = super().get_config()
         config.update(
             {
+                "as_backbone": self.as_backbone,
                 "depths": self.depths,
                 "projection_dims": self.projection_dims,
                 "include_normalization": self.include_normalization,

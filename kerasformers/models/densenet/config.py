@@ -33,21 +33,21 @@ DENSENET_WEIGHT_CONFIG = {
     "densenet121_tv_in1k": {
         "model": "densenet121",
         "timm_id": "densenet121.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/densenet121_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet121_tv_in1k.weights.h5",
     },
     "densenet161_tv_in1k": {
         "model": "densenet161",
         "timm_id": "densenet161.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/densenet161_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet161_tv_in1k.weights.h5",
     },
     "densenet169_tv_in1k": {
         "model": "densenet169",
         "timm_id": "densenet169.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/densenet169_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet169_tv_in1k.weights.h5",
     },
     "densenet201_tv_in1k": {
         "model": "densenet201",
         "timm_id": "densenet201.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/densenet201_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet201_tv_in1k.weights.h5",
     },
 }

@@ -4,12 +4,12 @@ from kerasformers.models.mobilevit.mobilevit_image_processor import (
 from kerasformers.models.mobilevit.mobilevit_model import (
     MobileViTImageClassify,
     MobileViTModel,
-    MobileViTSegment,
+    MobileViTSemanticSegment,
 )
 
 __all__ = [
     "MobileViTImageClassify",
     "MobileViTImageProcessor",
     "MobileViTModel",
-    "MobileViTSegment",
+    "MobileViTSemanticSegment",
 ]

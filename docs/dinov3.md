@@ -4,12 +4,12 @@
 
 DINOv3 is the third generation of the DINO self-supervised learning framework. It introduces 2D Rotary Position Embeddings (RoPE) and register tokens to the ViT backbone, and distills features into ConvNeXt-v2 student networks. Trained on the large-scale LVD-1689M dataset, DINOv3 produces state-of-the-art visual features for downstream tasks.
 
-DINOv3 is a pure feature extractor — no classification head. Two backbone classes are exposed:
+DINOv3 is a pure feature extractor — no classification head. Two model classes are exposed:
 
-- `DinoV3ViTBackbone` — DINOv3 ViT with 2D RoPE + register tokens (3 variants).
-- `DinoV3ConvNeXtBackbone` — DINOv3 ConvNeXt student (4 variants).
+- `DinoV3ViTModel` — DINOv3 ViT with 2D RoPE + register tokens (3 variants).
+- `DinoV3ConvNeXtModel` — DINOv3 ConvNeXt student (4 variants).
 
-Both return the list of intermediate feature maps from each block / stage, suitable for feeding into detection / segmentation / depth necks.
+Both accept an `as_backbone` flag (like the classification models): with `as_backbone=True` they return the list of intermediate feature maps from each block / stage (suitable for detection / segmentation / depth necks); with `as_backbone=False` (default) they return only the final output (ViT: the LN-normalized token sequence; ConvNeXt: the final-stage feature map).
 
 ## Weights License
 
@@ -24,7 +24,7 @@ Before the first call:
 
 ## Available Weights
 
-### `DinoV3ViTBackbone`
+### `DinoV3ViTModel`
 
 | Variant            | Backbone | Patch | Parameters |
 |--------------------|----------|------:|-----------:|
@@ -32,7 +32,7 @@ Before the first call:
 | `dinov3_vitb16`    | ViT-B/16 |    16 |     ~86 M  |
 | `dinov3_vitl16`    | ViT-L/16 |    16 |    ~300 M  |
 
-### `DinoV3ConvNeXtBackbone`
+### `DinoV3ConvNeXtModel`
 
 | Variant                  | Backbone     | Depths      | Parameters |
 |--------------------------|--------------|-------------|-----------:|
@@ -59,16 +59,21 @@ import os
 os.environ["HF_TOKEN"] = "your_huggingface_token"
 
 import numpy as np
-from kerasformers.models.dino_v3 import DinoV3ViTBackbone, DinoV3ConvNeXtBackbone
+from kerasformers.models.dino_v3 import DinoV3ViTModel, DinoV3ConvNeXtModel
 
-# ViT — returns 13 intermediate feature maps (embed + 12 blocks)
-model = DinoV3ViTBackbone.from_weights("dinov3_vits16")
+# ViT, as a backbone — returns 13 intermediate feature maps (embed + 12 blocks)
+model = DinoV3ViTModel.from_weights("dinov3_vits16", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)
 # 13, (1, 201, 384)  — 1 CLS + 4 register + 196 patches
 
-# ConvNeXt — returns 5 stage feature maps (stem + 4 stages)
-model = DinoV3ConvNeXtBackbone.from_weights("dinov3_convnext_tiny")
+# Default (as_backbone=False) — returns only the final LN-normalized token sequence
+model = DinoV3ViTModel.from_weights("dinov3_vits16")
+out = model(np.random.rand(1, 224, 224, 3).astype("float32"))
+print(out.shape)  # (1, 201, 384)
+
+# ConvNeXt, as a backbone — returns 5 stage feature maps (stem + 4 stages)
+model = DinoV3ConvNeXtModel.from_weights("dinov3_convnext_tiny", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)  # 5, (1, 7, 7, 768)
 ```
@@ -78,20 +83,20 @@ print(len(features), features[-1].shape)  # 5, (1, 7, 7, 768)
 Any HF repo whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"` (the official DINOv3 checkpoints or any user fine-tune built on the same architectures) can be loaded directly via `from_weights("hf:<repo>")`:
 
 ```python
-from kerasformers.models.dino_v3 import DinoV3ViTBackbone
+from kerasformers.models.dino_v3 import DinoV3ViTModel
 
-model = DinoV3ViTBackbone.from_weights("hf:facebook/dinov3-vitb16-pretrain-lvd1689m")
+model = DinoV3ViTModel.from_weights("hf:facebook/dinov3-vitb16-pretrain-lvd1689m")
 ```
 
 ## Building a Classification Model on Top
 
 ```python
 import keras
-from kerasformers.models.dino_v3 import DinoV3ViTBackbone
+from kerasformers.models.dino_v3 import DinoV3ViTModel
 
-backbone = DinoV3ViTBackbone.from_weights("dinov3_vits16")
-features = backbone.output  # list
-cls_token = features[-1][:, 0]
+backbone = DinoV3ViTModel.from_weights("dinov3_vits16")
+# Default output is the final LN-normalized token sequence; take the CLS token
+cls_token = backbone.output[:, 0]
 logits = keras.layers.Dense(10, activation="softmax")(cls_token)
 model = keras.Model(inputs=backbone.input, outputs=logits)
 

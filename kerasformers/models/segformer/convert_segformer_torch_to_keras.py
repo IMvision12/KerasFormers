@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 from transformers import SegformerForSemanticSegmentation
 
-from kerasformers.models.segformer import SegFormerSegment
+from kerasformers.models.segformer import SegFormerSemanticSegment
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -156,7 +156,7 @@ if __name__ == "__main__":
         print(f"Converting: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
-        keras_model: keras.Model = SegFormerSegment.from_weights(
+        keras_model: keras.Model = SegFormerSemanticSegment.from_weights(
             variant, load_weights=False
         )
         hf_model = SegformerForSemanticSegmentation.from_pretrained(hf_id).eval()

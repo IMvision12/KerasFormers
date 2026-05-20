@@ -12,7 +12,7 @@ from torchvision.models.segmentation import (
 )
 from tqdm import tqdm
 
-from kerasformers.models.deeplabv3 import DeepLabV3Segment
+from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         print(f"Converting: {variant}")
         print(f"{'=' * 60}")
 
-        keras_model: keras.Model = DeepLabV3Segment.from_weights(
+        keras_model: keras.Model = DeepLabV3SemanticSegment.from_weights(
             variant, load_weights=False
         )
         torch_model = torch_model_fn(weights=torch_weights).eval()

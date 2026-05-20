@@ -195,41 +195,41 @@ VGG_WEIGHT_CONFIG = {
     "vgg11_tv_in1k": {
         "model": "vgg11",
         "timm_id": "vgg11.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg11_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg11_tv_in1k.weights.h5",
     },
     "vgg11_bn_tv_in1k": {
         "model": "vgg11_bn",
         "timm_id": "vgg11_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg11_bn_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg11_bn_tv_in1k.weights.h5",
     },
     "vgg13_tv_in1k": {
         "model": "vgg13",
         "timm_id": "vgg13.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg13_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg13_tv_in1k.weights.h5",
     },
     "vgg13_bn_tv_in1k": {
         "model": "vgg13_bn",
         "timm_id": "vgg13_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg13_bn_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg13_bn_tv_in1k.weights.h5",
     },
     "vgg16_tv_in1k": {
         "model": "vgg16",
         "timm_id": "vgg16.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg16_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg16_tv_in1k.weights.h5",
     },
     "vgg16_bn_tv_in1k": {
         "model": "vgg16_bn",
         "timm_id": "vgg16_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg16_bn_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg16_bn_tv_in1k.weights.h5",
     },
     "vgg19_tv_in1k": {
         "model": "vgg19",
         "timm_id": "vgg19.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg19_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg19_tv_in1k.weights.h5",
     },
     "vgg19_bn_tv_in1k": {
         "model": "vgg19_bn",
         "timm_id": "vgg19_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/vgg19_bn_tv_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg19_bn_tv_in1k.weights.h5",
     },
 }

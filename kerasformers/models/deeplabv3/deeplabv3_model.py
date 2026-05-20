@@ -324,7 +324,7 @@ class DeepLabV3Model(BaseModel):
 
     Builds the dilated ResNet-50 or ResNet-101 backbone used by
     DeepLabV3 with ``output_stride=8`` and exposes the final
-    2048-channel feature map. Pair with :class:`DeepLabV3Segment`
+    2048-channel feature map. Pair with :class:`DeepLabV3SemanticSegment`
     to get the full segmentation outputs.
 
     Reference:
@@ -396,7 +396,7 @@ class DeepLabV3Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepLabV3Segment(BaseModel):
+class DeepLabV3SemanticSegment(BaseModel):
     """DeepLabV3 full semantic segmentation model (backbone + ASPP + head).
 
     Composes :class:`DeepLabV3Model`, adds the ASPP module, the
@@ -431,7 +431,7 @@ class DeepLabV3Segment(BaseModel):
         num_classes=21,
         input_image_shape=520,
         input_tensor=None,
-        name="DeepLabV3Segment",
+        name="DeepLabV3SemanticSegment",
         **kwargs,
     ):
         base = DeepLabV3Model(
