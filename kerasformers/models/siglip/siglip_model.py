@@ -23,27 +23,30 @@ def siglip_encoder(
     layer_norm_epsilon=1e-6,
     name="encoder_layer",
 ):
-    """
-    Creates a SigLIP encoder layer with multi-head self-attention and feed-forward network.
+    """One pre-LN SigLIP transformer block (LN → MHSA → Add → LN → MLP → Add).
 
-    This function implements a transformer encoder layer following the SigLIP architecture,
-    which consists of:
-    1. Layer normalization followed by multi-head self-attention with residual connection
-    2. Layer normalization followed by feed-forward network with residual connection
+    Shared building block for both the vision and text encoders. All
+    sublayer names are deterministic — ``{name}_*`` — so the
+    corresponding HF weights can be transferred by name during
+    checkpoint conversion.
 
     Args:
-        inputs: Input tensor of shape (batch_size, sequence_length, hidden_dim).
-        hidden_dim (int): Dimension of the hidden/embedding space. Must be divisible by num_heads.
-        num_heads (int): Number of attention heads for multi-head self-attention.
-        intermediate_dim (int): Dimension of the intermediate layer in the feed-forward network.
-        layer_norm_epsilon (float, optional): Epsilon value for layer normalization. Defaults to 1e-6.
-        name (str, optional): Base name for the layer components. Defaults to "encoder_layer".
+        inputs: Input token sequence of shape ``(B, L, hidden_dim)``.
+        hidden_dim: Hidden / model dimension. Must be divisible by
+            ``num_heads``.
+        num_heads: Attention head count.
+        intermediate_dim: MLP hidden dimension (typically
+            ``4 * hidden_dim``).
+        layer_norm_epsilon: Epsilon for both pre-norm LayerNorms.
+            Defaults to ``1e-6``.
+        name: Prefix used for every sublayer name (e.g.
+            ``"vision_model_encoder_layers_3"``).
 
     Returns:
-        Tensor: Output tensor of the same shape as inputs (batch_size, sequence_length, hidden_dim).
+        Output tensor of shape ``(B, L, hidden_dim)``.
 
     Raises:
-        ValueError: If hidden_dim is not divisible by num_heads.
+        ValueError: If ``hidden_dim`` is not divisible by ``num_heads``.
     """
 
     if hidden_dim % num_heads != 0:
@@ -97,33 +100,22 @@ def siglip_attention_pooling(
     layer_norm_epsilon=1e-6,
     name="attention_pooling",
 ):
-    """
-    Creates a SigLIP attention pooling layer for sequence aggregation.
+    """SigLIP attention-pool head: learnable probe ↔ sequence cross-attention.
 
-    This function implements an attention-based pooling mechanism that aggregates
-    a sequence of tokens into a single representation. The process involves:
-    1. Creating learnable probe tokens
-    2. Cross-attention between probes (queries) and input sequence (keys/values)
-    3. Feed-forward network with residual connection
-    4. Extracting the first token as the final pooled representation
+    Pipeline: build learnable probe tokens → cross-attention (probes as
+    Q, input as K/V) → LN → MLP → residual → take the first probe.
+    Replaces CLS-token pooling on the vision side of SigLIP.
 
     Args:
-        inputs: Input tensor of shape (batch_size, sequence_length, hidden_dim).
-        hidden_dim (int): Dimension of the hidden/embedding space.
-        intermediate_dim (int): Dimension of the intermediate layer in the feed-forward network.
-        num_heads (int): Number of attention heads for multi-head cross-attention.
-        layer_norm_epsilon (float, optional): Epsilon value for layer normalization. Defaults to 1e-6.
-        name (str, optional): Base name for the layer components. Defaults to "attention_pooling".
+        inputs: Token sequence of shape ``(B, L, hidden_dim)``.
+        hidden_dim: Hidden / model dimension.
+        intermediate_dim: MLP hidden dimension.
+        num_heads: Cross-attention head count.
+        layer_norm_epsilon: Epsilon for the LayerNorm. Defaults to ``1e-6``.
+        name: Prefix used for every sublayer name.
 
     Returns:
-        Tensor: Pooled representation of shape (batch_size, hidden_dim). This is the first
-               token from the processed probe sequence, representing the aggregated information
-               from the entire input sequence.
-
-    Note:
-        The function uses cross-attention where the probe tokens act as queries, and the
-        input sequence provides both keys and values. The `combined_qkv=True` parameter
-        indicates that the attention mechanism uses a combined query-key-value projection.
+        Pooled tensor of shape ``(B, hidden_dim)``.
     """
     probe_layer = SigLIPProbe(hidden_dim, name=f"{name}_probe")
     probes = probe_layer(inputs)
@@ -167,43 +159,25 @@ def siglip_vision_embedding(
     data_format=None,
     name="vision_embedding",
 ):
-    """
-    Creates vision embeddings for SigLIP by converting image patches to embeddings.
+    """Patch-embed + learned positional embeddings for the SigLIP vision tower.
 
-    This function implements the vision embedding layer for SigLIP, which transforms
-    input images into patch embeddings with positional information. The process involves:
-    1. Dividing the image into non-overlapping patches using 2D convolution
-    2. Flattening patch embeddings into a sequence
-    3. Adding learnable positional embeddings to encode spatial relationships
+    Pipeline: patch ``Conv2D`` (stride = ``patch_size``) → flatten to
+    a token sequence → add 1-D learned positional embeddings. No CLS
+    token is prepended (SigLIP uses attention pooling instead).
 
     Args:
-        inputs: Input image tensor. Shape depends on data_format:
-               - If data_format="channels_last": (batch_size, height, width, channels)
-               - If data_format="channels_first": (batch_size, channels, height, width)
-        hidden_dim (int): Dimension of the embedding space for each patch.
-        patch_size (int): Size of each square patch. The image is divided into
-                         (image_size // patch_size)² patches.
-        image_size (int): Size of the input image (assumed to be square).
-                         Must be divisible by patch_size.
-        data_format (str, optional): Data format for the input tensor.
-                                   Either "channels_last" or "channels_first".
-                                   If None, uses the default Keras data format.
-        name (str, optional): Base name for the layer components.
-                             Defaults to "vision_embedding".
+        inputs: Image tensor of shape ``(B, H, W, C)`` for
+            ``channels_last`` or ``(B, C, H, W)`` for ``channels_first``.
+        hidden_dim: Per-patch embedding dimension.
+        patch_size: Side length of each square patch.
+        image_size: Side length of the (square) input image. Must be
+            divisible by ``patch_size``.
+        data_format: ``"channels_last"`` / ``"channels_first"``.
+            ``None`` uses the global default.
+        name: Prefix used for every sublayer name.
 
     Returns:
-        Tensor: Patch embeddings with positional encoding of shape
-               (batch_size, num_patches, hidden_dim), where
-               num_patches = (image_size // patch_size)².
-
-    Note:
-        The patch embedding is performed using a 2D convolution with kernel size
-        and stride equal to patch_size, effectively treating each patch as a single
-        "pixel" in the output feature map. The LeCun normal initialization is used
-        for the convolutional weights.
-
-        Position embeddings use random normal initialization with standard deviation
-        scaled by 1/sqrt(hidden_dim) to maintain appropriate variance.
+        Tensor of shape ``(B, (image_size // patch_size)**2, hidden_dim)``.
     """
 
     num_positions = (image_size // patch_size) ** 2
@@ -316,7 +290,7 @@ def siglip_vision_features(
     )(x)
 
 
-def siglip_vision_encoder(
+def siglip_vision_backbone(
     inputs,
     patch_size,
     hidden_dim,
@@ -326,7 +300,10 @@ def siglip_vision_encoder(
     layer_norm_epsilon=1e-6,
     data_format=None,
 ):
-    """Full SigLIP vision encoder: backbone features + attention pooling.
+    """SigLIP vision encoder: features + attention pooling — no projection.
+
+    Mirrors HF ``SiglipVisionModel`` outputs. Pipeline:
+    :func:`siglip_vision_features` → :func:`siglip_attention_pooling`.
 
     Args:
         inputs: Image tensor of shape ``(B, H, W, C)`` or ``(B, C, H, W)``.
@@ -340,10 +317,10 @@ def siglip_vision_encoder(
             uses the global default.
 
     Returns:
-        Pooled vision vector of shape ``(B, hidden_dim)`` — equivalent to HF
-        ``SiglipVisionModel.pooler_output``, ready for the contrastive head.
+        Tuple ``(last_hidden_state, pooler_output)`` of shapes
+        ``(B, num_patches, hidden_dim)`` and ``(B, hidden_dim)``.
     """
-    x = siglip_vision_features(
+    last_hidden_state = siglip_vision_features(
         inputs,
         patch_size=patch_size,
         hidden_dim=hidden_dim,
@@ -353,14 +330,15 @@ def siglip_vision_encoder(
         layer_norm_epsilon=layer_norm_epsilon,
         data_format=data_format,
     )
-    return siglip_attention_pooling(
-        x,
+    pooler_output = siglip_attention_pooling(
+        last_hidden_state,
         hidden_dim,
         intermediate_dim,
         num_heads,
         layer_norm_epsilon,
         name="vision_model_head",
     )
+    return last_hidden_state, pooler_output
 
 
 def siglip_text_embedding(
@@ -372,34 +350,24 @@ def siglip_text_embedding(
     mask_zero=False,
     name="text_embedding",
 ):
-    """
-    Creates text embeddings for SigLIP by combining token and positional embeddings.
+    """Token + learned positional embeddings for the SigLIP text tower.
 
-    This function implements the text embedding layer for SigLIP, which transforms
-    input token sequences into embeddings with positional information. The process involves:
-    1. Converting token IDs to dense token embeddings
-    2. Adding learnable positional embeddings to encode sequence order
-    3. Combining both embeddings element-wise
+    Looks up token IDs in an :class:`Embedding`, adds a learned
+    positional embedding for each position, and returns their sum.
 
     Args:
-        inputs: Input token tensor of shape (batch_size, sequence_length) containing
-               token IDs from the vocabulary.
-        vocabulary_size (int): Size of the token vocabulary. Must be larger than
-                              the maximum token ID in the input.
-        sequence_length (int): Maximum sequence length for positional embeddings.
-                              Should match or exceed the actual sequence length.
-        embedding_dim (int): Dimension of the embedding space for both token
-                           and positional embeddings.
-        embeddings_initializer (str, optional): Initializer for embedding weights.
-                                              Defaults to "normal".
-        mask_zero (bool, optional): Whether to mask zero values in embeddings.
-                                   Useful for variable-length sequences. Defaults to False.
-        name (str, optional): Base name for the layer components.
-                             Defaults to "text_embedding".
+        inputs: Integer token-id tensor of shape ``(B, sequence_length)``.
+        vocabulary_size: Size of the token vocabulary.
+        sequence_length: Maximum sequence length / positional-table size.
+        embedding_dim: Token / positional embedding dimension.
+        embeddings_initializer: Initializer for both embedding tables.
+            Defaults to ``"normal"``.
+        mask_zero: Whether the token embedding should treat ``0`` as a
+            padding ID and emit a mask. Defaults to ``False``.
+        name: Prefix used for every sublayer name.
 
     Returns:
-        Tensor: Combined token and positional embeddings of shape
-               (batch_size, sequence_length, embedding_dim).
+        Tensor of shape ``(B, sequence_length, embedding_dim)``.
     """
     embedded_tokens = layers.Embedding(
         vocabulary_size,
@@ -430,7 +398,7 @@ def siglip_text_embedding(
     return outputs
 
 
-def siglip_text_encoder(
+def siglip_text_backbone(
     inputs,
     vocabulary_size,
     embedding_dim,
@@ -442,47 +410,29 @@ def siglip_text_encoder(
     max_sequence_length=64,
     projection_dim=None,
 ):
-    """
-    Creates a complete SigLIP text encoder for processing text sequences.
+    """SigLIP text encoder: embeddings + encoder stack + final LN + head.
 
-    This function implements the full SigLIP text encoder pipeline that transforms
-    input text sequences into dense textual representations. The architecture consists of:
-    1. Text embedding layer (token + positional embeddings)
-    2. Stack of transformer encoder layers with self-attention
-    3. Final layer normalization
-    4. Last token extraction and projection to final dimension
+    Mirrors HF ``SiglipTextModel`` outputs. Returns the post-LN encoder
+    output as ``last_hidden_state`` and the last-token projection through
+    the ``text_model_head`` Dense as ``pooler_output``.
 
     Args:
-        inputs: Input token tensor of shape (batch_size, sequence_length) containing
-               token IDs from the vocabulary.
-        vocabulary_size (int): Size of the token vocabulary.
-        embedding_dim (int): Dimension of the input token embeddings.
-        hidden_dim (int): Dimension of the hidden/embedding space in transformer layers.
-                         Must be divisible by num_heads.
-        num_layers (int): Number of transformer encoder layers to stack.
-        num_heads (int): Number of attention heads in each transformer layer.
-        intermediate_dim (int): Dimension of the feed-forward intermediate layer
-                               in each transformer block.
-        layer_norm_epsilon (float, optional): Epsilon value for layer normalization.
-                                            Defaults to 1e-6.
-        max_sequence_length (int, optional): Maximum sequence length for positional
-                                           embeddings. Defaults to 64.
-        projection_dim (int, optional): Dimension of the final projection layer.
-                                      If None, uses hidden_dim. Defaults to None.
+        inputs: Token tensor of shape ``(B, sequence_length)``.
+        vocabulary_size: Size of the token vocabulary.
+        embedding_dim: Dimension of the input token embeddings.
+        hidden_dim: Hidden dimension of the transformer (must be divisible
+            by ``num_heads``).
+        num_layers: Number of transformer encoder layers.
+        num_heads: Number of attention heads per encoder.
+        intermediate_dim: Feed-forward hidden dimension.
+        layer_norm_epsilon: Epsilon for every LayerNorm. Defaults to 1e-6.
+        max_sequence_length: Positional-embedding table length. Defaults to 64.
+        projection_dim: Output dim of the head Dense. Defaults to
+            ``hidden_dim``.
 
     Returns:
-        Tensor: Dense textual representation of shape (batch_size, projection_dim).
-               This is a single vector per text sequence that encodes the textual content
-               suitable for multimodal tasks like vision-language matching.
-
-    Note:
-        The encoder uses the last token of the sequence as the final representation,
-        which is then projected to the desired output dimension. This approach assumes
-        that the last token (often a special [EOS] or [CLS] token) contains the
-        most comprehensive sequence-level information.
-
-        The LeCun normal initialization is used for the final projection layer to
-        maintain appropriate gradient flow.
+        Tuple ``(last_hidden_state, pooler_output)`` of shapes
+        ``(B, sequence_length, hidden_dim)`` and ``(B, projection_dim)``.
     """
     projection_dim = projection_dim or hidden_dim
 
@@ -504,54 +454,38 @@ def siglip_text_encoder(
             name=f"text_model_encoder_layers_{i}",
         )
 
-    x = layers.LayerNormalization(
+    last_hidden_state = layers.LayerNormalization(
         epsilon=layer_norm_epsilon,
         name="text_model_final_layernorm",
     )(x)
 
-    x = x[:, -1, :]
-    outputs = layers.Dense(
+    last_token = last_hidden_state[:, -1, :]
+    pooler_output = layers.Dense(
         projection_dim,
         kernel_initializer=initializers.LecunNormal(),
         name="text_model_head",
-    )(x)
+    )(last_token)
 
-    return outputs
+    return last_hidden_state, pooler_output
 
 
 def siglip_head(vision_embedding, text_embedding):
-    """
-    Computes vision-text similarity logits for SigLIP contrastive learning.
+    """L2-normalize embeddings and produce scaled+biased similarity logits.
 
-    This function implements the SigLIP head that computes similarity scores between
-    vision and text embeddings for contrastive learning. The process involves:
-    1. L2 normalization of both vision and text embeddings
-    2. Computing cosine similarity matrix between normalized embeddings
-    3. Applying learnable logit scale and bias transformation
-    4. Returning logits for both vision-to-text and text-to-vision directions
+    Standard SigLIP sigmoid head. L2-normalize both sides, compute the
+    pairwise cosine similarity matrix, then apply the learnable
+    :class:`SigLIPLogitScaleBias` (``scale * sim + bias``). Returns the
+    ``(B, B)`` image-vs-text logit matrix together with its transpose.
 
     Args:
-        vision_embedding: Vision embeddings tensor of shape (batch_size, embedding_dim).
-                         Typically output from a vision encoder (e.g., image features).
-        text_embedding: Text embeddings tensor of shape (batch_size, embedding_dim).
-                       Typically output from a text encoder (e.g., text features).
+        vision_embedding: Image embedding tensor ``(B, embed_dim)``.
+        text_embedding: Text embedding tensor ``(B, embed_dim)``.
 
     Returns:
-        tuple: A tuple containing:
-            - image_logits: Tensor of shape (batch_size, batch_size) representing
-                           similarity scores from vision to text perspective.
-            - text_logits: Tensor of shape (batch_size, batch_size) representing
-                          similarity scores from text to vision perspective.
-
-    Note:
-        The similarity matrix is computed as cosine similarity between L2-normalized
-        embeddings. The SigLIPLogitScaleBias layer applies learnable scaling and bias
-        parameters to the similarity scores, which is crucial for contrastive learning
-        optimization in SigLIP.
-
-        The diagonal elements of the logit matrices represent positive pairs
-        (matching vision-text pairs), while off-diagonal elements represent
-        negative pairs (non-matching pairs).
+        Tuple ``(image_logits, text_logits)``, each of shape ``(B, B)``.
+        ``image_logits[i, j]`` is the temperature-scaled cosine
+        similarity between image ``i`` and text ``j``; ``text_logits``
+        is its transpose.
     """
     vision_norms = ops.sqrt(
         ops.sum(ops.power(vision_embedding, 2), axis=-1, keepdims=True)
@@ -569,12 +503,337 @@ def siglip_head(vision_embedding, text_embedding):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SigLIPModel(BaseModel):
-    """SigLIP / SigLIP2 dual encoder (no contrastive head).
+class SigLIPVisionModel(BaseModel):
+    """SigLIP vision tower as a standalone model.
 
-    Returns the projected vision + text embeddings; use
-    :class:`SigLIPZeroShotClassify` for the standard sigmoid-similarity
-    head, or :class:`SigLIPImageClassify` for supervised classification.
+    Mirrors HuggingFace's ``SiglipVisionModel``: patch embedding +
+    transformer stack + final LayerNorm, followed by the attention-
+    pooling head. Use this when you only need image features and don't
+    want to instantiate the text tower.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(images)
+        out["last_hidden_state"]   # (B, num_patches, vision_hidden_dim)
+        out["pooler_output"]       # (B, vision_hidden_dim) — attention-pooled
+
+    Construction:
+
+    >>> SigLIPVisionModel.from_weights("siglip_base_p16_224")
+    >>> SigLIPVisionModel.from_weights("hf:google/siglip-base-patch16-224")
+
+    Loading from a full SigLIP checkpoint silently ignores the
+    text-tower and ``logit_scale`` / ``logit_bias`` entries.
+
+    Reference:
+        - `Sigmoid Loss for Language Image Pre-Training
+          <https://arxiv.org/abs/2303.15343>`_
+
+    Args:
+        input_image_shape: Input image specification. Accepts an
+            integer ``N`` (builds an ``N x N x 3`` square input), a
+            2-tuple ``(H, W)``, or a 3-tuple in the active data format's
+            order. Defaults to ``224``.
+        patch_size: ViT patch edge in pixels. Defaults to ``16``.
+        vision_hidden_dim: Vision encoder hidden dimension.
+            Defaults to ``768``.
+        vision_num_layers: Number of transformer encoder layers.
+            Defaults to ``12``.
+        vision_num_heads: Number of self-attention heads per encoder.
+            Defaults to ``12``.
+        vision_intermediate_dim: MLP hidden dimension inside each
+            encoder. Defaults to ``3072``.
+        input_tensor: Optional pre-existing Keras tensor to use as the
+            ``images`` input.
+        name: Model name. Defaults to ``"SigLIPVisionModel"``.
+    """
+
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
+    HF_MODEL_TYPE = "siglip"
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return SigLIPModel
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return SigLIPModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+            transfer_siglip_weights,
+        )
+
+        transfer_siglip_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        input_image_shape=224,
+        patch_size=16,
+        vision_hidden_dim=768,
+        vision_num_layers=12,
+        vision_num_heads=12,
+        vision_intermediate_dim=3072,
+        input_tensor=None,
+        name="SigLIPVisionModel",
+        **kwargs,
+    ):
+        for k in (
+            "vocabulary_size",
+            "embed_dim",
+            "text_hidden_dim",
+            "text_num_layers",
+            "text_num_heads",
+            "text_intermediate_dim",
+            "max_sequence_length",
+        ):
+            kwargs.pop(k, None)
+
+        data_format = keras.config.image_data_format()
+        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+
+        if input_tensor is None:
+            images_input = layers.Input(shape=input_image_shape, name="images")
+        else:
+            images_input = input_tensor
+
+        last_hidden_state, pooler_output = siglip_vision_backbone(
+            images_input,
+            patch_size=patch_size,
+            hidden_dim=vision_hidden_dim,
+            num_layers=vision_num_layers,
+            num_heads=vision_num_heads,
+            intermediate_dim=vision_intermediate_dim,
+            data_format=data_format,
+        )
+
+        super().__init__(
+            inputs=images_input,
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.input_image_shape = input_image_shape
+        self.patch_size = patch_size
+        self.vision_hidden_dim = vision_hidden_dim
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
+        self.vision_intermediate_dim = vision_intermediate_dim
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "input_image_shape": self.input_image_shape,
+                "patch_size": self.patch_size,
+                "vision_hidden_dim": self.vision_hidden_dim,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_num_heads": self.vision_num_heads,
+                "vision_intermediate_dim": self.vision_intermediate_dim,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class SigLIPTextModel(BaseModel):
+    """SigLIP text tower as a standalone model.
+
+    Mirrors HuggingFace's ``SiglipTextModel``: token + positional
+    embedding, transformer stack, final LayerNorm, and last-token
+    projection through the ``text_model_head`` Dense. Use this when
+    you only need text features and don't want to instantiate the
+    vision tower.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model(token_ids)
+        out["last_hidden_state"]   # (B, sequence_length, text_hidden_dim)
+        out["pooler_output"]       # (B, embed_dim) — last-token + Dense head
+
+    Construction:
+
+    >>> SigLIPTextModel.from_weights("siglip_base_p16_224")
+    >>> SigLIPTextModel.from_weights("hf:google/siglip-base-patch16-224")
+
+    Loading from a full SigLIP checkpoint silently ignores the
+    vision-tower and ``logit_scale`` / ``logit_bias`` entries.
+
+    Reference:
+        - `Sigmoid Loss for Language Image Pre-Training
+          <https://arxiv.org/abs/2303.15343>`_
+
+    Args:
+        vocabulary_size: Token vocabulary size. Defaults to ``32000``
+            for SigLIP v1 (BERT-style); SigLIP 2 uses ``256000``.
+        embed_dim: Output dim of the ``text_model_head`` projection
+            (i.e. shared joint embedding dim). Defaults to ``768``.
+        text_hidden_dim: Text encoder hidden dimension. Defaults to ``768``.
+        text_num_layers: Number of transformer encoder layers.
+            Defaults to ``12``.
+        text_num_heads: Number of self-attention heads per encoder.
+            Defaults to ``12``.
+        text_intermediate_dim: MLP hidden dimension inside each
+            encoder. Defaults to ``3072``.
+        max_sequence_length: Positional-embedding table length / max
+            input length. Defaults to ``64``.
+        input_tensor: Optional pre-existing Keras tensor to use as the
+            ``token_ids`` input.
+        name: Model name. Defaults to ``"SigLIPTextModel"``.
+    """
+
+    BASE_MODEL_CONFIG = SIGLIP_CONFIG
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
+    HF_MODEL_TYPE = "siglip"
+
+    @classmethod
+    def _release_warm_start_cls(cls):
+        return SigLIPModel
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = cls._release_warm_start_cls().from_weights(
+                variant, skip_mismatch=skip_mismatch
+            )
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return SigLIPModel.config_from_hf(hf_config)
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+            transfer_siglip_weights,
+        )
+
+        transfer_siglip_weights(keras_model, hf_state_dict)
+
+    def __init__(
+        self,
+        vocabulary_size=32000,
+        embed_dim=768,
+        text_hidden_dim=768,
+        text_num_layers=12,
+        text_num_heads=12,
+        text_intermediate_dim=3072,
+        max_sequence_length=64,
+        input_tensor=None,
+        name="SigLIPTextModel",
+        **kwargs,
+    ):
+        for k in (
+            "input_image_shape",
+            "patch_size",
+            "vision_hidden_dim",
+            "vision_num_layers",
+            "vision_num_heads",
+            "vision_intermediate_dim",
+        ):
+            kwargs.pop(k, None)
+
+        if input_tensor is None:
+            token_ids_input = layers.Input(shape=(None,), name="token_ids")
+        else:
+            token_ids_input = input_tensor
+
+        last_hidden_state, pooler_output = siglip_text_backbone(
+            token_ids_input,
+            vocabulary_size=vocabulary_size,
+            embedding_dim=embed_dim,
+            hidden_dim=text_hidden_dim,
+            num_layers=text_num_layers,
+            num_heads=text_num_heads,
+            intermediate_dim=text_intermediate_dim,
+            max_sequence_length=max_sequence_length,
+        )
+
+        super().__init__(
+            inputs=token_ids_input,
+            outputs={
+                "last_hidden_state": last_hidden_state,
+                "pooler_output": pooler_output,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.vocabulary_size = vocabulary_size
+        self.embed_dim = embed_dim
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_layers = text_num_layers
+        self.text_num_heads = text_num_heads
+        self.text_intermediate_dim = text_intermediate_dim
+        self.max_sequence_length = max_sequence_length
+        self.input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocabulary_size": self.vocabulary_size,
+                "embed_dim": self.embed_dim,
+                "text_hidden_dim": self.text_hidden_dim,
+                "text_num_layers": self.text_num_layers,
+                "text_num_heads": self.text_num_heads,
+                "text_intermediate_dim": self.text_intermediate_dim,
+                "max_sequence_length": self.max_sequence_length,
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class SigLIPModel(BaseModel):
+    """SigLIP dual encoder (no contrastive head).
+
+    Composes :class:`SigLIPVisionModel` and :class:`SigLIPTextModel`
+    around a shared input pair, and returns the towers'
+    ``pooler_output`` as ``image_embeddings`` / ``text_embeddings``. No
+    L2-norm or ``logit_scale`` / ``logit_bias`` is applied — for the
+    full HF-style head use :class:`SigLIPZeroShotClassify`. For
+    supervised classification use :class:`SigLIPImageClassify`.
+
+    The two sub-models are exposed as ``model.vision_model`` and
+    ``model.text_model`` so the towers can be re-used directly.
 
     Output dict:
 
@@ -588,6 +847,36 @@ class SigLIPModel(BaseModel):
 
     >>> SigLIPModel.from_weights("siglip_base_p16_224")
     >>> SigLIPModel.from_weights("hf:google/siglip-base-patch16-224")
+
+    Reference:
+        - `Sigmoid Loss for Language Image Pre-Training
+          <https://arxiv.org/abs/2303.15343>`_
+
+    Args:
+        input_image_shape: Input image specification. Accepts an
+            integer ``N`` (builds an ``N x N x 3`` square input), a
+            2-tuple ``(H, W)``, or a 3-tuple in the active data format's
+            order. Defaults to ``224``.
+        patch_size: ViT patch edge in pixels. Defaults to ``16``.
+        vision_hidden_dim: Vision encoder hidden dimension.
+            Defaults to ``768``.
+        vision_num_layers: Vision encoder depth. Defaults to ``12``.
+        vision_num_heads: Vision encoder attention heads. Defaults to ``12``.
+        vision_intermediate_dim: Vision encoder MLP hidden dim.
+            Defaults to ``3072``.
+        vocabulary_size: Tokenizer vocabulary size. Defaults to ``32000``.
+        embed_dim: Shared joint embedding dim (= output dim of the
+            text head). Defaults to ``768``.
+        text_hidden_dim: Text encoder hidden dimension. Defaults to ``768``.
+        text_num_layers: Text encoder depth. Defaults to ``12``.
+        text_num_heads: Text encoder attention heads. Defaults to ``12``.
+        text_intermediate_dim: Text encoder MLP hidden dim.
+            Defaults to ``3072``.
+        max_sequence_length: Positional-embedding table length / max
+            text input length. Defaults to ``64``.
+        input_tensor: Optional dict of pre-existing Keras tensors with
+            keys ``"images"`` and ``"token_ids"``.
+        name: Model name. Defaults to ``"SigLIPModel"``.
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
@@ -645,45 +934,48 @@ class SigLIPModel(BaseModel):
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         if isinstance(input_tensor, dict):
-            images_input = input_tensor.get("images") or layers.Input(
-                shape=input_image_shape, name="images"
-            )
-            token_ids_input = input_tensor.get("token_ids") or layers.Input(
-                shape=(None,), name="token_ids"
-            )
+            images_input = input_tensor.get("images")
+            if images_input is None:
+                images_input = layers.Input(shape=input_image_shape, name="images")
+            token_ids_input = input_tensor.get("token_ids")
+            if token_ids_input is None:
+                token_ids_input = layers.Input(shape=(None,), name="token_ids")
         else:
             images_input = layers.Input(shape=input_image_shape, name="images")
             token_ids_input = layers.Input(shape=(None,), name="token_ids")
 
-        vision_embeddings = siglip_vision_encoder(
-            images_input,
+        vision_model = SigLIPVisionModel(
+            input_image_shape=input_image_shape,
             patch_size=patch_size,
-            hidden_dim=vision_hidden_dim,
-            num_layers=vision_num_layers,
-            num_heads=vision_num_heads,
-            intermediate_dim=vision_intermediate_dim,
-            data_format=data_format,
+            vision_hidden_dim=vision_hidden_dim,
+            vision_num_layers=vision_num_layers,
+            vision_num_heads=vision_num_heads,
+            vision_intermediate_dim=vision_intermediate_dim,
+            input_tensor=images_input,
+            name=f"{name}_vision_tower",
         )
-
-        text_embeddings = siglip_text_encoder(
-            token_ids_input,
+        text_model = SigLIPTextModel(
             vocabulary_size=vocabulary_size,
-            embedding_dim=embed_dim,
-            hidden_dim=text_hidden_dim,
-            num_layers=text_num_layers,
-            num_heads=text_num_heads,
-            intermediate_dim=text_intermediate_dim,
+            embed_dim=embed_dim,
+            text_hidden_dim=text_hidden_dim,
+            text_num_layers=text_num_layers,
+            text_num_heads=text_num_heads,
+            text_intermediate_dim=text_intermediate_dim,
             max_sequence_length=max_sequence_length,
+            input_tensor=token_ids_input,
+            name=f"{name}_text_tower",
         )
 
         outputs = {
-            "image_embeddings": vision_embeddings,
-            "text_embeddings": text_embeddings,
+            "image_embeddings": vision_model.output["pooler_output"],
+            "text_embeddings": text_model.output["pooler_output"],
         }
         inputs = {"images": images_input, "token_ids": token_ids_input}
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
+        self.vision_model = vision_model
+        self.text_model = text_model
         self.input_image_shape = input_image_shape
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
@@ -731,13 +1023,37 @@ class SigLIPModel(BaseModel):
 class SigLIPZeroShotClassify(BaseModel):
     """SigLIP + sigmoid-similarity head for zero-shot classification / retrieval.
 
-    Composes the same vision + text encoders as :class:`SigLIPModel` and
-    adds the standard SigLIP head — L2-normalize both sides, then a
-    learnable ``logit_scale`` and ``logit_bias``. Output is the
-    ``(B, B)`` image-vs-text similarity logits.
+    Composes :class:`SigLIPModel` and adds the standard SigLIP head:
+    L2-normalize both sides, compute the pairwise cosine-similarity
+    matrix, then apply a learnable ``logit_scale`` and ``logit_bias``
+    (see :class:`SigLIPLogitScaleBias`). Output is the ``(B, B)``
+    image-vs-text similarity logits, which sigmoid to per-pair
+    matching probabilities when ``text_*`` inputs are class-name
+    prompts.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({"images": ..., "token_ids": ...})
+        out["image_logits"]   # (B, B) — image[i] vs text[j], scaled+biased
+        out["text_logits"]    # (B, B) — transpose of image_logits
+
+    Construction:
 
     >>> SigLIPZeroShotClassify.from_weights("siglip_base_p16_224")
     >>> SigLIPZeroShotClassify.from_weights("hf:google/siglip-base-patch16-224")
+
+    Reference:
+        - `Sigmoid Loss for Language Image Pre-Training
+          <https://arxiv.org/abs/2303.15343>`_
+
+    Args (identical to :class:`SigLIPModel`):
+        input_image_shape, patch_size, vision_hidden_dim,
+        vision_num_layers, vision_num_heads, vision_intermediate_dim,
+        vocabulary_size, embed_dim, text_hidden_dim, text_num_layers,
+        text_num_heads, text_intermediate_dim, max_sequence_length,
+        input_tensor, name.
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
@@ -848,12 +1164,44 @@ class SigLIPZeroShotClassify(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIPImageClassify(BaseModel):
-    """SigLIP vision encoder + linear image-classification head.
+    """SigLIP vision tower + linear image-classification head.
 
-    Uses only the SigLIP vision encoder (no text encoder, no attention
-    pooling head), drops the CLS-equivalent token, mean-pools the patch
-    tokens, and applies a single linear classifier producing
-    ``num_labels`` logits.
+    Composes :class:`SigLIPVisionModel`, mean-pools the
+    ``last_hidden_state`` patch tokens (the attention-pooling head is
+    bypassed for classification), and applies a single linear
+    classifier producing ``num_labels`` logits. Mirrors HF's
+    ``SiglipForImageClassification`` design.
+
+    .. code-block:: python
+
+        model = SigLIPImageClassify.from_weights(
+            "hf:<user>/siglip-finetune-imagenet"
+        )
+        logits = model(images)              # (B, num_labels)
+
+    The vision tower is exposed as ``model.vision_model`` so it can be
+    re-used directly (for feature extraction).
+
+    Reference:
+        - `Sigmoid Loss for Language Image Pre-Training
+          <https://arxiv.org/abs/2303.15343>`_
+
+    Args:
+        num_labels: Number of output classes. Defaults to ``1000``.
+        input_image_shape: Input image specification. Accepts an
+            integer ``N`` (builds an ``N x N x 3`` square input), a
+            2-tuple ``(H, W)``, or a 3-tuple in the active data format's
+            order. Defaults to ``224``.
+        patch_size: ViT patch edge in pixels. Defaults to ``16``.
+        vision_hidden_dim: Vision encoder hidden dimension.
+            Defaults to ``768``.
+        vision_num_layers: Vision encoder depth. Defaults to ``12``.
+        vision_num_heads: Vision encoder attention heads. Defaults to ``12``.
+        vision_intermediate_dim: Vision encoder MLP hidden dim.
+            Defaults to ``3072``.
+        input_tensor: Optional pre-existing Keras tensor to use as the
+            ``images`` input.
+        name: Model name. Defaults to ``"SigLIPImageClassify"``.
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
@@ -931,21 +1279,24 @@ class SigLIPImageClassify(BaseModel):
         else:
             images_input = input_tensor
 
-        encoded = siglip_vision_features(
-            images_input,
+        vision_model = SigLIPVisionModel(
+            input_image_shape=input_image_shape,
             patch_size=patch_size,
-            hidden_dim=vision_hidden_dim,
-            num_layers=vision_num_layers,
-            num_heads=vision_num_heads,
-            intermediate_dim=vision_intermediate_dim,
-            data_format=data_format,
+            vision_hidden_dim=vision_hidden_dim,
+            vision_num_layers=vision_num_layers,
+            vision_num_heads=vision_num_heads,
+            vision_intermediate_dim=vision_intermediate_dim,
+            input_tensor=images_input,
+            name=f"{name}_vision_tower",
         )
+        encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded, axis=1)
         logits = layers.Dense(num_labels, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
+        self.vision_model = vision_model
         self.num_labels = num_labels
         self.input_image_shape = input_image_shape
         self.patch_size = patch_size
