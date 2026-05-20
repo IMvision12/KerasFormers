@@ -125,61 +125,61 @@ SWINV2_WEIGHT_CONFIG = {
     "swinv2_tiny_window8_256_ms_in1k": {
         "model": "swinv2_tiny_window8_256",
         "timm_id": "swinv2_tiny_window8_256.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_tiny_window8_256_ms_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_tiny_window8_256_ms_in1k.weights.h5",
     },
     "swinv2_tiny_window16_256_ms_in1k": {
         "model": "swinv2_tiny_window16_256",
         "timm_id": "swinv2_tiny_window16_256.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_tiny_window16_256_ms_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_tiny_window16_256_ms_in1k.weights.h5",
     },
     "swinv2_small_window8_256_ms_in1k": {
         "model": "swinv2_small_window8_256",
         "timm_id": "swinv2_small_window8_256.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_small_window8_256_ms_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_small_window8_256_ms_in1k.weights.h5",
     },
     "swinv2_small_window16_256_ms_in1k": {
         "model": "swinv2_small_window16_256",
         "timm_id": "swinv2_small_window16_256.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_small_window16_256_ms_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_small_window16_256_ms_in1k.weights.h5",
     },
     "swinv2_base_window8_256_ms_in1k": {
         "model": "swinv2_base_window8_256",
         "timm_id": "swinv2_base_window8_256.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_base_window8_256_ms_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_base_window8_256_ms_in1k.weights.h5",
     },
     "swinv2_base_window12_192_ms_in22k": {
         "model": "swinv2_base_window12_192",
         "timm_id": "swinv2_base_window12_192.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_base_window12_192_ms_in22k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_base_window12_192_ms_in22k.weights.h5",
     },
     "swinv2_base_window12to16_192to256_ms_in22k_ft_in1k": {
         "model": "swinv2_base_window12to16_192to256",
         "timm_id": "swinv2_base_window12to16_192to256.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_base_window12to16_192to256_ms_in22k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_base_window12to16_192to256_ms_in22k_ft_in1k.weights.h5",
     },
     "swinv2_base_window12to24_192to384_ms_in22k_ft_in1k": {
         "model": "swinv2_base_window12to24_192to384",
         "timm_id": "swinv2_base_window12to24_192to384.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_base_window12to24_192to384_ms_in22k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_base_window12to24_192to384_ms_in22k_ft_in1k.weights.h5",
     },
     "swinv2_base_window16_256_ms_in1k": {
         "model": "swinv2_base_window16_256",
         "timm_id": "swinv2_base_window16_256.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_base_window16_256_ms_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_base_window16_256_ms_in1k.weights.h5",
     },
     "swinv2_large_window12_192_ms_in22k": {
         "model": "swinv2_large_window12_192",
         "timm_id": "swinv2_large_window12_192.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_large_window12_192_ms_in22k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_large_window12_192_ms_in22k.weights.h5",
     },
     "swinv2_large_window12to16_192to256_ms_in22k_ft_in1k": {
         "model": "swinv2_large_window12to16_192to256",
         "timm_id": "swinv2_large_window12to16_192to256.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_large_window12to16_192to256_ms_in22k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_large_window12to16_192to256_ms_in22k_ft_in1k.weights.h5",
     },
     "swinv2_large_window12to24_192to384_ms_in22k_ft_in1k": {
         "model": "swinv2_large_window12to24_192to384",
         "timm_id": "swinv2_large_window12to24_192to384.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/swin/swinv2_large_window12to24_192to384_ms_in22k_ft_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swinv2_large_window12to24_192to384_ms_in22k_ft_in1k.weights.h5",
     },
 }

@@ -50,26 +50,26 @@ INCEPTION_NEXT_WEIGHT_CONFIG = {
     "inception_next_atto_sail_in1k": {
         "model": "inception_next_atto",
         "timm_id": "inception_next_atto.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/inception_next_atto_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_atto_sail_in1k.weights.h5",
     },
     "inception_next_tiny_sail_in1k": {
         "model": "inception_next_tiny",
         "timm_id": "inception_next_tiny.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/inception_next_tiny_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_tiny_sail_in1k.weights.h5",
     },
     "inception_next_small_sail_in1k": {
         "model": "inception_next_small",
         "timm_id": "inception_next_small.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/inception_next_small_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_small_sail_in1k.weights.h5",
     },
     "inception_next_base_sail_in1k": {
         "model": "inception_next_base",
         "timm_id": "inception_next_base.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/inception_next_base_sail_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_base_sail_in1k.weights.h5",
     },
     "inception_next_base_sail_in1k_384": {
         "model": "inception_next_base_384",
         "timm_id": "inception_next_base.sail_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/inception_next_base_sail_in1k_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_base_sail_in1k_384.weights.h5",
     },
 }

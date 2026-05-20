@@ -95,41 +95,41 @@ PIT_WEIGHT_CONFIG = {
     "pit_xs_224_in1k": {
         "model": "pit_xs",
         "timm_id": "pit_xs_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_xs_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_xs_224_in1k.weights.h5",
     },
     "pit_xs_distilled_224_in1k": {
         "model": "pit_xs_distilled",
         "timm_id": "pit_xs_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_xs_distilled_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_xs_distilled_224_in1k.weights.h5",
     },
     "pit_ti_224_in1k": {
         "model": "pit_ti",
         "timm_id": "pit_ti_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_ti_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_ti_224_in1k.weights.h5",
     },
     "pit_ti_distilled_224_in1k": {
         "model": "pit_ti_distilled",
         "timm_id": "pit_ti_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_ti_distilled_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_ti_distilled_224_in1k.weights.h5",
     },
     "pit_s_224_in1k": {
         "model": "pit_s",
         "timm_id": "pit_s_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_s_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_s_224_in1k.weights.h5",
     },
     "pit_s_distilled_224_in1k": {
         "model": "pit_s_distilled",
         "timm_id": "pit_s_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_s_distilled_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_s_distilled_224_in1k.weights.h5",
     },
     "pit_b_224_in1k": {
         "model": "pit_b",
         "timm_id": "pit_b_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_b_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_b_224_in1k.weights.h5",
     },
     "pit_b_distilled_224_in1k": {
         "model": "pit_b_distilled",
         "timm_id": "pit_b_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/pit_b_distilled_224_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_b_distilled_224_in1k.weights.h5",
     },
 }

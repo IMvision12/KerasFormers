@@ -85,51 +85,51 @@ CAIT_WEIGHT_CONFIG = {
     "cait_xxs24_224_fb_dist_in1k": {
         "model": "cait_xxs24_224",
         "timm_id": "cait_xxs24_224.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_xxs24_224_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_xxs24_224_fb_dist_in1k.weights.h5",
     },
     "cait_xxs24_384_fb_dist_in1k": {
         "model": "cait_xxs24_384",
         "timm_id": "cait_xxs24_384.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_xxs24_384_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_xxs24_384_fb_dist_in1k.weights.h5",
     },
     "cait_xxs36_224_fb_dist_in1k": {
         "model": "cait_xxs36_224",
         "timm_id": "cait_xxs36_224.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_xxs36_224_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_xxs36_224_fb_dist_in1k.weights.h5",
     },
     "cait_xxs36_384_fb_dist_in1k": {
         "model": "cait_xxs36_384",
         "timm_id": "cait_xxs36_384.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_xxs36_384_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_xxs36_384_fb_dist_in1k.weights.h5",
     },
     "cait_xs24_384_fb_dist_in1k": {
         "model": "cait_xs24_384",
         "timm_id": "cait_xs24_384.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_xs24_384_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_xs24_384_fb_dist_in1k.weights.h5",
     },
     "cait_s24_224_fb_dist_in1k": {
         "model": "cait_s24_224",
         "timm_id": "cait_s24_224.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_s24_224_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_s24_224_fb_dist_in1k.weights.h5",
     },
     "cait_s24_384_fb_dist_in1k": {
         "model": "cait_s24_384",
         "timm_id": "cait_s24_384.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_s24_384_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_s24_384_fb_dist_in1k.weights.h5",
     },
     "cait_s36_384_fb_dist_in1k": {
         "model": "cait_s36_384",
         "timm_id": "cait_s36_384.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_s36_384_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_s36_384_fb_dist_in1k.weights.h5",
     },
     "cait_m36_384_fb_dist_in1k": {
         "model": "cait_m36_384",
         "timm_id": "cait_m36_384.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_m36_384_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_m36_384_fb_dist_in1k.weights.h5",
     },
     "cait_m48_448_fb_dist_in1k": {
         "model": "cait_m48_448",
         "timm_id": "cait_m48_448.fb_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.1/cait_m48_448_fb_dist_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/cait_m48_448_fb_dist_in1k.weights.h5",
     },
 }
