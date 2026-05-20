@@ -45,6 +45,55 @@ if __name__ == "__main__":
 
         total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
         total_gb = (total_params * 4) / (1024**3)
+
+        del state
+        gc.collect()
+
+        if total_gb <= 5.0:
+            import torch
+
+            ctx = keras_model.max_sequence_length
+            vocab = keras_model.vocabulary_size
+            ishape = keras_model.input_image_shape
+            if keras.config.image_data_format() == "channels_first":
+                img_h, img_w = ishape[1], ishape[2]
+            else:
+                img_h, img_w = ishape[0], ishape[1]
+
+            rng = np.random.default_rng(0)
+            pixel = rng.standard_normal((2, img_h, img_w, 3)).astype(np.float32)
+            token_ids = rng.integers(0, vocab - 1, size=(2, ctx)).astype(np.int32)
+
+            with torch.no_grad():
+                hf_out = hf_model(
+                    pixel_values=torch.from_numpy(pixel.transpose(0, 3, 1, 2)),
+                    input_ids=torch.from_numpy(token_ids.astype(np.int64)),
+                )
+                hf_logits = hf_out.logits_per_image.cpu().numpy()
+                scale = hf_model.logit_scale.exp().item()
+
+            k_out = keras_model(
+                {"images": pixel, "token_ids": token_ids}, training=False
+            )
+            k_logits = keras.ops.convert_to_numpy(k_out["image_logits"])
+
+            logits_diff = float(np.abs(hf_logits - k_logits).max())
+            cosine_diff = logits_diff / (scale + 1e-8)
+            print(
+                f"  Max logits diff: {logits_diff:.6f}  "
+                f"(cosine-level: {cosine_diff:.2e})"
+            )
+            if cosine_diff > 1e-2:
+                raise ValueError(
+                    f"{variant}: equivalence check failed "
+                    f"(logits diff {logits_diff:.4f}, cosine {cosine_diff:.2e})"
+                )
+        else:
+            print(
+                f"  Equivalence check skipped (~{total_gb:.1f} GB model exceeds "
+                f"RAM budget; weights validated by name-based mapping)"
+            )
+
         if total_gb > 1.7:
             out_path = f"{variant}.weights.json"
             keras_model.save_weights(out_path, max_shard_size=1.7)
@@ -54,6 +103,6 @@ if __name__ == "__main__":
             keras_model.save_weights(out_path)
             print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
 
-        del keras_model, hf_model, state
+        del keras_model, hf_model
         keras.backend.clear_session()
         gc.collect()
