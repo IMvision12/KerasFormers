@@ -843,38 +843,6 @@ def dfine_aifi_encoder_layer(
     return x
 
 
-def dfine_weighting_function(max_num_bins, up, reg_scale):
-    """Compute the non-uniform weighting function for FDR.
-
-    Args:
-        max_num_bins: Integer, number of distribution bins.
-        up: Scalar tensor, learnable upsampling factor.
-        reg_scale: Scalar tensor, learnable regression scale.
-
-    Returns:
-        Tensor of shape ``(max_num_bins + 1,)`` containing the
-        non-uniform weight vector.
-    """
-    abs_up = ops.abs(up)
-    abs_rs = ops.abs(reg_scale)
-    upper_bound1 = ops.multiply(abs_up, abs_rs)
-    upper_bound2 = ops.multiply(upper_bound1, 2.0)
-    step = ops.power(upper_bound1 + 1.0, 2.0 / (max_num_bins - 2))
-
-    values = []
-    values.append(ops.reshape(ops.negative(upper_bound2), [1]))
-    for i in range(max_num_bins // 2 - 1, 0, -1):
-        val = ops.negative(ops.power(step, i)) + 1.0
-        values.append(ops.reshape(val, [1]))
-    values.append(ops.zeros([1], dtype=up.dtype))
-    for i in range(1, max_num_bins // 2):
-        val = ops.power(step, i) - 1.0
-        values.append(ops.reshape(val, [1]))
-    values.append(ops.reshape(upper_bound2, [1]))
-
-    return ops.concatenate(values, axis=0)
-
-
 def dfine_integral(pred_corners, project, max_num_bins):
     """Apply DFine integral to convert distribution to distances.
 
@@ -1321,7 +1289,9 @@ def dfine_fdr_block(
     decoder_num_heads = 8
     max_num_bins = 32
 
-    decoder_params = DFineDecoderParams(name="decoder_params")
+    decoder_params = DFineDecoderParams(
+        max_num_bins=max_num_bins, name="decoder_params"
+    )
 
     qp_d0 = layers.Dense(d_model * 2, activation="relu", name="query_pos_head_0")
     qp_d1 = layers.Dense(d_model, name="query_pos_head_1")
@@ -1341,6 +1311,8 @@ def dfine_fdr_block(
     ref_points_initial = None
     last_boxes = None
     last_pred_corners = None
+    project = None
+    rs_val = None
 
     for di in range(decoder_layers):
         rp_in = ops.expand_dims(ref_detach, axis=2)
@@ -1362,7 +1334,7 @@ def dfine_fdr_block(
         hs = dl(hs, source_flat, query_pos, rp_in)
 
         if di == 0:
-            hs = decoder_params(hs)
+            hs, project, rs_val = decoder_params(hs)
             pre_bb = pre_bb_d2(pre_bb_d1(pre_bb_d0(hs)))
             new_ref = ops.sigmoid(pre_bb + dfine_inverse_sigmoid(ref_detach))
             ref_points_initial = ops.stop_gradient(new_ref)
@@ -1374,9 +1346,6 @@ def dfine_fdr_block(
         bb_i = layers.Dense(nbins_out, name=f"bbox_embed_{di}_2")(bb_i)
         pred_corners = bb_i if pred_corners_accum is None else bb_i + pred_corners_accum
 
-        up_val = decoder_params.up
-        rs_val = decoder_params.reg_scale
-        project = dfine_weighting_function(max_num_bins, up_val, rs_val)
         distances = dfine_integral(pred_corners, project, max_num_bins)
         inter_ref_bbox = dfine_distance2bbox(ref_points_initial, distances, rs_val)
 

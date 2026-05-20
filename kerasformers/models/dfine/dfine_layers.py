@@ -43,19 +43,27 @@ class DFineLearnableAffineBlock(layers.Layer):
 class DFineDecoderParams(layers.Layer):
     """Holds learnable ``up`` and ``reg_scale`` parameters for FDR decoding.
 
-    Acts as identity on its input but keeps the two scalar parameters
-    needed by the Fine-grained Distribution Refinement decoder in the
-    computation graph.
+    Passes its input through unchanged and additionally returns the
+    non-uniform FDR weighting vector (``project``) and ``reg_scale`` as
+    graph tensors. These are computed inside ``call`` — from the *current*
+    weight values at run time — rather than from the raw weight variables
+    at graph-build time. This matters because ``reg_scale`` varies across
+    D-FINE variants (e.g. 4.0 for large, 8.0 for xlarge) and is only set
+    during weight transfer: evaluating the weighting function eagerly at
+    build time would bake in the initializer value and ignore the
+    transferred one.
 
     Args:
+        max_num_bins: Number of FDR distribution bins.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
         - D-FINE: https://arxiv.org/abs/2410.13842
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, max_num_bins=32, **kwargs):
         super().__init__(**kwargs)
+        self.max_num_bins = max_num_bins
 
     def build(self, input_shape):
         self.up = self.add_weight(
@@ -70,11 +78,38 @@ class DFineDecoderParams(layers.Layer):
         )
         super().build(input_shape)
 
+    def weighting_function(self):
+        abs_up = ops.abs(self.up)
+        abs_rs = ops.abs(self.reg_scale)
+        upper_bound1 = ops.multiply(abs_up, abs_rs)
+        upper_bound2 = ops.multiply(upper_bound1, 2.0)
+        step = ops.power(upper_bound1 + 1.0, 2.0 / (self.max_num_bins - 2))
+
+        values = [ops.reshape(ops.negative(upper_bound2), [1])]
+        for i in range(self.max_num_bins // 2 - 1, 0, -1):
+            values.append(ops.reshape(ops.negative(ops.power(step, i)) + 1.0, [1]))
+        values.append(ops.zeros([1], dtype=self.up.dtype))
+        for i in range(1, self.max_num_bins // 2):
+            values.append(ops.reshape(ops.power(step, i) - 1.0, [1]))
+        values.append(ops.reshape(upper_bound2, [1]))
+        return ops.concatenate(values, axis=0)
+
     def call(self, x):
-        return x + 0.0 * self.up + 0.0 * self.reg_scale
+        project = self.weighting_function()
+        reg_scale = self.reg_scale * 1.0
+        return x, project, reg_scale
 
     def compute_output_spec(self, x):
-        return keras.KerasTensor(x.shape, dtype=x.dtype)
+        return (
+            keras.KerasTensor(x.shape, dtype=x.dtype),
+            keras.KerasTensor((self.max_num_bins + 1,), dtype=self.compute_dtype),
+            keras.KerasTensor((1,), dtype=self.compute_dtype),
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"max_num_bins": self.max_num_bins})
+        return config
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
