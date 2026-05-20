@@ -747,9 +747,9 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 42, 42, 1),
     },
     # ---------- Semantic / universal segmentation ----------
-    "DeepLabV3Segment": {
+    "DeepLabV3SemanticSegment": {
         "module": "kerasformers.models.deeplabv3",
-        "model_cls": "DeepLabV3Segment",
+        "model_cls": "DeepLabV3SemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "backbone_variant": "ResNet50",
@@ -779,9 +779,9 @@ MODEL_TEST_CONFIGS = {
             "mask_logits": (2, 100, 16, 16),
         },
     },
-    "MaskFormerSegment": {
+    "MaskFormerUniversalSegment": {
         "module": "kerasformers.models.maskformer",
-        "model_cls": "MaskFormerSegment",
+        "model_cls": "MaskFormerUniversalSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "backbone_embed_dim": 32,
@@ -804,9 +804,9 @@ MODEL_TEST_CONFIGS = {
             "masks_queries_logits": (2, 8, 56, 56),
         },
     },
-    "Mask2FormerSegment": {
+    "Mask2FormerUniversalSegment": {
         "module": "kerasformers.models.mask2former",
-        "model_cls": "Mask2FormerSegment",
+        "model_cls": "Mask2FormerUniversalSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "backbone_embed_dim": 32,
@@ -830,9 +830,9 @@ MODEL_TEST_CONFIGS = {
             "masks_queries_logits": (2, 8, 56, 56),
         },
     },
-    "MobileViTSegment": {
+    "MobileViTSemanticSegment": {
         "module": "kerasformers.models.mobilevit",
-        "model_cls": "MobileViTSegment",
+        "model_cls": "MobileViTSemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "initial_dims": 16,
@@ -847,9 +847,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 128, 128, 3),
         "expected_output_shape": (2, 8, 8, 21),
     },
-    "MobileViTV2Segment": {
+    "MobileViTV2SemanticSegment": {
         "module": "kerasformers.models.mobilevitv2",
-        "model_cls": "MobileViTV2Segment",
+        "model_cls": "MobileViTV2SemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "multiplier": 0.5,
@@ -860,9 +860,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 128, 128, 3),
         "expected_output_shape": (2, 8, 8, 21),
     },
-    "SegFormerSegment": {
+    "SegFormerSemanticSegment": {
         "module": "kerasformers.models.segformer",
-        "model_cls": "SegFormerSegment",
+        "model_cls": "SegFormerSemanticSegment",
         "model_type": "segmentation",
         "init_kwargs": {
             "input_image_shape": 32,

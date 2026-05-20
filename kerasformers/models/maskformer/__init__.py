@@ -3,12 +3,12 @@ from .maskformer_image_processor import (
     maskformer_post_process_panoptic,
     maskformer_post_process_semantic,
 )
-from .maskformer_model import MaskFormerModel, MaskFormerSegment
+from .maskformer_model import MaskFormerModel, MaskFormerUniversalSegment
 
 __all__ = [
     "MaskFormerImageProcessor",
     "MaskFormerModel",
-    "MaskFormerSegment",
+    "MaskFormerUniversalSegment",
     "maskformer_post_process_panoptic",
     "maskformer_post_process_semantic",
 ]

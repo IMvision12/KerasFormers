@@ -13,7 +13,7 @@ from transformers import (
 
 from kerasformers.models.mobilevitv2 import (
     MobileViTV2ImageClassify,
-    MobileViTV2Segment,
+    MobileViTV2SemanticSegment,
 )
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
@@ -256,7 +256,7 @@ if __name__ == "__main__":
         hf_model = MobileViTV2ForSemanticSegmentation.from_pretrained(hf_id).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = MobileViTV2Segment.from_weights(
+        keras_model = MobileViTV2SemanticSegment.from_weights(
             f"hf:{hf_id}", include_normalization=False
         )
         transfer_mobilevitv2_weights(keras_model, hf_sd)

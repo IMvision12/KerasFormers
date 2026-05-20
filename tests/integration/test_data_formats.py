@@ -16,7 +16,7 @@ MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 # Models that don't support runtime channels_first/channels_last switching:
 # - Whisper*: audio model, no spatial image dim; the channels_first
 #   conversion doesn't apply.
-# - MaskFormerSegment / Mask2FormerSegment: the HF-aligned Swin backbone
+# - MaskFormerUniversalSegment / Mask2FormerUniversalSegment: the HF-aligned Swin backbone
 #   port works in channels_last only (the conv → reshape → flatten path
 #   assumes (B, H, W, C)). HF MaskFormer / Mask2Former checkpoints are
 #   only released for channels_last; supporting channels_first would
@@ -25,8 +25,8 @@ SKIP_DATA_FORMAT = {
     "WhisperModel",
     "WhisperSpeechToText",
     "WhisperAudioClassify",
-    "MaskFormerSegment",
-    "Mask2FormerSegment",
+    "MaskFormerUniversalSegment",
+    "Mask2FormerUniversalSegment",
 }
 
 

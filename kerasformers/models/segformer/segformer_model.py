@@ -102,7 +102,7 @@ class SegFormerModel(BaseModel):
     Wraps the MiT (Mix Transformer) backbone in ``as_backbone=True``
     mode and exposes its four multi-scale feature maps as a list
     output. Use this when you want SegFormer's hierarchical features
-    to feed into a custom head; use :class:`SegFormerSegment` for the
+    to feed into a custom head; use :class:`SegFormerSemanticSegment` for the
     full semantic-segmentation model.
 
     Reference:
@@ -183,7 +183,7 @@ class SegFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SegFormerSegment(BaseModel):
+class SegFormerSemanticSegment(BaseModel):
     """SegFormer full semantic segmentation model (backbone + decode head).
 
     Composes :class:`SegFormerModel` and adds the all-MLP decode head,
@@ -248,7 +248,7 @@ class SegFormerSegment(BaseModel):
         num_classes=19,
         input_image_shape=512,
         input_tensor=None,
-        name="SegFormerSegment",
+        name="SegFormerSemanticSegment",
         **kwargs,
     ):
         if embed_dims is None:

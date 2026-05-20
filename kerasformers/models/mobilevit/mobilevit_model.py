@@ -872,7 +872,7 @@ def mobilevit_aspp_head(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileViTSegment(BaseModel):
+class MobileViTSemanticSegment(BaseModel):
     """MobileViT + DeepLabV3 semantic segmentation head.
 
     Composes :class:`MobileViTModel` (with ``output_stride=16`` and atrous
@@ -933,7 +933,7 @@ class MobileViTSegment(BaseModel):
         aspp_dropout_prob=0.1,
         input_tensor=None,
         num_classes=21,
-        name="MobileViTSegment",
+        name="MobileViTSemanticSegment",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

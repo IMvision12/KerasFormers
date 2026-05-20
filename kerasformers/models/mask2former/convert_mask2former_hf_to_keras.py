@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from transformers import Mask2FormerForUniversalSegmentation, Mask2FormerImageProcessor
 
-from kerasformers.models.mask2former import Mask2FormerSegment
+from kerasformers.models.mask2former import Mask2FormerUniversalSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
 
@@ -266,7 +266,7 @@ def transfer_transformer(keras_model, sd, prefix, num_layers, num_heads):
 
 
 def transfer_mask2former_weights(keras_model, hf_state_dict):
-    """Transfer all Mask2Former weights into a Keras Mask2FormerSegment."""
+    """Transfer all Mask2Former weights into a Keras Mask2FormerUniversalSegment."""
     sd = hf_state_dict
     backbone = keras_model.get_layer("backbone")
 
@@ -312,7 +312,9 @@ if __name__ == "__main__":
         print(f"Converting: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
-        keras_model = Mask2FormerSegment.from_weights(variant, load_weights=False)
+        keras_model = Mask2FormerUniversalSegment.from_weights(
+            variant, load_weights=False
+        )
 
         hf_model = Mask2FormerForUniversalSegmentation.from_pretrained(
             hf_id, token=os.environ.get("HF_TOKEN")

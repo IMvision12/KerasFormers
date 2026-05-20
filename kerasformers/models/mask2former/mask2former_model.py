@@ -566,18 +566,18 @@ class Mask2FormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Mask2FormerSegment(Mask2FormerModel):
+class Mask2FormerUniversalSegment(Mask2FormerModel):
     """Universal-segmentation alias for ``Mask2FormerModel``.
 
     Mask2Former has integrated heads — there's no "base vs segment" split
-    like in MaskFormer. ``Mask2FormerSegment`` is provided as an alias for
+    like in MaskFormer. ``Mask2FormerUniversalSegment`` is provided as an alias for
     API symmetry with the other segmentation classes in kerasformers.
     """
 
     BASE_WEIGHT_CONFIG = MASK2FORMER_WEIGHTS
     HF_MODEL_TYPE = "mask2former"
 
-    def __init__(self, name="Mask2FormerSegment", **kwargs):
+    def __init__(self, name="Mask2FormerUniversalSegment", **kwargs):
         super().__init__(name=name, **kwargs)
 
     @classmethod

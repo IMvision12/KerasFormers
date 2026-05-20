@@ -7,7 +7,7 @@ DeepLabV3 is a highly accurate semantic segmentation model that employs atrous (
 Two classes are exposed:
 
 - `DeepLabV3Model` — dilated ResNet backbone (no segmentation head). Returns the 2048-channel C5 feature at ``output_stride=8``.
-- `DeepLabV3Segment` — full semantic-segmentation model with the ASPP module + classifier head + bilinear upsample.
+- `DeepLabV3SemanticSegment` — full semantic-segmentation model with the ASPP module + classifier head + bilinear upsample.
 
 ## Architecture Highlights
 
@@ -17,7 +17,7 @@ Two classes are exposed:
 
 ## Available Weights
 
-Pretrained weights are loaded via `DeepLabV3Segment.from_weights(variant_id)`. These come from torchvision (COCO + Pascal VOC fine-tune), not HuggingFace.
+Pretrained weights are loaded via `DeepLabV3SemanticSegment.from_weights(variant_id)`. These come from torchvision (COCO + Pascal VOC fine-tune), not HuggingFace.
 
 | Variant                           | Backbone   | Dataset       | Classes | Input    |
 |-----------------------------------|------------|---------------|--------:|----------|
@@ -29,16 +29,16 @@ Pretrained weights are loaded via `DeepLabV3Segment.from_weights(variant_id)`. T
 ## Basic Usage
 
 ```python
-from kerasformers.models.deeplabv3 import DeepLabV3Segment
+from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment
 
 # Load model with pre-trained weights
-model = DeepLabV3Segment.from_weights("deeplabv3_resnet50_coco_voc")
+model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
 
 # Use the ResNet-101 backbone
-model_large = DeepLabV3Segment.from_weights("deeplabv3_resnet101_coco_voc")
+model_large = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet101_coco_voc")
 
 # Build an untrained model for fine-tuning (override num_classes etc.)
-custom = DeepLabV3Segment.from_weights(
+custom = DeepLabV3SemanticSegment.from_weights(
     "deeplabv3_resnet50_coco_voc",
     load_weights=False,
     num_classes=10,
@@ -49,9 +49,9 @@ custom = DeepLabV3Segment.from_weights(
 ## Inference Example
 
 ```python
-from kerasformers.models.deeplabv3 import DeepLabV3Segment, DeepLabV3ImageProcessor
+from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment, DeepLabV3ImageProcessor
 
-model = DeepLabV3Segment.from_weights("deeplabv3_resnet50_coco_voc")
+model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
 
 processor = DeepLabV3ImageProcessor(size={"height": 520, "width": 520})
 image = processor("image.jpg")
@@ -93,7 +93,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kerasformers.models.deeplabv3 import DeepLabV3Segment, DeepLabV3ImageProcessor
+from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment, DeepLabV3ImageProcessor
 
 VOC_COLORMAP = np.array([
     [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
@@ -103,7 +103,7 @@ VOC_COLORMAP = np.array([
     [0, 64, 128],
 ], dtype=np.uint8)
 
-model = DeepLabV3Segment.from_weights("deeplabv3_resnet50_coco_voc")
+model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
 
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)

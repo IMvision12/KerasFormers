@@ -714,7 +714,7 @@ class MobileViTV2ImageClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileViTV2Segment(BaseModel):
+class MobileViTV2SemanticSegment(BaseModel):
     """MobileViTV2 + DeepLabV3 semantic segmentation head.
 
     Composes :class:`MobileViTV2Model` with ASPP and a 1x1 classifier conv to
@@ -766,7 +766,7 @@ class MobileViTV2Segment(BaseModel):
         aspp_dropout_prob=0.1,
         input_tensor=None,
         num_classes=21,
-        name="MobileViTV2Segment",
+        name="MobileViTV2SemanticSegment",
         **kwargs,
     ):
         kwargs.pop("timm_id", None)

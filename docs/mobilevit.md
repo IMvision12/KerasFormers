@@ -11,7 +11,7 @@ Both versions ship as four classes:
 
 - `MobileViTModel` / `MobileViTV2Model` — backbone (no head). Returns the last-stage feature map at `output_stride=32`.
 - `MobileViTImageClassify` / `MobileViTV2ImageClassify` — full ImageNet classifier (backbone + 1×1 head conv + GAP + Dense).
-- `MobileViTSegment` / `MobileViTV2Segment` — full DeepLabV3 semantic segmenter (backbone with `output_stride=16` and atrous convolutions in the last stage + ASPP module + 1×1 classifier conv).
+- `MobileViTSemanticSegment` / `MobileViTV2SemanticSegment` — full DeepLabV3 semantic segmenter (backbone with `output_stride=16` and atrous convolutions in the last stage + ASPP module + 1×1 classifier conv).
 - `MobileViTImageProcessor` / `MobileViTV2ImageProcessor` — matching preprocessor: resize-shortest-edge + center-crop + rescale + RGB→BGR flip.
 
 ## Architecture Highlights
@@ -30,11 +30,11 @@ All HuggingFace `model_type == "mobilevit"` or `"mobilevitv2"` repos load via `f
 | `MobileViTImageClassify`   | `apple/mobilevit-xx-small`              | ImageNet classify     | 1000 | 256×256 |
 | `MobileViTImageClassify`   | `apple/mobilevit-x-small`               | ImageNet classify     | 1000 | 256×256 |
 | `MobileViTImageClassify`   | `apple/mobilevit-small`                 | ImageNet classify     | 1000 | 256×256 |
-| `MobileViTSegment`         | `apple/deeplabv3-mobilevit-xx-small`    | PASCAL VOC segment    |   21 | 512×512 |
-| `MobileViTSegment`         | `apple/deeplabv3-mobilevit-x-small`     | PASCAL VOC segment    |   21 | 512×512 |
-| `MobileViTSegment`         | `apple/deeplabv3-mobilevit-small`       | PASCAL VOC segment    |   21 | 512×512 |
+| `MobileViTSemanticSegment`         | `apple/deeplabv3-mobilevit-xx-small`    | PASCAL VOC segment    |   21 | 512×512 |
+| `MobileViTSemanticSegment`         | `apple/deeplabv3-mobilevit-x-small`     | PASCAL VOC segment    |   21 | 512×512 |
+| `MobileViTSemanticSegment`         | `apple/deeplabv3-mobilevit-small`       | PASCAL VOC segment    |   21 | 512×512 |
 | `MobileViTV2ImageClassify` | `apple/mobilevitv2-{0.5,…,2.0}-imagenet1k-256` | ImageNet classify | 1000 | 256×256 |
-| `MobileViTV2Segment`       | `apple/mobilevitv2-1.0-voc-deeplabv3`   | PASCAL VOC segment    |   21 | 512×512 |
+| `MobileViTV2SemanticSegment`       | `apple/mobilevitv2-1.0-voc-deeplabv3`   | PASCAL VOC segment    |   21 | 512×512 |
 
 Community fine-tunes work the same way — the model auto-detects `num_classes` from the HF config's `num_labels` (or falls back to `len(id2label)`).
 
@@ -42,17 +42,17 @@ Community fine-tunes work the same way — the model auto-detects `num_classes` 
 
 ```python
 from kerasformers.models.mobilevit import (
-    MobileViTImageClassify, MobileViTImageProcessor, MobileViTSegment,
+    MobileViTImageClassify, MobileViTImageProcessor, MobileViTSemanticSegment,
 )
 from kerasformers.models.mobilevitv2 import (
-    MobileViTV2ImageClassify, MobileViTV2ImageProcessor, MobileViTV2Segment,
+    MobileViTV2ImageClassify, MobileViTV2ImageProcessor, MobileViTV2SemanticSegment,
 )
 
 # V1 classifier
 model = MobileViTImageClassify.from_weights("hf:apple/mobilevit-small")
 
 # V1 segmenter
-seg = MobileViTSegment.from_weights("hf:apple/deeplabv3-mobilevit-small")
+seg = MobileViTSemanticSegment.from_weights("hf:apple/deeplabv3-mobilevit-small")
 
 # V2 classifier
 model_v2 = MobileViTV2ImageClassify.from_weights(
@@ -60,7 +60,7 @@ model_v2 = MobileViTV2ImageClassify.from_weights(
 )
 
 # V2 segmenter
-seg_v2 = MobileViTV2Segment.from_weights("hf:apple/mobilevitv2-1.0-voc-deeplabv3")
+seg_v2 = MobileViTV2SemanticSegment.from_weights("hf:apple/mobilevitv2-1.0-voc-deeplabv3")
 
 # Community fine-tune (any HF repo with model_type=="mobilevit" works)
 custom = MobileViTImageClassify.from_weights(
@@ -92,10 +92,10 @@ pred_class = int(keras.ops.argmax(logits, axis=-1)[0])
 
 ```python
 from kerasformers.models.mobilevit import (
-    MobileViTSegment, MobileViTImageProcessor,
+    MobileViTSemanticSegment, MobileViTImageProcessor,
 )
 
-model = MobileViTSegment.from_weights(
+model = MobileViTSemanticSegment.from_weights(
     "hf:apple/deeplabv3-mobilevit-small", include_normalization=False
 )
 processor = MobileViTImageProcessor(
