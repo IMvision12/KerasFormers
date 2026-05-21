@@ -141,7 +141,6 @@ def mobilevit_block(
     attention_dims=None,
     num_attention_blocks=2,
     patch_size=8,
-    dilation=1,
     name="mobilevit_transformer_block",
 ):
     """MobileViT transformer fusion block (local conv + global self-attention).
@@ -173,7 +172,6 @@ def mobilevit_block(
         kernel_size=3,
         strides=1,
         padding="same",
-        dilation_rate=dilation,
         use_bias=False,
         data_format=data_format,
         name=f"{name}_mv_conv_1",
@@ -342,6 +340,12 @@ def mobilevit_backbone_feature(
 
     stages = []
     for i in range(5):
+        # For atrous output strides the last stage(s) keep stride 1 and the
+        # downsampling inverted-residual carries the dilation (HF applies
+        # ``dilation // 2`` to the downsampling depthwise conv; the MobileViT
+        # block's local conv is never dilated).
+        stage_dilation = stage_dilations_default[i]
+        down_dilation = stage_dilation // 2 if stage_dilation > 1 else 1
         x = inverted_residual_block(
             x,
             filters=block_dims[i],
@@ -349,7 +353,7 @@ def mobilevit_backbone_feature(
             data_format=data_format,
             strides=stage_strides_default[i],
             expansion_ratio=expansion_ratio[i],
-            dilation=1,
+            dilation=down_dilation,
             name=f"stages_{i}_0",
         )
 
@@ -382,7 +386,6 @@ def mobilevit_backbone_feature(
                 attention_dims=attention_dims[i],
                 num_attention_blocks=2 if i == 2 else 4 if i == 3 else 3,
                 patch_size=2,
-                dilation=stage_dilations_default[i],
                 name=f"stages_{i}_1",
             )
 
