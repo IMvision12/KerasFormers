@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import keras
 import numpy as np
 import torch
-from transformers import MaskFormerForInstanceSegmentation, MaskFormerImageProcessor
+from transformers import MaskFormerForInstanceSegmentation
 
 from kerasformers.models.maskformer import MaskFormerUniversalSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
@@ -273,36 +273,29 @@ if __name__ == "__main__":
 
         transfer_maskformer_weights(keras_model, sd)
 
+        # Feed both models the same already-normalized tensor at the Keras input
+        # size. We bypass the HF processor's resize (it scales to e.g. 800 for the
+        # COCO variants, which won't fit the fixed-size Keras model); the exact
+        # pixel values are irrelevant for a conversion-fidelity check as long as
+        # both models receive the identical array.
         input_image_shape = keras_model.input_image_shape
         rng = np.random.default_rng(42)
-        img_np = rng.integers(
-            0, 255, size=(input_image_shape[0], input_image_shape[1], 3), dtype=np.uint8
-        )
-        from PIL import Image as PILImage
-
-        image = PILImage.fromarray(img_np)
-        hf_proc = MaskFormerImageProcessor.from_pretrained(hf_id)
-        hf_inputs = hf_proc(images=image, return_tensors="pt")
+        pix_hwc = rng.standard_normal(
+            (1, input_image_shape[0], input_image_shape[1], 3)
+        ).astype(np.float32)
 
         with torch.no_grad():
-            hf_out = hf_model(pixel_values=hf_inputs["pixel_values"].to(device))
+            hf_pixel_values = torch.from_numpy(np.transpose(pix_hwc, (0, 3, 1, 2))).to(
+                device
+            )
+            hf_out = hf_model(pixel_values=hf_pixel_values)
             hf_class_logits = hf_out.class_queries_logits.cpu().numpy()
             hf_mask_logits = hf_out.masks_queries_logits.cpu().numpy()
 
-        pix_chw = hf_inputs["pixel_values"].cpu().numpy()
-        del hf_model, hf_out, hf_inputs, sd
+        del hf_model, hf_out, sd
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-
-        pix_hwc = np.transpose(pix_chw, (0, 2, 3, 1))
-        if pix_hwc.shape[1] != input_image_shape[0]:
-            new_img = np.zeros(
-                (1, input_image_shape[0], input_image_shape[1], 3), dtype=np.float32
-            )
-            h, w = pix_hwc.shape[1], pix_hwc.shape[2]
-            new_img[0, :h, :w, :] = pix_hwc[0]
-            pix_hwc = new_img
 
         keras_input = keras.ops.convert_to_tensor(pix_hwc, dtype="float32")
         keras_out = keras_model(keras_input)
