@@ -237,7 +237,7 @@ if __name__ == "__main__":
 
     if total_gb > 1.7:
         out_path = f"{variant}.weights.json"
-        keras_model.save_weights(out_path, max_shard_size=1.7)
+        keras_model.save_weights(out_path, max_shard_size=1.9)
         print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
     else:
         out_path = f"{variant}.weights.h5"
