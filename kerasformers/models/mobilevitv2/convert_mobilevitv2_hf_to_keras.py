@@ -6,15 +6,9 @@ import keras
 import numpy as np
 import torch
 from tqdm import tqdm
-from transformers import (
-    MobileViTV2ForImageClassification,
-    MobileViTV2ForSemanticSegmentation,
-)
+from transformers import MobileViTV2ForSemanticSegmentation
 
-from kerasformers.models.mobilevitv2 import (
-    MobileViTV2ImageClassify,
-    MobileViTV2SemanticSegment,
-)
+from kerasformers.models.mobilevitv2 import MobileViTV2SemanticSegment
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -202,51 +196,14 @@ def transfer_mobilevitv2_weights(
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-MOBILEVITV2_CLASSIFY_VARIANTS: List[Tuple[str, str]] = [
-    ("mobilevitv2_050", "apple/mobilevitv2-0.5-imagenet1k-256"),
-    ("mobilevitv2_075", "apple/mobilevitv2-0.75-imagenet1k-256"),
-    ("mobilevitv2_100", "apple/mobilevitv2-1.0-imagenet1k-256"),
-    ("mobilevitv2_125", "apple/mobilevitv2-1.25-imagenet1k-256"),
-    ("mobilevitv2_150", "apple/mobilevitv2-1.5-imagenet1k-256"),
-    ("mobilevitv2_175", "apple/mobilevitv2-1.75-imagenet1k-256"),
-    ("mobilevitv2_200", "apple/mobilevitv2-2.0-imagenet1k-256"),
-]
-
 MOBILEVITV2_SEGMENT_VARIANTS: List[Tuple[str, str]] = [
     ("mobilevitv2_100_deeplabv3", "apple/mobilevitv2-1.0-voc-deeplabv3"),
+    ("mobilevitv2_150_deeplabv3", "apple/mobilevitv2-1.5-voc-deeplabv3"),
 ]
 
 
 if __name__ == "__main__":
-    for variant, hf_id in MOBILEVITV2_CLASSIFY_VARIANTS:
-        print(f"\n{'=' * 60}")
-        print(f"Converting classify: {variant}  <-  {hf_id}")
-        print(f"{'=' * 60}")
-
-        hf_model = MobileViTV2ForImageClassification.from_pretrained(hf_id).eval()
-        hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
-
-        keras_model = MobileViTV2ImageClassify.from_weights(
-            f"hf:{hf_id}", include_normalization=False
-        )
-        transfer_mobilevitv2_weights(keras_model, hf_sd)
-
-        rng = np.random.default_rng(0)
-        x = rng.standard_normal((1, 3, 256, 256)).astype(np.float32)
-        with torch.no_grad():
-            hf_out = hf_model(pixel_values=torch.from_numpy(x)).logits.cpu().numpy()
-        k_out = keras_model(np.transpose(x, (0, 2, 3, 1)), training=False)
-        if hasattr(k_out, "detach"):
-            k_out = k_out.detach().cpu().numpy()
-        else:
-            k_out = np.asarray(k_out)
-        diff = float(np.abs(k_out - hf_out).max())
-        print(f"  max diff: {diff:.6e}")
-
-        keras_model.save_weights(f"{variant}.weights.h5")
-        del keras_model, hf_model, hf_sd
-        keras.backend.clear_session()
-        gc.collect()
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     for variant, hf_id in MOBILEVITV2_SEGMENT_VARIANTS:
         print(f"\n{'=' * 60}")
@@ -255,6 +212,7 @@ if __name__ == "__main__":
 
         hf_model = MobileViTV2ForSemanticSegmentation.from_pretrained(hf_id).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+        hf_model = hf_model.to(device)
 
         keras_model = MobileViTV2SemanticSegment.from_weights(
             f"hf:{hf_id}", include_normalization=False
@@ -264,7 +222,11 @@ if __name__ == "__main__":
         rng = np.random.default_rng(0)
         x = rng.standard_normal((1, 3, 512, 512)).astype(np.float32)
         with torch.no_grad():
-            hf_out = hf_model(pixel_values=torch.from_numpy(x)).logits.cpu().numpy()
+            hf_out = (
+                hf_model(pixel_values=torch.from_numpy(x).to(device))
+                .logits.cpu()
+                .numpy()
+            )
         k_out = keras_model(np.transpose(x, (0, 2, 3, 1)), training=False)
         if hasattr(k_out, "detach"):
             k_out = k_out.detach().cpu().numpy()

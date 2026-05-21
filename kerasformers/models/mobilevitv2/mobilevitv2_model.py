@@ -185,7 +185,6 @@ def mobilevitv2_block(
     transformer_dim=None,
     transformer_depth=2,
     patch_size=2,
-    dilation=1,
     name="mobilevitv2_block",
 ):
     """MobileViTV2 transformer fusion block with linear self-attention.
@@ -218,7 +217,6 @@ def mobilevitv2_block(
         kernel_size,
         strides=1,
         padding="same",
-        dilation_rate=dilation,
         use_bias=False,
         data_format=data_format,
         name=f"{name}_mv2_dwconv",
@@ -378,6 +376,12 @@ def mobilevitv2_backbone_feature(
     for stage in range(5):
         channels = int(([64, 128, 256, 384, 512][stage]) * multiplier)
 
+        # For atrous output strides the last stage(s) keep stride 1 and the
+        # downsampling inverted-residual carries the dilation (HF applies
+        # ``dilation // 2`` to it); the MobileViTV2 block's local conv is never
+        # dilated.
+        stage_dilation = stage_dilations_default[stage]
+        down_dilation = stage_dilation // 2 if stage_dilation > 1 else 1
         x = inverted_residual_block(
             x,
             channels,
@@ -385,7 +389,7 @@ def mobilevitv2_backbone_feature(
             data_format,
             strides=stage_strides_default[stage],
             expansion_ratio=2.0,
-            dilation=1,
+            dilation=down_dilation,
             name=f"stages_{stage}_0",
         )
 
@@ -410,7 +414,6 @@ def mobilevitv2_backbone_feature(
                 expansion_ratio=0.5,
                 transformer_depth=[2, 4, 3][stage - 2],
                 patch_size=2,
-                dilation=stage_dilations_default[stage],
                 name=f"stages_{stage}_1",
             )
 
