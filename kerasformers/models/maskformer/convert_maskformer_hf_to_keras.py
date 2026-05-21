@@ -11,39 +11,48 @@ from kerasformers.models.maskformer import MaskFormerUniversalSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
 
-def assign_dense(keras_layer, weight_arr, bias_arr=None):
-    transfer_weights("kernel", keras_layer.weights[0], weight_arr)
-    if bias_arr is not None:
+def transfer_maskformer_weights(keras_model, hf_state_dict):
+    """Transfer all HF MaskFormer weights into a Keras MaskFormerUniversalSegment model."""
+
+    def assign_dense(keras_layer, weight_arr, bias_arr=None):
+        transfer_weights("kernel", keras_layer.weights[0], weight_arr)
+        if bias_arr is not None:
+            keras_layer.weights[1].assign(bias_arr)
+
+    def assign_conv(keras_layer, weight_arr, bias_arr=None):
+        transfer_weights("conv_kernel", keras_layer.weights[0], weight_arr)
+        if bias_arr is not None:
+            keras_layer.weights[1].assign(bias_arr)
+
+    def assign_ln(keras_layer, weight_arr, bias_arr):
+        keras_layer.weights[0].assign(weight_arr)
         keras_layer.weights[1].assign(bias_arr)
 
+    sd = hf_state_dict
+    backbone = keras_model.get_layer("backbone")
 
-def assign_conv(keras_layer, weight_arr, bias_arr=None):
-    transfer_weights("conv_kernel", keras_layer.weights[0], weight_arr)
-    if bias_arr is not None:
-        keras_layer.weights[1].assign(bias_arr)
+    sample_key = next(iter(sd))
+    model_prefix = "model." if sample_key.startswith("model.") else ""
 
+    backbone_prefix = f"{model_prefix}pixel_level_module.encoder.model"
+    pixel_decoder_prefix = f"{model_prefix}pixel_level_module.decoder"
+    transformer_prefix = f"{model_prefix}transformer_module"
 
-def assign_ln(keras_layer, weight_arr, bias_arr):
-    keras_layer.weights[0].assign(weight_arr)
-    keras_layer.weights[1].assign(bias_arr)
-
-
-def transfer_swin_backbone(backbone, sd, prefix):
-    """Transfer HF MaskFormer Swin backbone weights into our Keras backbone."""
+    print("Transferring Swin backbone...")
     assign_conv(
         backbone.patch_embeddings.projection,
-        sd[f"{prefix}.embeddings.patch_embeddings.projection.weight"],
-        sd[f"{prefix}.embeddings.patch_embeddings.projection.bias"],
+        sd[f"{backbone_prefix}.embeddings.patch_embeddings.projection.weight"],
+        sd[f"{backbone_prefix}.embeddings.patch_embeddings.projection.bias"],
     )
     assign_ln(
         backbone.embeddings_norm,
-        sd[f"{prefix}.embeddings.norm.weight"],
-        sd[f"{prefix}.embeddings.norm.bias"],
+        sd[f"{backbone_prefix}.embeddings.norm.weight"],
+        sd[f"{backbone_prefix}.embeddings.norm.bias"],
     )
 
     for stage_idx, stage in enumerate(backbone.stages):
         for block_idx, block in enumerate(stage.blocks):
-            p = f"{prefix}.encoder.layers.{stage_idx}.blocks.{block_idx}"
+            p = f"{backbone_prefix}.encoder.layers.{stage_idx}.blocks.{block_idx}"
             assign_ln(
                 block.layernorm_before,
                 sd[f"{p}.layernorm_before.weight"],
@@ -89,7 +98,7 @@ def transfer_swin_backbone(backbone, sd, prefix):
             )
 
         if stage.downsample is not None:
-            ds_prefix = f"{prefix}.encoder.layers.{stage_idx}.downsample"
+            ds_prefix = f"{backbone_prefix}.encoder.layers.{stage_idx}.downsample"
             transfer_weights(
                 "kernel",
                 stage.downsample.reduction.weights[0],
@@ -101,7 +110,7 @@ def transfer_swin_backbone(backbone, sd, prefix):
                 sd[f"{ds_prefix}.norm.bias"],
             )
 
-    encoder_prefix = prefix.rsplit(".model", 1)[0]
+    encoder_prefix = backbone_prefix.rsplit(".model", 1)[0]
     for i in range(len(backbone.hidden_states_norms)):
         assign_ln(
             backbone.hidden_states_norms[i],
@@ -109,125 +118,110 @@ def transfer_swin_backbone(backbone, sd, prefix):
             sd[f"{encoder_prefix}.hidden_states_norms.{i}.bias"],
         )
 
-
-def transfer_pixel_decoder(keras_model, sd, prefix):
-    """Transfer HF MaskFormer pixel decoder (FPN) weights."""
-    stem_conv = keras_model.get_layer("pixel_decoder_fpn_stem_conv")
-    stem_norm = keras_model.get_layer("pixel_decoder_fpn_stem_norm")
-    assign_conv(stem_conv, sd[f"{prefix}.fpn.stem.0.weight"])
+    print("Transferring pixel decoder...")
+    assign_conv(
+        keras_model.get_layer("pixel_decoder_fpn_stem_conv"),
+        sd[f"{pixel_decoder_prefix}.fpn.stem.0.weight"],
+    )
     assign_ln(
-        stem_norm,
-        sd[f"{prefix}.fpn.stem.1.weight"],
-        sd[f"{prefix}.fpn.stem.1.bias"],
+        keras_model.get_layer("pixel_decoder_fpn_stem_norm"),
+        sd[f"{pixel_decoder_prefix}.fpn.stem.1.weight"],
+        sd[f"{pixel_decoder_prefix}.fpn.stem.1.bias"],
     )
 
     for i in range(3):
-        p = f"{prefix}.fpn.layers.{i}"
-        proj_conv = keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_proj_conv")
-        proj_norm = keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_proj_norm")
-        block_conv = keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_block_conv")
-        block_norm = keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_block_norm")
-        assign_conv(proj_conv, sd[f"{p}.proj.0.weight"])
-        assign_ln(proj_norm, sd[f"{p}.proj.1.weight"], sd[f"{p}.proj.1.bias"])
-        assign_conv(block_conv, sd[f"{p}.block.0.weight"])
-        assign_ln(block_norm, sd[f"{p}.block.1.weight"], sd[f"{p}.block.1.bias"])
+        p = f"{pixel_decoder_prefix}.fpn.layers.{i}"
+        assign_conv(
+            keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_proj_conv"),
+            sd[f"{p}.proj.0.weight"],
+        )
+        assign_ln(
+            keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_proj_norm"),
+            sd[f"{p}.proj.1.weight"],
+            sd[f"{p}.proj.1.bias"],
+        )
+        assign_conv(
+            keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_block_conv"),
+            sd[f"{p}.block.0.weight"],
+        )
+        assign_ln(
+            keras_model.get_layer(f"pixel_decoder_fpn_layer_{i}_block_norm"),
+            sd[f"{p}.block.1.weight"],
+            sd[f"{p}.block.1.bias"],
+        )
 
-    mask_proj = keras_model.get_layer("pixel_decoder_mask_projection")
     assign_conv(
-        mask_proj,
-        sd[f"{prefix}.mask_projection.weight"],
-        sd[f"{prefix}.mask_projection.bias"],
+        keras_model.get_layer("pixel_decoder_mask_projection"),
+        sd[f"{pixel_decoder_prefix}.mask_projection.weight"],
+        sd[f"{pixel_decoder_prefix}.mask_projection.bias"],
     )
 
-
-def transfer_transformer_decoder(keras_model, sd, prefix, num_layers):
-    """Transfer HF MaskFormer transformer decoder weights."""
-    queries_embedder = keras_model.get_layer("transformer_decoder_queries_embedder")
-    queries_embedder.weight.assign(sd[f"{prefix}.queries_embedder.weight"])
-
-    input_proj = keras_model.get_layer("transformer_decoder_input_projection")
+    print("Transferring transformer decoder...")
+    keras_model.get_layer("transformer_decoder_queries_embedder").weight.assign(
+        sd[f"{transformer_prefix}.queries_embedder.weight"]
+    )
     assign_conv(
-        input_proj,
-        sd[f"{prefix}.input_projection.weight"],
-        sd[f"{prefix}.input_projection.bias"],
+        keras_model.get_layer("transformer_decoder_input_projection"),
+        sd[f"{transformer_prefix}.input_projection.weight"],
+        sd[f"{transformer_prefix}.input_projection.bias"],
     )
 
-    for i in range(num_layers):
-        p = f"{prefix}.decoder.layers.{i}"
+    for i in range(keras_model.decoder_layers):
+        p = f"{transformer_prefix}.decoder.layers.{i}"
         prefix_k = f"transformer_decoder_layers_{i}"
 
         for attn_name in ("self_attn", "encoder_attn"):
             attn = keras_model.get_layer(f"{prefix_k}_{attn_name}")
+            hf_out_proj = (
+                "o_proj" if f"{p}.{attn_name}.o_proj.weight" in sd else "out_proj"
+            )
             for proj in ("q_proj", "k_proj", "v_proj", "o_proj"):
-                proj_layer = getattr(attn, proj)
+                hf_proj = hf_out_proj if proj == "o_proj" else proj
                 assign_dense(
-                    proj_layer,
-                    sd[f"{p}.{attn_name}.{proj}.weight"],
-                    sd[f"{p}.{attn_name}.{proj}.bias"],
+                    getattr(attn, proj),
+                    sd[f"{p}.{attn_name}.{hf_proj}.weight"],
+                    sd[f"{p}.{attn_name}.{hf_proj}.bias"],
                 )
-            ln = keras_model.get_layer(f"{prefix_k}_{attn_name}_layer_norm")
             assign_ln(
-                ln,
+                keras_model.get_layer(f"{prefix_k}_{attn_name}_layer_norm"),
                 sd[f"{p}.{attn_name}_layer_norm.weight"],
                 sd[f"{p}.{attn_name}_layer_norm.bias"],
             )
 
-        fc1 = keras_model.get_layer(f"{prefix_k}_fc1")
-        fc2 = keras_model.get_layer(f"{prefix_k}_fc2")
-        final_ln = keras_model.get_layer(f"{prefix_k}_final_layer_norm")
-        assign_dense(fc1, sd[f"{p}.mlp.fc1.weight"], sd[f"{p}.mlp.fc1.bias"])
-        assign_dense(fc2, sd[f"{p}.mlp.fc2.weight"], sd[f"{p}.mlp.fc2.bias"])
+        assign_dense(
+            keras_model.get_layer(f"{prefix_k}_fc1"),
+            sd[f"{p}.mlp.fc1.weight"],
+            sd[f"{p}.mlp.fc1.bias"],
+        )
+        assign_dense(
+            keras_model.get_layer(f"{prefix_k}_fc2"),
+            sd[f"{p}.mlp.fc2.weight"],
+            sd[f"{p}.mlp.fc2.bias"],
+        )
         assign_ln(
-            final_ln,
+            keras_model.get_layer(f"{prefix_k}_final_layer_norm"),
             sd[f"{p}.final_layer_norm.weight"],
             sd[f"{p}.final_layer_norm.bias"],
         )
 
-    decoder_ln = keras_model.get_layer("transformer_decoder_layernorm")
     assign_ln(
-        decoder_ln,
-        sd[f"{prefix}.decoder.layernorm.weight"],
-        sd[f"{prefix}.decoder.layernorm.bias"],
-    )
-
-
-def transfer_heads(keras_model, sd):
-    """Transfer class predictor and mask embedder weights."""
-    class_pred = keras_model.get_layer("class_predictor")
-    assign_dense(class_pred, sd["class_predictor.weight"], sd["class_predictor.bias"])
-
-    for i in range(3):
-        layer = keras_model.get_layer(f"mask_embedder_{i}")
-        assign_dense(
-            layer, sd[f"mask_embedder.{i}.0.weight"], sd[f"mask_embedder.{i}.0.bias"]
-        )
-
-
-def transfer_maskformer_weights(keras_model, hf_state_dict):
-    """Transfer all HF MaskFormer weights into a Keras MaskFormerUniversalSegment model."""
-    sd = hf_state_dict
-    backbone = keras_model.get_layer("backbone")
-
-    sample_key = next(iter(sd))
-    model_prefix = "model." if sample_key.startswith("model.") else ""
-
-    backbone_prefix = f"{model_prefix}pixel_level_module.encoder.model"
-    pixel_decoder_prefix = f"{model_prefix}pixel_level_module.decoder"
-    transformer_prefix = f"{model_prefix}transformer_module"
-
-    print("Transferring Swin backbone...")
-    transfer_swin_backbone(backbone, sd, backbone_prefix)
-
-    print("Transferring pixel decoder...")
-    transfer_pixel_decoder(keras_model, sd, pixel_decoder_prefix)
-
-    print("Transferring transformer decoder...")
-    transfer_transformer_decoder(
-        keras_model, sd, transformer_prefix, keras_model.decoder_layers
+        keras_model.get_layer("transformer_decoder_layernorm"),
+        sd[f"{transformer_prefix}.decoder.layernorm.weight"],
+        sd[f"{transformer_prefix}.decoder.layernorm.bias"],
     )
 
     print("Transferring heads...")
-    transfer_heads(keras_model, sd)
+    assign_dense(
+        keras_model.get_layer("class_predictor"),
+        sd["class_predictor.weight"],
+        sd["class_predictor.bias"],
+    )
+    for i in range(3):
+        assign_dense(
+            keras_model.get_layer(f"mask_embedder_{i}"),
+            sd[f"mask_embedder.{i}.0.weight"],
+            sd[f"mask_embedder.{i}.0.bias"],
+        )
 
 
 MASKFORMER_CONVERSION_CONFIG: List[Dict[str, Any]] = [
@@ -255,6 +249,8 @@ MASKFORMER_CONVERSION_CONFIG: List[Dict[str, Any]] = [
 
 
 if __name__ == "__main__":
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
     for cfg in MASKFORMER_CONVERSION_CONFIG:
         variant = cfg["variant"]
         hf_id = cfg["hf_id"]
@@ -270,6 +266,7 @@ if __name__ == "__main__":
             hf_id, token=os.environ.get("HF_TOKEN")
         ).eval()
         sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+        hf_model = hf_model.to(device)
 
         transfer_maskformer_weights(keras_model, sd)
 
@@ -285,7 +282,7 @@ if __name__ == "__main__":
         hf_inputs = hf_proc(images=image, return_tensors="pt")
 
         with torch.no_grad():
-            hf_out = hf_model(pixel_values=hf_inputs["pixel_values"])
+            hf_out = hf_model(pixel_values=hf_inputs["pixel_values"].to(device))
             hf_class_logits = hf_out.class_queries_logits.cpu().numpy()
             hf_mask_logits = hf_out.masks_queries_logits.cpu().numpy()
 
