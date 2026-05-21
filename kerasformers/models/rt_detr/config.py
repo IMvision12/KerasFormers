@@ -36,30 +36,30 @@ RT_DETR_MODEL_CONFIG = {
 RT_DETR_WEIGHT_CONFIG = {
     "rtdetr-r18vd": {
         "model": "rtdetrv1_r18",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r18vd.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RT-DETR/rt_detr_r18vd.weights.h5",
     },
     "rtdetr-r18vd-coco-o365": {
         "model": "rtdetrv1_r18",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r18vd_coco_o365.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RT-DETR/rt_detr_r18vd_coco_o365.weights.h5",
     },
     "rtdetr-r34vd": {
         "model": "rtdetrv1_r34",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r34vd.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RT-DETR/rt_detr_r34vd.weights.h5",
     },
     "rtdetr-r50vd": {
         "model": "rtdetrv1_r50",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r50vd.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RT-DETR/rt_detr_r50vd.weights.h5",
     },
     "rtdetr-r50vd-coco-o365": {
         "model": "rtdetrv1_r50",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r50vd_coco_o365.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RT-DETR/rt_detr_r50vd_coco_o365.weights.h5",
     },
     "rtdetr-r101vd": {
         "model": "rtdetrv1_r101",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r101vd.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RT-DETR/rt_detr_r101vd.weights.h5",
     },
     "rtdetr-r101vd-coco-o365": {
         "model": "rtdetrv1_r101",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r101vd_coco_o365.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RT-DETR/rt_detr_r101vd_coco_o365.weights.h5",
     },
 }
