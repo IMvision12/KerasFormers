@@ -61,7 +61,7 @@ class ConvNeXtV2Model(ConvNeXtModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from kerasformers.models.convnext.convert_convnext_torch_to_keras import (
+        from kerasformers.models.convnext.convert_convnext_timm_to_keras import (
             transfer_convnext_weights,
         )
 
@@ -139,7 +139,7 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from kerasformers.models.convnext.convert_convnext_torch_to_keras import (
+        from kerasformers.models.convnext.convert_convnext_timm_to_keras import (
             transfer_convnext_weights,
         )
 

@@ -196,7 +196,7 @@ class ConvMixerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_convmixer_torch_to_keras import transfer_convmixer_weights
+        from .convert_convmixer_timm_to_keras import transfer_convmixer_weights
 
         transfer_convmixer_weights(keras_model, state_dict)
 
@@ -347,7 +347,7 @@ class ConvMixerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_convmixer_torch_to_keras import transfer_convmixer_weights
+        from .convert_convmixer_timm_to_keras import transfer_convmixer_weights
 
         transfer_convmixer_weights(keras_model, state_dict)
 

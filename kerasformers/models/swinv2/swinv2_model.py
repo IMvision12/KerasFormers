@@ -541,7 +541,7 @@ class SwinV2Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_swinv2_torch_to_keras import transfer_swinv2_weights
+        from .convert_swinv2_timm_to_keras import transfer_swinv2_weights
 
         transfer_swinv2_weights(keras_model, state_dict)
 
@@ -713,7 +713,7 @@ class SwinV2ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_swinv2_torch_to_keras import transfer_swinv2_weights
+        from .convert_swinv2_timm_to_keras import transfer_swinv2_weights
 
         transfer_swinv2_weights(keras_model, state_dict)
 

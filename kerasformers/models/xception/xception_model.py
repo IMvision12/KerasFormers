@@ -509,7 +509,7 @@ class XceptionModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_xception_torch_to_keras import transfer_xception_weights
+        from .convert_xception_timm_to_keras import transfer_xception_weights
 
         transfer_xception_weights(keras_model, state_dict, keras_model.preact)
 
@@ -659,7 +659,7 @@ class XceptionImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_xception_torch_to_keras import transfer_xception_weights
+        from .convert_xception_timm_to_keras import transfer_xception_weights
 
         transfer_xception_weights(keras_model, state_dict, keras_model.preact)
 

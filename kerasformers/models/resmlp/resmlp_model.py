@@ -222,7 +222,7 @@ class ResMLPModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_resmlp_torch_to_keras import transfer_resmlp_weights
+        from .convert_resmlp_timm_to_keras import transfer_resmlp_weights
 
         transfer_resmlp_weights(keras_model, state_dict)
 
@@ -380,7 +380,7 @@ class ResMLPImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_resmlp_torch_to_keras import transfer_resmlp_weights
+        from .convert_resmlp_timm_to_keras import transfer_resmlp_weights
 
         transfer_resmlp_weights(keras_model, state_dict)
 

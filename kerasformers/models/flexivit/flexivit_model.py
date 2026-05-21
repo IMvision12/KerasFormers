@@ -70,7 +70,7 @@ class FlexiViTModel(ViTModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from kerasformers.models.vit.convert_vit_torch_to_keras import (
+        from kerasformers.models.vit.convert_vit_timm_to_keras import (
             transfer_vit_weights,
         )
 
@@ -176,7 +176,7 @@ class FlexiViTImageClassify(ViTImageClassify):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from kerasformers.models.vit.convert_vit_torch_to_keras import (
+        from kerasformers.models.vit.convert_vit_timm_to_keras import (
             transfer_vit_weights,
         )
 

@@ -318,7 +318,7 @@ class MobileNetV2Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilenetv2_torch_to_keras import transfer_mobilenetv2_weights
+        from .convert_mobilenetv2_timm_to_keras import transfer_mobilenetv2_weights
 
         transfer_mobilenetv2_weights(keras_model, state_dict)
 
@@ -459,7 +459,7 @@ class MobileNetV2ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilenetv2_torch_to_keras import transfer_mobilenetv2_weights
+        from .convert_mobilenetv2_timm_to_keras import transfer_mobilenetv2_weights
 
         transfer_mobilenetv2_weights(keras_model, state_dict)
 

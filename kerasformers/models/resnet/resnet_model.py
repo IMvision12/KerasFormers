@@ -385,7 +385,7 @@ class ResNetModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_resnet_torch_to_keras import transfer_resnet_weights
+        from .convert_resnet_timm_to_keras import transfer_resnet_weights
 
         transfer_resnet_weights(keras_model, state_dict)
 
@@ -576,7 +576,7 @@ class ResNetImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_resnet_torch_to_keras import transfer_resnet_weights
+        from .convert_resnet_timm_to_keras import transfer_resnet_weights
 
         transfer_resnet_weights(keras_model, state_dict)
 

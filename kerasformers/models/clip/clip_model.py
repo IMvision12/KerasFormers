@@ -480,7 +480,7 @@ class CLIPVisionModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -634,7 +634,7 @@ class CLIPTextModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -799,7 +799,7 @@ class CLIPImageEmbed(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -957,7 +957,7 @@ class CLIPTextEmbed(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -1152,7 +1152,7 @@ class CLIPModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -1335,7 +1335,7 @@ class CLIPZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -1495,7 +1495,7 @@ class CLIPImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_image_classify_weights
+        from .convert_clip_hf_to_keras import transfer_clip_image_classify_weights
 
         transfer_clip_image_classify_weights(keras_model, hf_state_dict)
 

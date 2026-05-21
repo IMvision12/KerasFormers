@@ -233,7 +233,7 @@ class SegFormerSemanticSegment(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.segformer.convert_segformer_torch_to_keras import (
+        from kerasformers.models.segformer.convert_segformer_hf_to_keras import (
             transfer_segformer_weights,
         )
 

@@ -309,7 +309,7 @@ class ViTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_vit_torch_to_keras import transfer_vit_weights
+        from .convert_vit_timm_to_keras import transfer_vit_weights
 
         transfer_vit_weights(keras_model, state_dict)
 
@@ -513,7 +513,7 @@ class ViTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_vit_torch_to_keras import transfer_vit_weights
+        from .convert_vit_timm_to_keras import transfer_vit_weights
 
         transfer_vit_weights(keras_model, state_dict)
 

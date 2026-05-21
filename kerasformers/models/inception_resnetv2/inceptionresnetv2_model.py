@@ -469,7 +469,7 @@ class InceptionResNetV2Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_inceptionresnetv2_torch_to_keras import (
+        from .convert_inceptionresnetv2_timm_to_keras import (
             transfer_inception_resnet_v2_weights,
         )
 
@@ -589,7 +589,7 @@ class InceptionResNetV2ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_inceptionresnetv2_torch_to_keras import (
+        from .convert_inceptionresnetv2_timm_to_keras import (
             transfer_inception_resnet_v2_weights,
         )
 

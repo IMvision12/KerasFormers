@@ -575,7 +575,7 @@ class SigLIPVisionModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -735,7 +735,7 @@ class SigLIPTextModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -905,7 +905,7 @@ class SigLIPModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -1066,7 +1066,7 @@ class SigLIPZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -1241,7 +1241,7 @@ class SigLIPImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_image_classify_weights,
         )
 

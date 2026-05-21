@@ -203,7 +203,7 @@ class SigLIP2ZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 

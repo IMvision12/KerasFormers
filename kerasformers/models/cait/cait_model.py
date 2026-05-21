@@ -310,7 +310,7 @@ class CaiTModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_cait_torch_to_keras import transfer_cait_weights
+        from .convert_cait_timm_to_keras import transfer_cait_weights
 
         transfer_cait_weights(keras_model, state_dict)
 
@@ -459,7 +459,7 @@ class CaiTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_cait_torch_to_keras import transfer_cait_weights
+        from .convert_cait_timm_to_keras import transfer_cait_weights
 
         transfer_cait_weights(keras_model, state_dict)
 

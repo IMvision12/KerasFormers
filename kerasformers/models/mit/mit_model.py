@@ -341,7 +341,7 @@ class MiTModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_mit_torch_to_keras import transfer_mit_weights
+        from .convert_mit_hf_to_keras import transfer_mit_weights
 
         transfer_mit_weights(keras_model, state_dict)
 
@@ -489,7 +489,7 @@ class MiTImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_mit_torch_to_keras import transfer_mit_weights
+        from .convert_mit_hf_to_keras import transfer_mit_weights
 
         transfer_mit_weights(keras_model, state_dict)
 

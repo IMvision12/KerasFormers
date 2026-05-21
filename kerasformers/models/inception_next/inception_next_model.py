@@ -297,7 +297,7 @@ class InceptionNextModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_inception_next_torch_to_keras import (
+        from .convert_inception_next_timm_to_keras import (
             transfer_inception_next_weights,
         )
 
@@ -452,7 +452,7 @@ class InceptionNextImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_inception_next_torch_to_keras import (
+        from .convert_inception_next_timm_to_keras import (
             transfer_inception_next_weights,
         )
 

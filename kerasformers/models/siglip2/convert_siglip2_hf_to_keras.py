@@ -5,7 +5,7 @@ import keras
 import numpy as np
 from transformers import SiglipModel
 
-from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
     transfer_siglip_weights,
 )
 from kerasformers.models.siglip2 import SigLIP2ZeroShotClassify

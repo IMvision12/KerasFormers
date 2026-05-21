@@ -457,7 +457,7 @@ class WhisperModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.whisper.convert_whisper_torch_to_keras import (
+        from kerasformers.models.whisper.convert_whisper_hf_to_keras import (
             transfer_whisper_weights,
         )
 
@@ -772,7 +772,7 @@ class WhisperAudioClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.whisper.convert_whisper_torch_to_keras import (
+        from kerasformers.models.whisper.convert_whisper_hf_to_keras import (
             transfer_whisper_audio_classify_weights,
         )
 

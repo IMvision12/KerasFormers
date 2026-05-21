@@ -421,7 +421,7 @@ class EfficientNetModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
+        from .convert_efficientnet_timm_to_keras import transfer_efficientnet_weights
 
         transfer_efficientnet_weights(keras_model, state_dict)
 
@@ -568,7 +568,7 @@ class EfficientNetImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_efficientnet_torch_to_keras import transfer_efficientnet_weights
+        from .convert_efficientnet_timm_to_keras import transfer_efficientnet_weights
 
         transfer_efficientnet_weights(keras_model, state_dict)
 

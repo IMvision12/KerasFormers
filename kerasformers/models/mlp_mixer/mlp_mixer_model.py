@@ -234,7 +234,7 @@ class MLPMixerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mlpmixer_torch_to_keras import transfer_mlp_mixer_weights
+        from .convert_mlpmixer_timm_to_keras import transfer_mlp_mixer_weights
 
         transfer_mlp_mixer_weights(keras_model, state_dict)
 
@@ -391,7 +391,7 @@ class MLPMixerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mlpmixer_torch_to_keras import transfer_mlp_mixer_weights
+        from .convert_mlpmixer_timm_to_keras import transfer_mlp_mixer_weights
 
         transfer_mlp_mixer_weights(keras_model, state_dict)
 
