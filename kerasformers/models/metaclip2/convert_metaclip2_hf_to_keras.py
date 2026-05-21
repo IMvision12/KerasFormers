@@ -1,5 +1,4 @@
 import gc
-import sys
 
 import keras
 import numpy as np
@@ -8,6 +7,7 @@ from tqdm import tqdm
 from transformers import AutoModel
 
 from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
+from kerasformers.models.metaclip2.config import METACLIP2_WEIGHTS
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -171,81 +171,92 @@ def transfer_metaclip2_image_classify_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
-    variant = sys.argv[1] if len(sys.argv) > 1 else "metaclip2_worldwide_b32_224"
-    hf_id = HF_REPO[variant]
+    for variant, hf_id in HF_REPO.items():
+        # Skip on-the-fly variants (l14 / huge / giant): their weights are not
+        # hosted — a single token-embedding tensor exceeds GitHub's 2 GiB asset
+        # limit, so they're converted at runtime via load_and_convert_from_hf.
+        entry = METACLIP2_WEIGHTS.get(variant, {})
+        if isinstance(entry, dict) and "hf_id" in entry:
+            print(f"\nSkipping {variant} (on-the-fly HF conversion, not hosted)")
+            continue
 
-    print(f"Converting {variant}  <-  {hf_id}")
+        print(f"\n{'=' * 60}")
+        print(f"Converting {variant}  <-  {hf_id}")
+        print(f"{'=' * 60}")
 
-    hf_model = AutoModel.from_pretrained(hf_id).eval()
-    state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
+        hf_model = AutoModel.from_pretrained(hf_id).eval()
+        state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-    keras_model = MetaClip2ZeroShotClassify.from_weights(variant, load_weights=False)
-    transfer_metaclip2_weights(keras_model, state)
+        keras_model = MetaClip2ZeroShotClassify.from_weights(
+            variant, load_weights=False
+        )
+        transfer_metaclip2_weights(keras_model, state)
 
-    total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
-    total_gb = (total_params * 4) / (1024**3)
+        total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
+        total_gb = (total_params * 4) / (1024**3)
 
-    del state
-    gc.collect()
+        del state
+        gc.collect()
 
-    if total_gb <= 5.0:
-        ctx = keras_model.context_length
-        vocab = keras_model.vocab_size
-        eos = keras_model.eos_token_id
-        ishape = keras_model.input_image_shape
-        if keras.config.image_data_format() == "channels_first":
-            img_h, img_w = ishape[1], ishape[2]
+        if total_gb <= 5.0:
+            ctx = keras_model.context_length
+            vocab = keras_model.vocab_size
+            eos = keras_model.eos_token_id
+            ishape = keras_model.input_image_shape
+            if keras.config.image_data_format() == "channels_first":
+                img_h, img_w = ishape[1], ishape[2]
+            else:
+                img_h, img_w = ishape[0], ishape[1]
+
+            rng = np.random.default_rng(0)
+            pixel = rng.standard_normal((2, img_h, img_w, 3)).astype(np.float32)
+            token_ids = rng.integers(0, vocab - 1, size=(2, ctx)).astype(np.int32)
+            token_ids[:, -1] = eos  # EOS id at the pooled position
+            attn = np.ones((2, ctx), dtype=np.int32)
+
+            with torch.no_grad():
+                hf_out = hf_model(
+                    pixel_values=torch.from_numpy(pixel.transpose(0, 3, 1, 2)),
+                    input_ids=torch.from_numpy(token_ids.astype(np.int64)),
+                    attention_mask=torch.from_numpy(attn.astype(np.int64)),
+                )
+                hf_logits = hf_out.logits_per_image.cpu().numpy()
+                scale = hf_model.logit_scale.exp().item()
+
+            k_out = keras_model(
+                {"images": pixel, "token_ids": token_ids, "padding_mask": attn},
+                training=False,
+            )
+            k_logits = keras.ops.convert_to_numpy(k_out["image_logits"])
+
+            logits_diff = float(np.abs(hf_logits - k_logits).max())
+            cosine_diff = logits_diff / (scale + 1e-8)
+            print(
+                f"  Max logits diff: {logits_diff:.6f}  "
+                f"(cosine-level: {cosine_diff:.2e})"
+            )
+            if cosine_diff > 1e-2:
+                raise ValueError(
+                    f"{variant}: equivalence check failed "
+                    f"(logits diff {logits_diff:.4f}, cosine {cosine_diff:.2e})"
+                )
         else:
-            img_h, img_w = ishape[0], ishape[1]
-
-        rng = np.random.default_rng(0)
-        pixel = rng.standard_normal((2, img_h, img_w, 3)).astype(np.float32)
-        token_ids = rng.integers(0, vocab - 1, size=(2, ctx)).astype(np.int32)
-        token_ids[:, -1] = eos  # EOS id at the pooled position
-        attn = np.ones((2, ctx), dtype=np.int32)
-
-        with torch.no_grad():
-            hf_out = hf_model(
-                pixel_values=torch.from_numpy(pixel.transpose(0, 3, 1, 2)),
-                input_ids=torch.from_numpy(token_ids.astype(np.int64)),
-                attention_mask=torch.from_numpy(attn.astype(np.int64)),
+            print(
+                f"  Equivalence check skipped (~{total_gb:.1f} GB model exceeds "
+                f"RAM budget; weights validated by name-based mapping)"
             )
-            hf_logits = hf_out.logits_per_image.cpu().numpy()
-            scale = hf_model.logit_scale.exp().item()
 
-        k_out = keras_model(
-            {"images": pixel, "token_ids": token_ids, "padding_mask": attn},
-            training=False,
-        )
-        k_logits = keras.ops.convert_to_numpy(k_out["image_logits"])
+        if total_gb > 1.7:
+            out_path = f"{variant}.weights.json"
+            keras_model.save_weights(out_path, max_shard_size=1.8)
+            print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
+        else:
+            out_path = f"{variant}.weights.h5"
+            keras_model.save_weights(out_path)
+            print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
 
-        logits_diff = float(np.abs(hf_logits - k_logits).max())
-        cosine_diff = logits_diff / (scale + 1e-8)
-        print(
-            f"  Max logits diff: {logits_diff:.6f}  (cosine-level: {cosine_diff:.2e})"
-        )
-        if cosine_diff > 1e-2:
-            raise ValueError(
-                f"{variant}: equivalence check failed "
-                f"(logits diff {logits_diff:.4f}, cosine {cosine_diff:.2e})"
-            )
-    else:
-        print(
-            f"  Equivalence check skipped (~{total_gb:.1f} GB model exceeds "
-            f"RAM budget; weights validated by name-based mapping)"
-        )
-
-    if total_gb > 1.7:
-        out_path = f"{variant}.weights.json"
-        keras_model.save_weights(out_path, max_shard_size=1.8)
-        print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
-    else:
-        out_path = f"{variant}.weights.h5"
-        keras_model.save_weights(out_path)
-        print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
-
-    del keras_model, hf_model
-    keras.backend.clear_session()
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+        del keras_model, hf_model
+        keras.backend.clear_session()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
