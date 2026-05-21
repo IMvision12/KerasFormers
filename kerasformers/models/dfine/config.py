@@ -78,18 +78,18 @@ DFINE_CONFIG = {
 
 DFINE_WEIGHTS = {
     "dfine-nano": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/D-FINE/dfine_nano.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_nano.weights.h5",
     },
     "dfine-small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/D-FINE/dfine_small.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_small.weights.h5",
     },
     "dfine-medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/D-FINE/dfine_medium.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_medium.weights.h5",
     },
     "dfine-large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/D-FINE/dfine_large.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_large.weights.h5",
     },
     "dfine-xlarge": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/D-FINE/dfine_xlarge.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_xlarge.weights.h5",
     },
 }

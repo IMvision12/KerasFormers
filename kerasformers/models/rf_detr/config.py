@@ -43,18 +43,18 @@ RF_DETR_CONFIG = {
 
 RF_DETR_WEIGHTS = {
     "rfdetr-nano": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RF-DeTR/rf_detr_nano.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_nano.weights.h5",
     },
     "rfdetr-small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RF-DeTR/rf_detr_small.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_small.weights.h5",
     },
     "rfdetr-medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RF-DeTR/rf_detr_medium.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_medium.weights.h5",
     },
     "rfdetr-base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RF-DeTR/rf_detr_base.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_base.weights.h5",
     },
     "rfdetr-large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/RF-DeTR/rf_detr_large.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_large.weights.h5",
     },
 }
