@@ -188,15 +188,18 @@ def transfer_maskformer_weights(keras_model, hf_state_dict):
                 sd[f"{p}.{attn_name}_layer_norm.bias"],
             )
 
+        # The FFN is nested under ``mlp`` in recent transformers and flat
+        # (``fc1``/``fc2``) in older versions; pick whichever exists.
+        ffn = "mlp." if f"{p}.mlp.fc1.weight" in sd else ""
         assign_dense(
             keras_model.get_layer(f"{prefix_k}_fc1"),
-            sd[f"{p}.mlp.fc1.weight"],
-            sd[f"{p}.mlp.fc1.bias"],
+            sd[f"{p}.{ffn}fc1.weight"],
+            sd[f"{p}.{ffn}fc1.bias"],
         )
         assign_dense(
             keras_model.get_layer(f"{prefix_k}_fc2"),
-            sd[f"{p}.mlp.fc2.weight"],
-            sd[f"{p}.mlp.fc2.bias"],
+            sd[f"{p}.{ffn}fc2.weight"],
+            sd[f"{p}.{ffn}fc2.bias"],
         )
         assign_ln(
             keras_model.get_layer(f"{prefix_k}_final_layer_norm"),
