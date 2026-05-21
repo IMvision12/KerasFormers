@@ -262,28 +262,28 @@ METACLIP2_CONFIG = {
 
 METACLIP2_WEIGHTS = {
     "metaclip2_worldwide_s16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwides16_worldwide_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_s16_224.weights.h5",
     },
     "metaclip2_worldwide_s16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwides16_384_worldwide_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_s16_384.weights.h5",
     },
     "metaclip2_worldwide_m16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwidem16_worldwide_224.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_m16_224.weights.json",
     },
     "metaclip2_worldwide_m16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwidem16_384_worldwide_384.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_m16_384.weights.json",
     },
     "metaclip2_worldwide_b16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwideb16_worldwide_224.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_b16_224.weights.json",
     },
     "metaclip2_worldwide_b16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwideb16_384_worldwide_384.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_b16_384.weights.json",
     },
     "metaclip2_worldwide_b32_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwideb32_worldwide_224.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_b32_224.weights.json",
     },
     "metaclip2_worldwide_b32_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwideb32_384_worldwide_384.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_worldwide_b32_384.weights.json",
     },
     # L14/Huge/Giant: a single token-embedding tensor exceeds GitHub's 2 GiB
     # asset limit, so these are converted from HuggingFace on the fly via
@@ -305,12 +305,12 @@ METACLIP2_WEIGHTS = {
         "hf_id": "facebook/metaclip-2-worldwide-giant-378",
     },
     "metaclip2_mt5_worldwide_s16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2mt5worldwides16_mt5_worldwide_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_mt5_worldwide_s16_224.weights.h5",
     },
     "metaclip2_mt5_worldwide_m16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2mt5worldwidem16_mt5_worldwide_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_mt5_worldwide_m16_224.weights.h5",
     },
     "metaclip2_mt5_worldwide_b32_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2mt5worldwideb32_mt5_worldwide_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2_mt5_worldwide_b32_224.weights.h5",
     },
 }

@@ -32,16 +32,16 @@ MOBILEVIT_WEIGHT_CONFIG = {
     "mobilevit_xxs_cvnets_in1k": {
         "model": "mobilevit_xxs",
         "timm_id": "mobilevit_xxs.cvnets_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/mobilevit_xxs_cvnets_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_xxs_cvnets_in1k.weights.h5",
     },
     "mobilevit_xs_cvnets_in1k": {
         "model": "mobilevit_xs",
         "timm_id": "mobilevit_xs.cvnets_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/mobilevit_xs_cvnets_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_xs_cvnets_in1k.weights.h5",
     },
     "mobilevit_s_cvnets_in1k": {
         "model": "mobilevit_s",
         "timm_id": "mobilevit_s.cvnets_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/mobilevit_s_cvnets_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_s_cvnets_in1k.weights.h5",
     },
 }
