@@ -144,8 +144,7 @@ class MiTEfficientMultiheadSelfAttention(layers.Layer):
         self.proj_drop.build(input_shape)
 
         if self.sr_ratio > 1:
-            h = ops.sqrt(ops.cast(seq_length, "float32"))
-            h = ops.cast(h, "int32")
+            h = int(ops.cast(ops.sqrt(ops.cast(seq_length, "float32")), "int32"))
             if self.data_format == "channels_first":
                 spatial_shape = (batch_dim, feature_dim, h, h)
             else:

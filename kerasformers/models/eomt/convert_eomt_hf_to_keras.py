@@ -154,7 +154,11 @@ if __name__ == "__main__":
         keras_model: keras.Model = EoMTUniversalSegment.from_weights(
             variant, load_weights=False
         )
-        hf_model = EomtForUniversalSegmentation.from_pretrained(hf_id).eval()
+        # Run the HF reference on the same device Keras (torch backend) uses,
+        # so the equivalence check reflects the conversion — not GPU-vs-CPU
+        # float accumulation, which inflates EoMT's raw mask logits on GPU.
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        hf_model = EomtForUniversalSegmentation.from_pretrained(hf_id).eval().to(device)
         hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
         transfer_eomt_weights(keras_model, hf_state_dict)
@@ -166,11 +170,11 @@ if __name__ == "__main__":
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
         normalized_input = (test_input - mean) / std
 
-        hf_input = torch.tensor(normalized_input).permute(0, 3, 1, 2).float()
+        hf_input = torch.tensor(normalized_input).permute(0, 3, 1, 2).float().to(device)
         with torch.no_grad():
             hf_output = hf_model(pixel_values=hf_input)
-            hf_class_logits = hf_output.class_queries_logits.numpy()
-            hf_mask_logits = hf_output.masks_queries_logits.numpy()
+            hf_class_logits = hf_output.class_queries_logits.cpu().numpy()
+            hf_mask_logits = hf_output.masks_queries_logits.cpu().numpy()
 
         keras_output = keras_model(normalized_input.astype(np.float32), training=False)
         keras_class_logits = keras.ops.convert_to_numpy(keras_output["class_logits"])
