@@ -203,26 +203,6 @@ def transfer_owlv2_detection_weights(keras_model, state_dict):
 if __name__ == "__main__":
     model_configs: List[Dict[str, Any]] = [
         {
-            "variant": "owlv2-base-patch16",
-            "hf_model_name": "google/owlv2-base-patch16",
-            "image_size": 960,
-        },
-        {
-            "variant": "owlv2-base-patch16-ensemble",
-            "hf_model_name": "google/owlv2-base-patch16-ensemble",
-            "image_size": 960,
-        },
-        {
-            "variant": "owlv2-base-patch16-finetuned",
-            "hf_model_name": "google/owlv2-base-patch16-finetuned",
-            "image_size": 960,
-        },
-        {
-            "variant": "owlv2-large-patch14",
-            "hf_model_name": "google/owlv2-large-patch14",
-            "image_size": 1008,
-        },
-        {
             "variant": "owlv2-large-patch14-ensemble",
             "hf_model_name": "google/owlv2-large-patch14-ensemble",
             "image_size": 1008,
