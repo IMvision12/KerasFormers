@@ -45,3 +45,48 @@ MOBILEVIT_WEIGHT_CONFIG = {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_s_cvnets_in1k.weights.h5",
     },
 }
+
+MOBILEVIT_SEGMENT_MODEL_CONFIG = {
+    "mobilevit_xxs_deeplabv3": {
+        "initial_dims": 16,
+        "head_dims": 320,
+        "block_dims": [16, 24, 48, 64, 80],
+        "expansion_ratio": [2.0, 2.0, 2.0, 2.0, 2.0],
+        "attention_dims": [None, None, 64, 80, 96],
+        "input_image_shape": 512,
+        "num_classes": 21,
+    },
+    "mobilevit_xs_deeplabv3": {
+        "initial_dims": 16,
+        "head_dims": 384,
+        "block_dims": [32, 48, 64, 80, 96],
+        "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
+        "attention_dims": [None, None, 96, 120, 144],
+        "input_image_shape": 512,
+        "num_classes": 21,
+    },
+    "mobilevit_s_deeplabv3": {
+        "initial_dims": 16,
+        "head_dims": 640,
+        "block_dims": [32, 64, 96, 128, 160],
+        "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
+        "attention_dims": [None, None, 144, 192, 240],
+        "input_image_shape": 512,
+        "num_classes": 21,
+    },
+}
+
+MOBILEVIT_SEGMENT_WEIGHT_CONFIG = {
+    "mobilevit_xxs_deeplabv3": {
+        "model": "mobilevit_xxs_deeplabv3",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_xxs_deeplabv3.weights.h5",
+    },
+    "mobilevit_xs_deeplabv3": {
+        "model": "mobilevit_xs_deeplabv3",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_xs_deeplabv3.weights.h5",
+    },
+    "mobilevit_s_deeplabv3": {
+        "model": "mobilevit_s_deeplabv3",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_s_deeplabv3.weights.h5",
+    },
+}

@@ -11,7 +11,12 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
-from .config import MOBILEVIT_MODEL_CONFIG, MOBILEVIT_WEIGHT_CONFIG
+from .config import (
+    MOBILEVIT_MODEL_CONFIG,
+    MOBILEVIT_SEGMENT_MODEL_CONFIG,
+    MOBILEVIT_SEGMENT_WEIGHT_CONFIG,
+    MOBILEVIT_WEIGHT_CONFIG,
+)
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -889,10 +894,10 @@ class MobileViTSemanticSegment(BaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
+        variant: MOBILEVIT_SEGMENT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILEVIT_SEGMENT_WEIGHT_CONFIG.items()
     }
-    BASE_WEIGHT_CONFIG = None
+    BASE_WEIGHT_CONFIG = MOBILEVIT_SEGMENT_WEIGHT_CONFIG
     HF_MODEL_TYPE = "mobilevit"
 
     @classmethod

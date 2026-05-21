@@ -13,7 +13,12 @@ from kerasformers.models.detr.detr_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .config import DETR_CONFIG, DETR_WEIGHTS
+from .config import (
+    DETR_CONFIG,
+    DETR_SEGMENT_CONFIG,
+    DETR_SEGMENT_WEIGHTS,
+    DETR_WEIGHTS,
+)
 
 
 def detr_encoder_layer(
@@ -944,8 +949,8 @@ class DETRSegment(BaseModel):
             :class:`BaseModel`.
     """
 
-    BASE_MODEL_CONFIG = DETR_CONFIG
-    BASE_WEIGHT_CONFIG = DETR_WEIGHTS
+    BASE_MODEL_CONFIG = DETR_SEGMENT_CONFIG
+    BASE_WEIGHT_CONFIG = DETR_SEGMENT_WEIGHTS
     HF_MODEL_TYPE = "detr"
 
     def __init__(

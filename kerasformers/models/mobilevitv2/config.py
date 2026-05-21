@@ -118,3 +118,27 @@ MOBILEVITV2_WEIGHT_CONFIG = {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevitv2_200_cvnets_in22k_ft_in1k_384.weights.h5",
     },
 }
+
+MOBILEVITV2_SEGMENT_MODEL_CONFIG = {
+    "mobilevitv2_100_deeplabv3": {
+        "multiplier": 1.0,
+        "input_image_shape": 512,
+        "num_classes": 21,
+    },
+    "mobilevitv2_150_deeplabv3": {
+        "multiplier": 1.5,
+        "input_image_shape": 512,
+        "num_classes": 21,
+    },
+}
+
+MOBILEVITV2_SEGMENT_WEIGHT_CONFIG = {
+    "mobilevitv2_100_deeplabv3": {
+        "model": "mobilevitv2_100_deeplabv3",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevitv2_100_deeplabv3.weights.h5",
+    },
+    "mobilevitv2_150_deeplabv3": {
+        "model": "mobilevitv2_150_deeplabv3",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevitv2_150_deeplabv3.weights.h5",
+    },
+}
