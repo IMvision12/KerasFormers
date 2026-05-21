@@ -231,6 +231,12 @@ MOBILEVIT_SEGMENT_VARIANTS: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    # Run the HF reference on the same device Keras (torch backend) uses. On a
+    # GPU, comparing GPU-Keras against CPU-HF lets cuDNN-vs-CPU float divergence
+    # compound through MobileViT's deep conv stack and blows up the unnormalized
+    # logits (O(1) diffs that look like a conversion bug but aren't).
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
     for variant, hf_id in MOBILEVIT_CLASSIFY_VARIANTS:
         print(f"\n{'=' * 60}")
         print(f"Converting classify: {variant}  <-  {hf_id}")
@@ -238,6 +244,7 @@ if __name__ == "__main__":
 
         hf_model = MobileViTForImageClassification.from_pretrained(hf_id).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+        hf_model = hf_model.to(device)
 
         keras_model = MobileViTImageClassify.from_weights(
             f"hf:{hf_id}", include_normalization=False
@@ -247,7 +254,11 @@ if __name__ == "__main__":
         rng = np.random.default_rng(0)
         x = rng.standard_normal((1, 3, 256, 256)).astype(np.float32)
         with torch.no_grad():
-            hf_out = hf_model(pixel_values=torch.from_numpy(x)).logits.cpu().numpy()
+            hf_out = (
+                hf_model(pixel_values=torch.from_numpy(x).to(device))
+                .logits.cpu()
+                .numpy()
+            )
         k_in = np.transpose(x, (0, 2, 3, 1))
         k_out = keras_model(k_in, training=False)
         if hasattr(k_out, "detach"):
@@ -269,6 +280,7 @@ if __name__ == "__main__":
 
         hf_model = MobileViTForSemanticSegmentation.from_pretrained(hf_id).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+        hf_model = hf_model.to(device)
 
         keras_model = MobileViTSemanticSegment.from_weights(
             f"hf:{hf_id}", include_normalization=False
@@ -278,7 +290,11 @@ if __name__ == "__main__":
         rng = np.random.default_rng(0)
         x = rng.standard_normal((1, 3, 512, 512)).astype(np.float32)
         with torch.no_grad():
-            hf_out = hf_model(pixel_values=torch.from_numpy(x)).logits.cpu().numpy()
+            hf_out = (
+                hf_model(pixel_values=torch.from_numpy(x).to(device))
+                .logits.cpu()
+                .numpy()
+            )
         k_in = np.transpose(x, (0, 2, 3, 1))
         k_out = keras_model(k_in, training=False)
         if hasattr(k_out, "detach"):
