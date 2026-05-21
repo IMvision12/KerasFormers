@@ -285,20 +285,24 @@ METACLIP2_WEIGHTS = {
     "metaclip2_worldwide_b32_384": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwideb32_384_worldwide_384.weights.json",
     },
+    # L14/Huge/Giant: a single token-embedding tensor exceeds GitHub's 2 GiB
+    # asset limit, so these are converted from HuggingFace on the fly via
+    # ``load_and_convert_from_hf`` (cached under ~/.cache/kerasformers/).
+    # Used through the normal variant name — no "hf:" prefix needed.
     "metaclip2_worldwide_l14_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwidel14_worldwide_224.weights.json",
+        "hf_id": "facebook/metaclip-2-worldwide-l14",
     },
     "metaclip2_worldwide_huge_quickgelu": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwidehuge_worldwide_quickgelu.weights.json",
+        "hf_id": "facebook/metaclip-2-worldwide-huge-quickgelu",
     },
     "metaclip2_worldwide_huge_378": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwidehuge_378_worldwide_378.weights.json",
+        "hf_id": "facebook/metaclip-2-worldwide-huge-378",
     },
     "metaclip2_worldwide_giant_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwidegiant_worldwide_224.weights.json",
+        "hf_id": "facebook/metaclip-2-worldwide-giant",
     },
     "metaclip2_worldwide_giant_378": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2worldwidegiant_378_worldwide_378.weights.json",
+        "hf_id": "facebook/metaclip-2-worldwide-giant-378",
     },
     "metaclip2_mt5_worldwide_s16_224": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/metaclip2mt5worldwides16_mt5_worldwide_224.weights.h5",
