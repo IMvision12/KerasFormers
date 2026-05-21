@@ -203,11 +203,6 @@ def transfer_owlv2_detection_weights(keras_model, state_dict):
 if __name__ == "__main__":
     model_configs: List[Dict[str, Any]] = [
         {
-            "variant": "owlv2-large-patch14-ensemble",
-            "hf_model_name": "google/owlv2-large-patch14-ensemble",
-            "image_size": 1008,
-        },
-        {
             "variant": "owlv2-large-patch14-finetuned",
             "hf_model_name": "google/owlv2-large-patch14-finetuned",
             "image_size": 1008,
