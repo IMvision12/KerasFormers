@@ -172,12 +172,18 @@ def transfer_siglip_image_classify_weights(
 
 if __name__ == "__main__":
     SIGLIP_CONVERSION_CONFIG = [
-        ("siglip_base_p16_224", "google/siglip-base-patch16-224"),
-        ("siglip_base_p16_256", "google/siglip-base-patch16-256"),
-        ("siglip_base_p16_384", "google/siglip-base-patch16-384"),
-        ("siglip_base_p16_512", "google/siglip-base-patch16-512"),
-        ("siglip_large_p16_256", "google/siglip-large-patch16-256"),
-        ("siglip_large_p16_384", "google/siglip-large-patch16-384"),
+        # ("siglip_base_p16_224", "google/siglip-base-patch16-224"),
+        # ("siglip_base_p16_256", "google/siglip-base-patch16-256"),
+        (
+            "siglip_base_p16_multilingual_256",
+            "google/siglip-base-patch16-256-multilingual",
+        ),
+        # ("siglip_base_p16_384", "google/siglip-base-patch16-384"),
+        # ("siglip_base_p16_512", "google/siglip-base-patch16-512"),
+        # ("siglip_large_p16_256", "google/siglip-large-patch16-256"),
+        # ("siglip_large_p16_384", "google/siglip-large-patch16-384"),
+        ("siglip_so400m_p14_224", "google/siglip-so400m-patch14-224"),
+        ("siglip_so400m_p14_384", "google/siglip-so400m-patch14-384"),
     ]
 
     for variant, hf_id in SIGLIP_CONVERSION_CONFIG:
