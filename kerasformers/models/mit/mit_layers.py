@@ -144,8 +144,11 @@ class MiTEfficientMultiheadSelfAttention(layers.Layer):
         self.proj_drop.build(input_shape)
 
         if self.sr_ratio > 1:
-            h = ops.sqrt(ops.cast(seq_length, "float32"))
-            h = ops.cast(h, "int32")
+            # Materialize the spatial edge to a Python int so the shape passed
+            # to ``self.sr.build`` holds plain ints. Left as a backend tensor it
+            # makes Keras call ``.numpy()`` on it during build, which fails for
+            # tensors on a non-CPU device (e.g. CUDA on Colab).
+            h = int(ops.cast(ops.sqrt(ops.cast(seq_length, "float32")), "int32"))
             if self.data_format == "channels_first":
                 spatial_shape = (batch_dim, feature_dim, h, h)
             else:
