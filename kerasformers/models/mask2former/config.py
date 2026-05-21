@@ -99,21 +99,21 @@ MASK2FORMER_CONFIG = {
 
 MASK2FORMER_WEIGHTS = {
     "mask2former-swin-tiny-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_tiny_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-coco-instance.weights.h5",
     },
     "mask2former-swin-small-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_small_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-small-coco-instance.weights.h5",
     },
     "mask2former-swin-base-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_base_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-base-coco-instance.weights.h5",
     },
     "mask2former-swin-large-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_large_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-large-coco-instance.weights.h5",
     },
     "mask2former-swin-tiny-ade-semantic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_tiny_ade_semantic.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-ade-semantic.weights.h5",
     },
     "mask2former-swin-tiny-coco-panoptic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_tiny_coco_panoptic.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-coco-panoptic.weights.h5",
     },
 }

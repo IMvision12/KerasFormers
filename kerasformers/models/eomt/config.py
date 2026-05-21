@@ -53,18 +53,18 @@ EOMT_CONFIG = {
 
 EOMT_WEIGHTS = {
     "eomt_small_coco_panoptic_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_small_coco_panoptic_640.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EoMT/eomt_small_coco_panoptic_640.weights.h5",
     },
     "eomt_base_coco_panoptic_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_base_coco_panoptic_640.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EoMT/eomt_base_coco_panoptic_640.weights.h5",
     },
     "eomt_large_coco_panoptic_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_large_coco_panoptic_640.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EoMT/eomt_large_coco_panoptic_640.weights.h5",
     },
     "eomt_large_coco_instance_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_large_coco_instance_640.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EoMT/eomt_large_coco_instance_640.weights.h5",
     },
     "eomt_large_ade20k_semantic_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_large_ade20k_semantic_512.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/EoMT/eomt_large_ade20k_semantic_512.weights.h5",
     },
 }

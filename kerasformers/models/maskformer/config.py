@@ -78,18 +78,18 @@ MASKFORMER_CONFIG = {
 
 MASKFORMER_WEIGHTS = {
     "maskformer-swin-tiny-ade": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_tiny_ade.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-tiny-ade.weights.h5",
     },
     "maskformer-swin-tiny-coco": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_tiny_coco.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-tiny-coco.weights.h5",
     },
     "maskformer-swin-small-coco": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_small_coco.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-small-coco.weights.h5",
     },
     "maskformer-swin-base-ade": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_base_ade.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-base-ade.weights.h5",
     },
     "maskformer-swin-base-coco": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_base_coco.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-base-coco.weights.h5",
     },
 }

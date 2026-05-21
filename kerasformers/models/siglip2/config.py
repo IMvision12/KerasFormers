@@ -198,42 +198,42 @@ SIGLIP2_CONFIG = {
 
 SIGLIP2_WEIGHTS = {
     "siglip2_base_p16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2basep16_google_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_base_p16_224.weights.h5",
     },
     "siglip2_base_p16_256": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2basep16_google_256.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_base_p16_256.weights.h5",
     },
     "siglip2_base_p16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2basep16_google_384.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_base_p16_384.weights.h5",
     },
     "siglip2_base_p16_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2basep16_google_512.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_base_p16_512.weights.h5",
     },
     "siglip2_base_p32_256": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2basep32_google_256.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_base_p32_256.weights.h5",
     },
     "siglip2_large_p16_256": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2largep16_google_256.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_large_p16_256.weights.json",
     },
     "siglip2_large_p16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2largep16_google_384.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_large_p16_384.weights.json",
     },
     "siglip2_large_p16_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2largep16_google_512.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_large_p16_512.weights.json",
     },
     "siglip2_so400m_p14_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2so400mp14_google_224.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_so400m_p14_224.weights.json",
     },
     "siglip2_so400m_p14_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2so400mp14_google_384.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_so400m_p14_384.weights.json",
     },
     "siglip2_so400m_p16_256": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2so400mp16_google_256.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_so400m_p16_256.weights.json",
     },
     "siglip2_so400m_p16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2so400mp16_google_384.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_so400m_p16_384.weights.json",
     },
     "siglip2_so400m_p16_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2so400mp16_google_512.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_so400m_p16_512.weights.json",
     },
 }
