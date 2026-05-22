@@ -11,14 +11,14 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 150,
+        "num_classes": 150,
         "input_image_shape": 512,
     },
     "maskformer-swin-tiny-coco": {
         "backbone_embed_dim": 96,
         "backbone_depths": (2, 2, 6, 2),
         "backbone_num_heads": (3, 6, 12, 24),
-        "backbone_window_size": 12,
+        "backbone_window_size": 7,
         "fpn_feature_size": 256,
         "mask_feature_size": 256,
         "decoder_d_model": 256,
@@ -26,14 +26,14 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
     "maskformer-swin-small-coco": {
         "backbone_embed_dim": 96,
         "backbone_depths": (2, 2, 18, 2),
         "backbone_num_heads": (3, 6, 12, 24),
-        "backbone_window_size": 12,
+        "backbone_window_size": 7,
         "fpn_feature_size": 256,
         "mask_feature_size": 256,
         "decoder_d_model": 256,
@@ -41,7 +41,7 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
     "maskformer-swin-base-ade": {
@@ -56,7 +56,7 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 150,
+        "num_classes": 150,
         "input_image_shape": 512,
     },
     "maskformer-swin-base-coco": {
@@ -71,25 +71,25 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
 }
 
 MASKFORMER_WEIGHTS = {
     "maskformer-swin-tiny-ade": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_tiny_ade.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-tiny-ade.weights.h5",
     },
     "maskformer-swin-tiny-coco": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_tiny_coco.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-tiny-coco.weights.h5",
     },
     "maskformer-swin-small-coco": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_small_coco.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-small-coco.weights.h5",
     },
     "maskformer-swin-base-ade": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_base_ade.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-base-ade.weights.h5",
     },
     "maskformer-swin-base-coco": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer_swin_base_coco.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-base-coco.weights.h5",
     },
 }

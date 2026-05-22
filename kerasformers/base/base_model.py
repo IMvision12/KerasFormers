@@ -9,12 +9,12 @@ from kerasformers.weight_utils import download_file
 _HF_PREFIX = "hf:"
 
 
-def hf_num_labels(hf_config):
-    """Derive ``num_labels`` from a HuggingFace ``config.json`` dict.
+def hf_num_classes(hf_config):
+    """Derive the class count from a ``config.json`` dict.
 
-    HF's ``PretrainedConfig`` exposes ``num_labels`` as a property derived
-    from ``id2label``, but ``config.json`` typically stores ``id2label``
-    rather than ``num_labels`` directly. This helper checks both.
+    A serialized ``config.json`` typically stores ``id2label`` rather than a
+    direct count, so this helper derives it from whichever of ``num_labels`` /
+    ``id2label`` / ``label2id`` is present.
     """
     if "num_labels" in hf_config:
         return hf_config["num_labels"]
@@ -31,7 +31,7 @@ def hf_num_labels(hf_config):
 
 
 def download_hf_state_dict(hf_id):
-    """Download HF model weights and return a flat ``{name: numpy_array}`` dict.
+    """Download model weights and return a flat ``{name: numpy_array}`` dict.
 
     Tries (in order):
 
@@ -112,15 +112,15 @@ class BaseModel(keras.Model):
 
     1. **kerasformers release** — weights hosted on GitHub Releases keyed by
        a short variant string (e.g. ``"owlvit-base-patch32"``).
-    2. **HuggingFace** — weights pulled from a HF Hub repo, identified
-       by an ``"hf:org/repo"`` string. Works for original HF checkpoints
+    2. **Hub** — weights pulled from a model-hub repo, identified
+       by an ``"hf:org/repo"`` string. Works for the original checkpoints
        and for community fine-tunes that share the same architecture.
 
-    HF loading uses ``huggingface_hub`` (not ``transformers``) — it
+    Hub loading uses ``huggingface_hub`` (not ``transformers``) — it
     downloads ``config.json`` and the safetensors / pytorch weights
     directly. Subclasses provide a ``config_from_hf`` method that maps
     the parsed ``config.json`` dict into ``__init__`` kwargs, and a
-    ``transfer_from_hf`` method that applies the HF state-dict to the
+    ``transfer_from_hf`` method that applies the source state-dict to the
     Keras layers.
 
     .. code-block:: python
@@ -162,13 +162,13 @@ class BaseModel(keras.Model):
                   — resolves against ``cls.BASE_MODEL_CONFIG`` /
                   ``cls.BASE_WEIGHT_CONFIG``.
                 * ``"hf:<org>/<repo>"`` — pulls config and weights from
-                  HuggingFace Hub. Dispatches to :meth:`from_hf`, which
+                  the model Hub. Dispatches to :meth:`from_hf`, which
                   handles both transformers-style repos (CLIP, SigLIP,
                   DETR, …) and timm-style repos
                   (``hf:timm/resnet50.a1_in1k``).
 
             load_weights: If ``False``, only the architecture is built
-                (random init). For HF ids, ``config.json`` is still
+                (random init). For ``hf:`` ids, ``config.json`` is still
                 fetched to size the model; the weight files are not.
             skip_mismatch: If ``True``, layers whose shape in the
                 checkpoint disagrees with the instantiated model are
@@ -204,7 +204,7 @@ class BaseModel(keras.Model):
         (typically delegating to a module-level
         ``transfer_<family>_weights`` function). Reached via
         :meth:`from_hf` when ``HF_MODEL_TYPE is None`` (i.e., the
-        family loads from timm-style HF repos, not transformers-style
+        family loads from timm-style repos, not transformers-style
         ones).
         """
         raise NotImplementedError(
@@ -289,7 +289,7 @@ class BaseModel(keras.Model):
 
     @classmethod
     def from_hf(cls, hf_id, load_weights=True, variant=None, **kwargs):
-        """Load a model from a HuggingFace Hub repo.
+        """Load a model from a model-hub repo.
 
         Two flavours, auto-detected by :attr:`HF_MODEL_TYPE`:
 
@@ -306,7 +306,7 @@ class BaseModel(keras.Model):
            ``model_type``).
 
         Args:
-            hf_id: HuggingFace Hub id, e.g.
+            hf_id: Model-hub id, e.g.
                 ``"openai/clip-vit-base-patch16"`` (transformers-style)
                 or ``"timm/resnet50.a1_in1k"`` (timm-style).
             load_weights: If ``False``, only the architecture is built.
@@ -352,7 +352,7 @@ class BaseModel(keras.Model):
 
     @classmethod
     def assert_hf_model_type(cls, hf_id, hf_config):
-        """Reject HF configs whose ``model_type`` doesn't match this class.
+        """Reject configs whose ``model_type`` doesn't match this class.
 
         Fails fast with a clear message instead of letting the user wait
         for a ``KeyError`` or shape mismatch deep inside weight transfer.
@@ -376,7 +376,7 @@ class BaseModel(keras.Model):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        """Map a HuggingFace ``config.json`` dict to ``cls.__init__`` kwargs.
+        """Map a ``config.json`` dict to ``cls.__init__`` kwargs.
 
         ``hf_config`` is the result of ``json.load(open("config.json"))``
         — a plain dict, not a ``transformers`` config object. Subclasses
@@ -386,7 +386,7 @@ class BaseModel(keras.Model):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        """Transfer weights from an HF ``state_dict`` into ``keras_model``.
+        """Transfer weights from a source ``state_dict`` into ``keras_model``.
 
         ``hf_state_dict`` is a flat ``{name: numpy_array}`` mapping.
         Subclasses must override this to support ``"hf:"`` loading.

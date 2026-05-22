@@ -310,7 +310,7 @@ def compute_box_bias(num_patches_height, num_patches_width):
     """Constant log-space box bias added to raw ``box_head`` outputs.
 
     Each patch's default predicted box is biased toward its grid
-    location with a one-patch size, mirroring HF's ``compute_box_bias``.
+    location with a one-patch size.
 
     Reference:
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)

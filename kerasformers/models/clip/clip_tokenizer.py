@@ -17,10 +17,10 @@ from kerasformers.base import BaseTokenizer
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPTokenizer(BaseTokenizer):
-    """CLIP BPE tokenizer, built on HuggingFace `tokenizers` (Rust).
+    """CLIP BPE tokenizer, built on the `tokenizers` library (Rust).
 
     Wraps a programmatically-assembled `tokenizers.Tokenizer` that matches
-    OpenAI/HF CLIP exactly: NFC + whitespace collapse + lowercase, CLIP's
+    OpenAI CLIP exactly: NFC + whitespace collapse + lowercase, CLIP's
     regex split, byte-level BPE over ``vocab.json`` + ``merges.txt``, and
     ``[BOS] ... [EOS]`` RoBERTa-style post-processing with EOS padding.
 

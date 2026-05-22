@@ -233,7 +233,7 @@ class DETRMultiHeadAttention(layers.Layer):
 
     Implements scaled dot-product multi-head attention with separate
     query, key, and value projections followed by an output projection.
-    The projection naming matches the HuggingFace DETR layout to
+    The projection naming matches the reference DETR layout to
     simplify weight transfer from pretrained models. Used in both the
     encoder (self-attention) and decoder (self-attention and
     cross-attention) stages of DETR.
@@ -344,7 +344,7 @@ class DETRMHAttentionMap(layers.Layer):
 
     Computes per-head, per-query attention weights over the encoder's
     spatial feature map — used by :class:`DETRSegment` as the seed for
-    the mask head. Matches HuggingFace's ``DetrMHAttentionMap`` weights
+    the mask head. Matches the reference ``DetrMHAttentionMap`` weights
     and forward semantics.
 
     Args:
@@ -363,7 +363,7 @@ class DETRMHAttentionMap(layers.Layer):
     Output Shape:
         5D tensor ``(B, num_queries, num_heads, H, W)`` — softmax-
         normalized over the joint ``num_heads × H × W`` axis per query,
-        matching the HF behaviour exactly.
+        matching the reference behaviour exactly.
     """
 
     def __init__(self, hidden_dim, num_heads, **kwargs):
@@ -425,7 +425,7 @@ class DETRMaskHeadSmallConv(layers.Layer):
     backbone features (C4/C3/C2) through three nearest-neighbour
     upsampling stages, producing a per-query mask logit at stride 4.
 
-    Mirrors HuggingFace's ``DetrMaskHeadSmallConv`` exactly — five
+    Reproduces the ``DetrMaskHeadSmallConv`` exactly — five
     ``Conv2D + GroupNorm + ReLU`` stages, three 1×1 ``adapter`` convs
     that align backbone channel counts, and a final ``out_lay`` 1-
     channel conv. The intermediate channel widths are

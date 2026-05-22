@@ -288,7 +288,7 @@ class PoolFormerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_poolformer_torch_to_keras import transfer_poolformer_weights
+        from .convert_poolformer_timm_to_keras import transfer_poolformer_weights
 
         transfer_poolformer_weights(keras_model, state_dict)
 
@@ -445,7 +445,7 @@ class PoolFormerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_poolformer_torch_to_keras import transfer_poolformer_weights
+        from .convert_poolformer_timm_to_keras import transfer_poolformer_weights
 
         transfer_poolformer_weights(keras_model, state_dict)
 

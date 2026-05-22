@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
-from kerasformers.base.base_model import hf_num_labels
+from kerasformers.base.base_model import hf_num_classes
 from kerasformers.utils import standardize_input_shape
 
 from .config import DFINE_CONFIG, DFINE_WEIGHTS
@@ -65,7 +65,7 @@ def dfine_conv_bn(
 ):
     """Conv + BatchNorm + optional activation + optional LAB block.
 
-    Mirrors HGNetV2ConvLayer from the HuggingFace implementation.
+    Reproduces the HGNetV2 conv layer from the reference implementation.
 
     Args:
         x: Input tensor.
@@ -1180,7 +1180,7 @@ def dfine_two_stage_proposals(
     anchors_t,
     vmask_t,
     d_model,
-    num_labels,
+    num_classes,
 ):
     """Score every token and pick the top-K decoder queries (two-stage init).
 
@@ -1202,7 +1202,7 @@ def dfine_two_stage_proposals(
         vmask_t: Validity mask per token.
         d_model: Decoder model dimension (output channel of the encoder
             projection).
-        num_labels: Number of object classes (output channel of
+        num_classes: Number of object classes (output channel of
             ``enc_score_head``).
 
     Returns:
@@ -1218,7 +1218,7 @@ def dfine_two_stage_proposals(
     enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
         enc_out
     )
-    enc_scores = layers.Dense(num_labels, name="enc_score_head")(enc_out)
+    enc_scores = layers.Dense(num_classes, name="enc_score_head")(enc_out)
     enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_0")(enc_out)
     enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_1")(enc_bb)
     enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
@@ -1368,7 +1368,7 @@ def dfine_decoder(
     decoder_n_points,
     num_feature_levels,
     feat_strides,
-    num_labels,
+    num_classes,
     spatial_h,
     spatial_w,
 ):
@@ -1396,7 +1396,7 @@ def dfine_decoder(
             attention.
         num_feature_levels: Number of multi-scale levels.
         feat_strides: Feature strides per level.
-        num_labels: Number of object classes (used by the
+        num_classes: Number of object classes (used by the
             two-stage scoring head).
         spatial_h: Input image height in pixels.
         spatial_w: Input image width in pixels.
@@ -1418,7 +1418,7 @@ def dfine_decoder(
         anchors_t,
         vmask_t,
         d_model=d_model,
-        num_labels=num_labels,
+        num_classes=num_classes,
     )
     return dfine_fdr_block(
         target,
@@ -1454,7 +1454,7 @@ def dfine_functional(
     decoder_n_points,
     num_feature_levels,
     feat_strides,
-    num_labels,
+    num_classes,
     input_shape,
 ):
     """Build the full D-FINE architecture from an input tensor (no class heads).
@@ -1496,7 +1496,7 @@ def dfine_functional(
         decoder_n_points: Sampling points per level for deformable attention.
         num_feature_levels: Number of multi-scale levels.
         feat_strides: Feature strides per level.
-        num_labels: Number of object classes (used by the two-stage scoring head).
+        num_classes: Number of object classes (used by the two-stage scoring head).
         input_shape: ``(H, W, C)`` (or ``(C, H, W)``) shape of ``inputs``,
             used to compute per-level spatial sizes.
 
@@ -1568,7 +1568,7 @@ def dfine_functional(
         decoder_n_points=decoder_n_points,
         num_feature_levels=num_feature_levels,
         feat_strides=feat_strides,
-        num_labels=num_labels,
+        num_classes=num_classes,
         spatial_h=spatial_h,
         spatial_w=spatial_w,
     )
@@ -1578,7 +1578,7 @@ def dfine_functional(
 class DFineModel(BaseModel):
     """D-FINE backbone + hybrid encoder + decoder (no class heads).
 
-    Matches the HuggingFace ``DFineModel`` pattern — outputs the decoder
+    Matches the reference ``DFineModel`` pattern — outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, d_model)``. The
     iterative bbox refinement layers stay in the model (they feed back
     into the decoder via reference points); only the per-layer class
@@ -1615,7 +1615,7 @@ class DFineModel(BaseModel):
         decoder_n_points=None,
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
-        num_labels=80,
+        num_classes=80,
         input_image_shape=640,
         input_tensor=None,
         name="DFineModel",
@@ -1656,7 +1656,7 @@ class DFineModel(BaseModel):
             decoder_n_points=decoder_n_points,
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
-            num_labels=num_labels,
+            num_classes=num_classes,
             input_shape=input_image_shape,
         )
 
@@ -1686,7 +1686,7 @@ class DFineModel(BaseModel):
         self._decoder_n_points = list(decoder_n_points)
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
-        self._num_labels = num_labels
+        self._num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
@@ -1713,7 +1713,7 @@ class DFineModel(BaseModel):
                 "decoder_n_points": self._decoder_n_points,
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
-                "num_labels": self._num_labels,
+                "num_classes": self._num_classes,
                 "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -1763,7 +1763,7 @@ class DFineDetect(BaseModel):
         decoder_n_points: List of sampling points per feature level.
         num_feature_levels: Number of multi-scale feature levels.
         feat_strides: Feature strides from backbone.
-        num_labels: Number of object classes.
+        num_classes: Number of object classes.
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -1799,7 +1799,7 @@ class DFineDetect(BaseModel):
         decoder_n_points=None,
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
-        num_labels=80,
+        num_classes=80,
         input_image_shape=640,
         input_tensor=None,
         name="DFineDetect",
@@ -1828,7 +1828,7 @@ class DFineDetect(BaseModel):
             decoder_n_points=decoder_n_points,
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
-            num_labels=num_labels,
+            num_classes=num_classes,
             input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
@@ -1841,7 +1841,7 @@ class DFineDetect(BaseModel):
         num_queries = 300
 
         di_last = decoder_layers - 1
-        class_logits = layers.Dense(num_labels, name=f"class_embed_{di_last}")(hs_last)
+        class_logits = layers.Dense(num_classes, name=f"class_embed_{di_last}")(hs_last)
 
         prob = ops.softmax(
             ops.reshape(last_pred_corners, [-1, num_queries, 4, max_num_bins + 1]),
@@ -1879,7 +1879,7 @@ class DFineDetect(BaseModel):
         self._decoder_n_points = list(decoder_n_points)
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
-        self._num_labels = num_labels
+        self._num_classes = num_classes
         self.input_image_shape = base.input_image_shape
         self.input_tensor = input_tensor
 
@@ -1906,7 +1906,7 @@ class DFineDetect(BaseModel):
                 "decoder_n_points": self._decoder_n_points,
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
-                "num_labels": self._num_labels,
+                "num_classes": self._num_classes,
                 "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -1941,7 +1941,7 @@ class DFineDetect(BaseModel):
             "decoder_n_points": list(hf_config["decoder_n_points"]),
             "num_feature_levels": hf_config["num_feature_levels"],
             "feat_strides": tuple(hf_config["feat_strides"]),
-            "num_labels": hf_num_labels(hf_config),
+            "num_classes": hf_num_classes(hf_config),
         }
 
     @classmethod

@@ -281,7 +281,7 @@ class DenseNetModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_densenet_torch_to_keras import transfer_densenet_weights
+        from .convert_densenet_timm_to_keras import transfer_densenet_weights
 
         transfer_densenet_weights(keras_model, state_dict)
 
@@ -420,7 +420,7 @@ class DenseNetImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_densenet_torch_to_keras import transfer_densenet_weights
+        from .convert_densenet_timm_to_keras import transfer_densenet_weights
 
         transfer_densenet_weights(keras_model, state_dict)
 

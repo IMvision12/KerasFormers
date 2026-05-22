@@ -210,9 +210,9 @@ def transfer_detr_weights(keras_model, state_dict):
 
 
 def transfer_detr_segment_weights(keras_model, state_dict):
-    """Transfer HF ``DetrForSegmentation`` weights into :class:`DETRSegment`.
+    """Transfer ``DetrForSegmentation`` weights into :class:`DETRSegment`.
 
-    The HF state dict nests the entire detection model under ``detr.*``
+    The source state dict nests the entire detection model under ``detr.*``
     and adds top-level ``bbox_attention.*`` / ``mask_head.*`` keys for
     the segmentation head. This wraps :func:`transfer_detr_weights` for
     the detection portion (after stripping the ``detr.`` prefix) and

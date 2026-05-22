@@ -13,7 +13,7 @@ class WhisperProcessor(BaseProcessor):
     """Combined audio + text processor for Whisper.
 
     Wraps :class:`WhisperFeatureExtractor` and :class:`WhisperTokenizer`,
-    matching HuggingFace's ``WhisperProcessor`` API surface. Use it for
+    matching the reference ``WhisperProcessor`` API surface. Use it for
     every input/output transform you need around a Whisper model:
 
     * ``processor(audio=..., sampling_rate=16000)`` — log-mel features.

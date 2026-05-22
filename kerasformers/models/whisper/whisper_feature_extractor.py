@@ -15,7 +15,7 @@ def _build_mel_filter_bank(
     max_hz: float = 8000.0,
 ):
     """Slaney-style mel filter bank as a Keras tensor of shape
-    ``(n_mels, n_fft // 2 + 1)``. Reproduces HF/OpenAI Whisper's bank.
+    ``(n_mels, n_fft // 2 + 1)``. Reproduces the OpenAI Whisper filter bank.
     """
     f_sp = 200.0 / 3.0
     min_log_hz = 1000.0
@@ -57,7 +57,7 @@ def _build_mel_filter_bank(
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class WhisperFeatureExtractor(BaseAudioFeatureExtractor):
-    """Mel spectrogram extractor matching HF ``WhisperFeatureExtractor``.
+    """Mel spectrogram extractor.
 
     Pure Keras 3 implementation — all numeric operations go through
     ``keras.ops`` (``ops.stft``, ``ops.matmul``, ``ops.log``, ...) so the

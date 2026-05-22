@@ -111,7 +111,7 @@ def dinov3_transformer_block(
        residual.
 
     All sublayer names are deterministic (``blocks_{block_idx}_*``) so
-    the HF DINOv3 state-dict can be transferred by name. The shared
+    the source DINOv3 state-dict can be transferred by name. The shared
     RoPE cache (``rope_cos``, ``rope_sin``) is set once per block via
     :meth:`DinoV3Attention.set_rope_cache`, avoiding re-computation per
     forward pass.
@@ -192,7 +192,7 @@ class DinoV3ViTModel(BaseModel):
     each transformer block, last LayerNorm-normalized), suitable for
     feeding into detection / segmentation / depth necks.
 
-    Weights are gated on HuggingFace — see
+    Weights are gated on the model Hub — see
     https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m for
     license acceptance. Accept the license and set ``HF_TOKEN`` env var
     before calling :meth:`from_weights`.
@@ -439,7 +439,7 @@ class DinoV3ConvNeXtModel(BaseModel):
     returns the list of per-stage feature maps, suitable for feeding
     into detection / segmentation / depth necks.
 
-    Weights are gated on HuggingFace — see
+    Weights are gated on the model Hub — see
     https://huggingface.co/facebook/dinov3-convnext-tiny-pretrain-lvd1689m
     for license acceptance. Accept the license and set ``HF_TOKEN`` env
     var before calling :meth:`from_weights`.

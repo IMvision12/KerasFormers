@@ -261,7 +261,7 @@ class ConvNeXtModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_convnext_torch_to_keras import transfer_convnext_weights
+        from .convert_convnext_timm_to_keras import transfer_convnext_weights
 
         transfer_convnext_weights(keras_model, state_dict)
 
@@ -420,7 +420,7 @@ class ConvNeXtImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_convnext_torch_to_keras import transfer_convnext_weights
+        from .convert_convnext_timm_to_keras import transfer_convnext_weights
 
         transfer_convnext_weights(keras_model, state_dict)
 

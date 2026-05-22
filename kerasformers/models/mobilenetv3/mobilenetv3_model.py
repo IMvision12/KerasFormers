@@ -483,7 +483,7 @@ class MobileNetV3Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilenetv3_torch_to_keras import (
+        from .convert_mobilenetv3_timm_to_keras import (
             stage_counts,
             transfer_mobilenetv3_weights,
         )
@@ -673,7 +673,7 @@ class MobileNetV3ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_mobilenetv3_torch_to_keras import (
+        from .convert_mobilenetv3_timm_to_keras import (
             stage_counts,
             transfer_mobilenetv3_weights,
         )

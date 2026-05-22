@@ -13,19 +13,19 @@ from kerasformers.utils.image import load_image
 class MetaClip2ImageProcessor(CLIPImageProcessor):
     """Image processor for MetaCLIP 2 — direct square resize, no center crop.
 
-    Subclass of :class:`CLIPImageProcessor` configured to match HF
+    Subclass of :class:`CLIPImageProcessor` configured to match the reference
     MetaCLIP 2's default preprocessing. Two differences from OpenAI
     CLIP's processor:
 
     1. **Direct square resize** to ``(image_resolution, image_resolution)``
-       — HF uses ``do_resize=True, do_center_crop=False``, which means
+       — the reference uses ``do_resize=True, do_center_crop=False``, which means
        the image is stretched (not aspect-preserving) to the target
        square. OpenAI CLIP instead does shortest-edge resize +
        center-crop, which preserves aspect ratio.
-    2. **PIL.BICUBIC resample** explicitly — matches HF's
+    2. **PIL.BICUBIC resample** explicitly — matches the reference's
        ``resample=3`` (``PIL.Image.BICUBIC``) bit-close. The parent
        :class:`CLIPImageProcessor` uses Keras image-ops resize which
-       can drift from HF.
+       can drift from the reference.
 
     Pixel values are then rescaled to ``[0, 1]`` and normalized with
     the OpenAI-CLIP mean / std (MetaCLIP 2 keeps these unchanged from

@@ -93,21 +93,21 @@ CLIP_CONFIG = {
 
 CLIP_WEIGHTS = {
     "clip_vit_base_16": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clipvitbase16_openai_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_16.weights.h5",
     },
     "clip_vit_base_32": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clipvitbase32_openai_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_32.weights.h5",
     },
     "clip_vit_large_14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clipvitlarge14_openai_224.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14.weights.h5",
     },
     "clip_vit_large_14_336": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clipvitlarge14_openai_336.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14_336.weights.h5",
     },
     "clip_vit_g_14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clipvitg14_laion2b_s12B_b42K_224.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_g_14.weights.json",
     },
     "clip_vit_bigg_14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clipvitbigg14_laion2b_39B_b160k_224.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_bigg_14.weights.json",
     },
 }

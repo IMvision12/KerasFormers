@@ -24,14 +24,14 @@ DEFAULT_MT5_SENTENCEPIECE_URL = (
 class MetaClip2Mt5Tokenizer(BaseTokenizer):
     """SigLIP-style SentencePiece tokenizer for the MetaCLIP 2 mT5 variants.
 
-    Replicates HF ``SiglipTokenizer`` bit-close on the mT5-tokenizer
+    Replicates the reference ``SiglipTokenizer`` bit-close on the mT5-tokenizer
     MetaCLIP 2 checkpoints (250 100-token vocab built on top of mT5's
     SentencePiece model).
 
     Tokenization pipeline:
 
     1. **Lowercase** the input string and strip ASCII punctuation
-       (matches HF SigLIP's preprocessing — without this the token ids
+       (matches the reference SigLIP preprocessing — without this the token ids
        drift from the reference).
     2. SentencePiece encode to integer pieces (no fairseq offset, no
        BOS).
@@ -50,7 +50,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
         context_length: Maximum sequence length. Defaults to ``77``.
         eos_token_id: EOS token id. Defaults to ``1``.
         pad_token_id: PAD token id. Defaults to ``1`` (same as EOS —
-            HF SigLIP convention).
+            the SigLIP convention).
         unk_token_id: UNK token id. Defaults to ``2``.
 
     Example:

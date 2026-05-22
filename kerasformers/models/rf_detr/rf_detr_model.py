@@ -1292,14 +1292,14 @@ def rf_detr_functional(
 class RFDetrModel(BaseModel):
     """RF-DETR backbone + projector + decoder (no class heads).
 
-    HF-style ``Model`` variant — outputs the decoder ``last_hidden_state``
+    bare-backbone ``Model`` variant — outputs the decoder ``last_hidden_state``
     (post layernorm) with shape ``(B, num_queries, hidden_dim)``. The
     final class prediction head is pruned from the output graph; for the
     default ``lite_refpoint_refine=True`` setting, bbox-embed layers are
     also downstream of the output and naturally excluded. Use
     ``RFDETRDetect`` for full detection outputs.
 
-    RF-DETR is not on HuggingFace Hub, so this class also does not
+    RF-DETR is not on the model Hub, so this class also does not
     support ``from_weights("hf:...")``.
     """
 

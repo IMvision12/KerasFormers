@@ -159,7 +159,7 @@ def _unpad_and_resize_masks(
 ):
     """Unpad mask logits and resize to original image dimensions.
 
-    Follows the HuggingFace approach: first resize to the model's input
+    Follows the reference approach: first resize to the model's input
     resolution, crop out the padding region, then resize to the target size.
     Uses pure Keras 3 ops.
 
@@ -246,7 +246,7 @@ def eomt_post_process_panoptic(
     class_logits = outputs["class_logits"]
     mask_logits = outputs["mask_logits"]
 
-    num_labels = class_logits.shape[-1] - 1
+    num_classes = class_logits.shape[-1] - 1
     target_h, target_w = target_size
 
     mask_logits_resized = _unpad_and_resize_masks(
@@ -259,7 +259,7 @@ def eomt_post_process_panoptic(
 
     mask_probs = mask_logits_resized[0]
 
-    keep = (pred_labels != num_labels) & (pred_scores > threshold)
+    keep = (pred_labels != num_classes) & (pred_scores > threshold)
     mask_probs = mask_probs[keep]
     pred_scores = pred_scores[keep]
     pred_labels = pred_labels[keep]

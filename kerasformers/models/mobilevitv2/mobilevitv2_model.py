@@ -11,7 +11,12 @@ from kerasformers.models.mobilevit.mobilevit_model import mobilevit_aspp_head
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
-from .config import MOBILEVITV2_MODEL_CONFIG, MOBILEVITV2_WEIGHT_CONFIG
+from .config import (
+    MOBILEVITV2_MODEL_CONFIG,
+    MOBILEVITV2_SEGMENT_MODEL_CONFIG,
+    MOBILEVITV2_SEGMENT_WEIGHT_CONFIG,
+    MOBILEVITV2_WEIGHT_CONFIG,
+)
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -377,7 +382,7 @@ def mobilevitv2_backbone_feature(
         channels = int(([64, 128, 256, 384, 512][stage]) * multiplier)
 
         # For atrous output strides the last stage(s) keep stride 1 and the
-        # downsampling inverted-residual carries the dilation (HF applies
+        # downsampling inverted-residual carries the dilation (the reference applies
         # ``dilation // 2`` to it); the MobileViTV2 block's local conv is never
         # dilated.
         stage_dilation = stage_dilations_default[stage]
@@ -732,10 +737,10 @@ class MobileViTV2SemanticSegment(BaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
+        variant: MOBILEVITV2_SEGMENT_MODEL_CONFIG[meta["model"]]
+        for variant, meta in MOBILEVITV2_SEGMENT_WEIGHT_CONFIG.items()
     }
-    BASE_WEIGHT_CONFIG = None
+    BASE_WEIGHT_CONFIG = MOBILEVITV2_SEGMENT_WEIGHT_CONFIG
     HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod

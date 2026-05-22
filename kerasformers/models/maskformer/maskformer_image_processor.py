@@ -1,5 +1,3 @@
-"""Image preprocessing + segmentation post-processing for MaskFormer."""
-
 from typing import Dict, List, Optional, Tuple, Union
 
 import keras
@@ -11,11 +9,6 @@ from kerasformers.utils.image import get_data_format, load_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
-
-
-def get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, int]:
-    scale = target_size / max(orig_h, orig_w)
-    return int(orig_h * scale), int(orig_w * scale)
 
 
 class MaskFormerImageProcessor(BaseImageProcessor):
@@ -61,7 +54,8 @@ class MaskFormerImageProcessor(BaseImageProcessor):
         image = load_image(image).astype(np.float32)
 
         h, w = image.shape[:2]
-        new_h, new_w = get_resized_size(h, w, self.target_size)
+        scale = self.target_size / max(h, w)
+        new_h, new_w = int(h * scale), int(w * scale)
 
         image = keras.ops.convert_to_tensor(image, dtype="float32")
         image = keras.ops.expand_dims(image, axis=0)
@@ -126,7 +120,24 @@ class MaskFormerImageProcessor(BaseImageProcessor):
 def unpad_and_resize_masks(
     mask_logits, model_size: int, target_h: int, target_w: int
 ) -> np.ndarray:
-    resized_h, resized_w = get_resized_size(target_h, target_w, model_size)
+    """Upscale mask logits, remove padding, and resize to the original image.
+
+    The model predicts masks for a square ``model_size`` input that the
+    processor produced by aspect-ratio resize + bottom/right padding. This
+    upsamples the masks to ``model_size``, crops away the padded region, then
+    resizes to the true ``(target_h, target_w)``.
+
+    Args:
+        mask_logits: Mask logits of shape ``(1, Q, h, w)``.
+        model_size: Square edge length the model was run at.
+        target_h: Original (unpadded) image height.
+        target_w: Original (unpadded) image width.
+
+    Returns:
+        Numpy array of shape ``(1, Q, target_h, target_w)``.
+    """
+    scale = model_size / max(target_h, target_w)
+    resized_h, resized_w = int(target_h * scale), int(target_w * scale)
     mask_logits = keras.ops.convert_to_tensor(mask_logits, dtype="float32")
 
     mask_4d = keras.ops.transpose(mask_logits, (0, 2, 3, 1))
@@ -150,6 +161,23 @@ def maskformer_post_process_semantic(
     model_size: int = 512,
     label_names: Optional[List[str]] = None,
 ) -> List[np.ndarray]:
+    """Fuse per-query class and mask predictions into semantic label maps.
+
+    For each image, softmaxes the class logits (dropping the no-object class),
+    sigmoids the resized masks, combines them (``qc, qhw -> chw``), and takes
+    the per-pixel argmax over classes.
+
+    Args:
+        outputs: Model output dict with ``class_queries_logits`` and
+            ``masks_queries_logits``.
+        target_sizes: Optional per-image ``(height, width)`` outputs; defaults
+            to ``model_size`` square.
+        model_size: Square edge length the model was run at.
+        label_names: Optional class names (unused; kept for API parity).
+
+    Returns:
+        List of ``(H, W)`` integer label maps, one per image.
+    """
     class_logits = outputs["class_queries_logits"]
     mask_logits = outputs["masks_queries_logits"]
 
@@ -186,10 +214,32 @@ def maskformer_post_process_panoptic(
     stuff_classes: Optional[List[int]] = None,
     label_names: Optional[List[str]] = None,
 ) -> Dict:
+    """Build a single-image panoptic segmentation from raw model outputs.
+
+    Keeps confident, non-no-object queries, assigns each pixel to its
+    highest-scoring kept query, drops segments whose surviving area falls below
+    ``overlap_mask_area_threshold``, and merges "stuff" classes into one segment
+    each.
+
+    Args:
+        outputs: Model output dict with ``class_queries_logits`` and
+            ``masks_queries_logits``.
+        target_size: ``(height, width)`` of the output panoptic map.
+        threshold: Minimum query confidence to keep a predicted segment.
+        mask_threshold: Probability cutoff for binarising each mask.
+        overlap_mask_area_threshold: Minimum kept-area fraction for a segment
+            after resolving overlaps.
+        model_size: Square edge length the model was run at.
+        stuff_classes: Class ids treated as amorphous "stuff".
+        label_names: Optional class names attached to each segment's info.
+
+    Returns:
+        Dict with the panoptic ``segmentation`` map and per-segment info list.
+    """
     class_logits = outputs["class_queries_logits"]
     mask_logits = outputs["masks_queries_logits"]
 
-    num_labels = class_logits.shape[-1] - 1
+    num_classes = class_logits.shape[-1] - 1
     target_h, target_w = target_size
 
     mask_logits_resized = unpad_and_resize_masks(
@@ -200,7 +250,7 @@ def maskformer_post_process_panoptic(
     pred_labels = np.argmax(scores_all, axis=-1)
 
     mask_probs = mask_logits_resized[0]
-    keep = (pred_labels != num_labels) & (pred_scores > threshold)
+    keep = (pred_labels != num_classes) & (pred_scores > threshold)
     mask_probs = mask_probs[keep]
     pred_scores = pred_scores[keep]
     pred_labels = pred_labels[keep]

@@ -430,7 +430,7 @@ class EfficientFormerModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_efficientformer_torch_to_keras import (
+        from .convert_efficientformer_timm_to_keras import (
             transfer_efficientformer_weights,
         )
 
@@ -612,7 +612,7 @@ class EfficientFormerImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_efficientformer_torch_to_keras import (
+        from .convert_efficientformer_timm_to_keras import (
             transfer_efficientformer_weights,
         )
 

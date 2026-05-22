@@ -1,12 +1,3 @@
-"""DETR-style decoder layers + helpers for MaskFormer.
-
-Implements the building blocks of the MaskFormer transformer decoder
-(:class:`MaskFormerDetrAttention`,
-:class:`MaskFormerSinePositionEmbedding`,
-:class:`MaskFormerExpandQueryEmbedding`). The Swin backbone lives in
-``maskformer_swin_layers``.
-"""
-
 import math
 
 import keras
@@ -41,6 +32,7 @@ class MaskFormerSinePositionEmbedding(layers.Layer):
         temperature=10000,
         normalize=True,
         eps=1e-6,
+        data_format=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -49,11 +41,12 @@ class MaskFormerSinePositionEmbedding(layers.Layer):
         self.normalize = normalize
         self.eps = eps
         self.num_pos_feats = hidden_dim // 2
+        self.data_format = data_format or keras.config.image_data_format()
 
     def call(self, inputs):
         shape = ops.shape(inputs)
         batch_size = shape[0]
-        data_format = keras.config.image_data_format()
+        data_format = self.data_format
         if data_format == "channels_first":
             h = shape[2]
             w = shape[3]
@@ -99,7 +92,6 @@ class MaskFormerSinePositionEmbedding(layers.Layer):
         pos = ops.concatenate([pos_y, pos_x], axis=-1)
         pos = ops.expand_dims(pos, axis=0)
         pos = ops.broadcast_to(pos, [batch_size, h, w, self.hidden_dim])
-
         if data_format == "channels_first":
             pos = ops.transpose(pos, [0, 3, 1, 2])
         return pos
@@ -112,6 +104,7 @@ class MaskFormerSinePositionEmbedding(layers.Layer):
                 "temperature": self.temperature,
                 "normalize": self.normalize,
                 "eps": self.eps,
+                "data_format": self.data_format,
             }
         )
         return c
@@ -123,7 +116,7 @@ class MaskFormerDetrAttention(layers.Layer):
 
     Used in the MaskFormer transformer decoder for both self-attention
     (over object queries) and cross-attention (queries attending to the
-    flattened image memory). Mirrors HF's ``DetrAttention`` naming so the
+    flattened image memory). Uses DETR-style projection naming so the
     state-dict transfer is direct.
 
     Args:

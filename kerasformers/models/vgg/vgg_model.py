@@ -191,7 +191,7 @@ class VGGModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_vgg_torch_to_keras import transfer_vgg_weights
+        from .convert_vgg_timm_to_keras import transfer_vgg_weights
 
         transfer_vgg_weights(keras_model, state_dict)
 
@@ -329,7 +329,7 @@ class VGGImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_vgg_torch_to_keras import transfer_vgg_weights
+        from .convert_vgg_timm_to_keras import transfer_vgg_weights
 
         transfer_vgg_weights(keras_model, state_dict)
 

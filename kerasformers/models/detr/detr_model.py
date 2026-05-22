@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
-from kerasformers.base.base_model import hf_num_labels
+from kerasformers.base.base_model import hf_num_classes
 from kerasformers.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
     DETRFlattenFeatures,
@@ -13,7 +13,12 @@ from kerasformers.models.detr.detr_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .config import DETR_CONFIG, DETR_WEIGHTS
+from .config import (
+    DETR_CONFIG,
+    DETR_SEGMENT_CONFIG,
+    DETR_SEGMENT_WEIGHTS,
+    DETR_WEIGHTS,
+)
 
 
 def detr_encoder_layer(
@@ -231,7 +236,7 @@ def detr_backbone(
     FPN-style fusion. The DETR encoder uses only the last (C5);
     :class:`DETRSegment`'s mask head uses C2/C3/C4 as well.
 
-    Sublayer names mirror HuggingFace's DETR backbone naming
+    Sublayer names follow the reference DETR backbone naming
     (``backbone_conv1``, ``backbone_layer{stage}_{block}_*``,
     ``*_downsample_*``), so :func:`transfer_detr_weights` can map the
     PyTorch state-dict directly without renaming.
@@ -490,7 +495,7 @@ def detr_decoder(
     Returns:
         Decoder ``last_hidden_state`` of shape
         ``(B, num_queries, hidden_dim)`` — the DETR equivalent of
-        HuggingFace's ``DetrModel.last_hidden_state``.
+        the reference ``DetrModel`` last hidden state.
     """
     query_embed = DETRExpandQueryEmbedding(
         num_queries,
@@ -620,7 +625,7 @@ def detr_functional(
 class DetrModel(BaseModel):
     """DETR backbone + transformer encoder/decoder (no detection heads).
 
-    Matches the HuggingFace ``DetrModel`` pattern — outputs the decoder
+    Matches the reference ``DetrModel`` pattern — outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, hidden_dim)``.
     Wraps the functional graph built by :func:`detr_functional`: a
     ResNet-50/101 backbone, a stack of post-norm transformer encoder
@@ -878,12 +883,12 @@ class DETRDetect(BaseModel):
             "dim_feedforward": hf_config["encoder_ffn_dim"],
             "dropout_rate": hf_config["dropout"],
             "num_queries": hf_config["num_queries"],
-            "num_classes": hf_num_labels(hf_config) + 1,
+            "num_classes": hf_num_classes(hf_config) + 1,
         }
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_detr_torch_to_keras import transfer_detr_weights
+        from .convert_detr_hf_to_keras import transfer_detr_weights
 
         transfer_detr_weights(keras_model, hf_state_dict)
 
@@ -892,7 +897,7 @@ class DETRDetect(BaseModel):
 class DETRSegment(BaseModel):
     """DETR for panoptic / instance segmentation — detection + per-query masks.
 
-    Mirrors HuggingFace's ``DetrForSegmentation``: composes the
+    Composes the
     detection model (class + bbox heads identical to
     :class:`DETRDetect`) and adds the segmentation head — a multi-head
     attention map between decoder queries and encoder features
@@ -934,7 +939,7 @@ class DETRSegment(BaseModel):
         num_queries: Number of learned object queries (= number of
             mask + class + bbox predictions per image).
             Defaults to ``100``.
-        num_classes: Class-head output dim (HF panoptic checkpoints
+        num_classes: Class-head output dim (panoptic checkpoints
             use ``250``). Defaults to ``250``.
         input_image_shape: Input image specification. Defaults to ``800``.
         input_tensor: Optional pre-existing Keras tensor for the
@@ -944,8 +949,8 @@ class DETRSegment(BaseModel):
             :class:`BaseModel`.
     """
 
-    BASE_MODEL_CONFIG = DETR_CONFIG
-    BASE_WEIGHT_CONFIG = DETR_WEIGHTS
+    BASE_MODEL_CONFIG = DETR_SEGMENT_CONFIG
+    BASE_WEIGHT_CONFIG = DETR_SEGMENT_WEIGHTS
     HF_MODEL_TYPE = "detr"
 
     def __init__(
@@ -1098,11 +1103,11 @@ class DETRSegment(BaseModel):
             "dim_feedforward": hf_config["encoder_ffn_dim"],
             "dropout_rate": hf_config["dropout"],
             "num_queries": hf_config["num_queries"],
-            "num_classes": hf_num_labels(hf_config) + 1,
+            "num_classes": hf_num_classes(hf_config) + 1,
         }
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_detr_torch_to_keras import transfer_detr_segment_weights
+        from .convert_detr_hf_to_keras import transfer_detr_segment_weights
 
         transfer_detr_segment_weights(keras_model, hf_state_dict)

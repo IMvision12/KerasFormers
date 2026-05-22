@@ -27,7 +27,7 @@ def siglip_encoder(
 
     Shared building block for both the vision and text encoders. All
     sublayer names are deterministic — ``{name}_*`` — so the
-    corresponding HF weights can be transferred by name during
+    corresponding pretrained weights can be transferred by name during
     checkpoint conversion.
 
     Args:
@@ -254,7 +254,7 @@ def siglip_vision_features(
 
     Returns:
         Full token sequence ``(B, num_patches, hidden_dim)`` after the final
-        LayerNorm — equivalent to HF ``SiglipVisionModel.last_hidden_state``.
+        LayerNorm — equivalent to the reference vision encoder's last hidden state.
     """
     input_shape = inputs.shape
     if data_format == "channels_last":
@@ -302,7 +302,7 @@ def siglip_vision_backbone(
 ):
     """SigLIP vision encoder: features + attention pooling — no projection.
 
-    Mirrors HF ``SiglipVisionModel`` outputs. Pipeline:
+    Vision-encoder forward pass. Pipeline:
     :func:`siglip_vision_features` → :func:`siglip_attention_pooling`.
 
     Args:
@@ -412,7 +412,7 @@ def siglip_text_backbone(
 ):
     """SigLIP text encoder: embeddings + encoder stack + final LN + head.
 
-    Mirrors HF ``SiglipTextModel`` outputs. Returns the post-LN encoder
+    Text-encoder forward pass. Returns the post-LN encoder
     output as ``last_hidden_state`` and the last-token projection through
     the ``text_model_head`` Dense as ``pooler_output``.
 
@@ -506,7 +506,7 @@ def siglip_head(vision_embedding, text_embedding):
 class SigLIPVisionModel(BaseModel):
     """SigLIP vision tower as a standalone model.
 
-    Mirrors HuggingFace's ``SiglipVisionModel``: patch embedding +
+    Patch embedding +
     transformer stack + final LayerNorm, followed by the attention-
     pooling head. Use this when you only need image features and don't
     want to instantiate the text tower.
@@ -575,7 +575,7 @@ class SigLIPVisionModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -665,7 +665,7 @@ class SigLIPVisionModel(BaseModel):
 class SigLIPTextModel(BaseModel):
     """SigLIP text tower as a standalone model.
 
-    Mirrors HuggingFace's ``SiglipTextModel``: token + positional
+    Token + positional
     embedding, transformer stack, final LayerNorm, and last-token
     projection through the ``text_model_head`` Dense. Use this when
     you only need text features and don't want to instantiate the
@@ -735,7 +735,7 @@ class SigLIPTextModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -829,7 +829,7 @@ class SigLIPModel(BaseModel):
     around a shared input pair, and returns the towers'
     ``pooler_output`` as ``image_embeddings`` / ``text_embeddings``. No
     L2-norm or ``logit_scale`` / ``logit_bias`` is applied — for the
-    full HF-style head use :class:`SigLIPZeroShotClassify`. For
+    full zero-shot head use :class:`SigLIPZeroShotClassify`. For
     supervised classification use :class:`SigLIPImageClassify`.
 
     The two sub-models are exposed as ``model.vision_model`` and
@@ -905,7 +905,7 @@ class SigLIPModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -1066,7 +1066,7 @@ class SigLIPZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -1169,15 +1169,14 @@ class SigLIPImageClassify(BaseModel):
     Composes :class:`SigLIPVisionModel`, mean-pools the
     ``last_hidden_state`` patch tokens (the attention-pooling head is
     bypassed for classification), and applies a single linear
-    classifier producing ``num_labels`` logits. Mirrors HF's
-    ``SiglipForImageClassification`` design.
+    classifier producing ``num_classes`` logits.
 
     .. code-block:: python
 
         model = SigLIPImageClassify.from_weights(
             "hf:<user>/siglip-finetune-imagenet"
         )
-        logits = model(images)              # (B, num_labels)
+        logits = model(images)              # (B, num_classes)
 
     The vision tower is exposed as ``model.vision_model`` so it can be
     re-used directly (for feature extraction).
@@ -1187,7 +1186,7 @@ class SigLIPImageClassify(BaseModel):
           <https://arxiv.org/abs/2303.15343>`_
 
     Args:
-        num_labels: Number of output classes. Defaults to ``1000``.
+        num_classes: Number of output classes. Defaults to ``1000``.
         input_image_shape: Input image specification. Accepts an
             integer ``N`` (builds an ``N x N x 3`` square input), a
             2-tuple ``(H, W)``, or a 3-tuple in the active data format's
@@ -1230,18 +1229,18 @@ class SigLIPImageClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         config = SigLIPModel.config_from_hf(hf_config)
         try:
-            config["num_labels"] = hf_num_labels(hf_config)
+            config["num_classes"] = hf_num_classes(hf_config)
         except KeyError:
             pass
         return config
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_image_classify_weights,
         )
 
@@ -1249,7 +1248,7 @@ class SigLIPImageClassify(BaseModel):
 
     def __init__(
         self,
-        num_labels=1000,
+        num_classes=1000,
         input_image_shape=224,
         patch_size=16,
         vision_hidden_dim=768,
@@ -1292,12 +1291,12 @@ class SigLIPImageClassify(BaseModel):
         encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded, axis=1)
-        logits = layers.Dense(num_labels, name="classifier")(pooled)
+        logits = layers.Dense(num_classes, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.vision_model = vision_model
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
@@ -1310,7 +1309,7 @@ class SigLIPImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,

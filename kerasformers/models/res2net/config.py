@@ -47,36 +47,36 @@ RES2NET_WEIGHT_CONFIG = {
     "res2net50_26w_4s_in1k": {
         "model": "res2net50_26w_4s",
         "timm_id": "res2net50_26w_4s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/res2net50_26w_4s_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_26w_4s_in1k.weights.h5",
     },
     "res2net101_26w_4s_in1k": {
         "model": "res2net101_26w_4s",
         "timm_id": "res2net101_26w_4s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/res2net101_26w_4s_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net101_26w_4s_in1k.weights.h5",
     },
     "res2net50_26w_6s_in1k": {
         "model": "res2net50_26w_6s",
         "timm_id": "res2net50_26w_6s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/res2net50_26w_6s_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_26w_6s_in1k.weights.h5",
     },
     "res2net50_26w_8s_in1k": {
         "model": "res2net50_26w_8s",
         "timm_id": "res2net50_26w_8s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/res2net50_26w_8s_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_26w_8s_in1k.weights.h5",
     },
     "res2net50_48w_2s_in1k": {
         "model": "res2net50_48w_2s",
         "timm_id": "res2net50_48w_2s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/res2net50_48w_2s_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_48w_2s_in1k.weights.h5",
     },
     "res2net50_14w_8s_in1k": {
         "model": "res2net50_14w_8s",
         "timm_id": "res2net50_14w_8s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/res2net50_14w_8s_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_14w_8s_in1k.weights.h5",
     },
     "res2next50_in1k": {
         "model": "res2next50",
         "timm_id": "res2next50.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.2/res2next50_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2next50_in1k.weights.h5",
     },
 }

@@ -277,7 +277,7 @@ def owlv2_class_predictor(
         pred_logits: Cosine-similarity-based class logits
             ``(B, num_patches, num_queries)``.
         image_class_embeds: L2-normalized image projections
-            ``(B, num_patches, out_dim)`` — matches HuggingFace's
+            ``(B, num_patches, out_dim)`` — matches the reference's
             returned ``class_embeds`` so callers can use them directly
             for cosine-similarity scoring against custom text queries
             (e.g. one-shot / image-guided detection).
@@ -432,7 +432,7 @@ def owlv2_detection_head(
 class Owlv2VisionModel(BaseModel):
     """OWLv2 vision tower as a standalone model.
 
-    Mirrors HuggingFace's ``Owlv2VisionModel``: patch + position + CLS
+    Patch + position + CLS
     embeddings, pre-LN, transformer encoder, and post-LN. Use this when
     you only need image features and don't want to instantiate the text
     tower. Composed by :class:`Owlv2Model`.
@@ -567,7 +567,7 @@ class Owlv2VisionModel(BaseModel):
 class Owlv2TextModel(BaseModel):
     """OWLv2 text tower as a standalone model.
 
-    Mirrors HuggingFace's ``Owlv2TextModel``: token + position
+    Token + position
     embeddings, causal-masked transformer encoder, final LayerNorm, and
     EOS-token pooling. Use this when you only need text features and
     don't want to instantiate the vision tower. Composed by
@@ -691,7 +691,7 @@ class Owlv2TextModel(BaseModel):
 class Owlv2Model(BaseModel):
     """OWLv2 vision + text encoder (no detection heads).
 
-    Mirrors HuggingFace's ``Owlv2Model``. Composes
+    Composes
     :class:`Owlv2VisionModel` and :class:`Owlv2TextModel` (exposed as
     ``model.vision_model`` / ``model.text_model``), and applies the
     ``text_projection`` + L2-normalization on the text side. Returns the
@@ -856,7 +856,7 @@ class Owlv2Model(BaseModel):
 class Owlv2Detect(BaseModel):
     """OWLv2 object detection model (encoder + class/box/objectness heads).
 
-    Mirrors HuggingFace's ``Owlv2ForObjectDetection``. Produces
+    Produces
     per-patch boxes, per-patch objectness logits, and text-conditional
     class similarity logits. The set of detection classes is the set of
     text queries provided at inference time. The objectness head (new

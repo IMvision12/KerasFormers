@@ -382,7 +382,7 @@ def generate_crop_boxes(
 ) -> Dict[str, Any]:
     """Generate hierarchical crops and per-crop point prompts for AMG.
 
-    Mirrors ``SamProcessor.generate_crop_boxes`` from HuggingFace.
+    Reproduces ``SamProcessor.generate_crop_boxes`` behaviour.
 
     Args:
         image: Input image as a file path, numpy array ``(H, W, 3)``,
@@ -392,7 +392,7 @@ def generate_crop_boxes(
             Layer ``i`` contributes ``(2**(i+1))**2`` crops. Defaults to ``0``
             (full image only).
         overlap_ratio: Fraction of the short side by which crops overlap
-            in layer 1. Defaults to ``512/1500`` (HF default).
+            in layer 1. Defaults to ``512/1500`` (the original default).
         points_per_crop: Number of points per side in the layer-0 grid.
             Defaults to ``32`` (1024 total points for layer 0).
         crop_n_points_downscale_factor: Points-per-side in layer ``n`` is

@@ -135,7 +135,7 @@ WHISPER_WEIGHTS = {
 
 
 # OpenAI Whisper's hard-coded logits processor lists (see
-# `whisper/decoding.py` and HF's `GenerationConfig`).
+# `whisper/decoding.py` and the reference `GenerationConfig`).
 WHISPER_SUPPRESS_TOKENS = [
     1,
     2,

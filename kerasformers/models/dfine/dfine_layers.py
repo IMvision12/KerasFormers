@@ -304,7 +304,7 @@ def ms_deform_attn_core_variable(
     Performs bilinear sampling at learned offset locations across multiple
     feature levels, weighted by attention scores. Uses
     ``torch.nn.functional.grid_sample`` on the torch backend for exact
-    numerical parity with HuggingFace, and falls back to a pure-ops
+    numerical parity with the reference, and falls back to a pure-ops
     implementation on JAX and TensorFlow.
 
     Args:

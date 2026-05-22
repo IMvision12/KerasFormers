@@ -2,7 +2,7 @@ import keras
 from keras import layers
 
 from kerasformers.base import BaseModel
-from kerasformers.base.base_model import hf_num_labels
+from kerasformers.base.base_model import hf_num_classes
 from kerasformers.models.mit.mit_model import MiTModel
 from kerasformers.utils import standardize_input_shape
 
@@ -227,13 +227,13 @@ class SegFormerSemanticSegment(BaseModel):
             "embed_dims": list(hf_config["hidden_sizes"]),
             "depths": list(hf_config["depths"]),
             "decode_head_dim": hf_config["decoder_hidden_size"],
-            "num_classes": hf_num_labels(hf_config),
+            "num_classes": hf_num_classes(hf_config),
             "input_image_shape": image_size,
         }
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.segformer.convert_segformer_torch_to_keras import (
+        from kerasformers.models.segformer.convert_segformer_hf_to_keras import (
             transfer_segformer_weights,
         )
 

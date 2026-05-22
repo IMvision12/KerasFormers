@@ -7,9 +7,9 @@ class MobileViTV2ImageProcessor(MobileViTImageProcessor):
     """Preprocess images for MobileViTV2 inference.
 
     Functionally identical to :class:`MobileViTImageProcessor` —
-    HuggingFace ships a single ``MobileViTImageProcessor`` class that
+    The reference ships a single ``MobileViTImageProcessor`` class that
     serves both V1 and V2 checkpoints. The two only differ in default
-    sizes (carried over from the parent), which are loaded from the HF
+    sizes (carried over from the parent), which are loaded from the source
     config if you instantiate via ``from_pretrained`` and otherwise match
     the V1 classification defaults: ``size["shortest_edge"]=288`` /
     ``crop_size=256x256``. For V2 segmentation, override with

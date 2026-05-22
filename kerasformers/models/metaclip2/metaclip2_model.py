@@ -33,7 +33,7 @@ def quick_gelu(x):
 
 
 def activation_layer(hidden_act):
-    """Build the activation layer named in the HF MetaCLIP 2 config.
+    """Build the activation layer named in the MetaCLIP 2 config.
 
     Recognizes ``"quick_gelu"`` and wraps :func:`quick_gelu` in a
     ``Lambda`` (since it is not registered as a Keras activation). Any
@@ -41,7 +41,7 @@ def activation_layer(hidden_act):
     ``"gelu"`` for MetaCLIP 2).
 
     Args:
-        hidden_act: Activation name matching HF's ``hidden_act`` field.
+        hidden_act: Activation name from the ``hidden_act`` config field.
 
     Returns:
         A ``keras.layers.Layer`` instance ready to apply to a tensor.
@@ -66,7 +66,7 @@ def residual_attention_block(
 
     Shared building block for both MetaCLIP 2's vision and text encoders
     — same shape as the OpenAI CLIP block. All sublayer names are
-    deterministic (``{layer_name_prefix}_{layer_idx}_*``) so the HF
+    deterministic (``{layer_name_prefix}_{layer_idx}_*``) so the source
     state-dict can be transferred by name during conversion.
 
     Args:
@@ -199,7 +199,7 @@ def metaclip2_vision_features(
     Pipeline: patch ``Conv2D`` → prepend the learned CLS token and add
     positional embeddings via :class:`CLIPVisionModelEmbedding` → pre-LN →
     :func:`metaclip2_encoder`. Output is the full token sequence (CLS
-    at index 0), matching HF's
+    at index 0), matching the reference's
     ``MetaClip2VisionModel.last_hidden_state`` — useful when you want
     raw features rather than the projected image embedding.
 
@@ -262,7 +262,7 @@ def metaclip2_vision_backbone(
 ):
     """MetaCLIP 2 vision encoder up through post-encoder LayerNorm — no projection.
 
-    Mirrors HF ``MetaClip2VisionModel`` outputs. Pipeline:
+    Vision-encoder forward pass. Pipeline:
     :func:`metaclip2_vision_features` → slice CLS at index 0 →
     post-encoder LayerNorm. Returns the full token-sequence
     ``last_hidden_state`` plus the CLS-pooled, post-layernormed
@@ -318,12 +318,12 @@ def metaclip2_text_backbone(
 ):
     """MetaCLIP 2 text encoder up through final LN + EOS pluck — no projection.
 
-    Mirrors HF ``MetaClip2TextModel`` outputs. Pipeline:
+    Text-encoder forward pass. Pipeline:
     :class:`CLIPTextModelEmbedding` → causal + padding-masked
     :func:`metaclip2_encoder` → post-encoder LayerNorm → pluck the
     hidden state at each row's EOS position.
 
-    **Difference from OpenAI CLIP**: HF CLIP picks the EOT position
+    **Difference from OpenAI CLIP**: this model picks the EOT position
     via ``argmax(token_ids, axis=-1)`` (works because the EOT id is
     the largest token id). MetaCLIP 2 uses the XLM-R tokenizer where
     ``mask_token_id > eos_token_id``, so argmax can pick the wrong
@@ -428,7 +428,7 @@ def metaclip2_head(image_embeddings, text_embeddings):
 class MetaClip2VisionModel(BaseModel):
     """MetaCLIP 2 vision tower as a standalone model — no text encoder, no projection.
 
-    Mirrors HuggingFace's ``MetaClip2VisionModel``: the patch-embedding +
+    The patch-embedding +
     transformer stack from MetaCLIP 2, ending at the post-encoder
     LayerNorm. Use this when you only need image features and don't
     want to instantiate the text tower or carry the
@@ -593,7 +593,7 @@ class MetaClip2VisionModel(BaseModel):
 class MetaClip2TextModel(BaseModel):
     """MetaCLIP 2 text tower as a standalone model — no vision encoder, no projection.
 
-    Mirrors HuggingFace's ``MetaClip2TextModel``: token + positional
+    Token + positional
     embedding, causal-masked transformer stack, post-encoder LayerNorm,
     and EOS-position pluck. Use this when you only need text features
     and don't want to instantiate the vision tower or carry the
@@ -1093,11 +1093,11 @@ class MetaClip2ZeroShotClassify(BaseModel):
 class MetaClip2ImageClassify(BaseModel):
     """MetaCLIP 2 vision encoder + linear image-classification head.
 
-    Mirrors HF's ``MetaClip2ForImageClassification``: uses **only the
+    Uses **only the
     vision encoder** (no text encoder, no visual projection, no post-LN,
     no ``logit_scale``), drops the CLS token, mean-pools the patch
     tokens, and applies a single linear classifier producing
-    ``num_labels`` logits.
+    ``num_classes`` logits.
     """
 
     BASE_MODEL_CONFIG = METACLIP2_CONFIG
@@ -1115,11 +1115,11 @@ class MetaClip2ImageClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         config = MetaClip2Model.config_from_hf(hf_config)
         try:
-            config["num_labels"] = hf_num_labels(hf_config)
+            config["num_classes"] = hf_num_classes(hf_config)
         except KeyError:
             pass
         return config
@@ -1134,7 +1134,7 @@ class MetaClip2ImageClassify(BaseModel):
 
     def __init__(
         self,
-        num_labels=1000,
+        num_classes=1000,
         input_image_shape=224,
         vision_layers=12,
         vision_width=768,
@@ -1182,12 +1182,12 @@ class MetaClip2ImageClassify(BaseModel):
         encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded[:, 1:, :], axis=1)
-        logits = layers.Dense(num_labels, name="classifier")(pooled)
+        logits = layers.Dense(num_classes, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.vision_model = vision_model
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
@@ -1201,7 +1201,7 @@ class MetaClip2ImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,

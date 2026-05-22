@@ -532,7 +532,7 @@ class SwinModel(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_swin_torch_to_keras import transfer_swin_weights
+        from .convert_swin_timm_to_keras import transfer_swin_weights
 
         transfer_swin_weights(keras_model, state_dict)
 
@@ -698,7 +698,7 @@ class SwinImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_swin_torch_to_keras import transfer_swin_weights
+        from .convert_swin_timm_to_keras import transfer_swin_weights
 
         transfer_swin_weights(keras_model, state_dict)
 

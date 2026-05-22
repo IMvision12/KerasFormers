@@ -213,7 +213,7 @@ def transfer_mobilevit_weights(
 
 # MobileViT classification weights come from timm (see
 # convert_mobilevit_timm_to_keras.py); only the DeepLabV3 segmentation
-# checkpoints are converted from HF here.
+# checkpoints are converted from the source here.
 MOBILEVIT_SEGMENT_VARIANTS: List[Tuple[str, str]] = [
     ("mobilevit_xxs_deeplabv3", "apple/deeplabv3-mobilevit-xx-small"),
     ("mobilevit_xs_deeplabv3", "apple/deeplabv3-mobilevit-x-small"),
@@ -222,8 +222,8 @@ MOBILEVIT_SEGMENT_VARIANTS: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
-    # Run the HF reference on the same device Keras (torch backend) uses. On a
-    # GPU, comparing GPU-Keras against CPU-HF lets cuDNN-vs-CPU float divergence
+    # Run the reference model on the same device Keras (torch backend) uses. On a
+    # GPU, comparing GPU-Keras against the CPU reference lets cuDNN-vs-CPU float divergence
     # compound through MobileViT's deep conv stack and blows up the unnormalized
     # logits (O(1) diffs that look like a conversion bug but aren't).
     device = "cuda" if torch.cuda.is_available() else "cpu"

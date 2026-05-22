@@ -1,12 +1,12 @@
-"""On-the-fly weight conversion from HuggingFace gated repos.
+"""On-the-fly weight conversion from gated source repos.
 
 For models whose licenses do not allow weight redistribution (e.g. SAM3,
-DINOv3), this utility downloads from the original HuggingFace repo,
+DINOv3), this utility downloads from the original source repo,
 converts to Keras format using a model-specific transfer function, and
 caches the result locally so subsequent loads are instant.
 
 Requires:
-    1. User has accepted the model's license on HuggingFace.
+    1. User has accepted the model's license on the model Hub.
     2. ``HF_TOKEN`` env var is set, or ``huggingface-cli login`` has been run.
     3. ``torch`` and ``transformers`` are installed.
 
@@ -40,7 +40,7 @@ def load_and_convert_from_hf(
     hf_kwargs=None,
     is_gated=False,
 ):
-    """Download, convert, and cache HuggingFace weights for a Keras model.
+    """Download, convert, and cache source weights for a Keras model.
 
     Generic helper used for models whose Keras weights cannot be
     redistributed directly — either due to **license gating** (SAM3,
@@ -54,12 +54,12 @@ def load_and_convert_from_hf(
     Args:
         model: The Keras model instance to load weights into.
         model_name: String used as the cache subdirectory name.
-        hf_model_id: HuggingFace model identifier.
+        hf_model_id: Model-hub identifier.
         transfer_fn: Callable ``(keras_model, hf_state_dict) -> None``.
-        hf_model_cls: Optional HF model class name (``AutoModel`` by default).
+        hf_model_cls: Optional model class name (``AutoModel`` by default).
         hf_kwargs: Optional kwargs passed to ``from_pretrained``.
         is_gated: When True, emits the license-acceptance error message
-            on 401/403. When False (default), lets the HF error propagate.
+            on 401/403. When False (default), lets the download error propagate.
     """
     cache_dir = _get_cache_dir(model_name)
     cached_weights = os.path.join(cache_dir, f"{model_name}.weights.h5")
@@ -141,7 +141,7 @@ def load_gated_weights_from_hf(
     """Gated-repo variant of :func:`load_and_convert_from_hf`.
 
     Use for models whose licenses do not allow weight redistribution
-    (SAM3, DINOv3). On 401/403 from HuggingFace, emits a user-friendly
+    (SAM3, DINOv3). On 401/403 from the model Hub, emits a user-friendly
     license-acceptance error with setup instructions.
 
     For non-gated public repos (e.g. MetaCLIP 2) use

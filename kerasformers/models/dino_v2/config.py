@@ -24,12 +24,12 @@ DINOV2_CONFIG = {
 
 DINOV2_WEIGHTS = {
     "dinov2_vits14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/DinoV1_V2/dinov2_vits14.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dinov2_vits14.weights.h5",
     },
     "dinov2_vitb14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/DinoV1_V2/dinov2_vitb14.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dinov2_vitb14.weights.h5",
     },
     "dinov2_vitl14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/DinoV1_V2/dinov2_vitl14.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dinov2_vitl14.weights.h5",
     },
 }

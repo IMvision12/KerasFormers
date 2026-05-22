@@ -8,7 +8,7 @@ different set of pretrained checkpoints.
 
 These three classes are thin wrappers over the siglip module's encoder
 code with SigLIP 2's variant registry. ``HF_MODEL_TYPE = "siglip2"``
-keeps each class scoped to its HuggingFace ``model_type``.
+keeps each class scoped to its ``model_type``.
 """
 
 import keras
@@ -203,7 +203,7 @@ class SigLIP2ZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from kerasformers.models.siglip.convert_siglip_torch_to_keras import (
+        from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
             transfer_siglip_weights,
         )
 
@@ -314,13 +314,13 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
         model = SigLIP2ImageClassify.from_weights(
             "hf:<user>/siglip2-finetune-imagenet"
         )
-        logits = model(images)              # (B, num_labels)
+        logits = model(images)              # (B, num_classes)
 
     Reference:
         - `SigLIP 2 <https://arxiv.org/abs/2502.14786>`_
 
     Args (identical to :class:`SigLIPImageClassify`):
-        num_labels, input_image_shape, patch_size, vision_hidden_dim,
+        num_classes, input_image_shape, patch_size, vision_hidden_dim,
         vision_num_layers, vision_num_heads, vision_intermediate_dim,
         input_tensor, name.
     """

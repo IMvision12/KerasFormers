@@ -12,14 +12,14 @@ from kerasformers.utils.labels import PASCAL_VOC_CLASSES
 class MobileViTImageProcessor(BaseImageProcessor):
     """Preprocess images for MobileViT (V1 / V2) inference.
 
-    Matches the HuggingFace ``MobileViTImageProcessor`` pipeline:
+    Matches the reference ``MobileViTImageProcessor`` pipeline:
 
     1. Resize so the shortest edge equals ``size["shortest_edge"]`` while
        preserving aspect ratio (bilinear).
     2. Center crop to ``crop_size["height"] x crop_size["width"]``.
     3. Rescale by ``rescale_factor`` (defaults to ``1/255``).
     4. (Optional) Flip channel order RGB → BGR — the MobileViT training
-       recipe used BGR input, so HF checkpoints expect this flip.
+       recipe used BGR input, so the checkpoints expect this flip.
     5. Return as a Keras tensor in the requested data format.
 
     Note that MobileViT checkpoints are **not** mean/std normalized — the
@@ -39,7 +39,7 @@ class MobileViTImageProcessor(BaseImageProcessor):
         do_rescale: Whether to rescale pixel values. Defaults to ``True``.
         rescale_factor: Multiplier for rescaling. Defaults to ``1/255``.
         do_flip_channel_order: Whether to flip RGB to BGR. Defaults to
-            ``True`` to match HF defaults.
+            ``True`` to match the reference defaults.
         return_tensor: If ``True`` return a Keras tensor, else numpy.
             Defaults to ``True``.
         data_format: ``"channels_first"`` / ``"channels_last"``. ``None``

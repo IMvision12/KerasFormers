@@ -156,7 +156,7 @@ def sine_encode_boxes(boxes, num_pos_feats=128, temperature=10000):
 
     Encodes each of the 4 box coordinates ``(cx, cy, w, h)`` using
     interleaved sin/cos features in ``(y, x, w, h)`` order to match
-    the HuggingFace implementation.
+    the reference implementation.
 
     Args:
         boxes: ``(B, Q, 4)`` tensor of boxes in ``(cx, cy, w, h)``.

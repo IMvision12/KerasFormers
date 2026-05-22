@@ -22,7 +22,7 @@ class SAM2ImageProcessor(BaseImageProcessor):
 
     Resizes the image to ``(target_length, target_length)`` with
     antialiased bilinear interpolation (no aspect-ratio preservation,
-    matching HF ``SAM2ImageProcessor``), applies ImageNet
+    matching the reference ``SAM2ImageProcessor``), applies ImageNet
     normalization, and prepares default prompt placeholders so the
     model can run with just an image.
 

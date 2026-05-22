@@ -41,31 +41,31 @@ MIT_WEIGHT_CONFIG = {
     "mit_b0_in1k": {
         "model": "mit_b0",
         "hf_id": "nvidia/mit-b0",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.3/MiT_B0.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/mit_b0_in1k.weights.h5",
     },
     "mit_b1_in1k": {
         "model": "mit_b1",
         "hf_id": "nvidia/mit-b1",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.3/MiT_B1.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/mit_b1_in1k.weights.h5",
     },
     "mit_b2_in1k": {
         "model": "mit_b2",
         "hf_id": "nvidia/mit-b2",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.3/MiT_B2.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/mit_b2_in1k.weights.h5",
     },
     "mit_b3_in1k": {
         "model": "mit_b3",
         "hf_id": "nvidia/mit-b3",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.3/MiT_B3.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/mit_b3_in1k.weights.h5",
     },
     "mit_b4_in1k": {
         "model": "mit_b4",
         "hf_id": "nvidia/mit-b4",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.3/MiT_B4.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/mit_b4_in1k.weights.h5",
     },
     "mit_b5_in1k": {
         "model": "mit_b5",
         "hf_id": "nvidia/mit-b5",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/v0.3/MiT_B5.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/mit_b5_in1k.weights.h5",
     },
 }

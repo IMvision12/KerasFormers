@@ -664,7 +664,7 @@ class InceptionV4Model(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
+        from .convert_inceptionv4_timm_to_keras import transfer_inceptionv4_weights
 
         transfer_inceptionv4_weights(keras_model, state_dict)
 
@@ -781,7 +781,7 @@ class InceptionV4ImageClassify(BaseModel):
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
-        from .convert_inceptionv4_torch_to_keras import transfer_inceptionv4_weights
+        from .convert_inceptionv4_timm_to_keras import transfer_inceptionv4_weights
 
         transfer_inceptionv4_weights(keras_model, state_dict)
 

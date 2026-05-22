@@ -17,9 +17,9 @@ from .config import WHISPER_TOKENIZER_FILES
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class WhisperTokenizer(BaseTokenizer):
-    """Whisper byte-level BPE tokenizer, built on HuggingFace ``tokenizers`` (Rust).
+    """Whisper byte-level BPE tokenizer, built on the ``tokenizers`` library (Rust).
 
-    Matches HF ``WhisperTokenizer`` exactly for text encoding / decoding.
+    Matches the reference ``WhisperTokenizer`` exactly for text encoding / decoding.
     The pipeline is: ByteLevel pre-tokenizer + BPE(vocab.json, merges.txt) +
     ByteLevel decoder, plus the ~1607 Whisper special tokens (languages,
     timestamps, task tokens) registered via ``add_special_tokens``.

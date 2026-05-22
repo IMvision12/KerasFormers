@@ -25,7 +25,7 @@ def _dynamic_multimask_via_stability(
 ):
     """Pick between the single-mask and best multi-mask outputs.
 
-    Mirrors HF's ``Sam2MaskDecoder._dynamic_multimask_via_stability``
+    Reproduces ``Sam2MaskDecoder._dynamic_multimask_via_stability``
     (``transformers/models/sam2/modeling_sam2.py``):
 
     1. Compute the stability score of the single-mask output
@@ -171,7 +171,7 @@ def sam2_vision_encoder(
 
     Returns ``(image_embeddings, high_res_feat_s0, high_res_feat_s1)``.
     Uses ``backbone_*`` / ``neck_*`` / ``no_memory_embedding`` layer
-    names that match HF's weight keys, so the same weight transfer
+    names that match the source weight keys, so the same weight transfer
     works for both encoder-only and full-pipeline models.
     """
     padded = layers.ZeroPadding2D(
@@ -465,7 +465,7 @@ class SAM2PromptableSegment(BaseModel):
     Construction:
 
     >>> SAM2PromptableSegment.from_weights("sam2_hiera_tiny")              # kerasformers release
-    >>> SAM2PromptableSegment.from_weights("hf:facebook/sam2-hiera-tiny")  # HF passthrough
+    >>> SAM2PromptableSegment.from_weights("hf:facebook/sam2-hiera-tiny")  # Hub passthrough
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -547,7 +547,7 @@ class SAM2PromptableSegment(BaseModel):
 
     BASE_MODEL_CONFIG = SAM2_CONFIG
     BASE_WEIGHT_CONFIG = SAM2_WEIGHTS
-    # HF's facebook/sam2-hiera-* repos are Sam2VideoModel checkpoints
+    # The facebook/sam2-hiera-* repos are Sam2VideoModel checkpoints
     # (model_type="sam2_video"); image-only sam2 repos use "sam2".
     # Both share the image-side weights, so we accept either.
     HF_MODEL_TYPE = ("sam2", "sam2_video")

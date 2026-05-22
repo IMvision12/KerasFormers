@@ -34,7 +34,7 @@ def quick_gelu(x):
 
 
 def activation_layer(hidden_act):
-    """Build the activation layer named in the HF CLIP config.
+    """Build the activation layer named in the CLIP config.
 
     Recognizes ``"quick_gelu"`` and wraps :func:`quick_gelu` in a
     ``Lambda`` (since it is not registered as a Keras activation).
@@ -43,7 +43,7 @@ def activation_layer(hidden_act):
     ``"relu"``.
 
     Args:
-        hidden_act: Activation name matching HF's ``hidden_act`` field.
+        hidden_act: Activation name from the ``hidden_act`` config field.
 
     Returns:
         A ``keras.layers.Layer`` instance ready to apply to a tensor.
@@ -69,7 +69,7 @@ def residual_attention_block(
 
     Shared building block for both CLIP's vision and text encoders. All
     sublayer names are deterministic — ``{layer_name_prefix}_{layer_idx}_*``
-    — so the corresponding PyTorch / HF weights can be transferred by
+    — so the corresponding pretrained weights can be transferred by
     name during checkpoint conversion.
 
     Args:
@@ -208,7 +208,7 @@ def clip_vision_features(
     Pipeline: patch ``Conv2D`` → prepend the learned CLS token and add
     positional embeddings via :class:`CLIPVisionModelEmbedding` → pre-LN →
     :func:`clip_encoder`. Output is the full token sequence (CLS at
-    index 0), matching HF's ``CLIPVisionModel.last_hidden_state`` —
+    index 0), the pre-projection encoder output —
     useful when you want raw features rather than the projected image
     embedding.
 
@@ -273,7 +273,7 @@ def clip_vision_backbone(
 ):
     """CLIP vision encoder up through post-encoder LayerNorm — no projection.
 
-    Mirrors HF's ``CLIPVisionModel`` outputs. Pipeline:
+    Vision-encoder forward pass. Pipeline:
     :func:`clip_vision_features` → slice CLS at index 0 → post-encoder
     LayerNorm. Returns the full token-sequence ``last_hidden_state``
     plus the CLS-pooled, post-layernormed ``pooler_output``.
@@ -329,10 +329,10 @@ def clip_text_backbone(
 ):
     """CLIP text encoder up through final LayerNorm + EOT pluck — no projection.
 
-    Mirrors HF's ``CLIPTextModel`` outputs. Pipeline:
+    Text-encoder forward pass. Pipeline:
     :class:`CLIPTextModelEmbedding` → causal + padding-masked
     :func:`clip_encoder` → post-encoder LayerNorm → pluck the hidden
-    state at each row's EOT position (HF picks the position with the
+    state at each row's EOT position (the model picks the position with the
     largest ``token_id``).
 
     Args:
@@ -426,7 +426,7 @@ def clip_head(image_embeddings, text_embeddings):
 class CLIPVisionModel(BaseModel):
     """CLIP vision tower as a standalone model — no text encoder, no projection.
 
-    Mirrors HuggingFace's ``CLIPVisionModel``: the patch-embedding +
+    The patch-embedding +
     transformer stack from CLIP, ending at the post-encoder LayerNorm.
     Use this when you only need image features and don't want to
     instantiate the text tower or carry the ``visual_projection`` Dense.
@@ -480,7 +480,7 @@ class CLIPVisionModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -579,7 +579,7 @@ class CLIPVisionModel(BaseModel):
 class CLIPTextModel(BaseModel):
     """CLIP text tower as a standalone model — no vision encoder, no projection.
 
-    Mirrors HuggingFace's ``CLIPTextModel``: token + positional
+    Token + positional
     embedding, causal-masked transformer stack, post-encoder LayerNorm,
     and EOT-position pluck. Use this when you only need text features
     and don't want to instantiate the vision tower or carry the
@@ -634,7 +634,7 @@ class CLIPTextModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -740,7 +740,7 @@ class CLIPTextModel(BaseModel):
 class CLIPImageEmbed(BaseModel):
     """CLIP vision tower + ``visual_projection`` — joint-space image embeddings.
 
-    Mirrors HuggingFace's ``CLIPVisionModelWithProjection``: composes
+    Composes
     :class:`CLIPVisionModel` and applies the bias-free
     ``visual_projection`` Dense, producing the same image side as
     :class:`CLIPModel` but without instantiating the text tower or the
@@ -766,7 +766,7 @@ class CLIPImageEmbed(BaseModel):
     are silently ignored.
 
     Args:
-        embed_dim: Shared joint embedding dim (= HF ``projection_dim``).
+        embed_dim: Shared joint embedding dim (= ``projection_dim``).
             Defaults to ``512``.
         input_image_shape: Input image specification. Defaults to ``224``.
         vision_layers: ViT encoder depth. Defaults to ``12``.
@@ -799,7 +799,7 @@ class CLIPImageEmbed(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -899,7 +899,7 @@ class CLIPImageEmbed(BaseModel):
 class CLIPTextEmbed(BaseModel):
     """CLIP text tower + ``text_projection`` — joint-space text embeddings.
 
-    Mirrors HuggingFace's ``CLIPTextModelWithProjection``: composes
+    Composes
     :class:`CLIPTextModel` and applies the bias-free ``text_projection``
     Dense, producing the same text side as :class:`CLIPModel` but
     without instantiating the vision tower or the ``logit_scale``. The
@@ -957,7 +957,7 @@ class CLIPTextEmbed(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -1100,7 +1100,7 @@ class CLIPModel(BaseModel):
           Supervision <https://arxiv.org/abs/2103.00020>`_
 
     Args:
-        embed_dim: Shared embedding dim (= HF ``projection_dim``).
+        embed_dim: Shared embedding dim (= ``projection_dim``).
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -1152,7 +1152,7 @@ class CLIPModel(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -1335,7 +1335,7 @@ class CLIPZeroShotClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_weights
+        from .convert_clip_hf_to_keras import transfer_clip_weights
 
         transfer_clip_weights(keras_model, hf_state_dict)
 
@@ -1438,20 +1438,20 @@ class CLIPZeroShotClassify(BaseModel):
 class CLIPImageClassify(BaseModel):
     """CLIP vision encoder + linear image-classification head.
 
-    Mirrors HF's ``CLIPForImageClassification``: uses **only the CLIP
+    Uses **only the CLIP
     vision encoder** (no text encoder, no visual projection), then
     mean-pools the patch tokens (excluding CLS) and applies a single
-    linear classifier producing ``num_labels`` logits.
+    linear classifier producing ``num_classes`` logits.
 
     .. code-block:: python
 
         model = CLIPImageClassify.from_weights(
             "hf:<user>/clip-finetune-imagenet"
         )
-        logits = model(images)              # (B, num_labels)
+        logits = model(images)              # (B, num_classes)
 
     Args:
-        num_labels: Number of output classes.
+        num_classes: Number of output classes.
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -1484,24 +1484,24 @@ class CLIPImageClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         config = CLIPModel.config_from_hf(hf_config)
         try:
-            config["num_labels"] = hf_num_labels(hf_config)
+            config["num_classes"] = hf_num_classes(hf_config)
         except KeyError:
             pass
         return config
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_clip_torch_to_keras import transfer_clip_image_classify_weights
+        from .convert_clip_hf_to_keras import transfer_clip_image_classify_weights
 
         transfer_clip_image_classify_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
-        num_labels=1000,
+        num_classes=1000,
         input_image_shape=224,
         vision_layers=12,
         vision_width=768,
@@ -1546,12 +1546,12 @@ class CLIPImageClassify(BaseModel):
         encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded[:, 1:, :], axis=1)
-        logits = layers.Dense(num_labels, name="classifier")(pooled)
+        logits = layers.Dense(num_classes, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.vision_model = vision_model
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
@@ -1565,7 +1565,7 @@ class CLIPImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,

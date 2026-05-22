@@ -12,14 +12,14 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-small-coco-instance": {
         "backbone_embed_dim": 96,
         "backbone_depths": (2, 2, 18, 2),
         "backbone_num_heads": (3, 6, 12, 24),
-        "backbone_window_size": 12,
+        "backbone_window_size": 7,
         "hidden_dim": 256,
         "mask_feature_size": 256,
         "encoder_layers": 6,
@@ -28,7 +28,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-base-coco-instance": {
@@ -44,7 +44,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-large-coco-instance": {
@@ -60,14 +60,14 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 200,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-tiny-ade-semantic": {
         "backbone_embed_dim": 96,
         "backbone_depths": (2, 2, 6, 2),
         "backbone_num_heads": (3, 6, 12, 24),
-        "backbone_window_size": 12,
+        "backbone_window_size": 7,
         "hidden_dim": 256,
         "mask_feature_size": 256,
         "encoder_layers": 6,
@@ -76,14 +76,14 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 150,
+        "num_classes": 150,
         "input_image_shape": 512,
     },
     "mask2former-swin-tiny-coco-panoptic": {
         "backbone_embed_dim": 96,
         "backbone_depths": (2, 2, 6, 2),
         "backbone_num_heads": (3, 6, 12, 24),
-        "backbone_window_size": 12,
+        "backbone_window_size": 7,
         "hidden_dim": 256,
         "mask_feature_size": 256,
         "encoder_layers": 6,
@@ -92,28 +92,28 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
 }
 
 MASK2FORMER_WEIGHTS = {
     "mask2former-swin-tiny-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_tiny_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-coco-instance.weights.h5",
     },
     "mask2former-swin-small-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_small_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-small-coco-instance.weights.h5",
     },
     "mask2former-swin-base-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_base_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-base-coco-instance.weights.h5",
     },
     "mask2former-swin-large-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_large_coco_instance.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-large-coco-instance.weights.h5",
     },
     "mask2former-swin-tiny-ade-semantic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_tiny_ade_semantic.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-ade-semantic.weights.h5",
     },
     "mask2former-swin-tiny-coco-panoptic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former_swin_tiny_coco_panoptic.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-coco-panoptic.weights.h5",
     },
 }

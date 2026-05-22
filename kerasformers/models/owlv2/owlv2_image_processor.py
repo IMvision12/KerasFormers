@@ -13,7 +13,7 @@ from kerasformers.utils.image import load_image
 class Owlv2ImageProcessor(BaseImageProcessor):
     """Preprocess images for OWLv2 inference.
 
-    Mirrors HF ``Owlv2ImageProcessor``'s unusual order:
+    Reproduces ``Owlv2ImageProcessor``'s unusual order:
     rescale → pad-to-square → resize → normalize. The pad-to-square
     step pads the bottom/right of each image with zeros so the input
     becomes square before resizing — this preserves the aspect ratio
