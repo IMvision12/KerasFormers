@@ -765,7 +765,7 @@ class SigLIPTextModel(BaseModel):
             kwargs.pop(k, None)
 
         if input_tensor is None:
-            token_ids_input = layers.Input(shape=(None,), name="token_ids")
+            token_ids_input = layers.Input(shape=(max_seq_len,), name="token_ids")
         else:
             token_ids_input = input_tensor
 
@@ -939,10 +939,10 @@ class SigLIPModel(BaseModel):
                 images_input = layers.Input(shape=image_size, name="images")
             token_ids_input = input_tensor.get("token_ids")
             if token_ids_input is None:
-                token_ids_input = layers.Input(shape=(None,), name="token_ids")
+                token_ids_input = layers.Input(shape=(max_seq_len,), name="token_ids")
         else:
             images_input = layers.Input(shape=image_size, name="images")
-            token_ids_input = layers.Input(shape=(None,), name="token_ids")
+            token_ids_input = layers.Input(shape=(max_seq_len,), name="token_ids")
 
         vision_model = SigLIPVisionModel(
             image_size=image_size,
