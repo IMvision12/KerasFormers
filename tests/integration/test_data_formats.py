@@ -25,6 +25,8 @@ SKIP_DATA_FORMAT = {
     "WhisperModel",
     "WhisperSpeechToText",
     "WhisperAudioClassify",
+    "Speech2TextModel",
+    "Speech2TextSpeechToText",
     "MaskFormerUniversalSegment",
     "Mask2FormerUniversalSegment",
 }
