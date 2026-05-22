@@ -51,6 +51,7 @@ from kerasformers.models import (
     senet,
     siglip,
     siglip2,
+    speech2text,
     swin,
     swinv2,
     vgg,

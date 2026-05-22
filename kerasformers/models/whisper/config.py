@@ -226,10 +226,6 @@ WHISPER_SUPPRESS_TOKENS = [
 ]
 WHISPER_BEGIN_SUPPRESS_TOKENS = [220, 50257]
 
-
-# Tokenizer files uploaded to the kerasformers "whisper" release tag.
-# v1  -> tiny / base / small / medium / large / large-v2   (51865 vocab)
-# v3  -> large-v3 / large-v3-turbo                          (51866 vocab)
 WHISPER_TOKENIZER_FILES = {
     "v1": {
         "vocab": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_vocab.json",

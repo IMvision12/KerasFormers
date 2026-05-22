@@ -55,3 +55,12 @@ def whisper_input(batch_size=2, num_mel_bins=80, mel_length=40, decoder_seq_len=
 
 def whisper_audio_input(batch_size=2, num_mel_bins=80, mel_length=40):
     return ops.ones((batch_size, num_mel_bins, mel_length))
+
+
+def speech2text_input(batch_size=2, num_mel_bins=80, feat_length=40, decoder_seq_len=5):
+    # Speech2Text fbank features are (batch, time, num_mel_bins) - the transpose
+    # of Whisper's (batch, num_mel_bins, time) layout.
+    return {
+        "input_features": ops.ones((batch_size, feat_length, num_mel_bins)),
+        "decoder_input_ids": ops.zeros((batch_size, decoder_seq_len), dtype="int32"),
+    }
