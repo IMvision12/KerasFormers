@@ -24,7 +24,7 @@ pip install -U git+https://github.com/IMvision12/KerasFormers
 
 ## 📑 Documentation
 
-Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below — all share the same `XModel` / `XImageClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT, [MaskFormer](docs/maskformer.md), [Mask2Former](docs/mask2former.md), [MobileViT](docs/mobilevit.md)), object detection (DETR variants, D-FINE, OWL-ViT, OWLv2), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
+Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below - all share the same `XModel` / `XImageClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT, [MaskFormer](docs/maskformer.md), [Mask2Former](docs/mask2former.md), [MobileViT](docs/mobilevit.md)), object detection (DETR variants, D-FINE, OWL-ViT, OWLv2), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
 
 ## 📑 Models
 
