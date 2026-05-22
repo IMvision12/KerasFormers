@@ -1,5 +1,3 @@
-"""Image preprocessing + segmentation post-processing for MaskFormer."""
-
 from typing import Dict, List, Optional, Tuple, Union
 
 import keras

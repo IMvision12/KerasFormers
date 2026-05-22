@@ -1,12 +1,3 @@
-"""Swin-Transformer backbone used by MaskFormer (HF-naming-aligned).
-
-Self-contained HF-style Swin port — separate Q/K/V projections,
-``layernorm_before/after`` block-internal LNs, ``hidden_states_norms``
-per stage. The naming mirrors HuggingFace's ``MaskFormerSwinModel``
-1-to-1 so the converter can use a simple ``transfer_nested_layer_weights``
-pattern per logical sub-module.
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops
@@ -83,9 +74,7 @@ class MaskFormerSwinPatchEmbeddings(layers.Layer):
         self.embed_dim = embed_dim
         self.patch_size = patch_size
         self.data_format = data_format or keras.config.image_data_format()
-        # The conv honours the data format; the windowed attention that follows
-        # operates on flattened (b, h*w, c) tokens, so the conv output is
-        # converted to a channels-last grid before flattening.
+
         self.projection = layers.Conv2D(
             embed_dim,
             patch_size,
@@ -97,7 +86,7 @@ class MaskFormerSwinPatchEmbeddings(layers.Layer):
     def call(self, pixel_values):
         x = self.projection(pixel_values)
         if self.data_format == "channels_first":
-            x = ops.transpose(x, (0, 2, 3, 1))  # (b, c, h, w) -> (b, h, w, c)
+            x = ops.transpose(x, (0, 2, 3, 1))
         b = ops.shape(x)[0]
         h = ops.shape(x)[1]
         w = ops.shape(x)[2]
@@ -560,8 +549,6 @@ class MaskFormerSwinBackbone(layers.Layer):
         x, h, w = self.patch_embeddings(pixel_values)
         x = self.embeddings_norm(x)
 
-        # Windowed attention runs on channels-last token grids internally; the
-        # per-stage feature maps are emitted in the configured data format.
         channels_first = self.data_format == "channels_first"
         outs = []
         for i, stage in enumerate(self.stages):

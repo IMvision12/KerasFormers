@@ -203,9 +203,6 @@ def maskformer_transformer_decoder(
     )(memory_feature)
 
     b_ref = memory_feature
-    # The decoder attends over flattened (b, h*w, c) memory; both the memory
-    # feature and its positional embedding follow the data format, so convert a
-    # channels_first map to channels-last before flattening.
     mem = memory_feature
     pos = memory_pos_2d
     if data_format == "channels_first":
@@ -319,8 +316,6 @@ def maskformer_functional(
     mask_embeddings = maskformer_mask_embedder(
         decoder_hidden, decoder_d_model, mask_feature_size
     )
-    # mask_features follows the data format — (b, h, w, c) for channels_last,
-    # (b, c, h, w) for channels_first; mask logits are (b, q, h, w).
     mask_eq = "bqc,bhwc->bqhw" if data_format == "channels_last" else "bqc,bchw->bqhw"
     mask_logits = ops.einsum(mask_eq, mask_embeddings, mask_features)
 

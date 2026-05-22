@@ -470,10 +470,7 @@ def mask2former_functional(
             Additive attention mask of shape
             ``(B, num_heads, Q, level_h * level_w)``.
         """
-        # mask_logits has a fixed (B, Q, H, W) query×spatial layout regardless of
-        # the image data format. It is transposed to (B, H, W, Q) so the queries
-        # act as channels for the spatial resize — hence the explicit
-        # channels_last here describes this tensor, not the global image format.
+
         mask_hwq = ops.transpose(mask_logits, (0, 2, 3, 1))  # (B, H, W, Q)
         mask_resized = ops.image.resize(
             mask_hwq,
@@ -483,7 +480,6 @@ def mask2former_functional(
         )
         mask_resized = ops.transpose(mask_resized, (0, 3, 1, 2))  # (B, Q, h, w)
         mask_flat = ops.reshape(mask_resized, (-1, num_queries, level_h * level_w))
-        # True where attention should be blocked: sigmoid(mask) < 0.5 ↔ mask < 0.
         bool_mask = mask_flat < 0.0
         all_masked = ops.all(bool_mask, axis=-1, keepdims=True)
         bool_mask = ops.where(all_masked, ops.zeros_like(bool_mask), bool_mask)
@@ -492,12 +488,10 @@ def mask2former_functional(
             ops.cast(-1e9, "float32"),
             ops.cast(0.0, "float32"),
         )
-        # Expand to (B, num_heads, Q, h*w) — replicated across heads.
         additive = ops.expand_dims(additive, axis=1)
         additive = ops.repeat(additive, num_heads, axis=1)
         return additive
 
-    # Initial prediction (used as mask for layer 0's cross-attention)
     cls_init, mask_init = predict_masks(hidden_states)
     intermediate_logits = [cls_init]
     intermediate_masks = [mask_init]
