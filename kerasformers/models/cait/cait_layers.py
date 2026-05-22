@@ -300,10 +300,10 @@ class CaiTClassAttention(layers.Layer):
         - Supports both channels_last (NHWC) and channels_first (NCHW) formats
 
     Args:
-        dim (int): Total dimension of the input and output features. Must be divisible
+        embed_dim (int): Total dimension of the input and output features. Must be divisible
             by num_heads to ensure even distribution of features across heads
         num_heads (int): Number of parallel attention heads. Each head operates
-            on dim/num_heads features
+            on embed_dim/num_heads features
         qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
             and value projections. Defaults to True
         attn_drop (float, optional): Dropout rate applied to attention weights. Helps
@@ -326,7 +326,7 @@ class CaiTClassAttention(layers.Layer):
         - If data_format='channels_first': 3D tensor (batch_size, feature_dim, 1)
 
     Notes:
-        - The attention dimension (dim) must be divisible by num_heads
+        - The attention dimension (embed_dim) must be divisible by num_heads
         - Only returns attention results for the class token (first position)
         - Commonly used in Vision Transformer (ViT) architectures
         - Implements a modified scaled dot-product attention where queries come only
@@ -335,7 +335,7 @@ class CaiTClassAttention(layers.Layer):
 
     def __init__(
         self,
-        dim: int,
+        embed_dim: int,
         num_heads: int,
         qkv_bias: bool = True,
         attn_drop: float = 0.0,
@@ -346,14 +346,14 @@ class CaiTClassAttention(layers.Layer):
     ):
         super().__init__(**kwargs)
 
-        assert dim % num_heads == 0, "dim should be divisible by num_heads"
+        assert embed_dim % num_heads == 0, "embed_dim should be divisible by num_heads"
         assert data_format in ["channels_last", "channels_first"], (
             "data_format must be either 'channels_last' or 'channels_first'"
         )
 
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.head_dim = dim // num_heads
+        self.head_dim = embed_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.data_format = data_format
         self.block_prefix = block_prefix
@@ -361,25 +361,25 @@ class CaiTClassAttention(layers.Layer):
         prefix = f"{block_prefix}_" if block_prefix else ""
 
         self.q = layers.Dense(
-            dim,
+            embed_dim,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
             name=f"{prefix}q" if prefix else None,
         )
         self.k = layers.Dense(
-            dim,
+            embed_dim,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
             name=f"{prefix}k" if prefix else None,
         )
         self.v = layers.Dense(
-            dim,
+            embed_dim,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
             name=f"{prefix}v" if prefix else None,
         )
         self.proj = layers.Dense(
-            dim, dtype=self.dtype_policy, name=f"{prefix}proj" if prefix else None
+            embed_dim, dtype=self.dtype_policy, name=f"{prefix}proj" if prefix else None
         )
 
         self.attn_drop = layers.Dropout(
@@ -404,21 +404,21 @@ class CaiTClassAttention(layers.Layer):
         else:  # channels_first
             feature_dim = input_shape[1]
 
-        if feature_dim != self.dim:
+        if feature_dim != self.embed_dim:
             raise ValueError(
-                f"Input feature dimension {feature_dim} must match layer dimension {self.dim}"
+                f"Input feature dimension {feature_dim} must match layer dimension {self.embed_dim}"
             )
 
         if self.data_format == "channels_last":
             self.q.build((input_shape[0], 1, input_shape[-1]))
             self.k.build(input_shape)
             self.v.build(input_shape)
-            self.proj.build((input_shape[0], 1, self.dim))
+            self.proj.build((input_shape[0], 1, self.embed_dim))
         else:
             self.q.build((input_shape[0], 1, input_shape[1]))
             self.k.build((input_shape[0], input_shape[2], input_shape[1]))
             self.v.build((input_shape[0], input_shape[2], input_shape[1]))
-            self.proj.build((input_shape[0], 1, self.dim))
+            self.proj.build((input_shape[0], 1, self.embed_dim))
 
         self.built = True
 
@@ -448,7 +448,7 @@ class CaiTClassAttention(layers.Layer):
 
         x = ops.matmul(attn, v)
         x = ops.transpose(x, (0, 2, 1, 3))
-        x = ops.reshape(x, (B, 1, self.dim))
+        x = ops.reshape(x, (B, 1, self.embed_dim))
 
         x = self.proj(x)
         x = self.proj_drop(x, training=training)
@@ -462,7 +462,7 @@ class CaiTClassAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "num_heads": self.num_heads,
                 "qkv_bias": self.q.use_bias,
                 "attn_drop": self.attn_drop.rate,
@@ -493,10 +493,10 @@ class CaiTTalkingHeadAttention(layers.Layer):
         - Support for both channels_last (NHWC) and channels_first (NCHW) formats
 
     Args:
-        dim (int): Total dimension of the input and output features. Must be divisible
+        embed_dim (int): Total dimension of the input and output features. Must be divisible
             by num_heads to ensure even distribution of features across heads
         num_heads (int): Number of parallel attention heads. Each head operates
-            on dim/num_heads features
+            on embed_dim/num_heads features
         qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
             and value projections. Defaults to True
         attn_drop (float, optional): Dropout rate applied to attention weights. Helps
@@ -517,7 +517,7 @@ class CaiTTalkingHeadAttention(layers.Layer):
         - Attention weights: (batch_size, num_heads, sequence_length, sequence_length)
 
     Notes:
-        - The attention dimension (dim) must be divisible by num_heads
+        - The attention dimension (embed_dim) must be divisible by num_heads
         - Talking-Head Attention extends standard multi-head attention with two additional
           linear projections: one before softmax (proj_l) and one after softmax (proj_w)
         - These projections allow each attention head to "talk" to other heads,
@@ -527,7 +527,7 @@ class CaiTTalkingHeadAttention(layers.Layer):
 
     def __init__(
         self,
-        dim: int,
+        embed_dim: int,
         num_heads: int,
         qkv_bias: bool = True,
         attn_drop: float = 0.0,
@@ -538,10 +538,10 @@ class CaiTTalkingHeadAttention(layers.Layer):
     ):
         super().__init__(**kwargs)
 
-        assert dim % num_heads == 0, "dim should be divisible by num_heads"
-        self.dim = dim
+        assert embed_dim % num_heads == 0, "embed_dim should be divisible by num_heads"
+        self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.head_dim = dim // num_heads
+        self.head_dim = embed_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.block_prefix = block_prefix
         self.data_format = data_format
@@ -553,13 +553,15 @@ class CaiTTalkingHeadAttention(layers.Layer):
         prefix = f"{block_prefix}_" if block_prefix else ""
 
         self.qkv = layers.Dense(
-            dim * 3,
+            embed_dim * 3,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
             name=f"{prefix}qkv" if block_prefix else None,
         )
         self.proj = layers.Dense(
-            dim, dtype=self.dtype_policy, name=f"{prefix}proj" if block_prefix else None
+            embed_dim,
+            dtype=self.dtype_policy,
+            name=f"{prefix}proj" if block_prefix else None,
         )
 
         self.proj_l = layers.Dense(
@@ -592,14 +594,14 @@ class CaiTTalkingHeadAttention(layers.Layer):
 
         feature_dim_idx = 1 if self.data_format == "channels_first" else -1
         feature_dim = input_shape[feature_dim_idx]
-        if feature_dim != self.dim:
+        if feature_dim != self.embed_dim:
             raise ValueError(
-                f"Input feature dimension {feature_dim} must match layer dimension {self.dim}"
+                f"Input feature dimension {feature_dim} must match layer dimension {self.embed_dim}"
             )
 
         if self.data_format == "channels_last":
             self.qkv.build(input_shape)
-            self.proj.build((input_shape[0], input_shape[1], self.dim))
+            self.proj.build((input_shape[0], input_shape[1], self.embed_dim))
             self.proj_l.build(
                 (input_shape[0], input_shape[1], input_shape[1], self.num_heads)
             )
@@ -607,8 +609,8 @@ class CaiTTalkingHeadAttention(layers.Layer):
                 (input_shape[0], input_shape[1], input_shape[1], self.num_heads)
             )
         else:  # channels_first
-            self.qkv.build((input_shape[0], input_shape[2], self.dim))
-            self.proj.build((input_shape[0], input_shape[2], self.dim))
+            self.qkv.build((input_shape[0], input_shape[2], self.embed_dim))
+            self.proj.build((input_shape[0], input_shape[2], self.embed_dim))
             self.proj_l.build(
                 (input_shape[0], input_shape[2], input_shape[2], self.num_heads)
             )
@@ -649,7 +651,7 @@ class CaiTTalkingHeadAttention(layers.Layer):
 
         x = ops.matmul(attn, v)
         x = ops.transpose(x, (0, 2, 1, 3))
-        x = ops.reshape(x, (batch_size, seq_length, self.dim))
+        x = ops.reshape(x, (batch_size, seq_length, self.embed_dim))
 
         x = self.proj(x)
         x = self.proj_drop(x, training=training)
@@ -663,7 +665,7 @@ class CaiTTalkingHeadAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "num_heads": self.num_heads,
                 "qkv_bias": self.qkv.use_bias,
                 "attn_drop": self.attn_drop.rate,

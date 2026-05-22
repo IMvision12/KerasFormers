@@ -17,7 +17,7 @@ class DinoV2Model(BaseModel):
     self-supervised method.
 
     When ``as_backbone=False`` (default), returns the final
-    LayerNorm-normalized token sequence ``(B, num_tokens, dim)`` (CLS at
+    LayerNorm-normalized token sequence ``(B, num_tokens, embed_dim)`` (CLS at
     index 0). When ``as_backbone=True``, returns the list of
     intermediate feature maps from each transformer block (with the
     last LayerNorm-normalized), suitable for feeding into detection /
@@ -33,7 +33,7 @@ class DinoV2Model(BaseModel):
             a backbone. If ``False`` (default), output only the final
             LayerNorm-normalized token sequence.
         patch_size: ViT patch size. DINOv2 uses 14.
-        dim: Hidden dimension.
+        embed_dim: Hidden dimension.
         depth: Number of transformer encoder layers.
         num_heads: Number of attention heads per layer.
         mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
@@ -64,7 +64,7 @@ class DinoV2Model(BaseModel):
     def config_from_hf(cls, hf_config):
         return {
             "patch_size": hf_config.get("patch_size", 14),
-            "dim": hf_config["hidden_size"],
+            "embed_dim": hf_config["hidden_size"],
             "depth": hf_config["num_hidden_layers"],
             "num_heads": hf_config["num_attention_heads"],
             "mlp_ratio": hf_config.get("mlp_ratio", 4.0),
@@ -74,16 +74,16 @@ class DinoV2Model(BaseModel):
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
         from kerasformers.models.dino_v2.convert_dino_v2_hf_to_keras import (
-            transfer_dino_v2_weights,
+            transfer_dinov2_weights,
         )
 
-        transfer_dino_v2_weights(keras_model, hf_state_dict)
+        transfer_dinov2_weights(keras_model, hf_state_dict)
 
     def __init__(
         self,
         as_backbone=False,
         patch_size=14,
-        dim=384,
+        embed_dim=384,
         depth=12,
         num_heads=6,
         mlp_ratio=4.0,
@@ -120,7 +120,7 @@ class DinoV2Model(BaseModel):
         features = vit_backbone_feature(
             x,
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -145,7 +145,7 @@ class DinoV2Model(BaseModel):
 
         self.as_backbone = as_backbone
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -165,7 +165,7 @@ class DinoV2Model(BaseModel):
             {
                 "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,

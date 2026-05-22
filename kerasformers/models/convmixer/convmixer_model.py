@@ -64,7 +64,7 @@ def convmixer_block(
 def convmixer_backbone_feature(
     inputs,
     *,
-    dim,
+    embed_dim,
     depth,
     kernel_size,
     patch_size,
@@ -77,7 +77,7 @@ def convmixer_backbone_feature(
 
     Args:
         inputs: Input image tensor (post-normalization).
-        dim: Channel dimension carried throughout the model.
+        embed_dim: Channel dimension carried throughout the model.
         depth: Total number of ConvMixer blocks stacked after the stem.
         kernel_size: Depthwise convolution kernel size inside each block.
         patch_size: Stride/kernel of the patch-embedding stem convolution.
@@ -94,7 +94,7 @@ def convmixer_backbone_feature(
         ``[final]`` when ``return_stages=True``.
     """
     x = layers.Conv2D(
-        dim,
+        embed_dim,
         kernel_size=patch_size,
         strides=patch_size,
         use_bias=True,
@@ -109,7 +109,7 @@ def convmixer_backbone_feature(
     for i in range(depth):
         x = convmixer_block(
             x,
-            dim,
+            embed_dim,
             kernel_size,
             activation,
             channels_axis,
@@ -142,7 +142,7 @@ class ConvMixerModel(BaseModel):
             use as a backbone network. When True, returns a singleton
             list ``[final]`` (ConvMixer has no natural multi-stage
             hierarchy). Defaults to `False`.
-        dim: Integer, channel dimension carried throughout the model.
+        embed_dim: Integer, channel dimension carried throughout the model.
             Defaults to `768`.
         depth: Integer, number of ConvMixer blocks stacked after the
             patch-embedding stem. Defaults to `32`.
@@ -202,7 +202,7 @@ class ConvMixerModel(BaseModel):
 
     def __init__(
         self,
-        dim=768,
+        embed_dim=768,
         depth=32,
         kernel_size=7,
         patch_size=7,
@@ -237,7 +237,7 @@ class ConvMixerModel(BaseModel):
         )
         x = convmixer_backbone_feature(
             x,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             kernel_size=kernel_size,
             patch_size=patch_size,
@@ -249,7 +249,7 @@ class ConvMixerModel(BaseModel):
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.patch_size = patch_size
         self.kernel_size = kernel_size
@@ -264,7 +264,7 @@ class ConvMixerModel(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "patch_size": self.patch_size,
                 "kernel_size": self.kernel_size,
@@ -298,7 +298,7 @@ class ConvMixerImageClassify(BaseModel):
     - [Patches Are All You Need?](https://arxiv.org/abs/2201.09792)
 
     Args:
-        dim: Integer, channel dimension carried throughout the model.
+        embed_dim: Integer, channel dimension carried throughout the model.
             Defaults to `768`.
         depth: Integer, number of ConvMixer blocks stacked after the
             patch-embedding stem. Defaults to `32`.
@@ -353,7 +353,7 @@ class ConvMixerImageClassify(BaseModel):
 
     def __init__(
         self,
-        dim=768,
+        embed_dim=768,
         depth=32,
         kernel_size=7,
         patch_size=7,
@@ -372,7 +372,7 @@ class ConvMixerImageClassify(BaseModel):
         data_format = keras.config.image_data_format()
 
         backbone = ConvMixerModel(
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             kernel_size=kernel_size,
             patch_size=patch_size,
@@ -395,7 +395,7 @@ class ConvMixerImageClassify(BaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.patch_size = patch_size
         self.kernel_size = kernel_size
@@ -411,7 +411,7 @@ class ConvMixerImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "patch_size": self.patch_size,
                 "kernel_size": self.kernel_size,

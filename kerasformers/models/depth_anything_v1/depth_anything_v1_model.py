@@ -278,7 +278,7 @@ def depth_anything_v1_dino_backbone(
             epsilon=1e-6, axis=-1, name=f"{name}_block_{i}_ln1"
         )(x)
         x_attn = ViTMultiHeadSelfAttention(
-            dim=backbone_dim,
+            embed_dim=backbone_dim,
             num_heads=backbone_num_heads,
             qkv_bias=True,
             qk_norm=False,
@@ -778,9 +778,9 @@ class DepthAnythingV1DepthEstimation(BaseModel):
         bb = hf_config["backbone_config"]
         out_indices = list(bb["out_indices"])
         return {
-            "backbone_dim": bb["hidden_dim"],
+            "backbone_dim": bb["hidden_size"],
             "backbone_depth": bb.get("num_hidden_layers", max(out_indices)),
-            "backbone_num_heads": bb["num_heads"],
+            "backbone_num_heads": bb["num_attention_heads"],
             "out_indices": out_indices,
             "neck_hidden_sizes": list(hf_config["neck_hidden_sizes"]),
             "fusion_hidden_size": hf_config["fusion_hidden_size"],

@@ -345,7 +345,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
         - Support for both 3D and 4D input tensors
 
     Args:
-        dim (int): Total dimension of the input and output features. Must be divisible
+        embed_dim (int): Total dimension of the input and output features. Must be divisible
             by num_heads to ensure even distribution of features across heads
         num_heads (int, optional): Number of parallel attention heads. Defaults to 8
         qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
@@ -368,7 +368,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
 
     def __init__(
         self,
-        dim: int,
+        embed_dim: int,
         num_heads: int = 8,
         qkv_bias: bool = False,
         qk_norm: bool = False,
@@ -383,15 +383,15 @@ class ViTMultiHeadSelfAttention(layers.Layer):
         self.block_prefix = block_prefix if block_prefix is not None else "blocks"
         prefix = f"{self.block_prefix}_"
 
-        assert dim % num_heads == 0, "dim should be divisible by num_heads"
-        self.dim = dim
+        assert embed_dim % num_heads == 0, "embed_dim should be divisible by num_heads"
+        self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.head_dim = dim // num_heads
+        self.head_dim = embed_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.epsilon = epsilon
 
         self.qkv = layers.Dense(
-            dim * 3,
+            embed_dim * 3,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
             name=prefix + "attn_qkv",
@@ -421,7 +421,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
             dtype=self.dtype_policy,
         )
         self.proj = layers.Dense(
-            dim, dtype=self.dtype_policy, name=prefix + "attn_proj"
+            embed_dim, dtype=self.dtype_policy, name=prefix + "attn_proj"
         )
         self.proj_drop = layers.Dropout(
             proj_drop,
@@ -437,9 +437,9 @@ class ViTMultiHeadSelfAttention(layers.Layer):
             )
 
         feature_dim = input_shape[-1]
-        if feature_dim != self.dim:
+        if feature_dim != self.embed_dim:
             raise ValueError(
-                f"Input feature dimension {feature_dim} must match layer dimension {self.dim}"
+                f"Input feature dimension {feature_dim} must match layer dimension {self.embed_dim}"
             )
 
         self.qkv.build(input_shape)
@@ -554,7 +554,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "num_heads": self.num_heads,
                 "qkv_bias": self.qkv.use_bias,
                 "qk_norm": self.q_norm is not None,

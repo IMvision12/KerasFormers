@@ -1,25 +1,25 @@
 DINO_VIT_CONFIG = {
     "dino_vits16": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
     },
     "dino_vits8": {
         "patch_size": 8,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
     },
     "dino_vitb16": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
     },
     "dino_vitb8": {
         "patch_size": 8,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
     },

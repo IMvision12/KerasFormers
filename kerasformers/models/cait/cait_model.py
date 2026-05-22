@@ -66,7 +66,7 @@ def layer_scale_talking_head_block(
     """
     y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_1")(x)
     attn = CaiTTalkingHeadAttention(
-        dim=embed_dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",
@@ -121,7 +121,7 @@ def layer_scale_class_attn_block(
         concat
     )
     cls = CaiTClassAttention(
-        dim=embed_dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",

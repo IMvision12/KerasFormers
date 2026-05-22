@@ -3,7 +3,7 @@
 FLEXIVIT_MODEL_CONFIG = {
     "flexivit_small": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "no_embed_class": True,
@@ -12,7 +12,7 @@ FLEXIVIT_MODEL_CONFIG = {
     },
     "flexivit_base": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "no_embed_class": True,
@@ -21,7 +21,7 @@ FLEXIVIT_MODEL_CONFIG = {
     },
     "flexivit_base_in21k": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "no_embed_class": True,
@@ -30,7 +30,7 @@ FLEXIVIT_MODEL_CONFIG = {
     },
     "flexivit_large": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "no_embed_class": True,

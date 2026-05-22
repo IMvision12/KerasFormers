@@ -25,7 +25,7 @@ class DinoViTModel(BaseModel):
     Standard ViT pretrained with the DINO self-supervised method.
 
     When ``as_backbone=False`` (default), returns the final
-    LayerNorm-normalized token sequence ``(B, num_tokens, dim)`` (CLS at
+    LayerNorm-normalized token sequence ``(B, num_tokens, embed_dim)`` (CLS at
     index 0). When ``as_backbone=True``, returns the list of
     intermediate feature maps from each transformer block (with the
     last LayerNorm-normalized), suitable for feeding into detection /
@@ -41,7 +41,7 @@ class DinoViTModel(BaseModel):
             a backbone. If ``False`` (default), output only the final
             LayerNorm-normalized token sequence.
         patch_size: ViT patch size (8 or 16).
-        dim: Hidden dimension.
+        embed_dim: Hidden dimension.
         depth: Number of transformer encoder layers.
         num_heads: Number of attention heads per layer.
         mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
@@ -71,7 +71,7 @@ class DinoViTModel(BaseModel):
         self,
         as_backbone=False,
         patch_size=16,
-        dim=384,
+        embed_dim=384,
         depth=12,
         num_heads=6,
         mlp_ratio=4.0,
@@ -107,7 +107,7 @@ class DinoViTModel(BaseModel):
         features = vit_backbone_feature(
             x,
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -132,7 +132,7 @@ class DinoViTModel(BaseModel):
 
         self.as_backbone = as_backbone
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -151,7 +151,7 @@ class DinoViTModel(BaseModel):
             {
                 "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,

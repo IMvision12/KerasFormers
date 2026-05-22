@@ -3,7 +3,7 @@
 DEIT_MODEL_CONFIG = {
     "deit_tiny_patch16_224": {
         "patch_size": 16,
-        "dim": 192,
+        "embed_dim": 192,
         "depth": 12,
         "num_heads": 3,
         "image_size": 224,
@@ -11,7 +11,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit_small_patch16_224": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "image_size": 224,
@@ -19,7 +19,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit_base_patch16_224": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "image_size": 224,
@@ -27,7 +27,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit_base_patch16_384": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "image_size": 384,
@@ -35,7 +35,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit_tiny_distilled_patch16_224": {
         "patch_size": 16,
-        "dim": 192,
+        "embed_dim": 192,
         "depth": 12,
         "num_heads": 3,
         "use_distillation": True,
@@ -44,7 +44,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit_small_distilled_patch16_224": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "use_distillation": True,
@@ -53,7 +53,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit_base_distilled_patch16_224": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "use_distillation": True,
@@ -62,7 +62,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit_base_distilled_patch16_384": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "use_distillation": True,
@@ -71,7 +71,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_small_patch16_224": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "no_embed_class": True,
@@ -81,7 +81,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_small_patch16_384": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "no_embed_class": True,
@@ -91,7 +91,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_medium_patch16_224": {
         "patch_size": 16,
-        "dim": 512,
+        "embed_dim": 512,
         "depth": 12,
         "num_heads": 8,
         "no_embed_class": True,
@@ -101,7 +101,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_base_patch16_224": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "no_embed_class": True,
@@ -111,7 +111,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_base_patch16_384": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "no_embed_class": True,
@@ -121,7 +121,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_large_patch16_224": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "no_embed_class": True,
@@ -131,7 +131,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_large_patch16_384": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "no_embed_class": True,
@@ -141,7 +141,7 @@ DEIT_MODEL_CONFIG = {
     },
     "deit3_huge_patch14_224": {
         "patch_size": 14,
-        "dim": 1280,
+        "embed_dim": 1280,
         "depth": 32,
         "num_heads": 16,
         "no_embed_class": True,

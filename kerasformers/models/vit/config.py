@@ -6,7 +6,7 @@ Variant ids follow timm: ``vit_<size>_patch<N>_<resolution>_<recipe>_<dataset>``
 VIT_MODEL_CONFIG = {
     "vit_tiny_patch16_224": {
         "patch_size": 16,
-        "dim": 192,
+        "embed_dim": 192,
         "depth": 12,
         "num_heads": 3,
         "mlp_ratio": 4.0,
@@ -17,7 +17,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_tiny_patch16_384": {
         "patch_size": 16,
-        "dim": 192,
+        "embed_dim": 192,
         "depth": 12,
         "num_heads": 3,
         "mlp_ratio": 4.0,
@@ -28,7 +28,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_tiny_patch16_224_in21k": {
         "patch_size": 16,
-        "dim": 192,
+        "embed_dim": 192,
         "depth": 12,
         "num_heads": 3,
         "mlp_ratio": 4.0,
@@ -39,7 +39,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_small_patch16_224": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
@@ -50,7 +50,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_small_patch16_384": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
@@ -61,7 +61,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_small_patch16_224_in21k": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
@@ -72,7 +72,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_small_patch32_224": {
         "patch_size": 32,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
@@ -83,7 +83,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_small_patch32_384": {
         "patch_size": 32,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
@@ -94,7 +94,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_small_patch32_224_in21k": {
         "patch_size": 32,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
@@ -105,7 +105,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_base_patch16_224": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
@@ -116,7 +116,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_base_patch16_384": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
@@ -127,7 +127,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_base_patch16_224_in21k": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
@@ -138,7 +138,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_base_patch32_224": {
         "patch_size": 32,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
@@ -149,7 +149,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_base_patch32_384": {
         "patch_size": 32,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
@@ -160,7 +160,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_base_patch32_224_in21k": {
         "patch_size": 32,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
@@ -171,7 +171,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_large_patch16_224": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "mlp_ratio": 4.0,
@@ -182,7 +182,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_large_patch16_384": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "mlp_ratio": 4.0,
@@ -193,7 +193,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_large_patch16_224_in21k": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "mlp_ratio": 4.0,
@@ -204,7 +204,7 @@ VIT_MODEL_CONFIG = {
     },
     "vit_large_patch32_384": {
         "patch_size": 32,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "mlp_ratio": 4.0,

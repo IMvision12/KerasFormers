@@ -37,24 +37,24 @@ def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix
     return x
 
 
-def transformer_block(inputs, dim, num_heads, mlp_ratio, block_prefix=None):
+def transformer_block(inputs, embed_dim, num_heads, mlp_ratio, block_prefix=None):
     """PiT transformer block: LN -> MHSA -> Add -> LN -> MLP -> Add.
 
     Args:
-        inputs: Input token tensor of shape ``(B, N, dim)``.
-        dim: Token embedding dimension.
+        inputs: Input token tensor of shape ``(B, N, embed_dim)``.
+        embed_dim: Token embedding dimension.
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP sub-block.
         block_prefix: Prefix used to name layers inside the block.
 
     Returns:
-        Tensor of shape ``(B, N, dim)`` after both residual branches.
+        Tensor of shape ``(B, N, embed_dim)`` after both residual branches.
     """
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=block_prefix + "_layernorm_1"
     )(inputs)
     x = ViTMultiHeadSelfAttention(
-        dim=dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
         block_prefix=block_prefix.replace("pit", "transformers"),
@@ -66,8 +66,8 @@ def transformer_block(inputs, dim, num_heads, mlp_ratio, block_prefix=None):
     )(x)
     y = mlp_block(
         y,
-        hidden_features=int(dim * mlp_ratio),
-        out_features=dim,
+        hidden_features=int(embed_dim * mlp_ratio),
+        out_features=embed_dim,
         block_prefix=block_prefix,
     )
     return layers.Add()([x, y])
@@ -206,7 +206,7 @@ def pit_backbone_feature(
         for block_idx in range(depth[stage_idx]):
             x = transformer_block(
                 x,
-                dim=embed_dim[stage_idx],
+                embed_dim=embed_dim[stage_idx],
                 num_heads=heads[stage_idx],
                 mlp_ratio=mlp_ratio,
                 block_prefix=f"pit_{stage_idx}_blocks_{block_idx}",

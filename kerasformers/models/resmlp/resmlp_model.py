@@ -12,7 +12,7 @@ from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHT_CONFIG
 
 def resmlp_block(
     x,
-    dim,
+    embed_dim,
     seq_len,
     mlp_ratio=4,
     layer_scale_init=1e-4,
@@ -23,7 +23,7 @@ def resmlp_block(
 
     Args:
         x: input tensor.
-        dim: int, dimension of the input features.
+        embed_dim: int, dimension of the input features.
         seq_len: int, length of the input sequence for cross-patch mixing.
         mlp_ratio: float, ratio of the hidden dimension in the MLP to the input
             dimension (default: 4).
@@ -53,12 +53,12 @@ def resmlp_block(
     inputs = x
     x = ResMLPAffine(name=f"blocks_{block_idx}_affine_2")(x)
     x = layers.Dense(
-        dim * mlp_ratio,
+        embed_dim * mlp_ratio,
         activation="gelu",
         name=f"blocks_{block_idx}_dense_2",
     )(x)
     x = layers.Dense(
-        dim,
+        embed_dim,
         name=f"blocks_{block_idx}_dense_3",
     )(x)
     if drop_rate > 0:
@@ -88,7 +88,7 @@ def resmlp_backbone_feature(
         patch_size: Side length of each square patch.
         embed_dim: Token (channel) embedding dimension.
         depth: Number of ResMLP blocks.
-        mlp_ratio: Hidden-dim multiplier inside each block's channel MLP.
+        mlp_ratio: Hidden-embed_dim multiplier inside each block's channel MLP.
         layer_scale_init: Initial LayerScale value applied at the end of each residual branch.
         drop_path_rate: Maximum stochastic-depth-style dropout rate (scaled linearly
             with block index).
@@ -171,7 +171,7 @@ class ResMLPModel(BaseModel):
         embed_dim: Integer, token (channel) embedding dimension.
             Defaults to `384`.
         depth: Integer, number of ResMLP blocks. Defaults to `12`.
-        mlp_ratio: Integer, hidden-dim multiplier inside each block's
+        mlp_ratio: Integer, hidden-embed_dim multiplier inside each block's
             channel MLP. Defaults to `4`.
         layer_scale_init: Float, initial LayerScale value applied at the end
             of each residual branch. Defaults to `1e-4`.
@@ -334,7 +334,7 @@ class ResMLPImageClassify(BaseModel):
         embed_dim: Integer, token (channel) embedding dimension.
             Defaults to `384`.
         depth: Integer, number of ResMLP blocks. Defaults to `12`.
-        mlp_ratio: Integer, hidden-dim multiplier inside each block's
+        mlp_ratio: Integer, hidden-embed_dim multiplier inside each block's
             channel MLP. Defaults to `4`.
         layer_scale_init: Float, initial LayerScale value applied at the end
             of each residual branch. Defaults to `1e-4`.

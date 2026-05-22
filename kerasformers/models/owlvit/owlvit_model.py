@@ -321,8 +321,8 @@ def owlvit_detection_head(
     image_embeds_raw,
     text_embeds,
     input_ids,
-    vision_hidden_size,
-    text_hidden_size,
+    vision_hidden_dim,
+    text_hidden_dim,
     num_patches_h,
     num_patches_w,
 ):
@@ -338,14 +338,14 @@ def owlvit_detection_head(
 
     Args:
         image_embeds_raw: Raw vision encoder output
-            ``(B, num_patches + 1, vision_hidden_size)``, including the
+            ``(B, num_patches + 1, vision_hidden_dim)``, including the
             CLS token at index 0.
         text_embeds: L2-normalized text projection
             ``(B, projection_dim)`` from the text tower.
         input_ids: Original text token IDs — used to build the query
             mask (queries whose first token is 0 are treated as padding).
-        vision_hidden_size: Vision tower hidden dimension.
-        text_hidden_size: Text tower hidden dimension (also the
+        vision_hidden_dim: Vision tower hidden dimension.
+        text_hidden_dim: Text tower hidden dimension (also the
             class predictor output dim).
         num_patches_h: Number of patches along height.
         num_patches_w: Number of patches along width.
@@ -357,7 +357,7 @@ def owlvit_detection_head(
           boxes in ``(cx, cy, w, h)``.
         - ``text_embeds``: Per-image broadcast query embeddings.
         - ``image_embeds``: Patch features reshaped to a 2D feature
-          map ``(B, num_patches_h, num_patches_w, vision_hidden_size)``.
+          map ``(B, num_patches_h, num_patches_w, vision_hidden_dim)``.
         - ``class_embeds``: Pre-normalization image class projections.
     """
     num_patches = num_patches_h * num_patches_w
@@ -370,9 +370,9 @@ def owlvit_detection_head(
 
     feature_map = ops.reshape(
         patch_embeds,
-        (-1, num_patches_h, num_patches_w, vision_hidden_size),
+        (-1, num_patches_h, num_patches_w, vision_hidden_dim),
     )
-    image_feats = ops.reshape(patch_embeds, (-1, num_patches, vision_hidden_size))
+    image_feats = ops.reshape(patch_embeds, (-1, num_patches, vision_hidden_dim))
 
     query_embeds = OwlViTSplitBatchQueries(name="split_text_embeds")(
         text_embeds, patch_embeds
@@ -386,14 +386,14 @@ def owlvit_detection_head(
         image_feats,
         query_embeds,
         query_mask,
-        out_dim=text_hidden_size,
+        out_dim=text_hidden_dim,
         block_prefix="class_head",
     )
 
     box_bias = ops.cast(compute_box_bias(num_patches_h, num_patches_w), "float32")
     pred_boxes = owlvit_box_predictor(
         image_feats,
-        hidden_dim=vision_hidden_size,
+        hidden_dim=vision_hidden_dim,
         block_prefix="box_head",
     )
     pred_boxes = pred_boxes + ops.cast(box_bias, pred_boxes.dtype)
@@ -422,8 +422,8 @@ class OwlViTVisionModel(BaseModel):
     .. code-block:: python
 
         out = model(pixel_values)
-        out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_size)
-        out["pooler_output"]       # (B, vision_hidden_size) — CLS token
+        out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_dim)
+        out["pooler_output"]       # (B, vision_hidden_dim) — CLS token
 
     Reference:
         - `Simple Open-Vocabulary Object Detection with Vision Transformers
@@ -447,20 +447,20 @@ class OwlViTVisionModel(BaseModel):
         self,
         vision_image_size,
         vision_patch_size,
-        vision_hidden_size,
+        vision_hidden_dim,
         vision_intermediate_size,
-        vision_num_hidden_layers,
-        vision_num_attention_heads,
+        vision_num_layers,
+        vision_num_heads,
         image_size=None,
         input_tensor=None,
         name="OwlViTVisionModel",
         **kwargs,
     ):
         for k in (
-            "text_hidden_size",
+            "text_hidden_dim",
             "text_intermediate_size",
-            "text_num_attention_heads",
-            "text_num_hidden_layers",
+            "text_num_heads",
+            "text_num_layers",
             "text_max_position_embeddings",
             "text_vocab_size",
             "projection_dim",
@@ -482,11 +482,11 @@ class OwlViTVisionModel(BaseModel):
 
         last_hidden_state = owlvit_vision_transformer(
             pixel_values,
-            hidden_dim=vision_hidden_size,
+            hidden_dim=vision_hidden_dim,
             image_size=image_edge,
             patch_size=vision_patch_size,
-            num_hidden_layers=vision_num_hidden_layers,
-            num_heads=vision_num_attention_heads,
+            num_hidden_layers=vision_num_layers,
+            num_heads=vision_num_heads,
             mlp_dim=vision_intermediate_size,
             block_prefix="vision_model",
         )
@@ -506,10 +506,10 @@ class OwlViTVisionModel(BaseModel):
 
         self.vision_image_size = vision_image_size
         self.vision_patch_size = vision_patch_size
-        self.vision_hidden_size = vision_hidden_size
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_intermediate_size = vision_intermediate_size
-        self.vision_num_hidden_layers = vision_num_hidden_layers
-        self.vision_num_attention_heads = vision_num_attention_heads
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
         self.image_size = image_size
         self.input_tensor = input_tensor
 
@@ -519,10 +519,10 @@ class OwlViTVisionModel(BaseModel):
             {
                 "vision_image_size": self.vision_image_size,
                 "vision_patch_size": self.vision_patch_size,
-                "vision_hidden_size": self.vision_hidden_size,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_intermediate_size": self.vision_intermediate_size,
-                "vision_num_hidden_layers": self.vision_num_hidden_layers,
-                "vision_num_attention_heads": self.vision_num_attention_heads,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_num_heads": self.vision_num_heads,
                 "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -551,8 +551,8 @@ class OwlViTTextModel(BaseModel):
     .. code-block:: python
 
         out = model(input_ids)
-        out["last_hidden_state"]   # (B, seq_len, text_hidden_size)
-        out["pooler_output"]       # (B, text_hidden_size) — EOS token
+        out["last_hidden_state"]   # (B, seq_len, text_hidden_dim)
+        out["pooler_output"]       # (B, text_hidden_dim) — EOS token
 
     Reference:
         - `Simple Open-Vocabulary Object Detection with Vision Transformers
@@ -574,10 +574,10 @@ class OwlViTTextModel(BaseModel):
 
     def __init__(
         self,
-        text_hidden_size,
+        text_hidden_dim,
         text_intermediate_size,
-        text_num_attention_heads,
-        text_num_hidden_layers=12,
+        text_num_heads,
+        text_num_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
         text_input_shape=None,
@@ -588,10 +588,10 @@ class OwlViTTextModel(BaseModel):
         for k in (
             "vision_image_size",
             "vision_patch_size",
-            "vision_hidden_size",
+            "vision_hidden_dim",
             "vision_intermediate_size",
-            "vision_num_hidden_layers",
-            "vision_num_attention_heads",
+            "vision_num_layers",
+            "vision_num_heads",
             "projection_dim",
             "image_size",
         ):
@@ -610,10 +610,10 @@ class OwlViTTextModel(BaseModel):
         last_hidden_state, pooler_output = owlvit_text_transformer(
             input_ids,
             vocab_size=text_vocab_size,
-            hidden_dim=text_hidden_size,
+            hidden_dim=text_hidden_dim,
             max_seq_len=text_max_position_embeddings,
-            num_hidden_layers=text_num_hidden_layers,
-            num_heads=text_num_attention_heads,
+            num_hidden_layers=text_num_layers,
+            num_heads=text_num_heads,
             mlp_dim=text_intermediate_size,
             block_prefix="text_model",
         )
@@ -628,10 +628,10 @@ class OwlViTTextModel(BaseModel):
             **kwargs,
         )
 
-        self.text_hidden_size = text_hidden_size
+        self.text_hidden_dim = text_hidden_dim
         self.text_intermediate_size = text_intermediate_size
-        self.text_num_attention_heads = text_num_attention_heads
-        self.text_num_hidden_layers = text_num_hidden_layers
+        self.text_num_heads = text_num_heads
+        self.text_num_layers = text_num_layers
         self.text_max_position_embeddings = text_max_position_embeddings
         self.text_vocab_size = text_vocab_size
         self.input_tensor = input_tensor
@@ -641,10 +641,10 @@ class OwlViTTextModel(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "text_hidden_size": self.text_hidden_size,
+                "text_hidden_dim": self.text_hidden_dim,
                 "text_intermediate_size": self.text_intermediate_size,
-                "text_num_attention_heads": self.text_num_attention_heads,
-                "text_num_hidden_layers": self.text_num_hidden_layers,
+                "text_num_heads": self.text_num_heads,
+                "text_num_layers": self.text_num_layers,
                 "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_vocab_size": self.text_vocab_size,
                 "text_input_shape": self._text_input_shape_arg,
@@ -682,15 +682,15 @@ class OwlViTModel(BaseModel):
         self,
         vision_image_size,
         vision_patch_size,
-        vision_hidden_size,
+        vision_hidden_dim,
         vision_intermediate_size,
-        vision_num_hidden_layers,
-        vision_num_attention_heads,
-        text_hidden_size,
+        vision_num_layers,
+        vision_num_heads,
+        text_hidden_dim,
         text_intermediate_size,
-        text_num_attention_heads,
+        text_num_heads,
         projection_dim,
-        text_num_hidden_layers=12,
+        text_num_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
         image_size=None,
@@ -713,19 +713,19 @@ class OwlViTModel(BaseModel):
         vision_model = OwlViTVisionModel(
             vision_image_size=vision_image_size,
             vision_patch_size=vision_patch_size,
-            vision_hidden_size=vision_hidden_size,
+            vision_hidden_dim=vision_hidden_dim,
             vision_intermediate_size=vision_intermediate_size,
-            vision_num_hidden_layers=vision_num_hidden_layers,
-            vision_num_attention_heads=vision_num_attention_heads,
+            vision_num_layers=vision_num_layers,
+            vision_num_heads=vision_num_heads,
             image_size=image_size,
             input_tensor=pixel_values,
             name=f"{name}_vision_tower",
         )
         text_model = OwlViTTextModel(
-            text_hidden_size=text_hidden_size,
+            text_hidden_dim=text_hidden_dim,
             text_intermediate_size=text_intermediate_size,
-            text_num_attention_heads=text_num_attention_heads,
-            text_num_hidden_layers=text_num_hidden_layers,
+            text_num_heads=text_num_heads,
+            text_num_layers=text_num_layers,
             text_max_position_embeddings=text_max_position_embeddings,
             text_vocab_size=text_vocab_size,
             text_input_shape=text_input_shape,
@@ -754,14 +754,14 @@ class OwlViTModel(BaseModel):
         self.text_model = text_model
         self.vision_image_size = vision_image_size
         self.vision_patch_size = vision_patch_size
-        self.vision_hidden_size = vision_hidden_size
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_intermediate_size = vision_intermediate_size
-        self.vision_num_hidden_layers = vision_num_hidden_layers
-        self.vision_num_attention_heads = vision_num_attention_heads
-        self.text_hidden_size = text_hidden_size
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
+        self.text_hidden_dim = text_hidden_dim
         self.text_intermediate_size = text_intermediate_size
-        self.text_num_attention_heads = text_num_attention_heads
-        self.text_num_hidden_layers = text_num_hidden_layers
+        self.text_num_heads = text_num_heads
+        self.text_num_layers = text_num_layers
         self.text_max_position_embeddings = text_max_position_embeddings
         self.text_vocab_size = text_vocab_size
         self.projection_dim = projection_dim
@@ -774,14 +774,14 @@ class OwlViTModel(BaseModel):
             {
                 "vision_image_size": self.vision_image_size,
                 "vision_patch_size": self.vision_patch_size,
-                "vision_hidden_size": self.vision_hidden_size,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_intermediate_size": self.vision_intermediate_size,
-                "vision_num_hidden_layers": self.vision_num_hidden_layers,
-                "vision_num_attention_heads": self.vision_num_attention_heads,
-                "text_hidden_size": self.text_hidden_size,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_num_heads": self.vision_num_heads,
+                "text_hidden_dim": self.text_hidden_dim,
                 "text_intermediate_size": self.text_intermediate_size,
-                "text_num_attention_heads": self.text_num_attention_heads,
-                "text_num_hidden_layers": self.text_num_hidden_layers,
+                "text_num_heads": self.text_num_heads,
+                "text_num_layers": self.text_num_layers,
                 "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
@@ -803,15 +803,15 @@ class OwlViTModel(BaseModel):
         return {
             "vision_image_size": vc["image_size"],
             "vision_patch_size": vc["patch_size"],
-            "vision_hidden_size": vc["hidden_dim"],
-            "vision_intermediate_size": vc["mlp_dim"],
-            "vision_num_hidden_layers": vc["num_hidden_layers"],
-            "vision_num_attention_heads": vc["num_heads"],
-            "text_hidden_size": tc["hidden_dim"],
-            "text_intermediate_size": tc["mlp_dim"],
-            "text_num_attention_heads": tc["num_heads"],
-            "text_num_hidden_layers": tc["num_hidden_layers"],
-            "text_max_position_embeddings": tc["max_seq_len"],
+            "vision_hidden_dim": vc["hidden_size"],
+            "vision_intermediate_size": vc["intermediate_size"],
+            "vision_num_layers": vc["num_hidden_layers"],
+            "vision_num_heads": vc["num_attention_heads"],
+            "text_hidden_dim": tc["hidden_size"],
+            "text_intermediate_size": tc["intermediate_size"],
+            "text_num_heads": tc["num_attention_heads"],
+            "text_num_layers": tc["num_hidden_layers"],
+            "text_max_position_embeddings": tc["max_position_embeddings"],
             "text_vocab_size": tc["vocab_size"],
             "projection_dim": hf_config["projection_dim"],
         }
@@ -844,15 +844,15 @@ class OwlViTDetect(BaseModel):
         self,
         vision_image_size,
         vision_patch_size,
-        vision_hidden_size,
+        vision_hidden_dim,
         vision_intermediate_size,
-        vision_num_hidden_layers,
-        vision_num_attention_heads,
-        text_hidden_size,
+        vision_num_layers,
+        vision_num_heads,
+        text_hidden_dim,
         text_intermediate_size,
-        text_num_attention_heads,
+        text_num_heads,
         projection_dim,
-        text_num_hidden_layers=12,
+        text_num_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
         image_size=None,
@@ -874,14 +874,14 @@ class OwlViTDetect(BaseModel):
         base = OwlViTModel(
             vision_image_size=vision_image_size,
             vision_patch_size=vision_patch_size,
-            vision_hidden_size=vision_hidden_size,
+            vision_hidden_dim=vision_hidden_dim,
             vision_intermediate_size=vision_intermediate_size,
-            vision_num_hidden_layers=vision_num_hidden_layers,
-            vision_num_attention_heads=vision_num_attention_heads,
-            text_hidden_size=text_hidden_size,
+            vision_num_layers=vision_num_layers,
+            vision_num_heads=vision_num_heads,
+            text_hidden_dim=text_hidden_dim,
             text_intermediate_size=text_intermediate_size,
-            text_num_attention_heads=text_num_attention_heads,
-            text_num_hidden_layers=text_num_hidden_layers,
+            text_num_heads=text_num_heads,
+            text_num_layers=text_num_layers,
             text_max_position_embeddings=text_max_position_embeddings,
             text_vocab_size=text_vocab_size,
             projection_dim=projection_dim,
@@ -897,8 +897,8 @@ class OwlViTDetect(BaseModel):
             image_embeds_raw,
             text_embeds,
             input_ids,
-            vision_hidden_size=vision_hidden_size,
-            text_hidden_size=text_hidden_size,
+            vision_hidden_dim=vision_hidden_dim,
+            text_hidden_dim=text_hidden_dim,
             num_patches_h=num_patches_h,
             num_patches_w=num_patches_w,
         )
@@ -906,14 +906,14 @@ class OwlViTDetect(BaseModel):
 
         self.vision_image_size = vision_image_size
         self.vision_patch_size = vision_patch_size
-        self.vision_hidden_size = vision_hidden_size
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_intermediate_size = vision_intermediate_size
-        self.vision_num_hidden_layers = vision_num_hidden_layers
-        self.vision_num_attention_heads = vision_num_attention_heads
-        self.text_hidden_size = text_hidden_size
+        self.vision_num_layers = vision_num_layers
+        self.vision_num_heads = vision_num_heads
+        self.text_hidden_dim = text_hidden_dim
         self.text_intermediate_size = text_intermediate_size
-        self.text_num_attention_heads = text_num_attention_heads
-        self.text_num_hidden_layers = text_num_hidden_layers
+        self.text_num_heads = text_num_heads
+        self.text_num_layers = text_num_layers
         self.text_max_position_embeddings = text_max_position_embeddings
         self.text_vocab_size = text_vocab_size
         self.projection_dim = projection_dim
@@ -928,14 +928,14 @@ class OwlViTDetect(BaseModel):
             {
                 "vision_image_size": self.vision_image_size,
                 "vision_patch_size": self.vision_patch_size,
-                "vision_hidden_size": self.vision_hidden_size,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_intermediate_size": self.vision_intermediate_size,
-                "vision_num_hidden_layers": self.vision_num_hidden_layers,
-                "vision_num_attention_heads": self.vision_num_attention_heads,
-                "text_hidden_size": self.text_hidden_size,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_num_heads": self.vision_num_heads,
+                "text_hidden_dim": self.text_hidden_dim,
                 "text_intermediate_size": self.text_intermediate_size,
-                "text_num_attention_heads": self.text_num_attention_heads,
-                "text_num_hidden_layers": self.text_num_hidden_layers,
+                "text_num_heads": self.text_num_heads,
+                "text_num_layers": self.text_num_layers,
                 "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,

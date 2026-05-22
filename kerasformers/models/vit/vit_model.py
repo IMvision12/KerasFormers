@@ -40,7 +40,7 @@ def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0)
 
 def transformer_block(
     inputs,
-    dim,
+    embed_dim,
     num_heads,
     mlp_ratio=4.0,
     qkv_bias=False,
@@ -53,8 +53,8 @@ def transformer_block(
     """Standard ViT transformer block: LN -> MHSA -> Add -> LN -> MLP -> Add.
 
     Args:
-        inputs: Input token tensor of shape ``(B, N, dim)``.
-        dim: Token embedding dimension.
+        inputs: Input token tensor of shape ``(B, N, embed_dim)``.
+        embed_dim: Token embedding dimension.
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP sub-block.
         qkv_bias: Whether to include bias in the QKV projection.
@@ -66,13 +66,13 @@ def transformer_block(
             both residual branches.
 
     Returns:
-        Tensor of shape ``(B, N, dim)`` after both residual branches.
+        Tensor of shape ``(B, N, embed_dim)`` after both residual branches.
     """
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
     x = ViTMultiHeadSelfAttention(
-        dim=dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=qkv_bias,
         qk_norm=qk_norm,
@@ -91,8 +91,8 @@ def transformer_block(
     )(x)
     y = mlp_block(
         y,
-        hidden_features=int(dim * mlp_ratio),
-        out_features=dim,
+        hidden_features=int(embed_dim * mlp_ratio),
+        out_features=embed_dim,
         drop=proj_drop,
         block_idx=block_idx,
     )
@@ -107,7 +107,7 @@ def vit_backbone_feature(
     inputs,
     *,
     patch_size,
-    dim,
+    embed_dim,
     depth,
     num_heads,
     mlp_ratio,
@@ -131,7 +131,7 @@ def vit_backbone_feature(
         inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
             or ``(B, C, H, W)`` for channels-first.
         patch_size: Conv-stem patch size in pixels.
-        dim: Token embedding dimension.
+        embed_dim: Token embedding dimension.
         depth: Number of transformer blocks.
         num_heads: Number of attention heads per block.
         mlp_ratio: Hidden expansion ratio for the MLP sub-block.
@@ -154,7 +154,7 @@ def vit_backbone_feature(
             extractor).
 
     Returns:
-        Final encoder tokens of shape ``(B, num_tokens, dim)`` after the
+        Final encoder tokens of shape ``(B, num_tokens, embed_dim)`` after the
         final LayerNorm. When ``return_intermediates=True``, a list
         ``[post_pos_embed, block_0, ..., block_{depth-1}]`` of raw block
         outputs (no final LN) is returned instead. When ``return_stages=True``,
@@ -172,14 +172,14 @@ def vit_backbone_feature(
     grid_w = width // patch_size
 
     x = layers.Conv2D(
-        filters=dim,
+        filters=embed_dim,
         kernel_size=patch_size,
         strides=patch_size,
         padding="valid",
         data_format=data_format,
         name="conv1",
     )(inputs)
-    x = layers.Reshape((-1, dim))(x)
+    x = layers.Reshape((-1, embed_dim))(x)
     x = ViTClassDistToken(use_distillation=use_distillation, name="cls_token")(x)
     x = ViTAddPositionEmbs(
         name="pos_embed",
@@ -195,7 +195,7 @@ def vit_backbone_feature(
     for i in range(depth):
         x = transformer_block(
             x,
-            dim=dim,
+            embed_dim=embed_dim,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
             qkv_bias=qkv_bias,
@@ -229,7 +229,7 @@ class ViTModel(BaseModel):
     MLP sub-blocks with residual connections and LayerNorm.
 
     Output is the last layer output before the classifier head: the
-    final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
+    final-LN normalized token sequence ``(B, num_tokens, embed_dim)`` where the
     first 1 (or 2 if ``use_distillation=True``) tokens are class /
     distillation tokens and the rest are spatial patch tokens.
     :class:`ViTImageClassify` composes this model and reads the class token(s)
@@ -245,7 +245,7 @@ class ViTModel(BaseModel):
             Defaults to `False`.
         patch_size: Integer, conv-stem patch size in pixels.
             Defaults to `16`.
-        dim: Integer, token embedding dimension. Defaults to `768`.
+        embed_dim: Integer, token embedding dimension. Defaults to `768`.
         depth: Integer, number of transformer encoder blocks.
             Defaults to `12`.
         num_heads: Integer, number of attention heads per block.
@@ -317,7 +317,7 @@ class ViTModel(BaseModel):
         self,
         as_backbone=False,
         patch_size=16,
-        dim=768,
+        embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4.0,
@@ -360,7 +360,7 @@ class ViTModel(BaseModel):
         x = vit_backbone_feature(
             x,
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -380,7 +380,7 @@ class ViTModel(BaseModel):
 
         self.as_backbone = as_backbone
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -402,7 +402,7 @@ class ViTModel(BaseModel):
             {
                 "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,
@@ -447,7 +447,7 @@ class ViTImageClassify(BaseModel):
     Args:
         patch_size: Integer, conv-stem patch size in pixels.
             Defaults to `16`.
-        dim: Integer, token embedding dimension. Defaults to `768`.
+        embed_dim: Integer, token embedding dimension. Defaults to `768`.
         depth: Integer, number of transformer encoder blocks in the
             backbone. Defaults to `12`.
         num_heads: Integer, number of attention heads per block.
@@ -518,7 +518,7 @@ class ViTImageClassify(BaseModel):
     def __init__(
         self,
         patch_size=16,
-        dim=768,
+        embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4.0,
@@ -542,7 +542,7 @@ class ViTImageClassify(BaseModel):
 
         backbone = ViTModel(
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -585,7 +585,7 @@ class ViTImageClassify(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -608,7 +608,7 @@ class ViTImageClassify(BaseModel):
         config.update(
             {
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,

@@ -325,7 +325,7 @@ class SAM2Model(BaseModel):
         vc = hf_config["vision_config"]
         bc = vc["backbone_config"]
         config = {
-            "hidden_dim": bc["hidden_dim"],
+            "hidden_dim": bc["hidden_size"],
             "blocks_per_stage": bc["blocks_per_stage"],
             "embed_dim_per_stage": bc["embed_dim_per_stage"],
             "num_attention_heads_per_stage": bc["num_attention_heads_per_stage"],
@@ -557,7 +557,7 @@ class SAM2PromptableSegment(BaseModel):
         vc = hf_config["vision_config"]
         bc = vc["backbone_config"]
         config = {
-            "hidden_dim": bc["hidden_dim"],
+            "hidden_dim": bc["hidden_size"],
             "blocks_per_stage": bc["blocks_per_stage"],
             "embed_dim_per_stage": bc["embed_dim_per_stage"],
             "num_attention_heads_per_stage": bc["num_attention_heads_per_stage"],

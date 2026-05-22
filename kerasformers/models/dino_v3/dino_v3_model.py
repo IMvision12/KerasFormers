@@ -20,18 +20,20 @@ from .dino_v3_layers import (
 )
 
 
-def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True):
+def dinov3_swiglu_ffn(
+    x, embed_dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True
+):
     """Gated feed-forward network used in DINOv3 ViT blocks (GeGLU / SwiGLU).
 
     Three Dense projections — a gate branch (activated) and a value /
     up branch — are multiplied elementwise, then projected back to
-    ``dim`` by a third Dense. With ``hidden_act="silu"`` this is the
+    ``embed_dim`` by a third Dense. With ``hidden_act="silu"`` this is the
     standard SwiGLU; with ``"gelu"`` it is GeGLU. DINOv3 selects the
     variant via the ``use_swiglu`` flag on the encoder block.
 
     Args:
-        x: Input token sequence of shape ``(B, N, dim)``.
-        dim: Output / residual channel dimension.
+        x: Input token sequence of shape ``(B, N, embed_dim)``.
+        embed_dim: Output / residual channel dimension.
         hidden_dim: Width of the gate / up branches.
         block_idx: Block index, used to name the inner Dense layers
             (``blocks_{block_idx}_swiglu_*``).
@@ -40,7 +42,7 @@ def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias
         mlp_bias: Whether the three Dense layers carry biases.
 
     Returns:
-        Tensor of shape ``(B, N, dim)``.
+        Tensor of shape ``(B, N, embed_dim)``.
     """
     gate = layers.Dense(
         hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_gate"
@@ -50,11 +52,15 @@ def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias
         hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_up"
     )(x)
     x = layers.Multiply()([gate, up])
-    x = layers.Dense(dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_down")(x)
+    x = layers.Dense(
+        embed_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_swiglu_down"
+    )(x)
     return x
 
 
-def dinov3_mlp_block(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True):
+def dinov3_mlp_block(
+    x, embed_dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True
+):
     """Standard two-layer transformer MLP — Dense → activation → Dense.
 
     Used by DINOv3 blocks when ``use_swiglu=False``. Layer names follow
@@ -62,27 +68,29 @@ def dinov3_mlp_block(x, dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=
     transferred by suffix.
 
     Args:
-        x: Input token sequence of shape ``(B, N, dim)``.
-        dim: Output / residual channel dimension.
+        x: Input token sequence of shape ``(B, N, embed_dim)``.
+        embed_dim: Output / residual channel dimension.
         hidden_dim: Intermediate Dense width.
         block_idx: Block index used in layer names.
         hidden_act: Activation name (typically ``"gelu"``).
         mlp_bias: Whether both Dense layers carry biases.
 
     Returns:
-        Tensor of shape ``(B, N, dim)``.
+        Tensor of shape ``(B, N, embed_dim)``.
     """
     x = layers.Dense(hidden_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_dense_1")(
         x
     )
     x = layers.Activation(hidden_act, name=f"blocks_{block_idx}_{hidden_act}")(x)
-    x = layers.Dense(dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_dense_2")(x)
+    x = layers.Dense(embed_dim, use_bias=mlp_bias, name=f"blocks_{block_idx}_dense_2")(
+        x
+    )
     return x
 
 
 def dinov3_transformer_block(
     inputs,
-    dim,
+    embed_dim,
     num_heads,
     mlp_hidden_dim,
     num_prefix_tokens,
@@ -120,9 +128,9 @@ def dinov3_transformer_block(
         - `DINOv3 <https://arxiv.org/abs/2508.10104>`_
 
     Args:
-        inputs: Token sequence ``(B, N, dim)`` — typically
+        inputs: Token sequence ``(B, N, embed_dim)`` — typically
             ``[CLS, registers..., patch_tokens...]``.
-        dim: Hidden / model dimension.
+        embed_dim: Hidden / model dimension.
         num_heads: Number of attention heads.
         mlp_hidden_dim: Hidden width of the MLP / SwiGLU branch.
         num_prefix_tokens: Number of leading tokens that bypass RoPE
@@ -143,13 +151,13 @@ def dinov3_transformer_block(
         layer_norm_eps: Epsilon for both pre-norm LayerNorms.
 
     Returns:
-        Tensor of shape ``(B, N, dim)`` — the block's output sequence.
+        Tensor of shape ``(B, N, embed_dim)`` — the block's output sequence.
     """
     x = layers.LayerNormalization(
         epsilon=layer_norm_eps, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
     attn = DinoV3Attention(
-        dim=dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         num_prefix_tokens=num_prefix_tokens,
         rope_theta=rope_theta,
@@ -170,9 +178,13 @@ def dinov3_transformer_block(
         epsilon=layer_norm_eps, axis=-1, name=f"blocks_{block_idx}_layernorm_2"
     )(x)
     if use_swiglu:
-        y = dinov3_swiglu_ffn(y, dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias)
+        y = dinov3_swiglu_ffn(
+            y, embed_dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias
+        )
     else:
-        y = dinov3_mlp_block(y, dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias)
+        y = dinov3_mlp_block(
+            y, embed_dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias
+        )
     if layer_scale_init is not None:
         y = LayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
@@ -186,7 +198,7 @@ class DinoV3ViTModel(BaseModel):
     """DINOv3 Vision Transformer model with 2D RoPE and register tokens.
 
     When ``as_backbone=False`` (default), returns the final
-    LayerNorm-normalized token sequence ``(B, num_tokens, dim)`` (CLS +
+    LayerNorm-normalized token sequence ``(B, num_tokens, embed_dim)`` (CLS +
     register tokens followed by patch tokens). When ``as_backbone=True``,
     returns the list of intermediate feature maps (initial embedding +
     each transformer block, last LayerNorm-normalized), suitable for
@@ -206,7 +218,7 @@ class DinoV3ViTModel(BaseModel):
             If ``False`` (default), output only the final
             LayerNorm-normalized token sequence.
         patch_size: ViT patch size. DINOv3 uses 16.
-        dim: Hidden dimension.
+        embed_dim: Hidden dimension.
         depth: Number of transformer encoder layers.
         num_heads: Number of attention heads per layer.
         mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
@@ -249,7 +261,7 @@ class DinoV3ViTModel(BaseModel):
         mlp_ratio = intermediate / hidden if intermediate else 4.0
         return {
             "patch_size": hf_config.get("patch_size", 16),
-            "dim": hidden,
+            "embed_dim": hidden,
             "depth": hf_config["num_hidden_layers"],
             "num_heads": hf_config["num_attention_heads"],
             "mlp_ratio": mlp_ratio,
@@ -277,7 +289,7 @@ class DinoV3ViTModel(BaseModel):
         self,
         as_backbone=False,
         patch_size=16,
-        dim=768,
+        embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4.0,
@@ -319,12 +331,12 @@ class DinoV3ViTModel(BaseModel):
         num_prefix_tokens = 1 + num_register_tokens
 
         rope_cos_np, rope_sin_np = build_rope_2d_cache(
-            grid_h, grid_w, dim // num_heads, theta=rope_theta
+            grid_h, grid_w, embed_dim // num_heads, theta=rope_theta
         )
         rope_cos = ops.convert_to_tensor(rope_cos_np)
         rope_sin = ops.convert_to_tensor(rope_sin_np)
 
-        mlp_hidden_dim = int(dim * mlp_ratio)
+        mlp_hidden_dim = int(embed_dim * mlp_ratio)
 
         x = (
             ImageNormalizationLayer(mode=normalization_mode)(img_input)
@@ -332,14 +344,14 @@ class DinoV3ViTModel(BaseModel):
             else img_input
         )
         x = layers.Conv2D(
-            filters=dim,
+            filters=embed_dim,
             kernel_size=patch_size,
             strides=patch_size,
             padding="valid",
             data_format=data_format,
             name="patch_embed",
         )(x)
-        x = layers.Reshape((-1, dim))(x)
+        x = layers.Reshape((-1, embed_dim))(x)
         x = DinoV3CLSToken(name="cls_token")(x)
         if num_register_tokens > 0:
             x = DinoV3RegisterTokens(
@@ -350,7 +362,7 @@ class DinoV3ViTModel(BaseModel):
         for i in range(depth):
             x = dinov3_transformer_block(
                 x,
-                dim=dim,
+                embed_dim=embed_dim,
                 num_heads=num_heads,
                 mlp_hidden_dim=mlp_hidden_dim,
                 num_prefix_tokens=num_prefix_tokens,
@@ -378,7 +390,7 @@ class DinoV3ViTModel(BaseModel):
 
         self.as_backbone = as_backbone
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -403,7 +415,7 @@ class DinoV3ViTModel(BaseModel):
             {
                 "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,

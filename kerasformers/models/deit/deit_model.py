@@ -21,7 +21,7 @@ class DeiTModel(ViTModel):
     enabled via ``use_distillation=True``.
 
     Output is the last layer output before the classifier head: the
-    final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
+    final-LN normalized token sequence ``(B, num_tokens, embed_dim)`` where the
     first 1 (or 2 if ``use_distillation=True``) tokens are class /
     distillation tokens and the rest are spatial patch tokens.
     :class:`DeiTImageClassify` composes this model and reads the class token(s)
@@ -40,7 +40,7 @@ class DeiTModel(ViTModel):
             Defaults to `False`.
         name: String, the name of the model. Defaults to `"DeiTModel"`.
         **kwargs: All architectural parameters of :class:`ViTModel`
-            (``patch_size``, ``dim``, ``depth``, ``num_heads``,
+            (``patch_size``, ``embed_dim``, ``depth``, ``num_heads``,
             ``mlp_ratio``, ``qkv_bias``, ``qk_norm``, ``drop_rate``,
             ``attn_drop_rate``, ``no_embed_class``, ``use_distillation``,
             ``layer_scale_init``, ``image_size``, ``include_normalization``,
@@ -97,7 +97,7 @@ class DeiTImageClassify(ViTImageClassify):
     Args:
         patch_size: Integer, conv-stem patch size in pixels.
             Defaults to `16`.
-        dim: Integer, token embedding dimension. Defaults to `768`.
+        embed_dim: Integer, token embedding dimension. Defaults to `768`.
         depth: Integer, number of transformer encoder blocks in the
             backbone. Defaults to `12`.
         num_heads: Integer, number of attention heads per block.
@@ -169,7 +169,7 @@ class DeiTImageClassify(ViTImageClassify):
     def __init__(
         self,
         patch_size=16,
-        dim=768,
+        embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4.0,
@@ -193,7 +193,7 @@ class DeiTImageClassify(ViTImageClassify):
 
         backbone = DeiTModel(
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -238,7 +238,7 @@ class DeiTImageClassify(ViTImageClassify):
         )
 
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -261,7 +261,7 @@ class DeiTImageClassify(ViTImageClassify):
         config.update(
             {
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,

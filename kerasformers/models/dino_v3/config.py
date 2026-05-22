@@ -1,7 +1,7 @@
 DINOV3_VIT_CONFIG = {
     "dinov3_vits16": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
@@ -12,7 +12,7 @@ DINOV3_VIT_CONFIG = {
     },
     "dinov3_vitb16": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
@@ -23,7 +23,7 @@ DINOV3_VIT_CONFIG = {
     },
     "dinov3_vitl16": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "mlp_ratio": 4.0,

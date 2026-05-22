@@ -1,6 +1,6 @@
 CONVMIXER_MODEL_CONFIG = {
     "convmixer_1536_20": {
-        "dim": 1536,
+        "embed_dim": 1536,
         "depth": 20,
         "patch_size": 7,
         "kernel_size": 9,
@@ -9,7 +9,7 @@ CONVMIXER_MODEL_CONFIG = {
         "num_classes": 1000,
     },
     "convmixer_768_32": {
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 32,
         "patch_size": 7,
         "kernel_size": 7,
@@ -18,7 +18,7 @@ CONVMIXER_MODEL_CONFIG = {
         "num_classes": 1000,
     },
     "convmixer_1024_20_ks9_p14": {
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 20,
         "patch_size": 14,
         "kernel_size": 9,

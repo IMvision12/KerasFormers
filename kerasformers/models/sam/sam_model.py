@@ -213,9 +213,9 @@ class SAMModel(BaseModel):
         vc = hf_config["vision_config"]
         image_size = vc.get("image_size", VISION_IMAGE_SIZE)
         return {
-            "vision_hidden_size": vc["hidden_dim"],
+            "vision_hidden_size": vc["hidden_size"],
             "vision_num_hidden_layers": vc["num_hidden_layers"],
-            "vision_num_attention_heads": vc["num_heads"],
+            "vision_num_attention_heads": vc["num_attention_heads"],
             "vision_mlp_dim": vc["mlp_dim"],
             "vision_global_attn_indexes": list(vc["global_attn_indexes"]),
             "image_size": image_size,
@@ -369,9 +369,9 @@ class SAMPromptableSegment(BaseModel):
         vc = hf_config["vision_config"]
         image_size = vc.get("image_size", VISION_IMAGE_SIZE)
         return {
-            "vision_hidden_size": vc["hidden_dim"],
+            "vision_hidden_size": vc["hidden_size"],
             "vision_num_hidden_layers": vc["num_hidden_layers"],
-            "vision_num_attention_heads": vc["num_heads"],
+            "vision_num_attention_heads": vc["num_attention_heads"],
             "vision_mlp_dim": vc["mlp_dim"],
             "vision_global_attn_indexes": list(vc["global_attn_indexes"]),
             "image_size": image_size,

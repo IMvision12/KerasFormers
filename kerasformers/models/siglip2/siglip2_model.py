@@ -55,7 +55,7 @@ class SigLIP2VisionModel(SigLIPVisionModel):
 
     Args (identical to :class:`SigLIPVisionModel`):
         image_size, patch_size, vision_hidden_dim,
-        vision_num_layers, vision_num_heads, vision_intermediate_dim,
+        vision_num_layers, vision_num_heads, vision_mlp_dim,
         input_tensor, name.
     """
 
@@ -100,7 +100,7 @@ class SigLIP2TextModel(SigLIPTextModel):
 
     Args (identical to :class:`SigLIPTextModel`):
         vocab_size, embed_dim, text_hidden_dim, text_num_layers,
-        text_num_heads, text_intermediate_dim, max_seq_len,
+        text_num_heads, text_mlp_dim, max_seq_len,
         input_tensor, name.
     """
 
@@ -144,9 +144,9 @@ class SigLIP2Model(SigLIPModel):
 
     Args (identical to :class:`SigLIPModel`):
         image_size, patch_size, vision_hidden_dim,
-        vision_num_layers, vision_num_heads, vision_intermediate_dim,
+        vision_num_layers, vision_num_heads, vision_mlp_dim,
         vocab_size, embed_dim, text_hidden_dim, text_num_layers,
-        text_num_heads, text_intermediate_dim, max_seq_len,
+        text_num_heads, text_mlp_dim, max_seq_len,
         input_tensor, name.
     """
 
@@ -186,9 +186,9 @@ class SigLIP2ZeroShotClassify(BaseModel):
 
     Args (identical to :class:`SigLIPModel`):
         image_size, patch_size, vision_hidden_dim,
-        vision_num_layers, vision_num_heads, vision_intermediate_dim,
+        vision_num_layers, vision_num_heads, vision_mlp_dim,
         vocab_size, embed_dim, text_hidden_dim, text_num_layers,
-        text_num_heads, text_intermediate_dim, max_seq_len,
+        text_num_heads, text_mlp_dim, max_seq_len,
         input_tensor, name.
     """
 
@@ -216,13 +216,13 @@ class SigLIP2ZeroShotClassify(BaseModel):
         vision_hidden_dim=768,
         vision_num_layers=12,
         vision_num_heads=12,
-        vision_intermediate_dim=3072,
+        vision_mlp_dim=3072,
         vocab_size=256000,
         embed_dim=768,
         text_hidden_dim=768,
         text_num_layers=12,
         text_num_heads=12,
-        text_intermediate_dim=3072,
+        text_mlp_dim=3072,
         max_seq_len=64,
         input_tensor=None,
         name="SigLIP2ZeroShotClassify",
@@ -234,13 +234,13 @@ class SigLIP2ZeroShotClassify(BaseModel):
             vision_hidden_dim=vision_hidden_dim,
             vision_num_layers=vision_num_layers,
             vision_num_heads=vision_num_heads,
-            vision_intermediate_dim=vision_intermediate_dim,
+            vision_mlp_dim=vision_mlp_dim,
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             text_hidden_dim=text_hidden_dim,
             text_num_layers=text_num_layers,
             text_num_heads=text_num_heads,
-            text_intermediate_dim=text_intermediate_dim,
+            text_mlp_dim=text_mlp_dim,
             max_seq_len=max_seq_len,
             input_tensor=input_tensor,
             name=f"{name}_base",
@@ -261,13 +261,13 @@ class SigLIP2ZeroShotClassify(BaseModel):
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
         self.vision_num_heads = vision_num_heads
-        self.vision_intermediate_dim = vision_intermediate_dim
+        self.vision_mlp_dim = vision_mlp_dim
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
         self.text_hidden_dim = text_hidden_dim
         self.text_num_layers = text_num_layers
         self.text_num_heads = text_num_heads
-        self.text_intermediate_dim = text_intermediate_dim
+        self.text_mlp_dim = text_mlp_dim
         self.max_seq_len = max_seq_len
         self.input_tensor = input_tensor
 
@@ -280,13 +280,13 @@ class SigLIP2ZeroShotClassify(BaseModel):
                 "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_num_layers": self.vision_num_layers,
                 "vision_num_heads": self.vision_num_heads,
-                "vision_intermediate_dim": self.vision_intermediate_dim,
+                "vision_mlp_dim": self.vision_mlp_dim,
                 "vocab_size": self.vocab_size,
                 "embed_dim": self.embed_dim,
                 "text_hidden_dim": self.text_hidden_dim,
                 "text_num_layers": self.text_num_layers,
                 "text_num_heads": self.text_num_heads,
-                "text_intermediate_dim": self.text_intermediate_dim,
+                "text_mlp_dim": self.text_mlp_dim,
                 "max_seq_len": self.max_seq_len,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -321,7 +321,7 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
 
     Args (identical to :class:`SigLIPImageClassify`):
         num_classes, image_size, patch_size, vision_hidden_dim,
-        vision_num_layers, vision_num_heads, vision_intermediate_dim,
+        vision_num_layers, vision_num_heads, vision_mlp_dim,
         input_tensor, name.
     """
 
