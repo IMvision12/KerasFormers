@@ -1,30 +1,30 @@
 RESNEXT_MODEL_CONFIG = {
     "resnext50_32x4d": {
-        "block_repeats": [3, 4, 6, 3],
+        "depths": [3, 4, 6, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 2,
     },
     "resnext101_32x4d": {
-        "block_repeats": [3, 4, 23, 3],
+        "depths": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 2,
     },
     "resnext101_32x8d": {
-        "block_repeats": [3, 4, 23, 3],
+        "depths": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 4,
     },
     "resnext101_32x16d": {
-        "block_repeats": [3, 4, 23, 3],
+        "depths": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 8,
     },
     "resnext101_32x32d": {
-        "block_repeats": [3, 4, 23, 3],
+        "depths": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 16,

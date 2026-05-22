@@ -5,7 +5,7 @@ RT_DETR_MODEL_CONFIG = {
         "backbone_layer_type": "basic",
         "encoder_in_channels": (128, 256, 512),
         "hidden_expansion": 0.5,
-        "decoder_layers": 3,
+        "decoder_num_layers": 3,
     },
     "rtdetrv1_r34": {
         "backbone_hidden_sizes": (64, 128, 256, 512),
@@ -13,14 +13,14 @@ RT_DETR_MODEL_CONFIG = {
         "backbone_layer_type": "basic",
         "encoder_in_channels": (128, 256, 512),
         "hidden_expansion": 0.5,
-        "decoder_layers": 4,
+        "decoder_num_layers": 4,
     },
     "rtdetrv1_r50": {
         "backbone_hidden_sizes": (256, 512, 1024, 2048),
         "backbone_block_repeats": (3, 4, 6, 3),
         "backbone_layer_type": "bottleneck",
         "encoder_in_channels": (512, 1024, 2048),
-        "decoder_layers": 6,
+        "decoder_num_layers": 6,
     },
     "rtdetrv1_r101": {
         "backbone_hidden_sizes": (256, 512, 1024, 2048),
@@ -29,7 +29,7 @@ RT_DETR_MODEL_CONFIG = {
         "encoder_in_channels": (512, 1024, 2048),
         "encoder_hidden_dim": 384,
         "encoder_ffn_dim": 2048,
-        "decoder_layers": 6,
+        "decoder_num_layers": 6,
     },
 }
 

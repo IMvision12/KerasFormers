@@ -5,7 +5,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 6, 2),
         "num_heads": (3, 6, 12, 24),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "swin_tiny_in22k": {
@@ -14,7 +14,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 6, 2),
         "num_heads": (3, 6, 12, 24),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 21841,
     },
     "swin_small": {
@@ -23,7 +23,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (3, 6, 12, 24),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "swin_small_in22k": {
@@ -32,7 +32,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (3, 6, 12, 24),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 21841,
     },
     "swin_base_224": {
@@ -41,7 +41,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "swin_base_224_in22k": {
@@ -50,7 +50,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 21841,
     },
     "swin_base_384": {
@@ -59,7 +59,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
         "pretrain_size": 384,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 1000,
     },
     "swin_base_384_in22k": {
@@ -68,7 +68,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (4, 8, 16, 32),
         "pretrain_size": 384,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 21841,
     },
     "swin_large_224": {
@@ -77,7 +77,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "swin_large_224_in22k": {
@@ -86,7 +86,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),
         "pretrain_size": 224,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 21841,
     },
     "swin_large_384": {
@@ -95,7 +95,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),
         "pretrain_size": 384,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 1000,
     },
     "swin_large_384_in22k": {
@@ -104,7 +104,7 @@ SWIN_MODEL_CONFIG = {
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),
         "pretrain_size": 384,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 21841,
     },
 }

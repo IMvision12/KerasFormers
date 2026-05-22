@@ -64,7 +64,7 @@ def convmixer_block(
 def convmixer_backbone_feature(
     inputs,
     *,
-    dim,
+    embed_dim,
     depth,
     kernel_size,
     patch_size,
@@ -77,7 +77,7 @@ def convmixer_backbone_feature(
 
     Args:
         inputs: Input image tensor (post-normalization).
-        dim: Channel dimension carried throughout the model.
+        embed_dim: Channel dimension carried throughout the model.
         depth: Total number of ConvMixer blocks stacked after the stem.
         kernel_size: Depthwise convolution kernel size inside each block.
         patch_size: Stride/kernel of the patch-embedding stem convolution.
@@ -94,7 +94,7 @@ def convmixer_backbone_feature(
         ``[final]`` when ``return_stages=True``.
     """
     x = layers.Conv2D(
-        dim,
+        embed_dim,
         kernel_size=patch_size,
         strides=patch_size,
         use_bias=True,
@@ -109,7 +109,7 @@ def convmixer_backbone_feature(
     for i in range(depth):
         x = convmixer_block(
             x,
-            dim,
+            embed_dim,
             kernel_size,
             activation,
             channels_axis,
@@ -142,7 +142,7 @@ class ConvMixerModel(BaseModel):
             use as a backbone network. When True, returns a singleton
             list ``[final]`` (ConvMixer has no natural multi-stage
             hierarchy). Defaults to `False`.
-        dim: Integer, channel dimension carried throughout the model.
+        embed_dim: Integer, channel dimension carried throughout the model.
             Defaults to `768`.
         depth: Integer, number of ConvMixer blocks stacked after the
             patch-embedding stem. Defaults to `32`.
@@ -152,7 +152,7 @@ class ConvMixerModel(BaseModel):
             stem convolution. Defaults to `7`.
         activation: String, activation name applied inside conv layers.
             Defaults to `"gelu"`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -202,12 +202,12 @@ class ConvMixerModel(BaseModel):
 
     def __init__(
         self,
-        dim=768,
+        embed_dim=768,
         depth=32,
         kernel_size=7,
         patch_size=7,
         activation="gelu",
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -221,12 +221,12 @@ class ConvMixerModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -237,7 +237,7 @@ class ConvMixerModel(BaseModel):
         )
         x = convmixer_backbone_feature(
             x,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             kernel_size=kernel_size,
             patch_size=patch_size,
@@ -249,12 +249,12 @@ class ConvMixerModel(BaseModel):
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.patch_size = patch_size
         self.kernel_size = kernel_size
         self.activation = activation
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -264,12 +264,12 @@ class ConvMixerModel(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "patch_size": self.patch_size,
                 "kernel_size": self.kernel_size,
                 "activation": self.activation,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -298,7 +298,7 @@ class ConvMixerImageClassify(BaseModel):
     - [Patches Are All You Need?](https://arxiv.org/abs/2201.09792)
 
     Args:
-        dim: Integer, channel dimension carried throughout the model.
+        embed_dim: Integer, channel dimension carried throughout the model.
             Defaults to `768`.
         depth: Integer, number of ConvMixer blocks stacked after the
             patch-embedding stem. Defaults to `32`.
@@ -308,7 +308,7 @@ class ConvMixerImageClassify(BaseModel):
             stem convolution. Defaults to `7`.
         activation: String, activation name applied inside conv layers.
             Defaults to `"gelu"`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -353,12 +353,12 @@ class ConvMixerImageClassify(BaseModel):
 
     def __init__(
         self,
-        dim=768,
+        embed_dim=768,
         depth=32,
         kernel_size=7,
         patch_size=7,
         activation="gelu",
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -372,12 +372,12 @@ class ConvMixerImageClassify(BaseModel):
         data_format = keras.config.image_data_format()
 
         backbone = ConvMixerModel(
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             kernel_size=kernel_size,
             patch_size=patch_size,
             activation=activation,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -395,12 +395,12 @@ class ConvMixerImageClassify(BaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.patch_size = patch_size
         self.kernel_size = kernel_size
         self.activation = activation
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -411,12 +411,12 @@ class ConvMixerImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "patch_size": self.patch_size,
                 "kernel_size": self.kernel_size,
                 "activation": self.activation,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

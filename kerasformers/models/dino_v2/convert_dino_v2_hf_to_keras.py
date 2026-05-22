@@ -134,10 +134,10 @@ def transfer_dinov2_weights(
             if src_size == tgt_size:
                 keras_weight.assign(pe.numpy())
             else:
-                dim = spatial_pe.shape[-1]
-                spatial_pe = spatial_pe.reshape(1, src_size, src_size, dim).permute(
-                    0, 3, 1, 2
-                )
+                embed_dim = spatial_pe.shape[-1]
+                spatial_pe = spatial_pe.reshape(
+                    1, src_size, src_size, embed_dim
+                ).permute(0, 3, 1, 2)
                 spatial_pe = torch.nn.functional.interpolate(
                     spatial_pe.float(),
                     size=(tgt_size, tgt_size),
@@ -145,7 +145,7 @@ def transfer_dinov2_weights(
                     align_corners=False,
                 )
                 spatial_pe = spatial_pe.permute(0, 2, 3, 1).reshape(
-                    1, tgt_size * tgt_size, dim
+                    1, tgt_size * tgt_size, embed_dim
                 )
                 keras_weight.assign(torch.cat([cls_pe, spatial_pe], dim=1).numpy())
             continue
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         keras_model = DinoV2Model.from_weights(
             variant,
             load_weights=False,
-            input_image_shape=224,
+            image_size=224,
             include_normalization=False,
         )
 

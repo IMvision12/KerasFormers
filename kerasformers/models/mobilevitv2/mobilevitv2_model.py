@@ -456,7 +456,7 @@ class MobileViTV2Model(BaseModel):
             5 per-stage feature maps. Defaults to `False`.
         multiplier: Float, width multiplier applied to every stage's
             channel count. Defaults to `1.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -502,7 +502,7 @@ class MobileViTV2Model(BaseModel):
     def config_from_hf(cls, hf_config):
         return {
             "multiplier": float(hf_config.get("width_multiplier", 1.0)),
-            "input_image_shape": hf_config["image_size"],
+            "image_size": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 32),
         }
 
@@ -515,7 +515,7 @@ class MobileViTV2Model(BaseModel):
     def __init__(
         self,
         multiplier=1.0,
-        input_image_shape=256,
+        image_size=256,
         output_stride=32,
         include_normalization=True,
         normalization_mode="zero_to_one",
@@ -530,12 +530,12 @@ class MobileViTV2Model(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -556,7 +556,7 @@ class MobileViTV2Model(BaseModel):
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.multiplier = multiplier
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.output_stride = output_stride
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -568,7 +568,7 @@ class MobileViTV2Model(BaseModel):
         config.update(
             {
                 "multiplier": self.multiplier,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "output_stride": self.output_stride,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
@@ -600,7 +600,7 @@ class MobileViTV2ImageClassify(BaseModel):
     Args:
         multiplier: Float, width multiplier applied to every stage's
             channel count. Defaults to `1.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -645,7 +645,7 @@ class MobileViTV2ImageClassify(BaseModel):
             num_classes = len(hf_config["id2label"])
         return {
             "multiplier": float(hf_config.get("width_multiplier", 1.0)),
-            "input_image_shape": hf_config["image_size"],
+            "image_size": hf_config["image_size"],
             "num_classes": num_classes if num_classes is not None else 1000,
         }
 
@@ -658,7 +658,7 @@ class MobileViTV2ImageClassify(BaseModel):
     def __init__(
         self,
         multiplier=1.0,
-        input_image_shape=256,
+        image_size=256,
         include_normalization=True,
         normalization_mode="zero_to_one",
         input_tensor=None,
@@ -673,7 +673,7 @@ class MobileViTV2ImageClassify(BaseModel):
 
         backbone = MobileViTV2Model(
             multiplier=multiplier,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             output_stride=32,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
@@ -693,7 +693,7 @@ class MobileViTV2ImageClassify(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.multiplier = multiplier
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -705,7 +705,7 @@ class MobileViTV2ImageClassify(BaseModel):
         config.update(
             {
                 "multiplier": self.multiplier,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -750,7 +750,7 @@ class MobileViTV2SemanticSegment(BaseModel):
             num_classes = len(hf_config["id2label"])
         return {
             "multiplier": float(hf_config.get("width_multiplier", 1.0)),
-            "input_image_shape": hf_config["image_size"],
+            "image_size": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 16),
             "atrous_rates": list(hf_config.get("atrous_rates", [6, 12, 18])),
             "aspp_out_channels": hf_config.get("aspp_out_channels", 512),
@@ -767,7 +767,7 @@ class MobileViTV2SemanticSegment(BaseModel):
     def __init__(
         self,
         multiplier=1.0,
-        input_image_shape=512,
+        image_size=512,
         output_stride=16,
         atrous_rates: list = [6, 12, 18],
         aspp_out_channels=512,
@@ -783,7 +783,7 @@ class MobileViTV2SemanticSegment(BaseModel):
 
         backbone = MobileViTV2Model(
             multiplier=multiplier,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             output_stride=output_stride,
             include_normalization=False,
             input_tensor=input_tensor,
@@ -805,7 +805,7 @@ class MobileViTV2SemanticSegment(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.multiplier = multiplier
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.output_stride = output_stride
         self.atrous_rates = atrous_rates
         self.aspp_out_channels = aspp_out_channels
@@ -818,7 +818,7 @@ class MobileViTV2SemanticSegment(BaseModel):
         config.update(
             {
                 "multiplier": self.multiplier,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "output_stride": self.output_stride,
                 "atrous_rates": self.atrous_rates,
                 "aspp_out_channels": self.aspp_out_channels,

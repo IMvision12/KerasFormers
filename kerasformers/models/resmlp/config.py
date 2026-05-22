@@ -4,8 +4,8 @@ RESMLP_MODEL_CONFIG = {
         "embed_dim": 384,
         "depth": 12,
         "mlp_ratio": 4,
-        "init_values": 1e-4,
-        "input_image_shape": 224,
+        "layer_scale_init": 1e-4,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "resmlp_24": {
@@ -13,8 +13,8 @@ RESMLP_MODEL_CONFIG = {
         "embed_dim": 384,
         "depth": 24,
         "mlp_ratio": 4,
-        "init_values": 1e-5,
-        "input_image_shape": 224,
+        "layer_scale_init": 1e-5,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "resmlp_36": {
@@ -22,8 +22,8 @@ RESMLP_MODEL_CONFIG = {
         "embed_dim": 384,
         "depth": 36,
         "mlp_ratio": 4,
-        "init_values": 1e-6,
-        "input_image_shape": 224,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "resmlp_big_24": {
@@ -31,8 +31,8 @@ RESMLP_MODEL_CONFIG = {
         "embed_dim": 768,
         "depth": 24,
         "mlp_ratio": 4,
-        "init_values": 1e-6,
-        "input_image_shape": 224,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
         "num_classes": 1000,
     },
 }

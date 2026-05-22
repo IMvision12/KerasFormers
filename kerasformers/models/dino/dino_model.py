@@ -25,7 +25,7 @@ class DinoViTModel(BaseModel):
     Standard ViT pretrained with the DINO self-supervised method.
 
     When ``as_backbone=False`` (default), returns the final
-    LayerNorm-normalized token sequence ``(B, num_tokens, dim)`` (CLS at
+    LayerNorm-normalized token sequence ``(B, num_tokens, embed_dim)`` (CLS at
     index 0). When ``as_backbone=True``, returns the list of
     intermediate feature maps from each transformer block (with the
     last LayerNorm-normalized), suitable for feeding into detection /
@@ -41,7 +41,7 @@ class DinoViTModel(BaseModel):
             a backbone. If ``False`` (default), output only the final
             LayerNorm-normalized token sequence.
         patch_size: ViT patch size (8 or 16).
-        dim: Hidden dimension.
+        embed_dim: Hidden dimension.
         depth: Number of transformer encoder layers.
         num_heads: Number of attention heads per layer.
         mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
@@ -53,7 +53,7 @@ class DinoViTModel(BaseModel):
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -71,7 +71,7 @@ class DinoViTModel(BaseModel):
         self,
         as_backbone=False,
         patch_size=16,
-        dim=384,
+        embed_dim=384,
         depth=12,
         num_heads=6,
         mlp_ratio=4.0,
@@ -81,23 +81,21 @@ class DinoViTModel(BaseModel):
         attn_drop_rate=0.0,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_image_shape=224,
+        image_size=224,
         input_tensor=None,
         name="DinoViTModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
         image_size = (
-            input_image_shape[0]
-            if data_format == "channels_last"
-            else input_image_shape[1]
+            input_shape[0] if data_format == "channels_last" else input_shape[1]
         )
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=input_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
 
@@ -109,7 +107,7 @@ class DinoViTModel(BaseModel):
         features = vit_backbone_feature(
             x,
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -119,7 +117,7 @@ class DinoViTModel(BaseModel):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=False,
             use_distillation=False,
-            init_values=None,
+            layer_scale_init=None,
             image_size=image_size,
             data_format=data_format,
             return_intermediates=True,
@@ -134,7 +132,7 @@ class DinoViTModel(BaseModel):
 
         self.as_backbone = as_backbone
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -144,7 +142,7 @@ class DinoViTModel(BaseModel):
         self.attn_drop_rate = attn_drop_rate
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -153,7 +151,7 @@ class DinoViTModel(BaseModel):
             {
                 "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,
@@ -163,7 +161,7 @@ class DinoViTModel(BaseModel):
                 "attn_drop_rate": self.attn_drop_rate,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )
@@ -193,12 +191,12 @@ class DinoResNetModel(BaseModel):
         as_backbone: If ``True``, output the list of per-stage feature
             maps for use as a backbone. If ``False`` (default), output
             only the final-stage feature map.
-        block_repeats: Per-stage block counts.
+        depths: Per-stage block counts.
         filters: Per-stage filter counts.
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -215,28 +213,28 @@ class DinoResNetModel(BaseModel):
     def __init__(
         self,
         as_backbone=False,
-        block_repeats=None,
+        depths=None,
         filters=None,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_image_shape=224,
+        image_size=224,
         input_tensor=None,
         name="DinoResNetModel",
         **kwargs,
     ):
-        if block_repeats is None:
-            block_repeats = [3, 4, 6, 3]
+        if depths is None:
+            depths = [3, 4, 6, 3]
         if filters is None:
             filters = [64, 128, 256, 512]
 
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
         channels_axis = -1 if data_format == "channels_last" else 1
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=input_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
 
@@ -248,7 +246,7 @@ class DinoResNetModel(BaseModel):
         features = resnet_backbone_feature(
             x,
             block_fn=bottleneck_block,
-            block_repeats=block_repeats,
+            depths=depths,
             filters=filters,
             channels_axis=channels_axis,
             data_format=data_format,
@@ -262,11 +260,11 @@ class DinoResNetModel(BaseModel):
         super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
 
         self.as_backbone = as_backbone
-        self.block_repeats = list(block_repeats)
+        self.depths = list(depths)
         self.filters = list(filters)
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -274,11 +272,11 @@ class DinoResNetModel(BaseModel):
         config.update(
             {
                 "as_backbone": self.as_backbone,
-                "block_repeats": self.block_repeats,
+                "depths": self.depths,
                 "filters": self.filters,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )

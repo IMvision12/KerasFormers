@@ -190,16 +190,16 @@ def mobilenetv2_backbone_feature(
 
     stages = []
     for layer_idx, layer_config in enumerate(_DEFAULT_BLOCKS):
-        expansion_factor, output_channels, num_blocks, initial_stride = layer_config
+        expansion_factor, output_channels, depths, initial_stride = layer_config
         scaled_output_channels = make_divisible(output_channels * width_multiplier)
 
         if layer_idx not in (0, len(_DEFAULT_BLOCKS) - 1):
-            num_blocks = int(keras.ops.ceil(num_blocks * depth_multiplier))
+            depths = int(keras.ops.ceil(depths * depth_multiplier))
 
         if return_stages and initial_stride == 2:
             stages.append(x)
 
-        for block_idx in range(num_blocks):
+        for block_idx in range(depths):
             current_stride = initial_stride if block_idx == 0 else 1
             x = inverted_residual_block(
                 x,
@@ -270,7 +270,7 @@ class MobileNetV2Model(BaseModel):
         fix_channels: Boolean, if True keep the stem (32) and head (1280)
             channel counts fixed regardless of ``width_multiplier``.
             Defaults to `False`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -327,7 +327,7 @@ class MobileNetV2Model(BaseModel):
         width_multiplier=1.0,
         depth_multiplier=1.0,
         fix_channels=False,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -341,12 +341,12 @@ class MobileNetV2Model(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -370,7 +370,7 @@ class MobileNetV2Model(BaseModel):
         self.width_multiplier = width_multiplier
         self.depth_multiplier = depth_multiplier
         self.fix_channels = fix_channels
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -383,7 +383,7 @@ class MobileNetV2Model(BaseModel):
                 "width_multiplier": self.width_multiplier,
                 "depth_multiplier": self.depth_multiplier,
                 "fix_channels": self.fix_channels,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -419,7 +419,7 @@ class MobileNetV2ImageClassify(BaseModel):
         fix_channels: Boolean, if True keep the stem (32) and head (1280)
             channel counts fixed regardless of ``width_multiplier``.
             Defaults to `False`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -468,7 +468,7 @@ class MobileNetV2ImageClassify(BaseModel):
         width_multiplier=1.0,
         depth_multiplier=1.0,
         fix_channels=False,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -485,7 +485,7 @@ class MobileNetV2ImageClassify(BaseModel):
             width_multiplier=width_multiplier,
             depth_multiplier=depth_multiplier,
             fix_channels=fix_channels,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -507,7 +507,7 @@ class MobileNetV2ImageClassify(BaseModel):
         self.width_multiplier = width_multiplier
         self.depth_multiplier = depth_multiplier
         self.fix_channels = fix_channels
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -521,7 +521,7 @@ class MobileNetV2ImageClassify(BaseModel):
                 "width_multiplier": self.width_multiplier,
                 "depth_multiplier": self.depth_multiplier,
                 "fix_channels": self.fix_channels,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

@@ -102,7 +102,7 @@ if __name__ == "__main__":
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
         keras_model: keras.Model = DepthAnythingV1DepthEstimation.from_weights(
-            variant, load_weights=False, input_image_shape=518
+            variant, load_weights=False, image_size=518
         )
 
         transfer_depth_anything_weights(keras_model, hf_sd)

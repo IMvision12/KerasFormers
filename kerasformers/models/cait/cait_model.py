@@ -47,7 +47,7 @@ def layer_scale_talking_head_block(
     num_heads,
     mlp_ratio=4.0,
     drop_rate=0.0,
-    init_values=1e-5,
+    layer_scale_init=1e-5,
     block_prefix="block",
 ):
     """CaiT main block: LN -> TalkingHeadAttn -> LayerScale -> SD -> Add -> LN -> MLP -> LayerScale -> SD -> Add.
@@ -58,7 +58,7 @@ def layer_scale_talking_head_block(
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP block.
         drop_rate: Stochastic-depth drop rate applied to each residual branch.
-        init_values: Initial value for the LayerScale per-channel gamma.
+        layer_scale_init: Initial value for the LayerScale per-channel gamma.
         block_prefix: Prefix used to name layers inside the block.
 
     Returns:
@@ -66,14 +66,14 @@ def layer_scale_talking_head_block(
     """
     y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_1")(x)
     attn = CaiTTalkingHeadAttention(
-        dim=embed_dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",
     )(y)
-    attn = LayerScale(init_values=init_values, name=f"{block_prefix}_layerscale_1")(
-        attn
-    )
+    attn = LayerScale(
+        layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_1"
+    )(attn)
     if drop_rate > 0:
         attn = StochasticDepth(drop_rate)(attn)
     x = layers.Add(name=f"{block_prefix}_add_1")([x, attn])
@@ -85,7 +85,9 @@ def layer_scale_talking_head_block(
         out_dim=embed_dim,
         block_prefix=f"{block_prefix}_mlp",
     )
-    mlp = LayerScale(init_values=init_values, name=f"{block_prefix}_layerscale_2")(mlp)
+    mlp = LayerScale(
+        layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_2"
+    )(mlp)
     if drop_rate > 0:
         mlp = StochasticDepth(drop_rate)(mlp)
     return layers.Add(name=f"{block_prefix}_add_2")([x, mlp])
@@ -97,7 +99,7 @@ def layer_scale_class_attn_block(
     embed_dim,
     num_heads,
     mlp_ratio=4.0,
-    init_values=1e-5,
+    layer_scale_init=1e-5,
     block_prefix="block_token_only",
 ):
     """Class-attention-only block: cls_token attends to patch tokens, then MLP.
@@ -108,7 +110,7 @@ def layer_scale_class_attn_block(
         embed_dim: Token embedding dimension.
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP block.
-        init_values: Initial value for the LayerScale per-channel gamma.
+        layer_scale_init: Initial value for the LayerScale per-channel gamma.
         block_prefix: Prefix used to name layers inside the block.
 
     Returns:
@@ -119,12 +121,14 @@ def layer_scale_class_attn_block(
         concat
     )
     cls = CaiTClassAttention(
-        dim=embed_dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",
     )(y)
-    cls = LayerScale(init_values=init_values, name=f"{block_prefix}_layerscale_1")(cls)
+    cls = LayerScale(
+        layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_1"
+    )(cls)
     cls_token = layers.Add(name=f"{block_prefix}_add_1")([cls_token, cls])
 
     y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_2")(
@@ -136,7 +140,9 @@ def layer_scale_class_attn_block(
         out_dim=embed_dim,
         block_prefix=f"{block_prefix}_mlp",
     )
-    mlp = LayerScale(init_values=init_values, name=f"{block_prefix}_layerscale_2")(mlp)
+    mlp = LayerScale(
+        layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_2"
+    )(mlp)
     return layers.Add(name=f"{block_prefix}_add_2")([cls_token, mlp])
 
 
@@ -204,7 +210,7 @@ def cait_backbone_feature(
             embed_dim=embed_dim,
             num_heads=num_heads,
             drop_rate=dpr[i],
-            init_values=1e-5,
+            layer_scale_init=1e-5,
             block_prefix=f"blocks_{i}",
         )
         stages.append(x)
@@ -216,7 +222,7 @@ def cait_backbone_feature(
             x,
             embed_dim=embed_dim,
             num_heads=num_heads,
-            init_values=1e-5,
+            layer_scale_init=1e-5,
             block_prefix=f"blocks_token_only_{i}",
         )
         stages.append(cls_token)
@@ -270,7 +276,7 @@ class CaiTModel(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across the
             ``depth`` patch blocks. Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -322,7 +328,7 @@ class CaiTModel(BaseModel):
         depth=24,
         num_heads=4,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -333,12 +339,12 @@ class CaiTModel(BaseModel):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -366,7 +372,7 @@ class CaiTModel(BaseModel):
         self.depth = depth
         self.num_heads = num_heads
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -381,7 +387,7 @@ class CaiTModel(BaseModel):
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -421,7 +427,7 @@ class CaiTImageClassify(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across the
             ``depth`` patch blocks. Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -470,7 +476,7 @@ class CaiTImageClassify(BaseModel):
         depth=24,
         num_heads=4,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -487,7 +493,7 @@ class CaiTImageClassify(BaseModel):
             depth=depth,
             num_heads=num_heads,
             drop_path_rate=drop_path_rate,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -505,7 +511,7 @@ class CaiTImageClassify(BaseModel):
         self.depth = depth
         self.num_heads = num_heads
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -521,7 +527,7 @@ class CaiTImageClassify(BaseModel):
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

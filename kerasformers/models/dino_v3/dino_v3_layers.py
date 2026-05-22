@@ -61,8 +61,10 @@ class DinoV3RegisterTokens(layers.Layer):
 
     def call(self, inputs):
         batch_size = ops.shape(inputs)[0]
-        dim = inputs.shape[-1]
-        reg = ops.broadcast_to(self.register_tokens, [batch_size, self.num_tokens, dim])
+        embed_dim = inputs.shape[-1]
+        reg = ops.broadcast_to(
+            self.register_tokens, [batch_size, self.num_tokens, embed_dim]
+        )
         cls = inputs[:, :1, :]
         patches = inputs[:, 1:, :]
         return ops.concatenate([cls, reg, patches], axis=1)
@@ -127,7 +129,7 @@ class DinoV3Attention(layers.Layer):
     to Q and K patch tokens only; CLS and register tokens are excluded.
 
     Args:
-        dim: Integer, total embedding dimension.
+        embed_dim: Integer, total embedding dimension.
         num_heads: Integer, number of attention heads. Defaults to ``8``.
         attn_drop: Float, dropout rate for attention weights. Defaults to ``0.0``.
         proj_drop: Float, dropout rate for output projection. Defaults to ``0.0``.
@@ -143,7 +145,7 @@ class DinoV3Attention(layers.Layer):
 
     def __init__(
         self,
-        dim,
+        embed_dim,
         num_heads=8,
         attn_drop=0.0,
         proj_drop=0.0,
@@ -159,10 +161,10 @@ class DinoV3Attention(layers.Layer):
         self.block_prefix = block_prefix or "blocks"
         prefix = f"{self.block_prefix}_"
 
-        assert dim % num_heads == 0
-        self.dim = dim
+        assert embed_dim % num_heads == 0
+        self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.head_dim = dim // num_heads
+        self.head_dim = embed_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.num_prefix_tokens = num_prefix_tokens
         self.rope_theta = rope_theta
@@ -171,14 +173,16 @@ class DinoV3Attention(layers.Layer):
         self.value_bias = value_bias
 
         self.q_proj = layers.Dense(
-            dim, use_bias=query_bias, name=prefix + "attn_q_proj"
+            embed_dim, use_bias=query_bias, name=prefix + "attn_q_proj"
         )
-        self.k_proj = layers.Dense(dim, use_bias=key_bias, name=prefix + "attn_k_proj")
+        self.k_proj = layers.Dense(
+            embed_dim, use_bias=key_bias, name=prefix + "attn_k_proj"
+        )
         self.v_proj = layers.Dense(
-            dim, use_bias=value_bias, name=prefix + "attn_v_proj"
+            embed_dim, use_bias=value_bias, name=prefix + "attn_v_proj"
         )
         self.attn_drop = layers.Dropout(attn_drop)
-        self.proj = layers.Dense(dim, name=prefix + "attn_proj")
+        self.proj = layers.Dense(embed_dim, name=prefix + "attn_proj")
         self.proj_drop = layers.Dropout(proj_drop)
 
         self._rope_cos = None
@@ -242,7 +246,7 @@ class DinoV3Attention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "num_heads": self.num_heads,
                 "attn_drop": self.attn_drop.rate,
                 "proj_drop": self.proj_drop.rate,

@@ -34,8 +34,8 @@ class ConvNeXtV2Model(ConvNeXtModel):
         name: String, the name of the model.
             Defaults to `"ConvNeXtV2Model"`.
         **kwargs: Additional keyword arguments forwarded to
-            :class:`ConvNeXtModel` (e.g. ``depths``, ``projection_dims``,
-            ``use_grn``, ``input_image_shape``, ``include_normalization``).
+            :class:`ConvNeXtModel` (e.g. ``depths``, ``projection_dim``,
+            ``use_grn``, ``image_size``, ``include_normalization``).
 
     Returns:
         A Keras `Model` instance.
@@ -88,19 +88,19 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
     Args:
         depths: Tuple of 4 integers, number of ConvNeXt blocks per stage.
             Defaults to `(3, 3, 9, 3)`.
-        projection_dims: Tuple of 4 integers, channel count per stage.
+        projection_dim: Tuple of 4 integers, channel count per stage.
             Defaults to `(96, 192, 384, 768)`.
         drop_path_rate: Float, maximum stochastic-depth drop rate.
             Linearly scaled from 0 to this value across all blocks.
             Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for per-channel
+        layer_scale_init: Float, initial value for per-channel
             LayerScale. Pass ``None`` to disable LayerScale.
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.
         use_grn: Boolean, whether to apply ConvNeXtGlobalResponseNorm inside each
             block (ConvNeXtV2 recipe). Defaults to `False`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -148,12 +148,12 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
     def __init__(
         self,
         depths=(3, 3, 9, 3),
-        projection_dims=(96, 192, 384, 768),
+        projection_dim=(96, 192, 384, 768),
         drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
+        layer_scale_init=1e-6,
         use_conv=False,
         use_grn=False,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -168,12 +168,12 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
 
         backbone = ConvNeXtV2Model(
             depths=depths,
-            projection_dims=projection_dims,
+            projection_dim=projection_dim,
             drop_path_rate=drop_path_rate,
-            layer_scale_init_value=layer_scale_init_value,
+            layer_scale_init=layer_scale_init,
             use_conv=use_conv,
             use_grn=use_grn,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -193,12 +193,12 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
         )
 
         self.depths = list(depths)
-        self.projection_dims = list(projection_dims)
+        self.projection_dim = list(projection_dim)
         self.drop_path_rate = drop_path_rate
-        self.layer_scale_init_value = layer_scale_init_value
+        self.layer_scale_init = layer_scale_init
         self.use_conv = use_conv
         self.use_grn = use_grn
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor

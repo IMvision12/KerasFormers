@@ -108,13 +108,13 @@ def _dynamic_multimask_via_stability(
 
 
 def sam2_mask_embedding(
-    inputs, hidden_size=256, mask_input_channels=16, layer_norm_eps=1e-6, name=""
+    inputs, hidden_dim=256, mask_input_channels=16, layer_norm_eps=1e-6, name=""
 ):
     """Embeds dense mask prompts through a small convolutional network.
 
     Downsamples a single-channel mask input by 4x total through
     three Conv2D layers with GELU activations and layer
-    normalization, mapping it to ``hidden_size`` channels at the
+    normalization, mapping it to ``hidden_dim`` channels at the
     image embedding spatial resolution.
 
     Reference:
@@ -123,7 +123,7 @@ def sam2_mask_embedding(
     Args:
         inputs: Input mask tensor of shape
             ``(batch_size, 4*H, 4*W, 1)``.
-        hidden_size: Integer, output embedding dimension.
+        hidden_dim: Integer, output embedding dimension.
             Defaults to ``256``.
         mask_input_channels: Integer, intermediate channel count
             after the second convolution.
@@ -135,7 +135,7 @@ def sam2_mask_embedding(
 
     Returns:
         Dense embedding tensor of shape
-        ``(batch_size, H, W, hidden_size)``.
+        ``(batch_size, H, W, hidden_dim)``.
     """
     inner_channels = mask_input_channels // 4
     x = layers.Conv2D(inner_channels, kernel_size=2, strides=2, name=f"{name}_conv1")(
@@ -148,14 +148,14 @@ def sam2_mask_embedding(
     )(x)
     x = layers.LayerNormalization(epsilon=layer_norm_eps, name=f"{name}_layer_norm2")(x)
     x = layers.Activation("gelu", name=f"{name}_gelu_2")(x)
-    x = layers.Conv2D(hidden_size, kernel_size=1, name=f"{name}_conv3")(x)
+    x = layers.Conv2D(hidden_dim, kernel_size=1, name=f"{name}_conv3")(x)
     return x
 
 
 def sam2_vision_encoder(
     pixel_values,
     *,
-    hidden_size,
+    hidden_dim,
     blocks_per_stage,
     embed_dim_per_stage,
     num_attention_heads_per_stage,
@@ -180,7 +180,7 @@ def sam2_vision_encoder(
         name="backbone_patch_embed_padding",
     )(pixel_values)
     hidden_states = layers.Conv2D(
-        hidden_size,
+        hidden_dim,
         kernel_size=(7, 7),
         strides=(4, 4),
         padding="valid",
@@ -192,7 +192,7 @@ def sam2_vision_encoder(
     pos_embed_h = spatial_h // 4
     pos_embed_w = spatial_w // 4
     pos_embed_layer = SAM2HieraPositionEmbedding(
-        hidden_size=hidden_size,
+        hidden_dim=hidden_dim,
         spatial_size=(pos_embed_h, pos_embed_w),
         window_size=window_size_per_stage[0],
         bg_size=window_pos_embed_bg_size,
@@ -204,8 +204,8 @@ def sam2_vision_encoder(
     stage_ends = (np.cumsum(blocks_per_stage) - 1).tolist()
     intermediate_hidden_states = []
     total_block_idx = 0
-    for stage_idx, num_blocks in enumerate(blocks_per_stage):
-        for block_idx in range(num_blocks):
+    for stage_idx, depths in enumerate(blocks_per_stage):
+        for block_idx in range(depths):
             dim_in = (
                 embed_dim_per_stage[stage_idx - 1]
                 if stage_idx > 0 and block_idx == 0
@@ -279,7 +279,7 @@ def sam2_vision_encoder(
     image_embeddings = fpn_hidden_states_list[-1]
 
     no_mem_embed_layer = SAM2NoMemoryEmbedding(
-        hidden_size=256,
+        hidden_dim=256,
         data_format=data_format,
         name="no_memory_embedding",
     )
@@ -325,7 +325,7 @@ class SAM2Model(BaseModel):
         vc = hf_config["vision_config"]
         bc = vc["backbone_config"]
         config = {
-            "hidden_size": bc["hidden_size"],
+            "hidden_dim": bc["hidden_size"],
             "blocks_per_stage": bc["blocks_per_stage"],
             "embed_dim_per_stage": bc["embed_dim_per_stage"],
             "num_attention_heads_per_stage": bc["num_attention_heads_per_stage"],
@@ -347,7 +347,7 @@ class SAM2Model(BaseModel):
 
     def __init__(
         self,
-        hidden_size=96,
+        hidden_dim=96,
         blocks_per_stage=(1, 2, 7, 2),
         embed_dim_per_stage=(96, 192, 384, 768),
         num_attention_heads_per_stage=(1, 2, 4, 8),
@@ -355,7 +355,7 @@ class SAM2Model(BaseModel):
         global_attention_blocks=(5, 7, 9),
         backbone_channel_list=(768, 384, 192, 96),
         window_pos_embed_bg_size=None,
-        input_image_shape=1024,
+        image_size=1024,
         input_tensor=None,
         name="SAM2Model",
         **kwargs,
@@ -365,26 +365,26 @@ class SAM2Model(BaseModel):
         if window_pos_embed_bg_size is None:
             window_pos_embed_bg_size = self.WINDOW_POS_EMBED_BG_SIZE
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
-                    tensor=input_tensor, shape=input_image_shape, name="pixel_values"
+                    tensor=input_tensor, shape=image_size, name="pixel_values"
                 )
             else:
                 pixel_values = input_tensor
         else:
-            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=image_size, name="pixel_values")
 
         if data_format == "channels_first":
-            spatial_h, spatial_w = input_image_shape[1], input_image_shape[2]
+            spatial_h, spatial_w = image_size[1], image_size[2]
         else:
-            spatial_h, spatial_w = input_image_shape[0], input_image_shape[1]
+            spatial_h, spatial_w = image_size[0], image_size[1]
 
         image_embeddings, high_res_feat_s0, high_res_feat_s1 = sam2_vision_encoder(
             pixel_values,
-            hidden_size=hidden_size,
+            hidden_dim=hidden_dim,
             blocks_per_stage=blocks_per_stage,
             embed_dim_per_stage=embed_dim_per_stage,
             num_attention_heads_per_stage=num_attention_heads_per_stage,
@@ -408,7 +408,7 @@ class SAM2Model(BaseModel):
             **kwargs,
         )
 
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.blocks_per_stage = list(blocks_per_stage)
         self.embed_dim_per_stage = list(embed_dim_per_stage)
         self.num_attention_heads_per_stage = list(num_attention_heads_per_stage)
@@ -416,14 +416,14 @@ class SAM2Model(BaseModel):
         self.global_attention_blocks = list(global_attention_blocks)
         self.backbone_channel_list = list(backbone_channel_list)
         self.window_pos_embed_bg_size = window_pos_embed_bg_size
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "blocks_per_stage": self.blocks_per_stage,
                 "embed_dim_per_stage": self.embed_dim_per_stage,
                 "num_attention_heads_per_stage": self.num_attention_heads_per_stage,
@@ -431,7 +431,7 @@ class SAM2Model(BaseModel):
                 "global_attention_blocks": self.global_attention_blocks,
                 "backbone_channel_list": self.backbone_channel_list,
                 "window_pos_embed_bg_size": self.window_pos_embed_bg_size,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
             }
         )
         return config
@@ -471,7 +471,7 @@ class SAM2PromptableSegment(BaseModel):
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
 
     Args:
-        hidden_size: Integer, initial hidden dimension of the Hiera
+        hidden_dim: Integer, initial hidden dimension of the Hiera
             backbone. Defaults to ``96``.
         blocks_per_stage: List of integers, number of transformer
             blocks per stage. Defaults to ``[1, 2, 7, 2]``.
@@ -492,7 +492,7 @@ class SAM2PromptableSegment(BaseModel):
             Defaults to ``(7, 7)``.
         num_multimask_outputs: Integer, number of mask outputs
             beyond the single-mask token. Defaults to ``3``.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -557,7 +557,7 @@ class SAM2PromptableSegment(BaseModel):
         vc = hf_config["vision_config"]
         bc = vc["backbone_config"]
         config = {
-            "hidden_size": bc["hidden_size"],
+            "hidden_dim": bc["hidden_size"],
             "blocks_per_stage": bc["blocks_per_stage"],
             "embed_dim_per_stage": bc["embed_dim_per_stage"],
             "num_attention_heads_per_stage": bc["num_attention_heads_per_stage"],
@@ -579,7 +579,7 @@ class SAM2PromptableSegment(BaseModel):
 
     def __init__(
         self,
-        hidden_size=96,
+        hidden_dim=96,
         blocks_per_stage=(1, 2, 7, 2),
         embed_dim_per_stage=(96, 192, 384, 768),
         num_attention_heads_per_stage=(1, 2, 4, 8),
@@ -591,7 +591,7 @@ class SAM2PromptableSegment(BaseModel):
         include_box_input=False,
         include_mask_input=False,
         multimask_output=True,
-        input_image_shape=1024,
+        image_size=1024,
         input_tensor=None,
         name="SAM2PromptableSegment",
         **kwargs,
@@ -601,17 +601,17 @@ class SAM2PromptableSegment(BaseModel):
         if window_pos_embed_bg_size is None:
             window_pos_embed_bg_size = self.WINDOW_POS_EMBED_BG_SIZE
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
-                    tensor=input_tensor, shape=input_image_shape, name="pixel_values"
+                    tensor=input_tensor, shape=image_size, name="pixel_values"
                 )
             else:
                 pixel_values = input_tensor
         else:
-            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=image_size, name="pixel_values")
 
         input_points = layers.Input(
             shape=(None, None, 2), name="input_points", dtype="float32"
@@ -627,9 +627,9 @@ class SAM2PromptableSegment(BaseModel):
         input_masks = None
         has_input_masks = None
         if data_format == "channels_first":
-            mask_input_size = input_image_shape[1] // 4
+            mask_input_size = image_size[1] // 4
         else:
-            mask_input_size = input_image_shape[0] // 4
+            mask_input_size = image_size[0] // 4
         if include_mask_input:
             if data_format == "channels_first":
                 input_masks = layers.Input(
@@ -648,13 +648,13 @@ class SAM2PromptableSegment(BaseModel):
             )
 
         if data_format == "channels_first":
-            spatial_h, spatial_w = input_image_shape[1], input_image_shape[2]
+            spatial_h, spatial_w = image_size[1], image_size[2]
         else:
-            spatial_h, spatial_w = input_image_shape[0], input_image_shape[1]
+            spatial_h, spatial_w = image_size[0], image_size[1]
 
         image_embeddings, high_res_feat_s0, high_res_feat_s1 = sam2_vision_encoder(
             pixel_values,
-            hidden_size=hidden_size,
+            hidden_dim=hidden_dim,
             blocks_per_stage=blocks_per_stage,
             embed_dim_per_stage=embed_dim_per_stage,
             num_attention_heads_per_stage=num_attention_heads_per_stage,
@@ -697,7 +697,7 @@ class SAM2PromptableSegment(BaseModel):
                 prompt_inputs.append(empty_boxes)
             mask_dense = sam2_mask_embedding(
                 input_masks,
-                hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
+                hidden_dim=self.PROMPT_ENCODER_HIDDEN_SIZE,
                 mask_input_channels=self.PROMPT_ENCODER_MASK_INPUT_CHANNELS,
                 layer_norm_eps=self.LAYER_NORM_EPS,
                 name="prompt_encoder_mask_embed",
@@ -706,7 +706,7 @@ class SAM2PromptableSegment(BaseModel):
             prompt_inputs.append(has_input_masks)
 
         prompt_encoder_layer = SAM2PromptEncoderLayer(
-            hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
+            hidden_dim=self.PROMPT_ENCODER_HIDDEN_SIZE,
             image_embedding_size=image_embedding_size,
             image_size=self.IMAGE_SIZE,
             num_point_embeddings=self.PROMPT_ENCODER_NUM_POINT_EMBEDDINGS,
@@ -720,9 +720,9 @@ class SAM2PromptableSegment(BaseModel):
         dense_embeddings = prompt_results["dense_embeddings"]
 
         mask_decoder_layer = SAM2MaskDecoderLayer(
-            hidden_size=self.MASK_DECODER_HIDDEN_SIZE,
+            hidden_dim=self.MASK_DECODER_HIDDEN_SIZE,
             num_hidden_layers=self.MASK_DECODER_NUM_HIDDEN_LAYERS,
-            num_attention_heads=self.MASK_DECODER_NUM_ATTENTION_HEADS,
+            num_heads=self.MASK_DECODER_NUM_ATTENTION_HEADS,
             mlp_dim=self.MASK_DECODER_MLP_DIM,
             num_multimask_outputs=num_multimask_outputs,
             iou_head_depth=self.MASK_DECODER_IOU_HEAD_DEPTH,
@@ -787,7 +787,7 @@ class SAM2PromptableSegment(BaseModel):
             **kwargs,
         )
 
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.blocks_per_stage = list(blocks_per_stage)
         self.embed_dim_per_stage = list(embed_dim_per_stage)
         self.num_attention_heads_per_stage = list(num_attention_heads_per_stage)
@@ -801,7 +801,7 @@ class SAM2PromptableSegment(BaseModel):
         self.multimask_output = multimask_output
         self.image_embedding_size = image_embedding_size
         self.mask_input_size = mask_input_size
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
         self._image_pe_layer = image_pe_layer
@@ -932,7 +932,7 @@ class SAM2PromptableSegment(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "blocks_per_stage": self.blocks_per_stage,
                 "embed_dim_per_stage": self.embed_dim_per_stage,
                 "num_attention_heads_per_stage": self.num_attention_heads_per_stage,
@@ -944,7 +944,7 @@ class SAM2PromptableSegment(BaseModel):
                 "include_box_input": self.include_box_input,
                 "include_mask_input": self.include_mask_input,
                 "multimask_output": self.multimask_output,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
             }
         )
         return config

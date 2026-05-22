@@ -49,9 +49,9 @@ def transfer_owlv2_encoder_weights(keras_model, state_dict, prefix=None):
     has_text = _has_layer(keras_model, "text_model_embeddings")
 
     if has_vision:
-        vision_layers = getattr(keras_model, "vision_num_hidden_layers", None)
-        if vision_layers is None:
-            vision_layers = keras_model.vision_model.vision_num_hidden_layers
+        vision_num_layers = getattr(keras_model, "vision_num_layers", None)
+        if vision_num_layers is None:
+            vision_num_layers = keras_model.vision_model.vision_num_layers
 
         embed = keras_model.get_layer("vision_model_embeddings")
         cls_torch_name = f"{prefix}vision_model.embeddings.class_embedding"
@@ -106,7 +106,9 @@ def transfer_owlv2_encoder_weights(keras_model, state_dict, prefix=None):
             name_mapping=weight_name_mapping,
         )
 
-        for i in tqdm(range(vision_layers), desc="Transferring vision encoder weights"):
+        for i in tqdm(
+            range(vision_num_layers), desc="Transferring vision encoder weights"
+        ):
             kp = f"vision_model_layers_{i}"
             tp = f"{prefix}vision_model.encoder.layers.{i}"
             for sublayer in ("self_attn", "layer_norm1", "layer_norm2"):
@@ -125,9 +127,9 @@ def transfer_owlv2_encoder_weights(keras_model, state_dict, prefix=None):
                 )
 
     if has_text:
-        text_layers = getattr(keras_model, "text_num_hidden_layers", None)
+        text_layers = getattr(keras_model, "text_num_layers", None)
         if text_layers is None:
-            text_layers = keras_model.text_model.text_num_hidden_layers
+            text_layers = keras_model.text_model.text_num_layers
 
         transfer_nested_layer_weights(
             keras_layer=keras_model.get_layer("text_model_embeddings"),

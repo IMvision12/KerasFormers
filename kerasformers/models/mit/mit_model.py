@@ -177,7 +177,7 @@ def hierarchical_transformer_encoder_block(
 def mit_backbone_feature(
     inputs,
     *,
-    embed_dims,
+    embed_dim,
     depths,
     drop_path_rate,
     data_format,
@@ -189,7 +189,7 @@ def mit_backbone_feature(
     Args:
         inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
             or ``(B, C, H, W)`` for channels-first.
-        embed_dims: 4-tuple of per-stage embedding dimensions.
+        embed_dim: 4-tuple of per-stage embedding dimensions.
         depths: 4-tuple of per-stage block counts.
         drop_path_rate: Maximum stochastic-depth drop rate (linearly scaled
             across all blocks in the network).
@@ -200,7 +200,7 @@ def mit_backbone_feature(
 
     Returns:
         By default, the final stage's spatial feature map of shape
-        ``(B, H_4, W_4, embed_dims[-1])``. When ``return_stages=True``,
+        ``(B, H_4, W_4, embed_dim[-1])``. When ``return_stages=True``,
         returns the list of four per-stage feature maps.
     """
     num_stages = 4
@@ -217,7 +217,7 @@ def mit_backbone_feature(
     for i in range(num_stages):
         x, H, W = overlap_patch_embedding_block(
             x,
-            out_channels=embed_dims[i],
+            out_channels=embed_dim[i],
             channels_axis=channels_axis,
             data_format=data_format,
             patch_size=7 if i == 0 else 3,
@@ -230,7 +230,7 @@ def mit_backbone_feature(
                 x,
                 H,
                 W,
-                project_dim=embed_dims[i],
+                project_dim=embed_dim[i],
                 num_heads=blockwise_num_heads[i],
                 stage_idx=i + 1,
                 block_idx=j,
@@ -246,9 +246,9 @@ def mit_backbone_feature(
             name=f"final_layernorm_{i}", axis=-1, epsilon=1e-5
         )(x)
         if data_format == "channels_first":
-            x = layers.Reshape((embed_dims[i], H, W))(x)
+            x = layers.Reshape((embed_dim[i], H, W))(x)
         else:
-            x = layers.Reshape((H, W, embed_dims[i]))(x)
+            x = layers.Reshape((H, W, embed_dim[i]))(x)
         features.append(x)
 
     if return_stages:
@@ -273,7 +273,7 @@ class MiTModel(BaseModel):
 
     Output is the last layer output before the classifier head: by default
     the final stage's spatial feature map of shape
-    ``(B, H_4, W_4, embed_dims[-1])`` (or channels-first equivalent).
+    ``(B, H_4, W_4, embed_dim[-1])`` (or channels-first equivalent).
     When constructed with ``as_backbone=True``, returns the list of all
     four per-stage feature maps instead. :class:`MiTImageClassify` composes
     this model with ``as_backbone=False`` and reads the final feature map
@@ -287,14 +287,14 @@ class MiTModel(BaseModel):
             use as a backbone network. When True, returns a list of four
             per-stage spatial feature maps (the SegFormer feature pyramid).
             Defaults to `False`.
-        embed_dims: Tuple of four integers, per-stage channel dimensions.
+        embed_dim: Tuple of four integers, per-stage channel dimensions.
             Determines model width. Defaults to `(32, 64, 160, 256)`.
         depths: Tuple of four integers, per-stage number of transformer
             blocks. Defaults to `(2, 2, 2, 2)`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across all
             blocks in the network. Defaults to `0.1`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -335,7 +335,7 @@ class MiTModel(BaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         return {
-            "embed_dims": hf_config["hidden_sizes"],
+            "embed_dim": hf_config["hidden_sizes"],
             "depths": hf_config["depths"],
         }
 
@@ -348,10 +348,10 @@ class MiTModel(BaseModel):
     def __init__(
         self,
         as_backbone=False,
-        embed_dims=(32, 64, 160, 256),
+        embed_dim=(32, 64, 160, 256),
         depths=(2, 2, 2, 2),
         drop_path_rate=0.1,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -364,12 +364,12 @@ class MiTModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -380,7 +380,7 @@ class MiTModel(BaseModel):
         )
         features = mit_backbone_feature(
             x,
-            embed_dims=embed_dims,
+            embed_dim=embed_dim,
             depths=depths,
             drop_path_rate=drop_path_rate,
             data_format=data_format,
@@ -391,10 +391,10 @@ class MiTModel(BaseModel):
         super().__init__(inputs=img_input, outputs=features, name=name, **kwargs)
 
         self.as_backbone = as_backbone
-        self.embed_dims = list(embed_dims)
+        self.embed_dim = list(embed_dim)
         self.depths = list(depths)
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -404,10 +404,10 @@ class MiTModel(BaseModel):
         config.update(
             {
                 "as_backbone": self.as_backbone,
-                "embed_dims": self.embed_dims,
+                "embed_dim": self.embed_dim,
                 "depths": self.depths,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -436,14 +436,14 @@ class MiTImageClassify(BaseModel):
     - [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203)
 
     Args:
-        embed_dims: Tuple of four integers, per-stage channel dimensions.
+        embed_dim: Tuple of four integers, per-stage channel dimensions.
             Determines model width. Defaults to `(32, 64, 160, 256)`.
         depths: Tuple of four integers, per-stage number of transformer
             blocks. Defaults to `(2, 2, 2, 2)`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across all
             blocks in the network. Defaults to `0.1`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -482,7 +482,7 @@ class MiTImageClassify(BaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         return {
-            "embed_dims": hf_config["hidden_sizes"],
+            "embed_dim": hf_config["hidden_sizes"],
             "depths": hf_config["depths"],
             "num_classes": hf_config.get("num_labels", 1000),
         }
@@ -495,10 +495,10 @@ class MiTImageClassify(BaseModel):
 
     def __init__(
         self,
-        embed_dims=(32, 64, 160, 256),
+        embed_dim=(32, 64, 160, 256),
         depths=(2, 2, 2, 2),
         drop_path_rate=0.1,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -512,10 +512,10 @@ class MiTImageClassify(BaseModel):
         data_format = keras.config.image_data_format()
 
         backbone = MiTModel(
-            embed_dims=embed_dims,
+            embed_dim=embed_dim,
             depths=depths,
             drop_path_rate=drop_path_rate,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -531,10 +531,10 @@ class MiTImageClassify(BaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.embed_dims = list(embed_dims)
+        self.embed_dim = list(embed_dim)
         self.depths = list(depths)
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -545,10 +545,10 @@ class MiTImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "embed_dims": self.embed_dims,
+                "embed_dim": self.embed_dim,
                 "depths": self.depths,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

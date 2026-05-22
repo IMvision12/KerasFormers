@@ -497,7 +497,7 @@ class SwinV2Model(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across all
             blocks. Defaults to `0.1`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -555,7 +555,7 @@ class SwinV2Model(BaseModel):
         pretrained_window_size=0,
         dropout_rate=0.0,
         drop_path_rate=0.1,
-        input_image_shape=256,
+        image_size=256,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -569,12 +569,12 @@ class SwinV2Model(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -608,7 +608,7 @@ class SwinV2Model(BaseModel):
         self.pretrained_window_size = pretrained_window_size
         self.dropout_rate = dropout_rate
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -626,7 +626,7 @@ class SwinV2Model(BaseModel):
                 "pretrained_window_size": self.pretrained_window_size,
                 "dropout_rate": self.dropout_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -674,7 +674,7 @@ class SwinV2ImageClassify(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled from 0 to this value across all
             blocks. Defaults to `0.1`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -727,7 +727,7 @@ class SwinV2ImageClassify(BaseModel):
         pretrained_window_size=0,
         dropout_rate=0.0,
         drop_path_rate=0.1,
-        input_image_shape=256,
+        image_size=256,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -749,7 +749,7 @@ class SwinV2ImageClassify(BaseModel):
             pretrained_window_size=pretrained_window_size,
             dropout_rate=dropout_rate,
             drop_path_rate=drop_path_rate,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -774,7 +774,7 @@ class SwinV2ImageClassify(BaseModel):
         self.pretrained_window_size = pretrained_window_size
         self.dropout_rate = dropout_rate
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -793,7 +793,7 @@ class SwinV2ImageClassify(BaseModel):
                 "pretrained_window_size": self.pretrained_window_size,
                 "dropout_rate": self.dropout_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

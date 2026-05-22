@@ -1,23 +1,23 @@
 EFFICIENTFORMER_MODEL_CONFIG = {
     "efficientformer_l1": {
         "depths": [3, 2, 6, 4],
-        "embed_dims": [48, 96, 224, 448],
+        "embed_dim": [48, 96, 224, 448],
         "num_vit": 1,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "efficientformer_l3": {
         "depths": [4, 4, 12, 6],
-        "embed_dims": [64, 128, 320, 512],
+        "embed_dim": [64, 128, 320, 512],
         "num_vit": 4,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "efficientformer_l7": {
         "depths": [6, 6, 18, 8],
-        "embed_dims": [96, 192, 384, 768],
+        "embed_dim": [96, 192, 384, 768],
         "num_vit": 8,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
 }

@@ -436,7 +436,7 @@ class MobileViTModel(BaseModel):
         attention_dims: List, per-stage transformer attention dims
             (length 5). Entries may be `None` for stages without a
             transformer block. Defaults to `[None, None, 144, 192, 240]`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -487,7 +487,7 @@ class MobileViTModel(BaseModel):
             "head_dims": neck[6],
             "attention_dims": [None, None] + list(hidden_sizes),
             "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
-            "input_image_shape": hf_config["image_size"],
+            "image_size": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 32),
         }
 
@@ -504,7 +504,7 @@ class MobileViTModel(BaseModel):
         block_dims: list = [32, 64, 96, 128, 160],
         expansion_ratio: list = [4.0, 4.0, 4.0, 4.0, 4.0],
         attention_dims: list = [None, None, 144, 192, 240],
-        input_image_shape=256,
+        image_size=256,
         output_stride=32,
         include_normalization=True,
         normalization_mode="imagenet",
@@ -519,12 +519,12 @@ class MobileViTModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -552,7 +552,7 @@ class MobileViTModel(BaseModel):
         self.block_dims = block_dims
         self.expansion_ratio = expansion_ratio
         self.attention_dims = attention_dims
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.output_stride = output_stride
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -568,7 +568,7 @@ class MobileViTModel(BaseModel):
                 "block_dims": self.block_dims,
                 "expansion_ratio": self.expansion_ratio,
                 "attention_dims": self.attention_dims,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "output_stride": self.output_stride,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
@@ -609,7 +609,7 @@ class MobileViTImageClassify(BaseModel):
         attention_dims: List, per-stage transformer attention dims
             (length 5). Entries may be `None` for stages without a
             transformer block. Defaults to `[None, None, 144, 192, 240]`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -659,7 +659,7 @@ class MobileViTImageClassify(BaseModel):
             "head_dims": neck[6],
             "attention_dims": [None, None] + list(hidden_sizes),
             "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
-            "input_image_shape": hf_config["image_size"],
+            "image_size": hf_config["image_size"],
             "num_classes": num_classes if num_classes is not None else 1000,
         }
 
@@ -676,7 +676,7 @@ class MobileViTImageClassify(BaseModel):
         block_dims: list = [32, 64, 96, 128, 160],
         expansion_ratio: list = [4.0, 4.0, 4.0, 4.0, 4.0],
         attention_dims: list = [None, None, 144, 192, 240],
-        input_image_shape=256,
+        image_size=256,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -696,7 +696,7 @@ class MobileViTImageClassify(BaseModel):
             block_dims=block_dims,
             expansion_ratio=expansion_ratio,
             attention_dims=attention_dims,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             output_stride=32,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
@@ -733,7 +733,7 @@ class MobileViTImageClassify(BaseModel):
         self.block_dims = block_dims
         self.expansion_ratio = expansion_ratio
         self.attention_dims = attention_dims
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -749,7 +749,7 @@ class MobileViTImageClassify(BaseModel):
                 "block_dims": self.block_dims,
                 "expansion_ratio": self.expansion_ratio,
                 "attention_dims": self.attention_dims,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -913,7 +913,7 @@ class MobileViTSemanticSegment(BaseModel):
             "head_dims": neck[6],
             "attention_dims": [None, None] + list(hidden_sizes),
             "expansion_ratio": [float(hf_config["expand_ratio"])] * 5,
-            "input_image_shape": hf_config["image_size"],
+            "image_size": hf_config["image_size"],
             "output_stride": hf_config.get("output_stride", 16),
             "atrous_rates": list(hf_config.get("atrous_rates", [6, 12, 18])),
             "aspp_out_channels": hf_config.get("aspp_out_channels", 256),
@@ -934,7 +934,7 @@ class MobileViTSemanticSegment(BaseModel):
         block_dims: list = [16, 24, 48, 64, 80],
         expansion_ratio: list = [2.0, 2.0, 2.0, 2.0, 2.0],
         attention_dims: list = [None, None, 64, 80, 96],
-        input_image_shape=512,
+        image_size=512,
         output_stride=16,
         atrous_rates: list = [6, 12, 18],
         aspp_out_channels=256,
@@ -954,7 +954,7 @@ class MobileViTSemanticSegment(BaseModel):
             block_dims=block_dims,
             expansion_ratio=expansion_ratio,
             attention_dims=attention_dims,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             output_stride=output_stride,
             include_normalization=False,
             input_tensor=input_tensor,
@@ -980,7 +980,7 @@ class MobileViTSemanticSegment(BaseModel):
         self.block_dims = block_dims
         self.expansion_ratio = expansion_ratio
         self.attention_dims = attention_dims
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.output_stride = output_stride
         self.atrous_rates = atrous_rates
         self.aspp_out_channels = aspp_out_channels
@@ -997,7 +997,7 @@ class MobileViTSemanticSegment(BaseModel):
                 "block_dims": self.block_dims,
                 "expansion_ratio": self.expansion_ratio,
                 "attention_dims": self.attention_dims,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "output_stride": self.output_stride,
                 "atrous_rates": self.atrous_rates,
                 "aspp_out_channels": self.aspp_out_channels,

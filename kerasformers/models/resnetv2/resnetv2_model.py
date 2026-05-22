@@ -164,7 +164,7 @@ def preact_bottleneck(
 
 def resnetv2_backbone_feature(
     inputs,
-    block_repeats,
+    depths,
     filters,
     width_factor,
     stem_width,
@@ -177,7 +177,7 @@ def resnetv2_backbone_feature(
 
     Args:
         inputs: Input image tensor.
-        block_repeats: Number of pre-activation bottlenecks per stage.
+        depths: Number of pre-activation bottlenecks per stage.
         filters: Base filter count per stage.
         width_factor: Multiplier applied to channel counts (BiT widening).
         stem_width: Base width of the stem convolution before width scaling.
@@ -211,12 +211,12 @@ def resnetv2_backbone_feature(
         name="stem_maxpool",
     )(x)
 
-    dpr = list(np.linspace(0.0, drop_path_rate, sum(block_repeats)))
+    dpr = list(np.linspace(0.0, drop_path_rate, sum(depths)))
     block_idx = 0
     stages = []
-    for stage_idx, num_blocks in enumerate(block_repeats):
+    for stage_idx, depths in enumerate(depths):
         nb_channels_stage = make_divisible(filters[stage_idx] * width_factor)
-        for block_idx_in_stage in range(num_blocks):
+        for block_idx_in_stage in range(depths):
             block_prefix = f"stages_{stage_idx}_blocks_{block_idx_in_stage}"
             x = preact_bottleneck(
                 x,
@@ -254,7 +254,7 @@ class ResNetV2Model(BaseModel):
     - [Big Transfer (BiT): General Visual Representation Learning](https://arxiv.org/abs/1912.11370)
 
     Args:
-        block_repeats: Tuple of ints, number of pre-activation
+        depths: Tuple of ints, number of pre-activation
             bottlenecks per stage. Defaults to `(3, 4, 6, 3)`.
         filters: Tuple of ints, base filter counts per stage before
             ``width_factor`` scaling. Defaults to `(256, 512, 1024, 2048)`.
@@ -265,7 +265,7 @@ class ResNetV2Model(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop
             probability; linearly interpolated across all blocks.
             Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -317,12 +317,12 @@ class ResNetV2Model(BaseModel):
 
     def __init__(
         self,
-        block_repeats=(3, 4, 6, 3),
+        depths=(3, 4, 6, 3),
         filters=(256, 512, 1024, 2048),
         width_factor=1,
         stem_width=64,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -336,12 +336,12 @@ class ResNetV2Model(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -352,7 +352,7 @@ class ResNetV2Model(BaseModel):
         )
         x = resnetv2_backbone_feature(
             x,
-            block_repeats=block_repeats,
+            depths=depths,
             filters=filters,
             width_factor=width_factor,
             stem_width=stem_width,
@@ -364,12 +364,12 @@ class ResNetV2Model(BaseModel):
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.block_repeats = block_repeats
+        self.depths = depths
         self.filters = filters
         self.width_factor = width_factor
         self.stem_width = stem_width
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -379,12 +379,12 @@ class ResNetV2Model(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "block_repeats": self.block_repeats,
+                "depths": self.depths,
                 "filters": self.filters,
                 "width_factor": self.width_factor,
                 "stem_width": self.stem_width,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -415,7 +415,7 @@ class ResNetV2ImageClassify(BaseModel):
     - [Big Transfer (BiT): General Visual Representation Learning](https://arxiv.org/abs/1912.11370)
 
     Args:
-        block_repeats: Tuple of ints, number of pre-activation
+        depths: Tuple of ints, number of pre-activation
             bottlenecks per stage. Defaults to `(3, 4, 6, 3)`.
         filters: Tuple of ints, base filter counts per stage before
             ``width_factor`` scaling. Defaults to `(256, 512, 1024, 2048)`.
@@ -428,7 +428,7 @@ class ResNetV2ImageClassify(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop
             probability; linearly interpolated across all blocks.
             Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -473,13 +473,13 @@ class ResNetV2ImageClassify(BaseModel):
 
     def __init__(
         self,
-        block_repeats=(3, 4, 6, 3),
+        depths=(3, 4, 6, 3),
         filters=(256, 512, 1024, 2048),
         width_factor=1,
         stem_width=64,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -494,12 +494,12 @@ class ResNetV2ImageClassify(BaseModel):
         channels_axis = -1 if data_format == "channels_last" else -3
 
         backbone = ResNetV2Model(
-            block_repeats=block_repeats,
+            depths=depths,
             filters=filters,
             width_factor=width_factor,
             stem_width=stem_width,
             drop_path_rate=drop_path_rate,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -519,13 +519,13 @@ class ResNetV2ImageClassify(BaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.block_repeats = block_repeats
+        self.depths = depths
         self.filters = filters
         self.width_factor = width_factor
         self.stem_width = stem_width
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -536,13 +536,13 @@ class ResNetV2ImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "block_repeats": self.block_repeats,
+                "depths": self.depths,
                 "filters": self.filters,
                 "width_factor": self.width_factor,
                 "stem_width": self.stem_width,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

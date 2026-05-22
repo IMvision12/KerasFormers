@@ -1,35 +1,35 @@
 DINOV3_VIT_CONFIG = {
     "dinov3_vits16": {
         "patch_size": 16,
-        "dim": 384,
+        "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "mlp_ratio": 4.0,
         "use_swiglu": False,
         "num_register_tokens": 4,
-        "init_values": 1.0,
+        "layer_scale_init": 1.0,
         "rope_theta": 100.0,
     },
     "dinov3_vitb16": {
         "patch_size": 16,
-        "dim": 768,
+        "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "mlp_ratio": 4.0,
         "use_swiglu": False,
         "num_register_tokens": 4,
-        "init_values": 1.0,
+        "layer_scale_init": 1.0,
         "rope_theta": 100.0,
     },
     "dinov3_vitl16": {
         "patch_size": 16,
-        "dim": 1024,
+        "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "mlp_ratio": 4.0,
         "use_swiglu": False,
         "num_register_tokens": 4,
-        "init_values": 1.0,
+        "layer_scale_init": 1.0,
         "rope_theta": 100.0,
     },
 }
@@ -52,19 +52,19 @@ DINOV3_VIT_WEIGHTS = {
 DINOV3_CONVNEXT_CONFIG = {
     "dinov3_convnext_tiny": {
         "depths": [3, 3, 9, 3],
-        "projection_dims": [96, 192, 384, 768],
+        "projection_dim": [96, 192, 384, 768],
     },
     "dinov3_convnext_small": {
         "depths": [3, 3, 27, 3],
-        "projection_dims": [96, 192, 384, 768],
+        "projection_dim": [96, 192, 384, 768],
     },
     "dinov3_convnext_base": {
         "depths": [3, 3, 27, 3],
-        "projection_dims": [128, 256, 512, 1024],
+        "projection_dim": [128, 256, 512, 1024],
     },
     "dinov3_convnext_large": {
         "depths": [3, 3, 27, 3],
-        "projection_dims": [192, 384, 768, 1536],
+        "projection_dim": [192, 384, 768, 1536],
     },
 }
 

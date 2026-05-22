@@ -165,8 +165,8 @@ if __name__ == "__main__":
         transfer_segformer_weights(keras_model, hf_state_dict)
 
         np.random.seed(42)
-        input_image_shape = keras_model.input_image_shape
-        test_input = np.random.rand(1, *input_image_shape).astype(np.float32)
+        image_size = keras_model.image_size
+        test_input = np.random.rand(1, *image_size).astype(np.float32)
         hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
         with torch.no_grad():
             hf_output = hf_model(pixel_values=hf_input).logits.numpy()

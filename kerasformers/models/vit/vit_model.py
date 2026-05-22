@@ -40,7 +40,7 @@ def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0)
 
 def transformer_block(
     inputs,
-    dim,
+    embed_dim,
     num_heads,
     mlp_ratio=4.0,
     qkv_bias=False,
@@ -48,13 +48,13 @@ def transformer_block(
     proj_drop=0.0,
     attn_drop=0.0,
     block_idx=0,
-    init_values=None,
+    layer_scale_init=None,
 ):
     """Standard ViT transformer block: LN -> MHSA -> Add -> LN -> MLP -> Add.
 
     Args:
-        inputs: Input token tensor of shape ``(B, N, dim)``.
-        dim: Token embedding dimension.
+        inputs: Input token tensor of shape ``(B, N, embed_dim)``.
+        embed_dim: Token embedding dimension.
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP sub-block.
         qkv_bias: Whether to include bias in the QKV projection.
@@ -62,17 +62,17 @@ def transformer_block(
         proj_drop: Dropout rate on the attention output projection and MLP.
         attn_drop: Dropout rate applied to attention weights.
         block_idx: Numeric index used to name layers inside this block.
-        init_values: If set, apply LayerScale with this initial gamma on
+        layer_scale_init: If set, apply LayerScale with this initial gamma on
             both residual branches.
 
     Returns:
-        Tensor of shape ``(B, N, dim)`` after both residual branches.
+        Tensor of shape ``(B, N, embed_dim)`` after both residual branches.
     """
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
     x = ViTMultiHeadSelfAttention(
-        dim=dim,
+        embed_dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=qkv_bias,
         qk_norm=qk_norm,
@@ -80,9 +80,9 @@ def transformer_block(
         proj_drop=proj_drop,
         block_prefix=f"blocks_{block_idx}",
     )(x)
-    if init_values:
+    if layer_scale_init:
         x = LayerScale(
-            init_values=init_values, name=f"blocks_{block_idx}_layerscale_1"
+            layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_1"
         )(x)
     x = keras.layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
 
@@ -91,14 +91,14 @@ def transformer_block(
     )(x)
     y = mlp_block(
         y,
-        hidden_features=int(dim * mlp_ratio),
-        out_features=dim,
+        hidden_features=int(embed_dim * mlp_ratio),
+        out_features=embed_dim,
         drop=proj_drop,
         block_idx=block_idx,
     )
-    if init_values:
+    if layer_scale_init:
         y = LayerScale(
-            init_values=init_values, name=f"blocks_{block_idx}_layerscale_2"
+            layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
         )(y)
     return keras.layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
 
@@ -107,7 +107,7 @@ def vit_backbone_feature(
     inputs,
     *,
     patch_size,
-    dim,
+    embed_dim,
     depth,
     num_heads,
     mlp_ratio,
@@ -117,7 +117,7 @@ def vit_backbone_feature(
     attn_drop_rate,
     no_embed_class,
     use_distillation,
-    init_values,
+    layer_scale_init,
     image_size,
     data_format,
     return_intermediates=False,
@@ -131,7 +131,7 @@ def vit_backbone_feature(
         inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
             or ``(B, C, H, W)`` for channels-first.
         patch_size: Conv-stem patch size in pixels.
-        dim: Token embedding dimension.
+        embed_dim: Token embedding dimension.
         depth: Number of transformer blocks.
         num_heads: Number of attention heads per block.
         mlp_ratio: Hidden expansion ratio for the MLP sub-block.
@@ -143,7 +143,7 @@ def vit_backbone_feature(
             class/distillation prefix tokens.
         use_distillation: If ``True``, prepend a separate distillation token
             in addition to the class token.
-        init_values: Optional LayerScale initial gamma value.
+        layer_scale_init: Optional LayerScale initial gamma value.
         image_size: Input image resolution; used when ``inputs`` has unknown
             spatial shape.
         data_format: ``"channels_last"`` or ``"channels_first"``.
@@ -154,7 +154,7 @@ def vit_backbone_feature(
             extractor).
 
     Returns:
-        Final encoder tokens of shape ``(B, num_tokens, dim)`` after the
+        Final encoder tokens of shape ``(B, num_tokens, embed_dim)`` after the
         final LayerNorm. When ``return_intermediates=True``, a list
         ``[post_pos_embed, block_0, ..., block_{depth-1}]`` of raw block
         outputs (no final LN) is returned instead. When ``return_stages=True``,
@@ -172,14 +172,14 @@ def vit_backbone_feature(
     grid_w = width // patch_size
 
     x = layers.Conv2D(
-        filters=dim,
+        filters=embed_dim,
         kernel_size=patch_size,
         strides=patch_size,
         padding="valid",
         data_format=data_format,
         name="conv1",
     )(inputs)
-    x = layers.Reshape((-1, dim))(x)
+    x = layers.Reshape((-1, embed_dim))(x)
     x = ViTClassDistToken(use_distillation=use_distillation, name="cls_token")(x)
     x = ViTAddPositionEmbs(
         name="pos_embed",
@@ -195,14 +195,14 @@ def vit_backbone_feature(
     for i in range(depth):
         x = transformer_block(
             x,
-            dim=dim,
+            embed_dim=embed_dim,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
             qkv_bias=qkv_bias,
             qk_norm=qk_norm,
             proj_drop=drop_rate,
             attn_drop=attn_drop_rate,
-            init_values=init_values,
+            layer_scale_init=layer_scale_init,
             block_idx=i,
         )
         intermediates.append(x)
@@ -229,7 +229,7 @@ class ViTModel(BaseModel):
     MLP sub-blocks with residual connections and LayerNorm.
 
     Output is the last layer output before the classifier head: the
-    final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
+    final-LN normalized token sequence ``(B, num_tokens, embed_dim)`` where the
     first 1 (or 2 if ``use_distillation=True``) tokens are class /
     distillation tokens and the rest are spatial patch tokens.
     :class:`ViTImageClassify` composes this model and reads the class token(s)
@@ -245,7 +245,7 @@ class ViTModel(BaseModel):
             Defaults to `False`.
         patch_size: Integer, conv-stem patch size in pixels.
             Defaults to `16`.
-        dim: Integer, token embedding dimension. Defaults to `768`.
+        embed_dim: Integer, token embedding dimension. Defaults to `768`.
         depth: Integer, number of transformer encoder blocks.
             Defaults to `12`.
         num_heads: Integer, number of attention heads per block.
@@ -266,10 +266,10 @@ class ViTModel(BaseModel):
         use_distillation: Boolean, if `True`, prepend a separate
             distillation token alongside the class token (DeiT-distilled
             style). Defaults to `False`.
-        init_values: Optional float, initial gamma value for LayerScale
+        layer_scale_init: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -317,7 +317,7 @@ class ViTModel(BaseModel):
         self,
         as_backbone=False,
         patch_size=16,
-        dim=768,
+        embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4.0,
@@ -327,8 +327,8 @@ class ViTModel(BaseModel):
         attn_drop_rate=0.0,
         no_embed_class=False,
         use_distillation=False,
-        init_values=None,
-        input_image_shape=224,
+        layer_scale_init=None,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -340,17 +340,15 @@ class ViTModel(BaseModel):
 
         data_format = keras.config.image_data_format()
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
         image_size = (
-            input_image_shape[0]
-            if data_format == "channels_last"
-            else input_image_shape[1]
+            input_shape[0] if data_format == "channels_last" else input_shape[1]
         )
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=input_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
 
@@ -362,7 +360,7 @@ class ViTModel(BaseModel):
         x = vit_backbone_feature(
             x,
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -372,7 +370,7 @@ class ViTModel(BaseModel):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
-            init_values=init_values,
+            layer_scale_init=layer_scale_init,
             image_size=image_size,
             data_format=data_format,
             return_stages=as_backbone,
@@ -382,7 +380,7 @@ class ViTModel(BaseModel):
 
         self.as_backbone = as_backbone
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -392,8 +390,8 @@ class ViTModel(BaseModel):
         self.attn_drop_rate = attn_drop_rate
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
-        self.init_values = init_values
-        self.input_image_shape = input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -404,7 +402,7 @@ class ViTModel(BaseModel):
             {
                 "as_backbone": self.as_backbone,
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,
@@ -414,8 +412,8 @@ class ViTModel(BaseModel):
                 "attn_drop_rate": self.attn_drop_rate,
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
-                "init_values": self.init_values,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -449,7 +447,7 @@ class ViTImageClassify(BaseModel):
     Args:
         patch_size: Integer, conv-stem patch size in pixels.
             Defaults to `16`.
-        dim: Integer, token embedding dimension. Defaults to `768`.
+        embed_dim: Integer, token embedding dimension. Defaults to `768`.
         depth: Integer, number of transformer encoder blocks in the
             backbone. Defaults to `12`.
         num_heads: Integer, number of attention heads per block.
@@ -472,10 +470,10 @@ class ViTImageClassify(BaseModel):
             distillation token alongside the class token and attach a
             second prediction head whose output is averaged with the CLS
             head. Defaults to `False`.
-        init_values: Optional float, initial gamma value for LayerScale
+        layer_scale_init: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -520,7 +518,7 @@ class ViTImageClassify(BaseModel):
     def __init__(
         self,
         patch_size=16,
-        dim=768,
+        embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4.0,
@@ -530,8 +528,8 @@ class ViTImageClassify(BaseModel):
         attn_drop_rate=0.0,
         no_embed_class=False,
         use_distillation=False,
-        init_values=None,
-        input_image_shape=224,
+        layer_scale_init=None,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -544,7 +542,7 @@ class ViTImageClassify(BaseModel):
 
         backbone = ViTModel(
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -554,8 +552,8 @@ class ViTImageClassify(BaseModel):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
-            init_values=init_values,
-            input_image_shape=input_image_shape,
+            layer_scale_init=layer_scale_init,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -587,7 +585,7 @@ class ViTImageClassify(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -597,8 +595,8 @@ class ViTImageClassify(BaseModel):
         self.attn_drop_rate = attn_drop_rate
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
-        self.init_values = init_values
-        self.input_image_shape = backbone.input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -610,7 +608,7 @@ class ViTImageClassify(BaseModel):
         config.update(
             {
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,
@@ -620,8 +618,8 @@ class ViTImageClassify(BaseModel):
                 "attn_drop_rate": self.attn_drop_rate,
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
-                "init_values": self.init_values,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

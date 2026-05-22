@@ -28,7 +28,7 @@ def deeplabv3_dilated_resnet_backbone(
     data_format = keras.config.image_data_format()
     channels_axis = -1 if data_format == "channels_last" else 1
 
-    block_repeats = {
+    depths = {
         "ResNet50": [3, 4, 6, 3],
         "ResNet101": [3, 4, 23, 3],
     }[backbone_variant]
@@ -58,7 +58,7 @@ def deeplabv3_dilated_resnet_backbone(
     dilate_stages = [False, False, True, True]
     current_dilation = 1
 
-    for stage_idx, num_blocks in enumerate(block_repeats):
+    for stage_idx, depths in enumerate(depths):
         filters = filters_list[stage_idx]
         original_stride = 2 if stage_idx > 0 else 1
 
@@ -72,7 +72,7 @@ def deeplabv3_dilated_resnet_backbone(
             original_stride if dilate_stages[stage_idx] and stage_idx > 0 else 1
         )
 
-        for block_idx in range(num_blocks):
+        for block_idx in range(depths):
             prefix = f"backbone_layer{stage_idx + 1}_{block_idx}"
 
             if block_idx == 0:
@@ -333,7 +333,7 @@ class DeepLabV3Model(BaseModel):
 
     Args:
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -350,19 +350,19 @@ class DeepLabV3Model(BaseModel):
     def __init__(
         self,
         backbone_variant="ResNet50",
-        input_image_shape=520,
+        image_size=520,
         input_tensor=None,
         name="DeepLabV3Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=image_size)
             else:
                 img_input = input_tensor
 
@@ -376,7 +376,7 @@ class DeepLabV3Model(BaseModel):
         )
 
         self.backbone_variant = backbone_variant
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -384,7 +384,7 @@ class DeepLabV3Model(BaseModel):
         config.update(
             {
                 "backbone_variant": self.backbone_variant,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )
@@ -411,7 +411,7 @@ class DeepLabV3SemanticSegment(BaseModel):
     Args:
         backbone_variant: ``"ResNet50"`` or ``"ResNet101"``.
         num_classes: Number of segmentation classes.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -429,14 +429,14 @@ class DeepLabV3SemanticSegment(BaseModel):
         self,
         backbone_variant="ResNet50",
         num_classes=21,
-        input_image_shape=520,
+        image_size=520,
         input_tensor=None,
         name="DeepLabV3SemanticSegment",
         **kwargs,
     ):
         base = DeepLabV3Model(
             backbone_variant=backbone_variant,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -447,13 +447,13 @@ class DeepLabV3SemanticSegment(BaseModel):
         data_format = keras.config.image_data_format()
         if data_format == "channels_first":
             upsample_h, upsample_w = (
-                base.input_image_shape[1],
-                base.input_image_shape[2],
+                base.image_size[1],
+                base.image_size[2],
             )
         else:
             upsample_h, upsample_w = (
-                base.input_image_shape[0],
-                base.input_image_shape[1],
+                base.image_size[0],
+                base.image_size[1],
             )
         x = layers.Resizing(
             height=upsample_h,
@@ -466,7 +466,7 @@ class DeepLabV3SemanticSegment(BaseModel):
 
         self.backbone_variant = backbone_variant
         self.num_classes = num_classes
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -475,7 +475,7 @@ class DeepLabV3SemanticSegment(BaseModel):
             {
                 "backbone_variant": self.backbone_variant,
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )

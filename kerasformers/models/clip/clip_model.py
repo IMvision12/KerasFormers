@@ -318,11 +318,11 @@ def clip_vision_backbone(
 def clip_text_backbone(
     inputs,
     attention_mask,
-    transformer_width,
-    transformer_layers,
-    transformer_heads,
+    text_hidden_dim,
+    text_num_layers,
+    text_num_heads,
     vocab_size,
-    context_length,
+    max_seq_len,
     text_mlp_ratio,
     hidden_act="quick_gelu",
     layer_norm_eps=1e-5,
@@ -336,44 +336,44 @@ def clip_text_backbone(
     largest ``token_id``).
 
     Args:
-        inputs: Token-id tensor of shape ``(B, context_length)``.
-        attention_mask: Padding mask ``(B, context_length)`` — ``1`` for
+        inputs: Token-id tensor of shape ``(B, max_seq_len)``.
+        attention_mask: Padding mask ``(B, max_seq_len)`` — ``1`` for
             real tokens, ``0`` for padding.
-        transformer_width: Text encoder hidden dimension.
-        transformer_layers: Text encoder depth.
-        transformer_heads: Attention head count.
+        text_hidden_dim: Text encoder hidden dimension.
+        text_num_layers: Text encoder depth.
+        text_num_heads: Attention head count.
         vocab_size: Tokenizer vocabulary size.
-        context_length: Maximum sequence length.
+        max_seq_len: Maximum sequence length.
         text_mlp_ratio: MLP expansion ratio.
         hidden_act: MLP activation name.
         layer_norm_eps: LayerNorm epsilon.
 
     Returns:
         Tuple ``(last_hidden_state, pooler_output)`` of shapes
-        ``(B, context_length, transformer_width)`` and
-        ``(B, transformer_width)``.
+        ``(B, max_seq_len, text_hidden_dim)`` and
+        ``(B, text_hidden_dim)``.
     """
     x = CLIPTextModelEmbedding(
         vocab_size=vocab_size,
-        context_length=context_length,
-        embedding_dim=transformer_width,
+        max_seq_len=max_seq_len,
+        embed_dim=text_hidden_dim,
         name="text_model_embedding",
     )(inputs)
 
     causal_attention_mask = ops.cast(
-        ops.triu(ops.ones((context_length, context_length)), k=1), "float32"
+        ops.triu(ops.ones((max_seq_len, max_seq_len)), k=1), "float32"
     ) * (-1e8)
 
     attention_mask_float = ops.cast(attention_mask, dtype="float32")
-    expanded_mask = ops.reshape(attention_mask_float, (-1, 1, 1, context_length))
-    expanded_mask = ops.repeat(expanded_mask, context_length, axis=2)
+    expanded_mask = ops.reshape(attention_mask_float, (-1, 1, 1, max_seq_len))
+    expanded_mask = ops.repeat(expanded_mask, max_seq_len, axis=2)
     expanded_mask = (1.0 - expanded_mask) * (-1e8)
 
     encoded_output = clip_encoder(
         x,
-        width=transformer_width,
-        num_layers=transformer_layers,
-        heads=transformer_heads,
+        width=text_hidden_dim,
+        num_layers=text_num_layers,
+        heads=text_num_heads,
         causal_attention_mask=causal_attention_mask,
         attention_mask=expanded_mask,
         mlp_ratio=text_mlp_ratio,
@@ -387,7 +387,7 @@ def clip_text_backbone(
     )(encoded_output)
 
     indices = ops.argmax(inputs, axis=-1)
-    one_hot_indices = ops.one_hot(indices, context_length)
+    one_hot_indices = ops.one_hot(indices, max_seq_len)
     pooler_output = ops.einsum("bi,bij->bj", one_hot_indices, last_hidden_state)
 
     return last_hidden_state, pooler_output
@@ -436,8 +436,8 @@ class CLIPVisionModel(BaseModel):
     .. code-block:: python
 
         out = model(images)
-        out["last_hidden_state"]   # (B, num_patches + 1, vision_width)
-        out["pooler_output"]       # (B, vision_width) — post-LN CLS token
+        out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_dim)
+        out["pooler_output"]       # (B, vision_hidden_dim) — post-LN CLS token
 
     Construction:
 
@@ -448,11 +448,11 @@ class CLIPVisionModel(BaseModel):
     ``visual_projection``, and ``logit_scale`` entries.
 
     Args:
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)``, or a 3-tuple in the active data format's order.
-        vision_layers: ViT encoder depth.
-        vision_width: ViT hidden dim.
+        vision_num_layers: ViT encoder depth.
+        vision_hidden_dim: ViT hidden dim.
         vision_patch_size: ViT patch size.
         vision_mlp_ratio: MLP expansion ratio in vision blocks.
         hidden_act: MLP activation name.
@@ -486,9 +486,9 @@ class CLIPVisionModel(BaseModel):
 
     def __init__(
         self,
-        input_image_shape=224,
-        vision_layers=12,
-        vision_width=768,
+        image_size=224,
+        vision_num_layers=12,
+        vision_hidden_dim=768,
         vision_patch_size=32,
         vision_mlp_ratio=4.0,
         hidden_act="quick_gelu",
@@ -499,25 +499,25 @@ class CLIPVisionModel(BaseModel):
     ):
         for k in (
             "embed_dim",
-            "context_length",
+            "max_seq_len",
             "vocab_size",
-            "transformer_width",
-            "transformer_heads",
-            "transformer_layers",
+            "text_hidden_dim",
+            "text_num_heads",
+            "text_num_layers",
             "text_mlp_ratio",
         ):
             kwargs.pop(k, None)
 
-        vision_heads = vision_width // 64
+        vision_num_heads = vision_hidden_dim // 64
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
         if data_format == "channels_first":
-            image_size = input_image_shape[1]
+            image_size = input_shape[1]
         else:
-            image_size = input_image_shape[0]
+            image_size = input_shape[0]
 
         if input_tensor is None:
-            images_input = layers.Input(shape=input_image_shape, name="images")
+            images_input = layers.Input(shape=input_shape, name="images")
         else:
             images_input = input_tensor
 
@@ -525,9 +525,9 @@ class CLIPVisionModel(BaseModel):
             images_input,
             input_resolution=image_size,
             patch_size=vision_patch_size,
-            width=vision_width,
-            num_layers=vision_layers,
-            heads=vision_heads,
+            width=vision_hidden_dim,
+            num_layers=vision_num_layers,
+            heads=vision_num_heads,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
@@ -544,9 +544,9 @@ class CLIPVisionModel(BaseModel):
             **kwargs,
         )
 
-        self.input_image_shape = input_image_shape
-        self.vision_layers = vision_layers
-        self.vision_width = vision_width
+        self.image_size = image_size
+        self.vision_num_layers = vision_num_layers
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_patch_size = vision_patch_size
         self.vision_mlp_ratio = vision_mlp_ratio
         self.hidden_act = hidden_act
@@ -557,9 +557,9 @@ class CLIPVisionModel(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "input_image_shape": self.input_image_shape,
-                "vision_layers": self.vision_layers,
-                "vision_width": self.vision_width,
+                "image_size": self.image_size,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_patch_size": self.vision_patch_size,
                 "vision_mlp_ratio": self.vision_mlp_ratio,
                 "hidden_act": self.hidden_act,
@@ -590,8 +590,8 @@ class CLIPTextModel(BaseModel):
     .. code-block:: python
 
         out = model({"token_ids": ..., "padding_mask": ...})
-        out["last_hidden_state"]   # (B, context_length, transformer_width)
-        out["pooler_output"]       # (B, transformer_width) — EOT-position hidden state
+        out["last_hidden_state"]   # (B, max_seq_len, text_hidden_dim)
+        out["pooler_output"]       # (B, text_hidden_dim) — EOT-position hidden state
 
     Construction:
 
@@ -602,11 +602,11 @@ class CLIPTextModel(BaseModel):
     vision-tower, ``text_projection``, and ``logit_scale`` entries.
 
     Args:
-        context_length: Text input length.
+        max_seq_len: Text input length.
         vocab_size: Tokenizer vocab size.
-        transformer_width: Text encoder hidden dim.
-        transformer_heads: Text encoder head count.
-        transformer_layers: Text encoder depth.
+        text_hidden_dim: Text encoder hidden dim.
+        text_num_heads: Text encoder head count.
+        text_num_layers: Text encoder depth.
         text_mlp_ratio: MLP expansion ratio in text blocks.
         hidden_act: MLP activation name.
         layer_norm_eps: Epsilon for every LayerNorm.
@@ -640,11 +640,11 @@ class CLIPTextModel(BaseModel):
 
     def __init__(
         self,
-        context_length=77,
+        max_seq_len=77,
         vocab_size=49408,
-        transformer_width=512,
-        transformer_heads=8,
-        transformer_layers=12,
+        text_hidden_dim=512,
+        text_num_heads=8,
+        text_num_layers=12,
         text_mlp_ratio=4.0,
         hidden_act="quick_gelu",
         layer_norm_eps=1e-5,
@@ -654,9 +654,9 @@ class CLIPTextModel(BaseModel):
     ):
         for k in (
             "embed_dim",
-            "input_image_shape",
-            "vision_layers",
-            "vision_width",
+            "image_size",
+            "vision_num_layers",
+            "vision_hidden_dim",
             "vision_patch_size",
             "vision_mlp_ratio",
         ):
@@ -665,26 +665,24 @@ class CLIPTextModel(BaseModel):
         if isinstance(input_tensor, dict):
             token_ids_input = input_tensor.get("token_ids")
             if token_ids_input is None:
-                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+                token_ids_input = layers.Input(shape=[max_seq_len], name="token_ids")
             padding_mask_input = input_tensor.get("padding_mask")
             if padding_mask_input is None:
                 padding_mask_input = layers.Input(
-                    shape=[context_length], name="padding_mask"
+                    shape=[max_seq_len], name="padding_mask"
                 )
         else:
-            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
-            padding_mask_input = layers.Input(
-                shape=[context_length], name="padding_mask"
-            )
+            token_ids_input = layers.Input(shape=[max_seq_len], name="token_ids")
+            padding_mask_input = layers.Input(shape=[max_seq_len], name="padding_mask")
 
         last_hidden_state, pooler_output = clip_text_backbone(
             token_ids_input,
             attention_mask=padding_mask_input,
-            transformer_width=transformer_width,
-            transformer_layers=transformer_layers,
-            transformer_heads=transformer_heads,
+            text_hidden_dim=text_hidden_dim,
+            text_num_layers=text_num_layers,
+            text_num_heads=text_num_heads,
             vocab_size=vocab_size,
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
@@ -703,11 +701,11 @@ class CLIPTextModel(BaseModel):
             **kwargs,
         )
 
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.vocab_size = vocab_size
-        self.transformer_width = transformer_width
-        self.transformer_heads = transformer_heads
-        self.transformer_layers = transformer_layers
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_heads = text_num_heads
+        self.text_num_layers = text_num_layers
         self.text_mlp_ratio = text_mlp_ratio
         self.hidden_act = hidden_act
         self.layer_norm_eps = layer_norm_eps
@@ -717,11 +715,11 @@ class CLIPTextModel(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "vocab_size": self.vocab_size,
-                "transformer_width": self.transformer_width,
-                "transformer_heads": self.transformer_heads,
-                "transformer_layers": self.transformer_layers,
+                "text_hidden_dim": self.text_hidden_dim,
+                "text_num_heads": self.text_num_heads,
+                "text_num_layers": self.text_num_layers,
                 "text_mlp_ratio": self.text_mlp_ratio,
                 "hidden_act": self.hidden_act,
                 "layer_norm_eps": self.layer_norm_eps,
@@ -755,7 +753,7 @@ class CLIPImageEmbed(BaseModel):
 
         out = model(images)
         out["image_embeds"]        # (B, embed_dim) — joint-space, unnormalized
-        out["last_hidden_state"]   # (B, num_patches + 1, vision_width)
+        out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_dim)
 
     Construction:
 
@@ -768,9 +766,9 @@ class CLIPImageEmbed(BaseModel):
     Args:
         embed_dim: Shared joint embedding dim (= ``projection_dim``).
             Defaults to ``512``.
-        input_image_shape: Input image specification. Defaults to ``224``.
-        vision_layers: ViT encoder depth. Defaults to ``12``.
-        vision_width: ViT hidden dim. Defaults to ``768``.
+        image_size: Input image specification. Defaults to ``224``.
+        vision_num_layers: ViT encoder depth. Defaults to ``12``.
+        vision_hidden_dim: ViT hidden dim. Defaults to ``768``.
         vision_patch_size: ViT patch size. Defaults to ``32``.
         vision_mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
         hidden_act: MLP activation name. Defaults to ``"quick_gelu"``.
@@ -806,9 +804,9 @@ class CLIPImageEmbed(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        input_image_shape=224,
-        vision_layers=12,
-        vision_width=768,
+        image_size=224,
+        vision_num_layers=12,
+        vision_hidden_dim=768,
         vision_patch_size=32,
         vision_mlp_ratio=4.0,
         hidden_act="quick_gelu",
@@ -818,27 +816,27 @@ class CLIPImageEmbed(BaseModel):
         **kwargs,
     ):
         for k in (
-            "context_length",
+            "max_seq_len",
             "vocab_size",
-            "transformer_width",
-            "transformer_heads",
-            "transformer_layers",
+            "text_hidden_dim",
+            "text_num_heads",
+            "text_num_layers",
             "text_mlp_ratio",
         ):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            images_input = layers.Input(shape=input_image_shape, name="images")
+            images_input = layers.Input(shape=input_shape, name="images")
         else:
             images_input = input_tensor
 
         vision_model = CLIPVisionModel(
-            input_image_shape=input_image_shape,
-            vision_layers=vision_layers,
-            vision_width=vision_width,
+            image_size=image_size,
+            vision_num_layers=vision_num_layers,
+            vision_hidden_dim=vision_hidden_dim,
             vision_patch_size=vision_patch_size,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
@@ -863,9 +861,9 @@ class CLIPImageEmbed(BaseModel):
 
         self.vision_model = vision_model
         self.embed_dim = embed_dim
-        self.input_image_shape = input_image_shape
-        self.vision_layers = vision_layers
-        self.vision_width = vision_width
+        self.image_size = image_size
+        self.vision_num_layers = vision_num_layers
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_patch_size = vision_patch_size
         self.vision_mlp_ratio = vision_mlp_ratio
         self.hidden_act = hidden_act
@@ -877,9 +875,9 @@ class CLIPImageEmbed(BaseModel):
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "input_image_shape": self.input_image_shape,
-                "vision_layers": self.vision_layers,
-                "vision_width": self.vision_width,
+                "image_size": self.image_size,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_patch_size": self.vision_patch_size,
                 "vision_mlp_ratio": self.vision_mlp_ratio,
                 "hidden_act": self.hidden_act,
@@ -913,7 +911,7 @@ class CLIPTextEmbed(BaseModel):
 
         out = model({"token_ids": ..., "padding_mask": ...})
         out["text_embeds"]         # (B, embed_dim) — joint-space, unnormalized
-        out["last_hidden_state"]   # (B, context_length, transformer_width)
+        out["last_hidden_state"]   # (B, max_seq_len, text_hidden_dim)
 
     Construction:
 
@@ -925,11 +923,11 @@ class CLIPTextEmbed(BaseModel):
 
     Args:
         embed_dim: Shared joint embedding dim. Defaults to ``512``.
-        context_length: Text input length. Defaults to ``77``.
+        max_seq_len: Text input length. Defaults to ``77``.
         vocab_size: Tokenizer vocab size. Defaults to ``49408``.
-        transformer_width: Text encoder hidden dim. Defaults to ``512``.
-        transformer_heads: Text encoder head count. Defaults to ``8``.
-        transformer_layers: Text encoder depth. Defaults to ``12``.
+        text_hidden_dim: Text encoder hidden dim. Defaults to ``512``.
+        text_num_heads: Text encoder head count. Defaults to ``8``.
+        text_num_layers: Text encoder depth. Defaults to ``12``.
         text_mlp_ratio: MLP expansion ratio. Defaults to ``4.0``.
         hidden_act: MLP activation. Defaults to ``"quick_gelu"``.
         layer_norm_eps: LayerNorm epsilon. Defaults to ``1e-5``.
@@ -964,11 +962,11 @@ class CLIPTextEmbed(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        context_length=77,
+        max_seq_len=77,
         vocab_size=49408,
-        transformer_width=512,
-        transformer_heads=8,
-        transformer_layers=12,
+        text_hidden_dim=512,
+        text_num_heads=8,
+        text_num_layers=12,
         text_mlp_ratio=4.0,
         hidden_act="quick_gelu",
         layer_norm_eps=1e-5,
@@ -977,9 +975,9 @@ class CLIPTextEmbed(BaseModel):
         **kwargs,
     ):
         for k in (
-            "input_image_shape",
-            "vision_layers",
-            "vision_width",
+            "image_size",
+            "vision_num_layers",
+            "vision_hidden_dim",
             "vision_patch_size",
             "vision_mlp_ratio",
         ):
@@ -988,24 +986,22 @@ class CLIPTextEmbed(BaseModel):
         if isinstance(input_tensor, dict):
             token_ids_input = input_tensor.get("token_ids")
             if token_ids_input is None:
-                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+                token_ids_input = layers.Input(shape=[max_seq_len], name="token_ids")
             padding_mask_input = input_tensor.get("padding_mask")
             if padding_mask_input is None:
                 padding_mask_input = layers.Input(
-                    shape=[context_length], name="padding_mask"
+                    shape=[max_seq_len], name="padding_mask"
                 )
         else:
-            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
-            padding_mask_input = layers.Input(
-                shape=[context_length], name="padding_mask"
-            )
+            token_ids_input = layers.Input(shape=[max_seq_len], name="token_ids")
+            padding_mask_input = layers.Input(shape=[max_seq_len], name="padding_mask")
 
         text_model = CLIPTextModel(
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             vocab_size=vocab_size,
-            transformer_width=transformer_width,
-            transformer_heads=transformer_heads,
-            transformer_layers=transformer_layers,
+            text_hidden_dim=text_hidden_dim,
+            text_num_heads=text_num_heads,
+            text_num_layers=text_num_layers,
             text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
@@ -1037,11 +1033,11 @@ class CLIPTextEmbed(BaseModel):
 
         self.text_model = text_model
         self.embed_dim = embed_dim
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.vocab_size = vocab_size
-        self.transformer_width = transformer_width
-        self.transformer_heads = transformer_heads
-        self.transformer_layers = transformer_layers
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_heads = text_num_heads
+        self.text_num_layers = text_num_layers
         self.text_mlp_ratio = text_mlp_ratio
         self.hidden_act = hidden_act
         self.layer_norm_eps = layer_norm_eps
@@ -1052,11 +1048,11 @@ class CLIPTextEmbed(BaseModel):
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "vocab_size": self.vocab_size,
-                "transformer_width": self.transformer_width,
-                "transformer_heads": self.transformer_heads,
-                "transformer_layers": self.transformer_layers,
+                "text_hidden_dim": self.text_hidden_dim,
+                "text_num_heads": self.text_num_heads,
+                "text_num_layers": self.text_num_layers,
                 "text_mlp_ratio": self.text_mlp_ratio,
                 "hidden_act": self.hidden_act,
                 "layer_norm_eps": self.layer_norm_eps,
@@ -1101,20 +1097,20 @@ class CLIPModel(BaseModel):
 
     Args:
         embed_dim: Shared embedding dim (= ``projection_dim``).
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
-        vision_layers: ViT encoder depth.
-        vision_width: ViT hidden dim.
+        vision_num_layers: ViT encoder depth.
+        vision_hidden_dim: ViT hidden dim.
         vision_patch_size: ViT patch size.
-        context_length: Text input length.
+        max_seq_len: Text input length.
         vocab_size: Tokenizer vocab size.
-        transformer_width: Text encoder hidden dim.
-        transformer_heads: Text encoder head count.
-        transformer_layers: Text encoder depth.
+        text_hidden_dim: Text encoder hidden dim.
+        text_num_heads: Text encoder head count.
+        text_num_layers: Text encoder depth.
         vision_mlp_ratio: MLP expansion ratio in vision blocks.
         text_mlp_ratio: MLP expansion ratio in text blocks.
         hidden_act: MLP activation. ``"quick_gelu"`` for canonical
@@ -1135,15 +1131,15 @@ class CLIPModel(BaseModel):
         tc = hf_config["text_config"]
         return {
             "embed_dim": hf_config["projection_dim"],
-            "input_image_shape": vc.get("image_size", 224),
-            "vision_layers": vc["num_hidden_layers"],
-            "vision_width": vc["hidden_size"],
+            "image_size": vc.get("image_size", 224),
+            "vision_num_layers": vc["num_hidden_layers"],
+            "vision_hidden_dim": vc["hidden_size"],
             "vision_patch_size": vc["patch_size"],
-            "context_length": tc.get("max_position_embeddings", 77),
+            "max_seq_len": tc.get("max_position_embeddings", 77),
             "vocab_size": tc["vocab_size"],
-            "transformer_width": tc["hidden_size"],
-            "transformer_heads": tc["num_attention_heads"],
-            "transformer_layers": tc["num_hidden_layers"],
+            "text_hidden_dim": tc["hidden_size"],
+            "text_num_heads": tc["num_attention_heads"],
+            "text_num_layers": tc["num_hidden_layers"],
             "vision_mlp_ratio": vc["intermediate_size"] / vc["hidden_size"],
             "text_mlp_ratio": tc["intermediate_size"] / tc["hidden_size"],
             "hidden_act": vc.get("hidden_act", "quick_gelu"),
@@ -1159,15 +1155,15 @@ class CLIPModel(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        input_image_shape=224,
-        vision_layers=12,
-        vision_width=768,
+        image_size=224,
+        vision_num_layers=12,
+        vision_hidden_dim=768,
         vision_patch_size=32,
-        context_length=77,
+        max_seq_len=77,
         vocab_size=49408,
-        transformer_width=512,
-        transformer_heads=8,
-        transformer_layers=12,
+        text_hidden_dim=512,
+        text_num_heads=8,
+        text_num_layers=12,
         vision_mlp_ratio=4.0,
         text_mlp_ratio=4.0,
         hidden_act="quick_gelu",
@@ -1177,31 +1173,29 @@ class CLIPModel(BaseModel):
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
 
         if isinstance(input_tensor, dict):
             images_input = input_tensor.get("images")
             if images_input is None:
-                images_input = layers.Input(shape=input_image_shape, name="images")
+                images_input = layers.Input(shape=input_shape, name="images")
             token_ids_input = input_tensor.get("token_ids")
             if token_ids_input is None:
-                token_ids_input = layers.Input(shape=[context_length], name="token_ids")
+                token_ids_input = layers.Input(shape=[max_seq_len], name="token_ids")
             padding_mask_input = input_tensor.get("padding_mask")
             if padding_mask_input is None:
                 padding_mask_input = layers.Input(
-                    shape=[context_length], name="padding_mask"
+                    shape=[max_seq_len], name="padding_mask"
                 )
         else:
-            images_input = layers.Input(shape=input_image_shape, name="images")
-            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
-            padding_mask_input = layers.Input(
-                shape=[context_length], name="padding_mask"
-            )
+            images_input = layers.Input(shape=input_shape, name="images")
+            token_ids_input = layers.Input(shape=[max_seq_len], name="token_ids")
+            padding_mask_input = layers.Input(shape=[max_seq_len], name="padding_mask")
 
         vision_model = CLIPVisionModel(
-            input_image_shape=input_image_shape,
-            vision_layers=vision_layers,
-            vision_width=vision_width,
+            image_size=image_size,
+            vision_num_layers=vision_num_layers,
+            vision_hidden_dim=vision_hidden_dim,
             vision_patch_size=vision_patch_size,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
@@ -1210,11 +1204,11 @@ class CLIPModel(BaseModel):
             name=f"{name}_vision_tower",
         )
         text_model = CLIPTextModel(
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             vocab_size=vocab_size,
-            transformer_width=transformer_width,
-            transformer_heads=transformer_heads,
-            transformer_layers=transformer_layers,
+            text_hidden_dim=text_hidden_dim,
+            text_num_heads=text_num_heads,
+            text_num_layers=text_num_layers,
             text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
@@ -1250,15 +1244,15 @@ class CLIPModel(BaseModel):
         self.vision_model = vision_model
         self.text_model = text_model
         self.embed_dim = embed_dim
-        self.input_image_shape = input_image_shape
-        self.vision_layers = vision_layers
-        self.vision_width = vision_width
+        self.image_size = image_size
+        self.vision_num_layers = vision_num_layers
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_patch_size = vision_patch_size
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.vocab_size = vocab_size
-        self.transformer_width = transformer_width
-        self.transformer_heads = transformer_heads
-        self.transformer_layers = transformer_layers
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_heads = text_num_heads
+        self.text_num_layers = text_num_layers
         self.vision_mlp_ratio = vision_mlp_ratio
         self.text_mlp_ratio = text_mlp_ratio
         self.hidden_act = hidden_act
@@ -1270,15 +1264,15 @@ class CLIPModel(BaseModel):
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "input_image_shape": self.input_image_shape,
-                "vision_layers": self.vision_layers,
-                "vision_width": self.vision_width,
+                "image_size": self.image_size,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_patch_size": self.vision_patch_size,
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "vocab_size": self.vocab_size,
-                "transformer_width": self.transformer_width,
-                "transformer_heads": self.transformer_heads,
-                "transformer_layers": self.transformer_layers,
+                "text_hidden_dim": self.text_hidden_dim,
+                "text_num_heads": self.text_num_heads,
+                "text_num_layers": self.text_num_layers,
                 "vision_mlp_ratio": self.vision_mlp_ratio,
                 "text_mlp_ratio": self.text_mlp_ratio,
                 "hidden_act": self.hidden_act,
@@ -1319,9 +1313,9 @@ class CLIPZeroShotClassify(BaseModel):
     >>> CLIPZeroShotClassify.from_weights("hf:openai/clip-vit-base-patch16")
 
     Args (identical to :class:`CLIPModel`):
-        embed_dim, input_image_shape, vision_layers, vision_width,
-        vision_patch_size, context_length, vocab_size, transformer_width,
-        transformer_heads, transformer_layers, vision_mlp_ratio,
+        embed_dim, image_size, vision_num_layers, vision_hidden_dim,
+        vision_patch_size, max_seq_len, vocab_size, text_hidden_dim,
+        text_num_heads, text_num_layers, vision_mlp_ratio,
         text_mlp_ratio, hidden_act, layer_norm_eps, input_tensor, name.
     """
 
@@ -1342,15 +1336,15 @@ class CLIPZeroShotClassify(BaseModel):
     def __init__(
         self,
         embed_dim=512,
-        input_image_shape=224,
-        vision_layers=12,
-        vision_width=768,
+        image_size=224,
+        vision_num_layers=12,
+        vision_hidden_dim=768,
         vision_patch_size=32,
-        context_length=77,
+        max_seq_len=77,
         vocab_size=49408,
-        transformer_width=512,
-        transformer_heads=8,
-        transformer_layers=12,
+        text_hidden_dim=512,
+        text_num_heads=8,
+        text_num_layers=12,
         vision_mlp_ratio=4.0,
         text_mlp_ratio=4.0,
         hidden_act="quick_gelu",
@@ -1361,15 +1355,15 @@ class CLIPZeroShotClassify(BaseModel):
     ):
         base = CLIPModel(
             embed_dim=embed_dim,
-            input_image_shape=input_image_shape,
-            vision_layers=vision_layers,
-            vision_width=vision_width,
+            image_size=image_size,
+            vision_num_layers=vision_num_layers,
+            vision_hidden_dim=vision_hidden_dim,
             vision_patch_size=vision_patch_size,
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             vocab_size=vocab_size,
-            transformer_width=transformer_width,
-            transformer_heads=transformer_heads,
-            transformer_layers=transformer_layers,
+            text_hidden_dim=text_hidden_dim,
+            text_num_heads=text_num_heads,
+            text_num_layers=text_num_layers,
             vision_mlp_ratio=vision_mlp_ratio,
             text_mlp_ratio=text_mlp_ratio,
             hidden_act=hidden_act,
@@ -1390,15 +1384,15 @@ class CLIPZeroShotClassify(BaseModel):
         )
 
         self.embed_dim = embed_dim
-        self.input_image_shape = base.input_image_shape
-        self.vision_layers = vision_layers
-        self.vision_width = vision_width
+        self.image_size = base.image_size
+        self.vision_num_layers = vision_num_layers
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_patch_size = vision_patch_size
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.vocab_size = vocab_size
-        self.transformer_width = transformer_width
-        self.transformer_heads = transformer_heads
-        self.transformer_layers = transformer_layers
+        self.text_hidden_dim = text_hidden_dim
+        self.text_num_heads = text_num_heads
+        self.text_num_layers = text_num_layers
         self.vision_mlp_ratio = vision_mlp_ratio
         self.text_mlp_ratio = text_mlp_ratio
         self.hidden_act = hidden_act
@@ -1410,15 +1404,15 @@ class CLIPZeroShotClassify(BaseModel):
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "input_image_shape": self.input_image_shape,
-                "vision_layers": self.vision_layers,
-                "vision_width": self.vision_width,
+                "image_size": self.image_size,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_patch_size": self.vision_patch_size,
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "vocab_size": self.vocab_size,
-                "transformer_width": self.transformer_width,
-                "transformer_heads": self.transformer_heads,
-                "transformer_layers": self.transformer_layers,
+                "text_hidden_dim": self.text_hidden_dim,
+                "text_num_heads": self.text_num_heads,
+                "text_num_layers": self.text_num_layers,
                 "vision_mlp_ratio": self.vision_mlp_ratio,
                 "text_mlp_ratio": self.text_mlp_ratio,
                 "hidden_act": self.hidden_act,
@@ -1452,14 +1446,14 @@ class CLIPImageClassify(BaseModel):
 
     Args:
         num_classes: Number of output classes.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
-        vision_layers: ViT encoder depth.
-        vision_width: ViT hidden dim.
+        vision_num_layers: ViT encoder depth.
+        vision_hidden_dim: ViT hidden dim.
         vision_patch_size: ViT patch size.
         vision_mlp_ratio: MLP expansion ratio in vision blocks.
         hidden_act: MLP activation. ``"quick_gelu"`` for OpenAI,
@@ -1502,9 +1496,9 @@ class CLIPImageClassify(BaseModel):
     def __init__(
         self,
         num_classes=1000,
-        input_image_shape=224,
-        vision_layers=12,
-        vision_width=768,
+        image_size=224,
+        vision_num_layers=12,
+        vision_hidden_dim=768,
         vision_patch_size=16,
         vision_mlp_ratio=4.0,
         hidden_act="quick_gelu",
@@ -1515,27 +1509,27 @@ class CLIPImageClassify(BaseModel):
     ):
         for k in (
             "embed_dim",
-            "context_length",
+            "max_seq_len",
             "vocab_size",
-            "transformer_width",
-            "transformer_heads",
-            "transformer_layers",
+            "text_hidden_dim",
+            "text_num_heads",
+            "text_num_layers",
             "text_mlp_ratio",
         ):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            images_input = layers.Input(shape=input_image_shape, name="images")
+            images_input = layers.Input(shape=input_shape, name="images")
         else:
             images_input = input_tensor
 
         vision_model = CLIPVisionModel(
-            input_image_shape=input_image_shape,
-            vision_layers=vision_layers,
-            vision_width=vision_width,
+            image_size=image_size,
+            vision_num_layers=vision_num_layers,
+            vision_hidden_dim=vision_hidden_dim,
             vision_patch_size=vision_patch_size,
             vision_mlp_ratio=vision_mlp_ratio,
             hidden_act=hidden_act,
@@ -1552,9 +1546,9 @@ class CLIPImageClassify(BaseModel):
 
         self.vision_model = vision_model
         self.num_classes = num_classes
-        self.input_image_shape = input_image_shape
-        self.vision_layers = vision_layers
-        self.vision_width = vision_width
+        self.image_size = image_size
+        self.vision_num_layers = vision_num_layers
+        self.vision_hidden_dim = vision_hidden_dim
         self.vision_patch_size = vision_patch_size
         self.vision_mlp_ratio = vision_mlp_ratio
         self.hidden_act = hidden_act
@@ -1566,9 +1560,9 @@ class CLIPImageClassify(BaseModel):
         config.update(
             {
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
-                "vision_layers": self.vision_layers,
-                "vision_width": self.vision_width,
+                "image_size": self.image_size,
+                "vision_num_layers": self.vision_num_layers,
+                "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_patch_size": self.vision_patch_size,
                 "vision_mlp_ratio": self.vision_mlp_ratio,
                 "hidden_act": self.hidden_act,

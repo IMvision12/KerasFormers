@@ -33,7 +33,7 @@ class CLIPProcessor(BaseProcessor):
             If None, will download the default vocabulary file.
         merges_file (str, optional): Path to the merges file for the tokenizer.
             If None, will download the default merges file.
-        context_length (int, optional): Maximum token sequence length. Default is 77.
+        max_seq_len (int, optional): Maximum token sequence length. Default is 77.
         errors (str, optional): Error handling strategy for the tokenizer. Default is "replace".
         unk_token (str, optional): Token to use for unknown words. Default is "<|endoftext|>".
         bos_token (str, optional): Beginning of sequence token. Default is "<|startoftext|>".
@@ -87,7 +87,7 @@ class CLIPProcessor(BaseProcessor):
         do_resize=True,
         vocab_file=None,
         merges_file=None,
-        context_length=77,
+        max_seq_len=77,
         errors="replace",
         unk_token="<|endoftext|>",
         bos_token="<|startoftext|>",
@@ -120,7 +120,7 @@ class CLIPProcessor(BaseProcessor):
         self.tokenizer = CLIPTokenizer(
             vocab_file=vocab_file_path,
             merges_file=merges_file_path,
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             errors=errors,
             unk_token=unk_token,
             bos_token=bos_token,

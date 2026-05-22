@@ -10,12 +10,12 @@ class LayerScale(layers.Layer):
     to the training process by scaling the output of certain layers.
 
     Args:
-        init_values (float): Initial value for the scaling factor `gamma`.
+        layer_scale_init (float): Initial value for the scaling factor `gamma`.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
     Methods:
         build(input_shape):
-            Creates the trainable scaling factor `gamma`, initialized to the `init_values`
+            Creates the trainable scaling factor `gamma`, initialized to the `layer_scale_init`
             and with the shape automatically determined from the input shape.
         call(x):
             Multiplies the input `x` by the scaling factor `gamma`.
@@ -23,18 +23,18 @@ class LayerScale(layers.Layer):
             Returns a dictionary containing the configuration of the layer.
 
     Example:
-        >>> layer = LayerScale(init_values=0.1)
+        >>> layer = LayerScale(layer_scale_init=0.1)
         >>> output = layer(input_tensor)
     """
 
-    def __init__(self, init_values, **kwargs):
+    def __init__(self, layer_scale_init, **kwargs):
         super().__init__(**kwargs)
-        self.init_values = init_values
+        self.layer_scale_init = layer_scale_init
 
     def build(self, input_shape):
         self.gamma = self.add_weight(
             shape=(input_shape[-1],),
-            initializer=initializers.Constant(self.init_values),
+            initializer=initializers.Constant(self.layer_scale_init),
             trainable=True,
         )
 
@@ -45,7 +45,7 @@ class LayerScale(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "init_values": self.init_values,
+                "layer_scale_init": self.layer_scale_init,
             }
         )
         return config

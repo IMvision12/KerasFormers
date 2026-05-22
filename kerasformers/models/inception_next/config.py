@@ -5,7 +5,7 @@ INCEPTION_NEXT_MODEL_CONFIG = {
         "mlp_ratios": [4, 4, 4, 3],
         "band_kernel_size": 9,
         "branch_ratio": 0.25,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "inception_next_tiny": {
@@ -14,7 +14,7 @@ INCEPTION_NEXT_MODEL_CONFIG = {
         "mlp_ratios": [4, 4, 4, 3],
         "band_kernel_size": 11,
         "branch_ratio": 0.125,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "inception_next_small": {
@@ -23,7 +23,7 @@ INCEPTION_NEXT_MODEL_CONFIG = {
         "mlp_ratios": [4, 4, 4, 3],
         "band_kernel_size": 11,
         "branch_ratio": 0.125,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "inception_next_base": {
@@ -32,7 +32,7 @@ INCEPTION_NEXT_MODEL_CONFIG = {
         "mlp_ratios": [4, 4, 4, 3],
         "band_kernel_size": 11,
         "branch_ratio": 0.125,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "inception_next_base_384": {
@@ -41,7 +41,7 @@ INCEPTION_NEXT_MODEL_CONFIG = {
         "mlp_ratios": [4, 4, 4, 3],
         "band_kernel_size": 11,
         "branch_ratio": 0.125,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 1000,
     },
 }

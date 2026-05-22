@@ -5,7 +5,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 300,
         "block_arch": "EfficientNetV2S",
         "head_filters": 1280,
-        "input_image_shape": 300,
+        "image_size": 300,
         "num_classes": 1000,
     },
     "efficientnetv2_s_in21k": {
@@ -14,7 +14,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 300,
         "block_arch": "EfficientNetV2S",
         "head_filters": 1280,
-        "input_image_shape": 300,
+        "image_size": 300,
         "num_classes": 21843,
     },
     "efficientnetv2_m": {
@@ -23,7 +23,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 384,
         "block_arch": "EfficientNetV2M",
         "head_filters": 1280,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 1000,
     },
     "efficientnetv2_m_in21k": {
@@ -32,7 +32,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 384,
         "block_arch": "EfficientNetV2M",
         "head_filters": 1280,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 21843,
     },
     "efficientnetv2_l": {
@@ -41,7 +41,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 384,
         "block_arch": "EfficientNetV2L",
         "head_filters": 1280,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 1000,
     },
     "efficientnetv2_l_in21k": {
@@ -50,7 +50,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 384,
         "block_arch": "EfficientNetV2L",
         "head_filters": 1280,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 21843,
     },
     "efficientnetv2_xl": {
@@ -59,7 +59,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 384,
         "block_arch": "EfficientNetV2XL",
         "head_filters": 1280,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 1000,
     },
     "efficientnetv2_xl_in21k": {
@@ -68,7 +68,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 384,
         "block_arch": "EfficientNetV2XL",
         "head_filters": 1280,
-        "input_image_shape": 384,
+        "image_size": 384,
         "num_classes": 21843,
     },
     "efficientnetv2_b0": {
@@ -77,7 +77,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 192,
         "block_arch": "EfficientNetV2B",
         "head_filters": 1280,
-        "input_image_shape": 192,
+        "image_size": 192,
         "num_classes": 1000,
     },
     "efficientnetv2_b1": {
@@ -86,7 +86,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 192,
         "block_arch": "EfficientNetV2B",
         "head_filters": 1280,
-        "input_image_shape": 192,
+        "image_size": 192,
         "num_classes": 1000,
     },
     "efficientnetv2_b2": {
@@ -95,7 +95,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 208,
         "block_arch": "EfficientNetV2B",
         "head_filters": 1408,
-        "input_image_shape": 208,
+        "image_size": 208,
         "num_classes": 1000,
     },
     "efficientnetv2_b3": {
@@ -104,7 +104,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
         "default_size": 240,
         "block_arch": "EfficientNetV2B",
         "head_filters": 1536,
-        "input_image_shape": 240,
+        "image_size": 240,
         "num_classes": 1000,
     },
 }

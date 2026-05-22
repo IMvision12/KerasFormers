@@ -53,7 +53,7 @@ def rt_detr_sine_pos_embed_np(height, width, embed_dim, temperature=10000):
 
 def rt_detr_backbone(
     input_tensor,
-    block_repeats,
+    depths,
     hidden_sizes,
     embedding_size,
     layer_type="bottleneck",
@@ -75,7 +75,7 @@ def rt_detr_backbone(
     Args:
         input_tensor: Keras input tensor of shape
             ``(batch_size, height, width, 3)``.
-        block_repeats: List of integers, number of residual blocks
+        depths: List of integers, number of residual blocks
             per stage (e.g., ``[3, 4, 6, 3]`` for ResNet-50).
         hidden_sizes: List of integers, output channels per stage
             (e.g., ``[256, 512, 1024, 2048]``).
@@ -124,7 +124,7 @@ def rt_detr_backbone(
         filters_list = list(hidden_sizes)
     else:
         filters_list = [hs // 4 for hs in hidden_sizes]
-    for si, nb in enumerate(block_repeats):
+    for si, nb in enumerate(depths):
         filt = filters_list[si]
         out_ch = hidden_sizes[si]
         for bi in range(nb):
@@ -372,7 +372,7 @@ def rt_detr_csp_rep_layer(
     x,
     out_ch,
     expansion=1.0,
-    num_blocks=3,
+    depths=3,
     activation="silu",
     data_format=None,
     channels_axis=-1,
@@ -395,7 +395,7 @@ def rt_detr_csp_rep_layer(
         out_ch: Integer, output channel dimension.
         expansion: Float, hidden channel expansion ratio relative to
             ``out_ch``. Defaults to ``1.0``.
-        num_blocks: Integer, number of RepVGG bottleneck blocks.
+        depths: Integer, number of RepVGG bottleneck blocks.
             Defaults to ``3``.
         activation: String, activation name. Defaults to ``"silu"``.
         data_format: String, Keras data format.
@@ -417,7 +417,7 @@ def rt_detr_csp_rep_layer(
         channels_axis=channels_axis,
         name=f"{name}_conv1",
     )
-    for i in range(num_blocks):
+    for i in range(depths):
         p1 = rt_detr_rep_vgg_block(
             p1,
             hid,
@@ -458,7 +458,7 @@ def rt_detr_aifi_encoder_layer(
     pos_embed,
     hidden_dim,
     num_heads,
-    ffn_dim,
+    mlp_dim,
     activation="gelu",
     name="aifi_0_layers_0",
 ):
@@ -481,7 +481,7 @@ def rt_detr_aifi_encoder_layer(
             inputs of self-attention.
         hidden_dim: Integer, model dimension.
         num_heads: Integer, number of attention heads.
-        ffn_dim: Integer, intermediate dimension of the feedforward
+        mlp_dim: Integer, intermediate dimension of the feedforward
             network.
         activation: String, FFN activation function name.
             Defaults to ``"gelu"``.
@@ -504,7 +504,7 @@ def rt_detr_aifi_encoder_layer(
         layers.Add(name=f"{name}_sa_res")([residual, attn])
     )
     residual = x
-    ff = layers.Dense(ffn_dim, name=f"{name}_fc1")(x)
+    ff = layers.Dense(mlp_dim, name=f"{name}_fc1")(x)
     ff = layers.Activation(activation, name=f"{name}_gelu")(ff)
     ff = layers.Dense(hidden_dim, name=f"{name}_fc2")(ff)
     x = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_final_layer_norm")(
@@ -518,7 +518,7 @@ def rt_detr_v2_decoder_layer(
     encoder_hidden_states,
     query_pos,
     reference_points,
-    d_model,
+    hidden_dim,
     num_heads,
     dim_feedforward,
     activation,
@@ -538,13 +538,13 @@ def rt_detr_v2_decoder_layer(
         - `RT-DETR <https://arxiv.org/abs/2304.08069>`_
 
     Args:
-        hidden_states: Query tensor of shape ``(B, num_queries, d_model)``.
+        hidden_states: Query tensor of shape ``(B, num_queries, hidden_dim)``.
         encoder_hidden_states: Flattened multi-scale memory of shape
-            ``(B, total_tokens, d_model)``.
+            ``(B, total_tokens, hidden_dim)``.
         query_pos: Positional embedding for queries, broadcast over
             self-attention Q/K and added to the deformable attention input.
         reference_points: Reference boxes of shape ``(B, num_queries, 1, 4)``.
-        d_model: Model hidden dimension.
+        hidden_dim: Model hidden dimension.
         num_heads: Number of attention heads.
         dim_feedforward: FFN intermediate dimension.
         activation: FFN activation name.
@@ -555,10 +555,10 @@ def rt_detr_v2_decoder_layer(
         name: String, layer name prefix shared by all sub-layers.
 
     Returns:
-        Output tensor of shape ``(B, num_queries, d_model)``.
+        Output tensor of shape ``(B, num_queries, hidden_dim)``.
     """
     sa = RTDETRV2MultiHeadAttention(
-        hidden_dim=d_model,
+        hidden_dim=hidden_dim,
         num_heads=num_heads,
         block_prefix=f"{name}_self_attn",
         name=f"{name}_self_attn",
@@ -571,7 +571,7 @@ def rt_detr_v2_decoder_layer(
     )(layers.Add(name=f"{name}_sa_res")([residual, attn_out]))
 
     ea = RTDETRV2MultiScaleDeformableAttention(
-        d_model=d_model,
+        hidden_dim=hidden_dim,
         n_levels=n_levels,
         n_heads=num_heads,
         n_points=n_points,
@@ -594,7 +594,7 @@ def rt_detr_v2_decoder_layer(
     ff = layers.Dense(dim_feedforward, activation=activation, name=f"{name}_fc1")(
         hidden_states
     )
-    ff = layers.Dense(d_model, name=f"{name}_fc2")(ff)
+    ff = layers.Dense(hidden_dim, name=f"{name}_fc2")(ff)
     hidden_states = layers.LayerNormalization(
         epsilon=1e-5, name=f"{name}_final_layer_norm"
     )(layers.Add(name=f"{name}_ff_res")([residual, ff]))
@@ -619,7 +619,7 @@ def rt_detr_inverse_sigmoid(t, e=1e-5):
 def rt_detr_hybrid_encoder(
     bk_feats,
     encoder_hidden_dim,
-    encoder_layers,
+    encoder_num_layers,
     encoder_ffn_dim,
     encoder_num_heads,
     encode_proj_layers,
@@ -645,7 +645,7 @@ def rt_detr_hybrid_encoder(
     Args:
         bk_feats: List of backbone feature tensors, one per pyramid level.
         encoder_hidden_dim: Channel dim inside the hybrid encoder.
-        encoder_layers: Number of AIFI transformer encoder layers
+        encoder_num_layers: Number of AIFI transformer encoder layers
             applied at each ``encode_proj_layers`` level.
         encoder_ffn_dim: FFN dim inside each AIFI layer.
         encoder_num_heads: Attention heads inside each AIFI layer.
@@ -697,7 +697,7 @@ def rt_detr_hybrid_encoder(
         pe = ops.convert_to_tensor(
             rt_detr_sine_pos_embed_np(h, w, encoder_hidden_dim, 10000)
         )
-        for li in range(encoder_layers):
+        for li in range(encoder_num_layers):
             flat = rt_detr_aifi_encoder_layer(
                 flat,
                 pe,
@@ -788,16 +788,16 @@ def rt_detr_hybrid_encoder(
 
 def rt_detr_decoder_inputs(
     pan,
-    d_model,
+    hidden_dim,
     feat_strides,
     spatial_h,
     spatial_w,
 ):
     """Prepare flattened tokens and anchor proposals for the RT-DETRv2 decoder.
 
-    Projects each post-PAN feature level to ``d_model`` via a 1x1 conv +
+    Projects each post-PAN feature level to ``hidden_dim`` via a 1x1 conv +
     batch norm, flattens the multi-scale feature maps into a single
-    ``(B, sum(H*W), d_model)`` token sequence, and generates a regular
+    ``(B, sum(H*W), hidden_dim)`` token sequence, and generates a regular
     anchor grid of ``(cx, cy, w, h)`` boxes per token. Anchors are
     converted to logits (sigmoid inverse) using numpy at graph build
     time; anchors near the image border are masked out and given a
@@ -806,14 +806,14 @@ def rt_detr_decoder_inputs(
     Args:
         pan: List of post-PAN feature tensors from
             :func:`rt_detr_hybrid_encoder`.
-        d_model: Decoder model dimension.
+        hidden_dim: Decoder model dimension.
         feat_strides: Feature strides per level used to derive per-level
             spatial shapes.
         spatial_h: Input image height in pixels.
         spatial_w: Input image width in pixels.
 
     Returns:
-        source_flat: ``(B, sum(H*W), d_model)`` flattened decoder memory
+        source_flat: ``(B, sum(H*W), hidden_dim)`` flattened decoder memory
             across all feature levels.
         spatial_shapes: List of ``(H, W)`` per feature level.
         level_start: List of token start indices per level (cumulative
@@ -829,7 +829,7 @@ def rt_detr_decoder_inputs(
     dec_sources = []
     for i, feat in enumerate(pan):
         p = layers.Conv2D(
-            d_model,
+            hidden_dim,
             1,
             padding="valid",
             use_bias=False,
@@ -850,7 +850,9 @@ def rt_detr_decoder_inputs(
         hi, wi = spatial_shapes[i]
         if data_format == "channels_first":
             src = layers.Permute((2, 3, 1), name=f"dec_flat_{i}_to_cl")(src)
-        flat_list.append(layers.Reshape((hi * wi, d_model), name=f"dec_flat_{i}")(src))
+        flat_list.append(
+            layers.Reshape((hi * wi, hidden_dim), name=f"dec_flat_{i}")(src)
+        )
     source_flat = layers.Concatenate(axis=1, name="dec_src_cat")(flat_list)
 
     level_start = []
@@ -888,7 +890,7 @@ def rt_detr_two_stage_proposals(
     source_flat,
     anchors_t,
     vmask_t,
-    d_model,
+    hidden_dim,
     num_classes,
     num_queries,
 ):
@@ -903,27 +905,29 @@ def rt_detr_two_stage_proposals(
     encoder gradient path.
 
     Args:
-        source_flat: ``(B, total_tokens, d_model)`` flattened decoder
+        source_flat: ``(B, total_tokens, hidden_dim)`` flattened decoder
             memory from :func:`rt_detr_decoder_inputs`.
         anchors_t: Anchor proposals as sigmoid-inverse logits.
         vmask_t: Validity mask (float).
-        d_model: Decoder model dimension.
+        hidden_dim: Decoder model dimension.
         num_classes: Number of classes for the first-stage scoring head.
         num_queries: Number of decoder queries / top-k selected tokens.
 
     Returns:
-        target: ``(B, num_queries, d_model)`` selected query features.
+        target: ``(B, num_queries, hidden_dim)`` selected query features.
         ref_logit: ``(B, num_queries, 4)`` selected refined reference
             points in sigmoid-inverse logit space.
     """
     memory = source_flat * vmask_t
-    enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)
+    enc_out = layers.Dense(hidden_dim, name="enc_output_linear")(memory)
     enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
         enc_out
     )
     enc_scores = layers.Dense(num_classes, name="enc_score_head")(enc_out)
-    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_0")(enc_out)
-    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_1")(enc_bb)
+    enc_bb = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_head_0")(
+        enc_out
+    )
+    enc_bb = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_head_1")(enc_bb)
     enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
     enc_bb_logits = enc_bb + anchors_t
 
@@ -945,8 +949,8 @@ def rt_detr_v2_decoder(
     source_flat,
     spatial_shapes,
     level_start,
-    d_model,
-    decoder_layers,
+    hidden_dim,
+    decoder_num_layers,
     decoder_ffn_dim,
     decoder_num_heads,
     decoder_n_points,
@@ -955,7 +959,7 @@ def rt_detr_v2_decoder(
 ):
     """RT-DETRv2 deformable decoder with iterative bounding box refinement.
 
-    Runs ``decoder_layers`` :func:`rt_detr_v2_decoder_layer` blocks
+    Runs ``decoder_num_layers`` :func:`rt_detr_v2_decoder_layer` blocks
     (functional-API decoder layers using V2's multi-head attention and
     multi-scale deformable attention) on top of the flattened
     multi-scale encoder memory. Each layer takes the current query
@@ -967,16 +971,16 @@ def rt_detr_v2_decoder(
     layers.
 
     Args:
-        target: Initial query features ``(B, num_queries, d_model)``
+        target: Initial query features ``(B, num_queries, hidden_dim)``
             from :func:`rt_detr_two_stage_proposals`.
         ref_logit: Initial reference points in sigmoid-inverse logit
             space, shape ``(B, num_queries, 4)``.
         source_flat: Flattened multi-scale encoder memory
-            ``(B, total_tokens, d_model)``.
+            ``(B, total_tokens, hidden_dim)``.
         spatial_shapes: List of ``(H, W)`` per feature level.
         level_start: List of token start indices per level.
-        d_model: Decoder model dimension.
-        decoder_layers: Number of decoder layers.
+        hidden_dim: Decoder model dimension.
+        decoder_num_layers: Number of decoder layers.
         decoder_ffn_dim: FFN dim inside each decoder layer.
         decoder_num_heads: Attention heads in each decoder layer.
         decoder_n_points: Sampling points per level for deformable
@@ -985,18 +989,18 @@ def rt_detr_v2_decoder(
         num_feature_levels: Number of multi-scale feature levels.
 
     Returns:
-        hs_last: ``(B, num_queries, d_model)`` decoder last hidden
+        hs_last: ``(B, num_queries, hidden_dim)`` decoder last hidden
             state after the final layer.
         last_boxes: ``(B, num_queries, 4)`` final refined boxes in
             ``(cx, cy, w, h)`` normalized coordinates.
     """
-    qp_d0 = layers.Dense(d_model * 2, activation="relu", name="query_pos_head_0")
-    qp_d1 = layers.Dense(d_model, name="query_pos_head_1")
+    qp_d0 = layers.Dense(hidden_dim * 2, activation="relu", name="query_pos_head_0")
+    qp_d1 = layers.Dense(hidden_dim, name="query_pos_head_1")
     hs = target
     ref_pts = ops.sigmoid(ref_logit)
     last_boxes = None
 
-    for di in range(decoder_layers):
+    for di in range(decoder_num_layers):
         query_pos = qp_d1(qp_d0(ref_pts))
         rp_in = ops.expand_dims(ref_pts, axis=2)
         hs = rt_detr_v2_decoder_layer(
@@ -1004,7 +1008,7 @@ def rt_detr_v2_decoder(
             source_flat,
             query_pos,
             rp_in,
-            d_model=d_model,
+            hidden_dim=hidden_dim,
             num_heads=decoder_num_heads,
             dim_feedforward=decoder_ffn_dim,
             activation=decoder_activation_function,
@@ -1014,8 +1018,12 @@ def rt_detr_v2_decoder(
             level_start_index=level_start,
             name=f"decoder_layers_{di}",
         )
-        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_0")(hs)
-        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_1")(bb_i)
+        bb_i = layers.Dense(hidden_dim, activation="relu", name=f"bbox_embed_{di}_0")(
+            hs
+        )
+        bb_i = layers.Dense(hidden_dim, activation="relu", name=f"bbox_embed_{di}_1")(
+            bb_i
+        )
         bb_i = layers.Dense(4, name=f"bbox_embed_{di}_2")(bb_i)
 
         new_ref = ops.sigmoid(bb_i + rt_detr_inverse_sigmoid(ref_pts))
@@ -1032,15 +1040,15 @@ def rt_detr_v2_functional(
     backbone_embedding_size,
     backbone_layer_type,
     encoder_hidden_dim,
-    encoder_layers,
+    encoder_num_layers,
     encoder_ffn_dim,
     encoder_num_heads,
     encode_proj_layers,
     encoder_activation_function,
     activation_function,
     hidden_expansion,
-    d_model,
-    decoder_layers,
+    hidden_dim,
+    decoder_num_layers,
     decoder_ffn_dim,
     decoder_num_heads,
     decoder_n_points,
@@ -1077,15 +1085,15 @@ def rt_detr_v2_functional(
         backbone_embedding_size: Stem output channels.
         backbone_layer_type: ``"bottleneck"`` or ``"basic"``.
         encoder_hidden_dim: Channel dim inside the hybrid encoder.
-        encoder_layers: Number of AIFI transformer encoder layers.
+        encoder_num_layers: Number of AIFI transformer encoder layers.
         encoder_ffn_dim: FFN dim in the AIFI encoder.
         encoder_num_heads: Attention heads in the AIFI encoder.
         encode_proj_layers: Feature-level indices where AIFI is applied.
         encoder_activation_function: Activation in the AIFI FFN.
         activation_function: Activation in CCFM (FPN/PAN) blocks.
         hidden_expansion: CSP hidden channel expansion ratio.
-        d_model: Decoder model dimension.
-        decoder_layers: Number of decoder layers.
+        hidden_dim: Decoder model dimension.
+        decoder_num_layers: Number of decoder layers.
         decoder_ffn_dim: FFN dim in each decoder layer.
         decoder_num_heads: Attention heads in the decoder.
         decoder_n_points: Sampling points per level for deformable
@@ -1099,7 +1107,7 @@ def rt_detr_v2_functional(
             ``(C, H, W)`` for ``channels_first``).
 
     Returns:
-        hs_last: ``(B, num_queries, d_model)`` decoder last hidden state.
+        hs_last: ``(B, num_queries, hidden_dim)`` decoder last hidden state.
         last_boxes: ``(B, num_queries, 4)`` final refined boxes in
             ``(cx, cy, w, h)``.
     """
@@ -1125,7 +1133,7 @@ def rt_detr_v2_functional(
     pan = rt_detr_hybrid_encoder(
         bk_feats,
         encoder_hidden_dim=encoder_hidden_dim,
-        encoder_layers=encoder_layers,
+        encoder_num_layers=encoder_num_layers,
         encoder_ffn_dim=encoder_ffn_dim,
         encoder_num_heads=encoder_num_heads,
         encode_proj_layers=encode_proj_layers,
@@ -1141,7 +1149,7 @@ def rt_detr_v2_functional(
     source_flat, spatial_shapes, level_start, anchors_t, vmask_t = (
         rt_detr_decoder_inputs(
             pan,
-            d_model=d_model,
+            hidden_dim=hidden_dim,
             feat_strides=feat_strides,
             spatial_h=spatial_h,
             spatial_w=spatial_w,
@@ -1152,7 +1160,7 @@ def rt_detr_v2_functional(
         source_flat,
         anchors_t,
         vmask_t,
-        d_model=d_model,
+        hidden_dim=hidden_dim,
         num_classes=num_classes,
         num_queries=num_queries,
     )
@@ -1163,8 +1171,8 @@ def rt_detr_v2_functional(
         source_flat,
         spatial_shapes,
         level_start,
-        d_model=d_model,
-        decoder_layers=decoder_layers,
+        hidden_dim=hidden_dim,
+        decoder_num_layers=decoder_num_layers,
         decoder_ffn_dim=decoder_ffn_dim,
         decoder_num_heads=decoder_num_heads,
         decoder_n_points=decoder_n_points,
@@ -1179,7 +1187,7 @@ class RTDetrV2Model(BaseModel):
 
     Matches the reference ``RTDetrV2Model`` pattern — outputs the
     decoder ``last_hidden_state`` with shape ``(B, num_queries,
-    d_model)``. Iterative bbox refinement layers stay in the model
+    hidden_dim)``. Iterative bbox refinement layers stay in the model
     (they feed back into the decoder); only per-layer class prediction
     heads are pruned from the output graph. Use ``RTDETRV2Detect`` for
     full detection outputs.
@@ -1205,15 +1213,15 @@ class RTDetrV2Model(BaseModel):
         backbone_layer_type="bottleneck",
         encoder_in_channels=(512, 1024, 2048),
         encoder_hidden_dim=256,
-        encoder_layers=1,
+        encoder_num_layers=1,
         encoder_ffn_dim=1024,
         encoder_num_heads=8,
         encode_proj_layers=(2,),
         encoder_activation_function="gelu",
         activation_function="silu",
         hidden_expansion=1.0,
-        d_model=256,
-        decoder_layers=6,
+        hidden_dim=256,
+        decoder_num_layers=6,
         decoder_ffn_dim=1024,
         decoder_num_heads=8,
         decoder_n_points=4,
@@ -1222,19 +1230,19 @@ class RTDetrV2Model(BaseModel):
         feat_strides=(8, 16, 32),
         num_queries=300,
         num_classes=80,
-        input_image_shape=640,
+        image_size=640,
         input_tensor=None,
         name="RTDetrV2Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=image_size)
             else:
                 img_input = input_tensor
 
@@ -1245,15 +1253,15 @@ class RTDetrV2Model(BaseModel):
             backbone_embedding_size=backbone_embedding_size,
             backbone_layer_type=backbone_layer_type,
             encoder_hidden_dim=encoder_hidden_dim,
-            encoder_layers=encoder_layers,
+            encoder_num_layers=encoder_num_layers,
             encoder_ffn_dim=encoder_ffn_dim,
             encoder_num_heads=encoder_num_heads,
             encode_proj_layers=encode_proj_layers,
             encoder_activation_function=encoder_activation_function,
             activation_function=activation_function,
             hidden_expansion=hidden_expansion,
-            d_model=d_model,
-            decoder_layers=decoder_layers,
+            hidden_dim=hidden_dim,
+            decoder_num_layers=decoder_num_layers,
             decoder_ffn_dim=decoder_ffn_dim,
             decoder_num_heads=decoder_num_heads,
             decoder_n_points=decoder_n_points,
@@ -1262,7 +1270,7 @@ class RTDetrV2Model(BaseModel):
             feat_strides=feat_strides,
             num_queries=num_queries,
             num_classes=num_classes,
-            input_shape=input_image_shape,
+            input_shape=image_size,
         )
 
         outputs = {"last_hidden_state": hs_last, "last_boxes": last_boxes}
@@ -1274,15 +1282,15 @@ class RTDetrV2Model(BaseModel):
         self._backbone_layer_type = backbone_layer_type
         self._encoder_in_channels = list(encoder_in_channels)
         self._encoder_hidden_dim = encoder_hidden_dim
-        self._encoder_layers = encoder_layers
+        self._encoder_layers = encoder_num_layers
         self._encoder_ffn_dim = encoder_ffn_dim
         self._encoder_num_heads = encoder_num_heads
         self._encode_proj_layers = list(encode_proj_layers)
         self._encoder_activation_function = encoder_activation_function
         self._activation_function = activation_function
         self._hidden_expansion = hidden_expansion
-        self._d_model = d_model
-        self._decoder_layers = decoder_layers
+        self._d_model = hidden_dim
+        self._decoder_layers = decoder_num_layers
         self._decoder_ffn_dim = decoder_ffn_dim
         self._decoder_num_heads = decoder_num_heads
         self._decoder_n_points = decoder_n_points
@@ -1291,7 +1299,7 @@ class RTDetrV2Model(BaseModel):
         self._feat_strides = list(feat_strides)
         self._num_queries = num_queries
         self._num_classes = num_classes
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -1304,15 +1312,15 @@ class RTDetrV2Model(BaseModel):
                 "backbone_layer_type": self._backbone_layer_type,
                 "encoder_in_channels": self._encoder_in_channels,
                 "encoder_hidden_dim": self._encoder_hidden_dim,
-                "encoder_layers": self._encoder_layers,
+                "encoder_num_layers": self._encoder_layers,
                 "encoder_ffn_dim": self._encoder_ffn_dim,
                 "encoder_num_heads": self._encoder_num_heads,
                 "encode_proj_layers": self._encode_proj_layers,
                 "encoder_activation_function": self._encoder_activation_function,
                 "activation_function": self._activation_function,
                 "hidden_expansion": self._hidden_expansion,
-                "d_model": self._d_model,
-                "decoder_layers": self._decoder_layers,
+                "hidden_dim": self._d_model,
+                "decoder_num_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
                 "decoder_num_heads": self._decoder_num_heads,
                 "decoder_n_points": self._decoder_n_points,
@@ -1321,7 +1329,7 @@ class RTDetrV2Model(BaseModel):
                 "feat_strides": self._feat_strides,
                 "num_queries": self._num_queries,
                 "num_classes": self._num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -1359,15 +1367,15 @@ class RTDETRV2Detect(BaseModel):
             ``"basic"`` (ResNet-18/34).
         encoder_in_channels: Backbone channels fed to the encoder.
         encoder_hidden_dim: Hidden dimension of the hybrid encoder.
-        encoder_layers: Number of AIFI transformer encoder layers.
+        encoder_num_layers: Number of AIFI transformer encoder layers.
         encoder_ffn_dim: FFN dimension in the AIFI encoder.
         encoder_num_heads: Attention heads in the AIFI encoder.
         encode_proj_layers: Feature level indices to apply AIFI to.
         encoder_activation_function: Activation in the AIFI FFN.
         activation_function: Activation in CCFM (FPN/PAN) blocks.
         hidden_expansion: CSP hidden channel expansion ratio.
-        d_model: Decoder model dimension.
-        decoder_layers: Number of decoder layers.
+        hidden_dim: Decoder model dimension.
+        decoder_num_layers: Number of decoder layers.
         decoder_ffn_dim: FFN dimension in the decoder.
         decoder_num_heads: Attention heads in the decoder.
         decoder_n_points: Sampling points per level in deformable
@@ -1378,7 +1386,7 @@ class RTDETRV2Detect(BaseModel):
         num_queries: Number of object queries.
         num_classes: Number of object classes (COCO: 80).
         weights: Pre-trained weight identifier or file path.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -1403,15 +1411,15 @@ class RTDETRV2Detect(BaseModel):
         backbone_layer_type="bottleneck",
         encoder_in_channels=(512, 1024, 2048),
         encoder_hidden_dim=256,
-        encoder_layers=1,
+        encoder_num_layers=1,
         encoder_ffn_dim=1024,
         encoder_num_heads=8,
         encode_proj_layers=(2,),
         encoder_activation_function="gelu",
         activation_function="silu",
         hidden_expansion=1.0,
-        d_model=256,
-        decoder_layers=6,
+        hidden_dim=256,
+        decoder_num_layers=6,
         decoder_ffn_dim=1024,
         decoder_num_heads=8,
         decoder_n_points=4,
@@ -1420,7 +1428,7 @@ class RTDETRV2Detect(BaseModel):
         feat_strides=(8, 16, 32),
         num_queries=300,
         num_classes=80,
-        input_image_shape=640,
+        image_size=640,
         input_tensor=None,
         name="RTDETRV2Detect",
         **kwargs,
@@ -1432,15 +1440,15 @@ class RTDETRV2Detect(BaseModel):
             backbone_layer_type=backbone_layer_type,
             encoder_in_channels=encoder_in_channels,
             encoder_hidden_dim=encoder_hidden_dim,
-            encoder_layers=encoder_layers,
+            encoder_num_layers=encoder_num_layers,
             encoder_ffn_dim=encoder_ffn_dim,
             encoder_num_heads=encoder_num_heads,
             encode_proj_layers=encode_proj_layers,
             encoder_activation_function=encoder_activation_function,
             activation_function=activation_function,
             hidden_expansion=hidden_expansion,
-            d_model=d_model,
-            decoder_layers=decoder_layers,
+            hidden_dim=hidden_dim,
+            decoder_num_layers=decoder_num_layers,
             decoder_ffn_dim=decoder_ffn_dim,
             decoder_num_heads=decoder_num_heads,
             decoder_n_points=decoder_n_points,
@@ -1449,16 +1457,16 @@ class RTDETRV2Detect(BaseModel):
             feat_strides=feat_strides,
             num_queries=num_queries,
             num_classes=num_classes,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
         hs_last = base.output["last_hidden_state"]
         last_boxes = base.output["last_boxes"]
 
-        logits = layers.Dense(num_classes, name=f"class_embed_{decoder_layers - 1}")(
-            hs_last
-        )
+        logits = layers.Dense(
+            num_classes, name=f"class_embed_{decoder_num_layers - 1}"
+        )(hs_last)
 
         outputs = {"logits": logits, "pred_boxes": last_boxes}
         super().__init__(inputs=base.input, outputs=outputs, name=name, **kwargs)
@@ -1469,15 +1477,15 @@ class RTDETRV2Detect(BaseModel):
         self._backbone_layer_type = backbone_layer_type
         self._encoder_in_channels = list(encoder_in_channels)
         self._encoder_hidden_dim = encoder_hidden_dim
-        self._encoder_layers = encoder_layers
+        self._encoder_layers = encoder_num_layers
         self._encoder_ffn_dim = encoder_ffn_dim
         self._encoder_num_heads = encoder_num_heads
         self._encode_proj_layers = list(encode_proj_layers)
         self._encoder_activation_function = encoder_activation_function
         self._activation_function = activation_function
         self._hidden_expansion = hidden_expansion
-        self._d_model = d_model
-        self._decoder_layers = decoder_layers
+        self._d_model = hidden_dim
+        self._decoder_layers = decoder_num_layers
         self._decoder_ffn_dim = decoder_ffn_dim
         self._decoder_num_heads = decoder_num_heads
         self._decoder_n_points = decoder_n_points
@@ -1486,7 +1494,7 @@ class RTDETRV2Detect(BaseModel):
         self._feat_strides = list(feat_strides)
         self._num_queries = num_queries
         self._num_classes = num_classes
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -1499,15 +1507,15 @@ class RTDETRV2Detect(BaseModel):
                 "backbone_layer_type": self._backbone_layer_type,
                 "encoder_in_channels": self._encoder_in_channels,
                 "encoder_hidden_dim": self._encoder_hidden_dim,
-                "encoder_layers": self._encoder_layers,
+                "encoder_num_layers": self._encoder_layers,
                 "encoder_ffn_dim": self._encoder_ffn_dim,
                 "encoder_num_heads": self._encoder_num_heads,
                 "encode_proj_layers": self._encode_proj_layers,
                 "encoder_activation_function": self._encoder_activation_function,
                 "activation_function": self._activation_function,
                 "hidden_expansion": self._hidden_expansion,
-                "d_model": self._d_model,
-                "decoder_layers": self._decoder_layers,
+                "hidden_dim": self._d_model,
+                "decoder_num_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
                 "decoder_num_heads": self._decoder_num_heads,
                 "decoder_n_points": self._decoder_n_points,
@@ -1516,7 +1524,7 @@ class RTDETRV2Detect(BaseModel):
                 "feat_strides": self._feat_strides,
                 "num_queries": self._num_queries,
                 "num_classes": self._num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -1537,15 +1545,15 @@ class RTDETRV2Detect(BaseModel):
             "backbone_layer_type": bb["layer_type"],
             "encoder_in_channels": tuple(hf_config["encoder_in_channels"]),
             "encoder_hidden_dim": hf_config["encoder_hidden_dim"],
-            "encoder_layers": hf_config["encoder_layers"],
+            "encoder_num_layers": hf_config["encoder_layers"],
             "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
             "encoder_num_heads": hf_config["num_attention_heads"],
             "encode_proj_layers": tuple(hf_config["encode_proj_layers"]),
             "encoder_activation_function": hf_config["encoder_activation_function"],
             "activation_function": hf_config["activation_function"],
             "hidden_expansion": hf_config["hidden_expansion"],
-            "d_model": hf_config["d_model"],
-            "decoder_layers": hf_config["decoder_layers"],
+            "hidden_dim": hf_config["d_model"],
+            "decoder_num_layers": hf_config["decoder_layers"],
             "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
             "decoder_num_heads": hf_config["decoder_attention_heads"],
             "decoder_n_points": hf_config["decoder_n_points"],

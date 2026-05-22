@@ -281,7 +281,7 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         - [RT-DETR](https://arxiv.org/abs/2304.08069)
 
     Args:
-        d_model: Integer, model dimension. Defaults to `256`.
+        hidden_dim: Integer, model dimension. Defaults to `256`.
         n_levels: Integer, number of feature levels. Defaults to `3`.
         n_heads: Integer, number of attention heads. Defaults to `8`.
         n_points: Integer, sampling points per head per level. Defaults
@@ -291,17 +291,17 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         **kwargs: Additional keyword arguments.
 
     Input Shape:
-        - query: `(batch_size, num_queries, d_model)`
+        - query: `(batch_size, num_queries, hidden_dim)`
         - reference_points: `(batch_size, num_queries, n_levels, 2 or 4)`
-        - input_flatten: `(batch_size, total_tokens, d_model)`
+        - input_flatten: `(batch_size, total_tokens, hidden_dim)`
 
     Output Shape:
-        3D tensor: `(batch_size, num_queries, d_model)`.
+        3D tensor: `(batch_size, num_queries, hidden_dim)`.
     """
 
     def __init__(
         self,
-        d_model=256,
+        hidden_dim=256,
         n_levels=3,
         n_heads=8,
         n_points=4,
@@ -310,7 +310,7 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.d_model = d_model
+        self.hidden_dim = hidden_dim
         self.n_levels = n_levels
         self.n_heads = n_heads
         self.n_points = n_points
@@ -325,8 +325,8 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
             self.n_heads * self.n_levels * self.n_points,
             name="attention_weights",
         )
-        self.value_proj = layers.Dense(self.d_model, name="value_proj")
-        self.output_proj = layers.Dense(self.d_model, name="output_proj")
+        self.value_proj = layers.Dense(self.hidden_dim, name="value_proj")
+        self.output_proj = layers.Dense(self.hidden_dim, name="output_proj")
 
     def build(self, input_shape):
         self.n_points_scale = self.add_weight(
@@ -350,7 +350,7 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         input_spatial_shapes = self.spatial_shapes
         N = ops.shape(query)[0]
         Len_q = ops.shape(query)[1]
-        head_dim = self.d_model // self.n_heads
+        head_dim = self.hidden_dim // self.n_heads
 
         value = self.value_proj(input_flatten)
         value = ops.reshape(value, [N, -1, self.n_heads, head_dim])
@@ -424,7 +424,7 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "d_model": self.d_model,
+                "hidden_dim": self.hidden_dim,
                 "n_levels": self.n_levels,
                 "n_heads": self.n_heads,
                 "n_points": self.n_points,

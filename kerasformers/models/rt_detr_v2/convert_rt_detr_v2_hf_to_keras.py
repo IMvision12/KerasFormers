@@ -23,7 +23,7 @@ backbone_name_mapping: Dict[str, str] = {
 
 def transfer_rt_detr_v2_weights(keras_model, state_dict):
     sd = state_dict
-    block_repeats = keras_model._backbone_block_repeats
+    depths = keras_model._backbone_block_repeats
     layer_type = keras_model._backbone_layer_type
     num_convs = 2 if layer_type == "basic" else 3
     num_dec = keras_model._decoder_layers
@@ -41,7 +41,7 @@ def transfer_rt_detr_v2_weights(keras_model, state_dict):
         )
 
     stage_pairs: List[Tuple[str, str]] = []
-    for si, nb in enumerate(block_repeats):
+    for si, nb in enumerate(depths):
         for bi in range(nb):
             hf_pre = f"model.backbone.model.encoder.stages.{si}.layers.{bi}"
             k_pre = f"backbone_stage{si}_{bi}"
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         keras_model = RTDETRV2Detect.from_weights(
             cfg["variant"],
             load_weights=False,
-            input_image_shape=640,
+            image_size=640,
             num_queries=300,
             num_classes=80,
         )

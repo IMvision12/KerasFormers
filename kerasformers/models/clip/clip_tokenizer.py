@@ -27,7 +27,7 @@ class CLIPTokenizer(BaseTokenizer):
     Args:
         vocab_file: Path to ``vocab.json``.
         merges_file: Path to ``merges.txt``.
-        context_length: Max sequence length (default 77).
+        max_seq_len: Max sequence length (default 77).
         unk_token / bos_token / eos_token / pad_token: Special token strings.
     """
 
@@ -35,7 +35,7 @@ class CLIPTokenizer(BaseTokenizer):
         self,
         vocab_file: str,
         merges_file: str,
-        context_length: int = 77,
+        max_seq_len: int = 77,
         errors: str = "replace",
         unk_token: str = "<|endoftext|>",
         bos_token: str = "<|startoftext|>",
@@ -46,7 +46,7 @@ class CLIPTokenizer(BaseTokenizer):
         super().__init__(**kwargs)
         self.vocab_file = vocab_file
         self.merges_file = merges_file
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.errors = errors
         self.unk_token = unk_token
         self.bos_token = bos_token
@@ -99,11 +99,11 @@ class CLIPTokenizer(BaseTokenizer):
                 AddedToken(eos_token, special=True, normalized=False),
             ]
         )
-        tok.enable_truncation(max_length=context_length)
+        tok.enable_truncation(max_length=max_seq_len)
         tok.enable_padding(
             pad_id=self.pad_token_id,
             pad_token=pad_token,
-            length=context_length,
+            length=max_seq_len,
         )
         self._tok = tok
 
@@ -152,7 +152,7 @@ class CLIPTokenizer(BaseTokenizer):
             {
                 "vocab_file": self.vocab_file,
                 "merges_file": self.merges_file,
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "errors": self.errors,
                 "unk_token": self.unk_token,
                 "bos_token": self.bos_token,

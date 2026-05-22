@@ -76,7 +76,7 @@ def inception_next_block(
     num_filter,
     mlp_ratio=4.0,
     dropout_rate=0.0,
-    layer_scale_init_value=1e-6,
+    layer_scale_init=1e-6,
     band_kernel_size=11,
     branch_ratio=0.125,
     data_format=None,
@@ -90,7 +90,7 @@ def inception_next_block(
         num_filter: Channel count of the block (input == output).
         mlp_ratio: Hidden-dim expansion ratio for the MLP. Defaults to ``4.0``.
         dropout_rate: Dropout applied inside the MLP. Defaults to ``0.0``.
-        layer_scale_init_value: Initial value for the LayerScale gamma.
+        layer_scale_init: Initial value for the LayerScale gamma.
             Defaults to ``1e-6``.
         band_kernel_size: Band length for the token mixer. Defaults to ``11``.
         branch_ratio: Channel fraction per token-mixer branch. Defaults to ``0.125``.
@@ -130,7 +130,7 @@ def inception_next_block(
     )(x)
     x = layers.Dropout(dropout_rate)(x)
 
-    x = LayerScale(layer_scale_init_value, name=f"{name}_gamma")(x)
+    x = LayerScale(layer_scale_init, name=f"{name}_gamma")(x)
     x = layers.Add()([x, x_input])
 
     return x
@@ -253,7 +253,7 @@ class InceptionNextModel(BaseModel):
             (shared across stages). Defaults to `11`.
         branch_ratio: Float, fraction of input channels allocated to
             each non-identity token-mixer branch. Defaults to `0.125`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -310,7 +310,7 @@ class InceptionNextModel(BaseModel):
         mlp_ratios=(4, 4, 4, 3),
         band_kernel_size=11,
         branch_ratio=0.125,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="inception",
         input_tensor=None,
@@ -324,12 +324,12 @@ class InceptionNextModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -357,7 +357,7 @@ class InceptionNextModel(BaseModel):
         self.mlp_ratios = list(mlp_ratios)
         self.band_kernel_size = band_kernel_size
         self.branch_ratio = branch_ratio
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -372,7 +372,7 @@ class InceptionNextModel(BaseModel):
                 "mlp_ratios": self.mlp_ratios,
                 "band_kernel_size": self.band_kernel_size,
                 "branch_ratio": self.branch_ratio,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -412,7 +412,7 @@ class InceptionNextImageClassify(BaseModel):
             (shared across stages). Defaults to `11`.
         branch_ratio: Float, fraction of input channels allocated to
             each non-identity token-mixer branch. Defaults to `0.125`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -465,7 +465,7 @@ class InceptionNextImageClassify(BaseModel):
         mlp_ratios=(4, 4, 4, 3),
         band_kernel_size=11,
         branch_ratio=0.125,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="inception",
         input_tensor=None,
@@ -484,7 +484,7 @@ class InceptionNextImageClassify(BaseModel):
             mlp_ratios=mlp_ratios,
             band_kernel_size=band_kernel_size,
             branch_ratio=branch_ratio,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -510,7 +510,7 @@ class InceptionNextImageClassify(BaseModel):
         self.mlp_ratios = list(mlp_ratios)
         self.band_kernel_size = band_kernel_size
         self.branch_ratio = branch_ratio
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -526,7 +526,7 @@ class InceptionNextImageClassify(BaseModel):
                 "mlp_ratios": self.mlp_ratios,
                 "band_kernel_size": self.band_kernel_size,
                 "branch_ratio": self.branch_ratio,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

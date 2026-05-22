@@ -1,6 +1,6 @@
 SAM2_CONFIG = {
     "sam2_hiera_tiny": {
-        "hidden_size": 96,
+        "hidden_dim": 96,
         "blocks_per_stage": [1, 2, 7, 2],
         "embed_dim_per_stage": [96, 192, 384, 768],
         "num_attention_heads_per_stage": [1, 2, 4, 8],
@@ -9,7 +9,7 @@ SAM2_CONFIG = {
         "backbone_channel_list": [768, 384, 192, 96],
     },
     "sam2_hiera_small": {
-        "hidden_size": 96,
+        "hidden_dim": 96,
         "blocks_per_stage": [1, 2, 11, 2],
         "embed_dim_per_stage": [96, 192, 384, 768],
         "num_attention_heads_per_stage": [1, 2, 4, 8],
@@ -18,7 +18,7 @@ SAM2_CONFIG = {
         "backbone_channel_list": [768, 384, 192, 96],
     },
     "sam2_hiera_base_plus": {
-        "hidden_size": 112,
+        "hidden_dim": 112,
         "blocks_per_stage": [2, 3, 16, 3],
         "embed_dim_per_stage": [112, 224, 448, 896],
         "num_attention_heads_per_stage": [2, 4, 8, 16],
@@ -28,7 +28,7 @@ SAM2_CONFIG = {
         "window_pos_embed_bg_size": [14, 14],
     },
     "sam2_hiera_large": {
-        "hidden_size": 144,
+        "hidden_dim": 144,
         "blocks_per_stage": [2, 6, 36, 4],
         "embed_dim_per_stage": [144, 288, 576, 1152],
         "num_attention_heads_per_stage": [2, 4, 8, 16],

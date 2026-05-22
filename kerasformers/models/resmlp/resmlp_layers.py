@@ -25,30 +25,30 @@ class ResMLPAffine(layers.Layer):
         Same shape as input
 
     Attributes:
-        dim (int): Number of input features/channels, inferred from input shape
+        embed_dim (int): Number of input features/channels, inferred from input shape
         alpha (Weight): Learnable scale parameter with shape (1, 1, channels)
         beta (Weight): Learnable shift parameter with shape (1, 1, channels)
 
     Example:
         ```python
-        # Apply affine transformation to 16-dim feature vectors
+        # Apply affine transformation to 16-embed_dim feature vectors
         x = tf.random.normal((32, 10, 16))  # (batch_size, seq_len, channels)
         affine = ResMLPAffine()
         output = affine(x)  # shape = (32, 10, 16)
         ```
     """
 
-    def __init__(self, dim=None, **kwargs):
+    def __init__(self, embed_dim=None, **kwargs):
         super().__init__(**kwargs)
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.alpha = None
         self.beta = None
 
     def build(self, input_shape):
-        if self.dim is None:
-            self.dim = input_shape[-1]
+        if self.embed_dim is None:
+            self.embed_dim = input_shape[-1]
 
-        self.broadcast_shape = (1,) * (len(input_shape) - 1) + (self.dim,)
+        self.broadcast_shape = (1,) * (len(input_shape) - 1) + (self.embed_dim,)
 
         self.alpha = self.add_weight(
             shape=self.broadcast_shape, initializer="ones", trainable=True, name="alpha"
@@ -64,7 +64,7 @@ class ResMLPAffine(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
             }
         )
         return config

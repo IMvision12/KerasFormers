@@ -122,8 +122,8 @@ def poolformer_block(
 def poolformer_backbone_feature(
     inputs,
     *,
-    embed_dims,
-    num_blocks,
+    embed_dim,
+    depths,
     mlp_ratio,
     drop_rate,
     drop_path_rate,
@@ -136,8 +136,8 @@ def poolformer_backbone_feature(
 
     Args:
         inputs: Input image tensor of shape ``(B, H, W, C)`` or ``(B, C, H, W)``.
-        embed_dims: Per-stage channel dimensions (length-4 sequence).
-        num_blocks: Per-stage PoolFormer block counts (length-4 sequence).
+        embed_dim: Per-stage channel dimensions (length-4 sequence).
+        depths: Per-stage PoolFormer block counts (length-4 sequence).
         mlp_ratio: Hidden-dim multiplier inside each block's MLP.
         drop_rate: Dropout rate inside MLPs.
         drop_path_rate: Maximum stochastic-depth rate (linearly scaled across blocks).
@@ -156,7 +156,7 @@ def poolformer_backbone_feature(
         padding=((2, 2), (2, 2)), data_format=data_format, name="stem_pad"
     )(inputs)
     x = layers.Conv2D(
-        filters=embed_dims[0],
+        filters=embed_dim[0],
         kernel_size=7,
         strides=4,
         use_bias=True,
@@ -165,16 +165,16 @@ def poolformer_backbone_feature(
         name="stem_conv",
     )(x)
 
-    total_blocks = sum(num_blocks)
+    total_blocks = sum(depths)
     dpr = [val * drop_path_rate / total_blocks for val in range(total_blocks)]
     cur = 0
 
     stages = []
-    for stage_idx in range(len(num_blocks)):
-        for block_idx in range(num_blocks[stage_idx]):
+    for stage_idx in range(len(depths)):
+        for block_idx in range(depths[stage_idx]):
             x = poolformer_block(
                 x,
-                embed_dim=embed_dims[stage_idx],
+                embed_dim=embed_dim[stage_idx],
                 mlp_ratio=mlp_ratio,
                 drop_rate=drop_rate,
                 drop_path_rate=dpr[cur],
@@ -187,14 +187,14 @@ def poolformer_backbone_feature(
 
         stages.append(x)
 
-        if stage_idx < len(num_blocks) - 1:
+        if stage_idx < len(depths) - 1:
             x = layers.ZeroPadding2D(
                 padding=((1, 1), (1, 1)),
                 data_format=data_format,
                 name=f"stage_{stage_idx + 1}_downsample_pad",
             )(x)
             x = layers.Conv2D(
-                filters=embed_dims[stage_idx + 1],
+                filters=embed_dim[stage_idx + 1],
                 kernel_size=3,
                 strides=2,
                 use_bias=True,
@@ -230,9 +230,9 @@ class PoolFormerModel(BaseModel):
     - [MetaFormer Is Actually What You Need for Vision](https://arxiv.org/abs/2111.11418)
 
     Args:
-        embed_dims: Tuple of integers, per-stage channel dimensions
+        embed_dim: Tuple of integers, per-stage channel dimensions
             (length-4). Defaults to `(64, 128, 320, 512)`.
-        num_blocks: Tuple of integers, per-stage PoolFormer block counts
+        depths: Tuple of integers, per-stage PoolFormer block counts
             (length-4). Defaults to `(2, 2, 6, 2)`.
         mlp_ratio: Float, hidden-dim multiplier inside each block's MLP.
             Defaults to `4.0`.
@@ -241,7 +241,7 @@ class PoolFormerModel(BaseModel):
             rate is linearly scaled across blocks. Defaults to `0.0`.
         init_scale: Float, initial LayerScale value for the residual
             branches. Defaults to `1e-5`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -294,13 +294,13 @@ class PoolFormerModel(BaseModel):
 
     def __init__(
         self,
-        embed_dims=(64, 128, 320, 512),
-        num_blocks=(2, 2, 6, 2),
+        embed_dim=(64, 128, 320, 512),
+        depths=(2, 2, 6, 2),
         mlp_ratio=4.0,
         drop_rate=0.0,
         drop_path_rate=0.0,
         init_scale=1e-5,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -314,12 +314,12 @@ class PoolFormerModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -330,8 +330,8 @@ class PoolFormerModel(BaseModel):
         )
         x = poolformer_backbone_feature(
             x,
-            embed_dims=embed_dims,
-            num_blocks=num_blocks,
+            embed_dim=embed_dim,
+            depths=depths,
             mlp_ratio=mlp_ratio,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
@@ -343,13 +343,13 @@ class PoolFormerModel(BaseModel):
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.embed_dims = embed_dims
-        self.num_blocks = num_blocks
+        self.embed_dim = embed_dim
+        self.depths = depths
         self.mlp_ratio = mlp_ratio
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
         self.init_scale = init_scale
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -359,13 +359,13 @@ class PoolFormerModel(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "embed_dims": self.embed_dims,
-                "num_blocks": self.num_blocks,
+                "embed_dim": self.embed_dim,
+                "depths": self.depths,
                 "mlp_ratio": self.mlp_ratio,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
                 "init_scale": self.init_scale,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -395,9 +395,9 @@ class PoolFormerImageClassify(BaseModel):
     - [MetaFormer Is Actually What You Need for Vision](https://arxiv.org/abs/2111.11418)
 
     Args:
-        embed_dims: Tuple of integers, per-stage channel dimensions
+        embed_dim: Tuple of integers, per-stage channel dimensions
             (length-4). Defaults to `(64, 128, 320, 512)`.
-        num_blocks: Tuple of integers, per-stage PoolFormer block counts
+        depths: Tuple of integers, per-stage PoolFormer block counts
             (length-4). Defaults to `(2, 2, 6, 2)`.
         mlp_ratio: Float, hidden-dim multiplier inside each block's MLP.
             Defaults to `4.0`.
@@ -406,7 +406,7 @@ class PoolFormerImageClassify(BaseModel):
             rate is linearly scaled across blocks. Defaults to `0.0`.
         init_scale: Float, initial LayerScale value for the residual
             branches. Defaults to `1e-5`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -451,13 +451,13 @@ class PoolFormerImageClassify(BaseModel):
 
     def __init__(
         self,
-        embed_dims=(64, 128, 320, 512),
-        num_blocks=(2, 2, 6, 2),
+        embed_dim=(64, 128, 320, 512),
+        depths=(2, 2, 6, 2),
         mlp_ratio=4.0,
         drop_rate=0.0,
         drop_path_rate=0.0,
         init_scale=1e-5,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -471,13 +471,13 @@ class PoolFormerImageClassify(BaseModel):
         data_format = keras.config.image_data_format()
 
         backbone = PoolFormerModel(
-            embed_dims=embed_dims,
-            num_blocks=num_blocks,
+            embed_dim=embed_dim,
+            depths=depths,
             mlp_ratio=mlp_ratio,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
             init_scale=init_scale,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -494,13 +494,13 @@ class PoolFormerImageClassify(BaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.embed_dims = embed_dims
-        self.num_blocks = num_blocks
+        self.embed_dim = embed_dim
+        self.depths = depths
         self.mlp_ratio = mlp_ratio
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
         self.init_scale = init_scale
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -511,13 +511,13 @@ class PoolFormerImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "embed_dims": self.embed_dims,
-                "num_blocks": self.num_blocks,
+                "embed_dim": self.embed_dim,
+                "depths": self.depths,
                 "mlp_ratio": self.mlp_ratio,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
                 "init_scale": self.init_scale,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

@@ -21,7 +21,7 @@ class Mask2FormerImageProcessor(BaseImageProcessor):
 
     Args:
         target_size: Target square edge length (matches the model's
-            ``input_image_shape``).
+            ``image_size``).
         image_mean: Per-channel mean for normalization. Defaults to the
             ImageNet mean.
         image_std: Per-channel standard deviation for normalization. Defaults

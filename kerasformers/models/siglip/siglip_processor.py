@@ -36,7 +36,7 @@ class SigLIPProcessor(BaseProcessor):
             If None, will download the default vocabulary file.
         multilingual (bool, optional): Whether to use multilingual vocabulary.
             Set to True when using multilingual SigLIP models. Default is False.
-        context_length (int, optional): Maximum token sequence length. Default is 64.
+        max_seq_len (int, optional): Maximum token sequence length. Default is 64.
         do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing.
             Default is True.
         unk_token (str, optional): Token to use for unknown words. Default is "<unk>".
@@ -81,7 +81,7 @@ class SigLIPProcessor(BaseProcessor):
         # Custom configuration for higher resolution
         high_res_processor = SigLIPProcessor(
             image_resolution=384,
-            context_length=128,
+            max_seq_len=128,
             do_lower_case=False
         )
 
@@ -112,7 +112,7 @@ class SigLIPProcessor(BaseProcessor):
         do_resize: bool = True,
         vocab_file: Optional[str] = None,
         multilingual: bool = False,
-        context_length: int = 64,
+        max_seq_len: int = 64,
         do_lower_case: bool = True,
         unk_token: str = "<unk>",
         pad_token: str = "</s>",
@@ -144,7 +144,7 @@ class SigLIPProcessor(BaseProcessor):
 
         self.tokenizer = SigLIPTokenizer(
             vocab_file=vocab_file_path,
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             do_lower_case=do_lower_case,
             unk_token=unk_token,
             pad_token=pad_token,
@@ -159,7 +159,7 @@ class SigLIPProcessor(BaseProcessor):
             "do_normalize": do_normalize,
             "do_resize": do_resize,
             "vocab_file": vocab_file,
-            "context_length": context_length,
+            "max_seq_len": max_seq_len,
             "do_lower_case": do_lower_case,
             "unk_token": unk_token,
             "pad_token": pad_token,

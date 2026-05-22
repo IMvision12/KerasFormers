@@ -1,30 +1,30 @@
 DENSENET_MODEL_CONFIG = {
     "densenet121": {
-        "num_blocks": [6, 12, 24, 16],
+        "depths": [6, 12, 24, 16],
         "growth_rate": 32,
         "initial_filter": 64,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "densenet161": {
-        "num_blocks": [6, 12, 36, 24],
+        "depths": [6, 12, 36, 24],
         "growth_rate": 48,
         "initial_filter": 96,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "densenet169": {
-        "num_blocks": [6, 12, 32, 32],
+        "depths": [6, 12, 32, 32],
         "growth_rate": 32,
         "initial_filter": 64,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "densenet201": {
-        "num_blocks": [6, 12, 48, 32],
+        "depths": [6, 12, 48, 32],
         "growth_rate": 32,
         "initial_filter": 64,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
 }

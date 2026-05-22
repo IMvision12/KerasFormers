@@ -28,7 +28,7 @@ class WhisperAttention(keras.layers.Layer):
     scores via ``attention_mask``.
 
     Args:
-        proj_dim: Total projection dimension (``d_model``). Must be
+        proj_dim: Total projection dimension (``hidden_dim``). Must be
             divisible by ``num_heads``.
         num_heads: Number of attention heads.
         name_prefix: Optional string prepended to the inner ``Dense``
@@ -121,7 +121,7 @@ class WhisperAttention(keras.layers.Layer):
 class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
     """Fixed sinusoidal position embedding for the Whisper encoder.
 
-    Builds a non-trainable ``(max_source_positions, d_model)`` embedding
+    Builds a non-trainable ``(max_source_positions, hidden_dim)`` embedding
     table from the original "Attention Is All You Need" sinusoid
     formulation: the first half of the channels carry sines, the second
     half carry cosines, with timescales geometrically interpolated from
@@ -136,24 +136,24 @@ class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
         max_source_positions: Number of position rows to materialize.
             Always ``1500`` for Whisper (= 30 s of 16 kHz audio with
             320-sample stride after the conv stem).
-        d_model: Embedding dimension. Must be even (split into a sine
+        hidden_dim: Embedding dimension. Must be even (split into a sine
             half and a cosine half).
         **kwargs: Additional ``keras.layers.Layer`` keyword arguments.
 
     Input Shape:
-        ``(B, T, d_model)`` with ``T <= max_source_positions``.
+        ``(B, T, hidden_dim)`` with ``T <= max_source_positions``.
 
     Output Shape:
         Same as input.
     """
 
-    def __init__(self, max_source_positions, d_model, **kwargs):
+    def __init__(self, max_source_positions, hidden_dim, **kwargs):
         super().__init__(**kwargs)
         self.max_source_positions = max_source_positions
-        self.d_model = d_model
+        self.hidden_dim = hidden_dim
 
     def build(self, input_shape):
-        half = self.d_model // 2
+        half = self.hidden_dim // 2
         log_timescale = np.log(10000.0) / (half - 1)
         inv_timescales = np.exp(-log_timescale * np.arange(half))
         positions = np.arange(self.max_source_positions)[:, None]
@@ -162,7 +162,7 @@ class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
             np.float32
         )
         self.pos_embed = self.add_weight(
-            shape=(self.max_source_positions, self.d_model),
+            shape=(self.max_source_positions, self.hidden_dim),
             initializer=keras.initializers.Constant(embed),
             trainable=False,
             name="weight",
@@ -182,7 +182,7 @@ class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
         config.update(
             {
                 "max_source_positions": self.max_source_positions,
-                "d_model": self.d_model,
+                "hidden_dim": self.hidden_dim,
             }
         )
         return config
@@ -192,8 +192,8 @@ class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
 class WhisperLearnedPositionEmbedding(keras.layers.Layer):
     """Trainable position embedding table for the Whisper decoder.
 
-    Reproduces the ``nn.Embedding(max_target_positions, d_model)`` used
-    in the Whisper decoder: a ``(max_target_positions, d_model)`` weight
+    Reproduces the ``nn.Embedding(max_target_positions, hidden_dim)`` used
+    in the Whisper decoder: a ``(max_target_positions, hidden_dim)`` weight
     is initialized to zero and learned during training. At call time,
     rows ``[start : start + T]`` are added to the token embeddings,
     where ``start = past_key_values_length``. With the current
@@ -204,24 +204,24 @@ class WhisperLearnedPositionEmbedding(keras.layers.Layer):
         max_target_positions: Number of position rows in the table.
             Always ``448`` for Whisper, the maximum supported decoded
             sequence length including the prompt prefix.
-        d_model: Embedding dimension.
+        hidden_dim: Embedding dimension.
         **kwargs: Additional ``keras.layers.Layer`` keyword arguments.
 
     Input Shape:
-        ``(B, T, d_model)``.
+        ``(B, T, hidden_dim)``.
 
     Output Shape:
         Same as input.
     """
 
-    def __init__(self, max_target_positions, d_model, **kwargs):
+    def __init__(self, max_target_positions, hidden_dim, **kwargs):
         super().__init__(**kwargs)
         self.max_target_positions = max_target_positions
-        self.d_model = d_model
+        self.hidden_dim = hidden_dim
 
     def build(self, input_shape):
         self.pos_embed = self.add_weight(
-            shape=(self.max_target_positions, self.d_model),
+            shape=(self.max_target_positions, self.hidden_dim),
             initializer="zeros",
             trainable=True,
             name="weight",
@@ -242,7 +242,7 @@ class WhisperLearnedPositionEmbedding(keras.layers.Layer):
         config.update(
             {
                 "max_target_positions": self.max_target_positions,
-                "d_model": self.d_model,
+                "hidden_dim": self.hidden_dim,
             }
         )
         return config
@@ -260,14 +260,14 @@ class WhisperLayerWeights(keras.layers.Layer):
 
     Args:
         num_layers: Number of hidden states being combined (typically
-            ``encoder_layers + 1``).
+            ``encoder_num_layers + 1``).
         **kwargs: Additional ``keras.layers.Layer`` keyword arguments.
 
     Input Shape:
-        List of ``num_layers`` tensors, each ``(B, T, d_model)``.
+        List of ``num_layers`` tensors, each ``(B, T, hidden_dim)``.
 
     Output Shape:
-        ``(B, T, d_model)``.
+        ``(B, T, hidden_dim)``.
     """
 
     def __init__(self, num_layers, **kwargs):
@@ -284,7 +284,7 @@ class WhisperLayerWeights(keras.layers.Layer):
         super().build(input_shape)
 
     def call(self, inputs):
-        stacked = ops.stack(inputs, axis=1)  # (B, num_layers, T, d_model)
+        stacked = ops.stack(inputs, axis=1)  # (B, num_layers, T, hidden_dim)
         weights = ops.softmax(self.layer_weights, axis=-1)
         weights = ops.reshape(weights, (1, self.num_layers, 1, 1))
         return ops.sum(stacked * weights, axis=1)

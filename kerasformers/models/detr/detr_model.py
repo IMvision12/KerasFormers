@@ -259,7 +259,7 @@ def detr_backbone(
         For ``channels_last`` shapes are ``(B, H/stride, W/stride, C)``;
         for ``channels_first`` they are ``(B, C, H/stride, W/stride)``.
     """
-    block_repeats = {
+    depths = {
         "ResNet50": [3, 4, 6, 3],
         "ResNet101": [3, 4, 23, 3],
     }[backbone_variant]
@@ -294,9 +294,9 @@ def detr_backbone(
     filters_list = [64, 128, 256, 512]
     stage_outputs = []
 
-    for stage_idx, num_blocks in enumerate(block_repeats):
+    for stage_idx, depths in enumerate(depths):
         filters = filters_list[stage_idx]
-        for block_idx in range(num_blocks):
+        for block_idx in range(depths):
             prefix = f"backbone_layer{stage_idx + 1}_{block_idx}"
             strides = 2 if block_idx == 0 and stage_idx > 0 else 1
             residual = x
@@ -660,7 +660,7 @@ class DetrModel(BaseModel):
         num_queries: Number of learned object queries — also the
             number of detections produced per image.
             Defaults to ``100``.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -688,19 +688,19 @@ class DetrModel(BaseModel):
         dim_feedforward=2048,
         dropout_rate=0.1,
         num_queries=100,
-        input_image_shape=800,
+        image_size=800,
         input_tensor=None,
         name="DetrModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=image_size)
             else:
                 img_input = input_tensor
 
@@ -728,7 +728,7 @@ class DetrModel(BaseModel):
         self.dim_feedforward = dim_feedforward
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -743,7 +743,7 @@ class DetrModel(BaseModel):
                 "dim_feedforward": self.dim_feedforward,
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -796,7 +796,7 @@ class DETRDetect(BaseModel):
         dropout_rate=0.1,
         num_queries=100,
         num_classes=92,
-        input_image_shape=800,
+        image_size=800,
         input_tensor=None,
         name="DETRDetect",
         **kwargs,
@@ -810,7 +810,7 @@ class DETRDetect(BaseModel):
             dim_feedforward=dim_feedforward,
             dropout_rate=dropout_rate,
             num_queries=num_queries,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -843,7 +843,7 @@ class DETRDetect(BaseModel):
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
         self.num_classes = num_classes
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -859,7 +859,7 @@ class DETRDetect(BaseModel):
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -941,7 +941,7 @@ class DETRSegment(BaseModel):
             Defaults to ``100``.
         num_classes: Class-head output dim (panoptic checkpoints
             use ``250``). Defaults to ``250``.
-        input_image_shape: Input image specification. Defaults to ``800``.
+        image_size: Input image specification. Defaults to ``800``.
         input_tensor: Optional pre-existing Keras tensor for the
             ``images`` input.
         name: Model name. Defaults to ``"DETRSegment"``.
@@ -964,28 +964,28 @@ class DETRSegment(BaseModel):
         dropout_rate=0.1,
         num_queries=100,
         num_classes=250,
-        input_image_shape=800,
+        image_size=800,
         input_tensor=None,
         name="DETRSegment",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if data_format == "channels_first":
-            image_h = input_image_shape[1]
-            image_w = input_image_shape[2]
+            image_h = image_size[1]
+            image_w = image_size[2]
         else:
-            image_h = input_image_shape[0]
-            image_w = input_image_shape[1]
+            image_h = image_size[0]
+            image_w = image_size[1]
         h32 = image_h // 32
         w32 = image_w // 32
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=image_size)
             else:
                 img_input = input_tensor
 
@@ -1063,7 +1063,7 @@ class DETRSegment(BaseModel):
         self.dropout_rate = dropout_rate
         self.num_queries = num_queries
         self.num_classes = num_classes
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -1079,7 +1079,7 @@ class DETRSegment(BaseModel):
                 "dropout_rate": self.dropout_rate,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }

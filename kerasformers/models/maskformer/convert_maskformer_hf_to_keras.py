@@ -189,7 +189,7 @@ def transfer_maskformer_weights(keras_model, hf_state_dict):
         "bias", input_proj.weights[1], sd[f"{transformer_prefix}.input_projection.bias"]
     )
 
-    for i in range(keras_model.decoder_layers):
+    for i in range(keras_model.decoder_num_layers):
         p = f"{transformer_prefix}.decoder.layers.{i}"
         prefix_k = f"transformer_decoder_layers_{i}"
 
@@ -290,11 +290,11 @@ if __name__ == "__main__":
 
         transfer_maskformer_weights(keras_model, sd)
 
-        input_image_shape = keras_model.input_image_shape
+        image_size = keras_model.image_size
         rng = np.random.default_rng(42)
-        pix_hwc = rng.standard_normal(
-            (1, input_image_shape[0], input_image_shape[1], 3)
-        ).astype(np.float32)
+        pix_hwc = rng.standard_normal((1, image_size[0], image_size[1], 3)).astype(
+            np.float32
+        )
 
         with torch.no_grad():
             hf_pixel_values = torch.from_numpy(np.transpose(pix_hwc, (0, 3, 1, 2))).to(

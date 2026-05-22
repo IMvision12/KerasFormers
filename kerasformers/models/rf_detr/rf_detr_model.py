@@ -144,7 +144,7 @@ def rf_detr_unwindow_features(
     num_h,
     num_w,
     num_windows,
-    hidden_size,
+    hidden_dim,
     num_register_tokens,
     data_format="channels_last",
 ):
@@ -159,7 +159,7 @@ def rf_detr_unwindow_features(
         num_h: Number of patches in height dimension.
         num_w: Number of patches in width dimension.
         num_windows: Number of windows along each spatial dimension.
-        hidden_size: Feature dimension.
+        hidden_dim: Feature dimension.
         num_register_tokens: Number of DINOv2 register tokens to remove.
         data_format: String, image data format. Default ``"channels_last"``.
 
@@ -180,7 +180,7 @@ def rf_detr_unwindow_features(
         hidden_state = ops.reshape(hidden_state, [-1, num_windows, h_pw, w_pw, C])
         hidden_state = ops.transpose(hidden_state, [0, 2, 1, 3, 4])
 
-    hidden_state = ops.reshape(hidden_state, [-1, num_h, num_w, hidden_size])
+    hidden_state = ops.reshape(hidden_state, [-1, num_h, num_w, hidden_dim])
     if data_format == "channels_first":
         hidden_state = ops.transpose(hidden_state, [0, 3, 1, 2])
     return hidden_state
@@ -393,7 +393,7 @@ def rf_detr_bottleneck(
 def rf_detr_c2f(
     x,
     out_channels,
-    num_blocks=1,
+    depths=1,
     shortcut=False,
     expansion=0.5,
     activation="silu",
@@ -407,7 +407,7 @@ def rf_detr_c2f(
     Args:
         x: Input tensor.
         out_channels: Number of output channels.
-        num_blocks: Number of bottleneck blocks. Default 1.
+        depths: Number of bottleneck blocks. Default 1.
         shortcut: Whether to use residual connections. Default False.
         expansion: Hidden channel expansion ratio. Default 0.5.
         activation: Activation function name. Default "silu".
@@ -432,7 +432,7 @@ def rf_detr_c2f(
     )
     chunks = ops.split(x, 2, axis=channels_axis)
     y = [chunks[0], chunks[1]]
-    for i in range(num_blocks):
+    for i in range(depths):
         y.append(
             rf_detr_bottleneck(
                 y[-1],
@@ -504,55 +504,55 @@ def rf_detr_simple_projector(
     return x
 
 
-def rf_detr_dinov2_swiglu_ffn(x, hidden_size, mlp_ratio=4, name="mlp"):
+def rf_detr_dinov2_swiglu_ffn(x, hidden_dim, mlp_ratio=4, name="mlp"):
     """Apply SwiGLU feed-forward network from DINOv2.
 
     Implements the SwiGLU variant of FFN which uses a gated linear unit
     with Swish activation, providing better performance than standard FFN.
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
-        hidden_size: Model dimension (input and output size).
+        x: Input tensor of shape ``(B, seq_len, hidden_dim)``.
+        hidden_dim: Model dimension (input and output size).
         mlp_ratio: Expansion ratio for hidden dimension. Default 4.
         name: Layer name prefix. Default "mlp".
 
     Returns:
-        Output tensor of shape ``(B, seq_len, hidden_size)``.
+        Output tensor of shape ``(B, seq_len, hidden_dim)``.
     """
-    hidden_features = int(hidden_size * mlp_ratio)
+    hidden_features = int(hidden_dim * mlp_ratio)
     hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
     x = layers.Dense(2 * hidden_features, name=f"{name}_weights_in")(x)
     x1, x2 = ops.split(x, 2, axis=-1)
     x = ops.silu(x1) * x2
-    x = layers.Dense(hidden_size, name=f"{name}_weights_out")(x)
+    x = layers.Dense(hidden_dim, name=f"{name}_weights_out")(x)
     return x
 
 
-def rf_detr_dinov2_mlp(x, hidden_size, mlp_ratio=4, name="mlp"):
+def rf_detr_dinov2_mlp(x, hidden_dim, mlp_ratio=4, name="mlp"):
     """Apply standard MLP feed-forward network with GELU activation.
 
     Implements the classic transformer FFN: two linear layers with GELU
     activation in between.
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
-        hidden_size: Model dimension (input and output size).
+        x: Input tensor of shape ``(B, seq_len, hidden_dim)``.
+        hidden_dim: Model dimension (input and output size).
         mlp_ratio: Expansion ratio for hidden dimension. Default 4.
         name: Layer name prefix. Default "mlp".
 
     Returns:
-        Output tensor of shape ``(B, seq_len, hidden_size)``.
+        Output tensor of shape ``(B, seq_len, hidden_dim)``.
     """
-    hidden_features = int(hidden_size * mlp_ratio)
+    hidden_features = int(hidden_dim * mlp_ratio)
     x = layers.Dense(hidden_features, name=f"{name}_fc1")(x)
     x = ops.gelu(x, approximate=False)
-    x = layers.Dense(hidden_size, name=f"{name}_fc2")(x)
+    x = layers.Dense(hidden_dim, name=f"{name}_fc2")(x)
     return x
 
 
 def rf_detr_dinov2_block(
     x,
-    hidden_size,
+    hidden_dim,
     num_heads,
     mlp_ratio=4,
     use_swiglu=False,
@@ -566,9 +566,9 @@ def rf_detr_dinov2_block(
     pre-norm and residual connections. Supports both windowed and full attention.
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_size)`` for full attention
-            or ``(B, num_windows^2, seq_per_window, hidden_size)`` for windowed.
-        hidden_size: Model dimension.
+        x: Input tensor of shape ``(B, seq_len, hidden_dim)`` for full attention
+            or ``(B, num_windows^2, seq_per_window, hidden_dim)`` for windowed.
+        hidden_dim: Model dimension.
         num_heads: Number of attention heads.
         mlp_ratio: Expansion ratio for FFN hidden dimension. Default 4.
         use_swiglu: If True, use SwiGLU FFN; otherwise use GELU MLP. Default False.
@@ -581,7 +581,7 @@ def rf_detr_dinov2_block(
     Returns:
         Output tensor of same shape as input.
     """
-    head_dim = hidden_size // num_heads
+    head_dim = hidden_dim // num_heads
     shortcut = x
 
     if run_full_attention and num_windows > 1:
@@ -591,9 +591,9 @@ def rf_detr_dinov2_block(
 
     normed = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_norm1")(x)
 
-    q = layers.Dense(hidden_size, name=f"{name}_attention_query")(normed)
-    k = layers.Dense(hidden_size, name=f"{name}_attention_key")(normed)
-    v = layers.Dense(hidden_size, name=f"{name}_attention_value")(normed)
+    q = layers.Dense(hidden_dim, name=f"{name}_attention_query")(normed)
+    k = layers.Dense(hidden_dim, name=f"{name}_attention_key")(normed)
+    v = layers.Dense(hidden_dim, name=f"{name}_attention_value")(normed)
 
     seq_len = ops.shape(normed)[1]
     q = ops.reshape(q, [-1, seq_len, num_heads, head_dim])
@@ -608,9 +608,9 @@ def rf_detr_dinov2_block(
     attn_weights = ops.softmax(attn_weights, axis=-1)
     attn_output = ops.matmul(attn_weights, v)
     attn_output = ops.transpose(attn_output, [0, 2, 1, 3])
-    attn_output = ops.reshape(attn_output, [-1, seq_len, hidden_size])
+    attn_output = ops.reshape(attn_output, [-1, seq_len, hidden_dim])
     attn_out = layers.Dense(
-        hidden_size,
+        hidden_dim,
         name=f"{name}_attention_out_proj",
     )(attn_output)
 
@@ -621,9 +621,7 @@ def rf_detr_dinov2_block(
             [-1, full_shape[1] // nw2, full_shape[2]],
         )
 
-    attn_out = RFDETRDinoV2LayerScale(hidden_size, name=f"{name}_layer_scale1")(
-        attn_out
-    )
+    attn_out = RFDETRDinoV2LayerScale(hidden_dim, name=f"{name}_layer_scale1")(attn_out)
     x = attn_out + shortcut
 
     shortcut2 = x
@@ -631,25 +629,25 @@ def rf_detr_dinov2_block(
     if use_swiglu:
         mlp_out = rf_detr_dinov2_swiglu_ffn(
             normed2,
-            hidden_size,
+            hidden_dim,
             mlp_ratio,
             name=f"{name}_mlp",
         )
     else:
         mlp_out = rf_detr_dinov2_mlp(
             normed2,
-            hidden_size,
+            hidden_dim,
             mlp_ratio,
             name=f"{name}_mlp",
         )
-    mlp_out = RFDETRDinoV2LayerScale(hidden_size, name=f"{name}_layer_scale2")(mlp_out)
+    mlp_out = RFDETRDinoV2LayerScale(hidden_dim, name=f"{name}_layer_scale2")(mlp_out)
     x = mlp_out + shortcut2
     return x
 
 
 def rf_detr_windowed_dinov2_encoder(
     x,
-    hidden_size,
+    hidden_dim,
     num_heads,
     num_layers,
     mlp_ratio=4,
@@ -667,7 +665,7 @@ def rf_detr_windowed_dinov2_encoder(
 
     Args:
         x: Input tensor from DINOv2 embeddings.
-        hidden_size: Model dimension.
+        hidden_dim: Model dimension.
         num_heads: Number of attention heads.
         num_layers: Total number of transformer blocks.
         mlp_ratio: Expansion ratio for FFN hidden dimension. Default 4.
@@ -698,7 +696,7 @@ def rf_detr_windowed_dinov2_encoder(
         run_full = i not in window_block_indexes
         x = rf_detr_dinov2_block(
             x,
-            hidden_size,
+            hidden_dim,
             num_heads,
             mlp_ratio,
             use_swiglu=use_swiglu,
@@ -713,7 +711,7 @@ def rf_detr_windowed_dinov2_encoder(
 
 def rf_detr_backbone(
     inputs,
-    hidden_size,
+    hidden_dim,
     num_heads,
     num_layers,
     mlp_ratio,
@@ -738,7 +736,7 @@ def rf_detr_backbone(
     Args:
         inputs: Keras input tensor of shape ``(B, H, W, 3)`` (or
             ``(B, 3, H, W)`` for channels_first).
-        hidden_size: DINOv2 backbone model dimension.
+        hidden_dim: DINOv2 backbone model dimension.
         num_heads: Number of attention heads in each backbone block.
         num_layers: Total number of DINOv2 transformer blocks.
         mlp_ratio: FFN expansion ratio in each backbone block.
@@ -758,12 +756,12 @@ def rf_detr_backbone(
     Returns:
         features: List of unwindowed feature maps, one per
             ``out_feature_indexes`` entry, each with shape
-            ``(B, num_h, num_w, hidden_size)`` for channels_last (or
-            ``(B, hidden_size, num_h, num_w)`` for channels_first).
+            ``(B, num_h, num_w, hidden_dim)`` for channels_last (or
+            ``(B, hidden_dim, num_h, num_w)`` for channels_first).
         spatial_shape: ``(num_h, num_w)`` patch grid size.
     """
     embeddings = RFDETRDinoV2Embeddings(
-        hidden_size=hidden_size,
+        hidden_dim=hidden_dim,
         patch_size=patch_size,
         num_channels=3,
         num_register_tokens=num_register_tokens,
@@ -778,7 +776,7 @@ def rf_detr_backbone(
 
     encoder_features = rf_detr_windowed_dinov2_encoder(
         embeddings,
-        hidden_size=hidden_size,
+        hidden_dim=hidden_dim,
         num_heads=num_heads,
         num_layers=num_layers,
         mlp_ratio=mlp_ratio,
@@ -803,7 +801,7 @@ def rf_detr_backbone(
             num_h,
             num_w,
             num_windows,
-            hidden_size,
+            hidden_dim,
             num_register_tokens,
             data_format=data_format,
         )
@@ -848,7 +846,7 @@ def rf_detr_projector(
     projected = rf_detr_c2f(
         concat_feat,
         hidden_dim,
-        num_blocks=3,
+        depths=3,
         shortcut=False,
         expansion=0.5,
         activation="silu",
@@ -1062,7 +1060,7 @@ def rf_detr_decoder(
     for i in range(dec_layers):
         decoder_layers_list.append(
             RFDETRDecoderLayer(
-                d_model=hidden_dim,
+                hidden_dim=hidden_dim,
                 sa_nhead=sa_nheads,
                 ca_nhead=ca_nheads,
                 dim_feedforward=dim_feedforward,
@@ -1229,7 +1227,7 @@ def rf_detr_functional(
 
     features, spatial_shape = rf_detr_backbone(
         inputs,
-        hidden_size=backbone_hidden_size,
+        hidden_dim=backbone_hidden_size,
         num_heads=backbone_num_heads,
         num_layers=backbone_num_layers,
         mlp_ratio=backbone_mlp_ratio,
@@ -1314,8 +1312,8 @@ class RFDetrModel(BaseModel):
         backbone_num_heads=6,
         backbone_num_layers=12,
         backbone_mlp_ratio=4,
-        backbone_use_swiglu=True,
-        num_register_tokens=4,
+        backbone_use_swiglu=False,
+        num_register_tokens=0,
         out_feature_indexes=None,
         patch_size=14,
         num_windows=4,
@@ -1332,7 +1330,7 @@ class RFDetrModel(BaseModel):
         lite_refpoint_refine=True,
         group_detr=13,
         dim_feedforward=2048,
-        input_image_shape=560,
+        image_size=560,
         input_tensor=None,
         name="RFDetrModel",
         **kwargs,
@@ -1341,13 +1339,13 @@ class RFDetrModel(BaseModel):
             out_feature_indexes = [2, 5, 8, 11]
 
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=image_size)
             else:
                 img_input = input_tensor
 
@@ -1374,7 +1372,7 @@ class RFDetrModel(BaseModel):
             bbox_reparam=bbox_reparam,
             lite_refpoint_refine=lite_refpoint_refine,
             dim_feedforward=dim_feedforward,
-            input_shape=input_image_shape,
+            input_shape=image_size,
         )
 
         outputs = {"last_hidden_state": last_hidden_state, "pred_boxes": pred_boxes}
@@ -1403,7 +1401,7 @@ class RFDetrModel(BaseModel):
         self.lite_refpoint_refine = lite_refpoint_refine
         self.group_detr = group_detr
         self.dim_feedforward = dim_feedforward
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self._input_tensor = input_tensor
 
     def get_config(self):
@@ -1433,7 +1431,7 @@ class RFDetrModel(BaseModel):
                 "lite_refpoint_refine": self.lite_refpoint_refine,
                 "group_detr": self.group_detr,
                 "dim_feedforward": self.dim_feedforward,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self._input_tensor,
                 "name": self.name,
             }
@@ -1490,7 +1488,7 @@ class RFDETRDetect(BaseModel):
         group_detr: Number of DETR groups (training only, inference uses 1).
         dim_feedforward: FFN dimension in decoder.
         weights: Pre-trained weight identifier or file path.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -1511,8 +1509,8 @@ class RFDETRDetect(BaseModel):
         backbone_num_heads=6,
         backbone_num_layers=12,
         backbone_mlp_ratio=4,
-        backbone_use_swiglu=True,
-        num_register_tokens=4,
+        backbone_use_swiglu=False,
+        num_register_tokens=0,
         out_feature_indexes=None,
         patch_size=14,
         num_windows=4,
@@ -1529,7 +1527,7 @@ class RFDETRDetect(BaseModel):
         lite_refpoint_refine=True,
         group_detr=13,
         dim_feedforward=2048,
-        input_image_shape=None,
+        image_size=None,
         input_tensor=None,
         name="RFDETRDetect",
         **kwargs,
@@ -1537,8 +1535,8 @@ class RFDETRDetect(BaseModel):
         if out_feature_indexes is None:
             out_feature_indexes = [2, 5, 8, 11]
 
-        if input_image_shape is None:
-            input_image_shape = resolution
+        if image_size is None:
+            image_size = resolution
 
         base = RFDetrModel(
             hidden_dim=hidden_dim,
@@ -1564,7 +1562,7 @@ class RFDETRDetect(BaseModel):
             lite_refpoint_refine=lite_refpoint_refine,
             group_detr=group_detr,
             dim_feedforward=dim_feedforward,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -1599,7 +1597,7 @@ class RFDETRDetect(BaseModel):
         self.lite_refpoint_refine = lite_refpoint_refine
         self.group_detr = group_detr
         self.dim_feedforward = dim_feedforward
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self._input_tensor = input_tensor
 
     def get_config(self):
@@ -1629,7 +1627,7 @@ class RFDETRDetect(BaseModel):
                 "lite_refpoint_refine": self.lite_refpoint_refine,
                 "group_detr": self.group_detr,
                 "dim_feedforward": self.dim_feedforward,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self._input_tensor,
                 "name": self.name,
             }

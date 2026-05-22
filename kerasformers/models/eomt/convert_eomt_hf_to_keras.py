@@ -164,8 +164,8 @@ if __name__ == "__main__":
         transfer_eomt_weights(keras_model, hf_state_dict)
 
         np.random.seed(42)
-        input_image_shape = keras_model.input_image_shape
-        test_input = np.random.rand(1, *input_image_shape).astype(np.float32)
+        image_size = keras_model.image_size
+        test_input = np.random.rand(1, *image_size).astype(np.float32)
         mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
         std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
         normalized_input = (test_input - mean) / std

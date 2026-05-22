@@ -41,7 +41,7 @@ CLIP_MAX_POSITION = 32
 
 
 def compute_rotary_embeddings(
-    hidden_size, num_attention_heads, end_x, end_y, rope_theta=10000.0, scale=1.0
+    hidden_dim, num_heads, end_x, end_y, rope_theta=10000.0, scale=1.0
 ):
     """Compute 2-D rotary position embeddings for ViT attention.
 
@@ -49,8 +49,8 @@ def compute_rotary_embeddings(
     used by ``SAM3ViTRoPEAttention`` to encode spatial structure.
 
     Args:
-        hidden_size (int): Total hidden dimension.
-        num_attention_heads (int): Number of attention heads.
+        hidden_dim (int): Total hidden dimension.
+        num_heads (int): Number of attention heads.
         end_x (int): Grid width.
         end_y (int): Grid height.
         rope_theta (float): Base frequency for RoPE.
@@ -64,7 +64,7 @@ def compute_rotary_embeddings(
     References:
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
-    head_dim = hidden_size // num_attention_heads
+    head_dim = hidden_dim // num_heads
     dim_range = ops.cast(ops.arange(0, head_dim, 4), "float32")[: head_dim // 4]
     freqs = 1.0 / (rope_theta ** (dim_range / head_dim))
 
@@ -152,7 +152,7 @@ def sam3_vision_backbone(
 
     hidden_states = SAM3AddPositionEmbedding(
         num_patches=num_pretrain_patches,
-        hidden_size=vit_hidden_size,
+        hidden_dim=vit_hidden_size,
         pretrain_grid=pretrain_grid,
         grid_size=grid_size,
         name="backbone_position_embedding",
@@ -191,9 +191,9 @@ def sam3_vision_backbone(
         else:
             cos, sin = global_cos, global_sin
         hidden_states = SAM3ViTLayer(
-            hidden_size=vit_hidden_size,
-            num_attention_heads=vit_num_attention_heads,
-            intermediate_size=vit_intermediate_size,
+            hidden_dim=vit_hidden_size,
+            num_heads=vit_num_attention_heads,
+            mlp_dim=vit_intermediate_size,
             window_size=win,
             image_size=grid_size,
             layer_norm_eps=LAYER_NORM_EPS,
@@ -302,9 +302,9 @@ def sam3_detr_encoder_layer(
     text_feats,
     vision_pos,
     text_mask,
-    hidden_size,
-    num_attention_heads,
-    intermediate_size,
+    hidden_dim,
+    num_heads,
+    mlp_dim,
     dropout,
     name,
 ):
@@ -319,9 +319,9 @@ def sam3_detr_encoder_layer(
         text_feats: Text feature tensor ``(B, seq, D)``.
         vision_pos: Vision position encoding ``(1, H*W, D)``.
         text_mask: Text attention mask ``(B, seq)``.
-        hidden_size (int): Hidden dimension.
-        num_attention_heads (int): Number of attention heads.
-        intermediate_size (int): MLP intermediate dimension.
+        hidden_dim (int): Hidden dimension.
+        num_heads (int): Number of attention heads.
+        mlp_dim (int): MLP intermediate dimension.
         dropout (float): Dropout rate.
         name (str): Layer name prefix.
 
@@ -332,10 +332,10 @@ def sam3_detr_encoder_layer(
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
     self_attn = SAM3MultiHeadAttention(
-        hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
+        hidden_dim, num_heads, dropout, name=f"{name}_self_attn"
     )
     cross_attn = SAM3MultiHeadAttention(
-        hidden_size, num_attention_heads, dropout, name=f"{name}_cross_attn"
+        hidden_dim, num_heads, dropout, name=f"{name}_cross_attn"
     )
     layer_norm1 = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm1"
@@ -346,8 +346,8 @@ def sam3_detr_encoder_layer(
     layer_norm3 = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm3"
     )
-    fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
-    fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
+    fc1 = layers.Dense(mlp_dim, name=f"{name}_fc1")
+    fc2 = layers.Dense(hidden_dim, name=f"{name}_fc2")
 
     residual = vision_feats
     x = layer_norm1(vision_feats)
@@ -440,9 +440,9 @@ def sam3_detr_encoder(
             text_projected,
             encoder_pos_flat,
             text_attn_mask,
-            hidden_size=detr_encoder_hidden_size,
-            num_attention_heads=detr_encoder_num_attention_heads,
-            intermediate_size=detr_encoder_intermediate_size,
+            hidden_dim=detr_encoder_hidden_size,
+            num_heads=detr_encoder_num_attention_heads,
+            mlp_dim=detr_encoder_intermediate_size,
             dropout=detr_encoder_dropout,
             name=f"detr_encoder_layers_{i}",
         )
@@ -458,9 +458,9 @@ def sam3_detr_decoder_layer(
     vision_pos,
     text_mask,
     vision_mask,
-    hidden_size,
-    num_attention_heads,
-    intermediate_size,
+    hidden_dim,
+    num_heads,
+    mlp_dim,
     dropout,
     name,
 ):
@@ -479,9 +479,9 @@ def sam3_detr_decoder_layer(
         text_mask: Text attention mask ``(B, seq)``.
         vision_mask: Box RPB attention bias ``(B, heads, Q+1, H*W)``
             or ``None``.
-        hidden_size (int): Hidden dimension.
-        num_attention_heads (int): Number of attention heads.
-        intermediate_size (int): MLP intermediate dimension.
+        hidden_dim (int): Hidden dimension.
+        num_heads (int): Number of attention heads.
+        mlp_dim (int): MLP intermediate dimension.
         dropout (float): Dropout rate.
         name (str): Layer name prefix.
 
@@ -492,13 +492,13 @@ def sam3_detr_decoder_layer(
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
     self_attn = SAM3MultiHeadAttention(
-        hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
+        hidden_dim, num_heads, dropout, name=f"{name}_self_attn"
     )
     text_cross_attn = SAM3MultiHeadAttention(
-        hidden_size, num_attention_heads, dropout, name=f"{name}_text_cross_attn"
+        hidden_dim, num_heads, dropout, name=f"{name}_text_cross_attn"
     )
     vision_cross_attn = SAM3MultiHeadAttention(
-        hidden_size, num_attention_heads, dropout, name=f"{name}_vision_cross_attn"
+        hidden_dim, num_heads, dropout, name=f"{name}_vision_cross_attn"
     )
     layer_norm1 = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm1"
@@ -512,8 +512,8 @@ def sam3_detr_decoder_layer(
     layer_norm4 = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm4"
     )
-    fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
-    fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
+    fc1 = layers.Dense(mlp_dim, name=f"{name}_fc1")
+    fc2 = layers.Dense(hidden_dim, name=f"{name}_fc2")
 
     q = k = hidden_states + query_pos
     x = self_attn(q, k, hidden_states)
@@ -551,8 +551,8 @@ def sam3_dot_product_scoring(
     decoder_hidden_states,
     text_features,
     text_mask,
-    hidden_size,
-    intermediate_size=2048,
+    hidden_dim,
+    mlp_dim=2048,
     name="dot_product_scoring",
 ):
     """Dot-product scoring for text-query classification.
@@ -565,8 +565,8 @@ def sam3_dot_product_scoring(
         decoder_hidden_states: Decoder output ``(B, Q, D)``.
         text_features: Text features ``(B, seq, text_dim)``.
         text_mask: Text attention mask ``(B, seq)``.
-        hidden_size (int): Projection dimension.
-        intermediate_size (int): Text MLP intermediate dimension.
+        hidden_dim (int): Projection dimension.
+        mlp_dim (int): Text MLP intermediate dimension.
             Defaults to ``2048``.
         name (str): Layer name prefix.
 
@@ -576,13 +576,13 @@ def sam3_dot_product_scoring(
     References:
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
-    text_mlp_fc1 = layers.Dense(intermediate_size, name=f"{name}_text_mlp_fc1")
-    text_mlp_fc2 = layers.Dense(hidden_size, name=f"{name}_text_mlp_fc2")
+    text_mlp_fc1 = layers.Dense(mlp_dim, name=f"{name}_text_mlp_fc1")
+    text_mlp_fc2 = layers.Dense(hidden_dim, name=f"{name}_text_mlp_fc2")
     text_mlp_out_norm = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS, name=f"{name}_text_mlp_out_norm"
     )
-    text_proj = layers.Dense(hidden_size, name=f"{name}_text_proj")
-    query_proj = layers.Dense(hidden_size, name=f"{name}_query_proj")
+    text_proj = layers.Dense(hidden_dim, name=f"{name}_text_proj")
+    query_proj = layers.Dense(hidden_dim, name=f"{name}_query_proj")
 
     x = text_mlp_fc1(text_features)
     x = layers.Activation("relu", name=f"{name}_relu")(x)
@@ -599,7 +599,7 @@ def sam3_dot_product_scoring(
     t_proj = text_proj(text_pooled)
     q_proj = query_proj(decoder_hidden_states)
 
-    scale = hidden_size**-0.5
+    scale = hidden_dim**-0.5
     logits = ops.matmul(q_proj, ops.expand_dims(t_proj, axis=-1))
     logits = ops.squeeze(logits, axis=-1) * scale
     logits = ops.clip(logits, -12.0, 12.0)
@@ -701,8 +701,8 @@ def sam3_detr_decoder(
         name="detr_decoder_presence_layer_norm",
     )
     box_rpb = SAM3BoxRPB(
-        hidden_size=detr_decoder_hidden_size,
-        num_attention_heads=detr_decoder_num_attention_heads,
+        hidden_dim=detr_decoder_hidden_size,
+        num_heads=detr_decoder_num_attention_heads,
         spatial_h=enc_h,
         spatial_w=enc_h,
         name="detr_decoder_box_rpb",
@@ -736,9 +736,9 @@ def sam3_detr_decoder(
             encoder_pos_flat,
             text_mask=text_attn_mask,
             vision_mask=vision_cross_attn_mask,
-            hidden_size=detr_decoder_hidden_size,
-            num_attention_heads=detr_decoder_num_attention_heads,
-            intermediate_size=detr_decoder_intermediate_size,
+            hidden_dim=detr_decoder_hidden_size,
+            num_heads=detr_decoder_num_attention_heads,
+            mlp_dim=detr_decoder_intermediate_size,
             dropout=detr_decoder_dropout,
             name=f"detr_decoder_layers_{i}",
         )
@@ -770,7 +770,7 @@ def sam3_detr_decoder(
         decoder_hidden,
         text_projected,
         text_attention_mask,
-        hidden_size=detr_decoder_hidden_size,
+        hidden_dim=detr_decoder_hidden_size,
     )
 
     presence_logits_stacked = ops.concatenate(
@@ -780,12 +780,12 @@ def sam3_detr_decoder(
     return decoder_hidden, pred_boxes, pred_logits, presence_logits_stacked
 
 
-def sam3_mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
+def sam3_mask_embedder(x, hidden_dim, name_prefix="mask_embedder"):
     """Three-layer MLP that projects decoder queries to mask embeddings.
 
     Args:
         x: Input tensor ``(B, Q, D)``.
-        hidden_size (int): Hidden and output dimension.
+        hidden_dim (int): Hidden and output dimension.
         name_prefix (str): Layer name prefix.
 
     Returns:
@@ -794,11 +794,11 @@ def sam3_mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
     References:
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
-    x = layers.Dense(hidden_size, name=f"{name_prefix}_linear1")(x)
+    x = layers.Dense(hidden_dim, name=f"{name_prefix}_linear1")(x)
     x = layers.ReLU(name=f"{name_prefix}_relu1")(x)
-    x = layers.Dense(hidden_size, name=f"{name_prefix}_linear2")(x)
+    x = layers.Dense(hidden_dim, name=f"{name_prefix}_linear2")(x)
     x = layers.ReLU(name=f"{name_prefix}_relu2")(x)
-    x = layers.Dense(hidden_size, name=f"{name_prefix}_linear3")(x)
+    x = layers.Dense(hidden_dim, name=f"{name_prefix}_linear3")(x)
     return x
 
 
@@ -846,8 +846,8 @@ def sam3_mask_decoder(
         name="mask_decoder_prompt_cross_attn_norm",
     )
     prompt_cross_attn = SAM3MultiHeadAttention(
-        hidden_size=mask_decoder_hidden_size,
-        num_attention_heads=mask_decoder_num_attention_heads,
+        hidden_dim=mask_decoder_hidden_size,
+        num_heads=mask_decoder_num_attention_heads,
         name="mask_decoder_prompt_cross_attn",
     )
     encoder_for_mask = prompt_cross_attn_norm(encoder_output)
@@ -971,7 +971,7 @@ class SAM3Model(BaseModel):
         mask_decoder_num_attention_heads (int): Mask decoder heads.
         text_hidden_size (int): Text encoder dimension. Defaults to ``1024``.
         text_projection_dim (int): Text projection dimension.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -1025,24 +1025,24 @@ class SAM3Model(BaseModel):
         mask_decoder_num_attention_heads=8,
         text_hidden_size=1024,
         text_projection_dim=512,
-        input_image_shape=1008,
+        image_size=1008,
         input_tensor=None,
         name="SAM3Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
-                    tensor=input_tensor, shape=input_image_shape, name="pixel_values"
+                    tensor=input_tensor, shape=image_size, name="pixel_values"
                 )
             else:
                 pixel_values = input_tensor
         else:
-            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=image_size, name="pixel_values")
 
         text_features_input = layers.Input(
             shape=(None, text_hidden_size), name="text_features", dtype="float32"
@@ -1153,7 +1153,7 @@ class SAM3Model(BaseModel):
         self.text_encoder = build_text_encoder()
 
         self.geometry_encoder = SAM3GeometryEncoder(
-            hidden_size=detr_encoder_hidden_size,
+            hidden_dim=detr_encoder_hidden_size,
             name="geometry_encoder",
         )
         self.geometry_encoder.build((None, None, 4))
@@ -1186,7 +1186,7 @@ class SAM3Model(BaseModel):
         self.mask_decoder_num_attention_heads = mask_decoder_num_attention_heads
         self.text_hidden_size = text_hidden_size
         self.text_projection_dim = text_projection_dim
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
         self._data_format = data_format
         self._tokenizer = None
@@ -1373,14 +1373,14 @@ class SAM3Model(BaseModel):
         if sub is None:
             cfg = self.get_config()
             sub = SAM3Model(
-                input_image_shape=self.input_image_shape,
+                image_size=self.image_size,
                 text_hidden_size=cfg["detr_encoder_hidden_size"],
                 **{
                     k: v
                     for k, v in cfg.items()
                     if k
                     not in (
-                        "input_image_shape",
+                        "image_size",
                         "text_hidden_size",
                         "name",
                         "input_tensor",
@@ -1848,7 +1848,7 @@ class SAM3Model(BaseModel):
                 "mask_decoder_num_attention_heads": self.mask_decoder_num_attention_heads,
                 "text_hidden_size": self.text_hidden_size,
                 "text_projection_dim": self.text_projection_dim,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
             }
         )
         return config
@@ -1939,9 +1939,9 @@ class SAM3SemanticSegment(_SAM3Task):
 
 def sam3_clip_encoder_layer(
     hidden_states,
-    hidden_size,
-    num_attention_heads,
-    intermediate_size,
+    hidden_dim,
+    num_heads,
+    mlp_dim,
     attention_mask,
     name,
 ):
@@ -1952,9 +1952,9 @@ def sam3_clip_encoder_layer(
 
     Args:
         hidden_states: Input tensor ``(B, seq, D)``.
-        hidden_size (int): Hidden dimension.
-        num_attention_heads (int): Number of attention heads.
-        intermediate_size (int): MLP intermediate dimension.
+        hidden_dim (int): Hidden dimension.
+        num_heads (int): Number of attention heads.
+        mlp_dim (int): MLP intermediate dimension.
         attention_mask: Combined causal + padding mask
             ``(B, 1, seq, seq)``.
         name (str): Layer name prefix.
@@ -1967,11 +1967,9 @@ def sam3_clip_encoder_layer(
     """
     layer_norm1 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm1")
     layer_norm2 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm2")
-    self_attn = SAM3CLIPAttention(
-        hidden_size, num_attention_heads, name=f"{name}_self_attn"
-    )
-    fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
-    fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
+    self_attn = SAM3CLIPAttention(hidden_dim, num_heads, name=f"{name}_self_attn")
+    fc1 = layers.Dense(mlp_dim, name=f"{name}_fc1")
+    fc2 = layers.Dense(hidden_dim, name=f"{name}_fc2")
 
     residual = hidden_states
     hidden_states = layer_norm1(hidden_states)
@@ -1989,11 +1987,11 @@ def sam3_clip_encoder_layer(
 
 def build_text_encoder(
     vocab_size=SAM3_VOCAB_SIZE,
-    hidden_size=CLIP_HIDDEN_SIZE,
+    hidden_dim=CLIP_HIDDEN_SIZE,
     num_hidden_layers=CLIP_NUM_LAYERS,
-    num_attention_heads=CLIP_NUM_HEADS,
-    intermediate_size=CLIP_INTERMEDIATE_SIZE,
-    max_position_embeddings=CLIP_MAX_POSITION,
+    num_heads=CLIP_NUM_HEADS,
+    mlp_dim=CLIP_INTERMEDIATE_SIZE,
+    max_seq_len=CLIP_MAX_POSITION,
     weights_path=None,
 ):
     """Build the CLIP text encoder as a functional ``keras.Model``.
@@ -2004,49 +2002,45 @@ def build_text_encoder(
 
     Args:
         vocab_size (int): Vocabulary size. Defaults to ``49408``.
-        hidden_size (int): Hidden dimension. Defaults to ``1024``.
+        hidden_dim (int): Hidden dimension. Defaults to ``1024``.
         num_hidden_layers (int): Number of transformer layers.
             Defaults to ``24``.
-        num_attention_heads (int): Number of attention heads.
+        num_heads (int): Number of attention heads.
             Defaults to ``16``.
-        intermediate_size (int): MLP intermediate dimension.
+        mlp_dim (int): MLP intermediate dimension.
             Defaults to ``4096``.
-        max_position_embeddings (int): Maximum sequence length.
+        max_seq_len (int): Maximum sequence length.
             Defaults to ``32``.
         weights_path (str or None): Path to ``.weights.h5`` file.
 
     Returns:
         ``keras.Model`` with inputs ``{input_ids, attention_mask}``
-        and output ``(B, seq_len, hidden_size)``.
+        and output ``(B, seq_len, hidden_dim)``.
 
     References:
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
-    input_ids = keras.Input(
-        shape=(max_position_embeddings,), dtype="int32", name="input_ids"
-    )
+    input_ids = keras.Input(shape=(max_seq_len,), dtype="int32", name="input_ids")
     attention_mask = keras.Input(
-        shape=(max_position_embeddings,), dtype="int32", name="attention_mask"
+        shape=(max_seq_len,), dtype="int32", name="attention_mask"
     )
 
-    hidden_states = layers.Embedding(vocab_size, hidden_size, name="token_embedding")(
+    hidden_states = layers.Embedding(vocab_size, hidden_dim, name="token_embedding")(
         input_ids
     )
 
     hidden_states = SAM3CLIPPositionEmbedding(
-        max_position_embeddings, hidden_size, name="add_position"
+        max_seq_len, hidden_dim, name="add_position"
     )(hidden_states)
 
-    combined_mask = SAM3CLIPCausalMask(max_position_embeddings, name="causal_mask")(
-        attention_mask
-    )
+    combined_mask = SAM3CLIPCausalMask(max_seq_len, name="causal_mask")(attention_mask)
 
     for i in range(num_hidden_layers):
         hidden_states = sam3_clip_encoder_layer(
             hidden_states,
-            hidden_size,
-            num_attention_heads,
-            intermediate_size,
+            hidden_dim,
+            num_heads,
+            mlp_dim,
             combined_mask,
             name=f"layers_{i}",
         )

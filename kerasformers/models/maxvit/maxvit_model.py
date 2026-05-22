@@ -415,7 +415,7 @@ class MaxViTModel(BaseModel):
             MBConv blocks. Defaults to `0.0625`.
         expand_ratio: Integer, channel expansion ratio for MBConv
             blocks. Defaults to `4`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -470,7 +470,7 @@ class MaxViTModel(BaseModel):
         mlp_ratio=4.0,
         se_ratio=0.0625,
         expand_ratio=4,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -484,12 +484,12 @@ class MaxViTModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -523,7 +523,7 @@ class MaxViTModel(BaseModel):
         self.mlp_ratio = mlp_ratio
         self.se_ratio = se_ratio
         self.expand_ratio = expand_ratio
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -541,7 +541,7 @@ class MaxViTModel(BaseModel):
                 "mlp_ratio": self.mlp_ratio,
                 "se_ratio": self.se_ratio,
                 "expand_ratio": self.expand_ratio,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -586,7 +586,7 @@ class MaxViTImageClassify(BaseModel):
             MBConv blocks. Defaults to `0.0625`.
         expand_ratio: Integer, channel expansion ratio for MBConv
             blocks. Defaults to `4`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -639,7 +639,7 @@ class MaxViTImageClassify(BaseModel):
         mlp_ratio=4.0,
         se_ratio=0.0625,
         expand_ratio=4,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -661,7 +661,7 @@ class MaxViTImageClassify(BaseModel):
             mlp_ratio=mlp_ratio,
             se_ratio=se_ratio,
             expand_ratio=expand_ratio,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -688,7 +688,7 @@ class MaxViTImageClassify(BaseModel):
         self.mlp_ratio = mlp_ratio
         self.se_ratio = se_ratio
         self.expand_ratio = expand_ratio
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -707,7 +707,7 @@ class MaxViTImageClassify(BaseModel):
                 "mlp_ratio": self.mlp_ratio,
                 "se_ratio": self.se_ratio,
                 "expand_ratio": self.expand_ratio,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

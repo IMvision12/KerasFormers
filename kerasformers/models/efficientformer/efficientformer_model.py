@@ -91,7 +91,7 @@ def meta_block_2d(
     mlp_ratio=4.0,
     drop=0.0,
     drop_path=0.0,
-    layer_scale_init_value=1e-5,
+    layer_scale_init=1e-5,
     channels_axis=-1,
     data_format="channels_last",
     name=None,
@@ -105,7 +105,7 @@ def meta_block_2d(
         mlp_ratio: Hidden-feature multiplier for the conv MLP.
         drop: Dropout rate applied inside the MLP.
         drop_path: Stochastic-depth drop rate applied on each residual branch.
-        layer_scale_init_value: Initial value for the LayerScale gamma parameter.
+        layer_scale_init: Initial value for the LayerScale gamma parameter.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
         data_format: Keras data-format string.
         name: Prefix used to name the layers inside the block.
@@ -122,7 +122,7 @@ def meta_block_2d(
         name=f"{name}_pool_pool",
     )(inputs)
     x = layers.Subtract(name=f"{name}_pool_sub")([pooled, inputs])
-    x = LayerScale(layer_scale_init_value, name=f"{name}_ls1")(x)
+    x = LayerScale(layer_scale_init, name=f"{name}_ls1")(x)
     if drop_path > 0.0:
         x = StochasticDepth(drop_path, name=f"{name}_drop_path1")(x)
     x = layers.Add(name=f"{name}_add1")([inputs, x])
@@ -137,7 +137,7 @@ def meta_block_2d(
         data_format=data_format,
         name=f"{name}_mlp",
     )
-    y = LayerScale(layer_scale_init_value, name=f"{name}_ls2")(y)
+    y = LayerScale(layer_scale_init, name=f"{name}_ls2")(y)
     if drop_path > 0.0:
         y = StochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
     outputs = layers.Add(name=f"{name}_add2")([x, y])
@@ -150,7 +150,7 @@ def meta_block_1d(
     mlp_ratio=4.0,
     drop=0.0,
     drop_path=0.0,
-    layer_scale_init_value=1e-5,
+    layer_scale_init=1e-5,
     resolution=7,
     name=None,
 ):
@@ -162,7 +162,7 @@ def meta_block_1d(
         mlp_ratio: Hidden-feature multiplier for the Dense MLP.
         drop: Dropout rate applied inside the MLP.
         drop_path: Stochastic-depth drop rate applied on each residual branch.
-        layer_scale_init_value: Initial value for the LayerScale gamma parameter.
+        layer_scale_init: Initial value for the LayerScale gamma parameter.
         resolution: Spatial side length used to size the attention biases.
         name: Prefix used to name the layers inside the block.
 
@@ -173,7 +173,7 @@ def meta_block_1d(
     y = EfficientFormerAttention4D(dim=dim, resolution=resolution, name=f"{name}_attn")(
         y
     )
-    y = LayerScale(layer_scale_init_value, name=f"{name}_ls1")(y)
+    y = LayerScale(layer_scale_init, name=f"{name}_ls1")(y)
     if drop_path > 0.0:
         y = StochasticDepth(drop_path, name=f"{name}_drop_path1")(y)
     x = layers.Add(name=f"{name}_add1")([inputs, y])
@@ -187,7 +187,7 @@ def meta_block_1d(
         drop=drop,
         name=f"{name}_mlp",
     )
-    y = LayerScale(layer_scale_init_value, name=f"{name}_ls2")(y)
+    y = LayerScale(layer_scale_init, name=f"{name}_ls2")(y)
     if drop_path > 0.0:
         y = StochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
     outputs = layers.Add(name=f"{name}_add2")([x, y])
@@ -198,13 +198,13 @@ def efficientformer_backbone_feature(
     inputs,
     *,
     depths,
-    embed_dims,
+    embed_dim,
     num_vit,
     mlp_ratio,
     pool_size,
     drop_rate,
     drop_path_rate,
-    layer_scale_init_value,
+    layer_scale_init,
     image_h,
     data_format,
     channels_axis,
@@ -219,13 +219,13 @@ def efficientformer_backbone_feature(
         inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
             or ``(B, C, H, W)`` for channels-first.
         depths: Per-stage block counts (length = number of stages).
-        embed_dims: Per-stage channel widths.
+        embed_dim: Per-stage channel widths.
         num_vit: Number of transformer blocks at the tail of the final stage.
         mlp_ratio: Hidden-feature multiplier shared by all MLP sub-blocks.
         pool_size: Kernel size of the pooling token mixer used by 2D blocks.
         drop_rate: Dropout rate applied inside the MLPs.
         drop_path_rate: Maximum stochastic-depth drop rate (linearly ramped).
-        layer_scale_init_value: Initial value for LayerScale gamma parameters.
+        layer_scale_init: Initial value for LayerScale gamma parameters.
         image_h: Input image height; used to compute the final-stage resolution.
         data_format: Keras data-format string.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
@@ -241,7 +241,7 @@ def efficientformer_backbone_feature(
         inputs
     )
     x = layers.Conv2D(
-        embed_dims[0] // 2,
+        embed_dim[0] // 2,
         kernel_size=3,
         strides=2,
         padding="valid",
@@ -255,7 +255,7 @@ def efficientformer_backbone_feature(
 
     x = layers.ZeroPadding2D(padding=1, data_format=data_format, name="stem_pad2")(x)
     x = layers.Conv2D(
-        embed_dims[0],
+        embed_dim[0],
         kernel_size=3,
         strides=2,
         padding="valid",
@@ -280,7 +280,7 @@ def efficientformer_backbone_feature(
                 name=f"stages_{i}_downsample_pad",
             )(x)
             x = layers.Conv2D(
-                embed_dims[i],
+                embed_dim[i],
                 kernel_size=3,
                 strides=2,
                 padding="valid",
@@ -309,23 +309,23 @@ def efficientformer_backbone_feature(
             if use_transformer and num_vit > remain_idx:
                 x = meta_block_1d(
                     x,
-                    dim=embed_dims[i],
+                    dim=embed_dim[i],
                     mlp_ratio=mlp_ratio,
                     drop=drop_rate,
                     drop_path=dpr[cur + j],
-                    layer_scale_init_value=layer_scale_init_value,
+                    layer_scale_init=layer_scale_init,
                     resolution=resolution,
                     name=f"stages_{i}_blocks_{j}",
                 )
             else:
                 x = meta_block_2d(
                     x,
-                    dim=embed_dims[i],
+                    dim=embed_dim[i],
                     pool_size=pool_size,
                     mlp_ratio=mlp_ratio,
                     drop=drop_rate,
                     drop_path=dpr[cur + j],
-                    layer_scale_init_value=layer_scale_init_value,
+                    layer_scale_init=layer_scale_init,
                     channels_axis=channels_axis,
                     data_format=data_format,
                     name=f"stages_{i}_blocks_{j}",
@@ -368,7 +368,7 @@ class EfficientFormerModel(BaseModel):
     Args:
         depths: Sequence of integers, per-stage block counts. The length
             sets the number of stages.
-        embed_dims: Sequence of integers, per-stage channel widths.
+        embed_dim: Sequence of integers, per-stage channel widths.
         num_vit: Integer, number of transformer (MetaBlock1D) blocks
             placed at the tail of the final stage. Defaults to `1`.
         mlp_ratio: Float, hidden-feature multiplier shared by every MLP
@@ -379,10 +379,10 @@ class EfficientFormerModel(BaseModel):
             head Dropout in the classifier). Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly ramped across all blocks. Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for the per-channel
+        layer_scale_init: Float, initial value for the per-channel
             LayerScale gamma applied on every residual branch.
             Defaults to `1e-5`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -439,14 +439,14 @@ class EfficientFormerModel(BaseModel):
     def __init__(
         self,
         depths,
-        embed_dims,
+        embed_dim,
         num_vit=1,
         mlp_ratio=4.0,
         pool_size=3,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        layer_scale_init_value=1e-5,
-        input_image_shape=224,
+        layer_scale_init=1e-5,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -460,17 +460,17 @@ class EfficientFormerModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if data_format == "channels_last":
-            image_h = input_image_shape[0]
+            image_h = image_size[0]
         else:
-            image_h = input_image_shape[1]
+            image_h = image_size[1]
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -482,13 +482,13 @@ class EfficientFormerModel(BaseModel):
         x = efficientformer_backbone_feature(
             x,
             depths=depths,
-            embed_dims=embed_dims,
+            embed_dim=embed_dim,
             num_vit=num_vit,
             mlp_ratio=mlp_ratio,
             pool_size=pool_size,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
-            layer_scale_init_value=layer_scale_init_value,
+            layer_scale_init=layer_scale_init,
             image_h=image_h,
             data_format=data_format,
             channels_axis=channels_axis,
@@ -498,14 +498,14 @@ class EfficientFormerModel(BaseModel):
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.depths = depths
-        self.embed_dims = embed_dims
+        self.embed_dim = embed_dim
         self.num_vit = num_vit
         self.mlp_ratio = mlp_ratio
         self.pool_size = pool_size
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.layer_scale_init_value = layer_scale_init_value
-        self.input_image_shape = input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -516,14 +516,14 @@ class EfficientFormerModel(BaseModel):
         config.update(
             {
                 "depths": self.depths,
-                "embed_dims": self.embed_dims,
+                "embed_dim": self.embed_dim,
                 "num_vit": self.num_vit,
                 "mlp_ratio": self.mlp_ratio,
                 "pool_size": self.pool_size,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init_value": self.layer_scale_init_value,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -557,7 +557,7 @@ class EfficientFormerImageClassify(BaseModel):
     Args:
         depths: Sequence of integers, per-stage block counts in the
             backbone. The length sets the number of stages.
-        embed_dims: Sequence of integers, per-stage channel widths.
+        embed_dim: Sequence of integers, per-stage channel widths.
         num_vit: Integer, number of transformer (MetaBlock1D) blocks
             placed at the tail of the final backbone stage.
             Defaults to `1`.
@@ -569,10 +569,10 @@ class EfficientFormerImageClassify(BaseModel):
             before the dual Dense classifier. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly ramped across all blocks. Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for the per-channel
+        layer_scale_init: Float, initial value for the per-channel
             LayerScale gamma applied on every residual branch.
             Defaults to `1e-5`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -621,14 +621,14 @@ class EfficientFormerImageClassify(BaseModel):
     def __init__(
         self,
         depths,
-        embed_dims,
+        embed_dim,
         num_vit=1,
         mlp_ratio=4.0,
         pool_size=3,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        layer_scale_init_value=1e-5,
-        input_image_shape=224,
+        layer_scale_init=1e-5,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -641,14 +641,14 @@ class EfficientFormerImageClassify(BaseModel):
 
         backbone = EfficientFormerModel(
             depths=depths,
-            embed_dims=embed_dims,
+            embed_dim=embed_dim,
             num_vit=num_vit,
             mlp_ratio=mlp_ratio,
             pool_size=pool_size,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
-            layer_scale_init_value=layer_scale_init_value,
-            input_image_shape=input_image_shape,
+            layer_scale_init=layer_scale_init,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -674,14 +674,14 @@ class EfficientFormerImageClassify(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.depths = depths
-        self.embed_dims = embed_dims
+        self.embed_dim = embed_dim
         self.num_vit = num_vit
         self.mlp_ratio = mlp_ratio
         self.pool_size = pool_size
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.layer_scale_init_value = layer_scale_init_value
-        self.input_image_shape = backbone.input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -693,14 +693,14 @@ class EfficientFormerImageClassify(BaseModel):
         config.update(
             {
                 "depths": self.depths,
-                "embed_dims": self.embed_dims,
+                "embed_dim": self.embed_dim,
                 "num_vit": self.num_vit,
                 "mlp_ratio": self.mlp_ratio,
                 "pool_size": self.pool_size,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init_value": self.layer_scale_init_value,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

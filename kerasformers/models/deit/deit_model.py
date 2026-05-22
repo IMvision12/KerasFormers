@@ -21,7 +21,7 @@ class DeiTModel(ViTModel):
     enabled via ``use_distillation=True``.
 
     Output is the last layer output before the classifier head: the
-    final-LN normalized token sequence ``(B, num_tokens, dim)`` where the
+    final-LN normalized token sequence ``(B, num_tokens, embed_dim)`` where the
     first 1 (or 2 if ``use_distillation=True``) tokens are class /
     distillation tokens and the rest are spatial patch tokens.
     :class:`DeiTImageClassify` composes this model and reads the class token(s)
@@ -40,10 +40,10 @@ class DeiTModel(ViTModel):
             Defaults to `False`.
         name: String, the name of the model. Defaults to `"DeiTModel"`.
         **kwargs: All architectural parameters of :class:`ViTModel`
-            (``patch_size``, ``dim``, ``depth``, ``num_heads``,
+            (``patch_size``, ``embed_dim``, ``depth``, ``num_heads``,
             ``mlp_ratio``, ``qkv_bias``, ``qk_norm``, ``drop_rate``,
             ``attn_drop_rate``, ``no_embed_class``, ``use_distillation``,
-            ``init_values``, ``input_image_shape``, ``include_normalization``,
+            ``layer_scale_init``, ``image_size``, ``include_normalization``,
             ``normalization_mode``, ``input_tensor``)
             are forwarded to the parent class.
 
@@ -97,7 +97,7 @@ class DeiTImageClassify(ViTImageClassify):
     Args:
         patch_size: Integer, conv-stem patch size in pixels.
             Defaults to `16`.
-        dim: Integer, token embedding dimension. Defaults to `768`.
+        embed_dim: Integer, token embedding dimension. Defaults to `768`.
         depth: Integer, number of transformer encoder blocks in the
             backbone. Defaults to `12`.
         num_heads: Integer, number of attention heads per block.
@@ -121,10 +121,10 @@ class DeiTImageClassify(ViTImageClassify):
             second prediction head whose output is averaged with the CLS
             head — the DeiT-distilled inference recipe. Defaults to
             `False`.
-        init_values: Optional float, initial gamma value for LayerScale
+        layer_scale_init: Optional float, initial gamma value for LayerScale
             applied on both residual branches (used by DeiT III). If
             `None`, LayerScale is disabled. Defaults to `None`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -169,7 +169,7 @@ class DeiTImageClassify(ViTImageClassify):
     def __init__(
         self,
         patch_size=16,
-        dim=768,
+        embed_dim=768,
         depth=12,
         num_heads=12,
         mlp_ratio=4.0,
@@ -179,8 +179,8 @@ class DeiTImageClassify(ViTImageClassify):
         attn_drop_rate=0.0,
         no_embed_class=False,
         use_distillation=False,
-        init_values=None,
-        input_image_shape=224,
+        layer_scale_init=None,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -193,7 +193,7 @@ class DeiTImageClassify(ViTImageClassify):
 
         backbone = DeiTModel(
             patch_size=patch_size,
-            dim=dim,
+            embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
             mlp_ratio=mlp_ratio,
@@ -203,8 +203,8 @@ class DeiTImageClassify(ViTImageClassify):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
-            init_values=init_values,
-            input_image_shape=input_image_shape,
+            layer_scale_init=layer_scale_init,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -238,7 +238,7 @@ class DeiTImageClassify(ViTImageClassify):
         )
 
         self.patch_size = patch_size
-        self.dim = dim
+        self.embed_dim = embed_dim
         self.depth = depth
         self.num_heads = num_heads
         self.mlp_ratio = mlp_ratio
@@ -248,8 +248,8 @@ class DeiTImageClassify(ViTImageClassify):
         self.attn_drop_rate = attn_drop_rate
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
-        self.init_values = init_values
-        self.input_image_shape = backbone.input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -261,7 +261,7 @@ class DeiTImageClassify(ViTImageClassify):
         config.update(
             {
                 "patch_size": self.patch_size,
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "num_heads": self.num_heads,
                 "mlp_ratio": self.mlp_ratio,
@@ -271,8 +271,8 @@ class DeiTImageClassify(ViTImageClassify):
                 "attn_drop_rate": self.attn_drop_rate,
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
-                "init_values": self.init_values,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

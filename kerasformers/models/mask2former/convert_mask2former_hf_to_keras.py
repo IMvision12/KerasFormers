@@ -156,7 +156,7 @@ def transfer_mask2former_weights(keras_model, hf_state_dict):
         transfer_weights("gamma", nrm.weights[0], sd[f"{p_proj}.1.weight"])
         transfer_weights("beta", nrm.weights[1], sd[f"{p_proj}.1.bias"])
 
-    for i in range(keras_model.encoder_layers):
+    for i in range(keras_model.encoder_num_layers):
         p = f"{pixel_decoder_prefix}.encoder.layers.{i}"
         prefix_k = f"pixel_decoder_encoder_layers_{i}"
         attn = keras_model.get_layer(f"{prefix_k}_self_attn")
@@ -239,7 +239,7 @@ def transfer_mask2former_weights(keras_model, hf_state_dict):
         sd[f"{transformer_prefix}.level_embed.weight"]
     )
 
-    for i in range(keras_model.decoder_layers):
+    for i in range(keras_model.decoder_num_layers):
         p = f"{transformer_prefix}.decoder.layers.{i}"
         prefix_k = f"transformer_decoder_layers_{i}"
 
@@ -336,7 +336,7 @@ if __name__ == "__main__":
 
         transfer_mask2former_weights(keras_model, sd)
 
-        input_size = keras_model.input_image_shape[0]
+        input_size = keras_model.image_size[0]
         rng = np.random.default_rng(42)
         pix_hwc = rng.standard_normal((1, input_size, input_size, 3)).astype(np.float32)
 

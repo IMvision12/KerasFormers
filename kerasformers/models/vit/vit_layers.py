@@ -37,13 +37,13 @@ class ViTClassDistToken(layers.Layer):
         self.num_tokens = 2 if use_distillation else 1
 
     def build(self, input_shape):
-        self.hidden_size = input_shape[-1]
+        self.hidden_dim = input_shape[-1]
 
         if self.combine_tokens and self.use_distillation:
             # Combined tokens (PiT-style)
             self.tokens = self.add_weight(
                 name="cls_token",
-                shape=(1, 2, self.hidden_size),
+                shape=(1, 2, self.hidden_dim),
                 initializer="zeros",
                 trainable=True,
             )
@@ -51,7 +51,7 @@ class ViTClassDistToken(layers.Layer):
             # Class token
             self.cls = self.add_weight(
                 name="cls_token",
-                shape=(1, 1, self.hidden_size),
+                shape=(1, 1, self.hidden_dim),
                 initializer="zeros",
                 trainable=True,
             )
@@ -59,7 +59,7 @@ class ViTClassDistToken(layers.Layer):
             if self.use_distillation:
                 self.dist = self.add_weight(
                     name="dist_token",
-                    shape=(1, 1, self.hidden_size),
+                    shape=(1, 1, self.hidden_dim),
                     initializer="zeros",
                     trainable=True,
                 )
@@ -68,17 +68,17 @@ class ViTClassDistToken(layers.Layer):
         batch_size = ops.shape(inputs)[0]
         if self.combine_tokens and self.use_distillation:
             tokens_broadcasted = ops.broadcast_to(
-                self.tokens, [batch_size, 2, self.hidden_size]
+                self.tokens, [batch_size, 2, self.hidden_dim]
             )
             return ops.concatenate([tokens_broadcasted, inputs], axis=1)
         else:
             cls_broadcasted = ops.broadcast_to(
-                self.cls, [batch_size, 1, self.hidden_size]
+                self.cls, [batch_size, 1, self.hidden_dim]
             )
 
             if self.use_distillation:
                 dist_broadcasted = ops.broadcast_to(
-                    self.dist, [batch_size, 1, self.hidden_size]
+                    self.dist, [batch_size, 1, self.hidden_dim]
                 )
                 return ops.concatenate(
                     [cls_broadcasted, dist_broadcasted, inputs], axis=1
@@ -141,13 +141,13 @@ class ViTAddPositionEmbs(layers.Layer):
         **kwargs: Additional keyword arguments passed to the parent Layer class.
 
     Input Shape:
-        3D tensor with shape: `(batch_size, sequence_length, embedding_dim)`, where sequence_length should be:
+        3D tensor with shape: `(batch_size, sequence_length, embed_dim)`, where sequence_length should be:
           * Standard mode: grid_h * grid_w + 1 (patch tokens + class token)
           * FlexiViT mode / PiT mode: either grid_h * grid_w (patch tokens only) or grid_h * grid_w + 1
           * DeiT mode: grid_h * grid_w + 2 (patch tokens + class token + distillation token)
 
     Output Shape:
-        Same as the input shape: `(batch_size, sequence_length, embedding_dim)`. In FlexiViT or PiT mode,
+        Same as the input shape: `(batch_size, sequence_length, embed_dim)`. In FlexiViT or PiT mode,
         if a class token is present at the beginning, it is preserved and positional embeddings are added
         only to the patch tokens.
 
@@ -345,7 +345,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
         - Support for both 3D and 4D input tensors
 
     Args:
-        dim (int): Total dimension of the input and output features. Must be divisible
+        embed_dim (int): Total dimension of the input and output features. Must be divisible
             by num_heads to ensure even distribution of features across heads
         num_heads (int, optional): Number of parallel attention heads. Defaults to 8
         qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
@@ -368,7 +368,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
 
     def __init__(
         self,
-        dim: int,
+        embed_dim: int,
         num_heads: int = 8,
         qkv_bias: bool = False,
         qk_norm: bool = False,
@@ -383,15 +383,15 @@ class ViTMultiHeadSelfAttention(layers.Layer):
         self.block_prefix = block_prefix if block_prefix is not None else "blocks"
         prefix = f"{self.block_prefix}_"
 
-        assert dim % num_heads == 0, "dim should be divisible by num_heads"
-        self.dim = dim
+        assert embed_dim % num_heads == 0, "embed_dim should be divisible by num_heads"
+        self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.head_dim = dim // num_heads
+        self.head_dim = embed_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.epsilon = epsilon
 
         self.qkv = layers.Dense(
-            dim * 3,
+            embed_dim * 3,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
             name=prefix + "attn_qkv",
@@ -421,7 +421,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
             dtype=self.dtype_policy,
         )
         self.proj = layers.Dense(
-            dim, dtype=self.dtype_policy, name=prefix + "attn_proj"
+            embed_dim, dtype=self.dtype_policy, name=prefix + "attn_proj"
         )
         self.proj_drop = layers.Dropout(
             proj_drop,
@@ -437,9 +437,9 @@ class ViTMultiHeadSelfAttention(layers.Layer):
             )
 
         feature_dim = input_shape[-1]
-        if feature_dim != self.dim:
+        if feature_dim != self.embed_dim:
             raise ValueError(
-                f"Input feature dimension {feature_dim} must match layer dimension {self.dim}"
+                f"Input feature dimension {feature_dim} must match layer dimension {self.embed_dim}"
             )
 
         self.qkv.build(input_shape)
@@ -554,7 +554,7 @@ class ViTMultiHeadSelfAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "dim": self.dim,
+                "embed_dim": self.embed_dim,
                 "num_heads": self.num_heads,
                 "qkv_bias": self.qkv.use_bias,
                 "qk_norm": self.q_norm is not None,
