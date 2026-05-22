@@ -30,19 +30,15 @@ LN_MAP = {"gamma": "weight", "beta": "bias"}
 EMBED_MAP = {"embeddings": "weight"}
 
 
-def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
-    if not any(k.startswith("model.") for k in state_dict):
-        return state_dict
-    out = {}
-    for k, v in state_dict.items():
-        if k.startswith("model."):
-            out[k[len("model.") :]] = v
-        else:
-            out[k] = v
-    return out
+def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
+    state = {
+        (k[len("model.") :] if k.startswith("model.") else k): v
+        for k, v in hf_state_dict.items()
+    }
+    encoder = keras_model.encoder
+    decoder = keras_model.decoder
 
-
-def _transfer_encoder(encoder, state, num_layers):
+    # ---- Encoder ----
     for i in (1, 2):
         conv = encoder.get_layer(f"encoder_conv{i}")
         conv.kernel.assign(np.transpose(state[f"encoder.conv{i}.weight"], (2, 1, 0)))
@@ -52,22 +48,18 @@ def _transfer_encoder(encoder, state, num_layers):
         state["encoder.embed_positions.weight"]
     )
 
-    attns = {
+    enc_attns = {
         layer.name_prefix: layer
         for layer in encoder.layers
         if isinstance(layer, WhisperAttention)
     }
-
-    for i in range(num_layers):
-        kp = f"encoder_layers_{i}"
-        hp = f"encoder.layers.{i}"
-
-        sa_kp = f"{kp}_self_attn"
+    for i in range(keras_model.encoder_num_layers):
+        kp, hp = f"encoder_layers_{i}", f"encoder.layers.{i}"
         transfer_nested_layer_weights(
-            attns[sa_kp],
+            enc_attns[f"{kp}_self_attn"],
             state,
             f"{hp}.self_attn",
-            name_mapping={f"{sa_kp}_": "", "kernel": "weight"},
+            name_mapping={f"{kp}_self_attn_": "", "kernel": "weight"},
         )
         transfer_nested_layer_weights(
             encoder.get_layer(f"{kp}_self_attn_layer_norm"),
@@ -76,16 +68,10 @@ def _transfer_encoder(encoder, state, num_layers):
             name_mapping=LN_MAP,
         )
         transfer_nested_layer_weights(
-            encoder.get_layer(f"{kp}_fc1"),
-            state,
-            f"{hp}.fc1",
-            name_mapping=DENSE_MAP,
+            encoder.get_layer(f"{kp}_fc1"), state, f"{hp}.fc1", name_mapping=DENSE_MAP
         )
         transfer_nested_layer_weights(
-            encoder.get_layer(f"{kp}_fc2"),
-            state,
-            f"{hp}.fc2",
-            name_mapping=DENSE_MAP,
+            encoder.get_layer(f"{kp}_fc2"), state, f"{hp}.fc2", name_mapping=DENSE_MAP
         )
         transfer_nested_layer_weights(
             encoder.get_layer(f"{kp}_final_layer_norm"),
@@ -93,7 +79,6 @@ def _transfer_encoder(encoder, state, num_layers):
             f"{hp}.final_layer_norm",
             name_mapping=LN_MAP,
         )
-
     transfer_nested_layer_weights(
         encoder.get_layer("encoder_layer_norm"),
         state,
@@ -101,35 +86,29 @@ def _transfer_encoder(encoder, state, num_layers):
         name_mapping=LN_MAP,
     )
 
-
-def _transfer_decoder(decoder, state, num_layers):
+    # ---- Decoder ----
     transfer_nested_layer_weights(
         decoder.get_layer("decoder_embed_tokens"),
         state,
         "decoder.embed_tokens",
         name_mapping=EMBED_MAP,
     )
-
     decoder.get_layer("decoder_embed_positions").pos_embed.assign(
         state["decoder.embed_positions.weight"]
     )
 
-    attns = {
+    dec_attns = {
         layer.name_prefix: layer
         for layer in decoder.layers
         if isinstance(layer, WhisperAttention)
     }
-
-    for i in range(num_layers):
-        kp = f"decoder_layers_{i}"
-        hp = f"decoder.layers.{i}"
-
-        sa_kp = f"{kp}_self_attn"
+    for i in range(keras_model.decoder_num_layers):
+        kp, hp = f"decoder_layers_{i}", f"decoder.layers.{i}"
         transfer_nested_layer_weights(
-            attns[sa_kp],
+            dec_attns[f"{kp}_self_attn"],
             state,
             f"{hp}.self_attn",
-            name_mapping={f"{sa_kp}_": "", "kernel": "weight"},
+            name_mapping={f"{kp}_self_attn_": "", "kernel": "weight"},
         )
         transfer_nested_layer_weights(
             decoder.get_layer(f"{kp}_self_attn_layer_norm"),
@@ -137,13 +116,11 @@ def _transfer_decoder(decoder, state, num_layers):
             f"{hp}.self_attn_layer_norm",
             name_mapping=LN_MAP,
         )
-
-        ca_kp = f"{kp}_encoder_attn"
         transfer_nested_layer_weights(
-            attns[ca_kp],
+            dec_attns[f"{kp}_encoder_attn"],
             state,
             f"{hp}.encoder_attn",
-            name_mapping={f"{ca_kp}_": "", "kernel": "weight"},
+            name_mapping={f"{kp}_encoder_attn_": "", "kernel": "weight"},
         )
         transfer_nested_layer_weights(
             decoder.get_layer(f"{kp}_encoder_attn_layer_norm"),
@@ -151,18 +128,11 @@ def _transfer_decoder(decoder, state, num_layers):
             f"{hp}.encoder_attn_layer_norm",
             name_mapping=LN_MAP,
         )
-
         transfer_nested_layer_weights(
-            decoder.get_layer(f"{kp}_fc1"),
-            state,
-            f"{hp}.fc1",
-            name_mapping=DENSE_MAP,
+            decoder.get_layer(f"{kp}_fc1"), state, f"{hp}.fc1", name_mapping=DENSE_MAP
         )
         transfer_nested_layer_weights(
-            decoder.get_layer(f"{kp}_fc2"),
-            state,
-            f"{hp}.fc2",
-            name_mapping=DENSE_MAP,
+            decoder.get_layer(f"{kp}_fc2"), state, f"{hp}.fc2", name_mapping=DENSE_MAP
         )
         transfer_nested_layer_weights(
             decoder.get_layer(f"{kp}_final_layer_norm"),
@@ -170,7 +140,6 @@ def _transfer_decoder(decoder, state, num_layers):
             f"{hp}.final_layer_norm",
             name_mapping=LN_MAP,
         )
-
     transfer_nested_layer_weights(
         decoder.get_layer("decoder_layer_norm"),
         state,
@@ -179,17 +148,63 @@ def _transfer_decoder(decoder, state, num_layers):
     )
 
 
-def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    state = _strip_model_prefix(hf_state_dict)
-    _transfer_encoder(keras_model.encoder, state, keras_model.encoder_num_layers)
-    _transfer_decoder(keras_model.decoder, state, keras_model.decoder_num_layers)
-
-
 def transfer_whisper_audio_classify_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    state = _strip_model_prefix(hf_state_dict)
-    _transfer_encoder(keras_model.encoder, state, keras_model.encoder_num_layers)
+    """Transfer a ``WhisperForAudioClassification`` state dict (encoder + head)."""
+    state = {
+        (k[len("model.") :] if k.startswith("model.") else k): v
+        for k, v in hf_state_dict.items()
+    }
+    encoder = keras_model.encoder
+
+    # ---- Encoder ----
+    for i in (1, 2):
+        conv = encoder.get_layer(f"encoder_conv{i}")
+        conv.kernel.assign(np.transpose(state[f"encoder.conv{i}.weight"], (2, 1, 0)))
+        transfer_weights("bias", conv.bias, state[f"encoder.conv{i}.bias"])
+
+    encoder.get_layer("encoder_embed_positions").pos_embed.assign(
+        state["encoder.embed_positions.weight"]
+    )
+
+    enc_attns = {
+        layer.name_prefix: layer
+        for layer in encoder.layers
+        if isinstance(layer, WhisperAttention)
+    }
+    for i in range(keras_model.encoder_num_layers):
+        kp, hp = f"encoder_layers_{i}", f"encoder.layers.{i}"
+        transfer_nested_layer_weights(
+            enc_attns[f"{kp}_self_attn"],
+            state,
+            f"{hp}.self_attn",
+            name_mapping={f"{kp}_self_attn_": "", "kernel": "weight"},
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_self_attn_layer_norm"),
+            state,
+            f"{hp}.self_attn_layer_norm",
+            name_mapping=LN_MAP,
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_fc1"), state, f"{hp}.fc1", name_mapping=DENSE_MAP
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_fc2"), state, f"{hp}.fc2", name_mapping=DENSE_MAP
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_final_layer_norm"),
+            state,
+            f"{hp}.final_layer_norm",
+            name_mapping=LN_MAP,
+        )
+    transfer_nested_layer_weights(
+        encoder.get_layer("encoder_layer_norm"),
+        state,
+        "encoder.layer_norm",
+        name_mapping=LN_MAP,
+    )
 
     if keras_model.use_weighted_layer_sum:
         keras_model.get_layer("layer_weights").layer_weights.assign(

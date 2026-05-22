@@ -15,39 +15,35 @@ LN_MAP = {"gamma": "weight", "beta": "bias"}
 EMBED_MAP = {"embeddings": "weight"}
 
 
-def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
-    """Strip the leading ``model.`` from encoder/decoder keys (``lm_head`` stays)."""
-    out = {}
-    for k, v in state_dict.items():
-        out[k[len("model.") :] if k.startswith("model.") else k] = v
-    return out
+def transfer_speech2text_weights(
+    keras_model, hf_state_dict: Dict[str, np.ndarray]
+) -> None:
+    state = {
+        (k[len("model.") :] if k.startswith("model.") else k): v
+        for k, v in hf_state_dict.items()
+    }
+    encoder = keras_model.encoder
+    decoder = keras_model.decoder
 
-
-def _transfer_encoder(encoder, state, num_layers, num_conv_layers):
-    # Conv1d subsampler: torch (out, in, k) -> keras (k, in, out).
-    for i in range(num_conv_layers):
+    for i in range(keras_model.num_conv_layers):
         conv = encoder.get_layer(f"encoder_conv_layers_{i}")
         conv.kernel.assign(
             np.transpose(state[f"encoder.conv.conv_layers.{i}.weight"], (2, 1, 0))
         )
         transfer_weights("bias", conv.bias, state[f"encoder.conv.conv_layers.{i}.bias"])
 
-    # encoder.embed_positions is a computed sinusoid (not in the state dict).
-
-    attns = {
+    enc_attns = {
         layer.name_prefix: layer
         for layer in encoder.layers
         if isinstance(layer, Speech2TextAttention)
     }
-    for i in range(num_layers):
-        kp = f"encoder_layers_{i}"
-        hp = f"encoder.layers.{i}"
-        sa_kp = f"{kp}_self_attn"
+    for i in range(keras_model.encoder_num_layers):
+        kp, hp = f"encoder_layers_{i}", f"encoder.layers.{i}"
         transfer_nested_layer_weights(
-            attns[sa_kp],
+            enc_attns[f"{kp}_self_attn"],
             state,
             f"{hp}.self_attn",
-            name_mapping={f"{sa_kp}_": "", "kernel": "weight"},
+            name_mapping={f"{kp}_self_attn_": "", "kernel": "weight"},
         )
         transfer_nested_layer_weights(
             encoder.get_layer(f"{kp}_self_attn_layer_norm"),
@@ -67,7 +63,6 @@ def _transfer_encoder(encoder, state, num_layers, num_conv_layers):
             f"{hp}.final_layer_norm",
             name_mapping=LN_MAP,
         )
-
     transfer_nested_layer_weights(
         encoder.get_layer("encoder_layer_norm"),
         state,
@@ -75,8 +70,6 @@ def _transfer_encoder(encoder, state, num_layers, num_conv_layers):
         name_mapping=LN_MAP,
     )
 
-
-def _transfer_decoder(decoder, state, num_layers):
     transfer_nested_layer_weights(
         decoder.get_layer("decoder_embed_tokens"),
         state,
@@ -84,21 +77,18 @@ def _transfer_decoder(decoder, state, num_layers):
         name_mapping=EMBED_MAP,
     )
 
-    attns = {
+    dec_attns = {
         layer.name_prefix: layer
         for layer in decoder.layers
         if isinstance(layer, Speech2TextAttention)
     }
-    for i in range(num_layers):
-        kp = f"decoder_layers_{i}"
-        hp = f"decoder.layers.{i}"
-
-        sa_kp = f"{kp}_self_attn"
+    for i in range(keras_model.decoder_num_layers):
+        kp, hp = f"decoder_layers_{i}", f"decoder.layers.{i}"
         transfer_nested_layer_weights(
-            attns[sa_kp],
+            dec_attns[f"{kp}_self_attn"],
             state,
             f"{hp}.self_attn",
-            name_mapping={f"{sa_kp}_": "", "kernel": "weight"},
+            name_mapping={f"{kp}_self_attn_": "", "kernel": "weight"},
         )
         transfer_nested_layer_weights(
             decoder.get_layer(f"{kp}_self_attn_layer_norm"),
@@ -106,13 +96,11 @@ def _transfer_decoder(decoder, state, num_layers):
             f"{hp}.self_attn_layer_norm",
             name_mapping=LN_MAP,
         )
-
-        ca_kp = f"{kp}_encoder_attn"
         transfer_nested_layer_weights(
-            attns[ca_kp],
+            dec_attns[f"{kp}_encoder_attn"],
             state,
             f"{hp}.encoder_attn",
-            name_mapping={f"{ca_kp}_": "", "kernel": "weight"},
+            name_mapping={f"{kp}_encoder_attn_": "", "kernel": "weight"},
         )
         transfer_nested_layer_weights(
             decoder.get_layer(f"{kp}_encoder_attn_layer_norm"),
@@ -120,7 +108,6 @@ def _transfer_decoder(decoder, state, num_layers):
             f"{hp}.encoder_attn_layer_norm",
             name_mapping=LN_MAP,
         )
-
         transfer_nested_layer_weights(
             decoder.get_layer(f"{kp}_fc1"), state, f"{hp}.fc1", name_mapping=DENSE_MAP
         )
@@ -133,7 +120,6 @@ def _transfer_decoder(decoder, state, num_layers):
             f"{hp}.final_layer_norm",
             name_mapping=LN_MAP,
         )
-
     transfer_nested_layer_weights(
         decoder.get_layer("decoder_layer_norm"),
         state,
@@ -141,24 +127,9 @@ def _transfer_decoder(decoder, state, num_layers):
         name_mapping=LN_MAP,
     )
 
-    # lm_head: torch Linear (vocab, d_model) -> keras Dense kernel (d_model, vocab).
     lm_head = decoder.get_layer("lm_head")
     lm_w = state.get("lm_head.weight", state.get("decoder.embed_tokens.weight"))
     lm_head.kernel.assign(np.transpose(np.asarray(lm_w)))
-
-
-def transfer_speech2text_weights(
-    keras_model, hf_state_dict: Dict[str, np.ndarray]
-) -> None:
-    """Transfer a Speech2Text state dict into the Keras model (by name)."""
-    state = _strip_model_prefix(hf_state_dict)
-    _transfer_encoder(
-        keras_model.encoder,
-        state,
-        keras_model.encoder_num_layers,
-        keras_model.num_conv_layers,
-    )
-    _transfer_decoder(keras_model.decoder, state, keras_model.decoder_num_layers)
 
 
 if __name__ == "__main__":
