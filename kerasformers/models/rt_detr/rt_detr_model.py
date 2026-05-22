@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
-from kerasformers.base.base_model import hf_num_labels
+from kerasformers.base.base_model import hf_num_classes
 from kerasformers.utils import standardize_input_shape
 
 from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHT_CONFIG
@@ -797,7 +797,7 @@ def rt_detr_two_stage_proposals(
     anchors_t,
     vmask_t,
     d_model,
-    num_labels,
+    num_classes,
     num_queries,
 ):
     """Two-stage encoder query selection.
@@ -816,7 +816,7 @@ def rt_detr_two_stage_proposals(
         anchors_t: Anchor proposals as sigmoid-inverse logits.
         vmask_t: Validity mask (float).
         d_model: Decoder model dimension.
-        num_labels: Number of classes for the first-stage scoring head.
+        num_classes: Number of classes for the first-stage scoring head.
         num_queries: Number of decoder queries / top-k selected tokens.
 
     Returns:
@@ -829,7 +829,7 @@ def rt_detr_two_stage_proposals(
     enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
         enc_out
     )
-    enc_scores = layers.Dense(num_labels, name="enc_score_head")(enc_out)
+    enc_scores = layers.Dense(num_classes, name="enc_score_head")(enc_out)
     enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_0")(enc_out)
     enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_1")(enc_bb)
     enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
@@ -954,7 +954,7 @@ def rt_detr_functional(
     num_feature_levels,
     feat_strides,
     num_queries,
-    num_labels,
+    num_classes,
     input_shape,
 ):
     """Build the full RT-DETR architecture from an input tensor (no class heads).
@@ -1000,7 +1000,7 @@ def rt_detr_functional(
         num_feature_levels: Number of multi-scale levels.
         feat_strides: Feature strides per level.
         num_queries: Number of decoder queries.
-        num_labels: Number of classes for the first-stage scoring head.
+        num_classes: Number of classes for the first-stage scoring head.
         input_shape: ``(H, W, C)`` shape of ``inputs`` (or
             ``(C, H, W)`` for ``channels_first``).
 
@@ -1059,7 +1059,7 @@ def rt_detr_functional(
         anchors_t,
         vmask_t,
         d_model=d_model,
-        num_labels=num_labels,
+        num_classes=num_classes,
         num_queries=num_queries,
     )
 
@@ -1126,7 +1126,7 @@ class RTDetrModel(BaseModel):
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
         num_queries=300,
-        num_labels=80,
+        num_classes=80,
         input_image_shape=640,
         input_tensor=None,
         name="RTDetrModel",
@@ -1166,7 +1166,7 @@ class RTDetrModel(BaseModel):
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
             num_queries=num_queries,
-            num_labels=num_labels,
+            num_classes=num_classes,
             input_shape=input_image_shape,
         )
 
@@ -1195,7 +1195,7 @@ class RTDetrModel(BaseModel):
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
         self._num_queries = num_queries
-        self._num_labels = num_labels
+        self._num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.input_tensor = input_tensor
 
@@ -1225,7 +1225,7 @@ class RTDetrModel(BaseModel):
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
                 "num_queries": self._num_queries,
-                "num_labels": self._num_labels,
+                "num_classes": self._num_classes,
                 "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -1281,7 +1281,7 @@ class RTDETRDetect(BaseModel):
         num_feature_levels: Number of multi-scale feature levels.
         feat_strides: Feature strides from the backbone.
         num_queries: Number of object queries.
-        num_labels: Number of object classes (COCO: 80).
+        num_classes: Number of object classes (COCO: 80).
         weights: Pre-trained weight identifier or file path.
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -1324,7 +1324,7 @@ class RTDETRDetect(BaseModel):
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
         num_queries=300,
-        num_labels=80,
+        num_classes=80,
         input_image_shape=640,
         input_tensor=None,
         name="RTDETRDetect",
@@ -1353,7 +1353,7 @@ class RTDETRDetect(BaseModel):
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
             num_queries=num_queries,
-            num_labels=num_labels,
+            num_classes=num_classes,
             input_image_shape=input_image_shape,
             input_tensor=input_tensor,
             name=f"{name}_model",
@@ -1361,7 +1361,7 @@ class RTDETRDetect(BaseModel):
         hs_last = base.output["last_hidden_state"]
         last_boxes = base.output["last_boxes"]
 
-        logits = layers.Dense(num_labels, name=f"class_embed_{decoder_layers - 1}")(
+        logits = layers.Dense(num_classes, name=f"class_embed_{decoder_layers - 1}")(
             hs_last
         )
 
@@ -1390,7 +1390,7 @@ class RTDETRDetect(BaseModel):
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
         self._num_queries = num_queries
-        self._num_labels = num_labels
+        self._num_classes = num_classes
         self.input_image_shape = base.input_image_shape
         self.input_tensor = input_tensor
 
@@ -1420,7 +1420,7 @@ class RTDETRDetect(BaseModel):
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
                 "num_queries": self._num_queries,
-                "num_labels": self._num_labels,
+                "num_classes": self._num_classes,
                 "input_image_shape": self.input_image_shape,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -1458,7 +1458,7 @@ class RTDETRDetect(BaseModel):
             "num_feature_levels": hf_config["num_feature_levels"],
             "feat_strides": tuple(hf_config["feat_strides"]),
             "num_queries": hf_config["num_queries"],
-            "num_labels": hf_num_labels(hf_config),
+            "num_classes": hf_num_classes(hf_config),
         }
 
     @classmethod

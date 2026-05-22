@@ -12,7 +12,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-small-coco-instance": {
@@ -28,7 +28,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-base-coco-instance": {
@@ -44,7 +44,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-large-coco-instance": {
@@ -60,7 +60,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 200,
-        "num_labels": 80,
+        "num_classes": 80,
         "input_image_shape": 384,
     },
     "mask2former-swin-tiny-ade-semantic": {
@@ -76,7 +76,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 150,
+        "num_classes": 150,
         "input_image_shape": 512,
     },
     "mask2former-swin-tiny-coco-panoptic": {
@@ -92,7 +92,7 @@ MASK2FORMER_CONFIG = {
         "decoder_ffn_dim": 2048,
         "num_heads": 8,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
 }

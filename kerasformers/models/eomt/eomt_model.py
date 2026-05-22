@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
-from kerasformers.base.base_model import hf_num_labels
+from kerasformers.base.base_model import hf_num_classes
 from kerasformers.layers import StochasticDepth
 from kerasformers.utils import standardize_input_shape
 
@@ -499,7 +499,7 @@ class EoMTUniversalSegment(BaseModel):
     bilinear einsum that produces per-query mask logits. Output is a
     dict with:
 
-    - ``"class_logits"``: ``(batch, num_queries, num_labels + 1)``
+    - ``"class_logits"``: ``(batch, num_queries, num_classes + 1)``
     - ``"mask_logits"``: ``(batch, num_queries, H_up, W_up)`` where
       ``H_up = image_size // patch_size * 2^num_upscale_blocks``.
 
@@ -508,7 +508,7 @@ class EoMTUniversalSegment(BaseModel):
           <https://arxiv.org/abs/2503.19108>`_
 
     Args:
-        num_labels: Number of segmentation classes.
+        num_classes: Number of segmentation classes.
         num_upscale_blocks: Number of 2x upscaling layers applied to
             patch features before mask prediction.
         See :class:`EoMTModel` for the remaining args.
@@ -533,7 +533,7 @@ class EoMTUniversalSegment(BaseModel):
             "mlp_ratio": hf_config.get("mlp_ratio", 4),
             "use_swiglu_ffn": hf_config.get("use_swiglu_ffn", False),
             "num_upscale_blocks": hf_config.get("num_upscale_blocks", 2),
-            "num_labels": hf_num_labels(hf_config),
+            "num_classes": hf_num_classes(hf_config),
             "input_image_shape": image_size,
         }
 
@@ -552,7 +552,7 @@ class EoMTUniversalSegment(BaseModel):
         num_attention_heads=16,
         num_blocks=4,
         num_queries=200,
-        num_labels=133,
+        num_classes=133,
         layerscale_value=1e-5,
         patch_size=16,
         num_register_tokens=4,
@@ -600,7 +600,7 @@ class EoMTUniversalSegment(BaseModel):
         query_output = sequence_output[:, :num_queries, :]
         patch_output = sequence_output[:, num_queries + num_prefix_tokens :, :]
 
-        class_logits = layers.Dense(num_labels + 1, name="class_predictor")(
+        class_logits = layers.Dense(num_classes + 1, name="class_predictor")(
             query_output
         )
 
@@ -636,7 +636,7 @@ class EoMTUniversalSegment(BaseModel):
         self.num_attention_heads = num_attention_heads
         self.num_blocks = num_blocks
         self.num_queries = num_queries
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.layerscale_value = layerscale_value
         self.patch_size = patch_size
         self.num_register_tokens = num_register_tokens
@@ -658,7 +658,7 @@ class EoMTUniversalSegment(BaseModel):
                 "num_attention_heads": self.num_attention_heads,
                 "num_blocks": self.num_blocks,
                 "num_queries": self.num_queries,
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "layerscale_value": self.layerscale_value,
                 "patch_size": self.patch_size,
                 "num_register_tokens": self.num_register_tokens,

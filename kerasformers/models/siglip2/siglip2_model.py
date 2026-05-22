@@ -314,13 +314,13 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
         model = SigLIP2ImageClassify.from_weights(
             "hf:<user>/siglip2-finetune-imagenet"
         )
-        logits = model(images)              # (B, num_labels)
+        logits = model(images)              # (B, num_classes)
 
     Reference:
         - `SigLIP 2 <https://arxiv.org/abs/2502.14786>`_
 
     Args (identical to :class:`SigLIPImageClassify`):
-        num_labels, input_image_shape, patch_size, vision_hidden_dim,
+        num_classes, input_image_shape, patch_size, vision_hidden_dim,
         vision_num_layers, vision_num_heads, vision_intermediate_dim,
         input_tensor, name.
     """

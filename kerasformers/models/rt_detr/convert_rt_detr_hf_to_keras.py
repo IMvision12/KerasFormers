@@ -339,7 +339,7 @@ if __name__ == "__main__":
             load_weights=False,
             input_image_shape=640,
             num_queries=300,
-            num_labels=80,
+            num_classes=80,
         )
         print(f"  Parameters: {keras_model.count_params():,}")
 

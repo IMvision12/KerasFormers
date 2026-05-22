@@ -717,7 +717,7 @@ class WhisperAudioClassify(BaseModel):
     Uses **only the
     Whisper encoder** (no decoder), then a per-frame ``projector`` Dense,
     a mean pool over time, and a final linear classifier producing
-    ``num_labels`` logits.
+    ``num_classes`` logits.
 
     When ``use_weighted_layer_sum=True``, all encoder hidden states
     (post-embedding through final LayerNorm) are stacked and combined
@@ -731,7 +731,7 @@ class WhisperAudioClassify(BaseModel):
         )
         processor = WhisperFeatureExtractor()
         mel = processor(audio)
-        logits = model(mel)              # (B, num_labels)
+        logits = model(mel)              # (B, num_classes)
 
     Args:
         d_model: Encoder hidden dimension.
@@ -740,7 +740,7 @@ class WhisperAudioClassify(BaseModel):
         encoder_ffn_dim: Encoder MLP intermediate dim.
         num_mel_bins: Mel bin count of the input log-mel spectrogram.
         max_source_positions: Max encoder position. Always ``1500``.
-        num_labels: Number of output classes.
+        num_classes: Number of output classes.
         classifier_proj_size: Projector hidden dim. Defaults to ``256``.
         use_weighted_layer_sum: Combine all encoder hidden states via a
             learnable softmax. Defaults to ``False``.
@@ -755,7 +755,7 @@ class WhisperAudioClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         return {
             "d_model": hf_config["d_model"],
@@ -764,7 +764,7 @@ class WhisperAudioClassify(BaseModel):
             "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
             "num_mel_bins": hf_config.get("num_mel_bins", 80),
             "max_source_positions": hf_config.get("max_source_positions", 1500),
-            "num_labels": hf_num_labels(hf_config),
+            "num_classes": hf_num_classes(hf_config),
             "classifier_proj_size": hf_config.get("classifier_proj_size", 256),
             "use_weighted_layer_sum": hf_config.get("use_weighted_layer_sum", False),
             "activation_function": hf_config.get("activation_function", "gelu"),
@@ -786,7 +786,7 @@ class WhisperAudioClassify(BaseModel):
         encoder_ffn_dim=1536,
         num_mel_bins=80,
         max_source_positions=1500,
-        num_labels=2,
+        num_classes=2,
         classifier_proj_size=256,
         use_weighted_layer_sum=False,
         activation_function="gelu",
@@ -821,7 +821,7 @@ class WhisperAudioClassify(BaseModel):
 
         x = layers.Dense(classifier_proj_size, name="projector")(x)
         x = ops.mean(x, axis=1)
-        logits = layers.Dense(num_labels, name="classifier")(x)
+        logits = layers.Dense(num_classes, name="classifier")(x)
 
         super().__init__(inputs=input_features, outputs=logits, name=name, **kwargs)
 
@@ -832,7 +832,7 @@ class WhisperAudioClassify(BaseModel):
         self.encoder_ffn_dim = encoder_ffn_dim
         self.num_mel_bins = num_mel_bins
         self.max_source_positions = max_source_positions
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.classifier_proj_size = classifier_proj_size
         self.use_weighted_layer_sum = use_weighted_layer_sum
         self.activation_function = activation_function
@@ -848,7 +848,7 @@ class WhisperAudioClassify(BaseModel):
                 "encoder_ffn_dim": self.encoder_ffn_dim,
                 "num_mel_bins": self.num_mel_bins,
                 "max_source_positions": self.max_source_positions,
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "classifier_proj_size": self.classifier_proj_size,
                 "use_weighted_layer_sum": self.use_weighted_layer_sum,
                 "activation_function": self.activation_function,

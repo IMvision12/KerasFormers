@@ -1169,14 +1169,14 @@ class SigLIPImageClassify(BaseModel):
     Composes :class:`SigLIPVisionModel`, mean-pools the
     ``last_hidden_state`` patch tokens (the attention-pooling head is
     bypassed for classification), and applies a single linear
-    classifier producing ``num_labels`` logits.
+    classifier producing ``num_classes`` logits.
 
     .. code-block:: python
 
         model = SigLIPImageClassify.from_weights(
             "hf:<user>/siglip-finetune-imagenet"
         )
-        logits = model(images)              # (B, num_labels)
+        logits = model(images)              # (B, num_classes)
 
     The vision tower is exposed as ``model.vision_model`` so it can be
     re-used directly (for feature extraction).
@@ -1186,7 +1186,7 @@ class SigLIPImageClassify(BaseModel):
           <https://arxiv.org/abs/2303.15343>`_
 
     Args:
-        num_labels: Number of output classes. Defaults to ``1000``.
+        num_classes: Number of output classes. Defaults to ``1000``.
         input_image_shape: Input image specification. Accepts an
             integer ``N`` (builds an ``N x N x 3`` square input), a
             2-tuple ``(H, W)``, or a 3-tuple in the active data format's
@@ -1229,11 +1229,11 @@ class SigLIPImageClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         config = SigLIPModel.config_from_hf(hf_config)
         try:
-            config["num_labels"] = hf_num_labels(hf_config)
+            config["num_classes"] = hf_num_classes(hf_config)
         except KeyError:
             pass
         return config
@@ -1248,7 +1248,7 @@ class SigLIPImageClassify(BaseModel):
 
     def __init__(
         self,
-        num_labels=1000,
+        num_classes=1000,
         input_image_shape=224,
         patch_size=16,
         vision_hidden_dim=768,
@@ -1291,12 +1291,12 @@ class SigLIPImageClassify(BaseModel):
         encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded, axis=1)
-        logits = layers.Dense(num_labels, name="classifier")(pooled)
+        logits = layers.Dense(num_classes, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.vision_model = vision_model
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
@@ -1309,7 +1309,7 @@ class SigLIPImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,

@@ -1097,7 +1097,7 @@ class MetaClip2ImageClassify(BaseModel):
     vision encoder** (no text encoder, no visual projection, no post-LN,
     no ``logit_scale``), drops the CLS token, mean-pools the patch
     tokens, and applies a single linear classifier producing
-    ``num_labels`` logits.
+    ``num_classes`` logits.
     """
 
     BASE_MODEL_CONFIG = METACLIP2_CONFIG
@@ -1115,11 +1115,11 @@ class MetaClip2ImageClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         config = MetaClip2Model.config_from_hf(hf_config)
         try:
-            config["num_labels"] = hf_num_labels(hf_config)
+            config["num_classes"] = hf_num_classes(hf_config)
         except KeyError:
             pass
         return config
@@ -1134,7 +1134,7 @@ class MetaClip2ImageClassify(BaseModel):
 
     def __init__(
         self,
-        num_labels=1000,
+        num_classes=1000,
         input_image_shape=224,
         vision_layers=12,
         vision_width=768,
@@ -1182,12 +1182,12 @@ class MetaClip2ImageClassify(BaseModel):
         encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded[:, 1:, :], axis=1)
-        logits = layers.Dense(num_labels, name="classifier")(pooled)
+        logits = layers.Dense(num_classes, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.vision_model = vision_model
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
@@ -1201,7 +1201,7 @@ class MetaClip2ImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,

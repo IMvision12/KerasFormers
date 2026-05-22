@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
-from kerasformers.base.base_model import hf_num_labels
+from kerasformers.base.base_model import hf_num_classes
 from kerasformers.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
     DETRFlattenFeatures,
@@ -883,7 +883,7 @@ class DETRDetect(BaseModel):
             "dim_feedforward": hf_config["encoder_ffn_dim"],
             "dropout_rate": hf_config["dropout"],
             "num_queries": hf_config["num_queries"],
-            "num_classes": hf_num_labels(hf_config) + 1,
+            "num_classes": hf_num_classes(hf_config) + 1,
         }
 
     @classmethod
@@ -1103,7 +1103,7 @@ class DETRSegment(BaseModel):
             "dim_feedforward": hf_config["encoder_ffn_dim"],
             "dropout_rate": hf_config["dropout"],
             "num_queries": hf_config["num_queries"],
-            "num_classes": hf_num_labels(hf_config) + 1,
+            "num_classes": hf_num_classes(hf_config) + 1,
         }
 
     @classmethod

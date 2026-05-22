@@ -11,7 +11,7 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 150,
+        "num_classes": 150,
         "input_image_shape": 512,
     },
     "maskformer-swin-tiny-coco": {
@@ -26,7 +26,7 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
     "maskformer-swin-small-coco": {
@@ -41,7 +41,7 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
     "maskformer-swin-base-ade": {
@@ -56,7 +56,7 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 150,
+        "num_classes": 150,
         "input_image_shape": 512,
     },
     "maskformer-swin-base-coco": {
@@ -71,7 +71,7 @@ MASKFORMER_CONFIG = {
         "decoder_heads": 8,
         "decoder_ffn_dim": 2048,
         "num_queries": 100,
-        "num_labels": 133,
+        "num_classes": 133,
         "input_image_shape": 384,
     },
 }

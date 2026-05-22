@@ -9,12 +9,12 @@ from kerasformers.weight_utils import download_file
 _HF_PREFIX = "hf:"
 
 
-def hf_num_labels(hf_config):
-    """Derive ``num_labels`` from a ``config.json`` dict.
+def hf_num_classes(hf_config):
+    """Derive the class count from a ``config.json`` dict.
 
-    A serialized ``config.json`` typically stores ``id2label`` rather than
-    ``num_labels`` directly, so this helper derives the label count from
-    whichever of ``num_labels`` / ``id2label`` / ``label2id`` is present.
+    A serialized ``config.json`` typically stores ``id2label`` rather than a
+    direct count, so this helper derives it from whichever of ``num_labels`` /
+    ``id2label`` / ``label2id`` is present.
     """
     if "num_labels" in hf_config:
         return hf_config["num_labels"]

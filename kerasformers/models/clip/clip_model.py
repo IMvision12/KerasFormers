@@ -1441,17 +1441,17 @@ class CLIPImageClassify(BaseModel):
     Uses **only the CLIP
     vision encoder** (no text encoder, no visual projection), then
     mean-pools the patch tokens (excluding CLS) and applies a single
-    linear classifier producing ``num_labels`` logits.
+    linear classifier producing ``num_classes`` logits.
 
     .. code-block:: python
 
         model = CLIPImageClassify.from_weights(
             "hf:<user>/clip-finetune-imagenet"
         )
-        logits = model(images)              # (B, num_labels)
+        logits = model(images)              # (B, num_classes)
 
     Args:
-        num_labels: Number of output classes.
+        num_classes: Number of output classes.
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -1484,11 +1484,11 @@ class CLIPImageClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         config = CLIPModel.config_from_hf(hf_config)
         try:
-            config["num_labels"] = hf_num_labels(hf_config)
+            config["num_classes"] = hf_num_classes(hf_config)
         except KeyError:
             pass
         return config
@@ -1501,7 +1501,7 @@ class CLIPImageClassify(BaseModel):
 
     def __init__(
         self,
-        num_labels=1000,
+        num_classes=1000,
         input_image_shape=224,
         vision_layers=12,
         vision_width=768,
@@ -1546,12 +1546,12 @@ class CLIPImageClassify(BaseModel):
         encoded = vision_model.output["last_hidden_state"]
 
         pooled = ops.mean(encoded[:, 1:, :], axis=1)
-        logits = layers.Dense(num_labels, name="classifier")(pooled)
+        logits = layers.Dense(num_classes, name="classifier")(pooled)
 
         super().__init__(inputs=images_input, outputs=logits, name=name, **kwargs)
 
         self.vision_model = vision_model
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
         self.vision_layers = vision_layers
         self.vision_width = vision_width
@@ -1565,7 +1565,7 @@ class CLIPImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,

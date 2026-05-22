@@ -344,7 +344,7 @@ def maskformer_functional(
     decoder_heads,
     decoder_ffn_dim,
     num_queries,
-    num_labels,
+    num_classes,
     data_format,
     channels_axis,
 ):
@@ -367,12 +367,12 @@ def maskformer_functional(
         decoder_heads: Number of decoder attention heads.
         decoder_ffn_dim: Decoder feed-forward dimension.
         num_queries: Number of object queries.
-        num_labels: Number of semantic classes (excluding the no-object class).
+        num_classes: Number of semantic classes (excluding the no-object class).
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Channel-axis index for GroupNorm (``-1`` or ``1``).
 
     Returns:
-        Dict with ``class_queries_logits`` ``(B, num_queries, num_labels + 1)``
+        Dict with ``class_queries_logits`` ``(B, num_queries, num_classes + 1)``
         and ``masks_queries_logits`` ``(B, num_queries, H/4, W/4)``.
     """
     backbone = MaskFormerSwinBackbone(
@@ -412,7 +412,7 @@ def maskformer_functional(
         data_format=data_format,
     )
 
-    class_logits = layers.Dense(num_labels + 1, name="class_predictor")(decoder_hidden)
+    class_logits = layers.Dense(num_classes + 1, name="class_predictor")(decoder_hidden)
     mask_embeddings = maskformer_mask_embedder(
         decoder_hidden, decoder_d_model, mask_feature_size
     )
@@ -445,7 +445,7 @@ class MaskFormerModel(BaseModel):
         decoder_heads: Number of decoder attention heads.
         decoder_ffn_dim: Decoder feed-forward dimension.
         num_queries: Number of object queries.
-        num_labels: Number of semantic classes (excluding the no-object class).
+        num_classes: Number of semantic classes (excluding the no-object class).
         input_image_shape: Input image size (int edge length or shape tuple).
         name: Model name.
         **kwargs: Additional keyword arguments forwarded to :class:`BaseModel`.
@@ -471,7 +471,7 @@ class MaskFormerModel(BaseModel):
         decoder_heads=8,
         decoder_ffn_dim=2048,
         num_queries=100,
-        num_labels=150,
+        num_classes=150,
         input_image_shape=512,
         name="MaskFormerModel",
         **kwargs,
@@ -495,7 +495,7 @@ class MaskFormerModel(BaseModel):
             decoder_heads=decoder_heads,
             decoder_ffn_dim=decoder_ffn_dim,
             num_queries=num_queries,
-            num_labels=num_labels,
+            num_classes=num_classes,
             data_format=data_format,
             channels_axis=channels_axis,
         )
@@ -512,7 +512,7 @@ class MaskFormerModel(BaseModel):
         self.decoder_heads = decoder_heads
         self.decoder_ffn_dim = decoder_ffn_dim
         self.num_queries = num_queries
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
 
     def get_config(self):
@@ -530,7 +530,7 @@ class MaskFormerModel(BaseModel):
                 "decoder_heads": self.decoder_heads,
                 "decoder_ffn_dim": self.decoder_ffn_dim,
                 "num_queries": self.num_queries,
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
@@ -562,7 +562,7 @@ class MaskFormerUniversalSegment(BaseModel):
         decoder_heads: Number of decoder attention heads.
         decoder_ffn_dim: Decoder feed-forward dimension.
         num_queries: Number of object queries.
-        num_labels: Number of semantic classes (excluding the no-object class).
+        num_classes: Number of semantic classes (excluding the no-object class).
         input_image_shape: Input image size (int edge length or shape tuple).
         name: Model name.
         **kwargs: Additional keyword arguments forwarded to :class:`BaseModel`.
@@ -589,7 +589,7 @@ class MaskFormerUniversalSegment(BaseModel):
         decoder_heads=8,
         decoder_ffn_dim=2048,
         num_queries=100,
-        num_labels=150,
+        num_classes=150,
         input_image_shape=512,
         name="MaskFormerUniversalSegment",
         **kwargs,
@@ -613,7 +613,7 @@ class MaskFormerUniversalSegment(BaseModel):
             decoder_heads=decoder_heads,
             decoder_ffn_dim=decoder_ffn_dim,
             num_queries=num_queries,
-            num_labels=num_labels,
+            num_classes=num_classes,
             data_format=data_format,
             channels_axis=channels_axis,
         )
@@ -630,7 +630,7 @@ class MaskFormerUniversalSegment(BaseModel):
         self.decoder_heads = decoder_heads
         self.decoder_ffn_dim = decoder_ffn_dim
         self.num_queries = num_queries
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
 
     def get_config(self):
@@ -648,7 +648,7 @@ class MaskFormerUniversalSegment(BaseModel):
                 "decoder_heads": self.decoder_heads,
                 "decoder_ffn_dim": self.decoder_ffn_dim,
                 "num_queries": self.num_queries,
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
@@ -666,7 +666,7 @@ class MaskFormerUniversalSegment(BaseModel):
         depths = backbone.get("depths", [2, 2, 6, 2])
         num_heads = backbone.get("num_heads", [3, 6, 12, 24])
 
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         return {
             "backbone_embed_dim": backbone.get("embed_dim", 96),
@@ -680,7 +680,7 @@ class MaskFormerUniversalSegment(BaseModel):
             "decoder_heads": decoder.get("decoder_attention_heads", 8),
             "decoder_ffn_dim": decoder.get("decoder_ffn_dim", 2048),
             "num_queries": decoder.get("num_queries", 100),
-            "num_labels": hf_num_labels(hf_config),
+            "num_classes": hf_num_classes(hf_config),
             "input_image_shape": backbone.get("image_size", 384),
         }
 

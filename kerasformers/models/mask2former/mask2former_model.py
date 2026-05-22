@@ -299,11 +299,11 @@ def mask2former_decoder_layer(
 
 
 def mask2former_predict_class_mask(
-    hidden_states, mask_features, hidden_dim, mask_feature_size, num_labels
+    hidden_states, mask_features, hidden_dim, mask_feature_size, num_classes
 ):
     """Compute class logits + mask logits from current decoder hidden states."""
     class_logits = (
-        layers.Dense(num_labels + 1, name=f"class_predictor_{hidden_states.name}")(
+        layers.Dense(num_classes + 1, name=f"class_predictor_{hidden_states.name}")(
             hidden_states
         )
         if False
@@ -327,7 +327,7 @@ def mask2former_functional(
     decoder_ffn_dim,
     num_heads,
     num_queries,
-    num_labels,
+    num_classes,
     data_format,
     channels_axis,
     n_msda_points=4,
@@ -413,7 +413,7 @@ def mask2former_functional(
     decoder_layernorm = layers.LayerNormalization(
         epsilon=1e-5, name="transformer_decoder_layernorm"
     )
-    class_predictor = layers.Dense(num_labels + 1, name="class_predictor")
+    class_predictor = layers.Dense(num_classes + 1, name="class_predictor")
     mask_embedder_0 = layers.Dense(
         hidden_dim, name="transformer_decoder_mask_embedder_0"
     )
@@ -554,7 +554,7 @@ class Mask2FormerModel(BaseModel):
         decoder_ffn_dim=2048,
         num_heads=8,
         num_queries=100,
-        num_labels=80,
+        num_classes=80,
         input_image_shape=384,
         name="Mask2FormerModel",
         **kwargs,
@@ -579,7 +579,7 @@ class Mask2FormerModel(BaseModel):
             decoder_ffn_dim=decoder_ffn_dim,
             num_heads=num_heads,
             num_queries=num_queries,
-            num_labels=num_labels,
+            num_classes=num_classes,
             data_format=data_format,
             channels_axis=channels_axis,
         )
@@ -597,7 +597,7 @@ class Mask2FormerModel(BaseModel):
         self.decoder_ffn_dim = decoder_ffn_dim
         self.num_heads = num_heads
         self.num_queries = num_queries
-        self.num_labels = num_labels
+        self.num_classes = num_classes
         self.input_image_shape = input_image_shape
 
     def get_config(self):
@@ -616,7 +616,7 @@ class Mask2FormerModel(BaseModel):
                 "decoder_ffn_dim": self.decoder_ffn_dim,
                 "num_heads": self.num_heads,
                 "num_queries": self.num_queries,
-                "num_labels": self.num_labels,
+                "num_classes": self.num_classes,
                 "input_image_shape": self.input_image_shape,
                 "name": self.name,
             }
@@ -661,7 +661,7 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
         depths = backbone.get("depths", [2, 2, 6, 2])
         num_heads = backbone.get("num_heads", [3, 6, 12, 24])
 
-        from kerasformers.base.base_model import hf_num_labels
+        from kerasformers.base.base_model import hf_num_classes
 
         return {
             "backbone_embed_dim": backbone.get("embed_dim", 96),
@@ -676,7 +676,7 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
             "decoder_ffn_dim": hf_config.get("dim_feedforward", 2048),
             "num_heads": hf_config.get("num_attention_heads", 8),
             "num_queries": hf_config.get("num_queries", 100),
-            "num_labels": hf_num_labels(hf_config),
+            "num_classes": hf_num_classes(hf_config),
             "input_image_shape": backbone.get("image_size", 384),
         }
 

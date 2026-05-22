@@ -239,7 +239,7 @@ def maskformer_post_process_panoptic(
     class_logits = outputs["class_queries_logits"]
     mask_logits = outputs["masks_queries_logits"]
 
-    num_labels = class_logits.shape[-1] - 1
+    num_classes = class_logits.shape[-1] - 1
     target_h, target_w = target_size
 
     mask_logits_resized = unpad_and_resize_masks(
@@ -250,7 +250,7 @@ def maskformer_post_process_panoptic(
     pred_labels = np.argmax(scores_all, axis=-1)
 
     mask_probs = mask_logits_resized[0]
-    keep = (pred_labels != num_labels) & (pred_scores > threshold)
+    keep = (pred_labels != num_classes) & (pred_scores > threshold)
     mask_probs = mask_probs[keep]
     pred_scores = pred_scores[keep]
     pred_labels = pred_labels[keep]
