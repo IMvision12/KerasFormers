@@ -41,31 +41,31 @@ XCEPTION_WEIGHT_CONFIG = {
     "xception41_tf_in1k": {
         "model": "xception41",
         "timm_id": "xception41.tf_in1k",
-        "url": "https://github.com/IMvision12/keras-models/releases/download/classify2/xception41_tf_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception41_tf_in1k.weights.h5",
     },
     "xception41p_ra3_in1k": {
         "model": "xception41p",
         "timm_id": "xception41p.ra3_in1k",
-        "url": "https://github.com/IMvision12/keras-models/releases/download/classify2/xception41p_ra3_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception41p_ra3_in1k.weights.h5",
     },
     "xception65_ra3_in1k": {
         "model": "xception65",
         "timm_id": "xception65.ra3_in1k",
-        "url": "https://github.com/IMvision12/keras-models/releases/download/classify2/xception65_ra3_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception65_ra3_in1k.weights.h5",
     },
     "xception65_tf_in1k": {
         "model": "xception65",
         "timm_id": "xception65.tf_in1k",
-        "url": "https://github.com/IMvision12/keras-models/releases/download/classify2/xception65_tf_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception65_tf_in1k.weights.h5",
     },
     "xception65p_ra3_in1k": {
         "model": "xception65p",
         "timm_id": "xception65p.ra3_in1k",
-        "url": "https://github.com/IMvision12/keras-models/releases/download/classify2/xception65p_ra3_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception65p_ra3_in1k.weights.h5",
     },
     "xception71_tf_in1k": {
         "model": "xception71",
         "timm_id": "xception71.tf_in1k",
-        "url": "https://github.com/IMvision12/keras-models/releases/download/classify2/xception71_tf_in1k.weights.h5",
+        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception71_tf_in1k.weights.h5",
     },
 }
