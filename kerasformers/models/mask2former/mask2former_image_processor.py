@@ -13,6 +13,16 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 def get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, int]:
+    """Scale ``(orig_h, orig_w)`` so its longest edge equals ``target_size``.
+
+    Args:
+        orig_h: Original image height.
+        orig_w: Original image width.
+        target_size: Desired length of the longest edge.
+
+    Returns:
+        The ``(height, width)`` of the aspect-ratio-preserving resize.
+    """
     scale = target_size / max(orig_h, orig_w)
     return int(orig_h * scale), int(orig_w * scale)
 

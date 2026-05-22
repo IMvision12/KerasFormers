@@ -11,6 +11,17 @@ from keras import layers, ops
 
 
 def window_partition(x, window_size):
+    """Partition a feature-map grid into non-overlapping square windows.
+
+    Args:
+        x: Feature map of shape ``(b, h, w, c)`` in channels-last layout;
+            ``h`` and ``w`` must be divisible by ``window_size``.
+        window_size: Edge length of each square window.
+
+    Returns:
+        Tensor of shape ``(b * num_windows, window_size * window_size, c)`` —
+        each window flattened to a token sequence for windowed self-attention.
+    """
     b = ops.shape(x)[0]
     h = ops.shape(x)[1]
     w = ops.shape(x)[2]
@@ -23,6 +34,20 @@ def window_partition(x, window_size):
 
 
 def window_reverse(windows, window_size, h, w):
+    """Reassemble windowed tokens back into a feature-map grid.
+
+    Inverse of :func:`window_partition`.
+
+    Args:
+        windows: Tensor of shape
+            ``(b * num_windows, window_size * window_size, c)``.
+        window_size: Edge length of each square window.
+        h: Height of the reconstructed grid.
+        w: Width of the reconstructed grid.
+
+    Returns:
+        Feature map of shape ``(b, h, w, c)`` in channels-last layout.
+    """
     c = windows.shape[-1]
     b = ops.shape(windows)[0] // ((h // window_size) * (w // window_size))
     x = ops.reshape(
@@ -35,16 +60,42 @@ def window_reverse(windows, window_size, h, w):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSwinPatchEmbeddings(layers.Layer):
-    def __init__(self, embed_dim, patch_size=4, **kwargs):
+    """Patch-embedding stem: a strided convolution flattened to tokens.
+
+    Projects the input image with a ``patch_size`` strided convolution and
+    flattens the spatial grid to a ``(b, h*w, embed_dim)`` token sequence —
+    the layout the windowed attention operates on. The convolution honours the
+    configured data format; a channels-first output is transposed to
+    channels-last before flattening.
+
+    Args:
+        embed_dim: Token embedding dimension produced by the projection.
+        patch_size: Convolution kernel size and stride (the patch edge length).
+        data_format: ``"channels_last"`` or ``"channels_first"``. Defaults to
+            ``keras.config.image_data_format()``.
+        **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.
+    """
+
+    def __init__(self, embed_dim, patch_size=4, data_format=None, **kwargs):
         super().__init__(**kwargs)
         self.embed_dim = embed_dim
         self.patch_size = patch_size
+        self.data_format = data_format or keras.config.image_data_format()
+        # The conv honours the data format; the windowed attention that follows
+        # operates on flattened (b, h*w, c) tokens, so the conv output is
+        # converted to a channels-last grid before flattening.
         self.projection = layers.Conv2D(
-            embed_dim, patch_size, strides=patch_size, name="projection"
+            embed_dim,
+            patch_size,
+            strides=patch_size,
+            data_format=self.data_format,
+            name="projection",
         )
 
     def call(self, pixel_values):
         x = self.projection(pixel_values)
+        if self.data_format == "channels_first":
+            x = ops.transpose(x, (0, 2, 3, 1))  # (b, c, h, w) -> (b, h, w, c)
         b = ops.shape(x)[0]
         h = ops.shape(x)[1]
         w = ops.shape(x)[2]
@@ -53,12 +104,30 @@ class Mask2FormerSwinPatchEmbeddings(layers.Layer):
 
     def get_config(self):
         c = super().get_config()
-        c.update({"embed_dim": self.embed_dim, "patch_size": self.patch_size})
+        c.update(
+            {
+                "embed_dim": self.embed_dim,
+                "patch_size": self.patch_size,
+                "data_format": self.data_format,
+            }
+        )
         return c
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSwinPatchMerging(layers.Layer):
+    """Patch-merging downsample between stages.
+
+    Gathers each 2x2 neighbourhood of tokens, concatenates them along the
+    channel axis (``4C``), applies LayerNorm, then a bias-free linear
+    projection to ``2C`` — halving the spatial resolution while doubling the
+    channel count.
+
+    Args:
+        dim: Input channel dimension ``C`` (the output dimension is ``2C``).
+        **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.
+    """
+
     def __init__(self, dim, **kwargs):
         super().__init__(**kwargs)
         self.dim = dim
@@ -89,6 +158,19 @@ class Mask2FormerSwinPatchMerging(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSwinSelfAttention(layers.Layer):
+    """Windowed multi-head self-attention with relative position bias.
+
+    Computes self-attention within each window using separate query/key/value
+    projections (HF-aligned naming) plus a learned relative-position bias
+    table. An optional additive mask supports shifted-window attention.
+
+    Args:
+        dim: Input/output feature dimension.
+        num_heads: Number of attention heads (``dim`` must be divisible by it).
+        window_size: Edge length of the attention window.
+        **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.
+    """
+
     def __init__(self, dim, num_heads, window_size, **kwargs):
         super().__init__(**kwargs)
         self.dim = dim
@@ -172,6 +254,18 @@ class Mask2FormerSwinSelfAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSwinAttention(layers.Layer):
+    """Windowed self-attention followed by an output projection.
+
+    Thin wrapper composing :class:`Mask2FormerSwinSelfAttention` with the
+    block's dense ``output`` projection, mirroring HF's ``SwinAttention``.
+
+    Args:
+        dim: Input/output feature dimension.
+        num_heads: Number of attention heads.
+        window_size: Edge length of the attention window.
+        **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.
+    """
+
     def __init__(self, dim, num_heads, window_size, **kwargs):
         super().__init__(**kwargs)
         self.self_attn = Mask2FormerSwinSelfAttention(
@@ -185,6 +279,23 @@ class Mask2FormerSwinAttention(layers.Layer):
 
 
 def get_shift_mask(h, w, window_size, shift_size):
+    """Build the additive attention mask for shifted-window attention.
+
+    Assigns a region id to every location of the cyclically-shifted ``(h, w)``
+    grid, partitions it into windows, and produces a per-window mask that is
+    ``0`` between tokens of the same region and ``-100`` between tokens of
+    different regions, so cross-region attention is suppressed.
+
+    Args:
+        h: Padded feature-map height.
+        w: Padded feature-map width.
+        window_size: Edge length of each attention window.
+        shift_size: Cyclic-shift offset used for this block.
+
+    Returns:
+        Additive mask of shape
+        ``(num_windows, window_size**2, window_size**2)``.
+    """
     img_mask = np.zeros((1, h, w, 1), dtype=np.float32)
     cnt = 0
     h_slices = [
@@ -213,6 +324,24 @@ def get_shift_mask(h, w, window_size, shift_size):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSwinBlock(layers.Layer):
+    """A single Swin Transformer block.
+
+    Pre-norm (shifted) windowed self-attention with a residual connection,
+    followed by a pre-norm two-layer GELU MLP with a residual connection. The
+    token grid is padded to a multiple of ``window_size``, optionally
+    cyclically shifted, partitioned into windows for attention, then reversed
+    (and un-shifted / un-padded).
+
+    Args:
+        dim: Token feature dimension.
+        num_heads: Number of attention heads.
+        window_size: Edge length of the attention window.
+        shift_size: Cyclic-shift offset — ``0`` for a regular block,
+            ``window_size // 2`` for a shifted block.
+        mlp_ratio: Hidden-dimension expansion ratio of the MLP.
+        **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.
+    """
+
     def __init__(
         self, dim, num_heads, window_size, shift_size, mlp_ratio=4.0, **kwargs
     ):
@@ -293,6 +422,22 @@ class Mask2FormerSwinBlock(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSwinStage(layers.Layer):
+    """One hierarchical Swin stage: ``depth`` blocks then optional downsample.
+
+    Stacks ``depth`` :class:`Mask2FormerSwinBlock` layers with alternating
+    regular / shifted windows, precomputing the shifted-window attention mask
+    once per forward call, and optionally appends a
+    :class:`Mask2FormerSwinPatchMerging` downsample after the blocks.
+
+    Args:
+        dim: Token feature dimension at this stage.
+        depth: Number of Swin blocks in the stage.
+        num_heads: Number of attention heads.
+        window_size: Edge length of the attention window.
+        downsample: Whether to append a patch-merging downsample after the blocks.
+        **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.
+    """
+
     def __init__(self, dim, depth, num_heads, window_size, downsample, **kwargs):
         super().__init__(**kwargs)
         self.dim = dim
@@ -351,17 +496,38 @@ class Mask2FormerSwinStage(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSwinBackbone(layers.Layer):
-    """Full Swin backbone returning per-stage feature maps post-stage-LN."""
+    """Hierarchical Swin backbone producing per-stage feature maps.
 
-    def __init__(self, embed_dim, depths, num_heads, window_size, **kwargs):
+    Embeds the input image into patch tokens, runs four Swin stages with
+    progressive patch merging, and applies a per-stage LayerNorm
+    (``hidden_states_norms``) to each stage output. Returns the four feature
+    maps in the configured data format, consumed by the Mask2Former pixel
+    decoder.
+
+    Args:
+        embed_dim: Stage-0 token embedding dimension.
+        depths: Number of Swin blocks per stage (length-4 sequence).
+        num_heads: Number of attention heads per stage (length-4 sequence).
+        window_size: Edge length of the attention window.
+        data_format: ``"channels_last"`` or ``"channels_first"``. Defaults to
+            ``keras.config.image_data_format()``.
+        **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.
+    """
+
+    def __init__(
+        self, embed_dim, depths, num_heads, window_size, data_format=None, **kwargs
+    ):
         super().__init__(**kwargs)
         self.embed_dim = embed_dim
         self.depths = depths
         self.num_heads = num_heads
         self.window_size = window_size
+        self.data_format = data_format or keras.config.image_data_format()
 
         self.patch_embeddings = Mask2FormerSwinPatchEmbeddings(
-            embed_dim, name="embeddings_patch_embeddings"
+            embed_dim,
+            data_format=self.data_format,
+            name="embeddings_patch_embeddings",
         )
         self.embeddings_norm = layers.LayerNormalization(
             epsilon=1e-5, name="embeddings_norm"
@@ -392,6 +558,9 @@ class Mask2FormerSwinBackbone(layers.Layer):
         x, h, w = self.patch_embeddings(pixel_values)
         x = self.embeddings_norm(x)
 
+        # Windowed attention runs on channels-last token grids internally; the
+        # per-stage feature maps are emitted in the configured data format.
+        channels_first = self.data_format == "channels_first"
         outs = []
         for i, stage in enumerate(self.stages):
             (stage_feat, sh, sw), x, h, w = stage(x, h=h, w=w)
@@ -399,6 +568,8 @@ class Mask2FormerSwinBackbone(layers.Layer):
             b = ops.shape(normed)[0]
             c = normed.shape[-1]
             normed = ops.reshape(normed, (b, sh, sw, c))
+            if channels_first:
+                normed = ops.transpose(normed, (0, 3, 1, 2))  # -> (b, c, h, w)
             outs.append(normed)
         return outs
 
@@ -410,6 +581,7 @@ class Mask2FormerSwinBackbone(layers.Layer):
                 "depths": self.depths,
                 "num_heads": self.num_heads,
                 "window_size": self.window_size,
+                "data_format": self.data_format,
             }
         )
         return c

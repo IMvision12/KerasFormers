@@ -1,10 +1,3 @@
-"""MaskFormer functional model (Swin backbone + FPN pixel decoder + DETR-style transformer decoder).
-
-Reference:
-    - `Per-Pixel Classification is Not All You Need for Semantic
-      Segmentation <https://arxiv.org/abs/2107.06278>`_
-"""
-
 import keras
 from keras import layers, ops
 
@@ -21,7 +14,11 @@ from .maskformer_swin_layers import MaskFormerSwinBackbone
 
 
 def maskformer_fpn_stem(
-    features, fpn_feature_size, block_prefix="pixel_decoder_fpn_stem"
+    features,
+    fpn_feature_size,
+    data_format,
+    channels_axis,
+    block_prefix="pixel_decoder_fpn_stem",
 ):
     """Initial FPN stem: 3×3 conv (no bias) + GroupNorm + ReLU on the coarsest backbone feature."""
     x = layers.Conv2D(
@@ -29,17 +26,23 @@ def maskformer_fpn_stem(
         3,
         padding="same",
         use_bias=False,
+        data_format=data_format,
         name=f"{block_prefix}_conv",
     )(features)
-    x = layers.GroupNormalization(groups=32, epsilon=1e-5, name=f"{block_prefix}_norm")(
-        x
-    )
+    x = layers.GroupNormalization(
+        groups=32, axis=channels_axis, epsilon=1e-5, name=f"{block_prefix}_norm"
+    )(x)
     x = layers.Activation("relu", name=f"{block_prefix}_relu")(x)
     return x
 
 
 def maskformer_fpn_layer(
-    x, skip, fpn_feature_size, block_prefix="pixel_decoder_fpn_layer_0"
+    x,
+    skip,
+    fpn_feature_size,
+    data_format,
+    channels_axis,
+    block_prefix="pixel_decoder_fpn_layer_0",
 ):
     """One FPN stage: lateral 1×1 proj of ``skip`` + 2× upsample of ``x`` + 3×3 output conv (no bias)."""
     lateral = layers.Conv2D(
@@ -47,14 +50,18 @@ def maskformer_fpn_layer(
         1,
         padding="valid",
         use_bias=False,
+        data_format=data_format,
         name=f"{block_prefix}_proj_conv",
     )(skip)
     lateral = layers.GroupNormalization(
-        groups=32, epsilon=1e-5, name=f"{block_prefix}_proj_norm"
+        groups=32, axis=channels_axis, epsilon=1e-5, name=f"{block_prefix}_proj_norm"
     )(lateral)
 
     x = layers.UpSampling2D(
-        size=(2, 2), interpolation="nearest", name=f"{block_prefix}_upsample"
+        size=(2, 2),
+        interpolation="nearest",
+        data_format=data_format,
+        name=f"{block_prefix}_upsample",
     )(x)
     x = layers.Add(name=f"{block_prefix}_add")([x, lateral])
 
@@ -63,16 +70,19 @@ def maskformer_fpn_layer(
         3,
         padding="same",
         use_bias=False,
+        data_format=data_format,
         name=f"{block_prefix}_block_conv",
     )(x)
     x = layers.GroupNormalization(
-        groups=32, epsilon=1e-5, name=f"{block_prefix}_block_norm"
+        groups=32, axis=channels_axis, epsilon=1e-5, name=f"{block_prefix}_block_norm"
     )(x)
     x = layers.Activation("relu", name=f"{block_prefix}_block_relu")(x)
     return x
 
 
-def maskformer_pixel_decoder(features, fpn_feature_size, mask_feature_size):
+def maskformer_pixel_decoder(
+    features, fpn_feature_size, mask_feature_size, data_format, channels_axis
+):
     """FPN-style pixel decoder.
 
     ``features`` is the ordered list of 4 backbone feature maps from
@@ -82,12 +92,14 @@ def maskformer_pixel_decoder(features, fpn_feature_size, mask_feature_size):
     Returns:
         mask_features: ``(B, H/4, W/4, mask_feature_size)``.
     """
-    x = maskformer_fpn_stem(features[-1], fpn_feature_size)
+    x = maskformer_fpn_stem(features[-1], fpn_feature_size, data_format, channels_axis)
     for i, skip in enumerate(reversed(features[:-1])):
         x = maskformer_fpn_layer(
             x,
             skip,
             fpn_feature_size,
+            data_format,
+            channels_axis,
             block_prefix=f"pixel_decoder_fpn_layer_{i}",
         )
     mask_features = layers.Conv2D(
@@ -95,6 +107,7 @@ def maskformer_pixel_decoder(features, fpn_feature_size, mask_feature_size):
         3,
         padding="same",
         use_bias=True,
+        data_format=data_format,
         name="pixel_decoder_mask_projection",
     )(x)
     return mask_features
@@ -170,6 +183,7 @@ def maskformer_transformer_decoder(
     num_heads,
     ffn_dim,
     num_queries,
+    data_format,
     dropout_rate=0.0,
 ):
     """MaskFormer transformer decoder.
@@ -183,16 +197,26 @@ def maskformer_transformer_decoder(
     ``(B, num_queries, hidden_dim)``.
     """
     memory_pos_2d = MaskFormerSinePositionEmbedding(
-        hidden_dim=hidden_dim, name="transformer_decoder_position_embedding"
+        hidden_dim=hidden_dim,
+        data_format=data_format,
+        name="transformer_decoder_position_embedding",
     )(memory_feature)
 
     b_ref = memory_feature
+    # The decoder attends over flattened (b, h*w, c) memory; both the memory
+    # feature and its positional embedding follow the data format, so convert a
+    # channels_first map to channels-last before flattening.
+    mem = memory_feature
+    pos = memory_pos_2d
+    if data_format == "channels_first":
+        mem = ops.transpose(mem, (0, 2, 3, 1))
+        pos = ops.transpose(pos, (0, 2, 3, 1))
     memory_flat = layers.Reshape(
         (-1, hidden_dim), name="transformer_decoder_flatten_mem"
-    )(memory_feature)
+    )(mem)
     memory_pos_flat = layers.Reshape(
         (-1, hidden_dim), name="transformer_decoder_flatten_pos"
-    )(memory_pos_2d)
+    )(pos)
 
     query_pos = MaskFormerExpandQueryEmbedding(
         num_queries=num_queries,
@@ -250,6 +274,8 @@ def maskformer_functional(
     decoder_ffn_dim,
     num_queries,
     num_labels,
+    data_format,
+    channels_axis,
 ):
     """Build the full MaskFormer graph (backbone + pixel decoder + transformer + heads)."""
     backbone = MaskFormerSwinBackbone(
@@ -257,6 +283,7 @@ def maskformer_functional(
         depths=backbone_depths,
         num_heads=backbone_num_heads,
         window_size=backbone_window_size,
+        data_format=data_format,
         name="backbone",
     )
     backbone_features = backbone(pixel_values)
@@ -265,6 +292,8 @@ def maskformer_functional(
         backbone_features,
         fpn_feature_size=fpn_feature_size,
         mask_feature_size=mask_feature_size,
+        data_format=data_format,
+        channels_axis=channels_axis,
     )
 
     memory_feature = layers.Conv2D(
@@ -272,6 +301,7 @@ def maskformer_functional(
         1,
         padding="valid",
         use_bias=True,
+        data_format=data_format,
         name="transformer_decoder_input_projection",
     )(backbone_features[-1])
 
@@ -282,13 +312,17 @@ def maskformer_functional(
         num_heads=decoder_heads,
         ffn_dim=decoder_ffn_dim,
         num_queries=num_queries,
+        data_format=data_format,
     )
 
     class_logits = layers.Dense(num_labels + 1, name="class_predictor")(decoder_hidden)
     mask_embeddings = maskformer_mask_embedder(
         decoder_hidden, decoder_d_model, mask_feature_size
     )
-    mask_logits = ops.einsum("bqc,bhwc->bqhw", mask_embeddings, mask_features)
+    # mask_features follows the data format — (b, h, w, c) for channels_last,
+    # (b, c, h, w) for channels_first; mask logits are (b, q, h, w).
+    mask_eq = "bqc,bhwc->bqhw" if data_format == "channels_last" else "bqc,bchw->bqhw"
+    mask_logits = ops.einsum(mask_eq, mask_embeddings, mask_features)
 
     return {
         "class_queries_logits": class_logits,
@@ -331,6 +365,7 @@ class MaskFormerModel(BaseModel):
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
@@ -349,6 +384,8 @@ class MaskFormerModel(BaseModel):
             decoder_ffn_dim=decoder_ffn_dim,
             num_queries=num_queries,
             num_labels=num_labels,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
         super().__init__(inputs=pixel_values, outputs=outputs, name=name, **kwargs)
 
@@ -429,6 +466,7 @@ class MaskFormerUniversalSegment(BaseModel):
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
@@ -447,6 +485,8 @@ class MaskFormerUniversalSegment(BaseModel):
             decoder_ffn_dim=decoder_ffn_dim,
             num_queries=num_queries,
             num_labels=num_labels,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
         super().__init__(inputs=pixel_values, outputs=outputs, name=name, **kwargs)
 
@@ -492,6 +532,17 @@ class MaskFormerUniversalSegment(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
+        """Map a HuggingFace MaskFormer config to constructor kwargs.
+
+        Reads the Swin backbone and DETR-style decoder sub-configs and returns
+        the keyword arguments for building the equivalent Keras model.
+
+        Args:
+            hf_config: HuggingFace ``MaskFormerConfig`` as a dict.
+
+        Returns:
+            Dict of constructor keyword arguments for this model class.
+        """
         backbone = hf_config.get("backbone_config", {})
         decoder = hf_config.get("decoder_config", {})
         depths = backbone.get("depths", [2, 2, 6, 2])
@@ -517,6 +568,12 @@ class MaskFormerUniversalSegment(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        """Copy weights from a HuggingFace MaskFormer checkpoint into the model.
+
+        Args:
+            keras_model: The freshly-built Keras model to populate.
+            hf_state_dict: The HuggingFace model ``state_dict`` (numpy arrays).
+        """
         from .convert_maskformer_hf_to_keras import transfer_maskformer_weights
 
         transfer_maskformer_weights(keras_model, hf_state_dict)

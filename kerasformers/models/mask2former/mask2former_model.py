@@ -1,10 +1,3 @@
-"""Mask2Former model: Swin backbone + MSDeformAttn pixel decoder + masked-attention transformer decoder.
-
-Reference:
-    - `Masked-attention Mask Transformer for Universal Image Segmentation
-      <https://arxiv.org/abs/2112.01527>`_
-"""
-
 import keras
 from keras import layers, ops
 
@@ -24,15 +17,24 @@ from .mask2former_swin_layers import Mask2FormerSwinBackbone
 
 
 def mask2former_input_projection(
-    feature, hidden_dim, block_prefix="pixel_decoder_input_projections_0"
+    feature,
+    hidden_dim,
+    data_format,
+    channels_axis,
+    block_prefix="pixel_decoder_input_projections_0",
 ):
     """1×1 conv + GroupNorm to project a backbone feature to ``hidden_dim``."""
     x = layers.Conv2D(
-        hidden_dim, 1, padding="valid", use_bias=True, name=f"{block_prefix}_conv"
+        hidden_dim,
+        1,
+        padding="valid",
+        use_bias=True,
+        data_format=data_format,
+        name=f"{block_prefix}_conv",
     )(feature)
-    x = layers.GroupNormalization(groups=32, epsilon=1e-5, name=f"{block_prefix}_norm")(
-        x
-    )
+    x = layers.GroupNormalization(
+        groups=32, axis=channels_axis, epsilon=1e-5, name=f"{block_prefix}_norm"
+    )(x)
     return x
 
 
@@ -84,6 +86,8 @@ def mask2former_pixel_decoder(
     encoder_ffn_dim,
     n_heads,
     n_points,
+    data_format,
+    channels_axis,
 ):
     """MSDeformAttn pixel decoder.
 
@@ -98,8 +102,6 @@ def mask2former_pixel_decoder(
             the transformer decoder as cross-attention memory (one per scale).
         spatial_shapes_msda: list of (h, w) per level (coarsest first).
     """
-    # backbone_features: [stage1 (stride 4), stage2 (stride 8), stage3 (stride 16), stage4 (stride 32)]
-    # Mask2Former feeds stages 4, 3, 2 (coarsest first) into MSDeformAttn encoder.
     msda_features = []
     spatial_shapes = []  # (h, w) per level, coarsest first
     for proj_idx, stage_idx in enumerate([3, 2, 1]):
@@ -107,39 +109,56 @@ def mask2former_pixel_decoder(
         proj = mask2former_input_projection(
             feat,
             hidden_dim,
+            data_format,
+            channels_axis,
             block_prefix=f"pixel_decoder_input_projections_{proj_idx}",
         )
         msda_features.append(proj)
-        spatial_shapes.append((proj.shape[1], proj.shape[2]))
+        spatial_shapes.append(
+            (proj.shape[2], proj.shape[3])
+            if data_format == "channels_first"
+            else (proj.shape[1], proj.shape[2])
+        )
 
     n_levels = len(msda_features)
 
-    # Generate 2D sine pos embeddings for each scale, then add level_embed and flatten.
     flat_features = []
     flat_pos = []
     for i, feat in enumerate(msda_features):
         pos = Mask2FormerSinePositionEmbedding(
             hidden_dim=hidden_dim,
+            data_format=data_format,
             name=f"pixel_decoder_position_embedding_{i}",
         )(feat)
-        n = feat.shape[1] * feat.shape[2]
+        h_l, w_l = (
+            (feat.shape[2], feat.shape[3])
+            if data_format == "channels_first"
+            else (feat.shape[1], feat.shape[2])
+        )
+        n = h_l * w_l
         flat_features.append(
-            layers.Reshape((n, hidden_dim), name=f"pixel_decoder_flatten_src_{i}")(feat)
+            layers.Reshape((n, hidden_dim), name=f"pixel_decoder_flatten_src_{i}")(
+                ops.transpose(feat, (0, 2, 3, 1))
+                if data_format == "channels_first"
+                else feat
+            )
         )
         flat_pos.append(
-            layers.Reshape((n, hidden_dim), name=f"pixel_decoder_flatten_pos_{i}")(pos)
+            layers.Reshape((n, hidden_dim), name=f"pixel_decoder_flatten_pos_{i}")(
+                ops.transpose(pos, (0, 2, 3, 1))
+                if data_format == "channels_first"
+                else pos
+            )
         )
 
-    # level_embed: (n_levels, hidden_dim), added per token.
     level_embed = Mask2FormerLearnedEmbedding(
         num_embeddings=n_levels,
         hidden_dim=hidden_dim,
         name="pixel_decoder_level_embed",
-    )(backbone_features[0])  # batch_ref
-    # Add level embed to flat_pos (broadcast across the per-level token axis).
+    )(backbone_features[0])
     flat_pos_with_level = []
     for i, fp in enumerate(flat_pos):
-        le = level_embed[:, i : i + 1, :]  # (B, 1, hidden_dim)
+        le = level_embed[:, i : i + 1, :]
         flat_pos_with_level.append(fp + le)
 
     src = layers.Concatenate(axis=1, name="pixel_decoder_concat_src")(flat_features)
@@ -147,7 +166,6 @@ def mask2former_pixel_decoder(
         flat_pos_with_level
     )
 
-    # Reference points (B, N_total, n_levels, 2)
     reference_points = Mask2FormerReferencePoints(
         name="pixel_decoder_reference_points"
     )(backbone_features[0], spatial_shapes=spatial_shapes)
@@ -167,7 +185,6 @@ def mask2former_pixel_decoder(
             block_prefix=f"pixel_decoder_encoder_layers_{i}",
         )
 
-    # Split back into multi-scale features
     multi_scale_features = []
     start = 0
     for i, (h, w) in enumerate(spatial_shapes):
@@ -177,23 +194,28 @@ def mask2former_pixel_decoder(
         feat_2d = layers.Reshape(
             (h, w, hidden_dim), name=f"pixel_decoder_unflatten_{i}"
         )(feat_flat)
-        multi_scale_features.append(feat_2d)
+        multi_scale_features.append(
+            ops.transpose(feat_2d, (0, 3, 1, 2))
+            if data_format == "channels_first"
+            else feat_2d
+        )
 
-    # FPN-style fusion: upsample finest MSDA output (stride 8) and add adapter_1(stage 1).
-    finest_msda = multi_scale_features[-1]  # stride 8 (h*w largest among the 3)
+    finest_msda = multi_scale_features[-1]
     adapter = layers.Conv2D(
         hidden_dim,
         1,
         padding="valid",
         use_bias=False,
+        data_format=data_format,
         name="pixel_decoder_adapter_1_conv",
     )(backbone_features[0])
     adapter = layers.GroupNormalization(
-        groups=32, epsilon=1e-5, name="pixel_decoder_adapter_1_norm"
+        groups=32, axis=channels_axis, epsilon=1e-5, name="pixel_decoder_adapter_1_norm"
     )(adapter)
     upsampled = layers.UpSampling2D(
         size=(2, 2),
         interpolation="bilinear",
+        data_format=data_format,
         name="pixel_decoder_fpn_upsample",
     )(finest_msda)
     fused = layers.Add(name="pixel_decoder_fpn_add")([upsampled, adapter])
@@ -202,10 +224,11 @@ def mask2former_pixel_decoder(
         3,
         padding="same",
         use_bias=False,
+        data_format=data_format,
         name="pixel_decoder_layer_1_conv",
     )(fused)
     fused = layers.GroupNormalization(
-        groups=32, epsilon=1e-5, name="pixel_decoder_layer_1_norm"
+        groups=32, axis=channels_axis, epsilon=1e-5, name="pixel_decoder_layer_1_norm"
     )(fused)
     fused = layers.Activation("relu", name="pixel_decoder_layer_1_relu")(fused)
 
@@ -214,6 +237,7 @@ def mask2former_pixel_decoder(
         1,
         padding="valid",
         use_bias=True,
+        data_format=data_format,
         name="pixel_decoder_mask_projection",
     )(fused)
 
@@ -237,7 +261,6 @@ def mask2former_decoder_layer(
     cross-attention runs first (with the predicted-mask additive mask),
     then self-attention over the queries, then the FFN.
     """
-    # 1. Masked cross-attention
     residual = hidden_states
     q = layers.Add(name=f"{block_prefix}_ca_q_add")([hidden_states, query_pos])
     k = layers.Add(name=f"{block_prefix}_ca_k_add")([memory, memory_pos])
@@ -253,7 +276,6 @@ def mask2former_decoder_layer(
         epsilon=1e-5, name=f"{block_prefix}_cross_attn_layer_norm"
     )(hidden_states)
 
-    # 2. Self-attention
     residual = hidden_states
     sq = layers.Add(name=f"{block_prefix}_sa_q_add")([hidden_states, query_pos])
     sk = layers.Add(name=f"{block_prefix}_sa_k_add")([hidden_states, query_pos])
@@ -265,7 +287,6 @@ def mask2former_decoder_layer(
         epsilon=1e-5, name=f"{block_prefix}_self_attn_layer_norm"
     )(hidden_states)
 
-    # 3. FFN
     residual = hidden_states
     y = layers.Dense(ffn_dim, name=f"{block_prefix}_fc1")(hidden_states)
     y = layers.Activation("relu", name=f"{block_prefix}_fc1_relu")(y)
@@ -288,7 +309,6 @@ def mask2former_predict_class_mask(
         if False
         else None
     )
-    # Use shared layers — we cannot recreate. Caller handles via Lambda/shared Dense.
     return class_logits
 
 
@@ -308,6 +328,8 @@ def mask2former_functional(
     num_heads,
     num_queries,
     num_labels,
+    data_format,
+    channels_axis,
     n_msda_points=4,
 ):
     """Build the full Mask2Former graph (functional)."""
@@ -316,10 +338,10 @@ def mask2former_functional(
         depths=backbone_depths,
         num_heads=backbone_num_heads,
         window_size=backbone_window_size,
+        data_format=data_format,
         name="backbone",
     )
     backbone_features = backbone(pixel_values)
-    # [stage1 (stride 4), stage2 (stride 8), stage3 (stride 16), stage4 (stride 32)]
 
     mask_features, multi_scale_features, msda_spatial_shapes = (
         mask2former_pixel_decoder(
@@ -330,12 +352,11 @@ def mask2former_functional(
             encoder_ffn_dim=encoder_ffn_dim,
             n_heads=num_heads,
             n_points=n_msda_points,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
     )
-    # multi_scale_features: 3 feature maps coarsest first (strides 32, 16, 8)
-    # mask_features: (B, H/4, W/4, mask_feature_size)
 
-    # Initial queries: learned content + positional embeddings.
     queries_features_layer = Mask2FormerLearnedEmbedding(
         num_embeddings=num_queries,
         hidden_dim=hidden_dim,
@@ -349,21 +370,24 @@ def mask2former_functional(
     hidden_states = queries_features_layer(backbone_features[0])
     query_pos = queries_embedder_layer(backbone_features[0])
 
-    # Per-level sine pos embeddings (no level_embed — that goes onto the memory).
     level_pos_embeds = []
     for i, feat in enumerate(multi_scale_features):
         pos = Mask2FormerSinePositionEmbedding(
             hidden_dim=hidden_dim,
+            data_format=data_format,
             name=f"transformer_decoder_level_pos_{i}",
         )(feat)
-        h_l, w_l = feat.shape[1], feat.shape[2]
+        h_l, w_l = (
+            (feat.shape[2], feat.shape[3])
+            if data_format == "channels_first"
+            else (feat.shape[1], feat.shape[2])
+        )
         flat = layers.Reshape(
             (h_l * w_l, hidden_dim),
             name=f"transformer_decoder_flatten_level_pos_{i}",
-        )(pos)
+        )(ops.transpose(pos, (0, 2, 3, 1)) if data_format == "channels_first" else pos)
         level_pos_embeds.append(flat)
 
-    # Flattened multi-scale features as memory, with transformer-side level_embed added.
     transformer_level_embed = Mask2FormerLearnedEmbedding(
         num_embeddings=len(multi_scale_features),
         hidden_dim=hidden_dim,
@@ -371,14 +395,21 @@ def mask2former_functional(
     )(backbone_features[0])
     level_memories = []
     for i, feat in enumerate(multi_scale_features):
-        h_l, w_l = feat.shape[1], feat.shape[2]
+        h_l, w_l = (
+            (feat.shape[2], feat.shape[3])
+            if data_format == "channels_first"
+            else (feat.shape[1], feat.shape[2])
+        )
         flat = layers.Reshape(
             (h_l * w_l, hidden_dim),
             name=f"transformer_decoder_flatten_memory_{i}",
-        )(feat)
+        )(
+            ops.transpose(feat, (0, 2, 3, 1))
+            if data_format == "channels_first"
+            else feat
+        )
         level_memories.append(flat + transformer_level_embed[:, i : i + 1, :])
 
-    # Shared heads (including the pre-prediction layernorm, applied before each predict_masks call).
     decoder_layernorm = layers.LayerNormalization(
         epsilon=1e-5, name="transformer_decoder_layernorm"
     )
@@ -400,6 +431,7 @@ def mask2former_functional(
     )
 
     def compute_mask_embeddings(h):
+        """Run the shared 3-layer query MLP, returning per-query mask embeddings."""
         y = mask_embedder_0(h)
         y = mask_embedder_0_act(y)
         y = mask_embedder_1(y)
@@ -407,17 +439,47 @@ def mask2former_functional(
         return mask_embedder_2(y)
 
     def predict_masks(h):
+        """Produce class logits and ``(B, Q, H, W)`` mask logits from decoder states.
+
+        Applies the shared pre-prediction LayerNorm, the class predictor, and
+        dots the per-query mask embeddings with the pixel-decoder mask features.
+        """
         h_norm = decoder_layernorm(h)
         cls = class_predictor(h_norm)
         mask_emb = compute_mask_embeddings(h_norm)
-        mask_logits = ops.einsum("bqc,bhwc->bqhw", mask_emb, mask_features)
+        mask_eq = (
+            "bqc,bhwc->bqhw" if data_format == "channels_last" else "bqc,bchw->bqhw"
+        )
+        mask_logits = ops.einsum(mask_eq, mask_emb, mask_features)
         return cls, mask_logits
 
     def downsample_mask_for_level(mask_logits, level_h, level_w):
-        # mask_logits: (B, Q, H, W) → (B, num_heads, Q, level_h*level_w)
+        """Resize predicted masks into a per-level masked-attention bias.
+
+        Bilinearly resizes the ``(B, Q, H, W)`` mask logits to the level's
+        ``(level_h, level_w)`` grid and converts them to an additive
+        cross-attention mask: ``0`` where attention is allowed and ``-1e9``
+        where ``sigmoid(mask) < 0.5``, broadcast across the attention heads.
+
+        Args:
+            mask_logits: Predicted mask logits of shape ``(B, Q, H, W)``.
+            level_h: Target height for this decoder level.
+            level_w: Target width for this decoder level.
+
+        Returns:
+            Additive attention mask of shape
+            ``(B, num_heads, Q, level_h * level_w)``.
+        """
+        # mask_logits has a fixed (B, Q, H, W) query×spatial layout regardless of
+        # the image data format. It is transposed to (B, H, W, Q) so the queries
+        # act as channels for the spatial resize — hence the explicit
+        # channels_last here describes this tensor, not the global image format.
         mask_hwq = ops.transpose(mask_logits, (0, 2, 3, 1))  # (B, H, W, Q)
         mask_resized = ops.image.resize(
-            mask_hwq, (level_h, level_w), interpolation="bilinear"
+            mask_hwq,
+            (level_h, level_w),
+            interpolation="bilinear",
+            data_format="channels_last",
         )
         mask_resized = ops.transpose(mask_resized, (0, 3, 1, 2))  # (B, Q, h, w)
         mask_flat = ops.reshape(mask_resized, (-1, num_queries, level_h * level_w))
@@ -444,7 +506,11 @@ def mask2former_functional(
     for i in range(decoder_layers):
         level_idx = i % n_levels
         feat = multi_scale_features[level_idx]
-        h_l, w_l = feat.shape[1], feat.shape[2]
+        h_l, w_l = (
+            (feat.shape[2], feat.shape[3])
+            if data_format == "channels_first"
+            else (feat.shape[1], feat.shape[2])
+        )
 
         attn_mask = downsample_mask_for_level(intermediate_masks[-1], h_l, w_l)
 
@@ -500,6 +566,7 @@ class Mask2FormerModel(BaseModel):
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
         input_image_shape = standardize_input_shape(input_image_shape, data_format)
 
         pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
@@ -519,6 +586,8 @@ class Mask2FormerModel(BaseModel):
             num_heads=num_heads,
             num_queries=num_queries,
             num_labels=num_labels,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
         super().__init__(inputs=pixel_values, outputs=outputs, name=name, **kwargs)
 
@@ -582,6 +651,18 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
+        """Map a HuggingFace Mask2Former config to constructor kwargs.
+
+        Reads the Swin backbone sub-config and the top-level transformer /
+        MSDeformAttn settings and returns the keyword arguments for building
+        the equivalent Keras model.
+
+        Args:
+            hf_config: HuggingFace ``Mask2FormerConfig`` as a dict.
+
+        Returns:
+            Dict of constructor keyword arguments for this model class.
+        """
         backbone = hf_config.get("backbone_config", {})
         depths = backbone.get("depths", [2, 2, 6, 2])
         num_heads = backbone.get("num_heads", [3, 6, 12, 24])
@@ -607,6 +688,12 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
+        """Copy weights from a HuggingFace Mask2Former checkpoint into the model.
+
+        Args:
+            keras_model: The freshly-built Keras model to populate.
+            hf_state_dict: The HuggingFace model ``state_dict`` (numpy arrays).
+        """
         from .convert_mask2former_hf_to_keras import transfer_mask2former_weights
 
         transfer_mask2former_weights(keras_model, hf_state_dict)

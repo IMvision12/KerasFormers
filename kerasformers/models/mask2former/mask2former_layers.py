@@ -31,6 +31,7 @@ class Mask2FormerSinePositionEmbedding(layers.Layer):
         temperature=10000,
         normalize=True,
         eps=1e-6,
+        data_format=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -39,12 +40,18 @@ class Mask2FormerSinePositionEmbedding(layers.Layer):
         self.normalize = normalize
         self.eps = eps
         self.num_pos_feats = hidden_dim // 2
+        self.data_format = data_format or keras.config.image_data_format()
 
     def call(self, inputs):
         shape = ops.shape(inputs)
         batch_size = shape[0]
-        h = shape[1]
-        w = shape[2]
+        data_format = self.data_format
+        if data_format == "channels_first":
+            h = shape[2]
+            w = shape[3]
+        else:
+            h = shape[1]
+            w = shape[2]
 
         y_embed = ops.repeat(
             ops.expand_dims(ops.arange(1, h + 1, dtype="float32"), axis=1),
@@ -83,6 +90,8 @@ class Mask2FormerSinePositionEmbedding(layers.Layer):
         pos = ops.concatenate([pos_y, pos_x], axis=-1)
         pos = ops.expand_dims(pos, axis=0)
         pos = ops.broadcast_to(pos, [batch_size, h, w, self.hidden_dim])
+        if data_format == "channels_first":
+            pos = ops.transpose(pos, [0, 3, 1, 2])
         return pos
 
     def get_config(self):
@@ -93,6 +102,7 @@ class Mask2FormerSinePositionEmbedding(layers.Layer):
                 "temperature": self.temperature,
                 "normalize": self.normalize,
                 "eps": self.eps,
+                "data_format": self.data_format,
             }
         )
         return c
@@ -163,6 +173,7 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
         idx11 = y1i * w + x1i
 
         def gather_corner(idx):
+            """Gather value features at one bilinear corner per (query, point, head)."""
             # idx: (B, N_q, n_heads, n_points) — transpose so element order
             # in the flat reshape (B, N_q*n_points, n_heads) is (q, p, h).
             idx_t = ops.transpose(idx, (0, 1, 3, 2))  # (B, N_q, n_points, n_heads)
@@ -344,6 +355,16 @@ class Mask2FormerCrossAttention(layers.Layer):
         super().build(_input_shape)
 
     def project(self, x, slc):
+        """Apply one slice of the fused in-projection weight/bias to ``x``.
+
+        Args:
+            x: Input tensor of shape ``(B, N, hidden_dim)``.
+            slc: ``(start, end)`` row range selecting the query, key, or value
+                block of the packed ``in_proj_weight`` / ``in_proj_bias``.
+
+        Returns:
+            Projected tensor of shape ``(B, N, end - start)``.
+        """
         # x: (B, N, hidden_dim)
         w = self.in_proj_weight[slc[0] : slc[1], :]
         bias = self.in_proj_bias[slc[0] : slc[1]]
