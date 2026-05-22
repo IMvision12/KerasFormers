@@ -20,7 +20,21 @@ def maskformer_fpn_stem(
     channels_axis,
     block_prefix="pixel_decoder_fpn_stem",
 ):
-    """Initial FPN stem: 3×3 conv (no bias) + GroupNorm + ReLU on the coarsest backbone feature."""
+    """Initial FPN stem applied to the coarsest backbone feature.
+
+    A 3x3 convolution (no bias) → GroupNorm → ReLU that projects the deepest
+    backbone feature map to ``fpn_feature_size`` channels.
+
+    Args:
+        features: Coarsest backbone feature map, in the active data format.
+        fpn_feature_size: Output channel count of the FPN.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel-axis index for GroupNorm (``-1`` or ``1``).
+        block_prefix: Layer-name prefix for the conv / norm / activation.
+
+    Returns:
+        Feature map with ``fpn_feature_size`` channels.
+    """
     x = layers.Conv2D(
         fpn_feature_size,
         3,
@@ -44,7 +58,23 @@ def maskformer_fpn_layer(
     channels_axis,
     block_prefix="pixel_decoder_fpn_layer_0",
 ):
-    """One FPN stage: lateral 1×1 proj of ``skip`` + 2× upsample of ``x`` + 3×3 output conv (no bias)."""
+    """One FPN top-down stage: lateral projection + 2x upsample + fuse.
+
+    Projects the skip connection with a 1x1 conv (+ GroupNorm), upsamples the
+    running feature map 2x, adds the two, then refines with a 3x3 conv
+    (+ GroupNorm + ReLU).
+
+    Args:
+        x: Running (coarser) FPN feature map to upsample.
+        skip: Lateral backbone feature map at this level.
+        fpn_feature_size: FPN channel count.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel-axis index for GroupNorm (``-1`` or ``1``).
+        block_prefix: Layer-name prefix for this stage's layers.
+
+    Returns:
+        Fused feature map at the upsampled resolution.
+    """
     lateral = layers.Conv2D(
         fpn_feature_size,
         1,
@@ -85,12 +115,21 @@ def maskformer_pixel_decoder(
 ):
     """FPN-style pixel decoder.
 
-    ``features`` is the ordered list of 4 backbone feature maps from
-    finest to coarsest. The FPN starts at the coarsest and progressively
-    fuses laterals while upsampling 2× per step.
+    Builds an FPN over the four backbone feature maps (finest to coarsest):
+    starts at the coarsest stem and progressively fuses lateral connections
+    while upsampling 2x per step, then a final 3x3 projection to the mask
+    feature dimension.
+
+    Args:
+        features: Ordered list of 4 backbone feature maps, finest to coarsest.
+        fpn_feature_size: Channel count used throughout the FPN.
+        mask_feature_size: Channel count of the final mask-feature projection.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel-axis index for GroupNorm (``-1`` or ``1``).
 
     Returns:
-        mask_features: ``(B, H/4, W/4, mask_feature_size)``.
+        mask_features: ``(B, H/4, W/4, mask_feature_size)`` (channels-last) or
+        ``(B, mask_feature_size, H/4, W/4)`` (channels-first).
     """
     x = maskformer_fpn_stem(features[-1], fpn_feature_size, data_format, channels_axis)
     for i, skip in enumerate(reversed(features[:-1])):
@@ -135,6 +174,21 @@ def maskformer_decoder_layer(
     Mirrors HF ``DetrDecoderLayer`` sublayer naming
     (``self_attn``, ``self_attn_layer_norm``, ``encoder_attn``,
     ``encoder_attn_layer_norm``, ``fc1``, ``fc2``, ``final_layer_norm``).
+
+    Args:
+        hidden_states: Current query states ``(B, num_queries, hidden_dim)``.
+        memory: Flattened image memory ``(B, H*W, hidden_dim)`` for cross-attn.
+        memory_pos: Positional embedding for ``memory`` (same shape).
+        query_pos: Learned object-query positional embedding
+            ``(B, num_queries, hidden_dim)``.
+        hidden_dim: Model dimension.
+        num_heads: Number of attention heads.
+        ffn_dim: Feed-forward hidden dimension.
+        dropout_rate: Attention dropout rate.
+        block_prefix: Layer-name prefix for this decoder layer.
+
+    Returns:
+        Updated query states ``(B, num_queries, hidden_dim)``.
     """
     residual = hidden_states
     q = k = layers.Add(name=f"{block_prefix}_sa_qk_add")([hidden_states, query_pos])
@@ -193,8 +247,19 @@ def maskformer_transformer_decoder(
     embedding for it, runs ``num_layers`` DETR-style decoder layers with
     learned object queries, and applies a final LayerNorm.
 
-    Returns the final decoder hidden state of shape
-    ``(B, num_queries, hidden_dim)``.
+    Args:
+        memory_feature: Projected coarsest backbone feature (a data-format 4D
+            map) used as cross-attention memory.
+        hidden_dim: Model dimension.
+        num_layers: Number of decoder layers.
+        num_heads: Number of attention heads.
+        ffn_dim: Feed-forward hidden dimension.
+        num_queries: Number of object queries.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        dropout_rate: Attention dropout rate.
+
+    Returns:
+        Final decoder hidden state ``(B, num_queries, hidden_dim)``.
     """
     memory_pos_2d = MaskFormerSinePositionEmbedding(
         hidden_dim=hidden_dim,
@@ -244,9 +309,18 @@ def maskformer_transformer_decoder(
 def maskformer_mask_embedder(hidden_states, hidden_dim, mask_feature_size):
     """3-layer per-query MLP producing mask embeddings.
 
-    Sequence ``Dense → ReLU → Dense → ReLU → Dense`` with the last
-    ``Dense`` projecting to ``mask_feature_size`` so the per-query
-    mask embedding can be dotted with the pixel-decoder mask features.
+    Sequence ``Dense → ReLU → Dense → ReLU → Dense`` with the last ``Dense``
+    projecting to ``mask_feature_size`` so each per-query embedding can be
+    dotted with the pixel-decoder mask features.
+
+    Args:
+        hidden_states: Decoder query states ``(B, num_queries, hidden_dim)``.
+        hidden_dim: Hidden width of the first two Dense layers.
+        mask_feature_size: Output embedding dimension (matches the mask
+            features).
+
+    Returns:
+        Per-query mask embeddings ``(B, num_queries, mask_feature_size)``.
     """
     x = layers.Dense(hidden_dim, name="mask_embedder_0")(hidden_states)
     x = layers.Activation("relu", name="mask_embedder_0_relu")(x)
@@ -274,7 +348,33 @@ def maskformer_functional(
     data_format,
     channels_axis,
 ):
-    """Build the full MaskFormer graph (backbone + pixel decoder + transformer + heads)."""
+    """Build the full MaskFormer functional graph.
+
+    Wires the Swin backbone → FPN pixel decoder → DETR-style transformer
+    decoder → class and mask-embedding heads, producing the per-query class
+    logits and mask logits.
+
+    Args:
+        pixel_values: Input image tensor in the active data format.
+        backbone_embed_dim: Stage-0 Swin embedding dimension.
+        backbone_depths: Swin blocks per stage (length-4).
+        backbone_num_heads: Attention heads per stage (length-4).
+        backbone_window_size: Swin window edge length.
+        fpn_feature_size: FPN channel count.
+        mask_feature_size: Mask-feature / mask-embedding dimension.
+        decoder_d_model: Transformer-decoder model dimension.
+        decoder_layers: Number of transformer-decoder layers.
+        decoder_heads: Number of decoder attention heads.
+        decoder_ffn_dim: Decoder feed-forward dimension.
+        num_queries: Number of object queries.
+        num_labels: Number of semantic classes (excluding the no-object class).
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel-axis index for GroupNorm (``-1`` or ``1``).
+
+    Returns:
+        Dict with ``class_queries_logits`` ``(B, num_queries, num_labels + 1)``
+        and ``masks_queries_logits`` ``(B, num_queries, H/4, W/4)``.
+    """
     backbone = MaskFormerSwinBackbone(
         embed_dim=backbone_embed_dim,
         depths=backbone_depths,
@@ -332,6 +432,23 @@ class MaskFormerModel(BaseModel):
     Returns the decoder ``last_hidden_state`` along with the pixel decoder
     mask features and the per-stage backbone features so callers can add
     custom heads.
+
+    Args:
+        backbone_embed_dim: Stage-0 Swin embedding dimension.
+        backbone_depths: Swin blocks per stage (length-4 sequence).
+        backbone_num_heads: Attention heads per stage (length-4 sequence).
+        backbone_window_size: Swin window edge length.
+        fpn_feature_size: FPN channel count.
+        mask_feature_size: Mask-feature dimension produced by the pixel decoder.
+        decoder_d_model: Transformer-decoder model dimension.
+        decoder_layers: Number of transformer-decoder layers.
+        decoder_heads: Number of decoder attention heads.
+        decoder_ffn_dim: Decoder feed-forward dimension.
+        num_queries: Number of object queries.
+        num_labels: Number of semantic classes (excluding the no-object class).
+        input_image_shape: Input image size (int edge length or shape tuple).
+        name: Model name.
+        **kwargs: Additional keyword arguments forwarded to :class:`BaseModel`.
 
     Reference:
     - [Per-Pixel Classification is Not All You Need for Semantic
@@ -432,6 +549,23 @@ class MaskFormerUniversalSegment(BaseModel):
     Composes :class:`MaskFormerModel` and exposes the prediction output
     dict with ``class_queries_logits`` and ``masks_queries_logits`` keys
     matching HF's ``MaskFormerForInstanceSegmentation`` output.
+
+    Args:
+        backbone_embed_dim: Stage-0 Swin embedding dimension.
+        backbone_depths: Swin blocks per stage (length-4 sequence).
+        backbone_num_heads: Attention heads per stage (length-4 sequence).
+        backbone_window_size: Swin window edge length.
+        fpn_feature_size: FPN channel count.
+        mask_feature_size: Mask-feature dimension produced by the pixel decoder.
+        decoder_d_model: Transformer-decoder model dimension.
+        decoder_layers: Number of transformer-decoder layers.
+        decoder_heads: Number of decoder attention heads.
+        decoder_ffn_dim: Decoder feed-forward dimension.
+        num_queries: Number of object queries.
+        num_labels: Number of semantic classes (excluding the no-object class).
+        input_image_shape: Input image size (int edge length or shape tuple).
+        name: Model name.
+        **kwargs: Additional keyword arguments forwarded to :class:`BaseModel`.
 
     Reference:
     - [Per-Pixel Classification is Not All You Need for Semantic

@@ -88,19 +88,6 @@ class MaskFormerImageProcessor(BaseImageProcessor):
         target_sizes: Optional[List[Tuple[int, int]]] = None,
         label_names: Optional[List[str]] = None,
     ) -> List[np.ndarray]:
-        """Convert raw model outputs into per-image semantic segmentation maps.
-
-        Args:
-            outputs: Model output dict with ``class_queries_logits`` and
-                ``masks_queries_logits``.
-            target_sizes: Optional per-image ``(height, width)`` to resize each
-                segmentation map to; defaults to the model input size.
-            label_names: Optional class names (unused for the map, kept for API
-                parity with the HF processor).
-
-        Returns:
-            List of ``(H, W)`` integer label maps, one per image.
-        """
         return maskformer_post_process_semantic(
             outputs,
             target_sizes=target_sizes,
@@ -118,23 +105,6 @@ class MaskFormerImageProcessor(BaseImageProcessor):
         stuff_classes: Optional[List[int]] = None,
         label_names: Optional[List[str]] = None,
     ) -> Dict:
-        """Convert raw model outputs into a panoptic segmentation result.
-
-        Args:
-            outputs: Model output dict with ``class_queries_logits`` and
-                ``masks_queries_logits``.
-            target_size: ``(height, width)`` to resize the panoptic map to.
-            threshold: Minimum query confidence to keep a predicted segment.
-            mask_threshold: Probability cutoff for binarising each mask.
-            overlap_mask_area_threshold: Minimum kept-area fraction for a
-                segment after resolving overlaps.
-            stuff_classes: Class ids treated as amorphous "stuff" (merged into
-                a single segment per class).
-            label_names: Optional class names attached to each segment's info.
-
-        Returns:
-            Dict with the panoptic ``segmentation`` map and per-segment info.
-        """
         return maskformer_post_process_panoptic(
             outputs,
             target_size=target_size,
