@@ -24,7 +24,7 @@ pip install -U git+https://github.com/IMvision12/KerasFormers
 
 ## 📑 Documentation
 
-Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for [classification backbones](docs/classification_backbones.md) (CaiT, ViT, ResNet, ConvNeXt, EfficientNet, Swin, and the 30+ other backbones listed below - all share the same `XModel` / `XImageClassify` two-class structure), segmentation (SAM family, SegFormer, DeepLabV3, EoMT, [MaskFormer](docs/maskformer.md), [Mask2Former](docs/mask2former.md), [MobileViT](docs/mobilevit.md)), object detection (DETR variants, D-FINE, OWL-ViT, OWLv2), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), vision-language models (CLIP, SigLIP, SigLIP2, MetaCLIP 2), and speech recognition ([Whisper](docs/whisper.md)).
+Per-model guides — with architecture notes, usage examples, and available pretrained weights — live in the [`docs/`](docs/) folder, one page per model across every supported task (classification, object detection, segmentation, depth estimation, feature extraction, vision-language, and speech recognition). Classification backbones share a single [page](docs/classification_backbones.md) since they all follow the same `XModel` / `XImageClassify` two-class structure; each other model has its own. Browse [`docs/`](docs/) for the complete, always-up-to-date list.
 
 ## 📑 Models
 
@@ -136,6 +136,7 @@ Per-model guides with architecture notes, usage examples, and available pretrain
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | Whisper | [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) | `transformers` |
+    | Speech2Text | [fairseq S2T: Fast Speech-to-Text Modeling with fairseq](https://arxiv.org/abs/2010.05171) | `transformers` |
 
 <br>
 
