@@ -1,12 +1,3 @@
-"""Mask2Former layers: MSDeformAttn, masked attention, sine position embedding.
-
-References:
-    - `Masked-attention Mask Transformer for Universal Image Segmentation
-      <https://arxiv.org/abs/2112.01527>`_
-    - `Deformable DETR: Deformable Transformers for End-to-End Object
-      Detection <https://arxiv.org/abs/2010.04159>`_
-"""
-
 import math
 
 import keras
@@ -16,13 +7,37 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSinePositionEmbedding(layers.Layer):
-    """2D sinusoidal position embedding.
+    """2D sinusoidal position embedding (DETR-style).
 
-    Generates fixed sine/cosine position encodings for each spatial
-    location of an input feature map.
+    Generates a fixed, non-learnable sine/cosine positional encoding for every
+    spatial location of an input feature map. Half of the channels encode the
+    row (y) coordinate and half encode the column (x) coordinate.
 
-    Input shape: 4D ``(B, H, W, C)``.
-    Output shape: 4D ``(B, H, W, hidden_dim)``.
+    Args:
+        hidden_dim (int): Total embedding dimension, split evenly between the
+            row and column encodings. Defaults to 256.
+        temperature (int): Frequency-scaling factor for the sinusoids.
+            Defaults to 10000.
+        normalize (bool): If True, normalizes coordinates to ``[0, 2*pi]``
+            before encoding. Defaults to True.
+        eps (float): Small constant added to the normalization denominator.
+            Defaults to 1e-6.
+        data_format (str, optional): ``"channels_last"`` or
+            ``"channels_first"``. ``None`` resolves to
+            ``keras.config.image_data_format()``.
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Input shape:
+        4D tensor ``(B, H, W, C)`` (channels-last) or ``(B, C, H, W)``
+        (channels-first); only the spatial dimensions are read.
+
+    Output shape:
+        4D tensor of positional encodings — ``(B, H, W, hidden_dim)`` or
+        ``(B, hidden_dim, H, W)`` matching ``data_format``.
+
+    References:
+        - Mask2Former: https://arxiv.org/abs/2112.01527
+        - DETR: https://arxiv.org/abs/2005.12872
     """
 
     def __init__(
@@ -134,7 +149,6 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
         start += n_level
 
         loc = sampling_locations[:, :, :, level_idx, :, :]
-        # loc: (B, N_q, n_heads, n_points, 2)
         x = loc[..., 0] * float(w) - 0.5
         y = loc[..., 1] * float(h) - 0.5
 
@@ -153,8 +167,6 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
         y0i_raw = ops.cast(y0, "int32")
         y1i_raw = ops.cast(y1, "int32")
 
-        # Clip indices to valid range for safe gather; multiply by in-bounds mask
-        # at the end to zero out out-of-range contributions ("zeros" padding mode).
         x0i = ops.clip(x0i_raw, 0, w - 1)
         x1i = ops.clip(x1i_raw, 0, w - 1)
         y0i = ops.clip(y0i_raw, 0, h - 1)
@@ -165,7 +177,7 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
         valid_y0 = ops.cast((y0i_raw >= 0) & (y0i_raw < h), "float32")
         valid_y1 = ops.cast((y1i_raw >= 0) & (y1i_raw < h), "float32")
 
-        v_flat = v_level  # (B, h*w, n_heads, head_dim)
+        v_flat = v_level
 
         idx00 = y0i * w + x0i
         idx01 = y0i * w + x1i
@@ -173,9 +185,6 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
         idx11 = y1i * w + x1i
 
         def gather_corner(idx):
-            """Gather value features at one bilinear corner per (query, point, head)."""
-            # idx: (B, N_q, n_heads, n_points) — transpose so element order
-            # in the flat reshape (B, N_q*n_points, n_heads) is (q, p, h).
             idx_t = ops.transpose(idx, (0, 1, 3, 2))  # (B, N_q, n_points, n_heads)
             idx_r = ops.reshape(idx_t, (b, n_q * n_points, n_heads))
             idx_r = ops.expand_dims(idx_r, axis=-1)
@@ -188,8 +197,6 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
         v10 = gather_corner(idx10)
         v11 = gather_corner(idx11)
 
-        # weights (B, N_q, n_heads, n_points) → broadcast over n_points pos and head_dim:
-        # current sampled tensors have layout (B, N_q, n_points, n_heads, head_dim).
         wx0_ = ops.transpose(ops.expand_dims(wx0, axis=-1), (0, 1, 3, 2, 4))
         wx1_ = ops.transpose(ops.expand_dims(wx1, axis=-1), (0, 1, 3, 2, 4))
         wy0_ = ops.transpose(ops.expand_dims(wy0, axis=-1), (0, 1, 3, 2, 4))
@@ -205,11 +212,9 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
             + v10 * (wx0_ * wy1_ * m_x0 * m_y1)
             + v11 * (wx1_ * wy1_ * m_x1 * m_y1)
         )
-        # sampled: (B, N_q, n_points, n_heads, head_dim) → (B, N_q, n_heads, n_points, head_dim)
         sampled = ops.transpose(sampled, (0, 1, 3, 2, 4))
         sampled_per_level.append(sampled)
 
-    # Stack along level axis: (B, N_q, n_heads, n_levels, n_points, head_dim)
     return ops.stack(sampled_per_level, axis=3)
 
 
@@ -217,23 +222,32 @@ def bilinear_sample(value, sampling_locations, spatial_shapes):
 class Mask2FormerDeformableAttention(layers.Layer):
     """Multi-scale deformable attention (MSDeformAttn).
 
-    For each query, learns per-head sampling offsets at each of
-    ``n_levels`` multi-scale feature maps and ``n_points`` points per
-    level, then computes a weighted sum via predicted attention weights.
-
-    Used in the pixel-decoder MSDeformAttn encoder.
+    For each query, predicts per-head sampling offsets at ``n_points`` points
+    on each of ``n_levels`` multi-scale feature maps, bilinearly samples the
+    value features at those locations, and combines them with predicted
+    (softmax) attention weights. Used in the pixel-decoder MSDeformAttn encoder.
 
     Args:
-        hidden_dim: Model dimension (input & output).
-        n_heads: Number of attention heads.
-        n_levels: Number of input feature levels.
-        n_points: Number of sample points per head per level.
+        hidden_dim (int): Model dimension (input and output). Must be divisible
+            by ``n_heads``.
+        n_heads (int): Number of attention heads.
+        n_levels (int): Number of multi-scale feature levels.
+        n_points (int): Number of sampling points per head per level.
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
 
-    Inputs (call):
-        query: ``(B, N_q, hidden_dim)`` token sequence.
-        reference_points: ``(B, N_q, n_levels, 2)`` normalized ref points.
-        value: ``(B, N_total, hidden_dim)`` flattened multi-scale features.
-        spatial_shapes: list of ``(h, w)`` per level.
+    Call args:
+        query: ``(B, N_q, hidden_dim)`` query token sequence.
+        reference_points: ``(B, N_q, n_levels, 2)`` normalized ``[0, 1]``
+            reference points.
+        value: ``(B, N_total, hidden_dim)`` flattened multi-scale value tokens.
+        spatial_shapes: List of ``(h, w)`` per level (static Python tuples).
+
+    Output shape:
+        ``(B, N_q, hidden_dim)``.
+
+    References:
+        - Deformable DETR: https://arxiv.org/abs/2010.04159
+        - Mask2Former: https://arxiv.org/abs/2112.01527
     """
 
     def __init__(self, hidden_dim, n_heads, n_levels, n_points, **kwargs):
@@ -274,26 +288,19 @@ class Mask2FormerDeformableAttention(layers.Layer):
         att = ops.softmax(att, axis=-1)
         att = ops.reshape(att, (b, n_q, self.n_heads, self.n_levels, self.n_points))
 
-        # offset_normalizer: (n_levels, 2) with (w, h) per level
         normalizer = ops.convert_to_tensor(
             [[float(w), float(h)] for h, w in spatial_shapes], dtype="float32"
         )
-        # offsets: (B, N_q, n_heads, n_levels, n_points, 2) (last dim is (x, y))
         normalizer = ops.reshape(normalizer, (1, 1, 1, self.n_levels, 1, 2))
         offsets_norm = offsets / normalizer
 
-        # reference_points: (B, N_q, n_levels, 2) -> expand to (B, N_q, 1, n_levels, 1, 2)
         ref = ops.expand_dims(ops.expand_dims(reference_points, axis=2), axis=4)
         sampling_locations = ref + offsets_norm
-        # sampling_locations: (B, N_q, n_heads, n_levels, n_points, 2) normalized [0, 1]
 
         sampled = bilinear_sample(value, sampling_locations, spatial_shapes)
-        # sampled: (B, N_q, n_heads, n_levels, n_points, head_dim)
 
-        # weighted sum over (n_levels, n_points)
         att_exp = ops.expand_dims(att, axis=-1)
         out = ops.sum(sampled * att_exp, axis=(3, 4))
-        # out: (B, N_q, n_heads, head_dim) → (B, N_q, hidden_dim)
         out = ops.reshape(out, (b, n_q, self.hidden_dim))
         return self.output_proj(out)
 
@@ -312,20 +319,31 @@ class Mask2FormerDeformableAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerCrossAttention(layers.Layer):
-    """Cross-attention with PyTorch-style fused QKV input projection.
+    """Cross-attention with a PyTorch-style fused QKV input projection.
 
-    Mirrors ``nn.MultiheadAttention``'s ``in_proj_weight`` layout — a
-    single ``(3*hidden_dim, hidden_dim)`` matrix that produces Q, K, V
-    via slicing — so the converter can transfer ``cross_attn.in_proj_*``
-    weights directly. Accepts an additive ``attn_mask`` for masked
-    cross-attention.
+    Mirrors ``torch.nn.MultiheadAttention``'s ``in_proj_weight`` layout — a
+    single ``(3*hidden_dim, hidden_dim)`` matrix sliced into Q, K, V — so the
+    converter can transfer ``cross_attn.in_proj_*`` weights directly. Accepts
+    an additive ``attn_mask`` for the decoder's masked cross-attention.
 
-    Inputs (call):
+    Args:
+        hidden_dim (int): Model dimension (input and output). Must be divisible
+            by ``num_heads``.
+        num_heads (int): Number of attention heads.
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Call args:
         query: ``(B, N_q, hidden_dim)``.
         key: ``(B, N_k, hidden_dim)``.
         value: ``(B, N_k, hidden_dim)``.
-        attn_mask: optional additive mask broadcastable to
-            ``(B*n_heads, N_q, N_k)``.
+        attn_mask: Optional additive mask broadcastable to
+            ``(B * num_heads, N_q, N_k)``.
+
+    Output shape:
+        ``(B, N_q, hidden_dim)``.
+
+    References:
+        - Mask2Former: https://arxiv.org/abs/2112.01527
     """
 
     def __init__(self, hidden_dim, num_heads, **kwargs):
@@ -365,7 +383,6 @@ class Mask2FormerCrossAttention(layers.Layer):
         Returns:
             Projected tensor of shape ``(B, N, end - start)``.
         """
-        # x: (B, N, hidden_dim)
         w = self.in_proj_weight[slc[0] : slc[1], :]
         bias = self.in_proj_bias[slc[0] : slc[1]]
         return ops.matmul(x, ops.transpose(w, (1, 0))) + bias
@@ -389,7 +406,6 @@ class Mask2FormerCrossAttention(layers.Layer):
 
         attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
         if attn_mask is not None:
-            # attn_mask: (B, num_heads, N_q, N_k)
             attn = attn + attn_mask
 
         attn = ops.softmax(attn, axis=-1)
@@ -406,10 +422,24 @@ class Mask2FormerCrossAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSelfAttention(layers.Layer):
-    """Standard multi-head self-attention with separate q/k/v/out_proj.
+    """Standard multi-head self-attention with separate q/k/v/out projections.
 
-    Used in the masked-attention decoder for self-attention over the
-    object queries.
+    Used in the masked-attention decoder for self-attention over the object
+    queries (no relative bias or masking).
+
+    Args:
+        hidden_dim (int): Model dimension (input and output). Must be divisible
+            by ``num_heads``.
+        num_heads (int): Number of attention heads.
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Call args:
+        query: ``(B, N_q, hidden_dim)``.
+        key: ``(B, N_k, hidden_dim)``.
+        value: ``(B, N_k, hidden_dim)``.
+
+    Output shape:
+        ``(B, N_q, hidden_dim)``.
     """
 
     def __init__(self, hidden_dim, num_heads, **kwargs):
@@ -449,9 +479,24 @@ class Mask2FormerSelfAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerLearnedEmbedding(layers.Layer):
-    """Holds a ``(num_embeddings, hidden_dim)`` learned weight, broadcast over batch.
+    """Learned embedding table broadcast across the batch.
 
-    HF stores these as ``weight`` (matching ``nn.Embedding``).
+    Holds a ``(num_embeddings, hidden_dim)`` learned weight (named ``weight``
+    to match ``torch.nn.Embedding``) and tiles it to
+    ``(B, num_embeddings, hidden_dim)`` — used for the decoder's learned object
+    queries and the per-level embeddings.
+
+    Args:
+        num_embeddings (int): Number of embedding rows (e.g. queries or levels).
+        hidden_dim (int): Embedding dimension.
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Call args:
+        batch_ref: Any tensor whose leading dimension is the batch size (used
+            only to read ``B``).
+
+    Output shape:
+        ``(B, num_embeddings, hidden_dim)``.
     """
 
     def __init__(self, num_embeddings, hidden_dim, **kwargs):
@@ -481,11 +526,24 @@ class Mask2FormerLearnedEmbedding(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerReferencePoints(layers.Layer):
-    """Generates fixed reference points for the MSDeformAttn pixel encoder.
+    """Fixed reference points for the MSDeformAttn pixel encoder.
 
-    Each token gets one ``(x, y)`` per level; the point is the token's
-    own ``(x/w, y/h)`` location replicated across all levels. Static
-    shape, computed at call time from ``spatial_shapes``.
+    Builds, per multi-scale level, the normalized ``(x, y)`` centre of every
+    spatial location and replicates it across all levels, so each query token
+    references its own location at every scale. The points are constant (not
+    learned) and computed at call time from ``spatial_shapes``.
+
+    Args:
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Call args:
+        batch_ref: Any tensor whose leading dimension is the batch size (used
+            only to read ``B``).
+        spatial_shapes: List of ``(h, w)`` per level (static Python tuples).
+
+    Output shape:
+        ``(B, N_total, n_levels, 2)`` where ``N_total`` is the sum of
+        ``h * w`` over all levels.
     """
 
     def __init__(self, **kwargs):
@@ -501,9 +559,7 @@ class Mask2FormerReferencePoints(layers.Layer):
             yy, xx = np.meshgrid(ys, xs, indexing="ij")
             ref = np.stack([xx, yy], axis=-1).reshape(-1, 2).astype(np.float32)
             ref_per_level.append(ref)
-        # ref_all: (N_total, 2)
         ref_all = np.concatenate(ref_per_level, axis=0)
-        # Per token, replicate across levels: (N_total, n_levels, 2)
         ref_all_levels = np.tile(ref_all[:, None, :], (1, n_levels, 1))
         t = ops.convert_to_tensor(ref_all_levels)
         t = ops.expand_dims(t, axis=0)

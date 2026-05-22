@@ -1,5 +1,3 @@
-"""Image preprocessing + segmentation post-processing for Mask2Former."""
-
 from typing import Optional, Tuple
 
 import keras
@@ -12,26 +10,26 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, int]:
-    """Scale ``(orig_h, orig_w)`` so its longest edge equals ``target_size``.
-
-    Args:
-        orig_h: Original image height.
-        orig_w: Original image width.
-        target_size: Desired length of the longest edge.
-
-    Returns:
-        The ``(height, width)`` of the aspect-ratio-preserving resize.
-    """
-    scale = target_size / max(orig_h, orig_w)
-    return int(orig_h * scale), int(orig_w * scale)
-
-
 class Mask2FormerImageProcessor(BaseImageProcessor):
     """Preprocess images for Mask2Former.
 
-    Resizes the longest edge to ``target_size``, pads to a square,
-    rescales to ``[0, 1]``, and applies ImageNet normalization.
+    Resizes the longest edge to ``target_size`` (preserving aspect ratio),
+    bottom/right-pads to a square ``target_size`` x ``target_size`` canvas,
+    rescales to ``[0, 1]``, and applies ImageNet normalization. Uses pure
+    Keras 3 ops for all tensor operations, and emits the pixel values in the
+    configured data format.
+
+    Args:
+        target_size: Target square edge length (matches the model's
+            ``input_image_shape``).
+        image_mean: Per-channel mean for normalization. Defaults to the
+            ImageNet mean.
+        image_std: Per-channel standard deviation for normalization. Defaults
+            to the ImageNet std.
+        data_format: ``"channels_first"`` / ``"channels_last"``; ``None``
+            resolves to ``keras.config.image_data_format()``.
+        **kwargs: Additional keyword arguments forwarded to
+            :class:`BaseImageProcessor`.
     """
 
     def __init__(
@@ -57,7 +55,8 @@ class Mask2FormerImageProcessor(BaseImageProcessor):
         image = load_image(image).astype(np.float32)
 
         h, w = image.shape[:2]
-        new_h, new_w = get_resized_size(h, w, self.target_size)
+        scale = self.target_size / max(h, w)
+        new_h, new_w = int(h * scale), int(w * scale)
 
         image = keras.ops.convert_to_tensor(image, dtype="float32")
         image = keras.ops.expand_dims(image, axis=0)

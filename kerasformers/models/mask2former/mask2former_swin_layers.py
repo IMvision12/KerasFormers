@@ -1,10 +1,3 @@
-"""Swin-Transformer backbone used by Mask2Former (HF-naming-aligned).
-
-Self-contained HF-style Swin port — separate Q/K/V projections,
-``layernorm_before/after`` block-internal LNs, ``hidden_states_norms``
-per stage. Matches HuggingFace's ``Mask2FormerSwinModel`` naming.
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops
