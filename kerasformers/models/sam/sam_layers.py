@@ -111,7 +111,7 @@ class SAMPromptEncoderLayer(layers.Layer):
     support are opt-in via the ``enable_boxes`` and ``enable_masks``
     construction-time flags — these flags change the expected input
     signature and the shape of ``sparse_embeddings`` so that the
-    default configuration matches HuggingFace / original SAM exactly.
+    default configuration matches the original SAM exactly.
 
     Input signature (all passed as a dict):
         - Always: ``input_points``, ``input_labels``.
@@ -121,10 +121,10 @@ class SAMPromptEncoderLayer(layers.Layer):
 
     Token counts:
         - ``enable_boxes=False``: ``sparse_embeddings`` has ``N+1``
-          tokens (HF-parity points-only path).
+          tokens (points-only path).
         - ``enable_boxes=True``: ``sparse_embeddings`` has ``N+3``
           tokens (1 pad + N points + 2 box corners or ``not_a_point``
-          fallbacks). This is 1 token more than HF's points+boxes
+          fallbacks). This is 1 token more than the reference's points+boxes
           path but lets a single model handle both prompt modes.
 
     Args:

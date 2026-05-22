@@ -346,7 +346,7 @@ def mobilevit_backbone_feature(
     stages = []
     for i in range(5):
         # For atrous output strides the last stage(s) keep stride 1 and the
-        # downsampling inverted-residual carries the dilation (HF applies
+        # downsampling inverted-residual carries the dilation (the reference applies
         # ``dilation // 2`` to the downsampling depthwise conv; the MobileViT
         # block's local conv is never dilated).
         stage_dilation = stage_dilations_default[i]

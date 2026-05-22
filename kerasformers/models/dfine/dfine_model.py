@@ -65,7 +65,7 @@ def dfine_conv_bn(
 ):
     """Conv + BatchNorm + optional activation + optional LAB block.
 
-    Mirrors HGNetV2ConvLayer from the HuggingFace implementation.
+    Reproduces the HGNetV2 conv layer from the reference implementation.
 
     Args:
         x: Input tensor.
@@ -1578,7 +1578,7 @@ def dfine_functional(
 class DFineModel(BaseModel):
     """D-FINE backbone + hybrid encoder + decoder (no class heads).
 
-    Matches the HuggingFace ``DFineModel`` pattern — outputs the decoder
+    Matches the reference ``DFineModel`` pattern — outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, d_model)``. The
     iterative bbox refinement layers stay in the model (they feed back
     into the decoder via reference points); only the per-layer class

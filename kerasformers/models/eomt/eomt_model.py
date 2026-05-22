@@ -96,7 +96,7 @@ def eomt_encoder_layer(
        :class:`StochasticDepth` → residual.
 
     All sublayer names are deterministic (``{block_prefix}_*``) so the
-    HF EoMT state-dict can be transferred by name.
+    source EoMT state-dict can be transferred by name.
 
     Reference:
         - `Your ViT is Secretly an Image Segmentation Model
@@ -211,7 +211,7 @@ def eomt_scale_block(x, hidden_size, num_upscale_blocks, data_format):
 
     Each block doubles the spatial resolution, so total upscale factor
     is ``2 ** num_upscale_blocks``. Each block is named
-    ``upscale_block_{i}`` so the HF EoMT state-dict maps directly.
+    ``upscale_block_{i}`` so the source EoMT state-dict maps directly.
 
     Args:
         x: Input feature map from the reshaped patch tokens.

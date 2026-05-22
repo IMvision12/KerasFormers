@@ -1,14 +1,14 @@
 """
-Model Equivalence Verification Utility for PyTorch, Keras, and HuggingFace Models
+Model Equivalence Verification Utility for PyTorch, Keras, and Transformers Models
 
 This module provides functionality to verify the equivalence of neural network models
-between PyTorch, Keras, and HuggingFace frameworks. It performs comprehensive testing
+between PyTorch, Keras, and Transformers frameworks. It performs comprehensive testing
 of model outputs, optional performance benchmarking, and ImageNet prediction verification.
 
 Key Features:
 - Supports comparison between PyTorch and Keras models
 - Supports comparison between different Keras models
-- Supports comparison between HuggingFace and Keras models
+- Supports comparison between Transformers and Keras models
 - Validates model outputs across different batch sizes
 - Performs optional performance benchmarking
 - Provides detailed test results and diagnostics
@@ -21,7 +21,7 @@ Dependencies:
 - numpy
 - torch
 - keras (>=3.0)
-- transformers (optional, for HuggingFace comparisons)
+- transformers (optional, for cross-framework comparisons)
 - typing
 - time
 - os
@@ -38,9 +38,9 @@ Example Usage:
         run_performance=True
     )
 
-    # For HuggingFace to Keras comparison
+    # For Transformers to Keras comparison
     results = verify_cls_model_equivalence(
-        model_a=hf_model,              # HuggingFace model
+        model_a=hf_model,              # Transformers model
         model_b=keras_model,           # Keras model
         input_shape=(224, 224, 3),     # Input shape without batch dimension
         output_specs={"num_classes": 1000, "hf_output_shape": [1000]},
@@ -88,15 +88,15 @@ Return Value:
 
 Notes:
 - Input shapes should be specified without the batch dimension
-- The function handles necessary tensor transpositions for PyTorch and HuggingFace inputs
+- The function handles necessary tensor transpositions for PyTorch and Transformers inputs
 - Performance testing runs multiple inferences to get average timing
 - Different random seeds are used for reproducibility
 - Custom tolerance levels can be set for numerical comparison
 - ImageNet testing includes predefined test cases with expected classes
 - For ImageNet testing only, model_a can be None
 - Keras model should have preprocessing=True for ImageNet Testing
-- For HuggingFace model comparisons, additional configuration can be provided via hf_model_config
-- The transformers library is required for HuggingFace model comparisons
+- For Transformers model comparisons, additional configuration can be provided via hf_model_config
+- The transformers library is required for Transformers model comparisons
 - Detailed error reporting includes maximum and mean differences when tests fail
 """
 
@@ -139,7 +139,7 @@ def verify_cls_model_equivalence(
     For ImageNet testing only, model_a can be None.
 
     Args:
-        model_a: Source model (PyTorch, Keras, or HuggingFace) or None if only testing ImageNet
+        model_a: Source model (PyTorch, Keras, or Transformers) or None if only testing ImageNet
         model_b: Target Keras model
         input_shape: Shape of input tensor (excluding batch dimension)
         output_specs: Dictionary containing output specifications
@@ -152,7 +152,7 @@ def verify_cls_model_equivalence(
         rtol: Relative tolerance for numerical comparisons
         test_imagenet_image: Whether to run ImageNet testing only
         prediction_threshold: Confidence threshold for ImageNet predictions
-        hf_model_config: Configuration for HuggingFace model (vision model params)
+        hf_model_config: Configuration for the Transformers model (vision model params)
 
     Returns:
         Dictionary containing test results

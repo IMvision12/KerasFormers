@@ -27,7 +27,7 @@ def siglip_encoder(
 
     Shared building block for both the vision and text encoders. All
     sublayer names are deterministic — ``{name}_*`` — so the
-    corresponding HF weights can be transferred by name during
+    corresponding pretrained weights can be transferred by name during
     checkpoint conversion.
 
     Args:
@@ -254,7 +254,7 @@ def siglip_vision_features(
 
     Returns:
         Full token sequence ``(B, num_patches, hidden_dim)`` after the final
-        LayerNorm — equivalent to HF ``SiglipVisionModel.last_hidden_state``.
+        LayerNorm — equivalent to the reference vision encoder's last hidden state.
     """
     input_shape = inputs.shape
     if data_format == "channels_last":
@@ -302,7 +302,7 @@ def siglip_vision_backbone(
 ):
     """SigLIP vision encoder: features + attention pooling — no projection.
 
-    Mirrors HF ``SiglipVisionModel`` outputs. Pipeline:
+    Vision-encoder forward pass. Pipeline:
     :func:`siglip_vision_features` → :func:`siglip_attention_pooling`.
 
     Args:
@@ -412,7 +412,7 @@ def siglip_text_backbone(
 ):
     """SigLIP text encoder: embeddings + encoder stack + final LN + head.
 
-    Mirrors HF ``SiglipTextModel`` outputs. Returns the post-LN encoder
+    Text-encoder forward pass. Returns the post-LN encoder
     output as ``last_hidden_state`` and the last-token projection through
     the ``text_model_head`` Dense as ``pooler_output``.
 
@@ -506,7 +506,7 @@ def siglip_head(vision_embedding, text_embedding):
 class SigLIPVisionModel(BaseModel):
     """SigLIP vision tower as a standalone model.
 
-    Mirrors HuggingFace's ``SiglipVisionModel``: patch embedding +
+    Patch embedding +
     transformer stack + final LayerNorm, followed by the attention-
     pooling head. Use this when you only need image features and don't
     want to instantiate the text tower.
@@ -665,7 +665,7 @@ class SigLIPVisionModel(BaseModel):
 class SigLIPTextModel(BaseModel):
     """SigLIP text tower as a standalone model.
 
-    Mirrors HuggingFace's ``SiglipTextModel``: token + positional
+    Token + positional
     embedding, transformer stack, final LayerNorm, and last-token
     projection through the ``text_model_head`` Dense. Use this when
     you only need text features and don't want to instantiate the
@@ -829,7 +829,7 @@ class SigLIPModel(BaseModel):
     around a shared input pair, and returns the towers'
     ``pooler_output`` as ``image_embeddings`` / ``text_embeddings``. No
     L2-norm or ``logit_scale`` / ``logit_bias`` is applied — for the
-    full HF-style head use :class:`SigLIPZeroShotClassify`. For
+    full zero-shot head use :class:`SigLIPZeroShotClassify`. For
     supervised classification use :class:`SigLIPImageClassify`.
 
     The two sub-models are exposed as ``model.vision_model`` and
@@ -1169,8 +1169,7 @@ class SigLIPImageClassify(BaseModel):
     Composes :class:`SigLIPVisionModel`, mean-pools the
     ``last_hidden_state`` patch tokens (the attention-pooling head is
     bypassed for classification), and applies a single linear
-    classifier producing ``num_labels`` logits. Mirrors HF's
-    ``SiglipForImageClassification`` design.
+    classifier producing ``num_labels`` logits.
 
     .. code-block:: python
 

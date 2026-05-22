@@ -83,13 +83,13 @@ def default_sample_indices_fn(
     fps: Optional[float] = None,
     **kwargs,
 ) -> np.ndarray:
-    """Compute frame indices using HF's default uniform-sampling logic.
+    """Compute frame indices using the reference default uniform-sampling logic.
 
     When ``num_frames`` is set, returns ``np.arange(0, total, total/num_frames)``
     cast to ``int``. When ``fps`` is set instead, the target count is derived
     from ``metadata.fps``. When neither is set, every frame is returned.
 
-    Note: matches HF byte-for-byte, including the float-step arange quirk
+    Note: matches the reference byte-for-byte, including the float-step arange quirk
     that can occasionally yield one extra index for certain ratios.
     """
     total_num_frames = metadata.total_num_frames
@@ -125,7 +125,7 @@ def load_video(
     sample_indices_fn: Optional[Callable] = None,
     **kwargs,
 ) -> Tuple[np.ndarray, VideoMetadata]:
-    """Load a video into a numpy array with HF-compatible semantics.
+    """Load a video into a numpy array with reference-compatible semantics.
 
     Args:
         video: A local file path, an ``http(s)://`` URL, raw video bytes,
@@ -137,7 +137,7 @@ def load_video(
         fps: Target frames per second; implies uniform resampling from the
             source video's fps.
         backend: One of ``"pyav"``, ``"opencv"``, ``"decord"``. Defaults to
-            ``"pyav"`` to match HF. Missing backend libraries raise
+            ``"pyav"`` to match the reference. Missing backend libraries raise
             ``ImportError`` at call time.
         sample_indices_fn: Optional callable ``fn(metadata, **kwargs) ->
             indices``. Overrides ``num_frames`` / ``fps`` when supplied.
@@ -407,7 +407,7 @@ def sample_frames(
 
     Convenience helper for ad-hoc use when you already hold a decoded frame
     array. For videos on disk, prefer :func:`load_video` with ``num_frames``
-    so the sampling matches HF's semantics.
+    so the sampling matches the reference's semantics.
     """
     if num_total <= 0:
         raise ValueError(f"num_total must be positive, got {num_total}.")

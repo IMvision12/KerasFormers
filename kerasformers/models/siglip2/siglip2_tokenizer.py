@@ -10,9 +10,9 @@ from kerasformers.base import BaseTokenizer
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIP2Tokenizer(BaseTokenizer):
-    """SigLIP2 SentencePiece tokenizer matching HF ``google/siglip2-*``.
+    """SigLIP2 SentencePiece tokenizer matching ``google/siglip2-*``.
 
-    HF's SigLIP2 (Gemma) tokenizer.json always appends ``<eos>`` via a
+    The SigLIP2 (Gemma) tokenizer.json always appends ``<eos>`` via a
     ``TemplateProcessing`` step, regardless of the ``add_eos_token`` flag.
     This layer mirrors that behavior: EOS is always appended on ``call``.
 
@@ -21,7 +21,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
         context_length: Maximum sequence length (default 64).
         add_bos / add_eos: Exposed for compatibility with legacy code
             paths like ``prepare_for_model`` — ``call`` always follows
-            HF's template and appends EOS.
+            the reference template and appends EOS.
         pad_token / bos_token / eos_token / unk_token: Special token strings.
     """
 

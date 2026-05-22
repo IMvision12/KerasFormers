@@ -152,7 +152,7 @@ class MaskFormerSwinSelfAttention(layers.Layer):
     """Windowed multi-head self-attention with relative position bias.
 
     Computes self-attention within each window using separate query/key/value
-    projections (HF-aligned naming) plus a learned relative-position bias
+    projections plus a learned relative-position bias
     table. An optional additive mask supports shifted-window attention.
 
     Args:
@@ -248,7 +248,7 @@ class MaskFormerSwinAttention(layers.Layer):
     """Windowed self-attention followed by an output projection.
 
     Thin wrapper composing :class:`MaskFormerSwinSelfAttention` with the
-    block's dense ``output`` projection, mirroring HF's ``SwinAttention``.
+    block's dense ``output`` projection.
 
     Args:
         dim: Input/output feature dimension.

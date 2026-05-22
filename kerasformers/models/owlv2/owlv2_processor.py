@@ -12,7 +12,7 @@ from kerasformers.weight_utils import download_file
 class Owlv2Processor(BaseProcessor):
     """Composite processor that bundles an image processor and CLIP tokenizer.
 
-    Mirrors HF ``Owlv2Processor``. Text queries are flattened across
+    Text queries are flattened across
     the batch and the model uses the per-row argmax of ``input_ids``
     to pool, so padded queries (whose first token is the pad id ``0``)
     are detected by the class predictor. Image preprocessing follows
@@ -34,12 +34,12 @@ class Owlv2Processor(BaseProcessor):
             and merges files are downloaded.
         merges_file: Path to the CLIP merges file.
         context_length: Maximum tokenized text length. Defaults to ``16``
-            to match HF.
+            to match the reference.
         unk_token: Unknown token. Defaults to ``"<|endoftext|>"``.
         bos_token: Beginning-of-sequence token. Defaults to
             ``"<|startoftext|>"``.
         eos_token: End-of-sequence token. Defaults to ``"<|endoftext|>"``.
-        pad_token: Padding token. Defaults to ``"!"`` to match HF.
+        pad_token: Padding token. Defaults to ``"!"`` to match the reference.
     """
 
     def __init__(

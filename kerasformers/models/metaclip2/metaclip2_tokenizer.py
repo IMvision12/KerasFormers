@@ -23,7 +23,7 @@ DEFAULT_SENTENCEPIECE_URL = (
 class MetaClip2Tokenizer(BaseTokenizer):
     """XLM-RoBERTa SentencePiece tokenizer for MetaCLIP 2 worldwide variants.
 
-    Wraps :class:`sentencepiece.SentencePieceProcessor` to match HF's
+    Wraps :class:`sentencepiece.SentencePieceProcessor` to match the reference's
     ``XLMRobertaTokenizer`` bit-close on the multilingual MetaCLIP 2
     checkpoints (901 629-token vocab covering ~300 languages).
 

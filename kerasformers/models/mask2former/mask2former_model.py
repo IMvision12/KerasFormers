@@ -257,7 +257,7 @@ def mask2former_decoder_layer(
 ):
     """One Mask2Former decoder layer: masked cross-attn → self-attn → FFN.
 
-    Mirrors HF ``Mask2FormerMaskedAttentionDecoderLayer.forward``: the
+    The
     cross-attention runs first (with the predicted-mask additive mask),
     then self-attention over the queries, then the FFN.
     """
@@ -645,14 +645,14 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        """Map a HuggingFace Mask2Former config to constructor kwargs.
+        """Map a Mask2Former config.json to constructor kwargs.
 
         Reads the Swin backbone sub-config and the top-level transformer /
         MSDeformAttn settings and returns the keyword arguments for building
         the equivalent Keras model.
 
         Args:
-            hf_config: HuggingFace ``Mask2FormerConfig`` as a dict.
+            hf_config: The ``Mask2FormerConfig`` as a dict.
 
         Returns:
             Dict of constructor keyword arguments for this model class.
@@ -682,11 +682,11 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        """Copy weights from a HuggingFace Mask2Former checkpoint into the model.
+        """Copy weights from a Mask2Former checkpoint into the model.
 
         Args:
             keras_model: The freshly-built Keras model to populate.
-            hf_state_dict: The HuggingFace model ``state_dict`` (numpy arrays).
+            hf_state_dict: The source model ``state_dict`` (numpy arrays).
         """
         from .convert_mask2former_hf_to_keras import transfer_mask2former_weights
 

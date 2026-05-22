@@ -79,7 +79,7 @@ def build_rope_2d_cache(grid_h, grid_w, head_dim, theta=100.0):
 
     Patch center coordinates are normalized to ``[-1, +1]``, multiplied by
     ``2 * pi`` and the inverse-frequency vector, then tiled to fill the full
-    head dimension. This matches the HuggingFace DINOv3 implementation.
+    head dimension. This matches the reference DINOv3 implementation.
 
     Args:
         grid_h: Integer, number of patch rows.

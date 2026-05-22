@@ -34,7 +34,7 @@ def quick_gelu(x):
 
 
 def activation_layer(hidden_act):
-    """Build the activation layer named in the HF CLIP config.
+    """Build the activation layer named in the CLIP config.
 
     Recognizes ``"quick_gelu"`` and wraps :func:`quick_gelu` in a
     ``Lambda`` (since it is not registered as a Keras activation).
@@ -43,7 +43,7 @@ def activation_layer(hidden_act):
     ``"relu"``.
 
     Args:
-        hidden_act: Activation name matching HF's ``hidden_act`` field.
+        hidden_act: Activation name from the ``hidden_act`` config field.
 
     Returns:
         A ``keras.layers.Layer`` instance ready to apply to a tensor.
@@ -69,7 +69,7 @@ def residual_attention_block(
 
     Shared building block for both CLIP's vision and text encoders. All
     sublayer names are deterministic — ``{layer_name_prefix}_{layer_idx}_*``
-    — so the corresponding PyTorch / HF weights can be transferred by
+    — so the corresponding pretrained weights can be transferred by
     name during checkpoint conversion.
 
     Args:
@@ -208,7 +208,7 @@ def clip_vision_features(
     Pipeline: patch ``Conv2D`` → prepend the learned CLS token and add
     positional embeddings via :class:`CLIPVisionModelEmbedding` → pre-LN →
     :func:`clip_encoder`. Output is the full token sequence (CLS at
-    index 0), matching HF's ``CLIPVisionModel.last_hidden_state`` —
+    index 0), the pre-projection encoder output —
     useful when you want raw features rather than the projected image
     embedding.
 
@@ -273,7 +273,7 @@ def clip_vision_backbone(
 ):
     """CLIP vision encoder up through post-encoder LayerNorm — no projection.
 
-    Mirrors HF's ``CLIPVisionModel`` outputs. Pipeline:
+    Vision-encoder forward pass. Pipeline:
     :func:`clip_vision_features` → slice CLS at index 0 → post-encoder
     LayerNorm. Returns the full token-sequence ``last_hidden_state``
     plus the CLS-pooled, post-layernormed ``pooler_output``.
@@ -329,10 +329,10 @@ def clip_text_backbone(
 ):
     """CLIP text encoder up through final LayerNorm + EOT pluck — no projection.
 
-    Mirrors HF's ``CLIPTextModel`` outputs. Pipeline:
+    Text-encoder forward pass. Pipeline:
     :class:`CLIPTextModelEmbedding` → causal + padding-masked
     :func:`clip_encoder` → post-encoder LayerNorm → pluck the hidden
-    state at each row's EOT position (HF picks the position with the
+    state at each row's EOT position (the model picks the position with the
     largest ``token_id``).
 
     Args:
@@ -426,7 +426,7 @@ def clip_head(image_embeddings, text_embeddings):
 class CLIPVisionModel(BaseModel):
     """CLIP vision tower as a standalone model — no text encoder, no projection.
 
-    Mirrors HuggingFace's ``CLIPVisionModel``: the patch-embedding +
+    The patch-embedding +
     transformer stack from CLIP, ending at the post-encoder LayerNorm.
     Use this when you only need image features and don't want to
     instantiate the text tower or carry the ``visual_projection`` Dense.
@@ -579,7 +579,7 @@ class CLIPVisionModel(BaseModel):
 class CLIPTextModel(BaseModel):
     """CLIP text tower as a standalone model — no vision encoder, no projection.
 
-    Mirrors HuggingFace's ``CLIPTextModel``: token + positional
+    Token + positional
     embedding, causal-masked transformer stack, post-encoder LayerNorm,
     and EOT-position pluck. Use this when you only need text features
     and don't want to instantiate the vision tower or carry the
@@ -740,7 +740,7 @@ class CLIPTextModel(BaseModel):
 class CLIPImageEmbed(BaseModel):
     """CLIP vision tower + ``visual_projection`` — joint-space image embeddings.
 
-    Mirrors HuggingFace's ``CLIPVisionModelWithProjection``: composes
+    Composes
     :class:`CLIPVisionModel` and applies the bias-free
     ``visual_projection`` Dense, producing the same image side as
     :class:`CLIPModel` but without instantiating the text tower or the
@@ -766,7 +766,7 @@ class CLIPImageEmbed(BaseModel):
     are silently ignored.
 
     Args:
-        embed_dim: Shared joint embedding dim (= HF ``projection_dim``).
+        embed_dim: Shared joint embedding dim (= ``projection_dim``).
             Defaults to ``512``.
         input_image_shape: Input image specification. Defaults to ``224``.
         vision_layers: ViT encoder depth. Defaults to ``12``.
@@ -899,7 +899,7 @@ class CLIPImageEmbed(BaseModel):
 class CLIPTextEmbed(BaseModel):
     """CLIP text tower + ``text_projection`` — joint-space text embeddings.
 
-    Mirrors HuggingFace's ``CLIPTextModelWithProjection``: composes
+    Composes
     :class:`CLIPTextModel` and applies the bias-free ``text_projection``
     Dense, producing the same text side as :class:`CLIPModel` but
     without instantiating the vision tower or the ``logit_scale``. The
@@ -1100,7 +1100,7 @@ class CLIPModel(BaseModel):
           Supervision <https://arxiv.org/abs/2103.00020>`_
 
     Args:
-        embed_dim: Shared embedding dim (= HF ``projection_dim``).
+        embed_dim: Shared embedding dim (= ``projection_dim``).
         input_image_shape: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -1438,7 +1438,7 @@ class CLIPZeroShotClassify(BaseModel):
 class CLIPImageClassify(BaseModel):
     """CLIP vision encoder + linear image-classification head.
 
-    Mirrors HF's ``CLIPForImageClassification``: uses **only the CLIP
+    Uses **only the CLIP
     vision encoder** (no text encoder, no visual projection), then
     mean-pools the patch tokens (excluding CLS) and applies a single
     linear classifier producing ``num_labels`` logits.

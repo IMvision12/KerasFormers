@@ -1,6 +1,6 @@
 """SAM3 Processor: end-to-end preprocessing, inference, and post-processing.
 
-Matches HF Sam3Processor functionality using pure Keras 3 ops.
+Reproduces the Sam3 processor functionality using pure Keras 3 ops.
 Supports text prompts and box prompts for detection + segmentation.
 """
 
@@ -22,7 +22,7 @@ def preprocess_image(image, target_size=IMAGE_SIZE):
 
     Resizes to a square target size using backend-native bilinear
     interpolation, applies rescaling via float64 intermediate to
-    match HF precision, and normalizes with ImageNet-style mean/std.
+    match the reference precision, and normalizes with ImageNet-style mean/std.
 
     Args:
         image: PIL Image, numpy array ``(H, W, 3)``, or file path.

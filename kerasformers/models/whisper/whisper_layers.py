@@ -7,7 +7,7 @@ from keras import ops
 class WhisperAttention(keras.layers.Layer):
     """Multi-head attention shared between Whisper self-attention and cross-attention.
 
-    Reproduces HF ``WhisperAttention`` bit-for-bit. Each instance owns
+    Reproduces ``WhisperAttention`` bit-for-bit. Each instance owns
     four ``Dense`` projections — Q, K, V, output — with biases on
     Q / V / output and no bias on K. Scaling by ``1 / sqrt(head_dim)``
     is applied to the Q output **before** the scaled dot-product
@@ -32,7 +32,7 @@ class WhisperAttention(keras.layers.Layer):
             divisible by ``num_heads``.
         num_heads: Number of attention heads.
         name_prefix: Optional string prepended to the inner ``Dense``
-            layer names. Whisper uses this to mirror the HF naming
+            layer names. Whisper uses this to mirror the reference naming
             convention (e.g. ``"encoder_layers_0_self_attn_q_proj"``).
             When ``None``, the inner layers are named ``q_proj``,
             ``k_proj``, ``v_proj``, ``out_proj``.
@@ -192,13 +192,13 @@ class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
 class WhisperLearnedPositionEmbedding(keras.layers.Layer):
     """Trainable position embedding table for the Whisper decoder.
 
-    Mirrors the HF ``nn.Embedding(max_target_positions, d_model)`` used
+    Reproduces the ``nn.Embedding(max_target_positions, d_model)`` used
     in the Whisper decoder: a ``(max_target_positions, d_model)`` weight
     is initialized to zero and learned during training. At call time,
     rows ``[start : start + T]`` are added to the token embeddings,
     where ``start = past_key_values_length``. With the current
     no-cache implementation ``start`` is always ``0``; the parameter is
-    kept in the signature for API symmetry with HF's KV-cache path.
+    kept in the signature for API symmetry with the reference KV-cache path.
 
     Args:
         max_target_positions: Number of position rows in the table.
@@ -252,7 +252,7 @@ class WhisperLearnedPositionEmbedding(keras.layers.Layer):
 class WhisperLayerWeights(keras.layers.Layer):
     """Learnable softmax weights over all encoder hidden states.
 
-    Reproduces HF ``WhisperForAudioClassification``'s
+    Reproduces ``WhisperForAudioClassification``'s
     ``use_weighted_layer_sum`` path: given a list of
     ``num_layers + 1`` encoder hidden states (post-embedding through
     final-LN), holds a learnable ``layer_weights`` vector, softmaxes

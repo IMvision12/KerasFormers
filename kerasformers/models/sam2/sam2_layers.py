@@ -769,7 +769,7 @@ class SAM2PromptEncoderLayer(layers.Layer):
     def _embed_boxes(self, boxes):
         """Encode box prompts as three-token (top-left, bottom-right, pad).
 
-        Mirrors HF's ``Sam2PromptEncoder._embed_boxes`` exactly:
+        Reproduces ``Sam2PromptEncoder._embed_boxes`` exactly:
 
         - Input shape ``(batch_size, num_boxes, 4)`` with corner
           layout ``(x1, y1, x2, y2)``.

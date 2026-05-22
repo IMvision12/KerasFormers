@@ -1083,7 +1083,7 @@ def rt_detr_functional(
 class RTDetrModel(BaseModel):
     """RT-DETR backbone + hybrid encoder + decoder (no class heads).
 
-    Matches the HuggingFace ``RTDetrModel`` pattern — outputs the decoder
+    Matches the reference ``RTDetrModel`` pattern — outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, d_model)``.
     Iterative bbox refinement layers stay in the model (they feed back
     into the decoder); only per-layer class prediction heads are pruned

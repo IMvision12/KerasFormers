@@ -382,7 +382,7 @@ def mobilevitv2_backbone_feature(
         channels = int(([64, 128, 256, 384, 512][stage]) * multiplier)
 
         # For atrous output strides the last stage(s) keep stride 1 and the
-        # downsampling inverted-residual carries the dilation (HF applies
+        # downsampling inverted-residual carries the dilation (the reference applies
         # ``dilation // 2`` to it); the MobileViTV2 block's local conv is never
         # dilated.
         stage_dilation = stage_dilations_default[stage]

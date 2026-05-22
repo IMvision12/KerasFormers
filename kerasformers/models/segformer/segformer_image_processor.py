@@ -12,7 +12,7 @@ from kerasformers.utils.labels import ADE20K_150_CLASSES
 class SegFormerImageProcessor(BaseImageProcessor):
     """Image preprocessing for SegFormer using Keras ops.
 
-    Mirrors HuggingFace's ``SegformerImageProcessor``: optional resize,
+    Optional resize,
     rescale to ``[0, 1]``, and ImageNet normalization.
 
     Args:

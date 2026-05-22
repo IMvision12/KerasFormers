@@ -159,7 +159,7 @@ def _unpad_and_resize_masks(
 ):
     """Unpad mask logits and resize to original image dimensions.
 
-    Follows the HuggingFace approach: first resize to the model's input
+    Follows the reference approach: first resize to the model's input
     resolution, crop out the padding region, then resize to the target size.
     Uses pure Keras 3 ops.
 

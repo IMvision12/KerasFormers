@@ -30,7 +30,7 @@ SAM3_PAD_TOKEN_ID = 49407
 class SAM3CLIPTokenizer(BaseTokenizer):
     """BPE tokenizer for SAM3's CLIP text encoder (context_length=32).
 
-    Uses HuggingFace `tokenizers` (Rust) under the hood. Auto-downloads
+    Uses the `tokenizers` library (Rust) under the hood. Auto-downloads
     ``vocab.json`` and ``merges.txt`` on first use.
 
     Args:

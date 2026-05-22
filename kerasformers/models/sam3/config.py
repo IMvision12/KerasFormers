@@ -1,6 +1,6 @@
 """SAM3 variant registry.
 
-Weights are gated on HuggingFace (``facebook/sam3``). Loading requires
+Weights are gated on the model Hub (``facebook/sam3``). Loading requires
 accepting the license at https://huggingface.co/facebook/sam3 and
 authenticating with ``huggingface-cli login`` or ``HF_TOKEN``.
 """

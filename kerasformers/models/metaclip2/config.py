@@ -286,7 +286,7 @@ METACLIP2_WEIGHTS = {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b32_384.weights.json",
     },
     # L14/Huge/Giant: a single token-embedding tensor exceeds GitHub's 2 GiB
-    # asset limit, so these are converted from HuggingFace on the fly via
+    # asset limit, so these are converted from the source checkpoints on the fly via
     # ``load_and_convert_from_hf`` (cached under ~/.cache/kerasformers/).
     # Used through the normal variant name — no "hf:" prefix needed.
     "metaclip2_worldwide_l14_224": {

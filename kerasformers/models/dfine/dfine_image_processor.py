@@ -22,7 +22,7 @@ class DFineImageProcessor(BaseImageProcessor):
     """Preprocess images for D-FINE inference.
 
     Loads the image (if needed), resizes to ``size`` using PIL bilinear
-    interpolation (to match HF's DFineImageProcessor exactly), and
+    interpolation (to match the reference DFineImageProcessor exactly), and
     rescales pixel values to ``[0, 1]``. D-FINE's published checkpoints
     do **not** apply ImageNet normalisation, but ``do_normalize=True``
     is exposed for fine-tuning on custom datasets.

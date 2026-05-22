@@ -15,7 +15,7 @@ class DepthAnythingV1ImageProcessor(BaseImageProcessor):
     """Preprocess images for DepthAnythingV1 inference.
 
     Resizes the image to ``target_size`` with bicubic interpolation
-    (mirroring the HF ``DPTImageProcessor`` resample setting),
+    (using the standard DPT resample setting),
     rescales to ``[0, 1]``, and applies ImageNet normalization.
 
     Args:
@@ -103,7 +103,7 @@ def depth_anything_v1_post_process_depth(
 ) -> "keras.KerasTensor":
     """Resize predicted DepthAnythingV1 depth back to original image resolution.
 
-    Mirrors HF ``DPTImageProcessor.post_process_depth_estimation``:
+    Post-processes the predicted depth:
     bilinear-interpolate the predicted depth map to the original image
     size and squeeze the channel dim. Accepts Keras model output in
     either channels-last ``(B, H, W, 1)`` or channels-first

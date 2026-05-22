@@ -276,7 +276,7 @@ def owlvit_class_predictor(
         pred_logits: Cosine-similarity-based class logits
             ``(B, num_patches, num_queries)``.
         image_class_embeds: L2-normalized image projections
-            ``(B, num_patches, out_dim)`` — matches HuggingFace's
+            ``(B, num_patches, out_dim)`` — matches the reference's
             returned ``class_embeds`` so callers can use them directly
             for cosine-similarity scoring against custom text queries
             (e.g. one-shot / image-guided detection).
@@ -412,7 +412,7 @@ def owlvit_detection_head(
 class OwlViTVisionModel(BaseModel):
     """OWL-ViT vision tower as a standalone model.
 
-    Mirrors HuggingFace's ``OwlViTVisionModel``: patch + position + CLS
+    Patch + position + CLS
     embeddings, pre-LN, transformer encoder, and post-LN. Use this when
     you only need image features and don't want to instantiate the text
     tower. Composed by :class:`OwlViTModel`.
@@ -543,7 +543,7 @@ class OwlViTVisionModel(BaseModel):
 class OwlViTTextModel(BaseModel):
     """OWL-ViT text tower as a standalone model.
 
-    Mirrors HuggingFace's ``OwlViTTextModel``: token + position
+    Token + position
     embeddings, causal-masked transformer encoder, final LayerNorm, and
     EOS-token pooling. Use this when you only need text features and
     don't want to instantiate the vision tower. Composed by
@@ -667,7 +667,7 @@ class OwlViTTextModel(BaseModel):
 class OwlViTModel(BaseModel):
     """OWL-ViT vision + text encoder (no detection heads).
 
-    Mirrors HuggingFace's ``OwlViTModel``. Composes
+    Composes
     :class:`OwlViTVisionModel` and :class:`OwlViTTextModel` (exposed as
     ``model.vision_model`` / ``model.text_model``), and applies the
     ``text_projection`` + L2-normalization on the text side. Returns the
@@ -831,7 +831,7 @@ class OwlViTModel(BaseModel):
 class OwlViTDetect(BaseModel):
     """OWL-ViT object detection model (encoder + class/box heads).
 
-    Mirrors HuggingFace's ``OwlViTForObjectDetection``. Produces
+    Produces
     per-patch boxes and text-conditional class similarity logits, so
     the set of detection classes is the set of text queries provided
     at inference time rather than a fixed softmax head.

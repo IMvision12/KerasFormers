@@ -375,7 +375,7 @@ if __name__ == "__main__":
         # scores. fp32-level encoder differences reorder near-tied scores,
         # so the *same* set of queries can land in different positions — a
         # benign permutation (detection is set prediction, order-invariant).
-        # Match each HF query to its nearest keras query by logits before
+        # Match each reference query to its nearest keras query by logits before
         # diffing so the metric reflects the true error.
         matched_logits_diff = 0.0
         matched_boxes_diff = 0.0

@@ -116,7 +116,7 @@ class MaskFormerDetrAttention(layers.Layer):
 
     Used in the MaskFormer transformer decoder for both self-attention
     (over object queries) and cross-attention (queries attending to the
-    flattened image memory). Mirrors HF's ``DetrAttention`` naming so the
+    flattened image memory). Uses DETR-style projection naming so the
     state-dict transfer is direct.
 
     Args:

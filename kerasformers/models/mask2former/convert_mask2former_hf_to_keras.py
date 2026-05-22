@@ -13,16 +13,16 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_we
 
 
 def transfer_mask2former_weights(keras_model, hf_state_dict):
-    """Transfer a HuggingFace Mask2Former state dict into a Keras Mask2Former model.
+    """Transfer a Mask2Former state dict into the Keras Mask2Former model.
 
     Walks the Swin backbone, the MSDeformAttn pixel decoder, the masked-attention
-    transformer decoder, and the class / mask-embedding heads, copying each HF
+    transformer decoder, and the class / mask-embedding heads, copying each source
     tensor into the matching Keras weight (transposing kernels and attention
     projections as needed).
 
     Args:
         keras_model: A freshly-built Mask2Former Keras model (unloaded weights).
-        hf_state_dict: The HuggingFace model ``state_dict`` mapping names to
+        hf_state_dict: The source model ``state_dict`` mapping names to
             numpy arrays.
     """
     sd = hf_state_dict

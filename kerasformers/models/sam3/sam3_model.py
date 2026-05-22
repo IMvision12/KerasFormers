@@ -932,9 +932,9 @@ class SAM3Model(BaseModel):
     ``"channels_last"`` and ``"channels_first"`` via
     ``keras.config.image_data_format()``.
 
-    Weights are gated on HuggingFace (``facebook/sam3``). On first use
+    Weights are gated on the model Hub (``facebook/sam3``). On first use
     with ``SAM3Model.from_weights("sam3_saco")``, the model is downloaded
-    from HuggingFace, converted to Keras format, and cached locally at
+    from the model Hub, converted to Keras format, and cached locally at
     ``~/.cache/kerasformers/sam3_saco/``.
 
     Construction:

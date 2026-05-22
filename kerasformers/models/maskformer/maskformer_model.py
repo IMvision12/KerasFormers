@@ -171,7 +171,7 @@ def maskformer_decoder_layer(
     cross-attention. Image positional embedding (``memory_pos``) is
     added to the K path of cross-attention.
 
-    Mirrors HF ``DetrDecoderLayer`` sublayer naming
+    Uses DETR-style sublayer naming
     (``self_attn``, ``self_attn_layer_norm``, ``encoder_attn``,
     ``encoder_attn_layer_norm``, ``fc1``, ``fc2``, ``final_layer_norm``).
 
@@ -548,7 +548,7 @@ class MaskFormerUniversalSegment(BaseModel):
 
     Composes :class:`MaskFormerModel` and exposes the prediction output
     dict with ``class_queries_logits`` and ``masks_queries_logits`` keys
-    matching HF's ``MaskFormerForInstanceSegmentation`` output.
+    matching the reference instance-segmentation output.
 
     Args:
         backbone_embed_dim: Stage-0 Swin embedding dimension.

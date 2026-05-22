@@ -236,7 +236,7 @@ def detr_backbone(
     FPN-style fusion. The DETR encoder uses only the last (C5);
     :class:`DETRSegment`'s mask head uses C2/C3/C4 as well.
 
-    Sublayer names mirror HuggingFace's DETR backbone naming
+    Sublayer names follow the reference DETR backbone naming
     (``backbone_conv1``, ``backbone_layer{stage}_{block}_*``,
     ``*_downsample_*``), so :func:`transfer_detr_weights` can map the
     PyTorch state-dict directly without renaming.
@@ -495,7 +495,7 @@ def detr_decoder(
     Returns:
         Decoder ``last_hidden_state`` of shape
         ``(B, num_queries, hidden_dim)`` — the DETR equivalent of
-        HuggingFace's ``DetrModel.last_hidden_state``.
+        the reference ``DetrModel`` last hidden state.
     """
     query_embed = DETRExpandQueryEmbedding(
         num_queries,
@@ -625,7 +625,7 @@ def detr_functional(
 class DetrModel(BaseModel):
     """DETR backbone + transformer encoder/decoder (no detection heads).
 
-    Matches the HuggingFace ``DetrModel`` pattern — outputs the decoder
+    Matches the reference ``DetrModel`` pattern — outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, hidden_dim)``.
     Wraps the functional graph built by :func:`detr_functional`: a
     ResNet-50/101 backbone, a stack of post-norm transformer encoder
@@ -897,7 +897,7 @@ class DETRDetect(BaseModel):
 class DETRSegment(BaseModel):
     """DETR for panoptic / instance segmentation — detection + per-query masks.
 
-    Mirrors HuggingFace's ``DetrForSegmentation``: composes the
+    Composes the
     detection model (class + bbox heads identical to
     :class:`DETRDetect`) and adds the segmentation head — a multi-head
     attention map between decoder queries and encoder features
@@ -939,7 +939,7 @@ class DETRSegment(BaseModel):
         num_queries: Number of learned object queries (= number of
             mask + class + bbox predictions per image).
             Defaults to ``100``.
-        num_classes: Class-head output dim (HF panoptic checkpoints
+        num_classes: Class-head output dim (panoptic checkpoints
             use ``250``). Defaults to ``250``.
         input_image_shape: Input image specification. Defaults to ``800``.
         input_tensor: Optional pre-existing Keras tensor for the

@@ -23,17 +23,17 @@ _PUNCT_REGEX = f"[{_PUNCT_CHARS}]"
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIPTokenizer(BaseTokenizer):
-    """SigLIP SentencePiece Unigram tokenizer, built on HuggingFace `tokenizers`.
+    """SigLIP SentencePiece Unigram tokenizer, built on the `tokenizers` library.
 
-    Matches HF ``SiglipTokenizer`` exactly: when ``do_lower_case=True``
-    (HF default) it canonicalizes text (strip ASCII punctuation, collapse
+    Matches the reference ``SiglipTokenizer`` exactly: when ``do_lower_case=True``
+    (the default) it canonicalizes text (strip ASCII punctuation, collapse
     whitespace, strip), then SP-encodes, then appends EOS. The SP model
     itself case-folds (nmt_nfkc_cf).
 
     Args:
         vocab_file: Path to the SentencePiece ``.model`` file.
         context_length: Maximum sequence length (default 64).
-        do_lower_case: When True, apply HF's ``canonicalize_text``.
+        do_lower_case: When True, apply the reference ``canonicalize_text``.
         unk_token / pad_token / eos_token: Special token strings.
     """
 
