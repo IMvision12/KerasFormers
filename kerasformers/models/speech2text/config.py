@@ -75,6 +75,6 @@ SPEECH2TEXT_WEIGHTS = {
 
 
 SPEECH2TEXT_TOKENIZER_FILES = {
-    "vocab": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/vocab.json",
-    "spm": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/sentencepiece.bpe.model",
+    "vocab": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_vocab.json",
+    "spm": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_spm.model",
 }
