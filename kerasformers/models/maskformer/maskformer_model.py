@@ -527,17 +527,6 @@ class MaskFormerUniversalSegment(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        """Map a HuggingFace MaskFormer config to constructor kwargs.
-
-        Reads the Swin backbone and DETR-style decoder sub-configs and returns
-        the keyword arguments for building the equivalent Keras model.
-
-        Args:
-            hf_config: HuggingFace ``MaskFormerConfig`` as a dict.
-
-        Returns:
-            Dict of constructor keyword arguments for this model class.
-        """
         backbone = hf_config.get("backbone_config", {})
         decoder = hf_config.get("decoder_config", {})
         depths = backbone.get("depths", [2, 2, 6, 2])
@@ -563,12 +552,6 @@ class MaskFormerUniversalSegment(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        """Copy weights from a HuggingFace MaskFormer checkpoint into the model.
-
-        Args:
-            keras_model: The freshly-built Keras model to populate.
-            hf_state_dict: The HuggingFace model ``state_dict`` (numpy arrays).
-        """
         from .convert_maskformer_hf_to_keras import transfer_maskformer_weights
 
         transfer_maskformer_weights(keras_model, hf_state_dict)

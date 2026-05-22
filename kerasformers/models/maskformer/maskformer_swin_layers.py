@@ -558,7 +558,7 @@ class MaskFormerSwinBackbone(layers.Layer):
             c = normed.shape[-1]
             normed = ops.reshape(normed, (b, sh, sw, c))
             if channels_first:
-                normed = ops.transpose(normed, (0, 3, 1, 2))  # -> (b, c, h, w)
+                normed = ops.transpose(normed, (0, 3, 1, 2))
             outs.append(normed)
         return outs
 

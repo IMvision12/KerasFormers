@@ -11,21 +11,6 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, int]:
-    """Scale ``(orig_h, orig_w)`` so its longest edge equals ``target_size``.
-
-    Args:
-        orig_h: Original image height.
-        orig_w: Original image width.
-        target_size: Desired length of the longest edge.
-
-    Returns:
-        The ``(height, width)`` of the aspect-ratio-preserving resize.
-    """
-    scale = target_size / max(orig_h, orig_w)
-    return int(orig_h * scale), int(orig_w * scale)
-
-
 class MaskFormerImageProcessor(BaseImageProcessor):
     """Preprocess images for MaskFormer.
 
@@ -69,7 +54,8 @@ class MaskFormerImageProcessor(BaseImageProcessor):
         image = load_image(image).astype(np.float32)
 
         h, w = image.shape[:2]
-        new_h, new_w = get_resized_size(h, w, self.target_size)
+        scale = self.target_size / max(h, w)
+        new_h, new_w = int(h * scale), int(w * scale)
 
         image = keras.ops.convert_to_tensor(image, dtype="float32")
         image = keras.ops.expand_dims(image, axis=0)
@@ -180,7 +166,8 @@ def unpad_and_resize_masks(
     Returns:
         Numpy array of shape ``(1, Q, target_h, target_w)``.
     """
-    resized_h, resized_w = get_resized_size(target_h, target_w, model_size)
+    scale = model_size / max(target_h, target_w)
+    resized_h, resized_w = int(target_h * scale), int(target_w * scale)
     mask_logits = keras.ops.convert_to_tensor(mask_logits, dtype="float32")
 
     mask_4d = keras.ops.transpose(mask_logits, (0, 2, 3, 1))
