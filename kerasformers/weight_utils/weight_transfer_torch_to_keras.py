@@ -27,12 +27,53 @@ Example:
     )
 """
 
+import contextlib
 from enum import Enum
 from typing import Any, Dict, Optional, Tuple, Union
 
 import keras
 import numpy as np
 import torch
+
+_skip_state: Dict[str, Any] = {"active": False, "skipped": []}
+
+
+@contextlib.contextmanager
+def skip_mismatched_weights(enabled: bool = True):
+    """Context manager enabling skip-on-shape-mismatch for weight transfers.
+
+    Args:
+        enabled: When ``False`` this is a no-op (normal strict transfer).
+
+    Yields:
+        A list that is populated with the names of any weights skipped because
+        their shapes did not match the source tensor.
+    """
+    if not enabled:
+        yield []
+        return
+    prev_active, prev_skipped = _skip_state["active"], _skip_state["skipped"]
+    _skip_state["active"], _skip_state["skipped"] = True, []
+    try:
+        yield _skip_state["skipped"]
+    finally:
+        _skip_state["active"], _skip_state["skipped"] = prev_active, prev_skipped
+
+
+def _shape_count_mismatch(keras_weight: Any, torch_weight: Any) -> bool:
+    """True if element counts differ (beyond the benign scalar/size-1 cases)."""
+    keras_size = int(np.prod(keras_weight.shape))
+    torch_shape = getattr(torch_weight, "shape", None) or np.shape(torch_weight)
+    torch_size = int(np.prod(torch_shape))
+    if keras_size == torch_size:
+        return False
+    if (
+        (keras_size == 0 and torch_size == 1)
+        or (keras_size == 1 and torch_size > 1)
+        or (torch_size == 1 and keras_size > 1)
+    ):
+        return False
+    return True
 
 
 class WeightType(Enum):
@@ -191,11 +232,14 @@ def transfer_weights(
     Raises:
         ValueError: If the layer type or weight shapes are unsupported.
     """
+    if _skip_state["active"] and _shape_count_mismatch(keras_weight, torch_weight):
+        _skip_state["skipped"].append(keras_name)
+        return
+
     torch_weight, keras_shape, torch_shape = validate_input_weights(
         keras_weight, torch_weight
     )
 
-    # Determine transformation based on weight dimensionality
     if len(keras_shape) == 4:  # conv2d, depthwise conv
         transformed = transform_conv_weights(keras_name, torch_weight)
 
@@ -449,6 +493,9 @@ def compare_keras_torch_names(
             or (keras_size == 1 and torch_size > 1)
             or (torch_size == 1 and keras_size > 1)
         ):
+            return True
+
+        if _skip_state["active"]:
             return True
 
         return _handle_mismatch(

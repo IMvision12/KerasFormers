@@ -5,8 +5,21 @@ from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError
 
 from kerasformers.weight_utils import download_file
+from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+    skip_mismatched_weights,
+)
 
 _HF_PREFIX = "hf:"
+
+
+def _warn_skipped(skipped):
+    """Print a note about weights left at init due to ``skip_mismatch``."""
+    if skipped:
+        print(
+            f"[from_weights] skip_mismatch: left {len(skipped)} weight(s) at their "
+            f"initialized values due to shape mismatch (e.g. a resized head): "
+            f"{skipped}"
+        )
 
 
 def hf_num_classes(hf_config):
@@ -187,7 +200,12 @@ class BaseModel(keras.Model):
         """
         if identifier.startswith(_HF_PREFIX):
             hf_id = identifier[len(_HF_PREFIX) :]
-            return cls.from_hf(hf_id, load_weights=load_weights, **kwargs)
+            return cls.from_hf(
+                hf_id,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                **kwargs,
+            )
         return cls.from_release(
             identifier,
             load_weights=load_weights,
@@ -254,15 +272,17 @@ class BaseModel(keras.Model):
                     load_and_convert_from_hf,
                 )
 
-                load_and_convert_from_hf(
-                    model=model,
-                    model_name=variant,
-                    hf_model_id=hf_id,
-                    transfer_fn=cls.transfer_from_hf,
-                    is_gated=gated,
-                    hf_model_cls=hf_model_cls,
-                    hf_kwargs=hf_kwargs,
-                )
+                with skip_mismatched_weights(skip_mismatch) as skipped:
+                    load_and_convert_from_hf(
+                        model=model,
+                        model_name=variant,
+                        hf_model_id=hf_id,
+                        transfer_fn=cls.transfer_from_hf,
+                        is_gated=gated,
+                        hf_model_cls=hf_model_cls,
+                        hf_kwargs=hf_kwargs,
+                    )
+                _warn_skipped(skipped)
             elif url:
                 if url.lower().endswith(".json"):
                     json_path = download_file(url)
@@ -288,7 +308,9 @@ class BaseModel(keras.Model):
         return model
 
     @classmethod
-    def from_hf(cls, hf_id, load_weights=True, variant=None, **kwargs):
+    def from_hf(
+        cls, hf_id, load_weights=True, variant=None, skip_mismatch=False, **kwargs
+    ):
         """Load a model from a model-hub repo.
 
         Two flavours, auto-detected by :attr:`HF_MODEL_TYPE`:
@@ -336,7 +358,9 @@ class BaseModel(keras.Model):
             model = cls.from_release(variant, load_weights=False, **kwargs)
             if load_weights:
                 state_dict = download_hf_state_dict(hf_id)
-                cls.transfer_from_timm(model, state_dict)
+                with skip_mismatched_weights(skip_mismatch) as skipped:
+                    cls.transfer_from_timm(model, state_dict)
+                _warn_skipped(skipped)
             return model
 
         with open(hf_hub_download(hf_id, "config.json"), "r") as f:
@@ -347,7 +371,9 @@ class BaseModel(keras.Model):
         model = cls(**kerasformers_kwargs)
         if load_weights:
             state_dict = download_hf_state_dict(hf_id)
-            cls.transfer_from_hf(model, state_dict)
+            with skip_mismatched_weights(skip_mismatch) as skipped:
+                cls.transfer_from_hf(model, state_dict)
+            _warn_skipped(skipped)
         return model
 
     @classmethod
