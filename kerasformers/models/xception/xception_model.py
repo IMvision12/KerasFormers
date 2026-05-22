@@ -461,7 +461,7 @@ class XceptionModel(BaseModel):
         bn_epsilon: Float, epsilon for every BatchNormalization layer.
             timm uses 1e-3 for all variants except ``xception41p`` which
             uses 1e-5. Defaults to `1e-3`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -518,7 +518,7 @@ class XceptionModel(BaseModel):
         config="41",
         preact=False,
         bn_epsilon=1e-3,
-        input_image_shape=299,
+        image_size=299,
         include_normalization=True,
         normalization_mode="inception",
         input_tensor=None,
@@ -538,12 +538,12 @@ class XceptionModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -567,7 +567,7 @@ class XceptionModel(BaseModel):
         self.config = config
         self.preact = preact
         self.bn_epsilon = bn_epsilon
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -580,7 +580,7 @@ class XceptionModel(BaseModel):
                 "config": self.config,
                 "preact": self.preact,
                 "bn_epsilon": self.bn_epsilon,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -618,7 +618,7 @@ class XceptionImageClassify(BaseModel):
             structure. Must match ``config``. Defaults to `False`.
         bn_epsilon: Float, epsilon for every BatchNormalization layer.
             Defaults to `1e-3`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -668,7 +668,7 @@ class XceptionImageClassify(BaseModel):
         config="41",
         preact=False,
         bn_epsilon=1e-3,
-        input_image_shape=299,
+        image_size=299,
         include_normalization=True,
         normalization_mode="inception",
         input_tensor=None,
@@ -686,7 +686,7 @@ class XceptionImageClassify(BaseModel):
             config=config,
             preact=preact,
             bn_epsilon=bn_epsilon,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -707,7 +707,7 @@ class XceptionImageClassify(BaseModel):
         self.config = config
         self.preact = preact
         self.bn_epsilon = bn_epsilon
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -722,7 +722,7 @@ class XceptionImageClassify(BaseModel):
                 "config": self.config,
                 "preact": self.preact,
                 "bn_epsilon": self.bn_epsilon,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

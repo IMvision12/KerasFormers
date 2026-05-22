@@ -46,13 +46,13 @@ class CLIPAddPositionEmbs(layers.Layer):
         **kwargs: Additional keyword arguments passed to the parent Layer class.
 
     Input Shape:
-        3D tensor with shape: `(batch_size, sequence_length, embedding_dim)`, where sequence_length should be:
+        3D tensor with shape: `(batch_size, sequence_length, embed_dim)`, where sequence_length should be:
           * Standard mode: grid_h * grid_w + 1 (patch tokens + class token)
           * FlexiViT mode / PiT mode: either grid_h * grid_w (patch tokens only) or grid_h * grid_w + 1
           * DeiT mode: grid_h * grid_w + 2 (patch tokens + class token + distillation token)
 
     Output Shape:
-        Same as the input shape: `(batch_size, sequence_length, embedding_dim)`. In FlexiViT or PiT mode,
+        Same as the input shape: `(batch_size, sequence_length, embed_dim)`. In FlexiViT or PiT mode,
         if a class token is present at the beginning, it is preserved and positional embeddings are added
         only to the patch tokens.
 
@@ -448,56 +448,56 @@ class CLIPTextModelEmbedding(keras.layers.Layer):
 
     Args:
         vocab_size (int): Size of the vocabulary, determining the number of unique tokens
-        context_length (int): Maximum sequence length to handle
-        embedding_dim (int): Dimensionality of the embedding vectors
+        max_seq_len (int): Maximum sequence length to handle
+        embed_dim (int): Dimensionality of the embedding vectors
         **kwargs: Additional keyword arguments passed to the parent Layer class
 
     Input shape:
         Integer tensor of shape (batch_size, sequence_length) with token IDs
 
     Output shape:
-        Float tensor of shape (batch_size, sequence_length, embedding_dim)
+        Float tensor of shape (batch_size, sequence_length, embed_dim)
     """
 
-    def __init__(self, vocab_size, context_length, embedding_dim, **kwargs):
+    def __init__(self, vocab_size, max_seq_len, embed_dim, **kwargs):
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
-        self.context_length = context_length
-        self.embedding_dim = embedding_dim
+        self.max_seq_len = max_seq_len
+        self.embed_dim = embed_dim
 
         self.token_embedding = keras.layers.Embedding(
-            vocab_size, embedding_dim, name="token_embedding"
+            vocab_size, embed_dim, name="token_embedding"
         )
 
         self.position_embedding = keras.layers.Embedding(
-            context_length, embedding_dim, name="positional_embedding"
+            max_seq_len, embed_dim, name="positional_embedding"
         )
 
     def call(self, inputs):
         token_embeddings = self.token_embedding(inputs)
         batch_size = ops.shape(inputs)[0]
-        position_ids = ops.arange(self.context_length, dtype="int32")
+        position_ids = ops.arange(self.max_seq_len, dtype="int32")
         position_ids = ops.expand_dims(position_ids, 0)
         position_embeddings = self.position_embedding(position_ids)
         position_embeddings = ops.tile(position_embeddings, (batch_size, 1, 1))
         return token_embeddings + position_embeddings
 
     def build(self, input_shape):
-        self.token_embedding.build((None, self.context_length))
-        self.position_embedding.build((None, self.context_length))
+        self.token_embedding.build((None, self.max_seq_len))
+        self.position_embedding.build((None, self.max_seq_len))
         self.built = True
         super().build(input_shape)
 
     def compute_output_shape(self, input_shape):
-        return (input_shape[0], self.context_length, self.embedding_dim)
+        return (input_shape[0], self.max_seq_len, self.embed_dim)
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
                 "vocab_size": self.vocab_size,
-                "context_length": self.context_length,
-                "embedding_dim": self.embedding_dim,
+                "max_seq_len": self.max_seq_len,
+                "embed_dim": self.embed_dim,
             }
         )
         return config

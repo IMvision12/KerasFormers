@@ -42,11 +42,11 @@ class DinoV2Model(BaseModel):
         qk_norm: Whether to use QK normalization. Defaults to ``False``.
         drop_rate: Dropout rate. Defaults to ``0.0``.
         attn_drop_rate: Attention dropout rate. Defaults to ``0.0``.
-        init_values: LayerScale init value. Defaults to ``1.0``.
+        layer_scale_init: LayerScale init value. Defaults to ``1.0``.
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -68,7 +68,7 @@ class DinoV2Model(BaseModel):
             "depth": hf_config["num_hidden_layers"],
             "num_heads": hf_config["num_attention_heads"],
             "mlp_ratio": hf_config.get("mlp_ratio", 4.0),
-            "init_values": hf_config.get("layerscale_value", 1.0),
+            "layer_scale_init": hf_config.get("layerscale_value", 1.0),
         }
 
     @classmethod
@@ -91,26 +91,24 @@ class DinoV2Model(BaseModel):
         qk_norm=False,
         drop_rate=0.0,
         attn_drop_rate=0.0,
-        init_values=1.0,
+        layer_scale_init=1.0,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_image_shape=224,
+        image_size=224,
         input_tensor=None,
         name="DinoV2Model",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
         image_size = (
-            input_image_shape[0]
-            if data_format == "channels_last"
-            else input_image_shape[1]
+            input_shape[0] if data_format == "channels_last" else input_shape[1]
         )
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=input_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
 
@@ -132,7 +130,7 @@ class DinoV2Model(BaseModel):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=False,
             use_distillation=False,
-            init_values=init_values,
+            layer_scale_init=layer_scale_init,
             image_size=image_size,
             data_format=data_format,
             return_intermediates=True,
@@ -155,10 +153,10 @@ class DinoV2Model(BaseModel):
         self.qk_norm = qk_norm
         self.drop_rate = drop_rate
         self.attn_drop_rate = attn_drop_rate
-        self.init_values = init_values
+        self.layer_scale_init = layer_scale_init
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -175,10 +173,10 @@ class DinoV2Model(BaseModel):
                 "qk_norm": self.qk_norm,
                 "drop_rate": self.drop_rate,
                 "attn_drop_rate": self.attn_drop_rate,
-                "init_values": self.init_values,
+                "layer_scale_init": self.layer_scale_init,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )

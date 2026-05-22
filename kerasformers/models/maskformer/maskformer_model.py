@@ -159,7 +159,7 @@ def maskformer_decoder_layer(
     query_pos,
     hidden_dim,
     num_heads,
-    ffn_dim,
+    mlp_dim,
     dropout_rate=0.0,
     block_prefix="transformer_decoder_layers_0",
 ):
@@ -183,7 +183,7 @@ def maskformer_decoder_layer(
             ``(B, num_queries, hidden_dim)``.
         hidden_dim: Model dimension.
         num_heads: Number of attention heads.
-        ffn_dim: Feed-forward hidden dimension.
+        mlp_dim: Feed-forward hidden dimension.
         dropout_rate: Attention dropout rate.
         block_prefix: Layer-name prefix for this decoder layer.
 
@@ -220,7 +220,7 @@ def maskformer_decoder_layer(
     )(hidden_states)
 
     residual = hidden_states
-    y = layers.Dense(ffn_dim, name=f"{block_prefix}_fc1")(hidden_states)
+    y = layers.Dense(mlp_dim, name=f"{block_prefix}_fc1")(hidden_states)
     y = layers.Activation("relu", name=f"{block_prefix}_fc1_relu")(y)
     y = layers.Dense(hidden_dim, name=f"{block_prefix}_fc2")(y)
     hidden_states = layers.Add(name=f"{block_prefix}_ff_residual")([residual, y])
@@ -235,7 +235,7 @@ def maskformer_transformer_decoder(
     hidden_dim,
     num_layers,
     num_heads,
-    ffn_dim,
+    mlp_dim,
     num_queries,
     data_format,
     dropout_rate=0.0,
@@ -253,7 +253,7 @@ def maskformer_transformer_decoder(
         hidden_dim: Model dimension.
         num_layers: Number of decoder layers.
         num_heads: Number of attention heads.
-        ffn_dim: Feed-forward hidden dimension.
+        mlp_dim: Feed-forward hidden dimension.
         num_queries: Number of object queries.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         dropout_rate: Attention dropout rate.
@@ -295,7 +295,7 @@ def maskformer_transformer_decoder(
             query_pos=query_pos,
             hidden_dim=hidden_dim,
             num_heads=num_heads,
-            ffn_dim=ffn_dim,
+            mlp_dim=mlp_dim,
             dropout_rate=dropout_rate,
             block_prefix=f"transformer_decoder_layers_{i}",
         )
@@ -340,7 +340,7 @@ def maskformer_functional(
     fpn_feature_size,
     mask_feature_size,
     decoder_d_model,
-    decoder_layers,
+    decoder_num_layers,
     decoder_heads,
     decoder_ffn_dim,
     num_queries,
@@ -363,7 +363,7 @@ def maskformer_functional(
         fpn_feature_size: FPN channel count.
         mask_feature_size: Mask-feature / mask-embedding dimension.
         decoder_d_model: Transformer-decoder model dimension.
-        decoder_layers: Number of transformer-decoder layers.
+        decoder_num_layers: Number of transformer-decoder layers.
         decoder_heads: Number of decoder attention heads.
         decoder_ffn_dim: Decoder feed-forward dimension.
         num_queries: Number of object queries.
@@ -405,9 +405,9 @@ def maskformer_functional(
     decoder_hidden = maskformer_transformer_decoder(
         memory_feature,
         hidden_dim=decoder_d_model,
-        num_layers=decoder_layers,
+        num_layers=decoder_num_layers,
         num_heads=decoder_heads,
-        ffn_dim=decoder_ffn_dim,
+        mlp_dim=decoder_ffn_dim,
         num_queries=num_queries,
         data_format=data_format,
     )
@@ -441,12 +441,12 @@ class MaskFormerModel(BaseModel):
         fpn_feature_size: FPN channel count.
         mask_feature_size: Mask-feature dimension produced by the pixel decoder.
         decoder_d_model: Transformer-decoder model dimension.
-        decoder_layers: Number of transformer-decoder layers.
+        decoder_num_layers: Number of transformer-decoder layers.
         decoder_heads: Number of decoder attention heads.
         decoder_ffn_dim: Decoder feed-forward dimension.
         num_queries: Number of object queries.
         num_classes: Number of semantic classes (excluding the no-object class).
-        input_image_shape: Input image size (int edge length or shape tuple).
+        image_size: Input image size (int edge length or shape tuple).
         name: Model name.
         **kwargs: Additional keyword arguments forwarded to :class:`BaseModel`.
 
@@ -467,20 +467,20 @@ class MaskFormerModel(BaseModel):
         fpn_feature_size=256,
         mask_feature_size=256,
         decoder_d_model=256,
-        decoder_layers=6,
+        decoder_num_layers=6,
         decoder_heads=8,
         decoder_ffn_dim=2048,
         num_queries=100,
         num_classes=150,
-        input_image_shape=512,
+        image_size=512,
         name="MaskFormerModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
-        pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+        pixel_values = layers.Input(shape=image_size, name="pixel_values")
 
         outputs = maskformer_functional(
             pixel_values,
@@ -491,7 +491,7 @@ class MaskFormerModel(BaseModel):
             fpn_feature_size=fpn_feature_size,
             mask_feature_size=mask_feature_size,
             decoder_d_model=decoder_d_model,
-            decoder_layers=decoder_layers,
+            decoder_num_layers=decoder_num_layers,
             decoder_heads=decoder_heads,
             decoder_ffn_dim=decoder_ffn_dim,
             num_queries=num_queries,
@@ -508,12 +508,12 @@ class MaskFormerModel(BaseModel):
         self.fpn_feature_size = fpn_feature_size
         self.mask_feature_size = mask_feature_size
         self.decoder_d_model = decoder_d_model
-        self.decoder_layers = decoder_layers
+        self.decoder_num_layers = decoder_num_layers
         self.decoder_heads = decoder_heads
         self.decoder_ffn_dim = decoder_ffn_dim
         self.num_queries = num_queries
         self.num_classes = num_classes
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
 
     def get_config(self):
         c = super().get_config()
@@ -526,12 +526,12 @@ class MaskFormerModel(BaseModel):
                 "fpn_feature_size": self.fpn_feature_size,
                 "mask_feature_size": self.mask_feature_size,
                 "decoder_d_model": self.decoder_d_model,
-                "decoder_layers": self.decoder_layers,
+                "decoder_num_layers": self.decoder_num_layers,
                 "decoder_heads": self.decoder_heads,
                 "decoder_ffn_dim": self.decoder_ffn_dim,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )
@@ -558,12 +558,12 @@ class MaskFormerUniversalSegment(BaseModel):
         fpn_feature_size: FPN channel count.
         mask_feature_size: Mask-feature dimension produced by the pixel decoder.
         decoder_d_model: Transformer-decoder model dimension.
-        decoder_layers: Number of transformer-decoder layers.
+        decoder_num_layers: Number of transformer-decoder layers.
         decoder_heads: Number of decoder attention heads.
         decoder_ffn_dim: Decoder feed-forward dimension.
         num_queries: Number of object queries.
         num_classes: Number of semantic classes (excluding the no-object class).
-        input_image_shape: Input image size (int edge length or shape tuple).
+        image_size: Input image size (int edge length or shape tuple).
         name: Model name.
         **kwargs: Additional keyword arguments forwarded to :class:`BaseModel`.
 
@@ -585,20 +585,20 @@ class MaskFormerUniversalSegment(BaseModel):
         fpn_feature_size=256,
         mask_feature_size=256,
         decoder_d_model=256,
-        decoder_layers=6,
+        decoder_num_layers=6,
         decoder_heads=8,
         decoder_ffn_dim=2048,
         num_queries=100,
         num_classes=150,
-        input_image_shape=512,
+        image_size=512,
         name="MaskFormerUniversalSegment",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
-        pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+        pixel_values = layers.Input(shape=image_size, name="pixel_values")
 
         outputs = maskformer_functional(
             pixel_values,
@@ -609,7 +609,7 @@ class MaskFormerUniversalSegment(BaseModel):
             fpn_feature_size=fpn_feature_size,
             mask_feature_size=mask_feature_size,
             decoder_d_model=decoder_d_model,
-            decoder_layers=decoder_layers,
+            decoder_num_layers=decoder_num_layers,
             decoder_heads=decoder_heads,
             decoder_ffn_dim=decoder_ffn_dim,
             num_queries=num_queries,
@@ -626,12 +626,12 @@ class MaskFormerUniversalSegment(BaseModel):
         self.fpn_feature_size = fpn_feature_size
         self.mask_feature_size = mask_feature_size
         self.decoder_d_model = decoder_d_model
-        self.decoder_layers = decoder_layers
+        self.decoder_num_layers = decoder_num_layers
         self.decoder_heads = decoder_heads
         self.decoder_ffn_dim = decoder_ffn_dim
         self.num_queries = num_queries
         self.num_classes = num_classes
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
 
     def get_config(self):
         c = super().get_config()
@@ -644,12 +644,12 @@ class MaskFormerUniversalSegment(BaseModel):
                 "fpn_feature_size": self.fpn_feature_size,
                 "mask_feature_size": self.mask_feature_size,
                 "decoder_d_model": self.decoder_d_model,
-                "decoder_layers": self.decoder_layers,
+                "decoder_num_layers": self.decoder_num_layers,
                 "decoder_heads": self.decoder_heads,
                 "decoder_ffn_dim": self.decoder_ffn_dim,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )
@@ -676,12 +676,12 @@ class MaskFormerUniversalSegment(BaseModel):
             "fpn_feature_size": hf_config.get("fpn_feature_size", 256),
             "mask_feature_size": hf_config.get("mask_feature_size", 256),
             "decoder_d_model": decoder.get("d_model", 256),
-            "decoder_layers": decoder.get("decoder_layers", 6),
+            "decoder_num_layers": decoder.get("decoder_layers", 6),
             "decoder_heads": decoder.get("decoder_attention_heads", 8),
             "decoder_ffn_dim": decoder.get("decoder_ffn_dim", 2048),
             "num_queries": decoder.get("num_queries", 100),
             "num_classes": hf_num_classes(hf_config),
-            "input_image_shape": backbone.get("image_size", 384),
+            "image_size": backbone.get("image_size", 384),
         }
 
     @classmethod

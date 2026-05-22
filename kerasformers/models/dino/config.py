@@ -42,7 +42,7 @@ DINO_VIT_WEIGHTS = {
 
 DINO_RESNET_CONFIG = {
     "dino_resnet50": {
-        "block_repeats": [3, 4, 6, 3],
+        "depths": [3, 4, 6, 3],
         "filters": [64, 128, 256, 512],
     },
 }

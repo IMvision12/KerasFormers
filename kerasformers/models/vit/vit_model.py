@@ -48,7 +48,7 @@ def transformer_block(
     proj_drop=0.0,
     attn_drop=0.0,
     block_idx=0,
-    init_values=None,
+    layer_scale_init=None,
 ):
     """Standard ViT transformer block: LN -> MHSA -> Add -> LN -> MLP -> Add.
 
@@ -62,7 +62,7 @@ def transformer_block(
         proj_drop: Dropout rate on the attention output projection and MLP.
         attn_drop: Dropout rate applied to attention weights.
         block_idx: Numeric index used to name layers inside this block.
-        init_values: If set, apply LayerScale with this initial gamma on
+        layer_scale_init: If set, apply LayerScale with this initial gamma on
             both residual branches.
 
     Returns:
@@ -80,9 +80,9 @@ def transformer_block(
         proj_drop=proj_drop,
         block_prefix=f"blocks_{block_idx}",
     )(x)
-    if init_values:
+    if layer_scale_init:
         x = LayerScale(
-            init_values=init_values, name=f"blocks_{block_idx}_layerscale_1"
+            layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_1"
         )(x)
     x = keras.layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
 
@@ -96,9 +96,9 @@ def transformer_block(
         drop=proj_drop,
         block_idx=block_idx,
     )
-    if init_values:
+    if layer_scale_init:
         y = LayerScale(
-            init_values=init_values, name=f"blocks_{block_idx}_layerscale_2"
+            layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
         )(y)
     return keras.layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
 
@@ -117,7 +117,7 @@ def vit_backbone_feature(
     attn_drop_rate,
     no_embed_class,
     use_distillation,
-    init_values,
+    layer_scale_init,
     image_size,
     data_format,
     return_intermediates=False,
@@ -143,7 +143,7 @@ def vit_backbone_feature(
             class/distillation prefix tokens.
         use_distillation: If ``True``, prepend a separate distillation token
             in addition to the class token.
-        init_values: Optional LayerScale initial gamma value.
+        layer_scale_init: Optional LayerScale initial gamma value.
         image_size: Input image resolution; used when ``inputs`` has unknown
             spatial shape.
         data_format: ``"channels_last"`` or ``"channels_first"``.
@@ -202,7 +202,7 @@ def vit_backbone_feature(
             qk_norm=qk_norm,
             proj_drop=drop_rate,
             attn_drop=attn_drop_rate,
-            init_values=init_values,
+            layer_scale_init=layer_scale_init,
             block_idx=i,
         )
         intermediates.append(x)
@@ -266,10 +266,10 @@ class ViTModel(BaseModel):
         use_distillation: Boolean, if `True`, prepend a separate
             distillation token alongside the class token (DeiT-distilled
             style). Defaults to `False`.
-        init_values: Optional float, initial gamma value for LayerScale
+        layer_scale_init: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -327,8 +327,8 @@ class ViTModel(BaseModel):
         attn_drop_rate=0.0,
         no_embed_class=False,
         use_distillation=False,
-        init_values=None,
-        input_image_shape=224,
+        layer_scale_init=None,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -340,17 +340,15 @@ class ViTModel(BaseModel):
 
         data_format = keras.config.image_data_format()
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        input_shape = standardize_input_shape(image_size, data_format)
         image_size = (
-            input_image_shape[0]
-            if data_format == "channels_last"
-            else input_image_shape[1]
+            input_shape[0] if data_format == "channels_last" else input_shape[1]
         )
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=input_shape)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
 
@@ -372,7 +370,7 @@ class ViTModel(BaseModel):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
-            init_values=init_values,
+            layer_scale_init=layer_scale_init,
             image_size=image_size,
             data_format=data_format,
             return_stages=as_backbone,
@@ -392,8 +390,8 @@ class ViTModel(BaseModel):
         self.attn_drop_rate = attn_drop_rate
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
-        self.init_values = init_values
-        self.input_image_shape = input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -414,8 +412,8 @@ class ViTModel(BaseModel):
                 "attn_drop_rate": self.attn_drop_rate,
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
-                "init_values": self.init_values,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -472,10 +470,10 @@ class ViTImageClassify(BaseModel):
             distillation token alongside the class token and attach a
             second prediction head whose output is averaged with the CLS
             head. Defaults to `False`.
-        init_values: Optional float, initial gamma value for LayerScale
+        layer_scale_init: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -530,8 +528,8 @@ class ViTImageClassify(BaseModel):
         attn_drop_rate=0.0,
         no_embed_class=False,
         use_distillation=False,
-        init_values=None,
-        input_image_shape=224,
+        layer_scale_init=None,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -554,8 +552,8 @@ class ViTImageClassify(BaseModel):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
-            init_values=init_values,
-            input_image_shape=input_image_shape,
+            layer_scale_init=layer_scale_init,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -597,8 +595,8 @@ class ViTImageClassify(BaseModel):
         self.attn_drop_rate = attn_drop_rate
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
-        self.init_values = init_values
-        self.input_image_shape = backbone.input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -620,8 +618,8 @@ class ViTImageClassify(BaseModel):
                 "attn_drop_rate": self.attn_drop_rate,
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
-                "init_values": self.init_values,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

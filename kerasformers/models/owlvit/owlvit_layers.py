@@ -14,7 +14,7 @@ class OwlViTPositionEmbedding(layers.Embedding):
     """Position-embedding lookup with on-load grid interpolation.
 
     Subclasses :class:`keras.layers.Embedding` so the saved kernel of
-    shape ``(num_positions, hidden_size)`` is resized to the layer's
+    shape ``(num_positions, hidden_dim)`` is resized to the layer's
     current ``input_dim`` whenever a checkpoint trained at a different
     image resolution is loaded. The first row stays as the CLS-position;
     the remaining ``num_positions - 1`` rows are treated as a square
@@ -27,14 +27,14 @@ class OwlViTPositionEmbedding(layers.Embedding):
         if tuple(source.shape) == target_shape:
             self.embeddings.assign(source)
             return
-        target_num_positions, hidden_size = target_shape
+        target_num_positions, hidden_dim = target_shape
         source_num_positions = source.shape[0]
         source_grid = int(round(math.sqrt(source_num_positions - 1)))
         target_grid = int(round(math.sqrt(target_num_positions - 1)))
         source = ops.cast(source, dtype="float32")
         cls = source[:1]
         spatial = source[1:]
-        spatial = ops.reshape(spatial, [1, source_grid, source_grid, hidden_size])
+        spatial = ops.reshape(spatial, [1, source_grid, source_grid, hidden_dim])
         spatial = ops.image.resize(
             spatial,
             size=[target_grid, target_grid],
@@ -42,7 +42,7 @@ class OwlViTPositionEmbedding(layers.Embedding):
             antialias=True,
             data_format="channels_last",
         )
-        spatial = ops.reshape(spatial, [target_grid * target_grid, hidden_size])
+        spatial = ops.reshape(spatial, [target_grid * target_grid, hidden_dim])
         new_kernel = ops.concatenate([cls, spatial], axis=0)
         self.embeddings.assign(new_kernel)
 
@@ -55,7 +55,7 @@ class OwlViTVisionEmbeddings(layers.Layer):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
 
     Args:
-        hidden_size: Integer, embedding dimension of each patch token.
+        hidden_dim: Integer, embedding dimension of each patch token.
         image_size: Integer, square image edge in pixels.
         patch_size: Integer, square patch edge in pixels. Must divide
             ``image_size``.
@@ -67,19 +67,19 @@ class OwlViTVisionEmbeddings(layers.Layer):
         4D tensor: ``(batch_size, image_size, image_size, num_channels)``.
 
     Output Shape:
-        3D tensor: ``(batch_size, num_patches + 1, hidden_size)``.
+        3D tensor: ``(batch_size, num_patches + 1, hidden_dim)``.
     """
 
     def __init__(
         self,
-        hidden_size,
+        hidden_dim,
         image_size,
         patch_size,
         num_channels=3,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.image_size = image_size
         self.patch_size = patch_size
         self.num_channels = num_channels
@@ -88,7 +88,7 @@ class OwlViTVisionEmbeddings(layers.Layer):
         self._data_format = keras.config.image_data_format()
 
         self.patch_embedding = layers.Conv2D(
-            filters=hidden_size,
+            filters=hidden_dim,
             kernel_size=patch_size,
             strides=patch_size,
             use_bias=False,
@@ -97,14 +97,14 @@ class OwlViTVisionEmbeddings(layers.Layer):
         )
         self.position_embedding = OwlViTPositionEmbedding(
             self.num_positions,
-            hidden_size,
+            hidden_dim,
             name="position_embedding",
         )
 
     def build(self, input_shape):
         self.class_embedding = self.add_weight(
             name="class_embedding",
-            shape=(self.hidden_size,),
+            shape=(self.hidden_dim,),
             initializer="zeros",
             trainable=True,
         )
@@ -115,12 +115,10 @@ class OwlViTVisionEmbeddings(layers.Layer):
         if self._data_format == "channels_first":
             patch_embeds = ops.transpose(patch_embeds, (0, 2, 3, 1))
         b = ops.shape(patch_embeds)[0]
-        patch_embeds = ops.reshape(
-            patch_embeds, (b, self.num_patches, self.hidden_size)
-        )
+        patch_embeds = ops.reshape(patch_embeds, (b, self.num_patches, self.hidden_dim))
         cls = ops.broadcast_to(
-            ops.reshape(self.class_embedding, (1, 1, self.hidden_size)),
-            (b, 1, self.hidden_size),
+            ops.reshape(self.class_embedding, (1, 1, self.hidden_dim)),
+            (b, 1, self.hidden_dim),
         )
         embeddings = ops.concatenate([cls, patch_embeds], axis=1)
         position_ids = ops.arange(0, self.num_positions, dtype="int32")
@@ -131,7 +129,7 @@ class OwlViTVisionEmbeddings(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "image_size": self.image_size,
                 "patch_size": self.patch_size,
                 "num_channels": self.num_channels,
@@ -149,39 +147,39 @@ class OwlViTTextEmbeddings(layers.Layer):
 
     Args:
         vocab_size: Integer, text vocabulary size.
-        hidden_size: Integer, hidden size of the text tower.
-        max_position_embeddings: Integer, maximum text sequence length.
+        hidden_dim: Integer, hidden size of the text tower.
+        max_seq_len: Integer, maximum text sequence length.
         **kwargs: Additional keyword arguments passed to ``Layer``.
 
     Input Shape:
         2D integer tensor: ``(batch_size, sequence_length)``.
 
     Output Shape:
-        3D tensor: ``(batch_size, sequence_length, hidden_size)``.
+        3D tensor: ``(batch_size, sequence_length, hidden_dim)``.
     """
 
     def __init__(
         self,
         vocab_size,
-        hidden_size,
-        max_position_embeddings,
+        hidden_dim,
+        max_seq_len,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
-        self.max_position_embeddings = max_position_embeddings
+        self.hidden_dim = hidden_dim
+        self.max_seq_len = max_seq_len
 
         self.token_embedding = layers.Embedding(
-            vocab_size, hidden_size, name="token_embedding"
+            vocab_size, hidden_dim, name="token_embedding"
         )
         self.position_embedding = layers.Embedding(
-            max_position_embeddings, hidden_size, name="position_embedding"
+            max_seq_len, hidden_dim, name="position_embedding"
         )
 
     def call(self, input_ids):
         token_embeds = self.token_embedding(input_ids)
-        position_ids = ops.arange(0, self.max_position_embeddings, dtype="int32")
+        position_ids = ops.arange(0, self.max_seq_len, dtype="int32")
         position_embeds = self.position_embedding(position_ids)
         return token_embeds + ops.expand_dims(position_embeds, axis=0)
 
@@ -190,8 +188,8 @@ class OwlViTTextEmbeddings(layers.Layer):
         config.update(
             {
                 "vocab_size": self.vocab_size,
-                "hidden_size": self.hidden_size,
-                "max_position_embeddings": self.max_position_embeddings,
+                "hidden_dim": self.hidden_dim,
+                "max_seq_len": self.max_seq_len,
             }
         )
         return config
@@ -205,41 +203,41 @@ class OwlViTAttention(layers.Layer):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
 
     Args:
-        hidden_size: Integer, total model dimension. Must be divisible
+        hidden_dim: Integer, total model dimension. Must be divisible
             by ``num_heads``.
         num_heads: Integer, number of parallel attention heads.
         **kwargs: Additional keyword arguments passed to ``Layer``.
 
     Input Shape:
-        3D tensor: ``(batch_size, seq_len, hidden_size)``. An optional
+        3D tensor: ``(batch_size, seq_len, hidden_dim)``. An optional
         additive ``attention_mask`` broadcastable to
         ``(batch_size, num_heads, seq_len, seq_len)`` may be provided.
 
     Output Shape:
-        3D tensor: ``(batch_size, seq_len, hidden_size)``.
+        3D tensor: ``(batch_size, seq_len, hidden_dim)``.
     """
 
     def __init__(
         self,
-        hidden_size,
+        hidden_dim,
         num_heads,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if hidden_size % num_heads != 0:
+        if hidden_dim % num_heads != 0:
             raise ValueError(
-                f"hidden_size ({hidden_size}) must be divisible by num_heads "
+                f"hidden_dim ({hidden_dim}) must be divisible by num_heads "
                 f"({num_heads})."
             )
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_heads = num_heads
-        self.head_dim = hidden_size // num_heads
+        self.head_dim = hidden_dim // num_heads
         self.scale = self.head_dim**-0.5
 
-        self.k_proj = layers.Dense(hidden_size, name="k_proj")
-        self.v_proj = layers.Dense(hidden_size, name="v_proj")
-        self.q_proj = layers.Dense(hidden_size, name="q_proj")
-        self.out_proj = layers.Dense(hidden_size, name="out_proj")
+        self.k_proj = layers.Dense(hidden_dim, name="k_proj")
+        self.v_proj = layers.Dense(hidden_dim, name="v_proj")
+        self.q_proj = layers.Dense(hidden_dim, name="q_proj")
+        self.out_proj = layers.Dense(hidden_dim, name="out_proj")
 
     def split_heads(self, x):
         b = ops.shape(x)[0]
@@ -261,14 +259,14 @@ class OwlViTAttention(layers.Layer):
         out = ops.transpose(out, (0, 2, 1, 3))
         b = ops.shape(out)[0]
         s = ops.shape(out)[1]
-        out = ops.reshape(out, (b, s, self.hidden_size))
+        out = ops.reshape(out, (b, s, self.hidden_dim))
         return self.out_proj(out)
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
             }
         )

@@ -5,7 +5,7 @@ CONVMIXER_MODEL_CONFIG = {
         "patch_size": 7,
         "kernel_size": 9,
         "activation": "gelu",
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "convmixer_768_32": {
@@ -14,7 +14,7 @@ CONVMIXER_MODEL_CONFIG = {
         "patch_size": 7,
         "kernel_size": 7,
         "activation": "relu",
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "convmixer_1024_20_ks9_p14": {
@@ -23,7 +23,7 @@ CONVMIXER_MODEL_CONFIG = {
         "patch_size": 14,
         "kernel_size": 9,
         "activation": "gelu",
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
 }

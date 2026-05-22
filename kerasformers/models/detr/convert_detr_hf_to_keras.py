@@ -274,7 +274,7 @@ if __name__ == "__main__":
             "variant": "detr-resnet-50",
             "hf_model_name": "facebook/detr-resnet-50",
             "output": "detr_resnet50.weights.h5",
-            "input_image_shape": 800,
+            "image_size": 800,
             "num_classes": 92,
             "num_queries": 100,
         },
@@ -282,7 +282,7 @@ if __name__ == "__main__":
             "variant": "detr-resnet-101",
             "hf_model_name": "facebook/detr-resnet-101",
             "output": "detr_resnet101.weights.h5",
-            "input_image_shape": 800,
+            "image_size": 800,
             "num_classes": 92,
             "num_queries": 100,
         },
@@ -296,7 +296,7 @@ if __name__ == "__main__":
         keras_model = DETRDetect.from_weights(
             cfg["variant"],
             load_weights=False,
-            input_image_shape=cfg["input_image_shape"],
+            image_size=cfg["image_size"],
             num_classes=cfg["num_classes"],
             num_queries=cfg["num_queries"],
         )
@@ -358,7 +358,7 @@ if __name__ == "__main__":
             "variant": "detr-resnet-50-panoptic",
             "hf_model_name": "facebook/detr-resnet-50-panoptic",
             "output": "detr_resnet50_panoptic.weights.h5",
-            "input_image_shape": 800,
+            "image_size": 800,
             "num_classes": 251,
             "num_queries": 100,
         },
@@ -366,7 +366,7 @@ if __name__ == "__main__":
             "variant": "detr-resnet-101-panoptic",
             "hf_model_name": "facebook/detr-resnet-101-panoptic",
             "output": "detr_resnet101_panoptic.weights.h5",
-            "input_image_shape": 800,
+            "image_size": 800,
             "num_classes": 251,
             "num_queries": 100,
         },
@@ -382,7 +382,7 @@ if __name__ == "__main__":
         keras_model = DETRSegment.from_weights(
             cfg["variant"],
             load_weights=False,
-            input_image_shape=cfg["input_image_shape"],
+            image_size=cfg["image_size"],
             num_classes=cfg["num_classes"],
             num_queries=cfg["num_queries"],
         )

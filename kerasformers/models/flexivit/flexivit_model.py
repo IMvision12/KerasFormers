@@ -43,7 +43,7 @@ class FlexiViTModel(ViTModel):
             (``patch_size``, ``dim``, ``depth``, ``num_heads``,
             ``mlp_ratio``, ``qkv_bias``, ``qk_norm``, ``drop_rate``,
             ``attn_drop_rate``, ``no_embed_class``, ``use_distillation``,
-            ``init_values``, ``include_normalization``,
+            ``layer_scale_init``, ``include_normalization``,
             ``normalization_mode``, ``input_tensor``)
             are forwarded to the parent class.
 
@@ -79,13 +79,13 @@ class FlexiViTModel(ViTModel):
     def __init__(
         self,
         as_backbone=False,
-        input_image_shape=240,
+        image_size=240,
         name="FlexiViTModel",
         **kwargs,
     ):
         super().__init__(
             as_backbone=as_backbone,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             name=name,
             **kwargs,
         )
@@ -135,10 +135,10 @@ class FlexiViTImageClassify(ViTImageClassify):
         use_distillation: Boolean, if `True`, prepend a separate
             distillation token alongside the class token. Defaults to
             `False`.
-        init_values: Optional float, initial gamma value for LayerScale
+        layer_scale_init: Optional float, initial gamma value for LayerScale
             applied on both residual branches. If `None`, LayerScale is
             disabled. Defaults to `None`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -195,8 +195,8 @@ class FlexiViTImageClassify(ViTImageClassify):
         attn_drop_rate=0.0,
         no_embed_class=False,
         use_distillation=False,
-        init_values=None,
-        input_image_shape=240,
+        layer_scale_init=None,
+        image_size=240,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -219,8 +219,8 @@ class FlexiViTImageClassify(ViTImageClassify):
             attn_drop_rate=attn_drop_rate,
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
-            init_values=init_values,
-            input_image_shape=input_image_shape,
+            layer_scale_init=layer_scale_init,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -264,8 +264,8 @@ class FlexiViTImageClassify(ViTImageClassify):
         self.attn_drop_rate = attn_drop_rate
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
-        self.init_values = init_values
-        self.input_image_shape = backbone.input_image_shape
+        self.layer_scale_init = layer_scale_init
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -287,8 +287,8 @@ class FlexiViTImageClassify(ViTImageClassify):
                 "attn_drop_rate": self.attn_drop_rate,
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
-                "init_values": self.init_values,
-                "input_image_shape": self.input_image_shape,
+                "layer_scale_init": self.layer_scale_init,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

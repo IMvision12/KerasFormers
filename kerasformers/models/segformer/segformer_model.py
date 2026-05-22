@@ -110,10 +110,10 @@ class SegFormerModel(BaseModel):
           Segmentation with Transformers <https://arxiv.org/abs/2105.15203>`_
 
     Args:
-        embed_dims: Per-stage hidden dimensions for the four MiT
+        embed_dim: Per-stage hidden dimensions for the four MiT
             stages.
         depths: Per-stage transformer-block counts.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -130,26 +130,26 @@ class SegFormerModel(BaseModel):
 
     def __init__(
         self,
-        embed_dims=None,
+        embed_dim=None,
         depths=None,
-        input_image_shape=512,
+        image_size=512,
         input_tensor=None,
         name="SegFormerModel",
         **kwargs,
     ):
-        if embed_dims is None:
-            embed_dims = [32, 64, 160, 256]
+        if embed_dim is None:
+            embed_dim = [32, 64, 160, 256]
         if depths is None:
             depths = [2, 2, 2, 2]
 
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         backbone = MiTModel(
-            embed_dims=embed_dims,
+            embed_dim=embed_dim,
             depths=depths,
             include_normalization=False,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=input_tensor,
             as_backbone=True,
             name=f"{name}_backbone",
@@ -160,18 +160,18 @@ class SegFormerModel(BaseModel):
         )
 
         self.backbone = backbone
-        self.embed_dims = list(embed_dims)
+        self.embed_dim = list(embed_dim)
         self.depths = list(depths)
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "embed_dims": self.embed_dims,
+                "embed_dim": self.embed_dim,
                 "depths": self.depths,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )
@@ -197,7 +197,7 @@ class SegFormerSemanticSegment(BaseModel):
           Segmentation with Transformers <https://arxiv.org/abs/2105.15203>`_
 
     Args:
-        embed_dims: Per-stage hidden dimensions for the four MiT
+        embed_dim: Per-stage hidden dimensions for the four MiT
             stages.
         depths: Per-stage transformer-block counts.
         decode_head_dim: Channel width of the decode-head projection
@@ -205,7 +205,7 @@ class SegFormerSemanticSegment(BaseModel):
             B2-B5.
         dropout_rate: Dropout applied before the final classifier.
         num_classes: Number of segmentation classes.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -224,11 +224,11 @@ class SegFormerSemanticSegment(BaseModel):
     def config_from_hf(cls, hf_config):
         image_size = hf_config.get("image_size", 512)
         return {
-            "embed_dims": list(hf_config["hidden_sizes"]),
+            "embed_dim": list(hf_config["hidden_sizes"]),
             "depths": list(hf_config["depths"]),
             "decode_head_dim": hf_config["decoder_hidden_size"],
             "num_classes": hf_num_classes(hf_config),
-            "input_image_shape": image_size,
+            "image_size": image_size,
         }
 
     @classmethod
@@ -241,25 +241,25 @@ class SegFormerSemanticSegment(BaseModel):
 
     def __init__(
         self,
-        embed_dims=None,
+        embed_dim=None,
         depths=None,
         decode_head_dim=256,
         dropout_rate=0.1,
         num_classes=19,
-        input_image_shape=512,
+        image_size=512,
         input_tensor=None,
         name="SegFormerSemanticSegment",
         **kwargs,
     ):
-        if embed_dims is None:
-            embed_dims = [32, 64, 160, 256]
+        if embed_dim is None:
+            embed_dim = [32, 64, 160, 256]
         if depths is None:
             depths = [2, 2, 2, 2]
 
         base = SegFormerModel(
-            embed_dims=embed_dims,
+            embed_dim=embed_dim,
             depths=depths,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -275,13 +275,13 @@ class SegFormerSemanticSegment(BaseModel):
         data_format = keras.config.image_data_format()
         if data_format == "channels_first":
             upsample_h, upsample_w = (
-                base.input_image_shape[1],
-                base.input_image_shape[2],
+                base.image_size[1],
+                base.image_size[2],
             )
         else:
             upsample_h, upsample_w = (
-                base.input_image_shape[0],
-                base.input_image_shape[1],
+                base.image_size[0],
+                base.image_size[1],
             )
         x = layers.Resizing(
             height=upsample_h,
@@ -294,24 +294,24 @@ class SegFormerSemanticSegment(BaseModel):
         super().__init__(inputs=base.input, outputs=x, name=name, **kwargs)
 
         self.backbone = base.backbone
-        self.embed_dims = list(embed_dims)
+        self.embed_dim = list(embed_dim)
         self.depths = list(depths)
         self.decode_head_dim = decode_head_dim
         self.dropout_rate = dropout_rate
         self.num_classes = num_classes
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "embed_dims": self.embed_dims,
+                "embed_dim": self.embed_dim,
                 "depths": self.depths,
                 "decode_head_dim": self.decode_head_dim,
                 "dropout_rate": self.dropout_rate,
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )

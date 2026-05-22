@@ -32,7 +32,7 @@ class SigLIPTokenizer(BaseTokenizer):
 
     Args:
         vocab_file: Path to the SentencePiece ``.model`` file.
-        context_length: Maximum sequence length (default 64).
+        max_seq_len: Maximum sequence length (default 64).
         do_lower_case: When True, apply the reference ``canonicalize_text``.
         unk_token / pad_token / eos_token: Special token strings.
     """
@@ -40,7 +40,7 @@ class SigLIPTokenizer(BaseTokenizer):
     def __init__(
         self,
         vocab_file: str,
-        context_length: int = 64,
+        max_seq_len: int = 64,
         do_lower_case: bool = False,
         unk_token: str = "<unk>",
         pad_token: str = "</s>",
@@ -49,7 +49,7 @@ class SigLIPTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.vocab_file = vocab_file
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.do_lower_case = do_lower_case
         self.unk_token = unk_token
         self.pad_token = pad_token
@@ -89,9 +89,9 @@ class SigLIPTokenizer(BaseTokenizer):
             special_tokens=[("</s>", self.eos_token_id)],
         )
         tok.decoder = MetaspaceDecoder(replacement="▁", prepend_scheme="always")
-        tok.enable_truncation(max_length=context_length)
+        tok.enable_truncation(max_length=max_seq_len)
         tok.enable_padding(
-            pad_id=self.pad_token_id, pad_token=pad_token, length=context_length
+            pad_id=self.pad_token_id, pad_token=pad_token, length=max_seq_len
         )
         self._tok = tok
 
@@ -149,8 +149,8 @@ class SigLIPTokenizer(BaseTokenizer):
     ) -> Dict[str, keras.KerasTensor]:
         padded = []
         for seq in token_ids_list:
-            seq = list(seq)[: self.context_length]
-            pad_len = self.context_length - len(seq)
+            seq = list(seq)[: self.max_seq_len]
+            pad_len = self.max_seq_len - len(seq)
             if pad_len > 0:
                 seq = seq + [self.pad_token_id] * pad_len
             padded.append(seq)
@@ -159,8 +159,8 @@ class SigLIPTokenizer(BaseTokenizer):
 
     def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
         token_ids = self.tokenize(text) if isinstance(text, str) else list(text)
-        token_ids = token_ids[: self.context_length]
-        pad_len = self.context_length - len(token_ids)
+        token_ids = token_ids[: self.max_seq_len]
+        pad_len = self.max_seq_len - len(token_ids)
         if pad_len > 0:
             token_ids = token_ids + [self.pad_token_id] * pad_len
         return {"input_ids": token_ids}
@@ -212,7 +212,7 @@ class SigLIPTokenizer(BaseTokenizer):
         config.update(
             {
                 "vocab_file": self.vocab_file,
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "do_lower_case": self.do_lower_case,
                 "unk_token": self.unk_token,
                 "pad_token": self.pad_token,

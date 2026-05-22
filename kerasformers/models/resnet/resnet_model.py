@@ -234,7 +234,7 @@ def bottleneck_block(
 def resnet_backbone_feature(
     inputs,
     block_fn,
-    block_repeats,
+    depths,
     filters,
     channels_axis,
     data_format,
@@ -250,7 +250,7 @@ def resnet_backbone_feature(
             or ``(B, C, H, W)`` for channels-first.
         block_fn: Callable building one residual block (e.g. ``bottleneck_block``
             or ``resnext_block``).
-        block_repeats: Number of blocks per stage (length-4 list).
+        depths: Number of blocks per stage (length-4 list).
         filters: Base filter count per stage (length-4 list).
         channels_axis: Int axis for the channel dimension (-1 for channels-last,
             1 for channels-first).
@@ -294,8 +294,8 @@ def resnet_backbone_feature(
         common_args.update({"groups": groups, "width_factor": width_factor})
 
     stages = []
-    for i, num_blocks in enumerate(block_repeats):
-        for j in range(num_blocks):
+    for i, depths in enumerate(depths):
+        for j in range(depths):
             common_args["block_name"] = f"resnet_layer{i + 1}_{j}"
             if j == 0 and i > 0:
                 x = block_fn(x, filters[i], strides=2, downsample=True, **common_args)
@@ -329,7 +329,7 @@ class ResNetModel(BaseModel):
             and additional keyword arguments from the backbone (e.g.
             ``groups``, ``width_factor`` for ResNeXt).
             Defaults to `bottleneck_block`.
-        block_repeats: List of ints, number of residual blocks per stage.
+        depths: List of ints, number of residual blocks per stage.
             Defaults to `[2, 2, 2, 2]`.
         filters: List of ints, base filter counts per stage (the final
             output width is ``filters[i] * expansion``).
@@ -348,7 +348,7 @@ class ResNetModel(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -392,12 +392,12 @@ class ResNetModel(BaseModel):
     def __init__(
         self,
         block_fn=bottleneck_block,
-        block_repeats=[2, 2, 2, 2],
+        depths=[2, 2, 2, 2],
         filters=[64, 128, 256, 512],
         groups=32,
         senet=False,
         width_factor=2,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -411,12 +411,12 @@ class ResNetModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -428,7 +428,7 @@ class ResNetModel(BaseModel):
         x = resnet_backbone_feature(
             x,
             block_fn=block_fn,
-            block_repeats=block_repeats,
+            depths=depths,
             filters=filters,
             channels_axis=channels_axis,
             data_format=data_format,
@@ -441,12 +441,12 @@ class ResNetModel(BaseModel):
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.block_fn = block_fn
-        self.block_repeats = block_repeats
+        self.depths = depths
         self.filters = filters
         self.groups = groups
         self.senet = senet
         self.width_factor = width_factor
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -471,12 +471,12 @@ class ResNetModel(BaseModel):
         config.update(
             {
                 "block_fn": block_fn_config,
-                "block_repeats": self.block_repeats,
+                "depths": self.depths,
                 "filters": self.filters,
                 "groups": self.groups,
                 "senet": self.senet,
                 "width_factor": self.width_factor,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -526,7 +526,7 @@ class ResNetImageClassify(BaseModel):
             and additional keyword arguments from the backbone (e.g.
             ``groups``, ``width_factor`` for ResNeXt).
             Defaults to `bottleneck_block`.
-        block_repeats: List of ints, number of residual blocks per stage.
+        depths: List of ints, number of residual blocks per stage.
             Defaults to `[2, 2, 2, 2]`.
         filters: List of ints, base filter counts per stage (the final
             output width is ``filters[i] * expansion``).
@@ -545,7 +545,7 @@ class ResNetImageClassify(BaseModel):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -583,12 +583,12 @@ class ResNetImageClassify(BaseModel):
     def __init__(
         self,
         block_fn=bottleneck_block,
-        block_repeats=[2, 2, 2, 2],
+        depths=[2, 2, 2, 2],
         filters=[64, 128, 256, 512],
         groups=32,
         senet=False,
         width_factor=2,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -603,12 +603,12 @@ class ResNetImageClassify(BaseModel):
 
         backbone = ResNetModel(
             block_fn=block_fn,
-            block_repeats=block_repeats,
+            depths=depths,
             filters=filters,
             groups=groups,
             senet=senet,
             width_factor=width_factor,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -628,12 +628,12 @@ class ResNetImageClassify(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.block_fn = block_fn
-        self.block_repeats = block_repeats
+        self.depths = depths
         self.filters = filters
         self.groups = groups
         self.senet = senet
         self.width_factor = width_factor
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -661,12 +661,12 @@ class ResNetImageClassify(BaseModel):
         config.update(
             {
                 "block_fn": block_fn_config,
-                "block_repeats": self.block_repeats,
+                "depths": self.depths,
                 "filters": self.filters,
                 "groups": self.groups,
                 "senet": self.senet,
                 "width_factor": self.width_factor,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

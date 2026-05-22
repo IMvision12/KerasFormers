@@ -137,7 +137,7 @@ if __name__ == "__main__":
         keras_model = DinoViTModel.from_weights(
             variant,
             load_weights=False,
-            input_image_shape=224,
+            image_size=224,
             include_normalization=False,
         )
 
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         keras_model = DinoResNetModel.from_weights(
             variant,
             load_weights=False,
-            input_image_shape=224,
+            image_size=224,
             include_normalization=False,
         )
 

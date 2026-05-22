@@ -181,15 +181,15 @@ def _transfer_decoder(decoder, state, num_layers):
 
 def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
     state = _strip_model_prefix(hf_state_dict)
-    _transfer_encoder(keras_model.encoder, state, keras_model.encoder_layers)
-    _transfer_decoder(keras_model.decoder, state, keras_model.decoder_layers)
+    _transfer_encoder(keras_model.encoder, state, keras_model.encoder_num_layers)
+    _transfer_decoder(keras_model.decoder, state, keras_model.decoder_num_layers)
 
 
 def transfer_whisper_audio_classify_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
     state = _strip_model_prefix(hf_state_dict)
-    _transfer_encoder(keras_model.encoder, state, keras_model.encoder_layers)
+    _transfer_encoder(keras_model.encoder, state, keras_model.encoder_num_layers)
 
     if keras_model.use_weighted_layer_sum:
         keras_model.get_layer("layer_weights").layer_weights.assign(

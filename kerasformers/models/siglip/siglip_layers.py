@@ -380,7 +380,7 @@ class SigLIPPositionEmbedding(layers.Layer):
     Args:
         max_positions (int): Maximum number of positions to embed. For 2D grids,
             this should be grid_height * grid_width.
-        embedding_dim (int): Dimensionality of the position embeddings.
+        embed_dim (int): Dimensionality of the position embeddings.
         embeddings_initializer (str or keras.initializers.Initializer): Initializer
             for the embedding weights. Defaults to "random_normal".
         name (str, optional): Name of the layer.
@@ -392,24 +392,24 @@ class SigLIPPositionEmbedding(layers.Layer):
         (batch_size, height, width).
 
     Output Shape:
-        Same shape as input with an additional dimension of size embedding_dim.
-        If input shape is (..., ), output shape is (..., embedding_dim).
+        Same shape as input with an additional dimension of size embed_dim.
+        If input shape is (..., ), output shape is (..., embed_dim).
 
     Attributes:
         max_positions (int): Maximum number of positions.
-        embedding_dim (int): Dimension of embeddings.
+        embed_dim (int): Dimension of embeddings.
         embeddings (tf.Variable): Learnable embedding weights of shape
-            (max_positions, embedding_dim).
+            (max_positions, embed_dim).
 
     Examples:
         ```python
         # Basic usage for sequence positions
-        pos_embed = SigLIPPositionEmbedding(max_positions=100, embedding_dim=256)
+        pos_embed = SigLIPPositionEmbedding(max_positions=100, embed_dim=256)
         position_ids = tf.range(10)  # [0, 1, 2, ..., 9]
         embeddings = pos_embed(position_ids)  # Shape: (10, 256)
 
         # For 2D grid positions (e.g., 4x4 image patches)
-        pos_embed_2d = SigLIPPositionEmbedding(max_positions=16, embedding_dim=128)
+        pos_embed_2d = SigLIPPositionEmbedding(max_positions=16, embed_dim=128)
         # Position IDs for a 4x4 grid: [0, 1, 2, ..., 15]
         grid_positions = tf.range(16)
         grid_embeddings = pos_embed_2d(grid_positions)  # Shape: (16, 128)
@@ -436,19 +436,19 @@ class SigLIPPositionEmbedding(layers.Layer):
     def __init__(
         self,
         max_positions,
-        embedding_dim,
+        embed_dim,
         embeddings_initializer="random_normal",
         name=None,
         **kwargs,
     ):
         super().__init__(name=name, **kwargs)
         self.max_positions = max_positions
-        self.embedding_dim = embedding_dim
+        self.embed_dim = embed_dim
         self.embeddings_initializer = embeddings_initializer
 
     def build(self, input_shape):
         self.embeddings = self.add_weight(
-            shape=(self.max_positions, self.embedding_dim),
+            shape=(self.max_positions, self.embed_dim),
             initializer=self.embeddings_initializer,
             trainable=True,
             name="embeddings",
@@ -460,21 +460,21 @@ class SigLIPPositionEmbedding(layers.Layer):
         return ops.take(self.embeddings, indices, axis=0)
 
     def compute_output_shape(self, input_shape):
-        return input_shape + (self.embedding_dim,)
+        return input_shape + (self.embed_dim,)
 
     def compute_output_spec(self, input_spec):
-        output_shape = input_spec.shape + (self.embedding_dim,)
+        output_shape = input_spec.shape + (self.embed_dim,)
         return keras.KerasTensor(output_shape, dtype=self.compute_dtype)
 
     def save_own_variables(self, store):
         super().save_own_variables(store)
         store["max_positions"] = self.max_positions
-        store["embedding_dim"] = self.embedding_dim
+        store["embed_dim"] = self.embed_dim
 
     def load_own_variables(self, store):
         try:
             source_max_positions = int(store["max_positions"][...])
-            source_embedding_dim = int(store["embedding_dim"][...])
+            source_embedding_dim = int(store["embed_dim"][...])
         except (KeyError, TypeError):
             stored_weights = store["0"]
             source_max_positions, source_embedding_dim = stored_weights.shape
@@ -483,14 +483,14 @@ class SigLIPPositionEmbedding(layers.Layer):
 
         if (
             source_max_positions == self.max_positions
-            and source_embedding_dim == self.embedding_dim
+            and source_embedding_dim == self.embed_dim
         ):
             self.embeddings.assign(stored_embeddings)
             return
 
-        if source_embedding_dim != self.embedding_dim:
+        if source_embedding_dim != self.embed_dim:
             raise ValueError(
-                f"Embedding dimension mismatch: expected {self.embedding_dim}, got {source_embedding_dim}"
+                f"Embedding dimension mismatch: expected {self.embed_dim}, got {source_embedding_dim}"
             )
 
         if source_max_positions != self.max_positions:
@@ -555,7 +555,7 @@ class SigLIPPositionEmbedding(layers.Layer):
         config.update(
             {
                 "max_positions": self.max_positions,
-                "embedding_dim": self.embedding_dim,
+                "embed_dim": self.embed_dim,
                 "embeddings_initializer": keras.utils.serialize_keras_object(
                     self.embeddings_initializer
                 ),

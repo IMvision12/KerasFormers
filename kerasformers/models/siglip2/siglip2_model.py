@@ -54,7 +54,7 @@ class SigLIP2VisionModel(SigLIPVisionModel):
           Features <https://arxiv.org/abs/2502.14786>`_
 
     Args (identical to :class:`SigLIPVisionModel`):
-        input_image_shape, patch_size, vision_hidden_dim,
+        image_size, patch_size, vision_hidden_dim,
         vision_num_layers, vision_num_heads, vision_intermediate_dim,
         input_tensor, name.
     """
@@ -78,7 +78,7 @@ class SigLIP2TextModel(SigLIPTextModel):
 
     Thin subclass of :class:`SigLIPTextModel` — architecture is
     identical; differs only in the variant registry (``SIGLIP2_CONFIG``
-    / ``SIGLIP2_WEIGHTS``) and the Gemma-style ``vocabulary_size`` of
+    / ``SIGLIP2_WEIGHTS``) and the Gemma-style ``vocab_size`` of
     256000 set by the SigLIP 2 config entries. ``from_release``
     warm-starts the encoder from a :class:`SigLIP2Model` checkpoint.
 
@@ -99,8 +99,8 @@ class SigLIP2TextModel(SigLIPTextModel):
         - `SigLIP 2 <https://arxiv.org/abs/2502.14786>`_
 
     Args (identical to :class:`SigLIPTextModel`):
-        vocabulary_size, embed_dim, text_hidden_dim, text_num_layers,
-        text_num_heads, text_intermediate_dim, max_sequence_length,
+        vocab_size, embed_dim, text_hidden_dim, text_num_layers,
+        text_num_heads, text_intermediate_dim, max_seq_len,
         input_tensor, name.
     """
 
@@ -143,10 +143,10 @@ class SigLIP2Model(SigLIPModel):
         - `SigLIP 2 <https://arxiv.org/abs/2502.14786>`_
 
     Args (identical to :class:`SigLIPModel`):
-        input_image_shape, patch_size, vision_hidden_dim,
+        image_size, patch_size, vision_hidden_dim,
         vision_num_layers, vision_num_heads, vision_intermediate_dim,
-        vocabulary_size, embed_dim, text_hidden_dim, text_num_layers,
-        text_num_heads, text_intermediate_dim, max_sequence_length,
+        vocab_size, embed_dim, text_hidden_dim, text_num_layers,
+        text_num_heads, text_intermediate_dim, max_seq_len,
         input_tensor, name.
     """
 
@@ -185,10 +185,10 @@ class SigLIP2ZeroShotClassify(BaseModel):
         - `SigLIP 2 <https://arxiv.org/abs/2502.14786>`_
 
     Args (identical to :class:`SigLIPModel`):
-        input_image_shape, patch_size, vision_hidden_dim,
+        image_size, patch_size, vision_hidden_dim,
         vision_num_layers, vision_num_heads, vision_intermediate_dim,
-        vocabulary_size, embed_dim, text_hidden_dim, text_num_layers,
-        text_num_heads, text_intermediate_dim, max_sequence_length,
+        vocab_size, embed_dim, text_hidden_dim, text_num_layers,
+        text_num_heads, text_intermediate_dim, max_seq_len,
         input_tensor, name.
     """
 
@@ -211,37 +211,37 @@ class SigLIP2ZeroShotClassify(BaseModel):
 
     def __init__(
         self,
-        input_image_shape=224,
+        image_size=224,
         patch_size=16,
         vision_hidden_dim=768,
         vision_num_layers=12,
         vision_num_heads=12,
         vision_intermediate_dim=3072,
-        vocabulary_size=256000,
+        vocab_size=256000,
         embed_dim=768,
         text_hidden_dim=768,
         text_num_layers=12,
         text_num_heads=12,
         text_intermediate_dim=3072,
-        max_sequence_length=64,
+        max_seq_len=64,
         input_tensor=None,
         name="SigLIP2ZeroShotClassify",
         **kwargs,
     ):
         base = SigLIP2Model(
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             patch_size=patch_size,
             vision_hidden_dim=vision_hidden_dim,
             vision_num_layers=vision_num_layers,
             vision_num_heads=vision_num_heads,
             vision_intermediate_dim=vision_intermediate_dim,
-            vocabulary_size=vocabulary_size,
+            vocab_size=vocab_size,
             embed_dim=embed_dim,
             text_hidden_dim=text_hidden_dim,
             text_num_layers=text_num_layers,
             text_num_heads=text_num_heads,
             text_intermediate_dim=text_intermediate_dim,
-            max_sequence_length=max_sequence_length,
+            max_seq_len=max_seq_len,
             input_tensor=input_tensor,
             name=f"{name}_base",
         )
@@ -256,38 +256,38 @@ class SigLIP2ZeroShotClassify(BaseModel):
             **kwargs,
         )
 
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
         self.vision_num_heads = vision_num_heads
         self.vision_intermediate_dim = vision_intermediate_dim
-        self.vocabulary_size = vocabulary_size
+        self.vocab_size = vocab_size
         self.embed_dim = embed_dim
         self.text_hidden_dim = text_hidden_dim
         self.text_num_layers = text_num_layers
         self.text_num_heads = text_num_heads
         self.text_intermediate_dim = text_intermediate_dim
-        self.max_sequence_length = max_sequence_length
+        self.max_seq_len = max_seq_len
         self.input_tensor = input_tensor
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_num_layers": self.vision_num_layers,
                 "vision_num_heads": self.vision_num_heads,
                 "vision_intermediate_dim": self.vision_intermediate_dim,
-                "vocabulary_size": self.vocabulary_size,
+                "vocab_size": self.vocab_size,
                 "embed_dim": self.embed_dim,
                 "text_hidden_dim": self.text_hidden_dim,
                 "text_num_layers": self.text_num_layers,
                 "text_num_heads": self.text_num_heads,
                 "text_intermediate_dim": self.text_intermediate_dim,
-                "max_sequence_length": self.max_sequence_length,
+                "max_seq_len": self.max_seq_len,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -320,7 +320,7 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
         - `SigLIP 2 <https://arxiv.org/abs/2502.14786>`_
 
     Args (identical to :class:`SigLIPImageClassify`):
-        num_classes, input_image_shape, patch_size, vision_hidden_dim,
+        num_classes, image_size, patch_size, vision_hidden_dim,
         vision_num_layers, vision_num_heads, vision_intermediate_dim,
         input_tensor, name.
     """

@@ -150,7 +150,7 @@ class VGGModel(BaseModel):
             recipe. Must be provided. Defaults to `None`.
         batch_norm: Boolean, whether to insert BatchNormalization after
             each Conv2D. Defaults to `False`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -199,7 +199,7 @@ class VGGModel(BaseModel):
         self,
         num_filters=None,
         batch_norm=False,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -216,12 +216,12 @@ class VGGModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -243,7 +243,7 @@ class VGGModel(BaseModel):
 
         self.num_filters = num_filters
         self.batch_norm = batch_norm
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -255,7 +255,7 @@ class VGGModel(BaseModel):
             {
                 "num_filters": self.num_filters,
                 "batch_norm": self.batch_norm,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -290,7 +290,7 @@ class VGGImageClassify(BaseModel):
             recipe. Must be provided. Defaults to `None`.
         batch_norm: Boolean, whether to insert BatchNormalization after
             each Conv2D. Defaults to `False`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -337,7 +337,7 @@ class VGGImageClassify(BaseModel):
         self,
         num_filters=None,
         batch_norm=False,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -356,7 +356,7 @@ class VGGImageClassify(BaseModel):
         backbone = VGGModel(
             num_filters=num_filters,
             batch_norm=batch_norm,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -375,7 +375,7 @@ class VGGImageClassify(BaseModel):
 
         self.num_filters = num_filters
         self.batch_norm = batch_norm
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -388,7 +388,7 @@ class VGGImageClassify(BaseModel):
             {
                 "num_filters": self.num_filters,
                 "batch_norm": self.batch_norm,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

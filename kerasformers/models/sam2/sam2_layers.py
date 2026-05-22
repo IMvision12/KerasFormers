@@ -14,7 +14,7 @@ class SAM2NoMemoryEmbedding(layers.Layer):
     across the spatial dimensions of the input feature map.
 
     Args:
-        hidden_size (int): Channel dimension.
+        hidden_dim (int): Channel dimension.
             Defaults to ``256``.
         data_format (str): Image data format.
             Defaults to ``"channels_last"``.
@@ -24,31 +24,29 @@ class SAM2NoMemoryEmbedding(layers.Layer):
         - SAM 2: https://arxiv.org/abs/2408.00714
     """
 
-    def __init__(self, hidden_size=256, data_format="channels_last", **kwargs):
+    def __init__(self, hidden_dim=256, data_format="channels_last", **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.data_format = data_format
 
     def build(self, input_shape):
         self.embedding = self.add_weight(
             name="embedding",
-            shape=(self.hidden_size,),
+            shape=(self.hidden_dim,),
             initializer="zeros",
         )
         self.built = True
 
     def call(self, image_embeddings):
         if self.data_format == "channels_first":
-            bias = ops.reshape(self.embedding, (1, self.hidden_size, 1, 1))
+            bias = ops.reshape(self.embedding, (1, self.hidden_dim, 1, 1))
         else:
-            bias = ops.reshape(self.embedding, (1, 1, 1, self.hidden_size))
+            bias = ops.reshape(self.embedding, (1, 1, 1, self.hidden_dim))
         return image_embeddings + bias
 
     def get_config(self):
         config = super().get_config()
-        config.update(
-            {"hidden_size": self.hidden_size, "data_format": self.data_format}
-        )
+        config.update({"hidden_dim": self.hidden_dim, "data_format": self.data_format})
         return config
 
 
@@ -672,7 +670,7 @@ class SAM2PromptEncoderLayer(layers.Layer):
     embedding spatial dimensions when no mask prompt is provided.
 
     Args:
-        hidden_size (int): Embedding dimension for prompt tokens.
+        hidden_dim (int): Embedding dimension for prompt tokens.
             Defaults to ``256``.
         image_embedding_size (int): Spatial size of the image embedding
             grid.
@@ -697,7 +695,7 @@ class SAM2PromptEncoderLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size=256,
+        hidden_dim=256,
         image_embedding_size=64,
         image_size=1024,
         num_point_embeddings=4,
@@ -706,7 +704,7 @@ class SAM2PromptEncoderLayer(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.image_embedding_size = image_embedding_size
         self.image_size = image_size
         self.num_point_embeddings = num_point_embeddings
@@ -720,18 +718,18 @@ class SAM2PromptEncoderLayer(layers.Layer):
         for i in range(self.num_point_embeddings):
             w = self.add_weight(
                 name=f"point_embed_{i}",
-                shape=(1, self.hidden_size),
+                shape=(1, self.hidden_dim),
                 initializer=embed_init,
             )
             self.point_embeddings.append(w)
         self.not_a_point_embed = self.add_weight(
             name="not_a_point_embed",
-            shape=(1, self.hidden_size),
+            shape=(1, self.hidden_dim),
             initializer=embed_init,
         )
         self.no_mask_embed = self.add_weight(
             name="no_mask_embed",
-            shape=(1, self.hidden_size),
+            shape=(1, self.hidden_dim),
             initializer=embed_init,
         )
         self.built = True
@@ -798,11 +796,11 @@ class SAM2PromptEncoderLayer(layers.Layer):
             coords / ops.cast(self.image_size, dtype=coords.dtype)
         )
 
-        tl_type = ops.reshape(self.point_embeddings[2], (1, 1, 1, self.hidden_size))
-        br_type = ops.reshape(self.point_embeddings[3], (1, 1, 1, self.hidden_size))
+        tl_type = ops.reshape(self.point_embeddings[2], (1, 1, 1, self.hidden_dim))
+        br_type = ops.reshape(self.point_embeddings[3], (1, 1, 1, self.hidden_dim))
         pad_type = ops.broadcast_to(
-            ops.reshape(self.not_a_point_embed, (1, 1, 1, self.hidden_size)),
-            (batch_size, num_boxes, 1, self.hidden_size),
+            ops.reshape(self.not_a_point_embed, (1, 1, 1, self.hidden_dim)),
+            (batch_size, num_boxes, 1, self.hidden_dim),
         )
 
         tl = corner_embedding[:, :, 0:1, :] + tl_type
@@ -814,21 +812,21 @@ class SAM2PromptEncoderLayer(layers.Layer):
         cf = self.data_format == "channels_first"
         if cf:
             return ops.broadcast_to(
-                ops.reshape(self.no_mask_embed, (1, self.hidden_size, 1, 1)),
+                ops.reshape(self.no_mask_embed, (1, self.hidden_dim, 1, 1)),
                 (
                     batch_size,
-                    self.hidden_size,
+                    self.hidden_dim,
                     self.image_embedding_size,
                     self.image_embedding_size,
                 ),
             )
         return ops.broadcast_to(
-            ops.reshape(self.no_mask_embed, (1, 1, 1, self.hidden_size)),
+            ops.reshape(self.no_mask_embed, (1, 1, 1, self.hidden_dim)),
             (
                 batch_size,
                 self.image_embedding_size,
                 self.image_embedding_size,
-                self.hidden_size,
+                self.hidden_dim,
             ),
         )
 
@@ -868,7 +866,7 @@ class SAM2PromptEncoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "image_embedding_size": self.image_embedding_size,
                 "image_size": self.image_size,
                 "num_point_embeddings": self.num_point_embeddings,
@@ -888,12 +886,12 @@ class SAM2TwoWayAttention(layers.Layer):
     An optional additive attention similarity bias is supported.
 
     Args:
-        hidden_size (int): Input and output feature dimension.
+        hidden_dim (int): Input and output feature dimension.
             Defaults to ``256``.
         num_heads (int): Number of attention heads.
             Defaults to ``8``.
         downsample_rate (int): Factor by which the internal projection
-            dimension is reduced from ``hidden_size``.
+            dimension is reduced from ``hidden_dim``.
             Defaults to ``1``.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
@@ -901,12 +899,12 @@ class SAM2TwoWayAttention(layers.Layer):
         - SAM 2: https://arxiv.org/abs/2408.00714
     """
 
-    def __init__(self, hidden_size=256, num_heads=8, downsample_rate=1, **kwargs):
+    def __init__(self, hidden_dim=256, num_heads=8, downsample_rate=1, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.downsample_rate = downsample_rate
-        self.internal_dim = hidden_size // downsample_rate
+        self.internal_dim = hidden_dim // downsample_rate
         self.head_dim = self.internal_dim // num_heads
 
     def build(self, input_shape):
@@ -916,7 +914,7 @@ class SAM2TwoWayAttention(layers.Layer):
         self.k_proj.build(input_shape)
         self.v_proj = layers.Dense(self.internal_dim, name="v_proj")
         self.v_proj.build(input_shape)
-        self.out_proj = layers.Dense(self.hidden_size, name="out_proj")
+        self.out_proj = layers.Dense(self.hidden_dim, name="out_proj")
         self.out_proj.build((*input_shape[:-1], self.internal_dim))
         self.built = True
 
@@ -962,7 +960,7 @@ class SAM2TwoWayAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
                 "downsample_rate": self.downsample_rate,
             }
@@ -981,12 +979,12 @@ class SAM2MaskDecoderLayer(layers.Layer):
     and an object presence score.
 
     Args:
-        hidden_size (int): Channel dimension for embeddings and
+        hidden_dim (int): Channel dimension for embeddings and
             transformer layers.
             Defaults to ``256``.
         num_hidden_layers (int): Number of two-way transformer layers.
             Defaults to ``2``.
-        num_attention_heads (int): Number of attention heads in each
+        num_heads (int): Number of attention heads in each
             transformer layer.
             Defaults to ``8``.
         mlp_dim (int): Hidden dimension of the feed-forward network
@@ -1016,9 +1014,9 @@ class SAM2MaskDecoderLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size=256,
+        hidden_dim=256,
         num_hidden_layers=2,
-        num_attention_heads=8,
+        num_heads=8,
         mlp_dim=2048,
         num_multimask_outputs=3,
         iou_head_depth=3,
@@ -1029,9 +1027,9 @@ class SAM2MaskDecoderLayer(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
+        self.num_heads = num_heads
         self.mlp_dim = mlp_dim
         self.num_multimask_outputs = num_multimask_outputs
         self.num_mask_tokens = num_multimask_outputs + 1
@@ -1042,7 +1040,7 @@ class SAM2MaskDecoderLayer(layers.Layer):
         self.data_format = data_format
 
     def build(self, input_shape):
-        hs = self.hidden_size
+        hs = self.hidden_dim
         nm = self.num_mask_tokens
         ds = self.attention_downsample_rate
 
@@ -1078,7 +1076,7 @@ class SAM2MaskDecoderLayer(layers.Layer):
         for i in range(self.num_hidden_layers):
             self_attn = SAM2TwoWayAttention(
                 hs,
-                self.num_attention_heads,
+                self.num_heads,
                 downsample_rate=1,
                 name=f"transformer_self_attns_{i}",
             )
@@ -1094,7 +1092,7 @@ class SAM2MaskDecoderLayer(layers.Layer):
 
             cross_t2i = SAM2TwoWayAttention(
                 hs,
-                self.num_attention_heads,
+                self.num_heads,
                 downsample_rate=ds,
                 name=f"transformer_cross_attn_token_to_images_{i}",
             )
@@ -1125,7 +1123,7 @@ class SAM2MaskDecoderLayer(layers.Layer):
 
             cross_i2t = SAM2TwoWayAttention(
                 hs,
-                self.num_attention_heads,
+                self.num_heads,
                 downsample_rate=ds,
                 name=f"transformer_cross_attn_image_to_tokens_{i}",
             )
@@ -1141,7 +1139,7 @@ class SAM2MaskDecoderLayer(layers.Layer):
 
         self.final_attn_token_to_image = SAM2TwoWayAttention(
             hs,
-            self.num_attention_heads,
+            self.num_heads,
             downsample_rate=ds,
             name="final_attn_token_to_image",
         )
@@ -1276,13 +1274,13 @@ class SAM2MaskDecoderLayer(layers.Layer):
         output_tokens = ops.broadcast_to(
             ops.reshape(
                 output_tokens,
-                (1, 1, 2 + self.num_mask_tokens, self.hidden_size),
+                (1, 1, 2 + self.num_mask_tokens, self.hidden_dim),
             ),
             (
                 batch_size,
                 point_batch_size,
                 2 + self.num_mask_tokens,
-                self.hidden_size,
+                self.hidden_dim,
             ),
         )
         tokens = ops.concatenate([output_tokens, sparse_embeddings], axis=2)
@@ -1516,9 +1514,9 @@ class SAM2MaskDecoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_hidden_layers": self.num_hidden_layers,
-                "num_attention_heads": self.num_attention_heads,
+                "num_heads": self.num_heads,
                 "mlp_dim": self.mlp_dim,
                 "num_multimask_outputs": self.num_multimask_outputs,
                 "iou_head_depth": self.iou_head_depth,
@@ -1541,7 +1539,7 @@ class SAM2HieraPositionEmbedding(layers.Layer):
     provide both coarse and fine-grained spatial information.
 
     Args:
-        hidden_size (int): Embedding channel dimension.
+        hidden_dim (int): Embedding channel dimension.
         spatial_size (tuple of int): Spatial height and width of the
             feature map.
         window_size (int): Local window size for the tiled positional
@@ -1559,7 +1557,7 @@ class SAM2HieraPositionEmbedding(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
+        hidden_dim,
         spatial_size,
         window_size,
         bg_size=(7, 7),
@@ -1567,7 +1565,7 @@ class SAM2HieraPositionEmbedding(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.spatial_size = tuple(spatial_size)
         self.window_size = window_size
         self.bg_size = tuple(bg_size)
@@ -1577,17 +1575,17 @@ class SAM2HieraPositionEmbedding(layers.Layer):
         h, w = self.spatial_size
         self.pos_embed = self.add_weight(
             name="pos_embed",
-            shape=(1, self.bg_size[0], self.bg_size[1], self.hidden_size),
+            shape=(1, self.bg_size[0], self.bg_size[1], self.hidden_dim),
             initializer="zeros",
         )
         self.pos_embed_window = self.add_weight(
             name="pos_embed_window",
-            shape=(1, self.window_size, self.window_size, self.hidden_size),
+            shape=(1, self.window_size, self.window_size, self.hidden_dim),
             initializer="zeros",
         )
         self._full_pos = self.add_weight(
             name="full_pos",
-            shape=(1, h, w, self.hidden_size),
+            shape=(1, h, w, self.hidden_dim),
             initializer="zeros",
             trainable=False,
         )
@@ -1625,7 +1623,7 @@ class SAM2HieraPositionEmbedding(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "spatial_size": self.spatial_size,
                 "window_size": self.window_size,
                 "bg_size": self.bg_size,

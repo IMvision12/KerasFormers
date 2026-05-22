@@ -13,7 +13,7 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
     resized during weight loading.
 
     Args:
-        hidden_size (int): Dimensionality of the embedding channels.
+        hidden_dim (int): Dimensionality of the embedding channels.
         image_embedding_size (int): Spatial size of the square embedding grid.
         data_format (str): One of ``"channels_last"`` or ``"channels_first"``.
             Defaults to ``"channels_last"``.
@@ -24,10 +24,10 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
     """
 
     def __init__(
-        self, hidden_size, image_embedding_size, data_format="channels_last", **kwargs
+        self, hidden_dim, image_embedding_size, data_format="channels_last", **kwargs
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.image_embedding_size = image_embedding_size
         self.data_format = data_format
 
@@ -36,7 +36,7 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
         if cf:
             shape = (
                 1,
-                self.hidden_size,
+                self.hidden_dim,
                 self.image_embedding_size,
                 self.image_embedding_size,
             )
@@ -45,7 +45,7 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
                 1,
                 self.image_embedding_size,
                 self.image_embedding_size,
-                self.hidden_size,
+                self.hidden_dim,
             )
         self.pos_embed = self.add_weight(
             name="pos_embed",
@@ -92,7 +92,7 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "image_embedding_size": self.image_embedding_size,
                 "data_format": self.data_format,
             }
@@ -128,7 +128,7 @@ class SAMPromptEncoderLayer(layers.Layer):
           path but lets a single model handle both prompt modes.
 
     Args:
-        hidden_size (int): Dimensionality of the prompt embeddings.
+        hidden_dim (int): Dimensionality of the prompt embeddings.
             Defaults to 256.
         image_embedding_size (int): Spatial size of the image embedding grid.
             Defaults to 64.
@@ -152,7 +152,7 @@ class SAMPromptEncoderLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size=256,
+        hidden_dim=256,
         image_embedding_size=64,
         image_size=1024,
         num_point_embeddings=4,
@@ -163,7 +163,7 @@ class SAMPromptEncoderLayer(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.image_embedding_size = image_embedding_size
         self.image_size = image_size
         self.num_point_embeddings = num_point_embeddings
@@ -177,7 +177,7 @@ class SAMPromptEncoderLayer(layers.Layer):
         for i in range(self.num_point_embeddings):
             w = self.add_weight(
                 name=f"point_embed_{i}",
-                shape=(1, self.hidden_size),
+                shape=(1, self.hidden_dim),
                 initializer="zeros",
                 trainable=True,
             )
@@ -185,13 +185,13 @@ class SAMPromptEncoderLayer(layers.Layer):
 
         self.not_a_point_embed = self.add_weight(
             name="not_a_point_embed",
-            shape=(1, self.hidden_size),
+            shape=(1, self.hidden_dim),
             initializer="zeros",
             trainable=True,
         )
         self.no_mask_embed = self.add_weight(
             name="no_mask_embed",
-            shape=(1, self.hidden_size),
+            shape=(1, self.hidden_dim),
             initializer="zeros",
             trainable=True,
         )
@@ -277,7 +277,7 @@ class SAMPromptEncoderLayer(layers.Layer):
 
             box_embeddings = self._embed_boxes(input_boxes)
             not_a_point = ops.broadcast_to(
-                ops.reshape(self.not_a_point_embed, (1, 1, 1, self.hidden_size)),
+                ops.reshape(self.not_a_point_embed, (1, 1, 1, self.hidden_dim)),
                 ops.shape(box_embeddings),
             )
             has_boxes_b = ops.reshape(
@@ -299,7 +299,7 @@ class SAMPromptEncoderLayer(layers.Layer):
                 no_mask,
                 (
                     batch_size,
-                    self.hidden_size,
+                    self.hidden_dim,
                     self.image_embedding_size,
                     self.image_embedding_size,
                 ),
@@ -312,7 +312,7 @@ class SAMPromptEncoderLayer(layers.Layer):
                     batch_size,
                     self.image_embedding_size,
                     self.image_embedding_size,
-                    self.hidden_size,
+                    self.hidden_dim,
                 ),
             )
 
@@ -337,7 +337,7 @@ class SAMPromptEncoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "image_embedding_size": self.image_embedding_size,
                 "image_size": self.image_size,
                 "num_point_embeddings": self.num_point_embeddings,
@@ -360,11 +360,11 @@ class SAMMaskDecoderLayer(layers.Layer):
     IoU prediction head.
 
     Args:
-        hidden_size (int): Dimensionality of the transformer hidden states.
+        hidden_dim (int): Dimensionality of the transformer hidden states.
             Defaults to 256.
         num_hidden_layers (int): Number of two-way transformer blocks.
             Defaults to 2.
-        num_attention_heads (int): Number of attention heads in each
+        num_heads (int): Number of attention heads in each
             transformer block. Defaults to 8.
         mlp_dim (int): Hidden dimensionality of the feed-forward network
             inside each transformer block. Defaults to 2048.
@@ -388,9 +388,9 @@ class SAMMaskDecoderLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size=256,
+        hidden_dim=256,
         num_hidden_layers=2,
-        num_attention_heads=8,
+        num_heads=8,
         mlp_dim=2048,
         num_multimask_outputs=3,
         iou_head_depth=3,
@@ -402,9 +402,9 @@ class SAMMaskDecoderLayer(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
+        self.num_heads = num_heads
         self.mlp_dim = mlp_dim
         self.num_multimask_outputs = num_multimask_outputs
         self.num_mask_tokens = num_multimask_outputs + 1
@@ -429,8 +429,8 @@ class SAMMaskDecoderLayer(layers.Layer):
             prefix = f"transformer_layers_{i}"
             self.transformer_self_attns.append(
                 SAMTwoWayAttention(
-                    hidden_size,
-                    num_attention_heads,
+                    hidden_dim,
+                    num_heads,
                     downsample_rate=1,
                     name=f"{prefix}_self_attn",
                 )
@@ -442,8 +442,8 @@ class SAMMaskDecoderLayer(layers.Layer):
             )
             self.transformer_cross_attn_token_to_images.append(
                 SAMTwoWayAttention(
-                    hidden_size,
-                    num_attention_heads,
+                    hidden_dim,
+                    num_heads,
                     downsample_rate=attention_downsample_rate,
                     name=f"{prefix}_cross_attn_token_to_image",
                 )
@@ -457,7 +457,7 @@ class SAMMaskDecoderLayer(layers.Layer):
                 layers.Dense(mlp_dim, name=f"{prefix}_mlp_lin1")
             )
             self.transformer_mlp_lin2s.append(
-                layers.Dense(hidden_size, name=f"{prefix}_mlp_lin2")
+                layers.Dense(hidden_dim, name=f"{prefix}_mlp_lin2")
             )
             self.transformer_layer_norm3s.append(
                 layers.LayerNormalization(
@@ -471,16 +471,16 @@ class SAMMaskDecoderLayer(layers.Layer):
             )
             self.transformer_cross_attn_image_to_tokens.append(
                 SAMTwoWayAttention(
-                    hidden_size,
-                    num_attention_heads,
+                    hidden_dim,
+                    num_heads,
                     downsample_rate=attention_downsample_rate,
                     name=f"{prefix}_cross_attn_image_to_token",
                 )
             )
 
         self.final_attn_token_to_image = SAMTwoWayAttention(
-            hidden_size,
-            num_attention_heads,
+            hidden_dim,
+            num_heads,
             downsample_rate=2,
             name="final_attn_token_to_image",
         )
@@ -489,7 +489,7 @@ class SAMMaskDecoderLayer(layers.Layer):
         )
 
         self.upscale_conv1 = layers.Conv2DTranspose(
-            hidden_size // 4,
+            hidden_dim // 4,
             kernel_size=2,
             strides=2,
             data_format=data_format,
@@ -499,7 +499,7 @@ class SAMMaskDecoderLayer(layers.Layer):
             epsilon=1e-6, name="upscale_layer_norm"
         )
         self.upscale_conv2 = layers.Conv2DTranspose(
-            hidden_size // 8,
+            hidden_dim // 8,
             kernel_size=2,
             strides=2,
             data_format=data_format,
@@ -513,14 +513,14 @@ class SAMMaskDecoderLayer(layers.Layer):
         for i in range(self.num_mask_tokens):
             prefix = f"output_hypernetworks_mlps_{i}"
             self.output_hypernetworks_mlps_proj_ins.append(
-                layers.Dense(hidden_size, name=f"{prefix}_proj_in")
+                layers.Dense(hidden_dim, name=f"{prefix}_proj_in")
             )
             for j in range(self._hyper_num_hidden):
                 self.output_hypernetworks_mlps_hidden_layers.append(
-                    layers.Dense(hidden_size, name=f"{prefix}_layers_{j}")
+                    layers.Dense(hidden_dim, name=f"{prefix}_layers_{j}")
                 )
             self.output_hypernetworks_mlps_proj_outs.append(
-                layers.Dense(hidden_size // 8, name=f"{prefix}_proj_out")
+                layers.Dense(hidden_dim // 8, name=f"{prefix}_proj_out")
             )
 
         iou_prefix = "iou_prediction_head"
@@ -539,13 +539,13 @@ class SAMMaskDecoderLayer(layers.Layer):
     def build(self, input_shape):
         self.iou_token = self.add_weight(
             name="iou_token",
-            shape=(1, self.hidden_size),
+            shape=(1, self.hidden_dim),
             initializer="zeros",
             trainable=True,
         )
         self.mask_tokens = self.add_weight(
             name="mask_tokens",
-            shape=(self.num_mask_tokens, self.hidden_size),
+            shape=(self.num_mask_tokens, self.hidden_dim),
             initializer="zeros",
             trainable=True,
         )
@@ -568,7 +568,7 @@ class SAMMaskDecoderLayer(layers.Layer):
         )
         output_tokens = ops.broadcast_to(
             ops.expand_dims(output_tokens, axis=0),
-            (batch_size, point_batch_size, 1 + self.num_mask_tokens, self.hidden_size),
+            (batch_size, point_batch_size, 1 + self.num_mask_tokens, self.hidden_dim),
         )
 
         tokens = ops.concatenate([output_tokens, sparse_embeddings], axis=2)
@@ -725,9 +725,9 @@ class SAMMaskDecoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_hidden_layers": self.num_hidden_layers,
-                "num_attention_heads": self.num_attention_heads,
+                "num_heads": self.num_heads,
                 "mlp_dim": self.mlp_dim,
                 "num_multimask_outputs": self.num_multimask_outputs,
                 "iou_head_depth": self.iou_head_depth,
@@ -752,7 +752,7 @@ class SAMVisionAttention(layers.Layer):
     resolution differs from the pretrained resolution.
 
     Args:
-        hidden_size (int): Total dimensionality of the attention output.
+        hidden_dim (int): Total dimensionality of the attention output.
         num_heads (int): Number of parallel attention heads.
         qkv_bias (bool): Whether to include bias terms in the QKV
             projection. Defaults to True.
@@ -770,7 +770,7 @@ class SAMVisionAttention(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
+        hidden_dim,
         num_heads,
         qkv_bias=True,
         use_rel_pos=True,
@@ -779,17 +779,17 @@ class SAMVisionAttention(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_heads = num_heads
-        self.head_dim = hidden_size // num_heads
+        self.head_dim = hidden_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.qkv_bias = qkv_bias
         self.use_rel_pos = use_rel_pos
         self.input_size = input_size
         self.data_format = data_format
 
-        self.qkv = layers.Dense(hidden_size * 3, use_bias=qkv_bias, name="qkv")
-        self.proj = layers.Dense(hidden_size, name="proj")
+        self.qkv = layers.Dense(hidden_dim * 3, use_bias=qkv_bias, name="qkv")
+        self.proj = layers.Dense(hidden_dim, name="proj")
 
     def build(self, input_shape):
         if self.use_rel_pos and self.input_size is not None:
@@ -893,7 +893,7 @@ class SAMVisionAttention(layers.Layer):
         )
         attn_output = ops.transpose(attn_output, (0, 2, 3, 1, 4))
         attn_output = ops.reshape(
-            attn_output, (batch_size, height, width, self.hidden_size)
+            attn_output, (batch_size, height, width, self.hidden_dim)
         )
         attn_output = self.proj(attn_output)
 
@@ -955,7 +955,7 @@ class SAMVisionAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
                 "qkv_bias": self.qkv_bias,
                 "use_rel_pos": self.use_rel_pos,
@@ -976,7 +976,7 @@ class SAMVisionLayer(layers.Layer):
     that are padded and unpadded around the attention call.
 
     Args:
-        hidden_size (int): Dimensionality of the input and output features.
+        hidden_dim (int): Dimensionality of the input and output features.
         num_heads (int): Number of attention heads.
         mlp_dim (int): Hidden dimensionality of the feed-forward MLP.
         qkv_bias (bool): Whether to include bias in the QKV projection.
@@ -1000,7 +1000,7 @@ class SAMVisionLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
+        hidden_dim,
         num_heads,
         mlp_dim,
         qkv_bias=True,
@@ -1012,7 +1012,7 @@ class SAMVisionLayer(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.mlp_dim = mlp_dim
         self.qkv_bias = qkv_bias
@@ -1031,7 +1031,7 @@ class SAMVisionLayer(layers.Layer):
             epsilon=layer_norm_eps, name="layer_norm1"
         )
         self.attn = SAMVisionAttention(
-            hidden_size,
+            hidden_dim,
             num_heads,
             qkv_bias=qkv_bias,
             use_rel_pos=use_rel_pos,
@@ -1043,7 +1043,7 @@ class SAMVisionLayer(layers.Layer):
             epsilon=layer_norm_eps, name="layer_norm2"
         )
         self.mlp_lin1 = layers.Dense(mlp_dim, name="mlp_lin1")
-        self.mlp_lin2 = layers.Dense(hidden_size, name="mlp_lin2")
+        self.mlp_lin2 = layers.Dense(hidden_dim, name="mlp_lin2")
 
     def _window_partition(self, hidden_states, window_size):
         cf = self.data_format == "channels_first"
@@ -1179,7 +1179,7 @@ class SAMVisionLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
                 "mlp_dim": self.mlp_dim,
                 "qkv_bias": self.qkv_bias,
@@ -1298,10 +1298,10 @@ class SAMTwoWayAttention(layers.Layer):
     lower computation in cross-attention layers of the decoder.
 
     Args:
-        hidden_size (int): Dimensionality of the input and output features.
+        hidden_dim (int): Dimensionality of the input and output features.
         num_heads (int): Number of parallel attention heads.
         downsample_rate (int): Factor by which the internal attention
-            dimension is reduced relative to ``hidden_size``.
+            dimension is reduced relative to ``hidden_dim``.
             Defaults to 1.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
@@ -1309,19 +1309,19 @@ class SAMTwoWayAttention(layers.Layer):
         - Segment Anything: https://arxiv.org/abs/2304.02643
     """
 
-    def __init__(self, hidden_size, num_heads, downsample_rate=1, **kwargs):
+    def __init__(self, hidden_dim, num_heads, downsample_rate=1, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.downsample_rate = downsample_rate
-        self.internal_dim = hidden_size // downsample_rate
+        self.internal_dim = hidden_dim // downsample_rate
         self.head_dim = self.internal_dim // num_heads
         self.scale = self.head_dim**-0.5
 
         self.q_proj = layers.Dense(self.internal_dim, name="q_proj")
         self.k_proj = layers.Dense(self.internal_dim, name="k_proj")
         self.v_proj = layers.Dense(self.internal_dim, name="v_proj")
-        self.out_proj = layers.Dense(hidden_size, name="out_proj")
+        self.out_proj = layers.Dense(hidden_dim, name="out_proj")
 
     def call(self, query, key, value, attention_similarity=None):
         query = self.q_proj(query)
@@ -1364,7 +1364,7 @@ class SAMTwoWayAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
                 "downsample_rate": self.downsample_rate,
             }

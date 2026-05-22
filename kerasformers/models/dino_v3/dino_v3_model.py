@@ -88,7 +88,7 @@ def dinov3_transformer_block(
     num_prefix_tokens,
     rope_theta,
     use_swiglu,
-    init_values,
+    layer_scale_init,
     block_idx,
     rope_cos,
     rope_sin,
@@ -130,7 +130,7 @@ def dinov3_transformer_block(
         rope_theta: RoPE base frequency.
         use_swiglu: If ``True`` use :func:`dinov3_swiglu_ffn`; otherwise
             :func:`dinov3_mlp_block`.
-        init_values: Initial LayerScale value. Pass ``None`` to disable
+        layer_scale_init: Initial LayerScale value. Pass ``None`` to disable
             LayerScale on both residual branches.
         block_idx: Block index used in every layer name.
         rope_cos: Pre-computed cosine cache for 2D RoPE.
@@ -160,9 +160,9 @@ def dinov3_transformer_block(
     )
     attn.set_rope_cache(rope_cos, rope_sin)
     x = attn(x)
-    if init_values is not None:
+    if layer_scale_init is not None:
         x = LayerScale(
-            init_values=init_values, name=f"blocks_{block_idx}_layerscale_1"
+            layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_1"
         )(x)
     x = layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
 
@@ -173,9 +173,9 @@ def dinov3_transformer_block(
         y = dinov3_swiglu_ffn(y, dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias)
     else:
         y = dinov3_mlp_block(y, dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias)
-    if init_values is not None:
+    if layer_scale_init is not None:
         y = LayerScale(
-            init_values=init_values, name=f"blocks_{block_idx}_layerscale_2"
+            layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
         )(y)
     out = layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
     return out
@@ -213,7 +213,7 @@ class DinoV3ViTModel(BaseModel):
         use_swiglu: Whether to use a gated MLP (GeGLU / SwiGLU)
             instead of the standard two-layer MLP. Defaults to ``False``.
         num_register_tokens: Number of register tokens. Defaults to ``4``.
-        init_values: LayerScale init value. Defaults to ``1.0``.
+        layer_scale_init: LayerScale init value. Defaults to ``1.0``.
         rope_theta: 2D-RoPE frequency base. Defaults to ``100.0``.
         query_bias: Whether the attention Q projection uses bias.
             Defaults to ``True`` (canonical DINOv3 setting).
@@ -228,7 +228,7 @@ class DinoV3ViTModel(BaseModel):
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -255,7 +255,7 @@ class DinoV3ViTModel(BaseModel):
             "mlp_ratio": mlp_ratio,
             "use_swiglu": hf_config.get("use_gated_mlp", False),
             "num_register_tokens": hf_config.get("num_register_tokens", 4),
-            "init_values": hf_config.get("layerscale_value", 1.0),
+            "layer_scale_init": hf_config.get("layerscale_value", 1.0),
             "rope_theta": hf_config.get("rope_theta", 100.0),
             "query_bias": hf_config.get("query_bias", True),
             "key_bias": hf_config.get("key_bias", False),
@@ -283,7 +283,7 @@ class DinoV3ViTModel(BaseModel):
         mlp_ratio=4.0,
         use_swiglu=False,
         num_register_tokens=4,
-        init_values=1.0,
+        layer_scale_init=1.0,
         rope_theta=100.0,
         query_bias=True,
         key_bias=False,
@@ -293,26 +293,26 @@ class DinoV3ViTModel(BaseModel):
         layer_norm_eps=1e-5,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_image_shape=224,
+        image_size=224,
         input_tensor=None,
         name="DinoV3ViTModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=image_size)
             else:
                 img_input = input_tensor
 
         if data_format == "channels_first":
-            height, width = input_image_shape[1], input_image_shape[2]
+            height, width = image_size[1], image_size[2]
         else:
-            height, width = input_image_shape[0], input_image_shape[1]
+            height, width = image_size[0], image_size[1]
 
         grid_h = height // patch_size
         grid_w = width // patch_size
@@ -356,7 +356,7 @@ class DinoV3ViTModel(BaseModel):
                 num_prefix_tokens=num_prefix_tokens,
                 rope_theta=rope_theta,
                 use_swiglu=use_swiglu,
-                init_values=init_values,
+                layer_scale_init=layer_scale_init,
                 block_idx=i,
                 rope_cos=rope_cos,
                 rope_sin=rope_sin,
@@ -384,7 +384,7 @@ class DinoV3ViTModel(BaseModel):
         self.mlp_ratio = mlp_ratio
         self.use_swiglu = use_swiglu
         self.num_register_tokens = num_register_tokens
-        self.init_values = init_values
+        self.layer_scale_init = layer_scale_init
         self.rope_theta = rope_theta
         self.query_bias = query_bias
         self.key_bias = key_bias
@@ -394,7 +394,7 @@ class DinoV3ViTModel(BaseModel):
         self.layer_norm_eps = layer_norm_eps
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -409,7 +409,7 @@ class DinoV3ViTModel(BaseModel):
                 "mlp_ratio": self.mlp_ratio,
                 "use_swiglu": self.use_swiglu,
                 "num_register_tokens": self.num_register_tokens,
-                "init_values": self.init_values,
+                "layer_scale_init": self.layer_scale_init,
                 "rope_theta": self.rope_theta,
                 "query_bias": self.query_bias,
                 "key_bias": self.key_bias,
@@ -419,7 +419,7 @@ class DinoV3ViTModel(BaseModel):
                 "layer_norm_eps": self.layer_norm_eps,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )
@@ -452,11 +452,11 @@ class DinoV3ConvNeXtModel(BaseModel):
             maps for use as a backbone. If ``False`` (default), output
             only the final-stage feature map.
         depths: Per-stage block counts.
-        projection_dims: Per-stage channel counts.
+        projection_dim: Per-stage channel counts.
         include_normalization: Whether to prepend
             :class:`ImageNormalizationLayer`.
         normalization_mode: Normalization preset.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -474,7 +474,7 @@ class DinoV3ConvNeXtModel(BaseModel):
     def config_from_hf(cls, hf_config):
         return {
             "depths": list(hf_config["depths"]),
-            "projection_dims": list(hf_config["hidden_sizes"]),
+            "projection_dim": list(hf_config["hidden_sizes"]),
         }
 
     @classmethod
@@ -489,27 +489,27 @@ class DinoV3ConvNeXtModel(BaseModel):
         self,
         as_backbone=False,
         depths=None,
-        projection_dims=None,
+        projection_dim=None,
         include_normalization=True,
         normalization_mode="imagenet",
-        input_image_shape=224,
+        image_size=224,
         input_tensor=None,
         name="DinoV3ConvNeXtModel",
         **kwargs,
     ):
         if depths is None:
             depths = [3, 3, 9, 3]
-        if projection_dims is None:
-            projection_dims = [96, 192, 384, 768]
+        if projection_dim is None:
+            projection_dim = [96, 192, 384, 768]
 
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
         channels_axis = -1 if data_format == "channels_last" else 1
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -521,9 +521,9 @@ class DinoV3ConvNeXtModel(BaseModel):
         features = convnext_backbone_feature(
             x,
             depths=depths,
-            projection_dims=projection_dims,
+            projection_dim=projection_dim,
             drop_path_rate=0.0,
-            layer_scale_init_value=1e-6,
+            layer_scale_init=1e-6,
             use_conv=True,
             use_grn=False,
             data_format=data_format,
@@ -536,10 +536,10 @@ class DinoV3ConvNeXtModel(BaseModel):
 
         self.as_backbone = as_backbone
         self.depths = list(depths)
-        self.projection_dims = list(projection_dims)
+        self.projection_dim = list(projection_dim)
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -548,10 +548,10 @@ class DinoV3ConvNeXtModel(BaseModel):
             {
                 "as_backbone": self.as_backbone,
                 "depths": self.depths,
-                "projection_dims": self.projection_dims,
+                "projection_dim": self.projection_dim,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )

@@ -15,7 +15,7 @@ def resmlp_block(
     dim,
     seq_len,
     mlp_ratio=4,
-    init_values=1e-4,
+    layer_scale_init=1e-4,
     drop_rate=0.0,
     block_idx=None,
 ):
@@ -27,7 +27,7 @@ def resmlp_block(
         seq_len: int, length of the input sequence for cross-patch mixing.
         mlp_ratio: float, ratio of the hidden dimension in the MLP to the input
             dimension (default: 4).
-        init_values: float, initial value for layer scale parameters
+        layer_scale_init: float, initial value for layer scale parameters
             (default: 1e-4).
         drop_rate: float, dropout rate to apply after dense layers (default: 0.0).
         block_idx: int or None, index of the block for naming layers (default: None).
@@ -47,7 +47,7 @@ def resmlp_block(
     x_t = layers.Permute((2, 1), name=f"blocks_{block_idx}_permute_2")(x_t)
     if drop_rate > 0:
         x_t = layers.Dropout(drop_rate, name=f"blocks_{block_idx}_dropout_1")(x_t)
-    x_t = LayerScale(init_values, name=f"blocks_{block_idx}_scale_1")(x_t)
+    x_t = LayerScale(layer_scale_init, name=f"blocks_{block_idx}_scale_1")(x_t)
     x = layers.Add(name=f"blocks_{block_idx}_add_1")([inputs, x_t])
 
     inputs = x
@@ -63,7 +63,7 @@ def resmlp_block(
     )(x)
     if drop_rate > 0:
         x = layers.Dropout(drop_rate, name=f"blocks_{block_idx}_dropout_2")(x)
-    x = LayerScale(init_values, name=f"blocks_{block_idx}_scale_2")(x)
+    x = LayerScale(layer_scale_init, name=f"blocks_{block_idx}_scale_2")(x)
     x = layers.Add(name=f"blocks_{block_idx}_add_2")([inputs, x])
 
     return x
@@ -76,7 +76,7 @@ def resmlp_backbone_feature(
     embed_dim,
     depth,
     mlp_ratio,
-    init_values,
+    layer_scale_init,
     drop_path_rate,
     data_format,
     return_stages=False,
@@ -89,7 +89,7 @@ def resmlp_backbone_feature(
         embed_dim: Token (channel) embedding dimension.
         depth: Number of ResMLP blocks.
         mlp_ratio: Hidden-dim multiplier inside each block's channel MLP.
-        init_values: Initial LayerScale value applied at the end of each residual branch.
+        layer_scale_init: Initial LayerScale value applied at the end of each residual branch.
         drop_path_rate: Maximum stochastic-depth-style dropout rate (scaled linearly
             with block index).
         data_format: ``"channels_last"`` or ``"channels_first"``.
@@ -131,7 +131,7 @@ def resmlp_backbone_feature(
             embed_dim,
             num_patches,
             mlp_ratio,
-            init_values,
+            layer_scale_init,
             drop_path,
             block_idx=i,
         )
@@ -173,12 +173,12 @@ class ResMLPModel(BaseModel):
         depth: Integer, number of ResMLP blocks. Defaults to `12`.
         mlp_ratio: Integer, hidden-dim multiplier inside each block's
             channel MLP. Defaults to `4`.
-        init_values: Float, initial LayerScale value applied at the end
+        layer_scale_init: Float, initial LayerScale value applied at the end
             of each residual branch. Defaults to `1e-4`.
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
             rate (scaled linearly with block index). Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -232,10 +232,10 @@ class ResMLPModel(BaseModel):
         embed_dim=384,
         depth=12,
         mlp_ratio=4,
-        init_values=1e-4,
+        layer_scale_init=1e-4,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -248,12 +248,12 @@ class ResMLPModel(BaseModel):
 
         data_format = keras.config.image_data_format()
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -268,7 +268,7 @@ class ResMLPModel(BaseModel):
             embed_dim=embed_dim,
             depth=depth,
             mlp_ratio=mlp_ratio,
-            init_values=init_values,
+            layer_scale_init=layer_scale_init,
             drop_path_rate=drop_path_rate,
             data_format=data_format,
             return_stages=as_backbone,
@@ -280,10 +280,10 @@ class ResMLPModel(BaseModel):
         self.embed_dim = embed_dim
         self.depth = depth
         self.mlp_ratio = mlp_ratio
-        self.init_values = init_values
+        self.layer_scale_init = layer_scale_init
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -297,10 +297,10 @@ class ResMLPModel(BaseModel):
                 "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "mlp_ratio": self.mlp_ratio,
-                "init_values": self.init_values,
+                "layer_scale_init": self.layer_scale_init,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -336,12 +336,12 @@ class ResMLPImageClassify(BaseModel):
         depth: Integer, number of ResMLP blocks. Defaults to `12`.
         mlp_ratio: Integer, hidden-dim multiplier inside each block's
             channel MLP. Defaults to `4`.
-        init_values: Float, initial LayerScale value applied at the end
+        layer_scale_init: Float, initial LayerScale value applied at the end
             of each residual branch. Defaults to `1e-4`.
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
             rate (scaled linearly with block index). Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -390,10 +390,10 @@ class ResMLPImageClassify(BaseModel):
         embed_dim=384,
         depth=12,
         mlp_ratio=4,
-        init_values=1e-4,
+        layer_scale_init=1e-4,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -409,10 +409,10 @@ class ResMLPImageClassify(BaseModel):
             embed_dim=embed_dim,
             depth=depth,
             mlp_ratio=mlp_ratio,
-            init_values=init_values,
+            layer_scale_init=layer_scale_init,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -432,10 +432,10 @@ class ResMLPImageClassify(BaseModel):
         self.embed_dim = embed_dim
         self.depth = depth
         self.mlp_ratio = mlp_ratio
-        self.init_values = init_values
+        self.layer_scale_init = layer_scale_init
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -450,10 +450,10 @@ class ResMLPImageClassify(BaseModel):
                 "embed_dim": self.embed_dim,
                 "depth": self.depth,
                 "mlp_ratio": self.mlp_ratio,
-                "init_values": self.init_values,
+                "layer_scale_init": self.layer_scale_init,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

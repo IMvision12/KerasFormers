@@ -52,9 +52,9 @@ if __name__ == "__main__":
         if total_gb <= 5.0:
             import torch
 
-            ctx = keras_model.max_sequence_length
-            vocab = keras_model.vocabulary_size
-            ishape = keras_model.input_image_shape
+            ctx = keras_model.max_seq_len
+            vocab = keras_model.vocab_size
+            ishape = keras_model.image_size
             if keras.config.image_data_format() == "channels_first":
                 img_h, img_w = ishape[1], ishape[2]
             else:

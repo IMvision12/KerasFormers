@@ -449,8 +449,8 @@ class ModelTestCase(TestCase):
             )
 
         model_kwargs = self.init_kwargs.copy()
-        if "input_image_shape" in model_kwargs:
-            model_kwargs["input_image_shape"] = larger_shape
+        if "image_size" in model_kwargs:
+            model_kwargs["image_size"] = larger_shape
 
         larger_model = self.create_model(**model_kwargs)
         larger_output = larger_model(larger_input)

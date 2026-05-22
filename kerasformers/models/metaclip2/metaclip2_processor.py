@@ -41,7 +41,7 @@ class MetaClip2Processor(BaseProcessor):
         sentencepiece_model_file: Path to ``sentencepiece.bpe.model``.
             ``None`` triggers a one-time download from the MetaCLIP 2
             release.
-        context_length: Tokenizer max sequence length. Defaults to ``77``.
+        max_seq_len: Tokenizer max sequence length. Defaults to ``77``.
         **kwargs: Forwarded to :class:`BaseProcessor`.
 
     Example:
@@ -74,7 +74,7 @@ class MetaClip2Processor(BaseProcessor):
         do_resize: bool = True,
         data_format=None,
         sentencepiece_model_file: str = None,
-        context_length: int = 77,
+        max_seq_len: int = 77,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -89,7 +89,7 @@ class MetaClip2Processor(BaseProcessor):
         )
         self.tokenizer = MetaClip2Tokenizer(
             sentencepiece_model_file=sentencepiece_model_file,
-            context_length=context_length,
+            max_seq_len=max_seq_len,
         )
 
     def call(self, text=None, images=None, image_paths=None):

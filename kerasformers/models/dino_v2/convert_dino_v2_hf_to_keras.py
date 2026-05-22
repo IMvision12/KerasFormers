@@ -184,7 +184,7 @@ if __name__ == "__main__":
         keras_model = DinoV2Model.from_weights(
             variant,
             load_weights=False,
-            input_image_shape=224,
+            image_size=224,
             include_normalization=False,
         )
 

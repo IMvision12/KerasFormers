@@ -456,7 +456,7 @@ class DFineMultiScaleDeformableAttention(layers.Layer):
     output_proj — the encoder hidden states are used directly as values.
 
     Args:
-        d_model (int): Model dimension. Defaults to 256.
+        hidden_dim (int): Model dimension. Defaults to 256.
         n_levels (int): Number of feature levels. Defaults to 3.
         n_heads (int): Number of attention heads. Defaults to 8.
         num_points_list (list[int]): Sampling points per level.
@@ -470,7 +470,7 @@ class DFineMultiScaleDeformableAttention(layers.Layer):
 
     def __init__(
         self,
-        d_model=256,
+        hidden_dim=256,
         n_levels=3,
         n_heads=8,
         num_points_list=None,
@@ -479,7 +479,7 @@ class DFineMultiScaleDeformableAttention(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.d_model = d_model
+        self.hidden_dim = hidden_dim
         self.n_levels = n_levels
         self.n_heads = n_heads
         self.num_points_list = num_points_list or [4] * n_levels
@@ -518,7 +518,7 @@ class DFineMultiScaleDeformableAttention(layers.Layer):
         input_spatial_shapes = self.spatial_shapes
         N = ops.shape(query)[0]
         Len_q = ops.shape(query)[1]
-        head_dim = self.d_model // self.n_heads
+        head_dim = self.hidden_dim // self.n_heads
         total_pts = sum(self.num_points_list)
 
         value = ops.reshape(input_flatten, [N, -1, self.n_heads, head_dim])
@@ -563,7 +563,7 @@ class DFineMultiScaleDeformableAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "d_model": self.d_model,
+                "hidden_dim": self.hidden_dim,
                 "n_levels": self.n_levels,
                 "n_heads": self.n_heads,
                 "num_points_list": self.num_points_list,
@@ -585,7 +585,7 @@ class DFineDecoderLayer(layers.Layer):
     and then layer normalizes.
 
     Args:
-        d_model (int): Model dimension. Defaults to 256.
+        hidden_dim (int): Model dimension. Defaults to 256.
         num_heads (int): Number of attention heads. Defaults to 8.
         dim_feedforward (int): FFN intermediate dimension. Defaults to 1024.
         dropout_rate (float): Dropout rate. Defaults to 0.0.
@@ -603,7 +603,7 @@ class DFineDecoderLayer(layers.Layer):
 
     def __init__(
         self,
-        d_model=256,
+        hidden_dim=256,
         num_heads=8,
         dim_feedforward=1024,
         dropout_rate=0.0,
@@ -616,7 +616,7 @@ class DFineDecoderLayer(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.d_model = d_model
+        self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.dim_feedforward = dim_feedforward
         self.dropout_rate = dropout_rate
@@ -629,7 +629,7 @@ class DFineDecoderLayer(layers.Layer):
 
         bp = block_prefix
         self.self_attn = DFineMultiHeadAttention(
-            hidden_dim=self.d_model,
+            hidden_dim=self.hidden_dim,
             num_heads=self.num_heads,
             dropout_rate=0.0,
             block_prefix=f"{bp}_self_attn",
@@ -641,7 +641,7 @@ class DFineDecoderLayer(layers.Layer):
         )
 
         self.encoder_attn = DFineMultiScaleDeformableAttention(
-            d_model=self.d_model,
+            hidden_dim=self.hidden_dim,
             n_levels=self.n_levels,
             n_heads=self.num_heads,
             num_points_list=self.num_points_list,
@@ -651,7 +651,7 @@ class DFineDecoderLayer(layers.Layer):
         )
 
         self.gateway_gate = layers.Dense(
-            d_model * 2,
+            hidden_dim * 2,
             name=f"{bp}_gateway_gate",
         )
         self.gateway_norm = layers.LayerNormalization(
@@ -664,7 +664,7 @@ class DFineDecoderLayer(layers.Layer):
             name=f"{bp}_fc1",
         )
         self.fc1_act = layers.Activation(self.activation)
-        self.fc2 = layers.Dense(self.d_model, name=f"{bp}_fc2")
+        self.fc2 = layers.Dense(self.hidden_dim, name=f"{bp}_fc2")
         self.final_layer_norm = layers.LayerNormalization(
             epsilon=1e-5,
             name=f"{bp}_final_layer_norm",
@@ -693,8 +693,8 @@ class DFineDecoderLayer(layers.Layer):
 
         gate_input = ops.concatenate([residual, cross_out], axis=-1)
         gates = ops.sigmoid(self.gateway_gate(gate_input))
-        gate1 = gates[..., : self.d_model]
-        gate2 = gates[..., self.d_model :]
+        gate1 = gates[..., : self.hidden_dim]
+        gate2 = gates[..., self.hidden_dim :]
         hidden_states = self.gateway_norm(gate1 * residual + gate2 * cross_out)
 
         residual = hidden_states
@@ -712,7 +712,7 @@ class DFineDecoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "d_model": self.d_model,
+                "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
                 "dim_feedforward": self.dim_feedforward,
                 "dropout_rate": self.dropout_rate,

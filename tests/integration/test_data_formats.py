@@ -35,11 +35,11 @@ def _adapt_input_shape_for_format(init_kwargs, data_format):
     if data_format == "channels_first" and "input_shape" in kwargs:
         h, w, c = kwargs["input_shape"]
         kwargs["input_shape"] = (c, h, w)
-    if data_format == "channels_first" and "input_image_shape" in kwargs:
-        spec = kwargs["input_image_shape"]
+    if data_format == "channels_first" and "image_size" in kwargs:
+        spec = kwargs["image_size"]
         if isinstance(spec, (tuple, list)) and len(spec) == 3:
             h, w, c = spec
-            kwargs["input_image_shape"] = (c, h, w)
+            kwargs["image_size"] = (c, h, w)
     return kwargs
 
 

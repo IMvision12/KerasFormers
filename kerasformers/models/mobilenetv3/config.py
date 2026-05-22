@@ -4,7 +4,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "small",
         "minimal": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_small_075": {
@@ -12,7 +12,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "small",
         "minimal": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_small_100": {
@@ -20,7 +20,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "small",
         "minimal": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_large_100": {
@@ -28,7 +28,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "config": "large",
         "minimal": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "mobilenetv3_large_150d": {
@@ -38,7 +38,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "minimal": False,
         "block_count_multiplier": 1.2,
         "head_count_multiplier": 2,
-        "input_image_shape": 256,
+        "image_size": 256,
         "num_classes": 1000,
     },
     "mobilenetv3_rw": {
@@ -51,7 +51,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "se_use_block_act": True,
         "bn_epsilon": 1e-3,
         "head_use_bias": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
 }

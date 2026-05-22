@@ -81,7 +81,7 @@ def mlp_mixer_backbone_feature(
     *,
     patch_size,
     embed_dim,
-    num_blocks,
+    depths,
     mlp_ratio,
     drop_path_rate,
     data_format,
@@ -94,7 +94,7 @@ def mlp_mixer_backbone_feature(
         inputs: Input image tensor of shape ``(B, H, W, C)`` or ``(B, C, H, W)``.
         patch_size: Side length of each square patch.
         embed_dim: Per-patch embedding (channel) dimension.
-        num_blocks: Number of mixer blocks.
+        depths: Number of mixer blocks.
         mlp_ratio: Pair ``(token_mlp, channel_mlp)`` of ratios scaling
             ``embed_dim`` to the two hidden dims.
         drop_path_rate: Maximum stochastic-depth-style dropout rate (scaled linearly
@@ -102,13 +102,13 @@ def mlp_mixer_backbone_feature(
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
         return_stages: If True, return a list of per-block (post-residual)
-            features (one per mixer block, ``num_blocks`` total). Spatial shape
+            features (one per mixer block, ``depths`` total). Spatial shape
             is constant across blocks (Mixer is isotropic). If False (default),
             return the single post-final-LayerNorm sequence.
 
     Returns:
         Post-LayerNorm patch sequence of shape ``(B, num_patches, embed_dim)``,
-        or a list of ``num_blocks`` per-block outputs when ``return_stages=True``.
+        or a list of ``depths`` per-block outputs when ``return_stages=True``.
     """
     if data_format == "channels_first":
         height, width = inputs.shape[2], inputs.shape[3]
@@ -133,8 +133,8 @@ def mlp_mixer_backbone_feature(
     channel_mlp_dim = int(embed_dim * mlp_ratio[1])
 
     stages = []
-    for i in range(num_blocks):
-        drop_path = drop_path_rate * (i / num_blocks)
+    for i in range(depths):
+        drop_path = drop_path_rate * (i / depths)
         x = mixer_block(
             x,
             num_patches,
@@ -179,7 +179,7 @@ class MLPMixerModel(BaseModel):
             Defaults to `16`.
         embed_dim: Integer, per-patch embedding (channel) dimension.
             Defaults to `768`.
-        num_blocks: Integer, number of mixer blocks.
+        depths: Integer, number of mixer blocks.
             Defaults to `12`.
         mlp_ratio: Tuple of two floats, ``(token_mlp, channel_mlp)``
             hidden-dim ratios applied to ``embed_dim``.
@@ -187,7 +187,7 @@ class MLPMixerModel(BaseModel):
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
             rate (scaled linearly with block index). Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -242,11 +242,11 @@ class MLPMixerModel(BaseModel):
         self,
         patch_size=16,
         embed_dim=768,
-        num_blocks=12,
+        depths=12,
         mlp_ratio=(0.5, 4.0),
         drop_rate=0.0,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -260,12 +260,12 @@ class MLPMixerModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -278,7 +278,7 @@ class MLPMixerModel(BaseModel):
             x,
             patch_size=patch_size,
             embed_dim=embed_dim,
-            num_blocks=num_blocks,
+            depths=depths,
             mlp_ratio=mlp_ratio,
             drop_path_rate=drop_path_rate,
             data_format=data_format,
@@ -290,11 +290,11 @@ class MLPMixerModel(BaseModel):
 
         self.patch_size = patch_size
         self.embed_dim = embed_dim
-        self.num_blocks = num_blocks
+        self.depths = depths
         self.mlp_ratio = mlp_ratio
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -306,11 +306,11 @@ class MLPMixerModel(BaseModel):
             {
                 "patch_size": self.patch_size,
                 "embed_dim": self.embed_dim,
-                "num_blocks": self.num_blocks,
+                "depths": self.depths,
                 "mlp_ratio": self.mlp_ratio,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -344,7 +344,7 @@ class MLPMixerImageClassify(BaseModel):
             Defaults to `16`.
         embed_dim: Integer, per-patch embedding (channel) dimension.
             Defaults to `768`.
-        num_blocks: Integer, number of mixer blocks.
+        depths: Integer, number of mixer blocks.
             Defaults to `12`.
         mlp_ratio: Tuple of two floats, ``(token_mlp, channel_mlp)``
             hidden-dim ratios applied to ``embed_dim``.
@@ -352,7 +352,7 @@ class MLPMixerImageClassify(BaseModel):
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
             rate (scaled linearly with block index). Defaults to `0.0`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -399,11 +399,11 @@ class MLPMixerImageClassify(BaseModel):
         self,
         patch_size=16,
         embed_dim=768,
-        num_blocks=12,
+        depths=12,
         mlp_ratio=(0.5, 4.0),
         drop_rate=0.0,
         drop_path_rate=0.0,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -417,11 +417,11 @@ class MLPMixerImageClassify(BaseModel):
         backbone = MLPMixerModel(
             patch_size=patch_size,
             embed_dim=embed_dim,
-            num_blocks=num_blocks,
+            depths=depths,
             mlp_ratio=mlp_ratio,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -439,11 +439,11 @@ class MLPMixerImageClassify(BaseModel):
 
         self.patch_size = patch_size
         self.embed_dim = embed_dim
-        self.num_blocks = num_blocks
+        self.depths = depths
         self.mlp_ratio = mlp_ratio
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -456,11 +456,11 @@ class MLPMixerImageClassify(BaseModel):
             {
                 "patch_size": self.patch_size,
                 "embed_dim": self.embed_dim,
-                "num_blocks": self.num_blocks,
+                "depths": self.depths,
                 "mlp_ratio": self.mlp_ratio,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

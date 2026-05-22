@@ -94,7 +94,7 @@ if __name__ == "__main__":
             load_weights=False,
             backbone_use_swiglu=False,
             num_register_tokens=0,
-            input_image_shape=res,
+            image_size=res,
         )
         dummy = keras.random.uniform((1, res, res, 3), dtype="float32")
         _ = keras_model(dummy)

@@ -28,7 +28,7 @@ SAM3_PAD_TOKEN_ID = 49407
 
 
 class SAM3CLIPTokenizer(BaseTokenizer):
-    """BPE tokenizer for SAM3's CLIP text encoder (context_length=32).
+    """BPE tokenizer for SAM3's CLIP text encoder (max_seq_len=32).
 
     Uses the `tokenizers` library (Rust) under the hood. Auto-downloads
     ``vocab.json`` and ``merges.txt`` on first use.
@@ -36,7 +36,7 @@ class SAM3CLIPTokenizer(BaseTokenizer):
     Args:
         vocab_file: Path to vocab.json. If None, auto-downloads.
         merges_file: Path to merges.txt. If None, auto-downloads.
-        context_length: Max sequence length (default 32 for SAM3).
+        max_seq_len: Max sequence length (default 32 for SAM3).
 
     Usage:
         tokenizer = SAM3CLIPTokenizer()
@@ -48,11 +48,11 @@ class SAM3CLIPTokenizer(BaseTokenizer):
         self,
         vocab_file=None,
         merges_file=None,
-        context_length=SAM3_CONTEXT_LENGTH,
+        max_seq_len=SAM3_CONTEXT_LENGTH,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.bos_token_id = SAM3_BOS_TOKEN_ID
         self.eos_token_id = SAM3_EOS_TOKEN_ID
         self.pad_token_id = SAM3_PAD_TOKEN_ID
@@ -103,11 +103,11 @@ class SAM3CLIPTokenizer(BaseTokenizer):
                 AddedToken("<|endoftext|>", special=True, normalized=False),
             ]
         )
-        tok.enable_truncation(max_length=context_length)
+        tok.enable_truncation(max_length=max_seq_len)
         tok.enable_padding(
             pad_id=self.pad_token_id,
             pad_token="<|endoftext|>",
-            length=context_length,
+            length=max_seq_len,
         )
         self._tok = tok
 
@@ -118,8 +118,8 @@ class SAM3CLIPTokenizer(BaseTokenizer):
             text: str or list of str.
 
         Returns:
-            input_ids: numpy array (batch, context_length) int32.
-            attention_mask: numpy array (batch, context_length) float32.
+            input_ids: numpy array (batch, max_seq_len) int32.
+            attention_mask: numpy array (batch, max_seq_len) float32.
         """
         if isinstance(text, str):
             text = [text]

@@ -37,7 +37,7 @@ def convnext_block(
     channels_axis,
     data_format,
     drop_path_rate=0.0,
-    layer_scale_init_value=1e-6,
+    layer_scale_init=1e-6,
     name=None,
     use_grn=False,
     use_conv=False,
@@ -50,7 +50,7 @@ def convnext_block(
         channels_axis: Axis index of the channels dimension.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         drop_path_rate: Stochastic depth drop probability for this block.
-        layer_scale_init_value: Initial value for LayerScale; pass ``None`` to skip.
+        layer_scale_init: Initial value for LayerScale; pass ``None`` to skip.
         name: Name prefix for sub-layers inside the block.
         use_grn: Whether to apply ConvNeXtGlobalResponseNorm (ConvNeXtV2 style).
         use_conv: If True, use 1x1 Conv2D for the MLP; else use Dense layers.
@@ -92,8 +92,8 @@ def convnext_block(
     else:
         x = layers.Dense(projection_dim, name=name + "_dense_2")(x)
 
-    if layer_scale_init_value is not None:
-        x = LayerScale(layer_scale_init_value, name=name + "_layer_scale")(x)
+    if layer_scale_init is not None:
+        x = LayerScale(layer_scale_init, name=name + "_layer_scale")(x)
 
     if data_format == "channels_first":
         x = layers.Permute((3, 1, 2), name=name + "_to_nchw")(x)
@@ -108,9 +108,9 @@ def convnext_backbone_feature(
     inputs,
     *,
     depths,
-    projection_dims,
+    projection_dim,
     drop_path_rate,
-    layer_scale_init_value,
+    layer_scale_init,
     use_conv,
     use_grn,
     data_format,
@@ -122,9 +122,9 @@ def convnext_backbone_feature(
     Args:
         inputs: Input image tensor (post-normalization).
         depths: Number of blocks per stage (length-4 list).
-        projection_dims: Channel count per stage (length-4 list).
+        projection_dim: Channel count per stage (length-4 list).
         drop_path_rate: Maximum stochastic-depth rate; linearly scaled across blocks.
-        layer_scale_init_value: LayerScale init; pass ``None`` to disable.
+        layer_scale_init: LayerScale init; pass ``None`` to disable.
         use_conv: Use 1x1 Conv2D inside blocks instead of Dense.
         use_grn: Enable ConvNeXtGlobalResponseNorm (ConvNeXtV2 style).
         data_format: ``"channels_last"`` or ``"channels_first"``.
@@ -138,7 +138,7 @@ def convnext_backbone_feature(
         feature maps when ``return_stages=True``.
     """
     x = layers.Conv2D(
-        projection_dims[0],
+        projection_dim[0],
         kernel_size=4,
         strides=4,
         data_format=data_format,
@@ -158,7 +158,7 @@ def convnext_backbone_feature(
                 name=f"stages_{i}_downsampling_layernorm",
             )
             x = layers.Conv2D(
-                projection_dims[i],
+                projection_dim[i],
                 kernel_size=2,
                 strides=2,
                 data_format=data_format,
@@ -167,9 +167,9 @@ def convnext_backbone_feature(
         for j in range(depths[i]):
             x = convnext_block(
                 x,
-                projection_dim=projection_dims[i],
+                projection_dim=projection_dim[i],
                 drop_path_rate=depth_drop_rates[cur + j],
-                layer_scale_init_value=layer_scale_init_value,
+                layer_scale_init=layer_scale_init,
                 use_grn=use_grn,
                 use_conv=use_conv,
                 channels_axis=channels_axis,
@@ -206,19 +206,19 @@ class ConvNeXtModel(BaseModel):
             Defaults to `False`.
         depths: Tuple of 4 integers, number of ConvNeXt blocks per stage.
             Defaults to `(3, 3, 9, 3)`.
-        projection_dims: Tuple of 4 integers, channel count per stage.
+        projection_dim: Tuple of 4 integers, channel count per stage.
             Defaults to `(96, 192, 384, 768)`.
         drop_path_rate: Float, maximum stochastic-depth drop rate.
             Linearly scaled from 0 to this value across all blocks.
             Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for per-channel
+        layer_scale_init: Float, initial value for per-channel
             LayerScale. Pass ``None`` to disable LayerScale.
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.
         use_grn: Boolean, whether to apply ConvNeXtGlobalResponseNorm inside each
             block (ConvNeXtV2 recipe). Defaults to `False`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -268,12 +268,12 @@ class ConvNeXtModel(BaseModel):
     def __init__(
         self,
         depths=(3, 3, 9, 3),
-        projection_dims=(96, 192, 384, 768),
+        projection_dim=(96, 192, 384, 768),
         drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
+        layer_scale_init=1e-6,
         use_conv=False,
         use_grn=False,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -287,12 +287,12 @@ class ConvNeXtModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -304,9 +304,9 @@ class ConvNeXtModel(BaseModel):
         x = convnext_backbone_feature(
             x,
             depths=depths,
-            projection_dims=projection_dims,
+            projection_dim=projection_dim,
             drop_path_rate=drop_path_rate,
-            layer_scale_init_value=layer_scale_init_value,
+            layer_scale_init=layer_scale_init,
             use_conv=use_conv,
             use_grn=use_grn,
             data_format=data_format,
@@ -317,12 +317,12 @@ class ConvNeXtModel(BaseModel):
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.depths = list(depths)
-        self.projection_dims = list(projection_dims)
+        self.projection_dim = list(projection_dim)
         self.drop_path_rate = drop_path_rate
-        self.layer_scale_init_value = layer_scale_init_value
+        self.layer_scale_init = layer_scale_init
         self.use_conv = use_conv
         self.use_grn = use_grn
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -333,12 +333,12 @@ class ConvNeXtModel(BaseModel):
         config.update(
             {
                 "depths": self.depths,
-                "projection_dims": self.projection_dims,
+                "projection_dim": self.projection_dim,
                 "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init_value": self.layer_scale_init_value,
+                "layer_scale_init": self.layer_scale_init,
                 "use_conv": self.use_conv,
                 "use_grn": self.use_grn,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -369,19 +369,19 @@ class ConvNeXtImageClassify(BaseModel):
     Args:
         depths: Tuple of 4 integers, number of ConvNeXt blocks per stage.
             Defaults to `(3, 3, 9, 3)`.
-        projection_dims: Tuple of 4 integers, channel count per stage.
+        projection_dim: Tuple of 4 integers, channel count per stage.
             Defaults to `(96, 192, 384, 768)`.
         drop_path_rate: Float, maximum stochastic-depth drop rate.
             Linearly scaled from 0 to this value across all blocks.
             Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for per-channel
+        layer_scale_init: Float, initial value for per-channel
             LayerScale. Pass ``None`` to disable LayerScale.
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.
         use_grn: Boolean, whether to apply ConvNeXtGlobalResponseNorm inside each
             block (ConvNeXtV2 recipe). Defaults to `False`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -427,12 +427,12 @@ class ConvNeXtImageClassify(BaseModel):
     def __init__(
         self,
         depths=(3, 3, 9, 3),
-        projection_dims=(96, 192, 384, 768),
+        projection_dim=(96, 192, 384, 768),
         drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
+        layer_scale_init=1e-6,
         use_conv=False,
         use_grn=False,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -447,12 +447,12 @@ class ConvNeXtImageClassify(BaseModel):
 
         backbone = ConvNeXtModel(
             depths=depths,
-            projection_dims=projection_dims,
+            projection_dim=projection_dim,
             drop_path_rate=drop_path_rate,
-            layer_scale_init_value=layer_scale_init_value,
+            layer_scale_init=layer_scale_init,
             use_conv=use_conv,
             use_grn=use_grn,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -470,12 +470,12 @@ class ConvNeXtImageClassify(BaseModel):
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
         self.depths = list(depths)
-        self.projection_dims = list(projection_dims)
+        self.projection_dim = list(projection_dim)
         self.drop_path_rate = drop_path_rate
-        self.layer_scale_init_value = layer_scale_init_value
+        self.layer_scale_init = layer_scale_init
         self.use_conv = use_conv
         self.use_grn = use_grn
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -487,12 +487,12 @@ class ConvNeXtImageClassify(BaseModel):
         config.update(
             {
                 "depths": self.depths,
-                "projection_dims": self.projection_dims,
+                "projection_dim": self.projection_dim,
                 "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init_value": self.layer_scale_init_value,
+                "layer_scale_init": self.layer_scale_init,
                 "use_conv": self.use_conv,
                 "use_grn": self.use_grn,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

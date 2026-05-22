@@ -1,14 +1,14 @@
 RESNET_MODEL_CONFIG = {
     "resnet50": {
-        "block_repeats": [3, 4, 6, 3],
+        "depths": [3, 4, 6, 3],
         "filters": [64, 128, 256, 512],
     },
     "resnet101": {
-        "block_repeats": [3, 4, 23, 3],
+        "depths": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
     },
     "resnet152": {
-        "block_repeats": [3, 8, 36, 3],
+        "depths": [3, 8, 36, 3],
         "filters": [64, 128, 256, 512],
     },
 }

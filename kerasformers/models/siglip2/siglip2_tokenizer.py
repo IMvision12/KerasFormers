@@ -18,7 +18,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
 
     Args:
         vocab_file: Path to the SentencePiece ``.model`` file.
-        context_length: Maximum sequence length (default 64).
+        max_seq_len: Maximum sequence length (default 64).
         add_bos / add_eos: Exposed for compatibility with legacy code
             paths like ``prepare_for_model`` — ``call`` always follows
             the reference template and appends EOS.
@@ -28,7 +28,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
     def __init__(
         self,
         vocab_file: str,
-        context_length: int = 64,
+        max_seq_len: int = 64,
         add_bos: bool = False,
         add_eos: bool = True,
         pad_token: str = "<pad>",
@@ -39,7 +39,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.vocab_file = vocab_file
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.add_bos = add_bos
         self.add_eos = add_eos
         self.pad_token = pad_token
@@ -90,15 +90,15 @@ class SigLIP2Tokenizer(BaseTokenizer):
     def _encode_for_call(self, text: str) -> List[int]:
         ids = self.sp_model.encode_as_ids(text) if text else []
         ids = ids + [self.eos_token_id]
-        return ids[: self.context_length]
+        return ids[: self.max_seq_len]
 
     def prepare_for_model_tensor(
         self, token_ids_list: List[List[int]]
     ) -> Dict[str, keras.KerasTensor]:
         padded = []
         for seq in token_ids_list:
-            seq = self.build_inputs_with_special_tokens(seq)[: self.context_length]
-            pad_len = self.context_length - len(seq)
+            seq = self.build_inputs_with_special_tokens(seq)[: self.max_seq_len]
+            pad_len = self.max_seq_len - len(seq)
             if pad_len > 0:
                 seq = seq + [self.pad_token_id] * pad_len
             padded.append(seq)
@@ -108,8 +108,8 @@ class SigLIP2Tokenizer(BaseTokenizer):
     def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
         token_ids = self.tokenize(text) if isinstance(text, str) else list(text)
         token_ids = self.build_inputs_with_special_tokens(token_ids)
-        token_ids = token_ids[: self.context_length]
-        pad_len = self.context_length - len(token_ids)
+        token_ids = token_ids[: self.max_seq_len]
+        pad_len = self.max_seq_len - len(token_ids)
         if pad_len > 0:
             token_ids = token_ids + [self.pad_token_id] * pad_len
         return {"input_ids": token_ids}
@@ -163,7 +163,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
         rows = []
         for t in texts:
             seq = self._encode_for_call(t)
-            pad_len = self.context_length - len(seq)
+            pad_len = self.max_seq_len - len(seq)
             if pad_len > 0:
                 seq = seq + [self.pad_token_id] * pad_len
             rows.append(seq)
@@ -175,7 +175,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
         config.update(
             {
                 "vocab_file": self.vocab_file,
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "add_bos": self.add_bos,
                 "add_eos": self.add_eos,
                 "pad_token": self.pad_token,

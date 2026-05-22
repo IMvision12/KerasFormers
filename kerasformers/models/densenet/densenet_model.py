@@ -135,7 +135,7 @@ def transition_block(x, reduction, channels_axis, data_format, name):
 def densenet_backbone_feature(
     inputs,
     *,
-    num_blocks,
+    depths,
     growth_rate,
     initial_filter,
     channels_axis,
@@ -146,7 +146,7 @@ def densenet_backbone_feature(
 
     Args:
         inputs: Input image tensor (post-normalization).
-        num_blocks: Tuple of layer counts per dense block (e.g. ``(6, 12, 24, 16)``).
+        depths: Tuple of layer counts per dense block (e.g. ``(6, 12, 24, 16)``).
         growth_rate: Per-layer channel growth inside each dense block.
         initial_filter: Channel count for the 7x7 stem convolution.
         channels_axis: Axis index of the channels dimension.
@@ -176,7 +176,7 @@ def densenet_backbone_feature(
     x = layers.MaxPooling2D(3, 2, data_format=data_format, name="stem_pool")(x)
 
     stages = []
-    for i, num_layers in enumerate(num_blocks):
+    for i, num_layers in enumerate(depths):
         x = densenet_block(
             x,
             num_layers,
@@ -186,7 +186,7 @@ def densenet_backbone_feature(
             name=f"dense_block{i + 1}",
         )
 
-        if i != len(num_blocks) - 1:
+        if i != len(depths) - 1:
             x = transition_block(
                 x,
                 0.5,
@@ -231,13 +231,13 @@ class DenseNetModel(BaseModel):
             use as a backbone network. When True, returns a list of
             per-stage feature maps (one per dense block; the final stage
             is the post BN+ReLU output). Defaults to `False`.
-        num_blocks: Tuple of integers, number of conv layers in each
+        depths: Tuple of integers, number of conv layers in each
             dense block. Defaults to `(6, 12, 24, 16)`.
         growth_rate: Integer, per-layer channel growth inside each dense
             block. Defaults to `32`.
         initial_filter: Integer, channel count for the 7x7 stem
             convolution. Defaults to `64`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -287,10 +287,10 @@ class DenseNetModel(BaseModel):
 
     def __init__(
         self,
-        num_blocks=(6, 12, 24, 16),
+        depths=(6, 12, 24, 16),
         growth_rate=32,
         initial_filter=64,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -304,12 +304,12 @@ class DenseNetModel(BaseModel):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         elif not utils.is_keras_tensor(input_tensor):
-            img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
         else:
             img_input = input_tensor
 
@@ -320,7 +320,7 @@ class DenseNetModel(BaseModel):
         )
         x = densenet_backbone_feature(
             x,
-            num_blocks=num_blocks,
+            depths=depths,
             growth_rate=growth_rate,
             initial_filter=initial_filter,
             channels_axis=channels_axis,
@@ -330,10 +330,10 @@ class DenseNetModel(BaseModel):
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.num_blocks = num_blocks
+        self.depths = depths
         self.growth_rate = growth_rate
         self.initial_filter = initial_filter
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -343,10 +343,10 @@ class DenseNetModel(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_blocks": self.num_blocks,
+                "depths": self.depths,
                 "growth_rate": self.growth_rate,
                 "initial_filter": self.initial_filter,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
@@ -375,13 +375,13 @@ class DenseNetImageClassify(BaseModel):
     - [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993)
 
     Args:
-        num_blocks: Tuple of integers, number of conv layers in each
+        depths: Tuple of integers, number of conv layers in each
             dense block. Defaults to `(6, 12, 24, 16)`.
         growth_rate: Integer, per-layer channel growth inside each dense
             block. Defaults to `32`.
         initial_filter: Integer, channel count for the 7x7 stem
             convolution. Defaults to `64`.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -426,10 +426,10 @@ class DenseNetImageClassify(BaseModel):
 
     def __init__(
         self,
-        num_blocks=(6, 12, 24, 16),
+        depths=(6, 12, 24, 16),
         growth_rate=32,
         initial_filter=64,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -443,10 +443,10 @@ class DenseNetImageClassify(BaseModel):
         data_format = keras.config.image_data_format()
 
         backbone = DenseNetModel(
-            num_blocks=num_blocks,
+            depths=depths,
             growth_rate=growth_rate,
             initial_filter=initial_filter,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -464,10 +464,10 @@ class DenseNetImageClassify(BaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.num_blocks = num_blocks
+        self.depths = depths
         self.growth_rate = growth_rate
         self.initial_filter = initial_filter
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -478,10 +478,10 @@ class DenseNetImageClassify(BaseModel):
         config = super().get_config()
         config.update(
             {
-                "num_blocks": self.num_blocks,
+                "depths": self.depths,
                 "growth_rate": self.growth_rate,
                 "initial_filter": self.initial_filter,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,

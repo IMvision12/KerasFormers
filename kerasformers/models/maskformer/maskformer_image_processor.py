@@ -20,7 +20,7 @@ class MaskFormerImageProcessor(BaseImageProcessor):
 
     Args:
         target_size: Target square edge length (matches the model's
-            ``input_image_shape``).
+            ``image_size``).
         image_mean: Per-channel mean for normalization.
         image_std: Per-channel std for normalization.
         data_format: ``"channels_first"`` / ``"channels_last"``; ``None``

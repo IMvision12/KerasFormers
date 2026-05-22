@@ -34,10 +34,10 @@ def get_data_format(data_format: Optional[str] = None) -> str:
 
 
 def standardize_input_shape(
-    input_image_shape: Union[int, Tuple[int, ...]],
+    image_size: Union[int, Tuple[int, ...]],
     data_format: Optional[str] = None,
 ) -> Tuple[int, int, int]:
-    """Normalize a flexible ``input_image_shape`` into a canonical 3-tuple.
+    """Normalize a flexible ``image_size`` into a canonical 3-tuple.
 
     Accepts:
 
@@ -49,7 +49,7 @@ def standardize_input_shape(
       the active data format; mismatches raise ``ValueError``.
 
     Args:
-        input_image_shape: Flexible spec — int, 2-tuple, or 3-tuple.
+        image_size: Flexible spec — int, 2-tuple, or 3-tuple.
         data_format: ``"channels_first"`` / ``"channels_last"`` / ``None``.
             ``None`` defaults to ``keras.config.image_data_format()``.
 
@@ -58,25 +58,23 @@ def standardize_input_shape(
     """
     data_format = get_data_format(data_format)
 
-    if isinstance(input_image_shape, int):
-        if input_image_shape <= 0:
-            raise ValueError(
-                f"input_image_shape int must be positive, got {input_image_shape}."
-            )
+    if isinstance(image_size, int):
+        if image_size <= 0:
+            raise ValueError(f"image_size int must be positive, got {image_size}.")
         if data_format == "channels_last":
-            return (input_image_shape, input_image_shape, 3)
-        return (3, input_image_shape, input_image_shape)
+            return (image_size, image_size, 3)
+        return (3, image_size, image_size)
 
-    if not isinstance(input_image_shape, (tuple, list)):
+    if not isinstance(image_size, (tuple, list)):
         raise TypeError(
-            "input_image_shape must be int, 2-tuple, or 3-tuple; got "
-            f"{type(input_image_shape).__name__}."
+            "image_size must be int, 2-tuple, or 3-tuple; got "
+            f"{type(image_size).__name__}."
         )
 
-    shape = tuple(int(d) for d in input_image_shape)
+    shape = tuple(int(d) for d in image_size)
 
     if any(d <= 0 for d in shape):
-        raise ValueError(f"input_image_shape dimensions must be positive, got {shape}.")
+        raise ValueError(f"image_size dimensions must be positive, got {shape}.")
 
     if len(shape) == 2:
         h, w = shape
@@ -88,7 +86,7 @@ def standardize_input_shape(
         if data_format == "channels_last":
             if shape[-1] not in (1, 3, 4):
                 raise ValueError(
-                    f"input_image_shape {shape} does not match data_format "
+                    f"image_size {shape} does not match data_format "
                     "'channels_last'. Expected (H, W, C) with C in {1, 3, 4}; "
                     "for channels_first inputs call "
                     "keras.config.set_image_data_format('channels_first')."
@@ -96,7 +94,7 @@ def standardize_input_shape(
             return shape
         if shape[0] not in (1, 3, 4):
             raise ValueError(
-                f"input_image_shape {shape} does not match data_format "
+                f"image_size {shape} does not match data_format "
                 "'channels_first'. Expected (C, H, W) with C in {1, 3, 4}; "
                 "for channels_last inputs call "
                 "keras.config.set_image_data_format('channels_last')."
@@ -104,7 +102,7 @@ def standardize_input_shape(
         return shape
 
     raise ValueError(
-        "input_image_shape must be int, 2-tuple, or 3-tuple; got tuple of "
+        "image_size must be int, 2-tuple, or 3-tuple; got tuple of "
         f"length {len(shape)}."
     )
 

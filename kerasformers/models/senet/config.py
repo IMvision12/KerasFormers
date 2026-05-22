@@ -1,11 +1,11 @@
 SENET_MODEL_CONFIG = {
     "seresnet50": {
-        "block_repeats": [3, 4, 6, 3],
+        "depths": [3, 4, 6, 3],
         "filters": [64, 128, 256, 512],
         "senet": True,
     },
     "seresnext50_32x4d": {
-        "block_repeats": [3, 4, 6, 3],
+        "depths": [3, 4, 6, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 2,
@@ -13,7 +13,7 @@ SENET_MODEL_CONFIG = {
         "block_fn_name": "resnext_block",
     },
     "seresnext101_32x4d": {
-        "block_repeats": [3, 4, 23, 3],
+        "depths": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 2,
@@ -21,7 +21,7 @@ SENET_MODEL_CONFIG = {
         "block_fn_name": "resnext_block",
     },
     "seresnext101_32x8d": {
-        "block_repeats": [3, 4, 23, 3],
+        "depths": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
         "groups": 32,
         "width_factor": 4,

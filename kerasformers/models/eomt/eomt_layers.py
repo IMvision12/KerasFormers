@@ -56,14 +56,14 @@ class EoMTPatchEmbeddings(layers.Layer):
 
     Splits the input image into non-overlapping patches of size
     `patch_size x patch_size` using a strided convolution and projects
-    each patch into a `hidden_size`-dimensional embedding. The spatial
+    each patch into a `hidden_dim`-dimensional embedding. The spatial
     grid is then flattened into a 1D token sequence.
 
     Reference:
     - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        hidden_size: Integer, output embedding dimension for each
+        hidden_dim: Integer, output embedding dimension for each
             patch token.
         patch_size: Integer, height and width of each image patch.
             Defaults to `16`.
@@ -76,18 +76,18 @@ class EoMTPatchEmbeddings(layers.Layer):
         4D tensor: `(batch_size, height, width, num_channels)`.
 
     Output Shape:
-        3D tensor: `(batch_size, num_patches, hidden_size)` where
+        3D tensor: `(batch_size, num_patches, hidden_dim)` where
         `num_patches = (height // patch_size) * (width // patch_size)`.
     """
 
-    def __init__(self, hidden_size, patch_size=16, num_channels=3, **kwargs):
+    def __init__(self, hidden_dim, patch_size=16, num_channels=3, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.patch_size = patch_size
         self.num_channels = num_channels
         self.data_format = keras.config.image_data_format()
         self.projection = layers.Conv2D(
-            hidden_size,
+            hidden_dim,
             kernel_size=patch_size,
             strides=patch_size,
             padding="valid",
@@ -102,7 +102,7 @@ class EoMTPatchEmbeddings(layers.Layer):
         if self.data_format == "channels_first":
             # (B, C, H, W) -> (B, H*W, C)
             x = ops.transpose(x, (0, 2, 3, 1))
-            x = ops.reshape(x, (shape[0], shape[2] * shape[3], self.hidden_size))
+            x = ops.reshape(x, (shape[0], shape[2] * shape[3], self.hidden_dim))
         else:
             x = ops.reshape(x, (shape[0], shape[1] * shape[2], shape[3]))
         return x
@@ -111,7 +111,7 @@ class EoMTPatchEmbeddings(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "patch_size": self.patch_size,
                 "num_channels": self.num_channels,
             }
@@ -133,7 +133,7 @@ class EoMTEmbeddings(layers.Layer):
     - [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193)
 
     Args:
-        hidden_size: Integer, embedding dimension for all tokens.
+        hidden_dim: Integer, embedding dimension for all tokens.
         patch_size: Integer, height and width of each image patch.
             Defaults to `16`.
         image_size: Integer, spatial resolution of the input image
@@ -150,12 +150,12 @@ class EoMTEmbeddings(layers.Layer):
 
     Output Shape:
         3D tensor:
-        `(batch_size, 1 + num_register_tokens + num_patches, hidden_size)`.
+        `(batch_size, 1 + num_register_tokens + num_patches, hidden_dim)`.
     """
 
     def __init__(
         self,
-        hidden_size,
+        hidden_dim,
         patch_size=16,
         image_size=640,
         num_register_tokens=4,
@@ -163,7 +163,7 @@ class EoMTEmbeddings(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.patch_size = patch_size
         self.image_size = image_size
         self.num_register_tokens = num_register_tokens
@@ -172,25 +172,25 @@ class EoMTEmbeddings(layers.Layer):
         self.num_prefix_tokens = 1 + num_register_tokens  # CLS + register tokens
 
         self.patch_embeddings = EoMTPatchEmbeddings(
-            hidden_size, patch_size, num_channels, name="patch_embeddings"
+            hidden_dim, patch_size, num_channels, name="patch_embeddings"
         )
 
     def build(self, input_shape):
         self.cls_token = self.add_weight(
             name="cls_token",
-            shape=(1, 1, self.hidden_size),
+            shape=(1, 1, self.hidden_dim),
             initializer="random_normal",
             trainable=True,
         )
         self.register_tokens = self.add_weight(
             name="register_tokens",
-            shape=(1, self.num_register_tokens, self.hidden_size),
+            shape=(1, self.num_register_tokens, self.hidden_dim),
             initializer="zeros",
             trainable=True,
         )
         self.position_embeddings = self.add_weight(
             name="position_embeddings",
-            shape=(1, self.num_patches, self.hidden_size),
+            shape=(1, self.num_patches, self.hidden_dim),
             initializer="zeros",
             trainable=True,
         )
@@ -202,10 +202,10 @@ class EoMTEmbeddings(layers.Layer):
         embeddings = self.patch_embeddings(pixel_values)
         embeddings = embeddings + self.position_embeddings
 
-        cls_tokens = ops.broadcast_to(self.cls_token, (batch_size, 1, self.hidden_size))
+        cls_tokens = ops.broadcast_to(self.cls_token, (batch_size, 1, self.hidden_dim))
         register_tokens = ops.broadcast_to(
             self.register_tokens,
-            (batch_size, self.num_register_tokens, self.hidden_size),
+            (batch_size, self.num_register_tokens, self.hidden_dim),
         )
 
         embeddings = ops.concatenate([cls_tokens, register_tokens, embeddings], axis=1)
@@ -252,7 +252,7 @@ class EoMTEmbeddings(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "patch_size": self.patch_size,
                 "image_size": self.image_size,
                 "num_register_tokens": self.num_register_tokens,
@@ -268,14 +268,14 @@ class EoMTAttention(layers.Layer):
 
     Implements scaled dot-product multi-head self-attention with
     separate query, key, and value projections followed by an output
-    projection. Each head operates on a `hidden_size // num_heads`
+    projection. Each head operates on a `hidden_dim // num_heads`
     dimensional subspace.
 
     Reference:
     - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        hidden_size: Integer, total model dimension. Must be divisible
+        hidden_dim: Integer, total model dimension. Must be divisible
             by `num_heads`.
         num_heads: Integer, number of parallel attention heads.
         attention_dropout: Float, dropout rate applied to the
@@ -285,24 +285,24 @@ class EoMTAttention(layers.Layer):
             class.
 
     Input Shape:
-        3D tensor: `(batch_size, seq_len, hidden_size)`.
+        3D tensor: `(batch_size, seq_len, hidden_dim)`.
 
     Output Shape:
-        3D tensor: `(batch_size, seq_len, hidden_size)`.
+        3D tensor: `(batch_size, seq_len, hidden_dim)`.
     """
 
-    def __init__(self, hidden_size, num_heads, attention_dropout=0.0, **kwargs):
+    def __init__(self, hidden_dim, num_heads, attention_dropout=0.0, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_heads = num_heads
-        self.head_dim = hidden_size // num_heads
+        self.head_dim = hidden_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.attention_dropout = attention_dropout
 
-        self.q_proj = layers.Dense(hidden_size, name="q_proj")
-        self.k_proj = layers.Dense(hidden_size, name="k_proj")
-        self.v_proj = layers.Dense(hidden_size, name="v_proj")
-        self.out_proj = layers.Dense(hidden_size, name="out_proj")
+        self.q_proj = layers.Dense(hidden_dim, name="q_proj")
+        self.k_proj = layers.Dense(hidden_dim, name="k_proj")
+        self.v_proj = layers.Dense(hidden_dim, name="v_proj")
+        self.out_proj = layers.Dense(hidden_dim, name="out_proj")
 
     def call(self, hidden_states, training=False):
         batch_size = ops.shape(hidden_states)[0]
@@ -339,7 +339,7 @@ class EoMTAttention(layers.Layer):
         attn_output = ops.matmul(attn_weights, values)
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
         attn_output = ops.reshape(
-            attn_output, (batch_size, seq_length, self.hidden_size)
+            attn_output, (batch_size, seq_length, self.hidden_dim)
         )
         attn_output = self.out_proj(attn_output)
 
@@ -349,7 +349,7 @@ class EoMTAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_heads": self.num_heads,
                 "attention_dropout": self.attention_dropout,
             }
@@ -362,7 +362,7 @@ class EoMTQueryInjection(layers.Layer):
     """Injects learned query tokens into the encoder sequence.
 
     Maintains a learnable weight matrix of shape
-    `(num_queries, hidden_size)` and prepends it (broadcast across
+    `(num_queries, hidden_dim)` and prepends it (broadcast across
     the batch) to the existing hidden states. This enables joint
     attention between object queries and image patch tokens in the
     final encoder blocks, which is the core mechanism of EoMT.
@@ -372,28 +372,28 @@ class EoMTQueryInjection(layers.Layer):
 
     Args:
         num_queries: Integer, number of learnable object query tokens.
-        hidden_size: Integer, embedding dimension matching the
+        hidden_dim: Integer, embedding dimension matching the
             encoder hidden size.
         **kwargs: Additional keyword arguments passed to the `Layer`
             class.
 
     Input Shape:
-        3D tensor: `(batch_size, seq_len, hidden_size)`.
+        3D tensor: `(batch_size, seq_len, hidden_dim)`.
 
     Output Shape:
         3D tensor:
-        `(batch_size, num_queries + seq_len, hidden_size)`.
+        `(batch_size, num_queries + seq_len, hidden_dim)`.
     """
 
-    def __init__(self, num_queries, hidden_size, **kwargs):
+    def __init__(self, num_queries, hidden_dim, **kwargs):
         super().__init__(**kwargs)
         self.num_queries = num_queries
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
 
     def build(self, input_shape):
         self.query_weight = self.add_weight(
             name="weight",
-            shape=(self.num_queries, self.hidden_size),
+            shape=(self.num_queries, self.hidden_dim),
             initializer="glorot_uniform",
             trainable=True,
         )
@@ -403,7 +403,7 @@ class EoMTQueryInjection(layers.Layer):
         batch_size = ops.shape(hidden_states)[0]
         query_tokens = ops.broadcast_to(
             ops.expand_dims(self.query_weight, axis=0),
-            (batch_size, self.num_queries, self.hidden_size),
+            (batch_size, self.num_queries, self.hidden_dim),
         )
         return ops.concatenate([query_tokens, hidden_states], axis=1)
 
@@ -412,7 +412,7 @@ class EoMTQueryInjection(layers.Layer):
         config.update(
             {
                 "num_queries": self.num_queries,
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
             }
         )
         return config

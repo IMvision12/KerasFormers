@@ -37,26 +37,26 @@ class CaiTClassDistToken(layers.Layer):
         self.num_tokens = 2 if use_distillation else 1
 
     def build(self, input_shape):
-        self.hidden_size = input_shape[-1]
+        self.hidden_dim = input_shape[-1]
 
         if self.combine_tokens and self.use_distillation:
             self.tokens = self.add_weight(
                 name="cls_token",
-                shape=(1, 2, self.hidden_size),
+                shape=(1, 2, self.hidden_dim),
                 initializer="zeros",
                 trainable=True,
             )
         else:
             self.cls = self.add_weight(
                 name="cls_token",
-                shape=(1, 1, self.hidden_size),
+                shape=(1, 1, self.hidden_dim),
                 initializer="zeros",
                 trainable=True,
             )
             if self.use_distillation:
                 self.dist = self.add_weight(
                     name="dist_token",
-                    shape=(1, 1, self.hidden_size),
+                    shape=(1, 1, self.hidden_dim),
                     initializer="zeros",
                     trainable=True,
                 )
@@ -65,17 +65,17 @@ class CaiTClassDistToken(layers.Layer):
         batch_size = ops.shape(inputs)[0]
         if self.combine_tokens and self.use_distillation:
             tokens_broadcasted = ops.broadcast_to(
-                self.tokens, [batch_size, 2, self.hidden_size]
+                self.tokens, [batch_size, 2, self.hidden_dim]
             )
             return ops.concatenate([tokens_broadcasted, inputs], axis=1)
         else:
             cls_broadcasted = ops.broadcast_to(
-                self.cls, [batch_size, 1, self.hidden_size]
+                self.cls, [batch_size, 1, self.hidden_dim]
             )
 
             if self.use_distillation:
                 dist_broadcasted = ops.broadcast_to(
-                    self.dist, [batch_size, 1, self.hidden_size]
+                    self.dist, [batch_size, 1, self.hidden_dim]
                 )
                 return ops.concatenate(
                     [cls_broadcasted, dist_broadcasted, inputs], axis=1

@@ -47,7 +47,7 @@ def mask2former_msda_encoder_layer(
     n_heads,
     n_levels,
     n_points,
-    ffn_dim,
+    mlp_dim,
     block_prefix,
 ):
     """One MSDeformAttn encoder layer (post-LN)."""
@@ -68,7 +68,7 @@ def mask2former_msda_encoder_layer(
     )(hidden_states)
 
     residual = hidden_states
-    y = layers.Dense(ffn_dim, name=f"{block_prefix}_fc1")(hidden_states)
+    y = layers.Dense(mlp_dim, name=f"{block_prefix}_fc1")(hidden_states)
     y = layers.Activation("relu", name=f"{block_prefix}_fc1_relu")(y)
     y = layers.Dense(hidden_dim, name=f"{block_prefix}_fc2")(y)
     hidden_states = layers.Add(name=f"{block_prefix}_ffn_residual")([residual, y])
@@ -82,7 +82,7 @@ def mask2former_pixel_decoder(
     backbone_features,
     hidden_dim,
     mask_feature_size,
-    encoder_layers,
+    encoder_num_layers,
     encoder_ffn_dim,
     n_heads,
     n_points,
@@ -171,7 +171,7 @@ def mask2former_pixel_decoder(
     )(backbone_features[0], spatial_shapes=spatial_shapes)
 
     hidden_states = src
-    for i in range(encoder_layers):
+    for i in range(encoder_num_layers):
         hidden_states = mask2former_msda_encoder_layer(
             hidden_states,
             pos_embed,
@@ -181,7 +181,7 @@ def mask2former_pixel_decoder(
             n_heads=n_heads,
             n_levels=n_levels,
             n_points=n_points,
-            ffn_dim=encoder_ffn_dim,
+            mlp_dim=encoder_ffn_dim,
             block_prefix=f"pixel_decoder_encoder_layers_{i}",
         )
 
@@ -252,7 +252,7 @@ def mask2former_decoder_layer(
     attn_mask,
     hidden_dim,
     num_heads,
-    ffn_dim,
+    mlp_dim,
     block_prefix,
 ):
     """One Mask2Former decoder layer: masked cross-attn → self-attn → FFN.
@@ -288,7 +288,7 @@ def mask2former_decoder_layer(
     )(hidden_states)
 
     residual = hidden_states
-    y = layers.Dense(ffn_dim, name=f"{block_prefix}_fc1")(hidden_states)
+    y = layers.Dense(mlp_dim, name=f"{block_prefix}_fc1")(hidden_states)
     y = layers.Activation("relu", name=f"{block_prefix}_fc1_relu")(y)
     y = layers.Dense(hidden_dim, name=f"{block_prefix}_fc2")(y)
     hidden_states = layers.Add(name=f"{block_prefix}_ffn_residual")([residual, y])
@@ -321,9 +321,9 @@ def mask2former_functional(
     backbone_window_size,
     hidden_dim,
     mask_feature_size,
-    encoder_layers,
+    encoder_num_layers,
     encoder_ffn_dim,
-    decoder_layers,
+    decoder_num_layers,
     decoder_ffn_dim,
     num_heads,
     num_queries,
@@ -348,7 +348,7 @@ def mask2former_functional(
             backbone_features,
             hidden_dim=hidden_dim,
             mask_feature_size=mask_feature_size,
-            encoder_layers=encoder_layers,
+            encoder_num_layers=encoder_num_layers,
             encoder_ffn_dim=encoder_ffn_dim,
             n_heads=num_heads,
             n_points=n_msda_points,
@@ -497,7 +497,7 @@ def mask2former_functional(
     intermediate_masks = [mask_init]
 
     n_levels = len(multi_scale_features)
-    for i in range(decoder_layers):
+    for i in range(decoder_num_layers):
         level_idx = i % n_levels
         feat = multi_scale_features[level_idx]
         h_l, w_l = (
@@ -516,7 +516,7 @@ def mask2former_functional(
             attn_mask=attn_mask,
             hidden_dim=hidden_dim,
             num_heads=num_heads,
-            ffn_dim=decoder_ffn_dim,
+            mlp_dim=decoder_ffn_dim,
             block_prefix=f"transformer_decoder_layers_{i}",
         )
         cls_i, mask_i = predict_masks(hidden_states)
@@ -548,22 +548,22 @@ class Mask2FormerModel(BaseModel):
         backbone_window_size=12,
         hidden_dim=256,
         mask_feature_size=256,
-        encoder_layers=6,
+        encoder_num_layers=6,
         encoder_ffn_dim=1024,
-        decoder_layers=9,
+        decoder_num_layers=9,
         decoder_ffn_dim=2048,
         num_heads=8,
         num_queries=100,
         num_classes=80,
-        input_image_shape=384,
+        image_size=384,
         name="Mask2FormerModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
-        pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+        pixel_values = layers.Input(shape=image_size, name="pixel_values")
 
         outputs = mask2former_functional(
             pixel_values,
@@ -573,9 +573,9 @@ class Mask2FormerModel(BaseModel):
             backbone_window_size=backbone_window_size,
             hidden_dim=hidden_dim,
             mask_feature_size=mask_feature_size,
-            encoder_layers=encoder_layers,
+            encoder_num_layers=encoder_num_layers,
             encoder_ffn_dim=encoder_ffn_dim,
-            decoder_layers=decoder_layers,
+            decoder_num_layers=decoder_num_layers,
             decoder_ffn_dim=decoder_ffn_dim,
             num_heads=num_heads,
             num_queries=num_queries,
@@ -591,14 +591,14 @@ class Mask2FormerModel(BaseModel):
         self.backbone_window_size = backbone_window_size
         self.hidden_dim = hidden_dim
         self.mask_feature_size = mask_feature_size
-        self.encoder_layers = encoder_layers
+        self.encoder_num_layers = encoder_num_layers
         self.encoder_ffn_dim = encoder_ffn_dim
-        self.decoder_layers = decoder_layers
+        self.decoder_num_layers = decoder_num_layers
         self.decoder_ffn_dim = decoder_ffn_dim
         self.num_heads = num_heads
         self.num_queries = num_queries
         self.num_classes = num_classes
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
 
     def get_config(self):
         c = super().get_config()
@@ -610,14 +610,14 @@ class Mask2FormerModel(BaseModel):
                 "backbone_window_size": self.backbone_window_size,
                 "hidden_dim": self.hidden_dim,
                 "mask_feature_size": self.mask_feature_size,
-                "encoder_layers": self.encoder_layers,
+                "encoder_num_layers": self.encoder_num_layers,
                 "encoder_ffn_dim": self.encoder_ffn_dim,
-                "decoder_layers": self.decoder_layers,
+                "decoder_num_layers": self.decoder_num_layers,
                 "decoder_ffn_dim": self.decoder_ffn_dim,
                 "num_heads": self.num_heads,
                 "num_queries": self.num_queries,
                 "num_classes": self.num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "name": self.name,
             }
         )
@@ -670,14 +670,14 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
             "backbone_window_size": backbone.get("window_size", 12),
             "hidden_dim": hf_config.get("hidden_dim", 256),
             "mask_feature_size": hf_config.get("mask_feature_size", 256),
-            "encoder_layers": hf_config.get("encoder_layers", 6),
+            "encoder_num_layers": hf_config.get("encoder_layers", 6),
             "encoder_ffn_dim": hf_config.get("encoder_feedforward_dim", 1024),
-            "decoder_layers": hf_config.get("decoder_layers", 10) - 1,
+            "decoder_num_layers": hf_config.get("decoder_layers", 10) - 1,
             "decoder_ffn_dim": hf_config.get("dim_feedforward", 2048),
             "num_heads": hf_config.get("num_attention_heads", 8),
             "num_queries": hf_config.get("num_queries", 100),
             "num_classes": hf_num_classes(hf_config),
-            "input_image_shape": backbone.get("image_size", 384),
+            "image_size": backbone.get("image_size", 384),
         }
 
     @classmethod

@@ -199,10 +199,10 @@ if __name__ == "__main__":
         gc.collect()
 
         if total_gb <= 5.0:
-            ctx = keras_model.context_length
+            ctx = keras_model.max_seq_len
             vocab = keras_model.vocab_size
             eos = keras_model.eos_token_id
-            ishape = keras_model.input_image_shape
+            ishape = keras_model.image_size
             if keras.config.image_data_format() == "channels_first":
                 img_h, img_w = ishape[1], ishape[2]
             else:

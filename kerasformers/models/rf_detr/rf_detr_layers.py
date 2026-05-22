@@ -61,7 +61,7 @@ class RFDETRDinoV2PatchEmbeddings(layers.Layer):
     equal to the patch size.
 
     Args:
-        hidden_size: Integer, dimensionality of the output embeddings.
+        hidden_dim: Integer, dimensionality of the output embeddings.
         patch_size: Integer, size of each square patch (height and width).
         num_channels: Integer, number of input channels. Defaults to `3`.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
@@ -70,18 +70,18 @@ class RFDETRDinoV2PatchEmbeddings(layers.Layer):
         4D tensor: `(batch_size, height, width, channels)`.
 
     Output Shape:
-        3D tensor: `(batch_size, num_patches, hidden_size)`, where
+        3D tensor: `(batch_size, num_patches, hidden_dim)`, where
         `num_patches = (height // patch_size) * (width // patch_size)`.
     """
 
-    def __init__(self, hidden_size, patch_size, num_channels=3, **kwargs):
+    def __init__(self, hidden_dim, patch_size, num_channels=3, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.patch_size = patch_size
         self.num_channels = num_channels
         self.data_format = keras.config.image_data_format()
         self.projection = layers.Conv2D(
-            self.hidden_size,
+            self.hidden_dim,
             kernel_size=self.patch_size,
             strides=self.patch_size,
             padding="valid",
@@ -94,17 +94,17 @@ class RFDETRDinoV2PatchEmbeddings(layers.Layer):
         if self.data_format == "channels_first":
             shape = ops.shape(x)
             x = ops.transpose(x, [0, 2, 3, 1])
-            x = ops.reshape(x, [shape[0], shape[2] * shape[3], self.hidden_size])
+            x = ops.reshape(x, [shape[0], shape[2] * shape[3], self.hidden_dim])
         else:
             shape = ops.shape(x)
-            x = ops.reshape(x, [shape[0], shape[1] * shape[2], self.hidden_size])
+            x = ops.reshape(x, [shape[0], shape[1] * shape[2], self.hidden_dim])
         return x
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "patch_size": self.patch_size,
                 "num_channels": self.num_channels,
             }
@@ -124,7 +124,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
     resolution differs from the pretrained positional encoding grid size.
 
     Args:
-        hidden_size: Integer, dimensionality of the embeddings.
+        hidden_dim: Integer, dimensionality of the embeddings.
         patch_size: Integer, size of each square patch.
         num_channels: Integer, number of input image channels. Defaults to `3`.
         num_register_tokens: Integer, number of register tokens to prepend.
@@ -140,13 +140,13 @@ class RFDETRDinoV2Embeddings(layers.Layer):
         4D tensor: `(batch_size, height, width, channels)`.
 
     Output Shape:
-        3D tensor: `(batch_size [* num_windows^2], seq_len, hidden_size)`, where
+        3D tensor: `(batch_size [* num_windows^2], seq_len, hidden_dim)`, where
         `seq_len = tokens_per_window + 1 + num_register_tokens`.
     """
 
     def __init__(
         self,
-        hidden_size,
+        hidden_dim,
         patch_size,
         num_channels=3,
         num_register_tokens=4,
@@ -155,7 +155,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.patch_size = patch_size
         self.num_channels = num_channels
         self.num_register_tokens = num_register_tokens
@@ -163,7 +163,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
         self.positional_encoding_size = positional_encoding_size
         self.num_patches = positional_encoding_size * positional_encoding_size
         self.patch_embeddings = RFDETRDinoV2PatchEmbeddings(
-            self.hidden_size,
+            self.hidden_dim,
             self.patch_size,
             self.num_channels,
             name="patch_embeddings",
@@ -172,18 +172,18 @@ class RFDETRDinoV2Embeddings(layers.Layer):
     def build(self, input_shape):
         self.cls_token = self.add_weight(
             name="cls_token",
-            shape=(1, 1, self.hidden_size),
+            shape=(1, 1, self.hidden_dim),
             initializer=initializers.TruncatedNormal(stddev=0.02),
         )
         self.position_embeddings = self.add_weight(
             name="position_embeddings",
-            shape=(1, self.num_patches + 1, self.hidden_size),
+            shape=(1, self.num_patches + 1, self.hidden_dim),
             initializer=initializers.TruncatedNormal(stddev=0.02),
         )
         if self.num_register_tokens > 0:
             self.register_tokens = self.add_weight(
                 name="register_tokens",
-                shape=(1, self.num_register_tokens, self.hidden_size),
+                shape=(1, self.num_register_tokens, self.hidden_dim),
                 initializer="zeros",
             )
         super().build(input_shape)
@@ -199,7 +199,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
         sqrt_n = int(math.sqrt(num_positions))
 
         patch_pos_embed = ops.reshape(
-            patch_pos_embed, [1, sqrt_n, sqrt_n, self.hidden_size]
+            patch_pos_embed, [1, sqrt_n, sqrt_n, self.hidden_dim]
         )
         patch_pos_embed = ops.cast(patch_pos_embed, "float32")
         patch_pos_embed = ops.image.resize(
@@ -210,7 +210,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
             data_format="channels_last",
         )
         patch_pos_embed = ops.cast(patch_pos_embed, embeddings.dtype)
-        patch_pos_embed = ops.reshape(patch_pos_embed, [1, h * w, self.hidden_size])
+        patch_pos_embed = ops.reshape(patch_pos_embed, [1, h * w, self.hidden_dim])
         return ops.concatenate([class_pos_embed, patch_pos_embed], axis=1)
 
     def call(self, pixel_values):
@@ -225,7 +225,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
 
         embeddings = self.patch_embeddings(pixel_values)
 
-        cls_tokens = ops.broadcast_to(self.cls_token, (batch_size, 1, self.hidden_size))
+        cls_tokens = ops.broadcast_to(self.cls_token, (batch_size, 1, self.hidden_dim))
         embeddings = ops.concatenate([cls_tokens, embeddings], axis=1)
 
         pos_embed = self.interpolate_pos_encoding(embeddings, height, width)
@@ -237,17 +237,17 @@ class RFDETRDinoV2Embeddings(layers.Layer):
             cls_tok = embeddings[:, :1, :]
             patch_tok = embeddings[:, 1:, :]
             patch_tok = ops.reshape(
-                patch_tok, [batch_size, num_h, num_w, self.hidden_size]
+                patch_tok, [batch_size, num_h, num_w, self.hidden_dim]
             )
             nw = self.num_windows
             h_pw = num_h // nw
             w_pw = num_w // nw
             patch_tok = ops.reshape(
-                patch_tok, [batch_size * nw, h_pw, nw, w_pw, self.hidden_size]
+                patch_tok, [batch_size * nw, h_pw, nw, w_pw, self.hidden_dim]
             )
             patch_tok = ops.transpose(patch_tok, [0, 2, 1, 3, 4])
             patch_tok = ops.reshape(
-                patch_tok, [batch_size * nw * nw, h_pw * w_pw, self.hidden_size]
+                patch_tok, [batch_size * nw * nw, h_pw * w_pw, self.hidden_dim]
             )
             cls_tok = ops.tile(cls_tok, [nw * nw, 1, 1])
             embeddings = ops.concatenate([cls_tok, patch_tok], axis=1)
@@ -255,7 +255,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
         if self.num_register_tokens > 0:
             reg = ops.broadcast_to(
                 self.register_tokens,
-                (ops.shape(embeddings)[0], self.num_register_tokens, self.hidden_size),
+                (ops.shape(embeddings)[0], self.num_register_tokens, self.hidden_dim),
             )
             embeddings = ops.concatenate(
                 [embeddings[:, :1, :], reg, embeddings[:, 1:, :]], axis=1
@@ -283,7 +283,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
         if self.num_windows > 1:
             batch = None
         return keras.KerasTensor(
-            shape=(batch, seq_len, self.hidden_size),
+            shape=(batch, seq_len, self.hidden_dim),
             dtype=input_spec.dtype,
         )
 
@@ -291,7 +291,7 @@ class RFDETRDinoV2Embeddings(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "patch_size": self.patch_size,
                 "num_channels": self.num_channels,
                 "num_register_tokens": self.num_register_tokens,
@@ -307,32 +307,32 @@ class RFDETRDinoV2LayerScale(layers.Layer):
     """Learnable per-channel scaling applied to residual branch outputs.
 
     Multiplies input element-wise by a learnable vector (lambda1) of shape
-    `(hidden_size,)`, initialized to a constant value. Used in DINOv2
+    `(hidden_dim,)`, initialized to a constant value. Used in DINOv2
     transformer blocks to stabilize training.
 
     Args:
-        hidden_size: Integer, number of channels (must match the last dimension
+        hidden_dim: Integer, number of channels (must match the last dimension
             of the input).
         init_value: Float, initial value for the scale parameters.
             Defaults to `1.0`.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
     Input Shape:
-        Tensor of shape `(..., hidden_size)`.
+        Tensor of shape `(..., hidden_dim)`.
 
     Output Shape:
         Same as input shape.
     """
 
-    def __init__(self, hidden_size, init_value=1.0, **kwargs):
+    def __init__(self, hidden_dim, init_value=1.0, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.init_value = init_value
 
     def build(self, input_shape):
         self.lambda1 = self.add_weight(
             name="lambda1",
-            shape=(self.hidden_size,),
+            shape=(self.hidden_dim,),
             initializer=initializers.Constant(self.init_value),
         )
         super().build(input_shape)
@@ -342,7 +342,7 @@ class RFDETRDinoV2LayerScale(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({"hidden_size": self.hidden_size, "init_value": self.init_value})
+        config.update({"hidden_dim": self.hidden_dim, "init_value": self.init_value})
         return config
 
 
@@ -463,7 +463,7 @@ class RFDETRMSDeformableAttention(layers.Layer):
         - [Deformable DETR](https://arxiv.org/abs/2010.04159)
 
     Args:
-        d_model: Integer, dimensionality of the model. Defaults to `256`.
+        hidden_dim: Integer, dimensionality of the model. Defaults to `256`.
         n_levels: Integer, number of feature levels. Defaults to `1`.
         n_heads: Integer, number of attention heads. Defaults to `8`.
         n_points: Integer, number of sampling points per head per level.
@@ -475,17 +475,17 @@ class RFDETRMSDeformableAttention(layers.Layer):
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
     Input Shape:
-        - query: `(batch_size, num_queries, d_model)`.
+        - query: `(batch_size, num_queries, hidden_dim)`.
         - reference_points: `(batch_size, num_queries, n_levels, 2 or 4)`.
-        - input_flatten: `(batch_size, total_tokens, d_model)`.
+        - input_flatten: `(batch_size, total_tokens, hidden_dim)`.
 
     Output Shape:
-        3D tensor: `(batch_size, num_queries, d_model)`.
+        3D tensor: `(batch_size, num_queries, hidden_dim)`.
     """
 
     def __init__(
         self,
-        d_model=256,
+        hidden_dim=256,
         n_levels=1,
         n_heads=8,
         n_points=4,
@@ -494,7 +494,7 @@ class RFDETRMSDeformableAttention(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.d_model = d_model
+        self.hidden_dim = hidden_dim
         self.n_levels = n_levels
         self.n_heads = n_heads
         self.n_points = n_points
@@ -509,8 +509,8 @@ class RFDETRMSDeformableAttention(layers.Layer):
             self.n_heads * self.n_levels * self.n_points,
             name="attention_weights",
         )
-        self.value_proj = layers.Dense(self.d_model, name="value_proj")
-        self.output_proj = layers.Dense(self.d_model, name="output_proj")
+        self.value_proj = layers.Dense(self.hidden_dim, name="value_proj")
+        self.output_proj = layers.Dense(self.hidden_dim, name="output_proj")
 
     def call(self, query, reference_points, input_flatten, input_padding_mask=None):
         input_spatial_shapes = self.spatial_shapes
@@ -559,7 +559,7 @@ class RFDETRMSDeformableAttention(layers.Layer):
 
         value = ops.transpose(value, [0, 2, 1])
         value = ops.reshape(
-            value, [N, self.n_heads, self.d_model // self.n_heads, Len_in]
+            value, [N, self.n_heads, self.hidden_dim // self.n_heads, Len_in]
         )
 
         output = ms_deform_attn_core(
@@ -569,7 +569,7 @@ class RFDETRMSDeformableAttention(layers.Layer):
 
     def compute_output_spec(self, query_spec, *args, **kwargs):
         return keras.KerasTensor(
-            shape=(query_spec.shape[0], query_spec.shape[1], self.d_model),
+            shape=(query_spec.shape[0], query_spec.shape[1], self.hidden_dim),
             dtype=query_spec.dtype,
         )
 
@@ -577,7 +577,7 @@ class RFDETRMSDeformableAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "d_model": self.d_model,
+                "hidden_dim": self.hidden_dim,
                 "n_levels": self.n_levels,
                 "n_heads": self.n_heads,
                 "n_points": self.n_points,
@@ -601,7 +601,7 @@ class RFDETRDecoderLayer(layers.Layer):
     All sub-blocks use pre-norm residual connections with dropout.
 
     Args:
-        d_model: Integer, model hidden dimension.
+        hidden_dim: Integer, model hidden dimension.
         sa_nhead: Integer, number of self-attention heads.
         ca_nhead: Integer, number of cross-attention heads.
         dim_feedforward: Integer, hidden dimension of the FFN.
@@ -618,18 +618,18 @@ class RFDETRDecoderLayer(layers.Layer):
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
     Input Shape:
-        - tgt: `(batch_size, num_queries, d_model)`.
-        - memory: `(batch_size, total_tokens, d_model)`.
-        - query_pos: `(batch_size, num_queries, d_model)`.
+        - tgt: `(batch_size, num_queries, hidden_dim)`.
+        - memory: `(batch_size, total_tokens, hidden_dim)`.
+        - query_pos: `(batch_size, num_queries, hidden_dim)`.
         - reference_points: `(batch_size, num_queries, 1, 4)`.
 
     Output Shape:
-        3D tensor: `(batch_size, num_queries, d_model)`.
+        3D tensor: `(batch_size, num_queries, hidden_dim)`.
     """
 
     def __init__(
         self,
-        d_model,
+        hidden_dim,
         sa_nhead,
         ca_nhead,
         dim_feedforward=2048,
@@ -641,7 +641,7 @@ class RFDETRDecoderLayer(layers.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.d_model = d_model
+        self.hidden_dim = hidden_dim
         self.sa_nhead = sa_nhead
         self.ca_nhead = ca_nhead
         self.dim_feedforward = dim_feedforward
@@ -651,15 +651,15 @@ class RFDETRDecoderLayer(layers.Layer):
         self.spatial_shapes = spatial_shapes or []
         self.level_start_index = level_start_index or [0]
 
-        self.self_attn_q = layers.Dense(self.d_model, name="self_attn_q_proj")
-        self.self_attn_k = layers.Dense(self.d_model, name="self_attn_k_proj")
-        self.self_attn_v = layers.Dense(self.d_model, name="self_attn_v_proj")
-        self.self_attn_out = layers.Dense(self.d_model, name="self_attn_out_proj")
+        self.self_attn_q = layers.Dense(self.hidden_dim, name="self_attn_q_proj")
+        self.self_attn_k = layers.Dense(self.hidden_dim, name="self_attn_k_proj")
+        self.self_attn_v = layers.Dense(self.hidden_dim, name="self_attn_v_proj")
+        self.self_attn_out = layers.Dense(self.hidden_dim, name="self_attn_out_proj")
         self.norm1 = layers.LayerNormalization(epsilon=1e-5, name="norm1")
         self.dropout1 = layers.Dropout(self.dropout_rate)
 
         self.cross_attn = RFDETRMSDeformableAttention(
-            d_model=self.d_model,
+            hidden_dim=self.hidden_dim,
             n_levels=self.num_feature_levels,
             n_heads=self.ca_nhead,
             n_points=self.dec_n_points,
@@ -671,7 +671,7 @@ class RFDETRDecoderLayer(layers.Layer):
         self.dropout2 = layers.Dropout(self.dropout_rate)
 
         self.linear1 = layers.Dense(self.dim_feedforward, name="linear1")
-        self.linear2 = layers.Dense(self.d_model, name="linear2")
+        self.linear2 = layers.Dense(self.hidden_dim, name="linear2")
         self.norm3 = layers.LayerNormalization(epsilon=1e-5, name="norm3")
         self.dropout3 = layers.Dropout(self.dropout_rate)
         self.dropout_ffn = layers.Dropout(self.dropout_rate)
@@ -679,7 +679,7 @@ class RFDETRDecoderLayer(layers.Layer):
     def self_attention(self, q, k, v, training=None):
         batch = ops.shape(q)[0]
         seq_len = ops.shape(q)[1]
-        head_dim = self.d_model // self.sa_nhead
+        head_dim = self.hidden_dim // self.sa_nhead
 
         q = self.self_attn_q(q)
         k = self.self_attn_k(k)
@@ -699,7 +699,7 @@ class RFDETRDecoderLayer(layers.Layer):
 
         out = ops.matmul(attn, v)
         out = ops.transpose(out, [0, 2, 1, 3])
-        out = ops.reshape(out, [batch, seq_len, self.d_model])
+        out = ops.reshape(out, [batch, seq_len, self.hidden_dim])
         return self.self_attn_out(out)
 
     def call(
@@ -736,7 +736,7 @@ class RFDETRDecoderLayer(layers.Layer):
         return tgt
 
     def compute_output_spec(self, tgt_spec, *args, **kwargs):
-        d = self.d_model
+        d = self.hidden_dim
         shape = (None, d)
         for layer in [
             self.self_attn_q,
@@ -772,7 +772,7 @@ class RFDETRDecoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "d_model": self.d_model,
+                "hidden_dim": self.hidden_dim,
                 "sa_nhead": self.sa_nhead,
                 "ca_nhead": self.ca_nhead,
                 "dim_feedforward": self.dim_feedforward,
@@ -790,13 +790,13 @@ class RFDETRDecoderLayer(layers.Layer):
 class RFDETRLearnedEmbedding(layers.Layer):
     """Learnable embedding table that broadcasts to the input batch size.
 
-    Holds a single weight matrix of shape `(num_embeddings, embedding_dim)` and
+    Holds a single weight matrix of shape `(num_embeddings, embed_dim)` and
     replicates it across the batch dimension at call time. Used for query
     feature embeddings and reference point embeddings in RF-DETR.
 
     Args:
         num_embeddings: Integer, number of embedding vectors (e.g., num_queries).
-        embedding_dim: Integer, dimensionality of each embedding vector.
+        embed_dim: Integer, dimensionality of each embedding vector.
         initializer: String or initializer, weight initializer.
             Defaults to `"zeros"`.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
@@ -805,19 +805,19 @@ class RFDETRLearnedEmbedding(layers.Layer):
         Any tensor (only the batch dimension is used).
 
     Output Shape:
-        3D tensor: `(batch_size, num_embeddings, embedding_dim)`.
+        3D tensor: `(batch_size, num_embeddings, embed_dim)`.
     """
 
-    def __init__(self, num_embeddings, embedding_dim, initializer="zeros", **kwargs):
+    def __init__(self, num_embeddings, embed_dim, initializer="zeros", **kwargs):
         super().__init__(**kwargs)
         self.num_embeddings = num_embeddings
-        self.embedding_dim = embedding_dim
+        self.embed_dim = embed_dim
         self.initializer = initializer
 
     def build(self, input_shape):
         self.weight = self.add_weight(
             name="weight",
-            shape=(self.num_embeddings, self.embedding_dim),
+            shape=(self.num_embeddings, self.embed_dim),
             initializer=self.initializer,
         )
         self.built = True
@@ -828,7 +828,7 @@ class RFDETRLearnedEmbedding(layers.Layer):
 
     def compute_output_spec(self, input_spec, **kwargs):
         return keras.KerasTensor(
-            shape=(None, self.num_embeddings, self.embedding_dim),
+            shape=(None, self.num_embeddings, self.embed_dim),
             dtype=input_spec.dtype,
         )
 
@@ -837,7 +837,7 @@ class RFDETRLearnedEmbedding(layers.Layer):
         config.update(
             {
                 "num_embeddings": self.num_embeddings,
-                "embedding_dim": self.embedding_dim,
+                "embed_dim": self.embed_dim,
                 "initializer": self.initializer,
             }
         )

@@ -15,7 +15,7 @@ class SAM3LearnableEmbedding(layers.Layer):
 
     Args:
         num_embeddings (int): Number of embedding vectors.
-        embedding_dim (int): Dimension of each embedding vector.
+        embed_dim (int): Dimension of each embedding vector.
         apply_sigmoid (bool): Whether to apply sigmoid activation.
             Defaults to ``False``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
@@ -24,16 +24,16 @@ class SAM3LearnableEmbedding(layers.Layer):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(self, num_embeddings, embedding_dim, apply_sigmoid=False, **kwargs):
+    def __init__(self, num_embeddings, embed_dim, apply_sigmoid=False, **kwargs):
         super().__init__(**kwargs)
         self.num_embeddings = num_embeddings
-        self.embedding_dim = embedding_dim
+        self.embed_dim = embed_dim
         self.apply_sigmoid = apply_sigmoid
 
     def build(self, input_shape):
         self.embeddings = self.add_weight(
             name="embeddings",
-            shape=(self.num_embeddings, self.embedding_dim),
+            shape=(self.num_embeddings, self.embed_dim),
             initializer="zeros",
         )
         self.built = True
@@ -51,7 +51,7 @@ class SAM3LearnableEmbedding(layers.Layer):
         config.update(
             {
                 "num_embeddings": self.num_embeddings,
-                "embedding_dim": self.embedding_dim,
+                "embed_dim": self.embed_dim,
                 "apply_sigmoid": self.apply_sigmoid,
             }
         )
@@ -62,14 +62,14 @@ class SAM3LearnableEmbedding(layers.Layer):
 class SAM3AddPositionEmbedding(layers.Layer):
     """Learnable absolute position embedding for the ViT backbone.
 
-    Stores a flat ``(num_patches, hidden_size)`` embedding table
+    Stores a flat ``(num_patches, hidden_dim)`` embedding table
     initialized at the pretrained grid resolution. When the inference
     grid differs from the pretrained grid, embeddings are tiled and
     cropped to match.
 
     Args:
         num_patches (int): Number of pretrained position embeddings.
-        hidden_size (int): Embedding dimension.
+        hidden_dim (int): Embedding dimension.
         pretrain_grid (int): Spatial grid size used during pretraining.
         grid_size (int): Spatial grid size at inference time.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
@@ -78,17 +78,17 @@ class SAM3AddPositionEmbedding(layers.Layer):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(self, num_patches, hidden_size, pretrain_grid, grid_size, **kwargs):
+    def __init__(self, num_patches, hidden_dim, pretrain_grid, grid_size, **kwargs):
         super().__init__(**kwargs)
         self.num_patches = num_patches
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.pretrain_grid = pretrain_grid
         self.grid_size = grid_size
 
     def build(self, input_shape):
         self.embeddings = self.add_weight(
             name="embeddings",
-            shape=(self.num_patches, self.hidden_size),
+            shape=(self.num_patches, self.hidden_dim),
             initializer="zeros",
         )
         self.built = True
@@ -96,7 +96,7 @@ class SAM3AddPositionEmbedding(layers.Layer):
     def call(self, x):
         pos = ops.reshape(
             self.embeddings,
-            (1, self.pretrain_grid, self.pretrain_grid, self.hidden_size),
+            (1, self.pretrain_grid, self.pretrain_grid, self.hidden_dim),
         )
         if self.grid_size != self.pretrain_grid:
             pos = ops.transpose(pos, (0, 3, 1, 2))
@@ -105,7 +105,7 @@ class SAM3AddPositionEmbedding(layers.Layer):
             pos = ops.tile(pos, (1, 1, repeat_h, repeat_w))
             pos = pos[:, :, : self.grid_size, : self.grid_size]
             pos = ops.transpose(pos, (0, 2, 3, 1))
-        pos = ops.reshape(pos, (1, self.grid_size * self.grid_size, self.hidden_size))
+        pos = ops.reshape(pos, (1, self.grid_size * self.grid_size, self.hidden_dim))
         return x + pos
 
     def get_config(self):
@@ -113,7 +113,7 @@ class SAM3AddPositionEmbedding(layers.Layer):
         config.update(
             {
                 "num_patches": self.num_patches,
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "pretrain_grid": self.pretrain_grid,
                 "grid_size": self.grid_size,
             }
@@ -129,29 +129,29 @@ class SAM3ViTRoPEAttention(layers.Layer):
     attention. Used in the ViT backbone of SAM3.
 
     Args:
-        hidden_size (int): Input and output feature dimension.
-        num_attention_heads (int): Number of attention heads.
+        hidden_dim (int): Input and output feature dimension.
+        num_heads (int): Number of attention heads.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(self, hidden_size, num_attention_heads, **kwargs):
+    def __init__(self, hidden_dim, num_heads, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.head_dim = hidden_size // num_attention_heads
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.head_dim = hidden_dim // num_heads
         self.scale = self.head_dim**-0.5
 
     def build(self, input_shape):
-        self.q_proj = layers.Dense(self.hidden_size, name="q_proj")
+        self.q_proj = layers.Dense(self.hidden_dim, name="q_proj")
         self.q_proj.build(input_shape)
-        self.k_proj = layers.Dense(self.hidden_size, name="k_proj")
+        self.k_proj = layers.Dense(self.hidden_dim, name="k_proj")
         self.k_proj.build(input_shape)
-        self.v_proj = layers.Dense(self.hidden_size, name="v_proj")
+        self.v_proj = layers.Dense(self.hidden_dim, name="v_proj")
         self.v_proj.build(input_shape)
-        self.o_proj = layers.Dense(self.hidden_size, name="o_proj")
+        self.o_proj = layers.Dense(self.hidden_dim, name="o_proj")
         self.o_proj.build(input_shape)
         self.built = True
 
@@ -165,15 +165,9 @@ class SAM3ViTRoPEAttention(layers.Layer):
         k = self.k_proj(hidden_states)
         v = self.v_proj(hidden_states)
 
-        q = ops.reshape(
-            q, (batch_size, seq_len, self.num_attention_heads, self.head_dim)
-        )
-        k = ops.reshape(
-            k, (batch_size, seq_len, self.num_attention_heads, self.head_dim)
-        )
-        v = ops.reshape(
-            v, (batch_size, seq_len, self.num_attention_heads, self.head_dim)
-        )
+        q = ops.reshape(q, (batch_size, seq_len, self.num_heads, self.head_dim))
+        k = ops.reshape(k, (batch_size, seq_len, self.num_heads, self.head_dim))
+        v = ops.reshape(v, (batch_size, seq_len, self.num_heads, self.head_dim))
 
         q = ops.transpose(q, (0, 2, 1, 3))
         k = ops.transpose(k, (0, 2, 1, 3))
@@ -188,7 +182,7 @@ class SAM3ViTRoPEAttention(layers.Layer):
         attn_output = ops.matmul(attn_weights, v)
 
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
-        attn_output = ops.reshape(attn_output, (batch_size, seq_len, self.hidden_size))
+        attn_output = ops.reshape(attn_output, (batch_size, seq_len, self.hidden_dim))
         attn_output = self.o_proj(attn_output)
         return attn_output
 
@@ -196,8 +190,8 @@ class SAM3ViTRoPEAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
             }
         )
         return config
@@ -211,7 +205,7 @@ class SAM3ViTLayerScale(layers.Layer):
     constant, stabilizing training in deep ViT models.
 
     Args:
-        hidden_size (int): Channel dimension.
+        hidden_dim (int): Channel dimension.
         init_value (float): Initial value for the scaling vector.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
@@ -219,15 +213,15 @@ class SAM3ViTLayerScale(layers.Layer):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(self, hidden_size, init_value, **kwargs):
+    def __init__(self, hidden_dim, init_value, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.init_value = init_value
 
     def build(self, input_shape):
         self.lambda1 = self.add_weight(
             name="lambda1",
-            shape=(self.hidden_size,),
+            shape=(self.hidden_dim,),
             initializer=keras.initializers.Constant(self.init_value),
             trainable=True,
         )
@@ -240,7 +234,7 @@ class SAM3ViTLayerScale(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "init_value": self.init_value,
             }
         )
@@ -256,16 +250,16 @@ class SAM3ViTLayer(layers.Layer):
     optional LayerScale for training stability.
 
     Args:
-        hidden_size (int): Hidden dimension.
-        num_attention_heads (int): Number of attention heads.
-        intermediate_size (int): MLP intermediate dimension.
+        hidden_dim (int): Hidden dimension.
+        num_heads (int): Number of attention heads.
+        mlp_dim (int): MLP intermediate dimension.
         window_size (int): Window size for windowed attention. ``0`` means
             global attention. Defaults to ``0``.
         image_size (int): Spatial size of the feature map for RoPE
             frequency computation. Defaults to ``72``.
         layer_norm_eps (float): Epsilon for layer normalization.
             Defaults to ``1e-6``.
-        layer_scale_init_value (float or None): Initial value for
+        layer_scale_init (float or None): Initial value for
             LayerScale. ``None`` disables LayerScale. Defaults to ``None``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
@@ -275,26 +269,26 @@ class SAM3ViTLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
-        num_attention_heads,
-        intermediate_size,
+        hidden_dim,
+        num_heads,
+        mlp_dim,
         window_size=0,
         image_size=72,
         layer_norm_eps=1e-6,
-        layer_scale_init_value=None,
+        layer_scale_init=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.intermediate_size = intermediate_size
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.mlp_dim = mlp_dim
         self.window_size = window_size
         self.image_size = image_size
         self.layer_norm_eps = layer_norm_eps
-        self.layer_scale_init_value = layer_scale_init_value
+        self.layer_scale_init = layer_scale_init
 
     def build(self, input_shape):
-        seq_shape = (None, None, self.hidden_size)
+        seq_shape = (None, None, self.hidden_dim)
 
         self.layer_norm1 = layers.LayerNormalization(
             epsilon=self.layer_norm_eps, name="layer_norm1"
@@ -307,22 +301,22 @@ class SAM3ViTLayer(layers.Layer):
         self.layer_norm2.build(seq_shape)
 
         self.attn = SAM3ViTRoPEAttention(
-            self.hidden_size, self.num_attention_heads, name="attention"
+            self.hidden_dim, self.num_heads, name="attention"
         )
         self.attn.build(seq_shape)
 
-        self.mlp_fc1 = layers.Dense(self.intermediate_size, name="mlp_fc1")
+        self.mlp_fc1 = layers.Dense(self.mlp_dim, name="mlp_fc1")
         self.mlp_fc1.build(seq_shape)
-        self.mlp_fc2 = layers.Dense(self.hidden_size, name="mlp_fc2")
-        self.mlp_fc2.build((None, None, self.intermediate_size))
+        self.mlp_fc2 = layers.Dense(self.hidden_dim, name="mlp_fc2")
+        self.mlp_fc2.build((None, None, self.mlp_dim))
 
-        if self.layer_scale_init_value is not None:
+        if self.layer_scale_init is not None:
             self.layer_scale1 = SAM3ViTLayerScale(
-                self.hidden_size, self.layer_scale_init_value, name="layer_scale1"
+                self.hidden_dim, self.layer_scale_init, name="layer_scale1"
             )
             self.layer_scale1.build(seq_shape)
             self.layer_scale2 = SAM3ViTLayerScale(
-                self.hidden_size, self.layer_scale_init_value, name="layer_scale2"
+                self.hidden_dim, self.layer_scale_init, name="layer_scale2"
             )
             self.layer_scale2.build(seq_shape)
 
@@ -378,11 +372,11 @@ class SAM3ViTLayer(layers.Layer):
 
         residual = hidden_states
 
-        x = ops.reshape(hidden_states, (batch_size, height * width, self.hidden_size))
+        x = ops.reshape(hidden_states, (batch_size, height * width, self.hidden_dim))
         x = self.layer_norm1(x)
 
         if self.window_size > 0:
-            x = ops.reshape(x, (batch_size, height, width, self.hidden_size))
+            x = ops.reshape(x, (batch_size, height, width, self.hidden_dim))
             x, pad_hw = self._window_partition(x, self.window_size)
         else:
             pass
@@ -391,25 +385,25 @@ class SAM3ViTLayer(layers.Layer):
 
         if self.window_size > 0:
             x = self._window_unpartition(x, self.window_size, pad_hw, (height, width))
-            x = ops.reshape(x, (batch_size, height * width, self.hidden_size))
+            x = ops.reshape(x, (batch_size, height * width, self.hidden_dim))
 
-        if self.layer_scale_init_value is not None:
+        if self.layer_scale_init is not None:
             x = self.layer_scale1(x)
 
-        x = ops.reshape(x, (batch_size, height, width, self.hidden_size))
+        x = ops.reshape(x, (batch_size, height, width, self.hidden_dim))
         hidden_states = residual + x
 
         residual = hidden_states
-        x = ops.reshape(hidden_states, (batch_size, height * width, self.hidden_size))
+        x = ops.reshape(hidden_states, (batch_size, height * width, self.hidden_dim))
         x = self.layer_norm2(x)
         x = self.mlp_fc1(x)
         x = ops.nn.gelu(x, approximate=False)
         x = self.mlp_fc2(x)
 
-        if self.layer_scale_init_value is not None:
+        if self.layer_scale_init is not None:
             x = self.layer_scale2(x)
 
-        x = ops.reshape(x, (batch_size, height, width, self.hidden_size))
+        x = ops.reshape(x, (batch_size, height, width, self.hidden_dim))
         hidden_states = residual + x
 
         return hidden_states
@@ -418,13 +412,13 @@ class SAM3ViTLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
-                "intermediate_size": self.intermediate_size,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
+                "mlp_dim": self.mlp_dim,
                 "window_size": self.window_size,
                 "image_size": self.image_size,
                 "layer_norm_eps": self.layer_norm_eps,
-                "layer_scale_init_value": self.layer_scale_init_value,
+                "layer_scale_init": self.layer_scale_init,
             }
         )
         return config
@@ -438,8 +432,8 @@ class SAM3MultiHeadAttention(layers.Layer):
     decoder for self-attention and cross-attention operations.
 
     Args:
-        hidden_size (int): Input and output feature dimension.
-        num_attention_heads (int): Number of attention heads.
+        hidden_dim (int): Input and output feature dimension.
+        num_heads (int): Number of attention heads.
         dropout (float): Dropout rate applied to attention weights.
             Defaults to ``0.0``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
@@ -448,16 +442,16 @@ class SAM3MultiHeadAttention(layers.Layer):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(self, hidden_size, num_attention_heads, dropout=0.0, **kwargs):
+    def __init__(self, hidden_dim, num_heads, dropout=0.0, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.head_dim = hidden_size // num_attention_heads
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.head_dim = hidden_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.dropout_rate = dropout
 
     def build(self, input_shape):
-        dim = self.hidden_size
+        dim = self.hidden_dim
         self.q_proj = layers.Dense(dim, name="q_proj")
         self.q_proj.build((None, None, dim))
         self.k_proj = layers.Dense(dim, name="k_proj")
@@ -477,15 +471,9 @@ class SAM3MultiHeadAttention(layers.Layer):
         q_shape = ops.shape(q)
         k_shape = ops.shape(k)
 
-        q = ops.reshape(
-            q, (q_shape[0], q_shape[1], self.num_attention_heads, self.head_dim)
-        )
-        k = ops.reshape(
-            k, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
-        )
-        v = ops.reshape(
-            v, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
-        )
+        q = ops.reshape(q, (q_shape[0], q_shape[1], self.num_heads, self.head_dim))
+        k = ops.reshape(k, (k_shape[0], k_shape[1], self.num_heads, self.head_dim))
+        v = ops.reshape(v, (k_shape[0], k_shape[1], self.num_heads, self.head_dim))
 
         q = ops.transpose(q, (0, 2, 1, 3))
         k = ops.transpose(k, (0, 2, 1, 3))
@@ -502,7 +490,7 @@ class SAM3MultiHeadAttention(layers.Layer):
         attn_output = ops.matmul(attn_weights, v)
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
         attn_output = ops.reshape(
-            attn_output, (q_shape[0], q_shape[1], self.hidden_size)
+            attn_output, (q_shape[0], q_shape[1], self.hidden_dim)
         )
         return self.o_proj(attn_output)
 
@@ -510,8 +498,8 @@ class SAM3MultiHeadAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
                 "dropout": self.dropout_rate,
             }
         )
@@ -527,10 +515,10 @@ class SAM3GeometryEncoderLayer(layers.Layer):
     to refine box prompt embeddings with vision context.
 
     Args:
-        hidden_size (int): Hidden dimension. Defaults to ``256``.
-        num_attention_heads (int): Number of attention heads.
+        hidden_dim (int): Hidden dimension. Defaults to ``256``.
+        num_heads (int): Number of attention heads.
             Defaults to ``8``.
-        intermediate_size (int): MLP intermediate dimension.
+        mlp_dim (int): MLP intermediate dimension.
             Defaults to ``2048``.
         dropout (float): Dropout rate. Defaults to ``0.1``.
         layer_norm_eps (float): Epsilon for layer normalization.
@@ -543,26 +531,26 @@ class SAM3GeometryEncoderLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size=256,
-        num_attention_heads=8,
-        intermediate_size=2048,
+        hidden_dim=256,
+        num_heads=8,
+        mlp_dim=2048,
         dropout=0.1,
         layer_norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.intermediate_size = intermediate_size
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.mlp_dim = mlp_dim
         self.dropout_rate = dropout
         self.layer_norm_eps = layer_norm_eps
 
     def build(self, input_shape):
-        dim = self.hidden_size
+        dim = self.hidden_dim
         seq_shape = (None, None, dim)
 
         self.self_attn = SAM3MultiHeadAttention(
-            dim, self.num_attention_heads, self.dropout_rate, name="self_attn"
+            dim, self.num_heads, self.dropout_rate, name="self_attn"
         )
         self.self_attn.build(seq_shape)
         self.layer_norm1 = layers.LayerNormalization(
@@ -571,7 +559,7 @@ class SAM3GeometryEncoderLayer(layers.Layer):
         self.layer_norm1.build(seq_shape)
 
         self.cross_attn = SAM3MultiHeadAttention(
-            dim, self.num_attention_heads, self.dropout_rate, name="cross_attn"
+            dim, self.num_heads, self.dropout_rate, name="cross_attn"
         )
         self.cross_attn.build(seq_shape)
         self.layer_norm2 = layers.LayerNormalization(
@@ -579,10 +567,10 @@ class SAM3GeometryEncoderLayer(layers.Layer):
         )
         self.layer_norm2.build(seq_shape)
 
-        self.fc1 = layers.Dense(self.intermediate_size, name="fc1")
+        self.fc1 = layers.Dense(self.mlp_dim, name="fc1")
         self.fc1.build(seq_shape)
         self.fc2 = layers.Dense(dim, name="fc2")
-        self.fc2.build((None, None, self.intermediate_size))
+        self.fc2.build((None, None, self.mlp_dim))
         self.layer_norm3 = layers.LayerNormalization(
             epsilon=self.layer_norm_eps, name="layer_norm3"
         )
@@ -626,9 +614,9 @@ class SAM3GeometryEncoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
-                "intermediate_size": self.intermediate_size,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
+                "mlp_dim": self.mlp_dim,
                 "dropout": self.dropout_rate,
                 "layer_norm_eps": self.layer_norm_eps,
             }
@@ -705,9 +693,9 @@ class SAM3BoxRPB(layers.Layer):
     cross-attention layers.
 
     Args:
-        hidden_size (int): Feature dimension used to determine encoding
+        hidden_dim (int): Feature dimension used to determine encoding
             size.
-        num_attention_heads (int): Number of attention heads for the
+        num_heads (int): Number of attention heads for the
             output bias.
         spatial_h (int): Height of the spatial feature grid.
         spatial_w (int): Width of the spatial feature grid.
@@ -717,28 +705,26 @@ class SAM3BoxRPB(layers.Layer):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(
-        self, hidden_size, num_attention_heads, spatial_h, spatial_w, **kwargs
-    ):
+    def __init__(self, hidden_dim, num_heads, spatial_h, spatial_w, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
         self.spatial_h = spatial_h
         self.spatial_w = spatial_w
 
     def build(self, input_shape):
         self.box_rpb_embed_x = SAM3DecoderMLP(
             2,
-            self.hidden_size,
-            self.num_attention_heads,
+            self.hidden_dim,
+            self.num_heads,
             num_layers=2,
             name="box_rpb_embed_x",
         )
         self.box_rpb_embed_x.build((None, None, None, 2))
         self.box_rpb_embed_y = SAM3DecoderMLP(
             2,
-            self.hidden_size,
-            self.num_attention_heads,
+            self.hidden_dim,
+            self.num_heads,
             num_layers=2,
             name="box_rpb_embed_y",
         )
@@ -791,7 +777,7 @@ class SAM3BoxRPB(layers.Layer):
         q1 = nq + 1 if nq is not None else None
         hw = self.spatial_h * self.spatial_w
         return keras.KerasTensor(
-            shape=(batch, self.num_attention_heads, q1, hw),
+            shape=(batch, self.num_heads, q1, hw),
             dtype=reference_boxes.dtype,
         )
 
@@ -799,8 +785,8 @@ class SAM3BoxRPB(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
                 "spatial_h": self.spatial_h,
                 "spatial_w": self.spatial_w,
             }
@@ -818,12 +804,12 @@ class SAM3GeometryEncoder(layers.Layer):
     self-attention and cross-attention to flattened vision features.
 
     Args:
-        hidden_size (int): Hidden dimension. Defaults to ``256``.
+        hidden_dim (int): Hidden dimension. Defaults to ``256``.
         num_layers (int): Number of transformer refinement layers.
             Defaults to ``3``.
-        num_attention_heads (int): Number of attention heads.
+        num_heads (int): Number of attention heads.
             Defaults to ``8``.
-        intermediate_size (int): MLP intermediate dimension.
+        mlp_dim (int): MLP intermediate dimension.
             Defaults to ``2048``.
         dropout (float): Dropout rate. Defaults to ``0.1``.
         roi_size (int): ROI Align output spatial size. Defaults to ``7``.
@@ -837,26 +823,26 @@ class SAM3GeometryEncoder(layers.Layer):
 
     def __init__(
         self,
-        hidden_size=256,
+        hidden_dim=256,
         num_layers=3,
-        num_attention_heads=8,
-        intermediate_size=2048,
+        num_heads=8,
+        mlp_dim=2048,
         dropout=0.1,
         roi_size=7,
         layer_norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
         self.num_layers_val = num_layers
-        self.num_attention_heads = num_attention_heads
-        self.intermediate_size = intermediate_size
+        self.num_heads = num_heads
+        self.mlp_dim = mlp_dim
         self.dropout_rate = dropout
         self.roi_size = roi_size
         self.layer_norm_eps = layer_norm_eps
 
     def build(self, input_shape):
-        dim = self.hidden_size
+        dim = self.hidden_dim
         self.boxes_direct_project = layers.Dense(dim, name="boxes_direct_project")
         self.boxes_direct_project.build((None, None, 4))
         self.boxes_pos_enc_project = layers.Dense(dim, name="boxes_pos_enc_project")
@@ -890,9 +876,9 @@ class SAM3GeometryEncoder(layers.Layer):
         self.transformer_layers = []
         for i in range(self.num_layers_val):
             layer = SAM3GeometryEncoderLayer(
-                hidden_size=dim,
-                num_attention_heads=self.num_attention_heads,
-                intermediate_size=self.intermediate_size,
+                hidden_dim=dim,
+                num_heads=self.num_heads,
+                mlp_dim=self.mlp_dim,
                 dropout=self.dropout_rate,
                 layer_norm_eps=self.layer_norm_eps,
                 name=f"layers_{i}",
@@ -1032,7 +1018,7 @@ class SAM3GeometryEncoder(layers.Layer):
             pooled_nhwc = ops.transpose(pooled, (0, 2, 3, 1))
             pooled_proj = self.boxes_pool_project(pooled_nhwc)
             pooled_proj = ops.reshape(
-                pooled_proj, (batch_size, num_boxes, self.hidden_size)
+                pooled_proj, (batch_size, num_boxes, self.hidden_dim)
             )
             boxes_embed = boxes_embed + pooled_proj
 
@@ -1042,7 +1028,7 @@ class SAM3GeometryEncoder(layers.Layer):
         h_box = boxes[..., 3:4]
 
         scale = 2.0 * math.pi
-        num_feats = self.hidden_size // 2
+        num_feats = self.hidden_dim // 2
         dim_t = ops.cast(ops.arange(num_feats), "float32")
         dim_t = 10000.0 ** (2.0 * ops.floor(dim_t / 2) / num_feats)
 
@@ -1084,10 +1070,10 @@ class SAM3GeometryEncoder(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
+                "hidden_dim": self.hidden_dim,
                 "num_layers": self.num_layers_val,
-                "num_attention_heads": self.num_attention_heads,
-                "intermediate_size": self.intermediate_size,
+                "num_heads": self.num_heads,
+                "mlp_dim": self.mlp_dim,
                 "dropout": self.dropout_rate,
                 "roi_size": self.roi_size,
                 "layer_norm_eps": self.layer_norm_eps,
@@ -1105,23 +1091,23 @@ class SAM3CLIPAttention(layers.Layer):
     and padding.
 
     Args:
-        hidden_size (int): Input and output feature dimension.
-        num_attention_heads (int): Number of attention heads.
+        hidden_dim (int): Input and output feature dimension.
+        num_heads (int): Number of attention heads.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(self, hidden_size, num_attention_heads, **kwargs):
+    def __init__(self, hidden_dim, num_heads, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.head_dim = hidden_size // num_attention_heads
+        self.hidden_dim = hidden_dim
+        self.num_heads = num_heads
+        self.head_dim = hidden_dim // num_heads
         self.scale = self.head_dim**-0.5
 
     def build(self, input_shape):
-        dim = self.hidden_size
+        dim = self.hidden_dim
         self.q_proj = layers.Dense(dim, name="q_proj")
         self.q_proj.build((None, None, dim))
         self.k_proj = layers.Dense(dim, name="k_proj")
@@ -1139,15 +1125,9 @@ class SAM3CLIPAttention(layers.Layer):
 
         q_shape = ops.shape(q)
         k_shape = ops.shape(k)
-        q = ops.reshape(
-            q, (q_shape[0], q_shape[1], self.num_attention_heads, self.head_dim)
-        )
-        k = ops.reshape(
-            k, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
-        )
-        v = ops.reshape(
-            v, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
-        )
+        q = ops.reshape(q, (q_shape[0], q_shape[1], self.num_heads, self.head_dim))
+        k = ops.reshape(k, (k_shape[0], k_shape[1], self.num_heads, self.head_dim))
+        v = ops.reshape(v, (k_shape[0], k_shape[1], self.num_heads, self.head_dim))
 
         q = ops.transpose(q, (0, 2, 1, 3))
         k = ops.transpose(k, (0, 2, 1, 3))
@@ -1161,7 +1141,7 @@ class SAM3CLIPAttention(layers.Layer):
         attn_output = ops.matmul(attn_weights, v)
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
         attn_output = ops.reshape(
-            attn_output, (q_shape[0], q_shape[1], self.hidden_size)
+            attn_output, (q_shape[0], q_shape[1], self.hidden_dim)
         )
         return self.o_proj(attn_output)
 
@@ -1169,8 +1149,8 @@ class SAM3CLIPAttention(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
+                "hidden_dim": self.hidden_dim,
+                "num_heads": self.num_heads,
             }
         )
         return config
@@ -1185,21 +1165,21 @@ class SAM3CLIPPositionEmbedding(layers.Layer):
 
     Args:
         max_pos (int): Maximum sequence length.
-        hidden_size (int): Embedding dimension.
+        hidden_dim (int): Embedding dimension.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    def __init__(self, max_pos, hidden_size, **kwargs):
+    def __init__(self, max_pos, hidden_dim, **kwargs):
         super().__init__(**kwargs)
         self.max_pos = max_pos
-        self.hidden_size = hidden_size
+        self.hidden_dim = hidden_dim
 
     def build(self, input_shape):
         self.position_embedding = layers.Embedding(
-            self.max_pos, self.hidden_size, name="position_embedding"
+            self.max_pos, self.hidden_dim, name="position_embedding"
         )
         self.position_embedding.build((None, self.max_pos))
         self.built = True
@@ -1211,7 +1191,7 @@ class SAM3CLIPPositionEmbedding(layers.Layer):
     def get_config(self):
         config = super().get_config()
         config["max_pos"] = self.max_pos
-        config["hidden_size"] = self.hidden_size
+        config["hidden_dim"] = self.hidden_dim
         return config
 
 

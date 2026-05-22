@@ -456,7 +456,7 @@ if __name__ == "__main__":
         keras_model = DFineDetect.from_weights(
             cfg["variant"],
             load_weights=False,
-            input_image_shape=640,
+            image_size=640,
             num_queries=300,
             num_classes=80,
         )

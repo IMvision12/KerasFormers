@@ -5,7 +5,7 @@ MOBILEVIT_MODEL_CONFIG = {
         "block_dims": [16, 24, 48, 64, 80],
         "expansion_ratio": [2.0, 2.0, 2.0, 2.0, 2.0],
         "attention_dims": [None, None, 64, 80, 96],
-        "input_image_shape": 256,
+        "image_size": 256,
         "num_classes": 1000,
     },
     "mobilevit_xs": {
@@ -14,7 +14,7 @@ MOBILEVIT_MODEL_CONFIG = {
         "block_dims": [32, 48, 64, 80, 96],
         "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
         "attention_dims": [None, None, 96, 120, 144],
-        "input_image_shape": 256,
+        "image_size": 256,
         "num_classes": 1000,
     },
     "mobilevit_s": {
@@ -23,7 +23,7 @@ MOBILEVIT_MODEL_CONFIG = {
         "block_dims": [32, 64, 96, 128, 160],
         "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
         "attention_dims": [None, None, 144, 192, 240],
-        "input_image_shape": 256,
+        "image_size": 256,
         "num_classes": 1000,
     },
 }
@@ -53,7 +53,7 @@ MOBILEVIT_SEGMENT_MODEL_CONFIG = {
         "block_dims": [16, 24, 48, 64, 80],
         "expansion_ratio": [2.0, 2.0, 2.0, 2.0, 2.0],
         "attention_dims": [None, None, 64, 80, 96],
-        "input_image_shape": 512,
+        "image_size": 512,
         "num_classes": 21,
     },
     "mobilevit_xs_deeplabv3": {
@@ -62,7 +62,7 @@ MOBILEVIT_SEGMENT_MODEL_CONFIG = {
         "block_dims": [32, 48, 64, 80, 96],
         "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
         "attention_dims": [None, None, 96, 120, 144],
-        "input_image_shape": 512,
+        "image_size": 512,
         "num_classes": 21,
     },
     "mobilevit_s_deeplabv3": {
@@ -71,7 +71,7 @@ MOBILEVIT_SEGMENT_MODEL_CONFIG = {
         "block_dims": [32, 64, 96, 128, 160],
         "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
         "attention_dims": [None, None, 144, 192, 240],
-        "input_image_shape": 512,
+        "image_size": 512,
         "num_classes": 21,
     },
 }

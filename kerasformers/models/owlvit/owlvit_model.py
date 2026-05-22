@@ -15,29 +15,29 @@ from .owlvit_layers import (
 )
 
 
-def owlvit_mlp(x, hidden_size, intermediate_size, block_prefix):
+def owlvit_mlp(x, hidden_dim, mlp_dim, block_prefix):
     """Two-layer feed-forward MLP block (``fc1`` → quick_gelu → ``fc2``).
 
     The CLIP-style MLP used in both the vision and text towers: a Dense
-    expanding to ``intermediate_size``, ``quick_gelu`` activation, and
-    a Dense projecting back to ``hidden_size``.
+    expanding to ``mlp_dim``, ``quick_gelu`` activation, and
+    a Dense projecting back to ``hidden_dim``.
 
     Reference:
         - `Simple Open-Vocabulary Object Detection with Vision Transformers
           <https://arxiv.org/abs/2205.06230>`_
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
-        hidden_size: Tower hidden dimension (also the output dim).
-        intermediate_size: FFN intermediate dimension.
+        x: Input tensor of shape ``(B, seq_len, hidden_dim)``.
+        hidden_dim: Tower hidden dimension (also the output dim).
+        mlp_dim: FFN intermediate dimension.
         block_prefix: Layer name prefix.
 
     Returns:
-        Tensor of shape ``(B, seq_len, hidden_size)``.
+        Tensor of shape ``(B, seq_len, hidden_dim)``.
     """
-    x = layers.Dense(intermediate_size, name=f"{block_prefix}_fc1")(x)
+    x = layers.Dense(mlp_dim, name=f"{block_prefix}_fc1")(x)
     x = quick_gelu(x)
-    x = layers.Dense(hidden_size, name=f"{block_prefix}_fc2")(x)
+    x = layers.Dense(hidden_dim, name=f"{block_prefix}_fc2")(x)
     return x
 
 
@@ -45,9 +45,9 @@ def owlvit_transformer_block(
     x,
     attention_mask,
     num_layers,
-    hidden_size,
+    hidden_dim,
     num_heads,
-    intermediate_size,
+    mlp_dim,
     block_prefix,
 ):
     """Stack of pre-norm transformer blocks shared by the vision and text towers.
@@ -59,26 +59,26 @@ def owlvit_transformer_block(
     text tower passes a causal mask for autoregressive-style attention.
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
+        x: Input tensor of shape ``(B, seq_len, hidden_dim)``.
         attention_mask: Optional additive attention mask broadcastable
             to ``(B, num_heads, seq_len, seq_len)``. Use ``None`` for
             full attention.
         num_layers: Number of stacked transformer layers.
-        hidden_size: Model dimension.
+        hidden_dim: Model dimension.
         num_heads: Number of attention heads.
-        intermediate_size: FFN intermediate dimension.
+        mlp_dim: FFN intermediate dimension.
         block_prefix: Layer name prefix shared across all layers in
             the stack.
 
     Returns:
-        Tensor of shape ``(B, seq_len, hidden_size)``.
+        Tensor of shape ``(B, seq_len, hidden_dim)``.
     """
     for i in range(num_layers):
         prefix = f"{block_prefix}_layers_{i}"
         residual = x
         x = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_layer_norm1")(x)
         x = OwlViTAttention(
-            hidden_size=hidden_size,
+            hidden_dim=hidden_dim,
             num_heads=num_heads,
             name=f"{prefix}_self_attn",
         )(x, attention_mask=attention_mask)
@@ -88,8 +88,8 @@ def owlvit_transformer_block(
         x = layers.LayerNormalization(epsilon=1e-5, name=f"{prefix}_layer_norm2")(x)
         x = owlvit_mlp(
             x,
-            hidden_size=hidden_size,
-            intermediate_size=intermediate_size,
+            hidden_dim=hidden_dim,
+            mlp_dim=mlp_dim,
             block_prefix=f"{prefix}_mlp",
         )
         x = layers.Add(name=f"{prefix}_ff_residual")([residual, x])
@@ -98,12 +98,12 @@ def owlvit_transformer_block(
 
 def owlvit_vision_transformer(
     pixel_values,
-    hidden_size,
+    hidden_dim,
     image_size,
     patch_size,
     num_hidden_layers,
     num_heads,
-    intermediate_size,
+    mlp_dim,
     block_prefix,
 ):
     """OWL-ViT vision tower: patch embeddings → pre-LN → encoder → post-LN.
@@ -119,20 +119,20 @@ def owlvit_vision_transformer(
     Args:
         pixel_values: Image input tensor of shape ``(B, H, W, 3)`` (or
             ``(B, 3, H, W)`` for channels_first).
-        hidden_size: Vision tower hidden dimension.
+        hidden_dim: Vision tower hidden dimension.
         image_size: Image side length in pixels (square images).
         patch_size: ViT patch size.
         num_hidden_layers: Number of transformer encoder layers.
         num_heads: Number of attention heads.
-        intermediate_size: FFN intermediate dimension.
+        mlp_dim: FFN intermediate dimension.
         block_prefix: Layer name prefix.
 
     Returns:
-        ``(B, num_patches + 1, hidden_size)`` vision encoder output
+        ``(B, num_patches + 1, hidden_dim)`` vision encoder output
         (CLS token at index 0 followed by patch tokens).
     """
     x = OwlViTVisionEmbeddings(
-        hidden_size=hidden_size,
+        hidden_dim=hidden_dim,
         image_size=image_size,
         patch_size=patch_size,
         name=f"{block_prefix}_embeddings",
@@ -142,9 +142,9 @@ def owlvit_vision_transformer(
         x,
         attention_mask=None,
         num_layers=num_hidden_layers,
-        hidden_size=hidden_size,
+        hidden_dim=hidden_dim,
         num_heads=num_heads,
-        intermediate_size=intermediate_size,
+        mlp_dim=mlp_dim,
         block_prefix=block_prefix,
     )
     x = layers.LayerNormalization(epsilon=1e-5, name=f"{block_prefix}_post_layernorm")(
@@ -156,11 +156,11 @@ def owlvit_vision_transformer(
 def owlvit_text_transformer(
     input_ids,
     vocab_size,
-    hidden_size,
-    max_position_embeddings,
+    hidden_dim,
+    max_seq_len,
     num_hidden_layers,
     num_heads,
-    intermediate_size,
+    mlp_dim,
     block_prefix,
 ):
     """OWL-ViT text tower: token embeddings → causal encoder → LN → EOS pool.
@@ -174,28 +174,28 @@ def owlvit_text_transformer(
 
     Args:
         input_ids: Integer token IDs of shape
-            ``(B, max_position_embeddings)``.
+            ``(B, max_seq_len)``.
         vocab_size: Text tokenizer vocabulary size.
-        hidden_size: Text tower hidden dimension.
-        max_position_embeddings: Maximum sequence length.
+        hidden_dim: Text tower hidden dimension.
+        max_seq_len: Maximum sequence length.
         num_hidden_layers: Number of transformer encoder layers.
         num_heads: Number of attention heads.
-        intermediate_size: FFN intermediate dimension.
+        mlp_dim: FFN intermediate dimension.
         block_prefix: Layer name prefix.
 
     Returns:
-        last_hidden_state: ``(B, seq_len, hidden_size)`` post-LN encoder
+        last_hidden_state: ``(B, seq_len, hidden_dim)`` post-LN encoder
             output (full token sequence).
-        pooled: ``(B, hidden_size)`` EOS-pooled text feature.
+        pooled: ``(B, hidden_dim)`` EOS-pooled text feature.
     """
     x = OwlViTTextEmbeddings(
         vocab_size=vocab_size,
-        hidden_size=hidden_size,
-        max_position_embeddings=max_position_embeddings,
+        hidden_dim=hidden_dim,
+        max_seq_len=max_seq_len,
         name=f"{block_prefix}_embeddings",
     )(input_ids)
 
-    seq_len = max_position_embeddings
+    seq_len = max_seq_len
     i = ops.arange(seq_len)[:, None]
     j = ops.arange(seq_len)[None, :]
     causal = ops.where(j > i, ops.cast(-1e9, "float32"), ops.cast(0.0, "float32"))
@@ -205,9 +205,9 @@ def owlvit_text_transformer(
         x,
         attention_mask=causal,
         num_layers=num_hidden_layers,
-        hidden_size=hidden_size,
+        hidden_dim=hidden_dim,
         num_heads=num_heads,
-        intermediate_size=intermediate_size,
+        mlp_dim=mlp_dim,
         block_prefix=block_prefix,
     )
     last_hidden_state = layers.LayerNormalization(
@@ -221,7 +221,7 @@ def owlvit_text_transformer(
     return last_hidden_state, pooled
 
 
-def owlvit_box_predictor(image_features, hidden_size, block_prefix):
+def owlvit_box_predictor(image_features, hidden_dim, block_prefix):
     """3-layer MLP predicting raw ``(cx, cy, w, h)`` boxes per patch.
 
     Applies ``Dense → GELU → Dense → GELU → Dense(4)``. The output is
@@ -232,16 +232,16 @@ def owlvit_box_predictor(image_features, hidden_size, block_prefix):
 
     Args:
         image_features: Per-patch image features of shape
-            ``(B, num_patches, hidden_size)``.
-        hidden_size: MLP hidden dimension.
+            ``(B, num_patches, hidden_dim)``.
+        hidden_dim: MLP hidden dimension.
         block_prefix: Layer name prefix.
 
     Returns:
         ``(B, num_patches, 4)`` raw box predictions (no sigmoid).
     """
-    x = layers.Dense(hidden_size, name=f"{block_prefix}_dense0")(image_features)
+    x = layers.Dense(hidden_dim, name=f"{block_prefix}_dense0")(image_features)
     x = ops.gelu(x, approximate=False)
-    x = layers.Dense(hidden_size, name=f"{block_prefix}_dense1")(x)
+    x = layers.Dense(hidden_dim, name=f"{block_prefix}_dense1")(x)
     x = ops.gelu(x, approximate=False)
     x = layers.Dense(4, name=f"{block_prefix}_dense2")(x)
     return x
@@ -262,7 +262,7 @@ def owlvit_class_predictor(
 
     Args:
         image_embeds: Image patch embeddings
-            ``(B, num_patches, hidden_size)``.
+            ``(B, num_patches, hidden_dim)``.
         query_embeds: Per-sample text query embeddings
             ``(B, num_queries, projection_dim)``.
         query_mask: Optional boolean mask of valid queries with shape
@@ -393,7 +393,7 @@ def owlvit_detection_head(
     box_bias = ops.cast(compute_box_bias(num_patches_h, num_patches_w), "float32")
     pred_boxes = owlvit_box_predictor(
         image_feats,
-        hidden_size=vision_hidden_size,
+        hidden_dim=vision_hidden_size,
         block_prefix="box_head",
     )
     pred_boxes = pred_boxes + ops.cast(box_bias, pred_boxes.dtype)
@@ -451,7 +451,7 @@ class OwlViTVisionModel(BaseModel):
         vision_intermediate_size,
         vision_num_hidden_layers,
         vision_num_attention_heads,
-        input_image_shape=None,
+        image_size=None,
         input_tensor=None,
         name="OwlViTVisionModel",
         **kwargs,
@@ -468,30 +468,26 @@ class OwlViTVisionModel(BaseModel):
         ):
             kwargs.pop(k, None)
 
-        if input_image_shape is None:
-            input_image_shape = vision_image_size
+        if image_size is None:
+            image_size = vision_image_size
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
-        image_edge = (
-            input_image_shape[1]
-            if data_format == "channels_first"
-            else input_image_shape[0]
-        )
+        image_edge = image_size[1] if data_format == "channels_first" else image_size[0]
 
         if input_tensor is None:
-            pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+            pixel_values = layers.Input(shape=image_size, name="pixel_values")
         else:
             pixel_values = input_tensor
 
         last_hidden_state = owlvit_vision_transformer(
             pixel_values,
-            hidden_size=vision_hidden_size,
+            hidden_dim=vision_hidden_size,
             image_size=image_edge,
             patch_size=vision_patch_size,
             num_hidden_layers=vision_num_hidden_layers,
             num_heads=vision_num_attention_heads,
-            intermediate_size=vision_intermediate_size,
+            mlp_dim=vision_intermediate_size,
             block_prefix="vision_model",
         )
         pooler_output = layers.Lambda(lambda t: t[:, 0, :], name="vision_pooler")(
@@ -514,7 +510,7 @@ class OwlViTVisionModel(BaseModel):
         self.vision_intermediate_size = vision_intermediate_size
         self.vision_num_hidden_layers = vision_num_hidden_layers
         self.vision_num_attention_heads = vision_num_attention_heads
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -527,7 +523,7 @@ class OwlViTVisionModel(BaseModel):
                 "vision_intermediate_size": self.vision_intermediate_size,
                 "vision_num_hidden_layers": self.vision_num_hidden_layers,
                 "vision_num_attention_heads": self.vision_num_attention_heads,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -597,7 +593,7 @@ class OwlViTTextModel(BaseModel):
             "vision_num_hidden_layers",
             "vision_num_attention_heads",
             "projection_dim",
-            "input_image_shape",
+            "image_size",
         ):
             kwargs.pop(k, None)
 
@@ -614,11 +610,11 @@ class OwlViTTextModel(BaseModel):
         last_hidden_state, pooler_output = owlvit_text_transformer(
             input_ids,
             vocab_size=text_vocab_size,
-            hidden_size=text_hidden_size,
-            max_position_embeddings=text_max_position_embeddings,
+            hidden_dim=text_hidden_size,
+            max_seq_len=text_max_position_embeddings,
             num_hidden_layers=text_num_hidden_layers,
             num_heads=text_num_attention_heads,
-            intermediate_size=text_intermediate_size,
+            mlp_dim=text_intermediate_size,
             block_prefix="text_model",
         )
 
@@ -697,19 +693,19 @@ class OwlViTModel(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_image_shape=None,
+        image_size=None,
         text_input_shape=None,
         name="OwlViTModel",
         **kwargs,
     ):
-        if input_image_shape is None:
-            input_image_shape = vision_image_size
+        if image_size is None:
+            image_size = vision_image_size
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
         if text_input_shape is None:
             text_input_shape = (text_max_position_embeddings,)
 
-        pixel_values = layers.Input(shape=input_image_shape, name="pixel_values")
+        pixel_values = layers.Input(shape=image_size, name="pixel_values")
         input_ids = layers.Input(
             shape=text_input_shape, dtype="int32", name="input_ids"
         )
@@ -721,7 +717,7 @@ class OwlViTModel(BaseModel):
             vision_intermediate_size=vision_intermediate_size,
             vision_num_hidden_layers=vision_num_hidden_layers,
             vision_num_attention_heads=vision_num_attention_heads,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=pixel_values,
             name=f"{name}_vision_tower",
         )
@@ -769,7 +765,7 @@ class OwlViTModel(BaseModel):
         self.text_max_position_embeddings = text_max_position_embeddings
         self.text_vocab_size = text_vocab_size
         self.projection_dim = projection_dim
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self._text_input_shape_arg = text_input_shape
 
     def get_config(self):
@@ -789,7 +785,7 @@ class OwlViTModel(BaseModel):
                 "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "text_input_shape": self._text_input_shape_arg,
                 "name": self.name,
             }
@@ -807,15 +803,15 @@ class OwlViTModel(BaseModel):
         return {
             "vision_image_size": vc["image_size"],
             "vision_patch_size": vc["patch_size"],
-            "vision_hidden_size": vc["hidden_size"],
-            "vision_intermediate_size": vc["intermediate_size"],
+            "vision_hidden_size": vc["hidden_dim"],
+            "vision_intermediate_size": vc["mlp_dim"],
             "vision_num_hidden_layers": vc["num_hidden_layers"],
-            "vision_num_attention_heads": vc["num_attention_heads"],
-            "text_hidden_size": tc["hidden_size"],
-            "text_intermediate_size": tc["intermediate_size"],
-            "text_num_attention_heads": tc["num_attention_heads"],
+            "vision_num_attention_heads": vc["num_heads"],
+            "text_hidden_size": tc["hidden_dim"],
+            "text_intermediate_size": tc["mlp_dim"],
+            "text_num_attention_heads": tc["num_heads"],
             "text_num_hidden_layers": tc["num_hidden_layers"],
-            "text_max_position_embeddings": tc["max_position_embeddings"],
+            "text_max_position_embeddings": tc["max_seq_len"],
             "text_vocab_size": tc["vocab_size"],
             "projection_dim": hf_config["projection_dim"],
         }
@@ -859,18 +855,18 @@ class OwlViTDetect(BaseModel):
         text_num_hidden_layers=12,
         text_max_position_embeddings=16,
         text_vocab_size=49408,
-        input_image_shape=None,
+        image_size=None,
         text_input_shape=None,
         name="OwlViTDetect",
         **kwargs,
     ):
-        # Resolution is driven by ``input_image_shape``; ``vision_image_size``
+        # Resolution is driven by ``image_size``; ``vision_image_size``
         # is only the native default. The patch grid (and detection-head box
         # bias) must match the actual input resolution.
-        if input_image_shape is None:
-            input_image_shape = vision_image_size
+        if image_size is None:
+            image_size = vision_image_size
         _data_format = keras.config.image_data_format()
-        _resolved = standardize_input_shape(input_image_shape, _data_format)
+        _resolved = standardize_input_shape(image_size, _data_format)
         image_edge = _resolved[1] if _data_format == "channels_first" else _resolved[0]
         num_patches_h = image_edge // vision_patch_size
         num_patches_w = image_edge // vision_patch_size
@@ -889,7 +885,7 @@ class OwlViTDetect(BaseModel):
             text_max_position_embeddings=text_max_position_embeddings,
             text_vocab_size=text_vocab_size,
             projection_dim=projection_dim,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             text_input_shape=text_input_shape,
             name=f"{name}_model",
         )
@@ -923,7 +919,7 @@ class OwlViTDetect(BaseModel):
         self.projection_dim = projection_dim
         self.num_patches_h = num_patches_h
         self.num_patches_w = num_patches_w
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self._text_input_shape_arg = text_input_shape
 
     def get_config(self):
@@ -943,7 +939,7 @@ class OwlViTDetect(BaseModel):
                 "text_max_position_embeddings": self.text_max_position_embeddings,
                 "text_vocab_size": self.text_vocab_size,
                 "projection_dim": self.projection_dim,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "text_input_shape": self._text_input_shape_arg,
                 "name": self.name,
             }

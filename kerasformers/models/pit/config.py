@@ -9,7 +9,7 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "pit_xs_distilled": {
@@ -20,7 +20,7 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": True,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "pit_ti": {
@@ -31,7 +31,7 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "pit_ti_distilled": {
@@ -42,7 +42,7 @@ PIT_MODEL_CONFIG = {
         "heads": [2, 4, 8],
         "mlp_ratio": 4,
         "distilled": True,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "pit_s": {
@@ -53,7 +53,7 @@ PIT_MODEL_CONFIG = {
         "heads": [3, 6, 12],
         "mlp_ratio": 4,
         "distilled": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "pit_s_distilled": {
@@ -64,7 +64,7 @@ PIT_MODEL_CONFIG = {
         "heads": [3, 6, 12],
         "mlp_ratio": 4,
         "distilled": True,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "pit_b": {
@@ -75,7 +75,7 @@ PIT_MODEL_CONFIG = {
         "heads": [4, 8, 16],
         "mlp_ratio": 4,
         "distilled": False,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
     "pit_b_distilled": {
@@ -86,7 +86,7 @@ PIT_MODEL_CONFIG = {
         "heads": [4, 8, 16],
         "mlp_ratio": 4,
         "distilled": True,
-        "input_image_shape": 224,
+        "image_size": 224,
         "num_classes": 1000,
     },
 }

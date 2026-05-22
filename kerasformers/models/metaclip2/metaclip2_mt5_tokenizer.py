@@ -37,7 +37,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
        BOS).
     3. Append ``eos_token_id`` (``1``).
     4. Truncate (replacing the last token with EOS) or pad with
-       ``pad_token_id`` to ``context_length`` — note that PAD and EOS
+       ``pad_token_id`` to ``max_seq_len`` — note that PAD and EOS
        share the same id ``1`` here, so the attention mask is the
        only reliable signal for "real vs padding".
     5. Build an attention mask: ``1`` for real tokens, ``0`` for
@@ -47,7 +47,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
         sentencepiece_model_file: Path to ``spiece.model``. When
             ``None``, downloads from the default MetaCLIP 2 release
             URL on first use.
-        context_length: Maximum sequence length. Defaults to ``77``.
+        max_seq_len: Maximum sequence length. Defaults to ``77``.
         eos_token_id: EOS token id. Defaults to ``1``.
         pad_token_id: PAD token id. Defaults to ``1`` (same as EOS —
             the SigLIP convention).
@@ -64,7 +64,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
     def __init__(
         self,
         sentencepiece_model_file: str = None,
-        context_length: int = 77,
+        max_seq_len: int = 77,
         eos_token_id: int = METACLIP2_MT5_EOS_TOKEN_ID,
         pad_token_id: int = METACLIP2_MT5_PAD_TOKEN_ID,
         unk_token_id: int = METACLIP2_MT5_UNK_TOKEN_ID,
@@ -85,7 +85,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
             raise FileNotFoundError(sentencepiece_model_file)
 
         self.sentencepiece_model_file = sentencepiece_model_file
-        self.context_length = context_length
+        self.max_seq_len = max_seq_len
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.unk_token_id = unk_token_id
@@ -97,10 +97,10 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
         text = text.lower().translate(_PUNCT_TABLE)
         ids = self._sp.encode(text, out_type=int)
         ids = ids + [self.eos_token_id]
-        if len(ids) > self.context_length:
-            ids = ids[: self.context_length - 1] + [self.eos_token_id]
-        attention_mask = [1] * len(ids) + [0] * (self.context_length - len(ids))
-        ids = ids + [self.pad_token_id] * (self.context_length - len(ids))
+        if len(ids) > self.max_seq_len:
+            ids = ids[: self.max_seq_len - 1] + [self.eos_token_id]
+        attention_mask = [1] * len(ids) + [0] * (self.max_seq_len - len(ids))
+        ids = ids + [self.pad_token_id] * (self.max_seq_len - len(ids))
         return ids, attention_mask
 
     def call(self, inputs: Union[str, List[str]]):
@@ -108,8 +108,8 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
             texts = [inputs]
         else:
             texts = list(inputs)
-        token_ids = np.zeros((len(texts), self.context_length), dtype=np.int32)
-        attention_mask = np.zeros((len(texts), self.context_length), dtype=np.int32)
+        token_ids = np.zeros((len(texts), self.max_seq_len), dtype=np.int32)
+        attention_mask = np.zeros((len(texts), self.max_seq_len), dtype=np.int32)
         for i, t in enumerate(texts):
             row_ids, row_mask = self._encode_one(t)
             token_ids[i] = row_ids
@@ -140,7 +140,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
         config.update(
             {
                 "sentencepiece_model_file": self.sentencepiece_model_file,
-                "context_length": self.context_length,
+                "max_seq_len": self.max_seq_len,
                 "eos_token_id": self.eos_token_id,
                 "pad_token_id": self.pad_token_id,
                 "unk_token_id": self.unk_token_id,

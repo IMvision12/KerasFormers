@@ -132,7 +132,7 @@ class ResNeXtModel(ResNetModel):
             ``(x, filters, strides=1, downsample=False, block_name=None)``
             and the ResNeXt-specific ``groups`` / ``width_factor``
             keyword arguments. Defaults to `resnext_block`.
-        block_repeats: List of ints, number of residual blocks per stage.
+        depths: List of ints, number of residual blocks per stage.
             Defaults to `[3, 4, 6, 3]`.
         filters: List of ints, base filter counts per stage (the final
             output width is ``filters[i] * expansion``).
@@ -171,7 +171,7 @@ class ResNeXtModel(ResNetModel):
     def __init__(
         self,
         block_fn=resnext_block,
-        block_repeats=[3, 4, 6, 3],
+        depths=[3, 4, 6, 3],
         filters=[64, 128, 256, 512],
         groups=32,
         width_factor=2,
@@ -181,7 +181,7 @@ class ResNeXtModel(ResNetModel):
     ):
         super().__init__(
             block_fn=block_fn,
-            block_repeats=block_repeats,
+            depths=depths,
             filters=filters,
             groups=groups,
             width_factor=width_factor,
@@ -209,7 +209,7 @@ class ResNeXtImageClassify(ResNetImageClassify):
             ``(x, filters, strides=1, downsample=False, block_name=None)``
             and the ResNeXt-specific ``groups`` / ``width_factor``
             keyword arguments. Defaults to `resnext_block`.
-        block_repeats: List of ints, number of residual blocks per stage.
+        depths: List of ints, number of residual blocks per stage.
             Defaults to `[3, 4, 6, 3]`.
         filters: List of ints, base filter counts per stage (the final
             output width is ``filters[i] * expansion``).
@@ -228,7 +228,7 @@ class ResNeXtImageClassify(ResNetImageClassify):
             use. Must be one of: `'imagenet'` (default), `'inception'`,
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
             Only used when ``include_normalization=True``.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -259,12 +259,12 @@ class ResNeXtImageClassify(ResNetImageClassify):
     def __init__(
         self,
         block_fn=resnext_block,
-        block_repeats=[3, 4, 6, 3],
+        depths=[3, 4, 6, 3],
         filters=[64, 128, 256, 512],
         groups=32,
         senet=False,
         width_factor=2,
-        input_image_shape=224,
+        image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
         input_tensor=None,
@@ -279,12 +279,12 @@ class ResNeXtImageClassify(ResNetImageClassify):
 
         backbone = ResNeXtModel(
             block_fn=block_fn,
-            block_repeats=block_repeats,
+            depths=depths,
             filters=filters,
             groups=groups,
             senet=senet,
             width_factor=width_factor,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
             input_tensor=input_tensor,
@@ -306,12 +306,12 @@ class ResNeXtImageClassify(ResNetImageClassify):
         )
 
         self.block_fn = block_fn
-        self.block_repeats = block_repeats
+        self.depths = depths
         self.filters = filters
         self.groups = groups
         self.senet = senet
         self.width_factor = width_factor
-        self.input_image_shape = backbone.input_image_shape
+        self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor

@@ -27,7 +27,7 @@ class SigLIP2Processor(BaseProcessor):
         do_normalize: bool = True,
         do_resize: bool = True,
         vocab_file: Optional[str] = None,
-        context_length: int = 64,
+        max_seq_len: int = 64,
         pad_token: str = "<pad>",
         bos_token: str = "<bos>",
         eos_token: str = "<eos>",
@@ -56,7 +56,7 @@ class SigLIP2Processor(BaseProcessor):
 
         self.tokenizer = SigLIP2Tokenizer(
             vocab_file=vocab_file_path,
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             add_bos=add_bos,
             add_eos=add_eos,
             pad_token=pad_token,
@@ -73,7 +73,7 @@ class SigLIP2Processor(BaseProcessor):
             "do_normalize": do_normalize,
             "do_resize": do_resize,
             "vocab_file": vocab_file,
-            "context_length": context_length,
+            "max_seq_len": max_seq_len,
             "pad_token": pad_token,
             "bos_token": bos_token,
             "eos_token": eos_token,

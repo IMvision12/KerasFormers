@@ -31,7 +31,7 @@ class OwlViTProcessor(BaseProcessor):
             ``merges_file`` are ``None``, the default CLIP vocabulary
             and merges files are downloaded.
         merges_file: Path to the CLIP merges file.
-        context_length: Maximum tokenized text length. Defaults to ``16``
+        max_seq_len: Maximum tokenized text length. Defaults to ``16``
             to match the reference.
         unk_token: Unknown token. Defaults to ``"<|endoftext|>"``.
         bos_token: Beginning-of-sequence token. Defaults to
@@ -53,7 +53,7 @@ class OwlViTProcessor(BaseProcessor):
         data_format: Optional[str] = None,
         vocab_file: Optional[str] = None,
         merges_file: Optional[str] = None,
-        context_length: int = 16,
+        max_seq_len: int = 16,
         unk_token: str = "<|endoftext|>",
         bos_token: str = "<|startoftext|>",
         eos_token: str = "<|endoftext|>",
@@ -85,7 +85,7 @@ class OwlViTProcessor(BaseProcessor):
         self.tokenizer = CLIPTokenizer(
             vocab_file=vocab_file,
             merges_file=merges_file,
-            context_length=context_length,
+            max_seq_len=max_seq_len,
             unk_token=unk_token,
             bos_token=bos_token,
             eos_token=eos_token,

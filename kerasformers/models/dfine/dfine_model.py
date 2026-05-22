@@ -556,7 +556,7 @@ def dfine_csp_rep_layer(
     x,
     out_ch,
     expansion=1.0,
-    num_blocks=1,
+    depths=1,
     activation="silu",
     data_format=None,
     channels_axis=-1,
@@ -570,7 +570,7 @@ def dfine_csp_rep_layer(
         out_ch: Integer, output channel dimension.
         expansion: Float, hidden channel expansion ratio relative to
             ``out_ch``. Defaults to ``1.0``.
-        num_blocks: Integer, number of RepVGG bottleneck blocks.
+        depths: Integer, number of RepVGG bottleneck blocks.
             Defaults to ``1``.
         activation: String, activation name. Defaults to ``"silu"``.
         data_format: String, Keras data format.
@@ -592,7 +592,7 @@ def dfine_csp_rep_layer(
         channels_axis=channels_axis,
         name=f"{name}_conv1",
     )
-    for i in range(num_blocks):
+    for i in range(depths):
         p1 = dfine_rep_vgg_block(
             p1,
             hid,
@@ -633,7 +633,7 @@ def dfine_rep_ncspelan4(
     encoder_hidden_dim,
     hidden_expansion,
     activation="silu",
-    num_blocks=1,
+    depths=1,
     data_format=None,
     channels_axis=-1,
     name="",
@@ -649,7 +649,7 @@ def dfine_rep_ncspelan4(
         encoder_hidden_dim: Integer, encoder hidden dimension.
         hidden_expansion: Float, hidden channel expansion ratio.
         activation: String, activation name. Defaults to ``"silu"``.
-        num_blocks: Integer, number of RepVGG bottleneck blocks.
+        depths: Integer, number of RepVGG bottleneck blocks.
             Defaults to ``1``.
         data_format: String, Keras data format.
         channels_axis: Integer, channel axis index.
@@ -683,7 +683,7 @@ def dfine_rep_ncspelan4(
     branch1 = dfine_csp_rep_layer(
         split_b,
         conv4_dim,
-        num_blocks=num_blocks,
+        depths=depths,
         activation=activation,
         data_format=data_format,
         channels_axis=channels_axis,
@@ -704,7 +704,7 @@ def dfine_rep_ncspelan4(
     branch2 = dfine_csp_rep_layer(
         branch1,
         conv4_dim,
-        num_blocks=num_blocks,
+        depths=depths,
         activation=activation,
         data_format=data_format,
         channels_axis=channels_axis,
@@ -790,7 +790,7 @@ def dfine_aifi_encoder_layer(
     pos_embed,
     hidden_dim,
     num_heads,
-    ffn_dim,
+    mlp_dim,
     activation="gelu",
     name="aifi_0_layers_0",
 ):
@@ -809,7 +809,7 @@ def dfine_aifi_encoder_layer(
             inputs of self-attention.
         hidden_dim: Integer, model dimension.
         num_heads: Integer, number of attention heads.
-        ffn_dim: Integer, intermediate dimension of the feedforward
+        mlp_dim: Integer, intermediate dimension of the feedforward
             network.
         activation: String, FFN activation function name.
             Defaults to ``"gelu"``.
@@ -833,7 +833,7 @@ def dfine_aifi_encoder_layer(
         name=f"{name}_self_attn_layer_norm",
     )(layers.Add(name=f"{name}_sa_res")([residual, attn]))
     residual = x
-    ff = layers.Dense(ffn_dim, name=f"{name}_fc1")(x)
+    ff = layers.Dense(mlp_dim, name=f"{name}_fc1")(x)
     ff = layers.Activation(activation, name=f"{name}_gelu")(ff)
     ff = layers.Dense(hidden_dim, name=f"{name}_fc2")(ff)
     x = layers.LayerNormalization(
@@ -933,7 +933,7 @@ def dfine_hybrid_encoder(
         bk_feats: List of backbone feature tensors, one per pyramid
             level, with channel counts matching ``encoder_in_channels``.
         encoder_hidden_dim: Channel dim used inside the hybrid encoder
-            (must match ``d_model`` to skip the decoder input projection).
+            (must match ``hidden_dim`` to skip the decoder input projection).
         encoder_ffn_dim: FFN dim inside the AIFI transformer layer.
         encode_proj_layers: Tuple of feature-level indices on which to
             apply the AIFI transformer (e.g. ``(2,)`` runs AIFI only on
@@ -952,7 +952,7 @@ def dfine_hybrid_encoder(
         from highest spatial resolution to lowest, each with
         ``encoder_hidden_dim`` channels.
     """
-    encoder_layers = 1
+    encoder_num_layers = 1
     encoder_num_heads = 8
 
     data_format = keras.config.image_data_format()
@@ -986,7 +986,7 @@ def dfine_hybrid_encoder(
             feat
         )
         pe = dfine_sine_pos_embed(h, w, encoder_hidden_dim, 10000)
-        for li in range(encoder_layers):
+        for li in range(encoder_num_layers):
             flat = dfine_aifi_encoder_layer(
                 flat,
                 pe,
@@ -1034,7 +1034,7 @@ def dfine_hybrid_encoder(
                 encoder_hidden_dim,
                 hidden_expansion,
                 activation="silu",
-                num_blocks=ccfm_num_blocks,
+                depths=ccfm_num_blocks,
                 data_format=data_format,
                 channels_axis=channels_axis,
                 name=f"fpn_blocks_{idx}",
@@ -1064,7 +1064,7 @@ def dfine_hybrid_encoder(
                 encoder_hidden_dim,
                 hidden_expansion,
                 activation="silu",
-                num_blocks=ccfm_num_blocks,
+                depths=ccfm_num_blocks,
                 data_format=data_format,
                 channels_axis=channels_axis,
                 name=f"pan_blocks_{idx}",
@@ -1076,7 +1076,7 @@ def dfine_hybrid_encoder(
 
 def dfine_decoder_inputs(
     pan,
-    d_model,
+    hidden_dim,
     encoder_hidden_dim,
     feat_strides,
     spatial_h,
@@ -1084,10 +1084,10 @@ def dfine_decoder_inputs(
 ):
     """Prepare flattened tokens and anchor proposals for the D-FINE decoder.
 
-    When ``d_model`` differs from ``encoder_hidden_dim`` each PAN feature
-    level is first re-projected to ``d_model`` via a 1x1 conv + batch
-    norm. Features are then flattened from ``(B, H, W, d_model)`` per
-    level into a single ``(B, sum(H*W), d_model)`` token sequence. In
+    When ``hidden_dim`` differs from ``encoder_hidden_dim`` each PAN feature
+    level is first re-projected to ``hidden_dim`` via a 1x1 conv + batch
+    norm. Features are then flattened from ``(B, H, W, hidden_dim)`` per
+    level into a single ``(B, sum(H*W), hidden_dim)`` token sequence. In
     parallel, a regular anchor grid of ``(cx, cy, w, h)`` boxes is
     generated for every token, converted to logits (sigmoid inverse),
     and a validity mask is computed (anchors near the image border are
@@ -1096,16 +1096,16 @@ def dfine_decoder_inputs(
     Args:
         pan: List of post-PAN feature tensors from
             :func:`dfine_hybrid_encoder`.
-        d_model: Decoder model dimension.
+        hidden_dim: Decoder model dimension.
         encoder_hidden_dim: Channel dim of the PAN features (controls
-            whether re-projection to ``d_model`` is needed).
+            whether re-projection to ``hidden_dim`` is needed).
         feat_strides: Feature strides per level used to derive per-level
             spatial shapes.
         spatial_h: Input image height in pixels.
         spatial_w: Input image width in pixels.
 
     Returns:
-        source_flat: ``(B, sum(H*W), d_model)`` flat token sequence over
+        source_flat: ``(B, sum(H*W), hidden_dim)`` flat token sequence over
             all feature levels.
         spatial_shapes: List of ``(H, W)`` per feature level, in the
             order tokens appear in ``source_flat``.
@@ -1119,9 +1119,9 @@ def dfine_decoder_inputs(
 
     dec_sources = []
     for i, feat in enumerate(pan):
-        if d_model != encoder_hidden_dim:
+        if hidden_dim != encoder_hidden_dim:
             p = layers.Conv2D(
-                d_model,
+                hidden_dim,
                 1,
                 padding="valid",
                 use_bias=False,
@@ -1144,7 +1144,9 @@ def dfine_decoder_inputs(
         hi, wi = spatial_shapes[i]
         if data_format == "channels_first":
             src = layers.Permute((2, 3, 1), name=f"dec_flat_{i}_to_cl")(src)
-        flat_list.append(layers.Reshape((hi * wi, d_model), name=f"dec_flat_{i}")(src))
+        flat_list.append(
+            layers.Reshape((hi * wi, hidden_dim), name=f"dec_flat_{i}")(src)
+        )
     source_flat = layers.Concatenate(axis=1, name="dec_src_cat")(flat_list)
 
     gs = 0.05
@@ -1179,7 +1181,7 @@ def dfine_two_stage_proposals(
     source_flat,
     anchors_t,
     vmask_t,
-    d_model,
+    hidden_dim,
     num_classes,
 ):
     """Score every token and pick the top-K decoder queries (two-stage init).
@@ -1200,13 +1202,13 @@ def dfine_two_stage_proposals(
         source_flat: Flat token sequence from :func:`dfine_decoder_inputs`.
         anchors_t: Anchor logits per token.
         vmask_t: Validity mask per token.
-        d_model: Decoder model dimension (output channel of the encoder
+        hidden_dim: Decoder model dimension (output channel of the encoder
             projection).
         num_classes: Number of object classes (output channel of
             ``enc_score_head``).
 
     Returns:
-        target: ``(B, num_queries, d_model)`` initial decoder query
+        target: ``(B, num_queries, hidden_dim)`` initial decoder query
             embeddings, detached.
         ref_logit: ``(B, num_queries, 4)`` initial reference box logits
             in inverse-sigmoid space, detached.
@@ -1214,13 +1216,15 @@ def dfine_two_stage_proposals(
     num_queries = 300
 
     memory = source_flat * vmask_t
-    enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)
+    enc_out = layers.Dense(hidden_dim, name="enc_output_linear")(memory)
     enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
         enc_out
     )
     enc_scores = layers.Dense(num_classes, name="enc_score_head")(enc_out)
-    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_0")(enc_out)
-    enc_bb = layers.Dense(d_model, activation="relu", name="enc_bbox_head_1")(enc_bb)
+    enc_bb = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_head_0")(
+        enc_out
+    )
+    enc_bb = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_head_1")(enc_bb)
     enc_bb = layers.Dense(4, name="enc_bbox_head_2")(enc_bb)
     enc_bb_logits = enc_bb + anchors_t
 
@@ -1241,15 +1245,15 @@ def dfine_fdr_block(
     ref_logit,
     source_flat,
     spatial_shapes,
-    d_model,
-    decoder_layers,
+    hidden_dim,
+    decoder_num_layers,
     decoder_ffn_dim,
     decoder_n_points,
     num_feature_levels,
 ):
     """Run the D-FINE iterative decoder with Fine-grained Distribution Refinement.
 
-    Stacks ``decoder_layers`` ``DFineDecoderLayer`` blocks; each layer
+    Stacks ``decoder_num_layers`` ``DFineDecoderLayer`` blocks; each layer
     cross-attends queries to ``source_flat`` via multi-scale deformable
     attention guided by the current reference points. After the first
     decoder layer, a small ``pre_bbox_head`` MLP turns the initial
@@ -1271,15 +1275,15 @@ def dfine_fdr_block(
         source_flat: Flattened multi-scale encoder tokens (the cross-
             attention "memory").
         spatial_shapes: Per-level ``(H, W)`` for deformable attention.
-        d_model: Decoder model dimension.
-        decoder_layers: Number of stacked decoder layers.
+        hidden_dim: Decoder model dimension.
+        decoder_num_layers: Number of stacked decoder layers.
         decoder_ffn_dim: FFN dimension inside each decoder layer.
         decoder_n_points: Sampling points per level for multi-scale
             deformable attention.
         num_feature_levels: Number of feature levels in ``source_flat``.
 
     Returns:
-        hs: Last decoder hidden state, ``(B, num_queries, d_model)``.
+        hs: Last decoder hidden state, ``(B, num_queries, hidden_dim)``.
         last_boxes: Final refined boxes from the last decoder layer,
             ``(B, num_queries, 4)`` as ``(cx, cy, w, h)``.
         last_pred_corners: Accumulated FDR corner-distribution logits
@@ -1293,11 +1297,11 @@ def dfine_fdr_block(
         max_num_bins=max_num_bins, name="decoder_params"
     )
 
-    qp_d0 = layers.Dense(d_model * 2, activation="relu", name="query_pos_head_0")
-    qp_d1 = layers.Dense(d_model, name="query_pos_head_1")
+    qp_d0 = layers.Dense(hidden_dim * 2, activation="relu", name="query_pos_head_0")
+    qp_d1 = layers.Dense(hidden_dim, name="query_pos_head_1")
 
-    pre_bb_d0 = layers.Dense(d_model, activation="relu", name="pre_bbox_head_0")
-    pre_bb_d1 = layers.Dense(d_model, activation="relu", name="pre_bbox_head_1")
+    pre_bb_d0 = layers.Dense(hidden_dim, activation="relu", name="pre_bbox_head_0")
+    pre_bb_d1 = layers.Dense(hidden_dim, activation="relu", name="pre_bbox_head_1")
     pre_bb_d2 = layers.Dense(4, name="pre_bbox_head_2")
 
     hs = target
@@ -1314,13 +1318,13 @@ def dfine_fdr_block(
     project = None
     rs_val = None
 
-    for di in range(decoder_layers):
+    for di in range(decoder_num_layers):
         rp_in = ops.expand_dims(ref_detach, axis=2)
         query_pos = qp_d1(qp_d0(ref_detach))
         query_pos = ops.clip(query_pos, -10.0, 10.0)
 
         dl = DFineDecoderLayer(
-            d_model=d_model,
+            hidden_dim=hidden_dim,
             num_heads=decoder_num_heads,
             dim_feedforward=decoder_ffn_dim,
             activation="relu",
@@ -1339,10 +1343,12 @@ def dfine_fdr_block(
             new_ref = ops.sigmoid(pre_bb + dfine_inverse_sigmoid(ref_detach))
             ref_points_initial = ops.stop_gradient(new_ref)
 
-        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_0")(
+        bb_i = layers.Dense(hidden_dim, activation="relu", name=f"bbox_embed_{di}_0")(
             hs + output_detach
         )
-        bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_1")(bb_i)
+        bb_i = layers.Dense(hidden_dim, activation="relu", name=f"bbox_embed_{di}_1")(
+            bb_i
+        )
         bb_i = layers.Dense(nbins_out, name=f"bbox_embed_{di}_2")(bb_i)
         pred_corners = bb_i if pred_corners_accum is None else bb_i + pred_corners_accum
 
@@ -1361,9 +1367,9 @@ def dfine_fdr_block(
 
 def dfine_decoder(
     pan,
-    d_model,
+    hidden_dim,
     encoder_hidden_dim,
-    decoder_layers,
+    decoder_num_layers,
     decoder_ffn_dim,
     decoder_n_points,
     num_feature_levels,
@@ -1377,7 +1383,7 @@ def dfine_decoder(
     Orchestrator that wires the three decoder sub-stages:
 
     1. :func:`dfine_decoder_inputs` — re-project PAN features to
-       ``d_model``, flatten to a single token sequence, and generate
+       ``hidden_dim``, flatten to a single token sequence, and generate
        anchor proposals with validity masks.
     2. :func:`dfine_two_stage_proposals` — score every token and select
        the top ``num_queries`` as initial decoder queries + reference
@@ -1387,10 +1393,10 @@ def dfine_decoder(
 
     Args:
         pan: Multi-scale features from :func:`dfine_hybrid_encoder`.
-        d_model: Decoder model dimension.
+        hidden_dim: Decoder model dimension.
         encoder_hidden_dim: Channel dim of ``pan`` (controls whether
             the input-projection conv is needed).
-        decoder_layers: Number of stacked decoder layers.
+        decoder_num_layers: Number of stacked decoder layers.
         decoder_ffn_dim: FFN dimension inside each decoder layer.
         decoder_n_points: Sampling points per level for deformable
             attention.
@@ -1407,7 +1413,7 @@ def dfine_decoder(
     """
     source_flat, spatial_shapes, anchors_t, vmask_t = dfine_decoder_inputs(
         pan,
-        d_model=d_model,
+        hidden_dim=hidden_dim,
         encoder_hidden_dim=encoder_hidden_dim,
         feat_strides=feat_strides,
         spatial_h=spatial_h,
@@ -1417,7 +1423,7 @@ def dfine_decoder(
         source_flat,
         anchors_t,
         vmask_t,
-        d_model=d_model,
+        hidden_dim=hidden_dim,
         num_classes=num_classes,
     )
     return dfine_fdr_block(
@@ -1425,8 +1431,8 @@ def dfine_decoder(
         ref_logit,
         source_flat,
         spatial_shapes,
-        d_model=d_model,
-        decoder_layers=decoder_layers,
+        hidden_dim=hidden_dim,
+        decoder_num_layers=decoder_num_layers,
         decoder_ffn_dim=decoder_ffn_dim,
         decoder_n_points=decoder_n_points,
         num_feature_levels=num_feature_levels,
@@ -1448,8 +1454,8 @@ def dfine_functional(
     encode_proj_layers,
     hidden_expansion,
     ccfm_num_blocks,
-    d_model,
-    decoder_layers,
+    hidden_dim,
+    decoder_num_layers,
     decoder_ffn_dim,
     decoder_n_points,
     num_feature_levels,
@@ -1490,8 +1496,8 @@ def dfine_functional(
         encode_proj_layers: Feature-level indices where AIFI is applied.
         hidden_expansion: CSP hidden-channel expansion ratio in CCFM.
         ccfm_num_blocks: Number of RepVGG bottleneck blocks per CCFM stage.
-        d_model: Decoder model dimension.
-        decoder_layers: Number of stacked decoder layers.
+        hidden_dim: Decoder model dimension.
+        decoder_num_layers: Number of stacked decoder layers.
         decoder_ffn_dim: FFN dim in each decoder layer.
         decoder_n_points: Sampling points per level for deformable attention.
         num_feature_levels: Number of multi-scale levels.
@@ -1561,9 +1567,9 @@ def dfine_functional(
 
     return dfine_decoder(
         pan,
-        d_model=d_model,
+        hidden_dim=hidden_dim,
         encoder_hidden_dim=encoder_hidden_dim,
-        decoder_layers=decoder_layers,
+        decoder_num_layers=decoder_num_layers,
         decoder_ffn_dim=decoder_ffn_dim,
         decoder_n_points=decoder_n_points,
         num_feature_levels=num_feature_levels,
@@ -1579,7 +1585,7 @@ class DFineModel(BaseModel):
     """D-FINE backbone + hybrid encoder + decoder (no class heads).
 
     Matches the reference ``DFineModel`` pattern — outputs the decoder
-    ``last_hidden_state`` with shape ``(B, num_queries, d_model)``. The
+    ``last_hidden_state`` with shape ``(B, num_queries, hidden_dim)``. The
     iterative bbox refinement layers stay in the model (they feed back
     into the decoder via reference points); only the per-layer class
     prediction and quality-score heads are pruned from the output graph.
@@ -1609,26 +1615,26 @@ class DFineModel(BaseModel):
         encode_proj_layers=(2,),
         hidden_expansion=1.0,
         ccfm_num_blocks=1,
-        d_model=256,
-        decoder_layers=6,
+        hidden_dim=256,
+        decoder_num_layers=6,
         decoder_ffn_dim=1024,
         decoder_n_points=None,
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
         num_classes=80,
-        input_image_shape=640,
+        image_size=640,
         input_tensor=None,
         name="DFineModel",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
-        input_image_shape = standardize_input_shape(input_image_shape, data_format)
+        image_size = standardize_input_shape(image_size, data_format)
 
         if input_tensor is None:
-            img_input = layers.Input(shape=input_image_shape)
+            img_input = layers.Input(shape=image_size)
         else:
             if not utils.is_keras_tensor(input_tensor):
-                img_input = layers.Input(tensor=input_tensor, shape=input_image_shape)
+                img_input = layers.Input(tensor=input_tensor, shape=image_size)
             else:
                 img_input = input_tensor
 
@@ -1650,14 +1656,14 @@ class DFineModel(BaseModel):
             encode_proj_layers=encode_proj_layers,
             hidden_expansion=hidden_expansion,
             ccfm_num_blocks=ccfm_num_blocks,
-            d_model=d_model,
-            decoder_layers=decoder_layers,
+            hidden_dim=hidden_dim,
+            decoder_num_layers=decoder_num_layers,
             decoder_ffn_dim=decoder_ffn_dim,
             decoder_n_points=decoder_n_points,
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
             num_classes=num_classes,
-            input_shape=input_image_shape,
+            input_shape=image_size,
         )
 
         outputs = {
@@ -1680,14 +1686,14 @@ class DFineModel(BaseModel):
         self._encode_proj_layers = list(encode_proj_layers)
         self._hidden_expansion = hidden_expansion
         self._ccfm_num_blocks = ccfm_num_blocks
-        self._d_model = d_model
-        self._decoder_layers = decoder_layers
+        self._d_model = hidden_dim
+        self._decoder_layers = decoder_num_layers
         self._decoder_ffn_dim = decoder_ffn_dim
         self._decoder_n_points = list(decoder_n_points)
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
         self._num_classes = num_classes
-        self.input_image_shape = input_image_shape
+        self.image_size = image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -1707,14 +1713,14 @@ class DFineModel(BaseModel):
                 "encode_proj_layers": self._encode_proj_layers,
                 "hidden_expansion": self._hidden_expansion,
                 "ccfm_num_blocks": self._ccfm_num_blocks,
-                "d_model": self._d_model,
-                "decoder_layers": self._decoder_layers,
+                "hidden_dim": self._d_model,
+                "decoder_num_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
                 "decoder_n_points": self._decoder_n_points,
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
                 "num_classes": self._num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -1757,14 +1763,14 @@ class DFineDetect(BaseModel):
         encode_proj_layers: Feature level indices for AIFI.
         hidden_expansion: CSP hidden channel expansion ratio.
         ccfm_num_blocks: Number of RepVGG bottleneck blocks in CCFM.
-        d_model: Decoder model dimension.
-        decoder_layers: Number of decoder layers.
+        hidden_dim: Decoder model dimension.
+        decoder_num_layers: Number of decoder layers.
         decoder_ffn_dim: FFN dim in decoder.
         decoder_n_points: List of sampling points per feature level.
         num_feature_levels: Number of multi-scale feature levels.
         feat_strides: Feature strides from backbone.
         num_classes: Number of object classes.
-        input_image_shape: Input image specification. Accepts an integer
+        image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
             match the active ``keras.config.image_data_format()`` —
@@ -1793,14 +1799,14 @@ class DFineDetect(BaseModel):
         encode_proj_layers=(2,),
         hidden_expansion=1.0,
         ccfm_num_blocks=1,
-        d_model=256,
-        decoder_layers=6,
+        hidden_dim=256,
+        decoder_num_layers=6,
         decoder_ffn_dim=1024,
         decoder_n_points=None,
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
         num_classes=80,
-        input_image_shape=640,
+        image_size=640,
         input_tensor=None,
         name="DFineDetect",
         **kwargs,
@@ -1822,14 +1828,14 @@ class DFineDetect(BaseModel):
             encode_proj_layers=encode_proj_layers,
             hidden_expansion=hidden_expansion,
             ccfm_num_blocks=ccfm_num_blocks,
-            d_model=d_model,
-            decoder_layers=decoder_layers,
+            hidden_dim=hidden_dim,
+            decoder_num_layers=decoder_num_layers,
             decoder_ffn_dim=decoder_ffn_dim,
             decoder_n_points=decoder_n_points,
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
             num_classes=num_classes,
-            input_image_shape=input_image_shape,
+            image_size=image_size,
             input_tensor=input_tensor,
             name=f"{name}_model",
         )
@@ -1840,7 +1846,7 @@ class DFineDetect(BaseModel):
         max_num_bins = 32
         num_queries = 300
 
-        di_last = decoder_layers - 1
+        di_last = decoder_num_layers - 1
         class_logits = layers.Dense(num_classes, name=f"class_embed_{di_last}")(hs_last)
 
         prob = ops.softmax(
@@ -1873,14 +1879,14 @@ class DFineDetect(BaseModel):
         self._encode_proj_layers = list(encode_proj_layers)
         self._hidden_expansion = hidden_expansion
         self._ccfm_num_blocks = ccfm_num_blocks
-        self._d_model = d_model
-        self._decoder_layers = decoder_layers
+        self._d_model = hidden_dim
+        self._decoder_layers = decoder_num_layers
         self._decoder_ffn_dim = decoder_ffn_dim
         self._decoder_n_points = list(decoder_n_points)
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
         self._num_classes = num_classes
-        self.input_image_shape = base.input_image_shape
+        self.image_size = base.image_size
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -1900,14 +1906,14 @@ class DFineDetect(BaseModel):
                 "encode_proj_layers": self._encode_proj_layers,
                 "hidden_expansion": self._hidden_expansion,
                 "ccfm_num_blocks": self._ccfm_num_blocks,
-                "d_model": self._d_model,
-                "decoder_layers": self._decoder_layers,
+                "hidden_dim": self._d_model,
+                "decoder_num_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
                 "decoder_n_points": self._decoder_n_points,
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
                 "num_classes": self._num_classes,
-                "input_image_shape": self.input_image_shape,
+                "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
             }
@@ -1935,8 +1941,8 @@ class DFineDetect(BaseModel):
             "encode_proj_layers": tuple(hf_config["encode_proj_layers"]),
             "hidden_expansion": hf_config["hidden_expansion"],
             "ccfm_num_blocks": hf_config.get("ccfm_num_blocks", 1),
-            "d_model": hf_config["d_model"],
-            "decoder_layers": hf_config["decoder_layers"],
+            "hidden_dim": hf_config["d_model"],
+            "decoder_num_layers": hf_config["decoder_layers"],
             "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
             "decoder_n_points": list(hf_config["decoder_n_points"]),
             "num_feature_levels": hf_config["num_feature_levels"],
