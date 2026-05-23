@@ -250,7 +250,9 @@ class Mask2FormerDeformableAttention(layers.Layer):
         - Mask2Former: https://arxiv.org/abs/2112.01527
     """
 
-    def __init__(self, hidden_dim, n_heads, n_levels, n_points, **kwargs):
+    def __init__(
+        self, hidden_dim, n_heads, n_levels, n_points, spatial_shapes=None, **kwargs
+    ):
         super().__init__(**kwargs)
         if hidden_dim % n_heads != 0:
             raise ValueError(
@@ -260,6 +262,8 @@ class Mask2FormerDeformableAttention(layers.Layer):
         self.n_heads = n_heads
         self.n_levels = n_levels
         self.n_points = n_points
+
+        self.spatial_shapes = [tuple(s) for s in (spatial_shapes or [])]
         self.head_dim = hidden_dim // n_heads
 
         self.sampling_offsets = layers.Dense(
@@ -271,7 +275,8 @@ class Mask2FormerDeformableAttention(layers.Layer):
         self.value_proj = layers.Dense(hidden_dim, name="value_proj")
         self.output_proj = layers.Dense(hidden_dim, name="output_proj")
 
-    def call(self, query, reference_points, value, spatial_shapes=None):
+    def call(self, query, reference_points, value):
+        spatial_shapes = self.spatial_shapes
         b = ops.shape(query)[0]
         n_q = ops.shape(query)[1]
 
@@ -312,6 +317,7 @@ class Mask2FormerDeformableAttention(layers.Layer):
                 "n_heads": self.n_heads,
                 "n_levels": self.n_levels,
                 "n_points": self.n_points,
+                "spatial_shapes": self.spatial_shapes,
             }
         )
         return c
@@ -546,10 +552,12 @@ class Mask2FormerReferencePoints(layers.Layer):
         ``h * w`` over all levels.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, spatial_shapes=None, **kwargs):
         super().__init__(**kwargs)
+        self.spatial_shapes = [tuple(s) for s in (spatial_shapes or [])]
 
-    def call(self, batch_ref, spatial_shapes=None):
+    def call(self, batch_ref):
+        spatial_shapes = self.spatial_shapes
         b = ops.shape(batch_ref)[0]
         n_levels = len(spatial_shapes)
         ref_per_level = []
@@ -564,3 +572,8 @@ class Mask2FormerReferencePoints(layers.Layer):
         t = ops.convert_to_tensor(ref_all_levels)
         t = ops.expand_dims(t, axis=0)
         return ops.broadcast_to(t, (b, ref_all_levels.shape[0], n_levels, 2))
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"spatial_shapes": self.spatial_shapes})
+        return config
