@@ -14,7 +14,14 @@ MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 # `load_weights` into a freshly constructed (unbuilt) instance can't work via
 # this roundtrip. Their weight save/load is exercised by the from_weights HF
 # parity path instead.
-SKIP_SAVING = {"Qwen2VLModel", "Qwen2_5_VLModel", "Qwen3VLModel"}
+SKIP_SAVING = {
+    "Qwen2VLModel",
+    "Qwen2_5_VLModel",
+    "Qwen3VLModel",
+    "Qwen2VLGenerate",
+    "Qwen2_5_VLGenerate",
+    "Qwen3VLGenerate",
+}
 
 
 def _to_numpy(tensor):

@@ -1388,7 +1388,7 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 16, 4),
         },
     },
-    # ---- Multimodal LLMs (Qwen-VL) — image patches + text -> logits ----
+    # ---- Multimodal LLMs (Qwen-VL): XModel -> features, XGenerate -> logits ----
     "Qwen2VLModel": {
         "module": "kerasformers.models.qwen2_vl",
         "model_cls": "Qwen2VLModel",
@@ -1415,7 +1415,7 @@ MODEL_TEST_CONFIGS = {
             "patch_dim": 1176,
             "image_token_id": 4,
         },
-        "expected_output_shape": {"logits": (2, 6, 128)},
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
     "Qwen2_5_VLModel": {
         "module": "kerasformers.models.qwen2_5_vl",
@@ -1448,7 +1448,7 @@ MODEL_TEST_CONFIGS = {
             "patch_dim": 1176,
             "image_token_id": 4,
         },
-        "expected_output_shape": {"logits": (2, 6, 128)},
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
     "Qwen3VLModel": {
         "module": "kerasformers.models.qwen3_vl",
@@ -1482,9 +1482,19 @@ MODEL_TEST_CONFIGS = {
             "patch_dim": 1536,
             "image_token_id": 4,
         },
-        "expected_output_shape": {"logits": (2, 6, 128)},
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
 }
+
+
+# The Qwen-VL `*Generate` classes share their base model's config + input but
+# add an LM head, so derive their test entries (logits output) from the bases.
+for _base in ("Qwen2VLModel", "Qwen2_5_VLModel", "Qwen3VLModel"):
+    _gen = _base.replace("VLModel", "VLGenerate")
+    _entry = dict(MODEL_TEST_CONFIGS[_base])
+    _entry["model_cls"] = _gen
+    _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
+    MODEL_TEST_CONFIGS[_gen] = _entry
 
 
 def get_all_model_ids():

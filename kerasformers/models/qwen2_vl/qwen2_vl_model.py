@@ -374,10 +374,6 @@ class Qwen2VLModel(BaseModel):
             rms_norm_eps=rms_norm_eps,
             name="language_model",
         )
-        if not tie_word_embeddings:
-            self.lm_head = layers.Dense(vocab_size, use_bias=False, name="lm_head")
-        else:
-            self.lm_head = None
 
     # ---- M-RoPE position ids (host-side, mirrors HF get_rope_index) ----
     def get_rope_index(self, input_ids, image_grid_thw=None, attention_mask=None):
@@ -443,38 +439,38 @@ class Qwen2VLModel(BaseModel):
         mask = np.where(ki <= qi, 0.0, _MASK_NEG).astype("float32")
         return ops.convert_to_tensor(mask[None, None])
 
-    def _lm_logits(self, hidden):
-        if self.lm_head is not None:
-            return self.lm_head(hidden)
-        # Tied head: logits = hidden @ embed_tokens.T
-        emb = self.language_model.embed_tokens.embeddings
-        return ops.matmul(hidden, ops.transpose(emb))
-
-    def call(self, inputs):
+    def _forward_features(self, inputs):
+        """Run vision + fusion + decoder -> fused hidden state ``(B, L, hidden)``."""
         if not isinstance(inputs, dict):
-            raise ValueError("Qwen2VLModel expects a dict of inputs.")
-        input_ids = inputs["input_ids"]
-        pixel_values = inputs.get("pixel_values")
-        image_grid_thw = inputs.get("image_grid_thw")
-        attention_mask = inputs.get("attention_mask")
-
-        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
-        batch, seq = input_ids_np.shape
-        inputs_embeds, position_ids, _ = self._prepare_inputs(
-            input_ids_np, pixel_values, image_grid_thw, attention_mask
+            raise ValueError(f"{type(self).__name__} expects a dict of inputs.")
+        input_ids_np = np.asarray(ops.convert_to_numpy(inputs["input_ids"])).astype(
+            "int64"
+        )
+        seq = input_ids_np.shape[1]
+        inputs_embeds, position_ids, _, extra = self._prepare_inputs(
+            input_ids_np,
+            inputs.get("pixel_values"),
+            inputs.get("image_grid_thw"),
+            inputs.get("attention_mask"),
         )
         cos, sin = self._merged_cos_sin(position_ids)
         attn_mask = self._causal_mask(seq, seq, offset=0)
-        hidden = self.language_model(inputs_embeds, cos, sin, attention_mask=attn_mask)
-        logits = self._lm_logits(hidden)
-        return {"logits": logits, "last_hidden_state": hidden}
+        return self.language_model(
+            inputs_embeds, cos, sin, attention_mask=attn_mask, **extra
+        )
+
+    def call(self, inputs):
+        """Return raw fused features. Use ``Qwen2VLGenerate`` for logits/text."""
+        return {"last_hidden_state": self._forward_features(inputs)}
 
     def _prepare_inputs(
         self, input_ids_np, pixel_values, image_grid_thw, attention_mask
     ):
         """Build the multimodal-fused ``inputs_embeds`` + 3D ``position_ids``.
 
-        Returns ``(inputs_embeds, position_ids, rope_deltas)``. Image features
+        Returns ``(inputs_embeds, position_ids, rope_deltas, extra)``, where
+        ``extra`` is a dict of additional ``language_model`` call kwargs (empty
+        here; Qwen3-VL uses it to thread DeepStack features). Image features
         (if any) are scattered into the ``image_token_id`` placeholder slots,
         and M-RoPE positions come from :meth:`get_rope_index`.
         """
@@ -511,91 +507,13 @@ class Qwen2VLModel(BaseModel):
             else:
                 pos = np.broadcast_to(np.arange(seq), (batch, seq))
             position_ids = np.broadcast_to(pos, (3, batch, seq)).copy()
-        return inputs_embeds, position_ids, rope_deltas
+        return inputs_embeds, position_ids, rope_deltas, {}
 
     def _merged_cos_sin(self, position_ids):
         cos3, sin3 = text_rope_cos_sin(position_ids, self.head_dim, self.rope_theta)
         cos = ops.convert_to_tensor(merge_mrope(cos3, self.mrope_section))
         sin = ops.convert_to_tensor(merge_mrope(sin3, self.mrope_section))
         return cos, sin
-
-    def generate(
-        self,
-        input_ids,
-        pixel_values=None,
-        image_grid_thw=None,
-        attention_mask=None,
-        max_new_tokens=128,
-        eos_token_id=(151645,),
-        return_ids=True,
-    ):
-        """Greedy multimodal decoding with a KV cache and incremental M-RoPE.
-
-        Prefills the prompt (image features scattered in, 3D positions from
-        :meth:`get_rope_index`), then decodes one token at a time: each new
-        token's position is ``cache_len + rope_delta`` on all three axes
-        (the M-RoPE "delta" trick), and the per-layer ``(k, v)`` cache is
-        threaded forward so only the new token is recomputed each step.
-
-        Returns the generated token ids ``(batch, num_new_tokens)`` (numpy).
-        """
-        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
-        batch, prompt_len = input_ids_np.shape
-        inputs_embeds, position_ids, rope_deltas = self._prepare_inputs(
-            input_ids_np, pixel_values, image_grid_thw, attention_mask
-        )
-        cos, sin = self._merged_cos_sin(position_ids)
-
-        # Prefill the whole prompt, keeping the per-layer KV cache.
-        attn_mask = self._causal_mask(prompt_len, prompt_len, offset=0)
-        hidden, cache = self.language_model(
-            inputs_embeds, cos, sin, attention_mask=attn_mask, use_cache=True
-        )
-        next_logits = self._lm_logits(hidden[:, -1:, :])
-        next_tok = np.asarray(
-            ops.convert_to_numpy(ops.argmax(next_logits, axis=-1))
-        ).astype("int64")  # (batch, 1)
-
-        eos = {
-            int(e)
-            for e in (
-                eos_token_id
-                if isinstance(eos_token_id, (list, tuple))
-                else [eos_token_id]
-            )
-        }
-        first_eos = next(iter(eos)) if eos else 0
-        finished = np.isin(next_tok[:, 0], list(eos))
-        generated = [next_tok]
-        cur_len = prompt_len
-
-        for _ in range(max_new_tokens - 1):
-            if finished.all():
-                break
-            p = (cur_len + rope_deltas).reshape(1, batch, 1)
-            pos = np.broadcast_to(p, (3, batch, 1)).copy()
-            step_cos, step_sin = self._merged_cos_sin(pos)
-            step_embeds = self.language_model.embed_tokens(
-                ops.convert_to_tensor(next_tok)
-            )
-            hidden, cache = self.language_model(
-                step_embeds,
-                step_cos,
-                step_sin,
-                attention_mask=None,
-                past_key_values=cache,
-                use_cache=True,
-            )
-            step_logits = self._lm_logits(hidden)
-            next_tok = np.asarray(
-                ops.convert_to_numpy(ops.argmax(step_logits, axis=-1))
-            ).astype("int64")
-            next_tok[finished, 0] = first_eos  # keep finished rows padded
-            generated.append(next_tok)
-            cur_len += 1
-            finished = finished | np.isin(next_tok[:, 0], list(eos))
-
-        return np.concatenate(generated, axis=1)
 
     # ---- HF on-the-fly loading ----
     @classmethod
@@ -663,3 +581,118 @@ class Qwen2VLModel(BaseModel):
             }
         )
         return config
+
+
+class _QwenVLGenerateMixin:
+    """Adds an LM head + greedy multimodal ``.generate()`` on top of a base
+    Qwen-VL model.
+
+    The base model supplies the feature machinery (``_prepare_inputs`` ->
+    ``(inputs_embeds, position_ids, rope_deltas, extra)``, ``_merged_cos_sin``,
+    ``_causal_mask``, ``language_model``). ``extra`` lets Qwen3-VL thread its
+    DeepStack tensors through the prefill; decode steps are text-only so they
+    pass no ``extra``. Generation is therefore shared across all three families.
+    """
+
+    def _init_lm_head(self):
+        self.lm_head = (
+            None
+            if self.tie_word_embeddings
+            else layers.Dense(self.vocab_size, use_bias=False, name="lm_head")
+        )
+
+    def _lm_logits(self, hidden):
+        if getattr(self, "lm_head", None) is not None:
+            return self.lm_head(hidden)
+        # Tied head: logits = hidden @ embed_tokens.T
+        emb = self.language_model.embed_tokens.embeddings
+        return ops.matmul(hidden, ops.transpose(emb))
+
+    def call(self, inputs):
+        hidden = self._forward_features(inputs)
+        return {"logits": self._lm_logits(hidden), "last_hidden_state": hidden}
+
+    def generate(
+        self,
+        input_ids,
+        pixel_values=None,
+        image_grid_thw=None,
+        attention_mask=None,
+        max_new_tokens=128,
+        eos_token_id=(151645,),
+        return_ids=True,
+    ):
+        """Greedy decoding with a KV cache and incremental M-RoPE.
+
+        Each new token's position is ``cache_len + rope_delta`` on all three
+        axes; the per-layer ``(k, v)`` cache is threaded forward so only the new
+        token is recomputed. Returns ``(batch, num_new_tokens)`` ids (numpy).
+        """
+        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
+        batch, prompt_len = input_ids_np.shape
+        inputs_embeds, position_ids, rope_deltas, extra = self._prepare_inputs(
+            input_ids_np, pixel_values, image_grid_thw, attention_mask
+        )
+        cos, sin = self._merged_cos_sin(position_ids)
+        hidden, cache = self.language_model(
+            inputs_embeds,
+            cos,
+            sin,
+            attention_mask=self._causal_mask(prompt_len, prompt_len, offset=0),
+            use_cache=True,
+            **extra,
+        )
+        next_tok = np.asarray(
+            ops.convert_to_numpy(
+                ops.argmax(self._lm_logits(hidden[:, -1:, :]), axis=-1)
+            )
+        ).astype("int64")
+
+        eos = {
+            int(e)
+            for e in (
+                eos_token_id
+                if isinstance(eos_token_id, (list, tuple))
+                else [eos_token_id]
+            )
+        }
+        first_eos = next(iter(eos)) if eos else 0
+        finished = np.isin(next_tok[:, 0], list(eos))
+        generated = [next_tok]
+        cur_len = prompt_len
+
+        for _ in range(max_new_tokens - 1):
+            if finished.all():
+                break
+            pos = np.broadcast_to(
+                (cur_len + rope_deltas).reshape(1, batch, 1), (3, batch, 1)
+            ).copy()
+            step_cos, step_sin = self._merged_cos_sin(pos)
+            step_embeds = self.language_model.embed_tokens(
+                ops.convert_to_tensor(next_tok)
+            )
+            hidden, cache = self.language_model(
+                step_embeds,
+                step_cos,
+                step_sin,
+                attention_mask=None,
+                past_key_values=cache,
+                use_cache=True,
+            )
+            next_tok = np.asarray(
+                ops.convert_to_numpy(ops.argmax(self._lm_logits(hidden), axis=-1))
+            ).astype("int64")
+            next_tok[finished, 0] = first_eos
+            generated.append(next_tok)
+            cur_len += 1
+            finished = finished | np.isin(next_tok[:, 0], list(eos))
+        return np.concatenate(generated, axis=1)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLGenerate(_QwenVLGenerateMixin, Qwen2VLModel):
+    """Qwen2-VL with an LM head + greedy ``.generate()`` (image+text -> text)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_lm_head()

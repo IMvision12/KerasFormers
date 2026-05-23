@@ -33,6 +33,9 @@ SKIP_DATA_FORMAT = {
     "Qwen2VLModel",
     "Qwen2_5_VLModel",
     "Qwen3VLModel",
+    "Qwen2VLGenerate",
+    "Qwen2_5_VLGenerate",
+    "Qwen3VLGenerate",
 }
 
 

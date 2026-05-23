@@ -96,5 +96,6 @@ def transfer_qwen3_vl_weights(keras_model, hf_state_dict):
         _assign_dense(layer.mlp.down_proj, _np(state, f"{p}.mlp.down_proj.weight"))
     _assign_rmsnorm(lm.norm, _np(state, "model.norm.weight"))
 
-    if keras_model.lm_head is not None and "lm_head.weight" in state:
-        _assign_dense(keras_model.lm_head, _np(state, "lm_head.weight"))
+    lm_head = getattr(keras_model, "lm_head", None)
+    if lm_head is not None and "lm_head.weight" in state:
+        _assign_dense(lm_head, _np(state, "lm_head.weight"))

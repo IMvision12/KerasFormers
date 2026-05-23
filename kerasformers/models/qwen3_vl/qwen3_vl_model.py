@@ -20,6 +20,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_layers import (
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     _MASK_NEG,
     Qwen2VLModel,
+    _QwenVLGenerateMixin,
     vision_rotary_cos_sin,
 )
 
@@ -416,19 +417,16 @@ class Qwen3VLModel(Qwen2VLModel):
         )
         return ops.convert_to_tensor(cos), ops.convert_to_tensor(sin)
 
-    def call(self, inputs):
-        input_ids = inputs["input_ids"]
-        pixel_values = inputs.get("pixel_values")
-        image_grid_thw = inputs.get("image_grid_thw")
-        attention_mask = inputs.get("attention_mask")
-
-        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
+    def _prepare_inputs(
+        self, input_ids_np, pixel_values, image_grid_thw, attention_mask
+    ):
+        """Base scatter/positions, plus DeepStack via ``extra["deepstack_full"]``."""
         batch, seq = input_ids_np.shape
         inputs_embeds = self.language_model.embed_tokens(
             ops.convert_to_tensor(input_ids_np)
         )
-
-        deepstack_full = None
+        rope_deltas = np.zeros((batch,), dtype=np.int64)
+        extra = {}
         if pixel_values is not None and image_grid_thw is not None:
             grid = np.asarray(ops.convert_to_numpy(image_grid_thw)).astype("int64")
             image_embeds, deepstack = self.visual(pixel_values, grid)
@@ -442,23 +440,18 @@ class Qwen3VLModel(Qwen2VLModel):
                 ops.cast(image_embeds, flat.dtype),
             )
             inputs_embeds = ops.reshape(flat, (batch, seq, self.hidden_size))
-            deepstack_full = self._deepstack_full(deepstack, visual_idx, batch, seq)
-            position_ids, _ = self.get_rope_index(input_ids_np, grid, attention_mask)
+            extra = {
+                "deepstack_full": self._deepstack_full(
+                    deepstack, visual_idx, batch, seq
+                )
+            }
+            position_ids, rope_deltas = self.get_rope_index(
+                input_ids_np, grid, attention_mask
+            )
         else:
             pos = np.broadcast_to(np.arange(seq), (batch, seq))
             position_ids = np.broadcast_to(pos, (3, batch, seq)).copy()
-
-        cos, sin = self._merged_cos_sin(position_ids)
-        attn_mask = self._causal_mask(seq, seq, offset=0)
-        hidden = self.language_model(
-            inputs_embeds,
-            cos,
-            sin,
-            attention_mask=attn_mask,
-            deepstack_full=deepstack_full,
-        )
-        logits = self._lm_logits(hidden)
-        return {"logits": logits, "last_hidden_state": hidden}
+        return inputs_embeds, position_ids, rope_deltas, extra
 
     def _deepstack_full(self, deepstack, visual_idx, batch, seq):
         """Scatter each DeepStack feature (n_visual, hidden) into a full
@@ -471,93 +464,6 @@ class Qwen3VLModel(Qwen2VLModel):
             z = ops.scatter_update(z, idx, ops.cast(emb, z.dtype))
             out.append(ops.reshape(z, (batch, seq, self.hidden_size)))
         return out
-
-    def generate(
-        self,
-        input_ids,
-        pixel_values=None,
-        image_grid_thw=None,
-        attention_mask=None,
-        max_new_tokens=128,
-        eos_token_id=(151645,),
-        return_ids=True,
-    ):
-        """Greedy decode. DeepStack features are injected during the prefill
-        (they live at image-token positions, which are prompt-only); decode
-        steps need no DeepStack since they attend to the modified KV cache."""
-        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
-        batch, L = input_ids_np.shape
-        inputs_embeds = self.language_model.embed_tokens(
-            ops.convert_to_tensor(input_ids_np)
-        )
-        rope_deltas = np.zeros((batch,), dtype=np.int64)
-        deepstack_full = None
-        if pixel_values is not None and image_grid_thw is not None:
-            grid = np.asarray(ops.convert_to_numpy(image_grid_thw)).astype("int64")
-            image_embeds, deepstack = self.visual(pixel_values, grid)
-            visual_idx = np.nonzero((input_ids_np == self.image_token_id).reshape(-1))[
-                0
-            ]
-            flat = ops.reshape(inputs_embeds, (batch * L, self.hidden_size))
-            flat = ops.scatter_update(
-                flat,
-                np.expand_dims(visual_idx, -1).astype("int32"),
-                ops.cast(image_embeds, flat.dtype),
-            )
-            inputs_embeds = ops.reshape(flat, (batch, L, self.hidden_size))
-            deepstack_full = self._deepstack_full(deepstack, visual_idx, batch, L)
-            position_ids, rope_deltas = self.get_rope_index(
-                input_ids_np, grid, attention_mask
-            )
-        else:
-            pos = np.broadcast_to(np.arange(L), (batch, L))
-            position_ids = np.broadcast_to(pos, (3, batch, L)).copy()
-
-        cos, sin = self._merged_cos_sin(position_ids)
-        hidden, cache = self.language_model(
-            inputs_embeds,
-            cos,
-            sin,
-            attention_mask=self._causal_mask(L, L, 0),
-            use_cache=True,
-            deepstack_full=deepstack_full,
-        )
-        next_tok = np.asarray(
-            ops.convert_to_numpy(
-                ops.argmax(self._lm_logits(hidden[:, -1:, :]), axis=-1)
-            )
-        ).astype("int64")
-        eos = {
-            int(e)
-            for e in (
-                eos_token_id
-                if isinstance(eos_token_id, (list, tuple))
-                else [eos_token_id]
-            )
-        }
-        first_eos = next(iter(eos)) if eos else 0
-        finished = np.isin(next_tok[:, 0], list(eos))
-        generated = [next_tok]
-        cur_len = L
-        for _ in range(max_new_tokens - 1):
-            if finished.all():
-                break
-            pos = np.broadcast_to(
-                (cur_len + rope_deltas).reshape(1, batch, 1), (3, batch, 1)
-            ).copy()
-            c, s = self._merged_cos_sin(pos)
-            step = self.language_model.embed_tokens(ops.convert_to_tensor(next_tok))
-            hidden, cache = self.language_model(
-                step, c, s, attention_mask=None, past_key_values=cache, use_cache=True
-            )
-            next_tok = np.asarray(
-                ops.convert_to_numpy(ops.argmax(self._lm_logits(hidden), axis=-1))
-            ).astype("int64")
-            next_tok[finished, 0] = first_eos
-            generated.append(next_tok)
-            cur_len += 1
-            finished = finished | np.isin(next_tok[:, 0], list(eos))
-        return np.concatenate(generated, axis=1)
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -640,3 +546,12 @@ class Qwen3VLModel(Qwen2VLModel):
         ]:
             config[k] = getattr(self, k)
         return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen3VLGenerate(_QwenVLGenerateMixin, Qwen3VLModel):
+    """Qwen3-VL with an LM head + greedy ``.generate()`` (image+text -> text)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_lm_head()

@@ -168,9 +168,10 @@ def _transfer_text(keras_model, state):
         _assign_dense(layer.mlp.down_proj, _np(state, f"{p}.mlp.down_proj.weight"))
     _assign_rmsnorm(lm.norm, _np(state, "model.norm.weight"))
 
-    # LM head (untied only; tied head reuses embed_tokens).
-    if keras_model.lm_head is not None and "lm_head.weight" in state:
-        _assign_dense(keras_model.lm_head, _np(state, "lm_head.weight"))
+    # LM head (only present on *Generate classes, untied; tied reuses embeds).
+    lm_head = getattr(keras_model, "lm_head", None)
+    if lm_head is not None and "lm_head.weight" in state:
+        _assign_dense(lm_head, _np(state, "lm_head.weight"))
 
 
 if __name__ == "__main__":

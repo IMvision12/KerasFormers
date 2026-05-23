@@ -20,6 +20,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     _MASK_NEG,
     Qwen2VLModel,
     Qwen2VLTextModel,
+    _QwenVLGenerateMixin,
     vision_rotary_cos_sin,
 )
 
@@ -273,11 +274,6 @@ class Qwen2_5_VLModel(Qwen2VLModel):
             rms_norm_eps=rms_norm_eps,
             name="language_model",
         )
-        self.lm_head = (
-            None
-            if tie_word_embeddings
-            else layers.Dense(vocab_size, use_bias=False, name="lm_head")
-        )
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -357,3 +353,12 @@ class Qwen2_5_VLModel(Qwen2VLModel):
             }
         )
         return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2_5_VLGenerate(_QwenVLGenerateMixin, Qwen2_5_VLModel):
+    """Qwen2.5-VL with an LM head + greedy ``.generate()`` (image+text -> text)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._init_lm_head()

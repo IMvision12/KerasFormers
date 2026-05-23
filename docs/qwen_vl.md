@@ -20,18 +20,27 @@ and a greedy `generate` loop run unmodified on TensorFlow / Torch / JAX.
 
 ## On-the-fly weight loading
 
+Each family exposes two classes (mirroring HF's `*Model` /
+`*ForConditionalGeneration` split):
+
+- **`*Model`** — the base multimodal model; its `call` returns raw fused
+  features (`last_hidden_state`). Use it for embeddings / training / probing.
+- **`*Generate`** — adds the LM head and `.generate()`; its `call` returns
+  `logits`. Use it for text generation.
+
 These models are **not** uploaded as kerasformers release weights; they convert
 on the fly from the Hugging Face checkpoints (safetensors are downloaded and
 mapped to Keras at load time):
 
 ```python
-from kerasformers.models.qwen2_vl import Qwen2VLModel
-from kerasformers.models.qwen2_5_vl import Qwen2_5_VLModel
-from kerasformers.models.qwen3_vl import Qwen3VLModel
+from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLModel
+from kerasformers.models.qwen2_5_vl import Qwen2_5_VLGenerate
+from kerasformers.models.qwen3_vl import Qwen3VLGenerate
 
-m = Qwen2VLModel.from_weights("hf:Qwen/Qwen2-VL-2B-Instruct")
-m = Qwen2_5_VLModel.from_weights("hf:Qwen/Qwen2.5-VL-3B-Instruct")
-m = Qwen3VLModel.from_weights("hf:Qwen/Qwen3-VL-2B-Instruct")
+gen = Qwen2VLGenerate.from_weights("hf:Qwen/Qwen2-VL-2B-Instruct")     # text gen
+feats = Qwen2VLModel.from_weights("hf:Qwen/Qwen2-VL-2B-Instruct")      # features
+gen = Qwen2_5_VLGenerate.from_weights("hf:Qwen/Qwen2.5-VL-3B-Instruct")
+gen = Qwen3VLGenerate.from_weights("hf:Qwen/Qwen3-VL-2B-Instruct")
 ```
 
 Any HF repo whose `config.json` `model_type` matches (`qwen2_vl` / `qwen2_5_vl`
@@ -54,15 +63,17 @@ cache) also matches HF to ~1e-7 in isolation.
 
 ## Forward pass
 
-The model takes a dict and returns logits (plus the final hidden state):
+Both classes take the same input dict. `*Model` returns features;
+`*Generate` adds logits:
 
 ```python
-out = model({
+inputs = {
     "input_ids":      input_ids,       # (B, L) int, image placeholders inside
     "pixel_values":   pixel_values,    # (num_patches, patch_dim) flattened patches
     "image_grid_thw": image_grid_thw,  # (num_images, 3) per-image (t, h, w)
-})
-out["logits"]              # (B, L, vocab_size)
+}
+feats["last_hidden_state"]      # Qwen2VLModel    -> (B, L, hidden_size)
+gen({**inputs})["logits"]      # Qwen2VLGenerate -> (B, L, vocab_size)
 ```
 
 > **Layout note** — the processor pre-flattens each patch to a
@@ -73,17 +84,27 @@ out["logits"]              # (B, L, vocab_size)
 
 ## Generation
 
-`.generate()` does greedy multimodal decoding with a KV cache and incremental
-M-RoPE positions (each new token's position is `cache_len + rope_delta` on all
-three axes):
+The `*Generate` classes' `.generate()` does greedy multimodal decoding with a
+KV cache and incremental M-RoPE positions (each new token's position is
+`cache_len + rope_delta` on all three axes):
 
 ```python
-ids = model.generate(input_ids, pixel_values=pv, image_grid_thw=grid,
-                     max_new_tokens=128)
+from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLProcessor
+
+model = Qwen2VLGenerate.from_weights("hf:Qwen/Qwen2-VL-2B-Instruct")
+processor = Qwen2VLProcessor()
+messages = [{"role": "user", "content": [
+    {"type": "image"}, {"type": "text", "text": "Describe the image."}]}]
+inputs = processor(messages=messages, images=[img])
+
+ids = model.generate(inputs["input_ids"], pixel_values=inputs["pixel_values"],
+                     image_grid_thw=inputs["image_grid_thw"], max_new_tokens=128)
+print(processor.decode(ids[0], skip_special_tokens=True))
 ```
 
 Qwen3-VL injects its **DeepStack** vision features into the first few decoder
 layers during the prefill (decode steps then read them from the KV cache).
+Generation is shared across the three families via a small mixin.
 
 ## Image processor
 
