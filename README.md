@@ -28,6 +28,20 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
 ## 📑 Models
 
+### 📝 Text Models
+
+- Text LLMs (text → text)
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | Qwen2 | [Qwen2 Technical Report](https://arxiv.org/abs/2407.10671) | on-the-fly `hf:` |
+    | Qwen3 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+    | Qwen3.5 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+
+<br>
+
+### 👁️ Vision Models
+
 - Backbones
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
@@ -120,7 +134,9 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
 <br>
 
-- Multimodal Models
+### 🖼️ Multimodal Models
+
+- Vision-Language Encoders
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
@@ -128,15 +144,6 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | MetaCLIP 2 | [MetaCLIP 2: A Worldwide Scaling Recipe](https://arxiv.org/abs/2507.22062) | `transformers`|
     | SigLIP | [Sigmoid Loss for Language Image Pre-Training](https://arxiv.org/abs/2303.15343) | `transformers`|
     | SigLIP2 | [SigLIP 2: Multilingual Vision-Language Encoders with Improved Semantic Understanding, Localization, and Dense Features](https://arxiv.org/abs/2502.14786) | `transformers`|
-
-<br>
-
-- Speech
-
-    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
-    |---------------|-------------------|---------------------|
-    | Whisper | [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) | `transformers` |
-    | Speech2Text | [fairseq S2T: Fast Speech-to-Text Modeling with fairseq](https://arxiv.org/abs/2010.05171) | `transformers` |
 
 <br>
 
@@ -150,13 +157,14 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
 <br>
 
-- Text LLMs (text → text)
+### 🔊 Audio Models
+
+- Speech (speech → text)
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
-    | Qwen2 | [Qwen2 Technical Report](https://arxiv.org/abs/2407.10671) | on-the-fly `hf:` |
-    | Qwen3 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
-    | Qwen3.5 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+    | Whisper | [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) | `transformers` |
+    | Speech2Text | [fairseq S2T: Fast Speech-to-Text Modeling with fairseq](https://arxiv.org/abs/2010.05171) | `transformers` |
 
 <br>
 
