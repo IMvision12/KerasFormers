@@ -24,7 +24,7 @@ pip install -U git+https://github.com/IMvision12/KerasFormers
 
 ## 📑 Documentation
 
-Per-model guides — with architecture notes, usage examples, and available pretrained weights — live in the [`docs/`](docs/) folder, one page per model across every supported task (classification, object detection, segmentation, depth estimation, feature extraction, vision-language, and speech recognition). Classification backbones share a single [page](docs/classification_backbones.md) since they all follow the same `XModel` / `XImageClassify` two-class structure; each other model has its own. Browse [`docs/`](docs/) for the complete, always-up-to-date list.
+Per-model guides - with architecture notes, usage examples, and available pretrained weights, live in the [`docs/`](docs/) folder, one page per model across every supported task (classification, object detection, segmentation, depth estimation, feature extraction, vision-language, and speech recognition). Classification backbones share a single [page](docs/classification_backbones.md) since they all follow the same `XModel` / `XImageClassify` two-class structure; each other model has its own. Browse [`docs/`](docs/) for the complete, always-up-to-date list.
 
 ## 📑 Models
 

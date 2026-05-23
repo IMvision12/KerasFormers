@@ -58,8 +58,9 @@ def mask2former_msda_encoder_layer(
         n_heads=n_heads,
         n_levels=n_levels,
         n_points=n_points,
+        spatial_shapes=spatial_shapes,
         name=f"{block_prefix}_self_attn",
-    )(query, reference_points, hidden_states, spatial_shapes=spatial_shapes)
+    )(query, reference_points, hidden_states)
     hidden_states = layers.Add(name=f"{block_prefix}_attn_residual")(
         [residual, attn_out]
     )
@@ -167,8 +168,9 @@ def mask2former_pixel_decoder(
     )
 
     reference_points = Mask2FormerReferencePoints(
-        name="pixel_decoder_reference_points"
-    )(backbone_features[0], spatial_shapes=spatial_shapes)
+        spatial_shapes=spatial_shapes,
+        name="pixel_decoder_reference_points",
+    )(backbone_features[0])
 
     hidden_states = src
     for i in range(encoder_num_layers):
