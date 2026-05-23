@@ -23,7 +23,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseModel
 
-from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS
+from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS
 from .qwen2_vl_layers import (
     Qwen2VLDecoderLayer,
     Qwen2VLPatchEmbed,
@@ -299,7 +299,7 @@ class Qwen2VLModel(BaseModel):
 
     HF_MODEL_TYPE = "qwen2_vl"
     BASE_MODEL_CONFIG = QWEN2_VL_CONFIG
-    BASE_WEIGHT_CONFIG = None  # on-the-fly hf: conversion only, no release uploads
+    BASE_WEIGHT_CONFIG = QWEN2_VL_WEIGHTS
 
     def __init__(
         self,

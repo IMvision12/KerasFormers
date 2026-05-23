@@ -260,14 +260,26 @@ class BaseModel(keras.Model):
                 url = entry.get("url")
                 hf_model_cls = entry.get("hf_model_cls")
                 hf_kwargs = entry.get("hf_kwargs")
+                use_safetensors = entry.get("safetensors", False)
             else:
                 hf_id = None
                 gated = False
                 url = entry
                 hf_model_cls = None
                 hf_kwargs = None
+                use_safetensors = False
 
-            if hf_id:
+            if hf_id and use_safetensors:
+                # Read raw safetensors and run the model's hand-mapped transfer
+                # (the same path as `hf:`): lighter than instantiating the HF
+                # model, gives the exact checkpoint key layout the transfer
+                # expects, and handles bf16 -> float32. Used by the Qwen
+                # families, whose converters key off raw checkpoint tensors.
+                state_dict = download_hf_state_dict(hf_id)
+                with skip_mismatched_weights(skip_mismatch) as skipped:
+                    cls.transfer_from_hf(model, state_dict)
+                _warn_skipped(skipped)
+            elif hf_id:
                 from kerasformers.weight_utils.hf_gated_weight_download import (
                     load_and_convert_from_hf,
                 )

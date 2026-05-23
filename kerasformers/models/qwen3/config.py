@@ -1,11 +1,28 @@
 # Qwen3 — dense decoder-only LLM. Like Qwen2 but the attention adds per-head
 # QK-norm (RMSNorm on q/k) and drops the q/k/v bias. RMSNorm, GQA, SwiGLU,
-# 1D rotary. Loaded on the fly from Hugging Face:
+# 1D rotary. Each size ships a main (hybrid-thinking) model and a `-Base`
+# pretrained model that share an architecture (they differ only in weights).
 #
-#     Qwen3Generate.from_weights("hf:Qwen/Qwen3-0.6B")
+# The 30B-A3B / 235B-A22B checkpoints are Mixture-of-Experts (model_type
+# "qwen3_moe") and need a separate implementation, so they are absent here.
+#
+# Load by variant name:
+#     Qwen3Generate.from_weights("qwen3-4b")
 
 QWEN3_CONFIG = {
     "qwen3-0.6b": {
+        "vocab_size": 151936,
+        "hidden_size": 1024,
+        "intermediate_size": 3072,
+        "num_hidden_layers": 28,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "tie_word_embeddings": True,
+    },
+    "qwen3-0.6b-base": {
         "vocab_size": 151936,
         "hidden_size": 1024,
         "intermediate_size": 3072,
@@ -29,7 +46,31 @@ QWEN3_CONFIG = {
         "rope_theta": 1000000.0,
         "tie_word_embeddings": True,
     },
+    "qwen3-1.7b-base": {
+        "vocab_size": 151936,
+        "hidden_size": 2048,
+        "intermediate_size": 6144,
+        "num_hidden_layers": 28,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "tie_word_embeddings": True,
+    },
     "qwen3-4b": {
+        "vocab_size": 151936,
+        "hidden_size": 2560,
+        "intermediate_size": 9728,
+        "num_hidden_layers": 36,
+        "num_attention_heads": 32,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "tie_word_embeddings": True,
+    },
+    "qwen3-4b-base": {
         "vocab_size": 151936,
         "hidden_size": 2560,
         "intermediate_size": 9728,
@@ -53,4 +94,88 @@ QWEN3_CONFIG = {
         "rope_theta": 1000000.0,
         "tie_word_embeddings": False,
     },
+    "qwen3-8b-base": {
+        "vocab_size": 151936,
+        "hidden_size": 4096,
+        "intermediate_size": 12288,
+        "num_hidden_layers": 36,
+        "num_attention_heads": 32,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "tie_word_embeddings": False,
+    },
+    "qwen3-14b": {
+        "vocab_size": 151936,
+        "hidden_size": 5120,
+        "intermediate_size": 17408,
+        "num_hidden_layers": 40,
+        "num_attention_heads": 40,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "tie_word_embeddings": False,
+    },
+    "qwen3-14b-base": {
+        "vocab_size": 151936,
+        "hidden_size": 5120,
+        "intermediate_size": 17408,
+        "num_hidden_layers": 40,
+        "num_attention_heads": 40,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "tie_word_embeddings": False,
+    },
+    "qwen3-32b": {
+        "vocab_size": 151936,
+        "hidden_size": 5120,
+        "intermediate_size": 25600,
+        "num_hidden_layers": 64,
+        "num_attention_heads": 64,
+        "num_key_value_heads": 8,
+        "head_dim": 128,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "tie_word_embeddings": False,
+    },
+}
+
+# Release weights (public Qwen repos; on-the-fly transfer_from_hf). Keys mirror
+# QWEN3_CONFIG, so `from_weights("qwen3-0.6b")` builds + loads in one call.
+QWEN3_WEIGHTS = {
+    "qwen3-0.6b": {"hf_id": "Qwen/Qwen3-0.6B", "gated": False, "safetensors": True},
+    "qwen3-0.6b-base": {
+        "hf_id": "Qwen/Qwen3-0.6B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3-1.7b": {"hf_id": "Qwen/Qwen3-1.7B", "gated": False, "safetensors": True},
+    "qwen3-1.7b-base": {
+        "hf_id": "Qwen/Qwen3-1.7B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3-4b": {"hf_id": "Qwen/Qwen3-4B", "gated": False, "safetensors": True},
+    "qwen3-4b-base": {
+        "hf_id": "Qwen/Qwen3-4B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3-8b": {"hf_id": "Qwen/Qwen3-8B", "gated": False, "safetensors": True},
+    "qwen3-8b-base": {
+        "hf_id": "Qwen/Qwen3-8B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3-14b": {"hf_id": "Qwen/Qwen3-14B", "gated": False, "safetensors": True},
+    "qwen3-14b-base": {
+        "hf_id": "Qwen/Qwen3-14B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3-32b": {"hf_id": "Qwen/Qwen3-32B", "gated": False, "safetensors": True},
 }

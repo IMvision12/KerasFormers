@@ -5,13 +5,17 @@
 # RMSNorm throughout.
 #
 # Qwen3.5 ships as a multimodal series (Qwen3_5ForConditionalGeneration); this
-# is the text decoder (model_type "qwen3_5_text"). Weights load on the fly from
-# any Qwen3.5 checkpoint's `model.language_model.*` tensors:
+# is the text decoder (model_type "qwen3_5_text"), loaded from each checkpoint's
+# `model.language_model.*` tensors. Each dense size ships a main model and a
+# `-Base` pretrained one (same architecture). The 35B-A3B / 122B-A10B /
+# 397B-A17B checkpoints are Mixture-of-Experts (model_type "qwen3_5_moe_text")
+# and need a separate implementation, so they are absent here.
 #
-#     Qwen3_5Generate.from_weights("hf:Qwen/Qwen3.5-0.8B")
+# Load by variant name:
+#     Qwen3_5Generate.from_weights("qwen3.5-2b")
 #
-# For the 0.8B linear_num_key_heads == linear_num_value_heads (16); larger
-# variants use a 16/32 key/value-head split.
+# For 0.8B/2B linear_num_key_heads == linear_num_value_heads (16); 4B+ use a
+# 16/32 (or 16/48) key/value-head split.
 
 QWEN3_5_CONFIG = {
     "qwen3.5-0.8b": {
@@ -33,7 +37,102 @@ QWEN3_5_CONFIG = {
         "linear_num_key_heads": 16,
         "linear_num_value_heads": 16,
     },
-    "qwen3.5-27b": {
+    "qwen3.5-0.8b-base": {
+        "vocab_size": 248320,
+        "hidden_size": 1024,
+        "intermediate_size": 3584,
+        "num_hidden_layers": 24,
+        "num_attention_heads": 8,
+        "num_key_value_heads": 2,
+        "head_dim": 256,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 10000000.0,
+        "partial_rotary_factor": 0.25,
+        "tie_word_embeddings": True,
+        "full_attention_interval": 4,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 16,
+    },
+    "qwen3.5-2b": {
+        "vocab_size": 248320,
+        "hidden_size": 2048,
+        "intermediate_size": 6144,
+        "num_hidden_layers": 24,
+        "num_attention_heads": 8,
+        "num_key_value_heads": 2,
+        "head_dim": 256,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 10000000.0,
+        "partial_rotary_factor": 0.25,
+        "tie_word_embeddings": True,
+        "full_attention_interval": 4,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 16,
+    },
+    "qwen3.5-2b-base": {
+        "vocab_size": 248320,
+        "hidden_size": 2048,
+        "intermediate_size": 6144,
+        "num_hidden_layers": 24,
+        "num_attention_heads": 8,
+        "num_key_value_heads": 2,
+        "head_dim": 256,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 10000000.0,
+        "partial_rotary_factor": 0.25,
+        "tie_word_embeddings": True,
+        "full_attention_interval": 4,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 16,
+    },
+    "qwen3.5-4b": {
+        "vocab_size": 248320,
+        "hidden_size": 2560,
+        "intermediate_size": 9216,
+        "num_hidden_layers": 32,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 4,
+        "head_dim": 256,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 10000000.0,
+        "partial_rotary_factor": 0.25,
+        "tie_word_embeddings": True,
+        "full_attention_interval": 4,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 32,
+    },
+    "qwen3.5-4b-base": {
+        "vocab_size": 248320,
+        "hidden_size": 2560,
+        "intermediate_size": 9216,
+        "num_hidden_layers": 32,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 4,
+        "head_dim": 256,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 10000000.0,
+        "partial_rotary_factor": 0.25,
+        "tie_word_embeddings": True,
+        "full_attention_interval": 4,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 32,
+    },
+    "qwen3.5-9b": {
         "vocab_size": 248320,
         "hidden_size": 4096,
         "intermediate_size": 12288,
@@ -44,7 +143,7 @@ QWEN3_5_CONFIG = {
         "rms_norm_eps": 1e-6,
         "rope_theta": 10000000.0,
         "partial_rotary_factor": 0.25,
-        "tie_word_embeddings": False,
+        "tie_word_embeddings": True,
         "full_attention_interval": 4,
         "linear_conv_kernel_dim": 4,
         "linear_key_head_dim": 128,
@@ -52,4 +151,73 @@ QWEN3_5_CONFIG = {
         "linear_num_key_heads": 16,
         "linear_num_value_heads": 32,
     },
+    "qwen3.5-9b-base": {
+        "vocab_size": 248320,
+        "hidden_size": 4096,
+        "intermediate_size": 12288,
+        "num_hidden_layers": 32,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 4,
+        "head_dim": 256,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 10000000.0,
+        "partial_rotary_factor": 0.25,
+        "tie_word_embeddings": True,
+        "full_attention_interval": 4,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 32,
+    },
+    "qwen3.5-27b": {
+        "vocab_size": 248320,
+        "hidden_size": 5120,
+        "intermediate_size": 17408,
+        "num_hidden_layers": 64,
+        "num_attention_heads": 24,
+        "num_key_value_heads": 4,
+        "head_dim": 256,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 10000000.0,
+        "partial_rotary_factor": 0.25,
+        "tie_word_embeddings": True,
+        "full_attention_interval": 4,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 48,
+    },
+}
+
+# Release weights (public Qwen repos; on-the-fly transfer_from_hf). The text
+# backbone is loaded from each Qwen3.5 checkpoint's `model.language_model.*`
+# tensors. Keys mirror QWEN3_5_CONFIG -> `from_weights("qwen3.5-2b")`.
+QWEN3_5_WEIGHTS = {
+    "qwen3.5-0.8b": {"hf_id": "Qwen/Qwen3.5-0.8B", "gated": False, "safetensors": True},
+    "qwen3.5-0.8b-base": {
+        "hf_id": "Qwen/Qwen3.5-0.8B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3.5-2b": {"hf_id": "Qwen/Qwen3.5-2B", "gated": False, "safetensors": True},
+    "qwen3.5-2b-base": {
+        "hf_id": "Qwen/Qwen3.5-2B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3.5-4b": {"hf_id": "Qwen/Qwen3.5-4B", "gated": False, "safetensors": True},
+    "qwen3.5-4b-base": {
+        "hf_id": "Qwen/Qwen3.5-4B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3.5-9b": {"hf_id": "Qwen/Qwen3.5-9B", "gated": False, "safetensors": True},
+    "qwen3.5-9b-base": {
+        "hf_id": "Qwen/Qwen3.5-9B-Base",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen3.5-27b": {"hf_id": "Qwen/Qwen3.5-27B", "gated": False, "safetensors": True},
 }

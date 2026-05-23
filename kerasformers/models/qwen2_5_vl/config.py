@@ -1,10 +1,3 @@
-# Qwen2.5-VL — successor to Qwen2-VL. Same Qwen2 text decoder, but the vision
-# tower switches to RMSNorm + SwiGLU MLP and uses windowed attention (full
-# attention only at `fullatt_block_indexes`). Loaded on the fly from HF
-# (no kerasformers release uploads):
-#
-#     Qwen2_5_VLModel.from_weights("hf:Qwen/Qwen2.5-VL-3B-Instruct")
-
 QWEN2_5_VL_CONFIG = {
     "qwen2.5-vl-3b-instruct": {
         "vocab_size": 151936,
@@ -50,6 +43,28 @@ QWEN2_5_VL_CONFIG = {
         "spatial_merge_size": 2,
         "temporal_patch_size": 2,
     },
+    "qwen2.5-vl-32b-instruct": {
+        "vocab_size": 152064,
+        "hidden_size": 5120,
+        "intermediate_size": 27648,
+        "num_hidden_layers": 64,
+        "num_attention_heads": 40,
+        "num_key_value_heads": 8,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "mrope_section": (16, 24, 24),
+        "tie_word_embeddings": False,
+        "vision_depth": 32,
+        "vision_hidden_size": 1280,
+        "vision_intermediate_size": 3456,
+        "vision_num_heads": 16,
+        "vision_out_hidden_size": 5120,
+        "window_size": 112,
+        "fullatt_block_indexes": (7, 15, 23, 31),
+        "patch_size": 14,
+        "spatial_merge_size": 2,
+        "temporal_patch_size": 2,
+    },
     "qwen2.5-vl-72b-instruct": {
         "vocab_size": 152064,
         "hidden_size": 8192,
@@ -79,4 +94,27 @@ QWEN2_5_VL_TOKENS = {
     "video_token_id": 151656,
     "vision_start_token_id": 151652,
     "vision_end_token_id": 151653,
+}
+
+QWEN2_5_VL_WEIGHTS = {
+    "qwen2.5-vl-3b-instruct": {
+        "hf_id": "Qwen/Qwen2.5-VL-3B-Instruct",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen2.5-vl-7b-instruct": {
+        "hf_id": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen2.5-vl-32b-instruct": {
+        "hf_id": "Qwen/Qwen2.5-VL-32B-Instruct",
+        "gated": False,
+        "safetensors": True,
+    },
+    "qwen2.5-vl-72b-instruct": {
+        "hf_id": "Qwen/Qwen2.5-VL-72B-Instruct",
+        "gated": False,
+        "safetensors": True,
+    },
 }
