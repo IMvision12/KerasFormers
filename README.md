@@ -140,6 +140,16 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
 <br>
 
+- Multimodal LLMs (image + text → text)
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | Qwen2-VL | [Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution](https://arxiv.org/abs/2409.12191) | on-the-fly `hf:` |
+    | Qwen2.5-VL | [Qwen2.5-VL Technical Report](https://arxiv.org/abs/2502.13923) | on-the-fly `hf:` |
+    | Qwen3-VL | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+
+<br>
+
 ## 📜 License
 
 This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses) and [transformers](https://github.com/huggingface/transformers#license) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.

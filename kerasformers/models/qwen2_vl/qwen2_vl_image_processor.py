@@ -1,0 +1,105 @@
+"""Pure-Python Qwen2-VL image processor (image -> flattened patches + grid).
+
+Mirrors HF ``Qwen2VLImageProcessor``: smart-resize each image so both sides are
+multiples of ``patch_size * spatial_merge_size`` and the pixel count stays in
+``[min_pixels, max_pixels]``, CLIP-normalize, repeat the single frame to fill
+``temporal_patch_size``, then reshape into the ``(num_patches, patch_dim)``
+layout the model's Conv3d-as-Dense patch embed expects, with a matching
+``image_grid_thw``.
+
+Resampling uses PIL bicubic; HF uses torchvision bicubic, so pixel values match
+to a small tolerance (immaterial for generation). The grid + patch layout match
+exactly.
+"""
+
+import math
+
+import numpy as np
+
+# OpenAI CLIP normalization constants (what Qwen2-VL uses).
+OPENAI_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
+OPENAI_CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
+
+
+def smart_resize(height, width, factor, min_pixels, max_pixels):
+    """Round (h, w) to multiples of ``factor`` keeping pixels in range + aspect."""
+    if max(height, width) / min(height, width) > 200:
+        raise ValueError("absolute aspect ratio must be smaller than 200")
+    h_bar = round(height / factor) * factor
+    w_bar = round(width / factor) * factor
+    if h_bar * w_bar > max_pixels:
+        beta = math.sqrt((height * width) / max_pixels)
+        h_bar = max(factor, math.floor(height / beta / factor) * factor)
+        w_bar = max(factor, math.floor(width / beta / factor) * factor)
+    elif h_bar * w_bar < min_pixels:
+        beta = math.sqrt(min_pixels / (height * width))
+        h_bar = math.ceil(height * beta / factor) * factor
+        w_bar = math.ceil(width * beta / factor) * factor
+    return h_bar, w_bar
+
+
+class Qwen2VLImageProcessor:
+    """Turn PIL/array images into ``{"pixel_values", "image_grid_thw"}``."""
+
+    def __init__(
+        self,
+        patch_size=14,
+        spatial_merge_size=2,
+        temporal_patch_size=2,
+        min_pixels=56 * 56,
+        max_pixels=28 * 28 * 1280,
+        image_mean=OPENAI_CLIP_MEAN,
+        image_std=OPENAI_CLIP_STD,
+    ):
+        self.patch_size = patch_size
+        self.spatial_merge_size = spatial_merge_size
+        self.temporal_patch_size = temporal_patch_size
+        self.min_pixels = min_pixels
+        self.max_pixels = max_pixels
+        self.image_mean = np.array(image_mean, dtype="float32")
+        self.image_std = np.array(image_std, dtype="float32")
+
+    def _to_rgb_array(self, image):
+        from PIL import Image
+
+        if not isinstance(image, Image.Image):
+            image = Image.fromarray(np.asarray(image).astype("uint8"))
+        return image.convert("RGB")
+
+    def _preprocess_one(self, image):
+        from PIL import Image
+
+        img = self._to_rgb_array(image)
+        w, h = img.size
+        factor = self.patch_size * self.spatial_merge_size
+        rh, rw = smart_resize(h, w, factor, self.min_pixels, self.max_pixels)
+        img = img.resize((rw, rh), resample=Image.BICUBIC)
+
+        x = np.asarray(img, dtype="float32") / 255.0  # (rh, rw, 3)
+        x = (x - self.image_mean) / self.image_std
+        x = np.transpose(x, (2, 0, 1))  # (3, rh, rw)
+
+        t = self.temporal_patch_size
+        m = self.spatial_merge_size
+        p = self.patch_size
+        frames = np.stack([x] * t, axis=0)  # (t, 3, rh, rw)
+        grid_t, grid_h, grid_w = 1, rh // p, rw // p
+
+        patches = frames.reshape(grid_t, t, 3, grid_h // m, m, p, grid_w // m, m, p)
+        # (grid_t, gh/m, gw/m, m_h, m_w, channel, temporal, patch_h, patch_w)
+        patches = patches.transpose(0, 3, 6, 4, 7, 2, 1, 5, 8)
+        flat = patches.reshape(grid_t * grid_h * grid_w, 3 * t * p * p)
+        return flat.astype("float32"), [grid_t, grid_h, grid_w]
+
+    def __call__(self, images):
+        if not isinstance(images, (list, tuple)):
+            images = [images]
+        all_patches, grids = [], []
+        for image in images:
+            flat, grid = self._preprocess_one(image)
+            all_patches.append(flat)
+            grids.append(grid)
+        return {
+            "pixel_values": np.concatenate(all_patches, axis=0),
+            "image_grid_thw": np.array(grids, dtype="int64"),
+        }

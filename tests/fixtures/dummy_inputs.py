@@ -1,4 +1,27 @@
+import numpy as np
 from keras import ops
+
+
+def qwen_vl_input(
+    batch_size=2, grid=(1, 4, 4), patch_dim=1176, image_token_id=4, merge=2
+):
+    """Multimodal input for the Qwen-VL models: pre-patchified image patches +
+    input_ids with the right number of image-placeholder tokens per row."""
+    t, gh, gw = grid
+    n_patches = t * gh * gw
+    n_merged = t * (gh // merge) * (gw // merge)
+    seq = n_merged + 2
+    ids = np.zeros((batch_size, seq), dtype="int32")
+    ids[:, 0] = 10
+    ids[:, 1 : 1 + n_merged] = image_token_id
+    ids[:, -1] = 11
+    return {
+        "input_ids": ops.convert_to_tensor(ids),
+        "pixel_values": ops.ones((batch_size * n_patches, patch_dim)),
+        "image_grid_thw": ops.convert_to_tensor(
+            np.tile(np.array(grid, dtype="int32"), (batch_size, 1))
+        ),
+    }
 
 
 def backbone_input(batch_size=2, spatial=32, channels=3):

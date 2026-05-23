@@ -1,0 +1,82 @@
+# Qwen2.5-VL — successor to Qwen2-VL. Same Qwen2 text decoder, but the vision
+# tower switches to RMSNorm + SwiGLU MLP and uses windowed attention (full
+# attention only at `fullatt_block_indexes`). Loaded on the fly from HF
+# (no kerasformers release uploads):
+#
+#     Qwen2_5_VLModel.from_weights("hf:Qwen/Qwen2.5-VL-3B-Instruct")
+
+QWEN2_5_VL_CONFIG = {
+    "qwen2.5-vl-3b-instruct": {
+        "vocab_size": 151936,
+        "hidden_size": 2048,
+        "intermediate_size": 11008,
+        "num_hidden_layers": 36,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 2,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "mrope_section": (16, 24, 24),
+        "tie_word_embeddings": True,
+        "vision_depth": 32,
+        "vision_hidden_size": 1280,
+        "vision_intermediate_size": 3420,
+        "vision_num_heads": 16,
+        "vision_out_hidden_size": 2048,
+        "window_size": 112,
+        "fullatt_block_indexes": (7, 15, 23, 31),
+        "patch_size": 14,
+        "spatial_merge_size": 2,
+        "temporal_patch_size": 2,
+    },
+    "qwen2.5-vl-7b-instruct": {
+        "vocab_size": 152064,
+        "hidden_size": 3584,
+        "intermediate_size": 18944,
+        "num_hidden_layers": 28,
+        "num_attention_heads": 28,
+        "num_key_value_heads": 4,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "mrope_section": (16, 24, 24),
+        "tie_word_embeddings": False,
+        "vision_depth": 32,
+        "vision_hidden_size": 1280,
+        "vision_intermediate_size": 3420,
+        "vision_num_heads": 16,
+        "vision_out_hidden_size": 3584,
+        "window_size": 112,
+        "fullatt_block_indexes": (7, 15, 23, 31),
+        "patch_size": 14,
+        "spatial_merge_size": 2,
+        "temporal_patch_size": 2,
+    },
+    "qwen2.5-vl-72b-instruct": {
+        "vocab_size": 152064,
+        "hidden_size": 8192,
+        "intermediate_size": 29568,
+        "num_hidden_layers": 80,
+        "num_attention_heads": 64,
+        "num_key_value_heads": 8,
+        "rms_norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "mrope_section": (16, 24, 24),
+        "tie_word_embeddings": False,
+        "vision_depth": 32,
+        "vision_hidden_size": 1280,
+        "vision_intermediate_size": 3456,
+        "vision_num_heads": 16,
+        "vision_out_hidden_size": 8192,
+        "window_size": 112,
+        "fullatt_block_indexes": (7, 15, 23, 31),
+        "patch_size": 14,
+        "spatial_merge_size": 2,
+        "temporal_patch_size": 2,
+    },
+}
+
+QWEN2_5_VL_TOKENS = {
+    "image_token_id": 151655,
+    "video_token_id": 151656,
+    "vision_start_token_id": 151652,
+    "vision_end_token_id": 151653,
+}
