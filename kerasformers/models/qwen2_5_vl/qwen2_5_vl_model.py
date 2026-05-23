@@ -12,20 +12,21 @@ import keras
 import numpy as np
 from keras import layers, ops
 
-from kerasformers.models.qwen2_vl.qwen2_vl_layers import (
-    Qwen2VLPatchEmbed,
-    Qwen2VLPatchMerger,
-)
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     _MASK_NEG,
     Qwen2VLModel,
-    Qwen2VLTextModel,
     _QwenVLGenerateMixin,
     vision_rotary_cos_sin,
 )
 
 from .config import QWEN2_5_VL_CONFIG, QWEN2_5_VL_TOKENS
-from .qwen2_5_vl_layers import Qwen2_5_VLVisionBlock
+from .qwen2_5_vl_layers import (
+    Qwen2_5_VisionPatchEmbed,
+    Qwen2_5_VLDecoderLayer,
+    Qwen2_5_VLPatchMerger,
+    Qwen2_5_VLRMSNorm,
+    Qwen2_5_VLVisionBlock,
+)
 
 
 def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):
@@ -108,18 +109,17 @@ class Qwen2_5_VLVisionModel(layers.Layer):
         self.head_dim = embed_dim // num_heads
         self.merge_unit = spatial_merge_size * spatial_merge_size
 
-        self.patch_embed = Qwen2VLPatchEmbed(embed_dim, name="patch_embed")
+        self.patch_embed = Qwen2_5_VisionPatchEmbed(embed_dim, name="patch_embed")
         self.blocks = [
             Qwen2_5_VLVisionBlock(
                 embed_dim, num_heads, intermediate_size, name=f"blocks_{i}"
             )
             for i in range(depth)
         ]
-        self.merger = Qwen2VLPatchMerger(
+        self.merger = Qwen2_5_VLPatchMerger(
             out_hidden_size,
             embed_dim,
             spatial_merge_size,
-            use_rmsnorm=True,
             name="merger",
         )
 
@@ -175,6 +175,94 @@ class Qwen2_5_VLVisionModel(layers.Layer):
                 "fullatt_block_indexes": self.fullatt_block_indexes,
                 "patch_size": self.patch_size,
                 "spatial_merge_size": self.spatial_merge_size,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2_5_VLTextModel(layers.Layer):
+    """Qwen2.5 causal decoder (same as Qwen2): embed -> N blocks -> RMSNorm."""
+
+    def __init__(
+        self,
+        vocab_size,
+        hidden_size,
+        intermediate_size,
+        num_hidden_layers,
+        num_attention_heads,
+        num_key_value_heads,
+        head_dim=None,
+        rms_norm_eps=1e-6,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        self.intermediate_size = intermediate_size
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
+        self.num_key_value_heads = num_key_value_heads
+        self.head_dim = head_dim or hidden_size // num_attention_heads
+        self.rms_norm_eps = rms_norm_eps
+        self.embed_tokens = layers.Embedding(
+            vocab_size, hidden_size, name="embed_tokens"
+        )
+        self.decoder_layers = [
+            Qwen2_5_VLDecoderLayer(
+                hidden_size,
+                intermediate_size,
+                num_attention_heads,
+                num_key_value_heads,
+                head_dim=self.head_dim,
+                rms_norm_eps=rms_norm_eps,
+                name=f"layers_{i}",
+            )
+            for i in range(num_hidden_layers)
+        ]
+        self.norm = Qwen2_5_VLRMSNorm(eps=rms_norm_eps, name="norm")
+
+    def call(
+        self,
+        inputs_embeds,
+        cos,
+        sin,
+        attention_mask=None,
+        past_key_values=None,
+        use_cache=False,
+    ):
+        hidden = inputs_embeds
+        new_cache = [] if use_cache else None
+        for i, layer in enumerate(self.decoder_layers):
+            past = past_key_values[i] if past_key_values is not None else None
+            out = layer(
+                hidden,
+                cos,
+                sin,
+                attention_mask=attention_mask,
+                past_key_value=past,
+                use_cache=use_cache,
+            )
+            if use_cache:
+                hidden, kv = out
+                new_cache.append(kv)
+            else:
+                hidden = out
+        hidden = self.norm(hidden)
+        return (hidden, new_cache) if use_cache else hidden
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "hidden_size": self.hidden_size,
+                "intermediate_size": self.intermediate_size,
+                "num_hidden_layers": self.num_hidden_layers,
+                "num_attention_heads": self.num_attention_heads,
+                "num_key_value_heads": self.num_key_value_heads,
+                "head_dim": self.head_dim,
+                "rms_norm_eps": self.rms_norm_eps,
             }
         )
         return config
@@ -263,7 +351,7 @@ class Qwen2_5_VLModel(Qwen2VLModel):
             spatial_merge_size=spatial_merge_size,
             name="visual",
         )
-        self.language_model = Qwen2VLTextModel(
+        self.language_model = Qwen2_5_VLTextModel(
             vocab_size=vocab_size,
             hidden_size=hidden_size,
             intermediate_size=intermediate_size,

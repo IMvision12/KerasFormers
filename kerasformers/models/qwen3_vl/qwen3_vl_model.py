@@ -13,10 +13,6 @@ import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
-from kerasformers.models.qwen2_vl.qwen2_vl_layers import (
-    Qwen2VLPatchEmbed,
-    Qwen2VLRMSNorm,
-)
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     _MASK_NEG,
     Qwen2VLModel,
@@ -26,8 +22,10 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
 
 from .config import QWEN3_VL_CONFIG, QWEN3_VL_TOKENS
 from .qwen3_vl_layers import (
+    Qwen3VLRMSNorm,
     Qwen3VLTextDecoderLayer,
     Qwen3VLVisionBlock,
+    Qwen3VLVisionPatchEmbed,
     Qwen3VLVisionPatchMerger,
 )
 
@@ -86,9 +84,7 @@ class Qwen3VLVisionModel(layers.Layer):
         self.merge_unit = spatial_merge_size * spatial_merge_size
         self.num_grid_per_side = int(round(num_position_embeddings**0.5))
 
-        self.patch_embed = Qwen2VLPatchEmbed(
-            embed_dim, use_bias=True, name="patch_embed"
-        )
+        self.patch_embed = Qwen3VLVisionPatchEmbed(embed_dim, name="patch_embed")
         self.blocks = [
             Qwen3VLVisionBlock(
                 embed_dim, num_heads, intermediate_size, name=f"blocks_{i}"
@@ -255,7 +251,7 @@ class Qwen3VLTextModel(layers.Layer):
             )
             for i in range(num_hidden_layers)
         ]
-        self.norm = Qwen2VLRMSNorm(eps=rms_norm_eps, name="norm")
+        self.norm = Qwen3VLRMSNorm(eps=rms_norm_eps, name="norm")
 
     def call(
         self,
