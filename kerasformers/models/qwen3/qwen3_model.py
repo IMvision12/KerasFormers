@@ -1,0 +1,248 @@
+"""Qwen3 dense LLM in pure Keras 3 (self-contained).
+
+``Qwen3Model`` returns features (``last_hidden_state``); ``Qwen3Generate`` adds
+the LM head + greedy ``.generate()``.
+
+    gen = Qwen3Generate.from_weights("hf:Qwen/Qwen3-0.6B")
+"""
+
+import keras
+import numpy as np
+from keras import layers, ops
+
+from kerasformers.base import BaseModel
+
+from .config import QWEN3_CONFIG
+from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm, rope_cos_sin
+
+_MASK_NEG = -1e9
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen3Model(BaseModel):
+    """Qwen3 decoder: embed_tokens -> N QK-norm decoder layers -> RMSNorm."""
+
+    HF_MODEL_TYPE = "qwen3"
+    BASE_MODEL_CONFIG = QWEN3_CONFIG
+    BASE_WEIGHT_CONFIG = None
+
+    def __init__(
+        self,
+        vocab_size=151936,
+        hidden_size=1024,
+        intermediate_size=3072,
+        num_hidden_layers=28,
+        num_attention_heads=16,
+        num_key_value_heads=8,
+        head_dim=128,
+        rms_norm_eps=1e-6,
+        rope_theta=1000000.0,
+        tie_word_embeddings=True,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        self.intermediate_size = intermediate_size
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
+        self.num_key_value_heads = num_key_value_heads
+        self.head_dim = head_dim or hidden_size // num_attention_heads
+        self.rms_norm_eps = rms_norm_eps
+        self.rope_theta = rope_theta
+        self.tie_word_embeddings = tie_word_embeddings
+
+        self.embed_tokens = layers.Embedding(
+            vocab_size, hidden_size, name="embed_tokens"
+        )
+        self.decoder_layers = [
+            Qwen3DecoderLayer(
+                hidden_size,
+                intermediate_size,
+                num_attention_heads,
+                num_key_value_heads,
+                self.head_dim,
+                rms_norm_eps,
+                name=f"layers_{i}",
+            )
+            for i in range(num_hidden_layers)
+        ]
+        self.norm = Qwen3RMSNorm(eps=rms_norm_eps, name="norm")
+
+    def _causal_mask(self, q_len, kv_len, offset):
+        qi = np.arange(q_len)[:, None] + offset
+        ki = np.arange(kv_len)[None, :]
+        mask = np.where(ki <= qi, 0.0, _MASK_NEG).astype("float32")
+        return ops.convert_to_tensor(mask[None, None])
+
+    def _positions(self, attention_mask, batch, seq):
+        if attention_mask is not None:
+            am = np.asarray(ops.convert_to_numpy(attention_mask))
+            pos = np.cumsum(am, axis=-1) - 1
+            return np.where(am == 0, 1, pos).astype("int64")
+        return np.broadcast_to(np.arange(seq), (batch, seq)).astype("int64")
+
+    def _run_decoder(
+        self,
+        inputs_embeds,
+        cos,
+        sin,
+        attention_mask,
+        past_key_values=None,
+        use_cache=False,
+    ):
+        hidden = inputs_embeds
+        new_cache = [] if use_cache else None
+        for i, layer in enumerate(self.decoder_layers):
+            past = past_key_values[i] if past_key_values is not None else None
+            out = layer(
+                hidden,
+                cos,
+                sin,
+                attention_mask=attention_mask,
+                past_key_value=past,
+                use_cache=use_cache,
+            )
+            if use_cache:
+                hidden, kv = out
+                new_cache.append(kv)
+            else:
+                hidden = out
+        hidden = self.norm(hidden)
+        return (hidden, new_cache) if use_cache else hidden
+
+    def _forward_features(self, inputs):
+        if not isinstance(inputs, dict):
+            inputs = {"input_ids": inputs}
+        input_ids_np = np.asarray(ops.convert_to_numpy(inputs["input_ids"])).astype(
+            "int64"
+        )
+        batch, seq = input_ids_np.shape
+        inputs_embeds = self.embed_tokens(ops.convert_to_tensor(input_ids_np))
+        position_ids = self._positions(inputs.get("attention_mask"), batch, seq)
+        cos, sin = rope_cos_sin(position_ids, self.head_dim, self.rope_theta)
+        cos, sin = ops.convert_to_tensor(cos), ops.convert_to_tensor(sin)
+        attn_mask = self._causal_mask(seq, seq, offset=0)
+        return self._run_decoder(inputs_embeds, cos, sin, attn_mask)
+
+    def call(self, inputs):
+        """Return raw features. Use ``Qwen3Generate`` for logits / text."""
+        return {"last_hidden_state": self._forward_features(inputs)}
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "vocab_size": hf_config["vocab_size"],
+            "hidden_size": hf_config["hidden_size"],
+            "intermediate_size": hf_config["intermediate_size"],
+            "num_hidden_layers": hf_config["num_hidden_layers"],
+            "num_attention_heads": hf_config["num_attention_heads"],
+            "num_key_value_heads": hf_config["num_key_value_heads"],
+            "head_dim": hf_config.get("head_dim"),
+            "rms_norm_eps": hf_config.get("rms_norm_eps", 1e-6),
+            "rope_theta": hf_config.get("rope_theta", 1000000.0),
+            "tie_word_embeddings": hf_config.get("tie_word_embeddings", True),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_qwen3_hf_to_keras import transfer_qwen3_weights
+
+        transfer_qwen3_weights(keras_model, hf_state_dict)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "hidden_size": self.hidden_size,
+                "intermediate_size": self.intermediate_size,
+                "num_hidden_layers": self.num_hidden_layers,
+                "num_attention_heads": self.num_attention_heads,
+                "num_key_value_heads": self.num_key_value_heads,
+                "head_dim": self.head_dim,
+                "rms_norm_eps": self.rms_norm_eps,
+                "rope_theta": self.rope_theta,
+                "tie_word_embeddings": self.tie_word_embeddings,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen3Generate(Qwen3Model):
+    """Qwen3 with an LM head + greedy ``.generate()`` (text -> text)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lm_head = (
+            None
+            if self.tie_word_embeddings
+            else layers.Dense(self.vocab_size, use_bias=False, name="lm_head")
+        )
+
+    def _lm_logits(self, hidden):
+        if getattr(self, "lm_head", None) is not None:
+            return self.lm_head(hidden)
+        return ops.matmul(hidden, ops.transpose(self.embed_tokens.embeddings))
+
+    def call(self, inputs):
+        hidden = self._forward_features(inputs)
+        return {"logits": self._lm_logits(hidden), "last_hidden_state": hidden}
+
+    def generate(
+        self, input_ids, attention_mask=None, max_new_tokens=128, eos_token_id=(151645,)
+    ):
+        """Greedy decoding with a KV cache. Returns ``(batch, num_new)`` ids."""
+        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
+        batch, prompt_len = input_ids_np.shape
+        inputs_embeds = self.embed_tokens(ops.convert_to_tensor(input_ids_np))
+        position_ids = self._positions(attention_mask, batch, prompt_len)
+        cos, sin = rope_cos_sin(position_ids, self.head_dim, self.rope_theta)
+        hidden, cache = self._run_decoder(
+            inputs_embeds,
+            ops.convert_to_tensor(cos),
+            ops.convert_to_tensor(sin),
+            self._causal_mask(prompt_len, prompt_len, offset=0),
+            use_cache=True,
+        )
+        next_tok = np.asarray(
+            ops.convert_to_numpy(
+                ops.argmax(self._lm_logits(hidden[:, -1:, :]), axis=-1)
+            )
+        ).astype("int64")
+
+        eos = {
+            int(e)
+            for e in (
+                eos_token_id
+                if isinstance(eos_token_id, (list, tuple))
+                else [eos_token_id]
+            )
+        }
+        first_eos = next(iter(eos)) if eos else 0
+        finished = np.isin(next_tok[:, 0], list(eos))
+        generated = [next_tok]
+        cur_len = prompt_len
+        for _ in range(max_new_tokens - 1):
+            if finished.all():
+                break
+            pos = np.full((batch, 1), cur_len, dtype="int64")
+            c, s = rope_cos_sin(pos, self.head_dim, self.rope_theta)
+            step = self.embed_tokens(ops.convert_to_tensor(next_tok))
+            hidden, cache = self._run_decoder(
+                step,
+                ops.convert_to_tensor(c),
+                ops.convert_to_tensor(s),
+                None,
+                past_key_values=cache,
+                use_cache=True,
+            )
+            next_tok = np.asarray(
+                ops.convert_to_numpy(ops.argmax(self._lm_logits(hidden), axis=-1))
+            ).astype("int64")
+            next_tok[finished, 0] = first_eos
+            generated.append(next_tok)
+            cur_len += 1
+            finished = finished | np.isin(next_tok[:, 0], list(eos))
+        return np.concatenate(generated, axis=1)

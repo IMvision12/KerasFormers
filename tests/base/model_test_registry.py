@@ -1484,6 +1484,65 @@ MODEL_TEST_CONFIGS = {
         },
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
+    # ---- Text LLMs (Qwen): XModel -> features, XGenerate -> logits ----
+    "Qwen2Model": {
+        "module": "kerasformers.models.qwen2",
+        "model_cls": "Qwen2Model",
+        "model_type": "llm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "hidden_size": 64,
+            "intermediate_size": 128,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 2,
+            "head_dim": 16,
+            "tie_word_embeddings": True,
+        },
+        "input_factory": "qwen_text_input",
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
+    "Qwen3Model": {
+        "module": "kerasformers.models.qwen3",
+        "model_cls": "Qwen3Model",
+        "model_type": "llm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "hidden_size": 64,
+            "intermediate_size": 128,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 2,
+            "head_dim": 16,
+            "tie_word_embeddings": True,
+        },
+        "input_factory": "qwen_text_input",
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
+    "Qwen3_5Model": {
+        "module": "kerasformers.models.qwen3_5",
+        "model_cls": "Qwen3_5Model",
+        "model_type": "llm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "hidden_size": 64,
+            "intermediate_size": 128,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 2,
+            "head_dim": 16,
+            "partial_rotary_factor": 0.5,
+            "tie_word_embeddings": True,
+            "full_attention_interval": 2,
+            "linear_conv_kernel_dim": 4,
+            "linear_key_head_dim": 8,
+            "linear_value_head_dim": 8,
+            "linear_num_key_heads": 2,
+            "linear_num_value_heads": 2,
+        },
+        "input_factory": "qwen_text_input",
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
 }
 
 
@@ -1491,6 +1550,15 @@ MODEL_TEST_CONFIGS = {
 # add an LM head, so derive their test entries (logits output) from the bases.
 for _base in ("Qwen2VLModel", "Qwen2_5_VLModel", "Qwen3VLModel"):
     _gen = _base.replace("VLModel", "VLGenerate")
+    _entry = dict(MODEL_TEST_CONFIGS[_base])
+    _entry["model_cls"] = _gen
+    _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
+    MODEL_TEST_CONFIGS[_gen] = _entry
+
+
+# Same for the text `*Generate` classes (Qwen2/Qwen3/Qwen3.5).
+for _base in ("Qwen2Model", "Qwen3Model", "Qwen3_5Model"):
+    _gen = _base.replace("Model", "Generate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])
     _entry["model_cls"] = _gen
     _entry["expected_output_shape"] = {"logits": (2, 6, 128)}

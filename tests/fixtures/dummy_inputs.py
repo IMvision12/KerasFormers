@@ -24,6 +24,12 @@ def qwen_vl_input(
     }
 
 
+def qwen_text_input(batch_size=2, seq_len=6, vocab_size=128):
+    """Token-id input for the pure-text Qwen LLMs (Qwen2 / Qwen3 / Qwen3.5)."""
+    ids = np.tile(np.arange(seq_len, dtype="int32") % vocab_size, (batch_size, 1))
+    return {"input_ids": ops.convert_to_tensor(ids)}
+
+
 def backbone_input(batch_size=2, spatial=32, channels=3):
     return ops.ones((batch_size, spatial, spatial, channels))
 

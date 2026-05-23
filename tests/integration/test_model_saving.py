@@ -21,6 +21,12 @@ SKIP_SAVING = {
     "Qwen2VLGenerate",
     "Qwen2_5_VLGenerate",
     "Qwen3VLGenerate",
+    "Qwen2Model",
+    "Qwen3Model",
+    "Qwen3_5Model",
+    "Qwen2Generate",
+    "Qwen3Generate",
+    "Qwen3_5Generate",
 }
 
 
