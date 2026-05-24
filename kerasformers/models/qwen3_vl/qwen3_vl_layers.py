@@ -2,17 +2,6 @@ import keras
 from keras import layers, ops
 
 
-def rotate_half(x):
-    """Rotate the last dim by halves: ``[-x2, x1]`` (Llama/RoPE convention)."""
-    half = x.shape[-1] // 2
-    return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
-
-
-def apply_rotary(t, cos, sin):
-    """Standard rotary application ``t * cos + rotate_half(t) * sin``."""
-    return (t * cos) + (rotate_half(t) * sin)
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLRMSNorm(layers.Layer):
     """RMSNorm: normalize by RMS in float32, then scale."""
@@ -127,8 +116,9 @@ class Qwen3VLTextAttention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        q = apply_rotary(q, cos, sin)
-        k = apply_rotary(k, cos, sin)
+        half = self.head_dim // 2
+        q = q * cos + (ops.concatenate([-q[..., half:], q[..., :half]], axis=-1) * sin)
+        k = k * cos + (ops.concatenate([-k[..., half:], k[..., :half]], axis=-1) * sin)
 
         if past_key_value is not None:
             past_k, past_v = past_key_value
@@ -283,8 +273,13 @@ class Qwen3VLVisionAttention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        query = apply_rotary(query, cos, sin)
-        key = apply_rotary(key, cos, sin)
+        half = self.head_dim // 2
+        query = query * cos + (
+            ops.concatenate([-query[..., half:], query[..., :half]], axis=-1) * sin
+        )
+        key = key * cos + (
+            ops.concatenate([-key[..., half:], key[..., :half]], axis=-1) * sin
+        )
 
         query = ops.expand_dims(ops.transpose(query, (1, 0, 2)), axis=0)
         key = ops.expand_dims(ops.transpose(key, (1, 0, 2)), axis=0)

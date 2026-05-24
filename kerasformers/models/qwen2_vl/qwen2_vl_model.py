@@ -1,7 +1,6 @@
 import itertools
 
 import keras
-import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
@@ -32,30 +31,37 @@ def vision_rotary_cos_sin(grid_thw, head_dim, spatial_merge_size, theta=10000.0)
         theta: rotary base.
 
     Returns:
-        ``(cos, sin)`` numpy arrays, each ``(total_patches, head_dim)``.
+        ``(cos, sin)`` tensors, each ``(total_patches, head_dim)``.
     """
     m = spatial_merge_size
     rotary_dim = head_dim // 2
-    inv_freq = 1.0 / (
-        theta ** (np.arange(0, rotary_dim, 2, dtype=np.float32) / rotary_dim)
+    grid_rows = [
+        tuple(int(v) for v in row)
+        for row in ops.convert_to_numpy(ops.convert_to_tensor(grid_thw))
+    ]
+    inv_freq = 1.0 / ops.power(
+        theta, ops.arange(0, rotary_dim, 2, dtype="float32") / rotary_dim
     )
-    pos_ids = []
-    for t, h, w in grid_thw:
-        t, h, w = int(t), int(h), int(w)
-        hpos = np.broadcast_to(np.arange(h)[:, None], (h, w))
-        hpos = hpos.reshape(h // m, m, w // m, m).transpose(0, 2, 1, 3).flatten()
-        wpos = np.broadcast_to(np.arange(w)[None, :], (h, w))
-        wpos = wpos.reshape(h // m, m, w // m, m).transpose(0, 2, 1, 3).flatten()
-        pos_ids.append(np.tile(np.stack([hpos, wpos], axis=-1), (t, 1)))
-    pos_ids = np.concatenate(pos_ids, axis=0)
-
-    max_grid = int(max(int(h) for _, h, w in grid_thw) | 0)
-    max_grid = max(int(max(h, w)) for _, h, w in grid_thw)
-    seq = np.arange(max_grid, dtype=np.float32)
-    freqs_full = np.outer(seq, inv_freq)
-    rotary = freqs_full[pos_ids].reshape(pos_ids.shape[0], -1)
-    emb = np.concatenate([rotary, rotary], axis=-1)
-    return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
+    pieces = []
+    for t, h, w in grid_rows:
+        hpos = ops.broadcast_to(ops.arange(h)[:, None], (h, w))
+        hpos = ops.reshape(
+            ops.transpose(ops.reshape(hpos, (h // m, m, w // m, m)), (0, 2, 1, 3)),
+            (-1,),
+        )
+        wpos = ops.broadcast_to(ops.arange(w)[None, :], (h, w))
+        wpos = ops.reshape(
+            ops.transpose(ops.reshape(wpos, (h // m, m, w // m, m)), (0, 2, 1, 3)),
+            (-1,),
+        )
+        pieces.append(ops.tile(ops.stack([hpos, wpos], axis=-1), [t, 1]))
+    pos_ids = ops.concatenate(pieces, axis=0)
+    total = sum(t * h * w for t, h, w in grid_rows)
+    max_grid = max(max(h, w) for _, h, w in grid_rows)
+    freqs = ops.arange(max_grid, dtype="float32")[:, None] * inv_freq
+    rotary = ops.reshape(ops.take(freqs, pos_ids, axis=0), (total, -1))
+    emb = ops.concatenate([rotary, rotary], axis=-1)
+    return ops.cos(emb), ops.sin(emb)
 
 
 def vision_block_mask(grid_thw):
@@ -64,29 +70,37 @@ def vision_block_mask(grid_thw):
     Returns ``None`` when there's a single block (full attention), else a
     ``(1, 1, total, total)`` float mask (0 within an image, ``_MASK_NEG`` across).
     """
-    seqlens = [int(t) * int(h) * int(w) for t, h, w in grid_thw]
+    grid_rows = [
+        tuple(int(v) for v in row)
+        for row in ops.convert_to_numpy(ops.convert_to_tensor(grid_thw))
+    ]
+    seqlens = [t * h * w for t, h, w in grid_rows]
     if len(seqlens) <= 1:
         return None
-    seg = np.concatenate([np.full(n, i) for i, n in enumerate(seqlens)])
-    mask = np.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG).astype("float32")
-    return mask[None, None]
+    seg = ops.concatenate(
+        [ops.full((n,), i, dtype="int32") for i, n in enumerate(seqlens)], axis=0
+    )
+    mask = ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG)
+    return ops.cast(mask, "float32")[None, None]
 
 
 def text_rope_cos_sin(position_ids, head_dim, theta):
     """Per-axis rotary tables from 3D position ids.
 
     Args:
-        position_ids: ``(3, batch, seq)`` int array (temporal/height/width).
+        position_ids: ``(3, batch, seq)`` int tensor (temporal/height/width).
         head_dim: text attention head dim.
         theta: rotary base.
 
     Returns:
-        ``(cos, sin)`` numpy arrays, each ``(3, batch, seq, head_dim)``.
+        ``(cos, sin)`` tensors, each ``(3, batch, seq, head_dim)``.
     """
-    inv_freq = 1.0 / (theta ** (np.arange(0, head_dim, 2, dtype=np.float32) / head_dim))
-    freqs = position_ids.astype("float32")[..., None] * inv_freq
-    emb = np.concatenate([freqs, freqs], axis=-1)
-    return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
+    inv_freq = 1.0 / ops.power(
+        theta, ops.arange(0, head_dim, 2, dtype="float32") / head_dim
+    )
+    freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
+    emb = ops.concatenate([freqs, freqs], axis=-1)
+    return ops.cos(emb), ops.sin(emb)
 
 
 def merge_mrope(table, mrope_section):
@@ -96,8 +110,9 @@ def merge_mrope(table, mrope_section):
     keep the ``i % 3`` position axis. Returns ``(batch, seq, head_dim)``.
     """
     sections = list(mrope_section) * 2
-    splits = np.split(table, np.cumsum(sections)[:-1], axis=-1)
-    return np.concatenate([splits[i][i % 3] for i in range(len(splits))], axis=-1)
+    pts = list(itertools.accumulate(sections))[:-1]
+    splits = ops.split(table, pts, axis=-1)
+    return ops.concatenate([splits[i][i % 3] for i in range(len(splits))], axis=-1)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -141,12 +156,7 @@ class Qwen2VLVisionModel(layers.Layer):
         cos, sin = vision_rotary_cos_sin(
             grid_thw, self.head_dim, self.spatial_merge_size
         )
-        cos = ops.convert_to_tensor(cos)
-        sin = ops.convert_to_tensor(sin)
         mask = vision_block_mask(grid_thw)
-        if mask is not None:
-            mask = ops.convert_to_tensor(mask)
-
         hidden = self.patch_embed(pixel_values)
         for block in self.blocks:
             hidden = block(hidden, cos, sin, attention_mask=mask)
@@ -277,6 +287,9 @@ class Qwen2VLModel(BaseModel):
         out["logits"]  # (batch, seq, vocab_size)
 
     Text-only inputs (no ``pixel_values`` / ``image_grid_thw``) are supported.
+    The forward pass runs eagerly with ``keras.ops``; image features are
+    scattered into the ``image_token_id`` placeholder slots and 3D M-RoPE
+    positions come from :meth:`get_rope_index`.
     """
 
     HF_MODEL_TYPE = "qwen2_vl"
@@ -358,76 +371,98 @@ class Qwen2VLModel(BaseModel):
         )
 
     def get_rope_index(self, input_ids, image_grid_thw=None, attention_mask=None):
-        """3D position ids ``(3, batch, seq)`` and ``rope_deltas`` ``(batch,)``."""
         m = self.spatial_merge_size
-        input_ids = np.asarray(input_ids)
-        batch, seq = input_ids.shape
-        position_ids = np.zeros((3, batch, seq), dtype=np.int64)
+        ids_host = ops.convert_to_numpy(ops.convert_to_tensor(input_ids)).tolist()
+        batch, seq = len(ids_host), len(ids_host[0])
+        grid_rows = (
+            [
+                tuple(int(v) for v in row)
+                for row in ops.convert_to_numpy(ops.convert_to_tensor(image_grid_thw))
+            ]
+            if image_grid_thw is not None
+            else None
+        )
+        mask_host = (
+            ops.convert_to_numpy(ops.convert_to_tensor(attention_mask)).tolist()
+            if attention_mask is not None
+            else None
+        )
+        img_iter = iter(grid_rows) if grid_rows is not None else None
+        pos_rows = []
         rope_deltas = []
-        img_iter = iter(image_grid_thw) if image_grid_thw is not None else None
-
         for bi in range(batch):
-            ids = input_ids[bi]
+            ids = ids_host[bi]
             keep = (
-                np.asarray(attention_mask[bi]).astype(bool)
-                if attention_mask is not None
-                else np.ones(seq, dtype=bool)
+                [bool(v) for v in mask_host[bi]]
+                if mask_host is not None
+                else [True] * seq
             )
-            ids_kept = ids[keep]
-            ttype = np.where(ids_kept == self.image_token_id, 1, 0)
-            ttype = np.where(ids_kept == self.video_token_id, 2, ttype)
-
+            kept_idx = [j for j in range(seq) if keep[j]]
+            ids_kept = [ids[j] for j in kept_idx]
+            ttype = [
+                1
+                if v == self.image_token_id
+                else (2 if v == self.video_token_id else 0)
+                for v in ids_kept
+            ]
             cur = 0
             pieces = []
-            for key, group in itertools.groupby(
-                enumerate(ttype.tolist()), lambda x: x[1]
-            ):
+            for key, group in itertools.groupby(enumerate(ttype), lambda x: x[1]):
                 g = list(group)
                 start, end = g[0][0], g[-1][0] + 1
                 if key == 0:
                     length = end - start
                     pieces.append(
-                        np.broadcast_to(np.arange(length) + cur, (3, length)).copy()
+                        ops.broadcast_to(ops.arange(cur, cur + length), (3, length))
                     )
                     cur += length
                 else:
                     t, h, w = (int(v) for v in next(img_iter))
                     lt, lh, lw = t, h // m, w // m
                     n = lt * lh * lw
-                    wpos = np.tile(np.arange(cur, cur + lw), lh * lt)
-                    hpos = np.repeat(np.arange(cur, cur + lh), lw * lt)
-                    tpos = np.full(n, cur * self.tokens_per_second)
-                    pieces.append(np.stack([tpos, hpos, wpos], axis=0))
+                    wpos = ops.tile(ops.arange(cur, cur + lw), [lh * lt])
+                    hpos = ops.repeat(ops.arange(cur, cur + lh), lw * lt)
+                    tpos = ops.full((n,), cur * self.tokens_per_second, dtype="int32")
+                    pieces.append(ops.stack([tpos, hpos, wpos], axis=0))
                     cur += max(h, w) // m
-            llm_positions = np.concatenate(pieces, axis=1)
-            position_ids[:, bi, keep] = llm_positions
-            rope_deltas.append(int(llm_positions.max()) + 1 - int(ids_kept.shape[0]))
-        return position_ids, np.asarray(rope_deltas, dtype=np.int64)
+            llm_positions = ops.concatenate(pieces, axis=1)
+            if len(kept_idx) == seq:
+                pos_b = llm_positions
+            else:
+                scatter_idx = ops.reshape(
+                    ops.convert_to_tensor(kept_idx, dtype="int32"), (-1, 1)
+                )
+                pos_b = ops.stack(
+                    [
+                        ops.scatter(scatter_idx, llm_positions[r], (seq,))
+                        for r in range(3)
+                    ],
+                    axis=0,
+                )
+            rope_deltas.append(int(ops.max(llm_positions)) + 1 - len(ids_kept))
+            pos_rows.append(ops.cast(pos_b, "int32"))
+        position_ids = ops.stack(pos_rows, axis=1)
+        return position_ids, ops.convert_to_tensor(rope_deltas, dtype="int32")
 
     def embed_tokens(self, input_ids):
         return self.language_model.token_embedding(input_ids)
 
     def get_image_features(self, pixel_values, image_grid_thw):
-        """Run the vision tower -> merged image embeddings ``(n_tokens, hidden)``."""
         return self.visual(pixel_values, image_grid_thw)
 
     def _causal_mask(self, q_len, kv_len, offset):
-        """Additive causal mask ``(1, 1, q_len, kv_len)`` (query i sees key<=i+offset)."""
-        qi = np.arange(q_len)[:, None] + offset
-        ki = np.arange(kv_len)[None, :]
-        mask = np.where(ki <= qi, 0.0, _MASK_NEG).astype("float32")
-        return ops.convert_to_tensor(mask[None, None])
+        qi = ops.arange(q_len)[:, None] + offset
+        ki = ops.arange(kv_len)[None, :]
+        mask = ops.where(ki <= qi, 0.0, _MASK_NEG)
+        return ops.cast(mask, "float32")[None, None]
 
     def _forward_features(self, inputs):
-        """Run vision + fusion + decoder -> fused hidden state ``(B, L, hidden)``."""
         if not isinstance(inputs, dict):
             raise ValueError(f"{type(self).__name__} expects a dict of inputs.")
-        input_ids_np = np.asarray(ops.convert_to_numpy(inputs["input_ids"])).astype(
-            "int64"
-        )
-        seq = input_ids_np.shape[1]
+        input_ids = ops.cast(ops.convert_to_tensor(inputs["input_ids"]), "int32")
+        seq = int(input_ids.shape[1])
         inputs_embeds, position_ids, _, extra = self._prepare_inputs(
-            input_ids_np,
+            input_ids,
             inputs.get("pixel_values"),
             inputs.get("image_grid_thw"),
             inputs.get("attention_mask"),
@@ -439,60 +474,44 @@ class Qwen2VLModel(BaseModel):
         )
 
     def call(self, inputs):
-        """Return raw fused features. Use ``Qwen2VLGenerate`` for logits/text."""
         return {"last_hidden_state": self._forward_features(inputs)}
 
-    def _prepare_inputs(
-        self, input_ids_np, pixel_values, image_grid_thw, attention_mask
-    ):
-        """Build the multimodal-fused ``inputs_embeds`` + 3D ``position_ids``.
-
-        Returns ``(inputs_embeds, position_ids, rope_deltas, extra)``, where
-        ``extra`` is a dict of additional ``language_model`` call kwargs (empty
-        here; Qwen3-VL uses it to thread DeepStack features). Image features
-        (if any) are scattered into the ``image_token_id`` placeholder slots,
-        and M-RoPE positions come from :meth:`get_rope_index`.
-        """
-        batch, seq = input_ids_np.shape
-        inputs_embeds = self.language_model.token_embedding(
-            ops.convert_to_tensor(input_ids_np)
-        )
-        rope_deltas = np.zeros((batch,), dtype=np.int64)
+    def _prepare_inputs(self, input_ids, pixel_values, image_grid_thw, attention_mask):
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
+        inputs_embeds = self.language_model.token_embedding(input_ids)
+        rope_deltas = ops.zeros((batch,), dtype="int32")
 
         if pixel_values is not None and image_grid_thw is not None:
-            grid = np.asarray(ops.convert_to_numpy(image_grid_thw)).astype("int64")
+            grid = ops.cast(ops.convert_to_tensor(image_grid_thw), "int32")
             image_embeds = self.get_image_features(pixel_values, grid)
-            flat_mask = (input_ids_np == self.image_token_id).reshape(-1)
+            ids_flat = ops.convert_to_numpy(ops.reshape(input_ids, (-1,))).tolist()
+            idx = [j for j, v in enumerate(ids_flat) if v == self.image_token_id]
             embeds_flat = ops.reshape(inputs_embeds, (batch * seq, self.embed_dim))
-            idx = np.nonzero(flat_mask)[0]
             embeds_flat = ops.scatter_update(
                 embeds_flat,
-                np.expand_dims(idx, -1).astype("int32"),
+                ops.reshape(ops.convert_to_tensor(idx, dtype="int32"), (-1, 1)),
                 ops.cast(image_embeds, embeds_flat.dtype),
             )
             inputs_embeds = ops.reshape(embeds_flat, (batch, seq, self.embed_dim))
             position_ids, rope_deltas = self.get_rope_index(
-                input_ids_np, grid, attention_mask
+                input_ids, grid, attention_mask
             )
         else:
-            am = (
-                None
-                if attention_mask is None
-                else np.asarray(ops.convert_to_numpy(attention_mask))
-            )
-            if am is not None:
-                pos = np.cumsum(am, axis=-1) - 1
-                pos = np.where(am == 0, 0, pos)
+            if attention_mask is not None:
+                am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+                pos = ops.where(am == 0, 0, ops.cumsum(am, axis=-1) - 1)
             else:
-                pos = np.broadcast_to(np.arange(seq), (batch, seq))
-            position_ids = np.broadcast_to(pos, (3, batch, seq)).copy()
+                pos = ops.broadcast_to(ops.arange(seq), (batch, seq))
+            position_ids = ops.broadcast_to(pos, (3, batch, seq))
         return inputs_embeds, position_ids, rope_deltas, {}
 
     def _merged_cos_sin(self, position_ids):
         cos3, sin3 = text_rope_cos_sin(position_ids, self.head_dim, self.rope_theta)
-        cos = ops.convert_to_tensor(merge_mrope(cos3, self.mrope_section))
-        sin = ops.convert_to_tensor(merge_mrope(sin3, self.mrope_section))
-        return cos, sin
+        return (
+            merge_mrope(cos3, self.mrope_section),
+            merge_mrope(sin3, self.mrope_section),
+        )
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -570,6 +589,8 @@ class _QwenVLGenerateMixin:
     ``_causal_mask``, ``language_model``). ``extra`` lets Qwen3-VL thread its
     DeepStack tensors through the prefill; decode steps are text-only so they
     pass no ``extra``. Generation is therefore shared across all three families.
+    The LM head is the (transposed) token embedding when ``tie_embeddings`` is
+    ``True``, otherwise a separate bias-free projection.
     """
 
     def _init_lm_head(self):
@@ -579,15 +600,16 @@ class _QwenVLGenerateMixin:
             else layers.Dense(self.vocab_size, use_bias=False, name="lm_head")
         )
 
-    def _lm_logits(self, hidden):
-        if getattr(self, "lm_head", None) is not None:
-            return self.lm_head(hidden)
-        emb = self.language_model.token_embedding.embeddings
-        return ops.matmul(hidden, ops.transpose(emb))
-
     def call(self, inputs):
         hidden = self._forward_features(inputs)
-        return {"logits": self._lm_logits(hidden), "last_hidden_state": hidden}
+        logits = (
+            self.lm_head(hidden)
+            if self.lm_head is not None
+            else ops.matmul(
+                hidden, ops.transpose(self.language_model.token_embedding.embeddings)
+            )
+        )
+        return {"logits": logits, "last_hidden_state": hidden}
 
     def generate(
         self,
@@ -599,16 +621,10 @@ class _QwenVLGenerateMixin:
         eos_token_id=(151645,),
         return_ids=True,
     ):
-        """Greedy decoding with a KV cache and incremental M-RoPE.
-
-        Each new token's position is ``cache_len + rope_delta`` on all three
-        axes; the per-layer ``(k, v)`` cache is threaded forward so only the new
-        token is recomputed. Returns ``(batch, num_new_tokens)`` ids (numpy).
-        """
-        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
-        batch, prompt_len = input_ids_np.shape
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
         inputs_embeds, position_ids, rope_deltas, extra = self._prepare_inputs(
-            input_ids_np, pixel_values, image_grid_thw, attention_mask
+            input_ids, pixel_values, image_grid_thw, attention_mask
         )
         cos, sin = self._merged_cos_sin(position_ids)
         hidden, cache = self.language_model(
@@ -619,35 +635,37 @@ class _QwenVLGenerateMixin:
             use_cache=True,
             **extra,
         )
-        next_tok = np.asarray(
-            ops.convert_to_numpy(
-                ops.argmax(self._lm_logits(hidden[:, -1:, :]), axis=-1)
-            )
-        ).astype("int64")
+        emb = self.language_model.token_embedding.embeddings
+        last = hidden[:, -1:, :]
+        logits = (
+            self.lm_head(last)
+            if self.lm_head is not None
+            else ops.matmul(last, ops.transpose(emb))
+        )
+        next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
 
-        eos = {
+        eos = [
             int(e)
             for e in (
                 eos_token_id
                 if isinstance(eos_token_id, (list, tuple))
                 else [eos_token_id]
             )
-        }
-        first_eos = next(iter(eos)) if eos else 0
-        finished = np.isin(next_tok[:, 0], list(eos))
+        ]
+        first_eos = eos[0] if eos else 0
+        finished = ops.zeros((batch,), dtype="bool")
+        for e in eos:
+            finished = ops.logical_or(finished, next_tok[:, 0] == e)
         generated = [next_tok]
         cur_len = prompt_len
-
         for _ in range(max_new_tokens - 1):
-            if finished.all():
+            if bool(ops.all(finished)):
                 break
-            pos = np.broadcast_to(
-                (cur_len + rope_deltas).reshape(1, batch, 1), (3, batch, 1)
-            ).copy()
-            step_cos, step_sin = self._merged_cos_sin(pos)
-            step_embeds = self.language_model.token_embedding(
-                ops.convert_to_tensor(next_tok)
+            pos = ops.broadcast_to(
+                ops.reshape(cur_len + rope_deltas, (1, batch, 1)), (3, batch, 1)
             )
+            step_cos, step_sin = self._merged_cos_sin(pos)
+            step_embeds = self.language_model.token_embedding(next_tok)
             hidden, cache = self.language_model(
                 step_embeds,
                 step_cos,
@@ -656,14 +674,20 @@ class _QwenVLGenerateMixin:
                 past_key_values=cache,
                 use_cache=True,
             )
-            next_tok = np.asarray(
-                ops.convert_to_numpy(ops.argmax(self._lm_logits(hidden), axis=-1))
-            ).astype("int64")
-            next_tok[finished, 0] = first_eos
+            logits = (
+                self.lm_head(hidden)
+                if self.lm_head is not None
+                else ops.matmul(hidden, ops.transpose(emb))
+            )
+            next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
+            next_tok = ops.cast(
+                ops.where(finished[:, None], first_eos, next_tok), "int32"
+            )
             generated.append(next_tok)
             cur_len += 1
-            finished = finished | np.isin(next_tok[:, 0], list(eos))
-        return np.concatenate(generated, axis=1)
+            for e in eos:
+                finished = ops.logical_or(finished, next_tok[:, 0] == e)
+        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

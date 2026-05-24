@@ -8,19 +8,6 @@ def quick_gelu(x):
     return x * ops.sigmoid(1.702 * x)
 
 
-def rotate_half(x):
-    """Rotate the last dim by halves: ``[-x2, x1]`` (Llama/RoPE convention)."""
-    half = x.shape[-1] // 2
-    x1 = x[..., :half]
-    x2 = x[..., half:]
-    return ops.concatenate([-x2, x1], axis=-1)
-
-
-def apply_rotary(t, cos, sin):
-    """Standard rotary application ``t * cos + rotate_half(t) * sin``."""
-    return (t * cos) + (rotate_half(t) * sin)
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2VLRMSNorm(layers.Layer):
     """RMSNorm (Llama/Qwen style): normalize by RMS in float32, then scale.
@@ -156,8 +143,13 @@ class Qwen2VLAttention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        query = apply_rotary(query, cos, sin)
-        key = apply_rotary(key, cos, sin)
+        half = self.head_dim // 2
+        query = query * cos + (
+            ops.concatenate([-query[..., half:], query[..., :half]], axis=-1) * sin
+        )
+        key = key * cos + (
+            ops.concatenate([-key[..., half:], key[..., :half]], axis=-1) * sin
+        )
 
         if past_key_value is not None:
             past_k, past_v = past_key_value
@@ -334,8 +326,13 @@ class Qwen2VLVisionAttention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        query = apply_rotary(query, cos, sin)
-        key = apply_rotary(key, cos, sin)
+        half = self.head_dim // 2
+        query = query * cos + (
+            ops.concatenate([-query[..., half:], query[..., :half]], axis=-1) * sin
+        )
+        key = key * cos + (
+            ops.concatenate([-key[..., half:], key[..., :half]], axis=-1) * sin
+        )
 
         query = ops.expand_dims(ops.transpose(query, (1, 0, 2)), axis=0)
         key = ops.expand_dims(ops.transpose(key, (1, 0, 2)), axis=0)

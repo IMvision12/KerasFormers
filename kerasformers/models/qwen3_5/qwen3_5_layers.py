@@ -1,29 +1,5 @@
 import keras
-import numpy as np
 from keras import layers, ops
-
-
-def rotate_half(x):
-    """Rotate the last dim by halves: ``[-x2, x1]`` (Llama/RoPE convention)."""
-    half = x.shape[-1] // 2
-    return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
-
-
-def rope_cos_sin(position_ids, rotary_dim, theta):
-    """1D partial-rotary tables ``(batch, seq, rotary_dim)``."""
-    inv_freq = 1.0 / (
-        theta ** (np.arange(0, rotary_dim, 2, dtype=np.float32) / rotary_dim)
-    )
-    freqs = np.asarray(position_ids, dtype="float32")[..., None] * inv_freq
-    emb = np.concatenate([freqs, freqs], axis=-1)
-    return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
-
-
-def apply_partial_rotary(t, cos, sin, rotary_dim):
-    """Rotate only the first ``rotary_dim`` channels; pass the rest through."""
-    t_rot, t_pass = t[..., :rotary_dim], t[..., rotary_dim:]
-    rotated = (t_rot * cos) + (rotate_half(t_rot) * sin)
-    return ops.concatenate([rotated, t_pass], axis=-1)
 
 
 def l2norm(x, eps=1e-6):
@@ -33,7 +9,17 @@ def l2norm(x, eps=1e-6):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3_5RMSNorm(layers.Layer):
-    """Zero-centered RMSNorm: ``(1 + weight) * x / rms(x)`` (weight init 0)."""
+    """Zero-centered root-mean-square layer norm (Qwen3.5).
+
+    Like a standard RMSNorm but the learned scale is stored *zero-centered*: the
+    weight is initialized to ``0`` and the effective per-channel gain is
+    ``1 + weight``. Normalizes the last axis by its RMS in float32, casts back to
+    the input dtype, then scales by ``1 + weight``. No mean subtraction, no bias.
+    Shape-preserving ``(..., dim) -> (..., dim)``.
+
+    Args:
+        eps: Variance epsilon added before the reciprocal square root.
+    """
 
     def __init__(self, eps=1e-6, **kwargs):
         super().__init__(**kwargs)
@@ -59,7 +45,15 @@ class Qwen3_5RMSNorm(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3_5RMSNormGated(layers.Layer):
-    """Gated RMSNorm: ``weight * (x / rms(x)) * silu(gate)`` (weight init 1)."""
+    """Gated RMSNorm used inside Gated-DeltaNet read-out.
+
+    RMS-normalizes ``x`` in float32, scales by a learned per-channel ``weight``
+    (init ``1``), then gates the result elementwise by ``silu(gate)``. ``x`` and
+    ``gate`` share the same shape; computes ``weight * (x / rms(x)) * silu(gate)``.
+
+    Args:
+        eps: Variance epsilon added before the reciprocal square root.
+    """
 
     def __init__(self, eps=1e-6, **kwargs):
         super().__init__(**kwargs)
@@ -86,7 +80,16 @@ class Qwen3_5RMSNormGated(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3_5MLP(layers.Layer):
-    """SwiGLU MLP: ``down(silu(gate(x)) * up(x))`` (bias-free)."""
+    """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
+
+    Two parallel bias-free projections to ``mlp_dim`` — a SiLU-gated ``gate`` and
+    a linear ``up`` — are multiplied elementwise, then projected back to
+    ``embed_dim`` by ``down``. Shape-preserving on the last axis.
+
+    Args:
+        embed_dim: Model / residual-stream width (input and output dim).
+        mlp_dim: Hidden expansion width of the ``gate`` / ``up`` projections.
+    """
 
     def __init__(self, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
@@ -107,10 +110,35 @@ class Qwen3_5MLP(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3_5Attention(layers.Layer):
-    """Gated GQA full attention: QK-norm, partial rotary, sigmoid output gate.
+    """Gated grouped-query full attention (Qwen3.5): QK-norm + partial rotary.
 
-    ``query`` emits both the query and a gate (``num_heads * head_dim * 2``);
-    the attention output is multiplied by ``sigmoid(gate)`` before ``output_proj``.
+    The ``query`` projection emits both the query and an output gate
+    (``num_heads * head_dim * 2``, split per head), the per-head query and key are
+    zero-centered-RMSNorm'd (``query_norm`` / ``key_norm``), then *partial* rotary
+    is applied to only the first ``rotary_dim`` channels (the rest pass through).
+    After scaled-dot-product attention with GQA K/V repetition, the output is
+    multiplied by ``sigmoid(gate)`` before ``output_proj``. A KV cache can be
+    threaded through ``past_key_value`` for incremental decoding.
+
+    Args:
+        embed_dim: Model width (output dim of ``output_proj``).
+        num_heads: Number of query heads.
+        num_kv_heads: Number of key/value heads (``<= num_heads`` for GQA).
+        head_dim: Per-head dim.
+        rotary_dim: Number of leading per-head channels that receive rotary.
+        norm_eps: Epsilon for the per-head ``query_norm`` / ``key_norm``.
+
+    Call args:
+        hidden_states: ``(batch, q_len, embed_dim)``.
+        cos, sin: partial-rotary tables ``(batch, q_len, rotary_dim)``.
+        attention_mask: additive mask broadcastable to
+            ``(batch, 1, q_len, kv_len)``, or ``None``.
+        past_key_value: optional ``(past_k, past_v)``.
+        use_cache: when ``True``, also return the updated ``(key, value)``.
+
+    Returns:
+        Output ``(batch, q_len, embed_dim)``, or ``(output, (key, value))`` when
+        ``use_cache`` is set.
     """
 
     def __init__(
@@ -174,8 +202,18 @@ class Qwen3_5Attention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        query = apply_partial_rotary(query, cos, sin, self.rotary_dim)
-        key = apply_partial_rotary(key, cos, sin, self.rotary_dim)
+        rd = self.rotary_dim
+        half = rd // 2
+        q_rot = query[..., :rd]
+        q_rot = q_rot * cos + (
+            ops.concatenate([-q_rot[..., half:], q_rot[..., :half]], axis=-1) * sin
+        )
+        query = ops.concatenate([q_rot, query[..., rd:]], axis=-1)
+        k_rot = key[..., :rd]
+        k_rot = k_rot * cos + (
+            ops.concatenate([-k_rot[..., half:], k_rot[..., :half]], axis=-1) * sin
+        )
+        key = ops.concatenate([k_rot, key[..., rd:]], axis=-1)
 
         if past_key_value is not None:
             past_k, past_v = past_key_value
@@ -217,7 +255,40 @@ class Qwen3_5Attention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3_5GatedDeltaNet(layers.Layer):
-    """Gated-DeltaNet linear attention (conv1d + delta-rule recurrence)."""
+    """Gated-DeltaNet linear-attention token mixer (Qwen3.5 / Qwen3-Next).
+
+    A short causal depthwise conv1d mixes the projected query/key/value, followed
+    by a gated delta-rule recurrence that maintains a per-head
+    ``(head_k_dim, head_v_dim)`` state ``S``: each step ``S`` decays by a
+    data-dependent gate ``exp(g)``, a delta correction ``beta * (v - S^T k)`` is
+    written along ``k``, and the read-out is ``S^T q`` (with L2-normalized,
+    scaled ``q`` / ``k``). The read-out is gated-RMSNorm'd by ``z`` and projected
+    out. Runs in O(seq) with no quadratic attention matrix.
+
+    The cache state is ``(conv_state, recurrent_state)`` — the last
+    ``conv_kernel_dim - 1`` conv inputs and the recurrent ``S`` — so decoding
+    consumes one token at a time. ``cos`` / ``sin`` / ``attention_mask`` are
+    unused (no rotary, no explicit mask: causality is inherent to the recurrence).
+
+    Args:
+        embed_dim: Model width (input and output dim of the block).
+        num_k_heads: Query/key head count.
+        num_v_heads: Value head count (``num_v_heads % num_k_heads == 0``; q/k are
+            repeated ``num_v_heads // num_k_heads`` times for GQA).
+        head_k_dim: Per-head query/key dim.
+        head_v_dim: Per-head value dim.
+        conv_kernel_dim: Causal conv1d kernel width.
+        norm_eps: Epsilon for the gated output RMSNorm.
+
+    Call args:
+        hidden_states: ``(batch, seq, embed_dim)``.
+        past_key_value: optional ``(conv_state, recurrent_state)``.
+        use_cache: when ``True``, also return the updated state tuple.
+
+    Returns:
+        Output ``(batch, seq, embed_dim)``, or ``(output, (conv_state,
+        recurrent_state))`` when ``use_cache`` is set.
+    """
 
     def __init__(
         self,
@@ -367,7 +438,29 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3_5DecoderLayer(layers.Layer):
-    """Hybrid decoder block — linear-attention or full-attention token mixer."""
+    """One hybrid Qwen3.5 decoder block: token mixer then pre-norm SwiGLU.
+
+    Pre-norm residual block ``h = x + mixer(attention_norm(x))`` then
+    ``h = h + mlp(mlp_norm(h))``, where the token ``mixer`` is selected by
+    ``layer_type``: :class:`Qwen3_5Attention` (gated full attention) for
+    ``"full_attention"``, otherwise :class:`Qwen3_5GatedDeltaNet` (linear
+    attention). Rotary tables and the mask are forwarded only to the full-attention
+    mixer; the cache state threaded through ``past_key_value`` is whatever the
+    chosen mixer produces.
+
+    Args:
+        config: Dict of shared layer hyperparameters (``embed_dim``, ``mlp_dim``,
+            ``num_heads``, ``num_kv_heads``, ``head_dim``, ``rotary_dim``,
+            ``norm_eps``, and the ``linear_*`` Gated-DeltaNet dims).
+        layer_type: ``"full_attention"`` or ``"linear_attention"``.
+
+    Call args:
+        hidden_states, cos, sin, attention_mask, past_key_value, use_cache: as in
+            the selected mixer.
+
+    Returns:
+        The block output, or ``(output, state)`` when ``use_cache`` is set.
+    """
 
     def __init__(self, config, layer_type, **kwargs):
         super().__init__(**kwargs)

@@ -173,14 +173,14 @@ class Qwen2Generate(Qwen2Model):
             else layers.Dense(self.vocab_size, use_bias=False, name="lm_head")
         )
 
-    def _lm_logits(self, hidden):
-        if getattr(self, "lm_head", None) is not None:
-            return self.lm_head(hidden)
-        return ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
-
     def call(self, inputs):
         hidden = super().call(inputs)["last_hidden_state"]
-        return {"logits": self._lm_logits(hidden), "last_hidden_state": hidden}
+        logits = (
+            self.lm_head(hidden)
+            if self.lm_head is not None
+            else ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
+        )
+        return {"logits": logits, "last_hidden_state": hidden}
 
     def generate(
         self, input_ids, attention_mask=None, max_new_tokens=128, eos_token_id=(151645,)
@@ -207,10 +207,13 @@ class Qwen2Generate(Qwen2Model):
         for layer in self.decoder_layers:
             hidden, kv = layer(hidden, cos, sin, attention_mask=causal, use_cache=True)
             cache.append(kv)
-        hidden = self.final_norm(hidden)
-        next_tok = ops.cast(
-            ops.argmax(self._lm_logits(hidden[:, -1:, :]), axis=-1), "int32"
+        hidden = self.final_norm(hidden)[:, -1:, :]
+        logits = (
+            self.lm_head(hidden)
+            if self.lm_head is not None
+            else ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
         )
+        next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
 
         eos = [
             int(e)
@@ -246,7 +249,12 @@ class Qwen2Generate(Qwen2Model):
                 new_cache.append(kv)
             hidden = self.final_norm(hidden)
             cache = new_cache
-            next_tok = ops.cast(ops.argmax(self._lm_logits(hidden), axis=-1), "int32")
+            logits = (
+                self.lm_head(hidden)
+                if self.lm_head is not None
+                else ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
+            )
+            next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
             next_tok = ops.cast(
                 ops.where(finished[:, None], first_eos, next_tok), "int32"
             )

@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
@@ -27,17 +26,24 @@ def qwen3_text_cos_sin(position_ids, head_dim, theta, mrope_section):
     channels ``0,3,6,...``, H on ``1,4,...`` (up to ``mrope_section[1]*3``),
     W on ``2,5,...`` (up to ``mrope_section[2]*3``), the tail staying T — rather
     than the contiguous T/H/W sections of Qwen2.x. Returns merged
-    ``(batch, seq, head_dim)`` cos/sin.
+    ``(batch, seq, head_dim)`` cos/sin tensors.
     """
-    inv_freq = 1.0 / (theta ** (np.arange(0, head_dim, 2, dtype=np.float32) / head_dim))
-    freqs = position_ids.astype("float32")[..., None] * inv_freq
-    freqs_t = freqs[0].copy()
+    inv_freq = 1.0 / ops.power(
+        theta, ops.arange(0, head_dim, 2, dtype="float32") / head_dim
+    )
+    freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
+    sel = [0] * (head_dim // 2)
     for dim, offset in ((1, 1), (2, 2)):
-        length = mrope_section[dim] * 3
-        idx = np.arange(offset, length, 3)
-        freqs_t[..., idx] = freqs[dim][..., idx]
-    emb = np.concatenate([freqs_t, freqs_t], axis=-1)
-    return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
+        for c in range(offset, mrope_section[dim] * 3, 3):
+            sel[c] = dim
+    sel = ops.convert_to_tensor(sel, dtype="int32")
+    freqs_t = (
+        ops.where(sel == 0, freqs[0], 0.0)
+        + ops.where(sel == 1, freqs[1], 0.0)
+        + ops.where(sel == 2, freqs[2], 0.0)
+    )
+    emb = ops.concatenate([freqs_t, freqs_t], axis=-1)
+    return ops.cos(emb), ops.sin(emb)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -108,34 +114,27 @@ class Qwen3VLVisionModel(layers.Layer):
         )
         self.built = True
 
-    def _interp_pos_embed(self, grid):
-        """Bilinearly interpolate the learned pos-embed grid to each image and
-        reorder into merge-block order; returns ``(seq, embed_dim)``."""
+    def _interp_pos_embed(self, grid_rows):
         npos = self.num_grid_per_side
         m = self.spatial_merge_size
         pieces = []
-        for t, h, w in grid.tolist():
-            hi = np.linspace(0, npos - 1, h, dtype=np.float32)
-            wi = np.linspace(0, npos - 1, w, dtype=np.float32)
-            hf, wf = hi.astype(np.int32), wi.astype(np.int32)
-            hc = np.clip(hf + 1, None, npos - 1)
-            wc = np.clip(wf + 1, None, npos - 1)
-            dh = (hi - hf)[:, None]
-            dw = (wi - wf)[None, :]
-            i00 = (hf[:, None] * npos + wf[None, :]).reshape(-1)
-            i01 = (hf[:, None] * npos + wc[None, :]).reshape(-1)
-            i10 = (hc[:, None] * npos + wf[None, :]).reshape(-1)
-            i11 = (hc[:, None] * npos + wc[None, :]).reshape(-1)
-            w00 = ops.convert_to_tensor(
-                ((1 - dh) * (1 - dw)).reshape(-1, 1).astype("float32")
-            )
-            w01 = ops.convert_to_tensor(
-                ((1 - dh) * dw).reshape(-1, 1).astype("float32")
-            )
-            w10 = ops.convert_to_tensor(
-                (dh * (1 - dw)).reshape(-1, 1).astype("float32")
-            )
-            w11 = ops.convert_to_tensor((dh * dw).reshape(-1, 1).astype("float32"))
+        for t, h, w in grid_rows:
+            hi = ops.linspace(0.0, float(npos - 1), h)
+            wi = ops.linspace(0.0, float(npos - 1), w)
+            hf = ops.cast(hi, "int32")
+            wf = ops.cast(wi, "int32")
+            hc = ops.minimum(hf + 1, npos - 1)
+            wc = ops.minimum(wf + 1, npos - 1)
+            dh = (hi - ops.cast(hf, "float32"))[:, None]
+            dw = (wi - ops.cast(wf, "float32"))[None, :]
+            i00 = ops.reshape(hf[:, None] * npos + wf[None, :], (-1,))
+            i01 = ops.reshape(hf[:, None] * npos + wc[None, :], (-1,))
+            i10 = ops.reshape(hc[:, None] * npos + wf[None, :], (-1,))
+            i11 = ops.reshape(hc[:, None] * npos + wc[None, :], (-1,))
+            w00 = ops.reshape((1 - dh) * (1 - dw), (-1, 1))
+            w01 = ops.reshape((1 - dh) * dw, (-1, 1))
+            w10 = ops.reshape(dh * (1 - dw), (-1, 1))
+            w11 = ops.reshape(dh * dw, (-1, 1))
             emb = (
                 ops.take(self.pos_embed, i00, axis=0) * w00
                 + ops.take(self.pos_embed, i01, axis=0) * w01
@@ -150,31 +149,38 @@ class Qwen3VLVisionModel(layers.Layer):
             pieces.append(emb)
         return ops.concatenate(pieces, axis=0) if len(pieces) > 1 else pieces[0]
 
-    def _full_mask(self, grid, seq):
-        cu = np.concatenate(
-            [[0], np.cumsum(np.repeat(grid[:, 1] * grid[:, 2], grid[:, 0]))]
-        )
+    def _full_mask(self, grid_rows, seq):
+        cu = [0]
+        for t, h, w in grid_rows:
+            for _ in range(t):
+                cu.append(cu[-1] + h * w)
         if len(cu) <= 2:
             return None
-        seg = np.zeros(seq, dtype=np.int64)
+        seg = [0] * seq
         for i in range(len(cu) - 1):
-            seg[int(cu[i]) : int(cu[i + 1])] = i
-        mask = np.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG).astype("float32")
-        return ops.convert_to_tensor(mask[None, None])
+            for j in range(cu[i], cu[i + 1]):
+                seg[j] = i
+        seg = ops.convert_to_tensor(seg, dtype="int32")
+        mask = ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG)
+        return ops.cast(mask, "float32")[None, None]
 
     def call(self, pixel_values, grid_thw):
-        grid = np.asarray(grid_thw).astype("int64")
-        seq = int(np.prod(grid, axis=1).sum())
+        grid_rows = [
+            tuple(int(v) for v in row)
+            for row in ops.convert_to_numpy(ops.convert_to_tensor(grid_thw))
+        ]
+        seq = sum(t * h * w for t, h, w in grid_rows)
         hidden = self.patch_embed(pixel_values)
-        hidden = hidden + self._interp_pos_embed(grid)
+        hidden = hidden + self._interp_pos_embed(grid_rows)
 
-        cos, sin = vision_rotary_cos_sin(grid, self.head_dim, self.spatial_merge_size)
-        cos_t, sin_t = ops.convert_to_tensor(cos), ops.convert_to_tensor(sin)
-        mask = self._full_mask(grid, seq)
+        cos, sin = vision_rotary_cos_sin(
+            grid_thw, self.head_dim, self.spatial_merge_size
+        )
+        mask = self._full_mask(grid_rows, seq)
 
         deepstack = []
         for i, block in enumerate(self.blocks):
-            hidden = block(hidden, cos_t, sin_t, attention_mask=mask)
+            hidden = block(hidden, cos, sin, attention_mask=mask)
             if i in self.deepstack_visual_indexes:
                 j = self.deepstack_visual_indexes.index(i)
                 deepstack.append(self.deepstack_mergers[j](hidden))
@@ -202,7 +208,12 @@ class Qwen3VLVisionModel(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLTextModel(layers.Layer):
-    """Qwen3 causal decoder with DeepStack visual-feature injection."""
+    """Qwen3 causal decoder with DeepStack visual-feature injection.
+
+    Identical to the Qwen3 decoder except that, during prefill, the i-th
+    DeepStack feature map (scattered to a full ``(batch, seq, hidden)`` tensor by
+    the model) is added to the output of decoder layer ``i``.
+    """
 
     def __init__(
         self,
@@ -294,7 +305,14 @@ class Qwen3VLTextModel(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLModel(Qwen2VLModel):
-    """Qwen3-VL multimodal model (vision + Qwen3 decoder + DeepStack)."""
+    """Qwen3-VL multimodal model (vision + Qwen3 decoder + DeepStack).
+
+    Reuses :class:`Qwen2VLModel`'s fusion / M-RoPE-index / generation machinery,
+    but overrides the rotary tables (interleaved M-RoPE via
+    :func:`qwen3_text_cos_sin`) and the input prep (which also scatters the vision
+    tower's DeepStack features into ``extra["deepstack_full"]`` for the text
+    decoder's early layers).
+    """
 
     HF_MODEL_TYPE = "qwen3_vl"
     BASE_MODEL_CONFIG = QWEN3_VL_CONFIG
@@ -393,56 +411,41 @@ class Qwen3VLModel(Qwen2VLModel):
         )
 
     def _merged_cos_sin(self, position_ids):
-        cos, sin = qwen3_text_cos_sin(
+        return qwen3_text_cos_sin(
             position_ids, self.head_dim, self.rope_theta, self.mrope_section
         )
-        return ops.convert_to_tensor(cos), ops.convert_to_tensor(sin)
 
-    def _prepare_inputs(
-        self, input_ids_np, pixel_values, image_grid_thw, attention_mask
-    ):
-        """Base scatter/positions, plus DeepStack via ``extra["deepstack_full"]``."""
-        batch, seq = input_ids_np.shape
-        inputs_embeds = self.language_model.token_embedding(
-            ops.convert_to_tensor(input_ids_np)
-        )
-        rope_deltas = np.zeros((batch,), dtype=np.int64)
+    def _prepare_inputs(self, input_ids, pixel_values, image_grid_thw, attention_mask):
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
+        inputs_embeds = self.language_model.token_embedding(input_ids)
+        rope_deltas = ops.zeros((batch,), dtype="int32")
         extra = {}
         if pixel_values is not None and image_grid_thw is not None:
-            grid = np.asarray(ops.convert_to_numpy(image_grid_thw)).astype("int64")
+            grid = ops.cast(ops.convert_to_tensor(image_grid_thw), "int32")
             image_embeds, deepstack = self.visual(pixel_values, grid)
-            visual_idx = np.nonzero((input_ids_np == self.image_token_id).reshape(-1))[
-                0
-            ]
+            ids_flat = ops.convert_to_numpy(ops.reshape(input_ids, (-1,))).tolist()
+            idx = [j for j, v in enumerate(ids_flat) if v == self.image_token_id]
+            idx_t = ops.reshape(ops.convert_to_tensor(idx, dtype="int32"), (-1, 1))
             flat = ops.reshape(inputs_embeds, (batch * seq, self.embed_dim))
-            flat = ops.scatter_update(
-                flat,
-                np.expand_dims(visual_idx, -1).astype("int32"),
-                ops.cast(image_embeds, flat.dtype),
-            )
+            flat = ops.scatter_update(flat, idx_t, ops.cast(image_embeds, flat.dtype))
             inputs_embeds = ops.reshape(flat, (batch, seq, self.embed_dim))
             extra = {
-                "deepstack_full": self._deepstack_full(
-                    deepstack, visual_idx, batch, seq
-                )
+                "deepstack_full": self._deepstack_full(deepstack, idx_t, batch, seq)
             }
             position_ids, rope_deltas = self.get_rope_index(
-                input_ids_np, grid, attention_mask
+                input_ids, grid, attention_mask
             )
         else:
-            pos = np.broadcast_to(np.arange(seq), (batch, seq))
-            position_ids = np.broadcast_to(pos, (3, batch, seq)).copy()
+            pos = ops.broadcast_to(ops.arange(seq), (batch, seq))
+            position_ids = ops.broadcast_to(pos, (3, batch, seq))
         return inputs_embeds, position_ids, rope_deltas, extra
 
-    def _deepstack_full(self, deepstack, visual_idx, batch, seq):
-        """Scatter each DeepStack feature (n_visual, hidden) into a full
-        (batch, seq, hidden) tensor (zero elsewhere) — done host-side with a
-        concrete ``visual_idx`` so the text layer only does tensor adds."""
-        idx = np.expand_dims(visual_idx, -1).astype("int32")
+    def _deepstack_full(self, deepstack, idx_t, batch, seq):
         out = []
         for emb in deepstack:
             z = ops.zeros((batch * seq, self.embed_dim), dtype=emb.dtype)
-            z = ops.scatter_update(z, idx, ops.cast(emb, z.dtype))
+            z = ops.scatter_update(z, idx_t, ops.cast(emb, z.dtype))
             out.append(ops.reshape(z, (batch, seq, self.embed_dim)))
         return out
 

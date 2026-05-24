@@ -1,30 +1,20 @@
 import keras
-import numpy as np
 from keras import layers, ops
-
-
-def rotate_half(x):
-    """Rotate the last dim by halves: ``[-x2, x1]``."""
-    half = x.shape[-1] // 2
-    return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
-
-
-def apply_rotary(t, cos, sin):
-    """Standard rotary application ``t * cos + rotate_half(t) * sin``."""
-    return (t * cos) + (rotate_half(t) * sin)
-
-
-def rope_cos_sin(position_ids, head_dim, theta):
-    """1D rotary tables ``(batch, seq, head_dim)`` from position ids."""
-    inv_freq = 1.0 / (theta ** (np.arange(0, head_dim, 2, dtype=np.float32) / head_dim))
-    freqs = np.asarray(position_ids, dtype="float32")[..., None] * inv_freq
-    emb = np.concatenate([freqs, freqs], axis=-1)
-    return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3RMSNorm(layers.Layer):
-    """RMSNorm: normalize by RMS in float32, then scale."""
+    """Root-mean-square layer norm (Llama / Qwen style).
+
+    Normalizes the last axis by its RMS in float32 (for numerical stability),
+    casts back to the input dtype, then scales by a learned per-channel weight.
+    There is no mean subtraction and no bias. Shape-preserving:
+    ``(..., dim) -> (..., dim)``.
+
+    Args:
+        eps: Variance epsilon added before the reciprocal square root.
+            Defaults to ``1e-6``.
+    """
 
     def __init__(self, eps=1e-6, **kwargs):
         super().__init__(**kwargs)
@@ -51,7 +41,16 @@ class Qwen3RMSNorm(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3MLP(layers.Layer):
-    """SwiGLU MLP: ``down(silu(gate(x)) * up(x))`` (bias-free)."""
+    """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
+
+    Two parallel bias-free projections to ``mlp_dim`` — a SiLU-gated ``gate`` and
+    a linear ``up`` — are multiplied elementwise, then projected back to
+    ``embed_dim`` by ``down``. Shape-preserving on the last axis.
+
+    Args:
+        embed_dim: Model / residual-stream width (input and output dim).
+        mlp_dim: Hidden expansion width of the ``gate`` / ``up`` projections.
+    """
 
     def __init__(self, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
@@ -72,7 +71,36 @@ class Qwen3MLP(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3Attention(layers.Layer):
-    """GQA causal self-attention with per-head QK-norm, no qkv bias, 1D rotary."""
+    """Grouped-query causal self-attention with per-head QK-norm (Qwen3).
+
+    Differs from Qwen2 attention in two ways: the ``query`` / ``key`` / ``value``
+    projections are bias-free, and the reshaped per-head query and key are each
+    RMSNorm'd (``query_norm`` / ``key_norm``) *before* rotary is applied. When
+    ``num_kv_heads < num_heads`` (GQA) the K/V heads are repeated to match the
+    query heads. A KV cache can be threaded through ``past_key_value`` for
+    O(1)-per-token incremental decoding.
+
+    Args:
+        embed_dim: Model width (output dim of ``output_proj``).
+        num_heads: Number of query heads.
+        num_kv_heads: Number of key/value heads (``<= num_heads`` for GQA).
+        head_dim: Per-head dim.
+        norm_eps: Epsilon for the per-head ``query_norm`` / ``key_norm``.
+
+    Call args:
+        hidden_states: ``(batch, q_len, embed_dim)``.
+        cos, sin: rotary tables ``(batch, q_len, head_dim)``.
+        attention_mask: additive mask broadcastable to
+            ``(batch, 1, q_len, kv_len)`` (``0`` keep / large-negative block), or
+            ``None``.
+        past_key_value: optional ``(past_k, past_v)``, each
+            ``(batch, num_kv_heads, past_len, head_dim)``.
+        use_cache: when ``True``, also return the updated ``(key, value)``.
+
+    Returns:
+        Output ``(batch, q_len, embed_dim)``, or ``(output, (key, value))`` when
+        ``use_cache`` is set.
+    """
 
     def __init__(
         self, embed_dim, num_heads, num_kv_heads, head_dim, norm_eps=1e-6, **kwargs
@@ -122,8 +150,9 @@ class Qwen3Attention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        q = apply_rotary(q, cos, sin)
-        k = apply_rotary(k, cos, sin)
+        half = self.head_dim // 2
+        q = q * cos + (ops.concatenate([-q[..., half:], q[..., :half]], axis=-1) * sin)
+        k = k * cos + (ops.concatenate([-k[..., half:], k[..., :half]], axis=-1) * sin)
 
         if past_key_value is not None:
             past_k, past_v = past_key_value
@@ -162,7 +191,27 @@ class Qwen3Attention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3DecoderLayer(layers.Layer):
-    """One Qwen3 decoder block: pre-norm QK-norm attention then pre-norm SwiGLU."""
+    """One Qwen3 transformer block: pre-norm QK-norm attention, then pre-norm SwiGLU.
+
+    Computes ``h = x + attention(attention_norm(x))`` followed by
+    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual adds.
+    The rotary tables, mask, and KV cache pass straight through to the attention.
+
+    Args:
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width.
+        num_heads: Number of query heads.
+        num_kv_heads: Number of key/value heads (GQA).
+        head_dim: Per-head dim.
+        norm_eps: Epsilon shared by both RMSNorms and the attention QK-norms.
+
+    Call args:
+        hidden_states, cos, sin, attention_mask, past_key_value, use_cache: as in
+            :class:`Qwen3Attention`.
+
+    Returns:
+        The block output, or ``(output, (key, value))`` when ``use_cache`` is set.
+    """
 
     def __init__(
         self,

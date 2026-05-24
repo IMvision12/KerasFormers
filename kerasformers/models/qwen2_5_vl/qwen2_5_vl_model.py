@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops
 
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
@@ -22,50 +21,52 @@ from .qwen2_5_vl_layers import (
 def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):
     """Window partition over merged-patch groups (mirrors HF get_window_index).
 
-    Returns ``(window_index, cu_window_seqlens)``: a permutation of the
-    ``seq // merge_unit`` merge-unit groups into window-contiguous order, and
-    cumulative per-window sequence lengths (in patch units).
+    Returns ``(window_index, cu_window_seqlens)``: a permutation tensor of the
+    ``seq // merge_unit`` merge-unit groups into window-contiguous order, and a
+    list of cumulative per-window sequence lengths (in patch units).
     """
     m = spatial_merge_size
     merge_unit = m * m
     vit_window = window_size // m // patch_size
+    grid_rows = [
+        tuple(int(v) for v in row)
+        for row in ops.convert_to_numpy(ops.convert_to_tensor(grid_thw))
+    ]
     window_index = []
     cu_window_seqlens = [0]
     offset = 0
-    for t, h, w in np.asarray(grid_thw).tolist():
+    for t, h, w in grid_rows:
         lh, lw = h // m, w // m
-        index = np.arange(t * lh * lw).reshape(t, lh, lw)
         pad_h = (vit_window - lh % vit_window) % vit_window
         pad_w = (vit_window - lw % vit_window) % vit_window
         nwh = (lh + pad_h) // vit_window
         nww = (lw + pad_w) // vit_window
-        index_padded = np.pad(
-            index, ((0, 0), (0, pad_h), (0, pad_w)), constant_values=-100
-        )
-        index_padded = index_padded.reshape(t, nwh, vit_window, nww, vit_window)
-        index_padded = index_padded.transpose(0, 1, 3, 2, 4).reshape(
-            t, nwh * nww, vit_window, vit_window
-        )
-        seqlens = (index_padded != -100).sum((2, 3)).reshape(-1)
-        index_flat = index_padded.reshape(-1)
-        index_new = index_flat[index_flat != -100]
-        window_index.append(index_new + offset)
-        cu = np.cumsum(seqlens) * merge_unit + cu_window_seqlens[-1]
-        cu_window_seqlens.extend(cu.tolist())
+        index = ops.reshape(ops.arange(t * lh * lw), (t, lh, lw))
+        index = ops.pad(index, [(0, 0), (0, pad_h), (0, pad_w)], constant_values=-100)
+        index = ops.reshape(index, (t, nwh, vit_window, nww, vit_window))
+        index = ops.transpose(index, (0, 1, 3, 2, 4))
+        index = ops.reshape(index, (t * nwh * nww, vit_window * vit_window))
+        for win in ops.convert_to_numpy(index).tolist():
+            vals = [v for v in win if v != -100]
+            window_index.extend(x + offset for x in vals)
+            cu_window_seqlens.append(cu_window_seqlens[-1] + len(vals) * merge_unit)
         offset += t * lh * lw
-    window_index = np.concatenate(window_index, axis=0)
-    cu = np.array(cu_window_seqlens, dtype=np.int64)
-    cu = cu[np.concatenate([[True], np.diff(cu) != 0])]
-    return window_index, cu
+    cu = [cu_window_seqlens[0]]
+    for v in cu_window_seqlens[1:]:
+        if v != cu[-1]:
+            cu.append(v)
+    return ops.convert_to_tensor(window_index, dtype="int32"), cu
 
 
 def _segment_mask(cu_seqlens, total):
     """Additive block-diagonal mask (1,1,total,total) from cumulative seqlens."""
-    seg = np.zeros(total, dtype=np.int64)
+    seg = [0] * total
     for i in range(len(cu_seqlens) - 1):
-        seg[int(cu_seqlens[i]) : int(cu_seqlens[i + 1])] = i
-    mask = np.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG).astype("float32")
-    return mask[None, None]
+        for j in range(int(cu_seqlens[i]), int(cu_seqlens[i + 1])):
+            seg[j] = i
+    seg = ops.convert_to_tensor(seg, dtype="int32")
+    mask = ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG)
+    return ops.cast(mask, "float32")[None, None]
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -113,41 +114,53 @@ class Qwen2_5_VLVisionModel(layers.Layer):
         )
 
     def call(self, pixel_values, grid_thw):
-        grid = np.asarray(grid_thw).astype("int64")
+        grid_rows = [
+            tuple(int(v) for v in row)
+            for row in ops.convert_to_numpy(ops.convert_to_tensor(grid_thw))
+        ]
         u = self.merge_unit
-        seq = int(np.prod(grid, axis=1).sum())
+        seq = sum(t * h * w for t, h, w in grid_rows)
 
         hidden = self.patch_embed(pixel_values)
 
-        cos, sin = vision_rotary_cos_sin(grid, self.head_dim, self.spatial_merge_size)
+        cos, sin = vision_rotary_cos_sin(
+            grid_thw, self.head_dim, self.spatial_merge_size
+        )
         window_index, cu_window = get_window_index(
-            grid, self.window_size, self.spatial_merge_size, self.patch_size
+            grid_thw, self.window_size, self.spatial_merge_size, self.patch_size
         )
 
         hidden = ops.reshape(hidden, (seq // u, u, self.embed_dim))
-        hidden = ops.take(hidden, window_index, axis=0)
-        hidden = ops.reshape(hidden, (seq, self.embed_dim))
-        cos = cos.reshape(seq // u, u, self.head_dim)[window_index].reshape(seq, -1)
-        sin = sin.reshape(seq // u, u, self.head_dim)[window_index].reshape(seq, -1)
-        cos_t = ops.convert_to_tensor(cos)
-        sin_t = ops.convert_to_tensor(sin)
-
-        cu_full = np.concatenate(
-            [[0], np.cumsum(np.repeat(grid[:, 1] * grid[:, 2], grid[:, 0]))]
+        hidden = ops.reshape(
+            ops.take(hidden, window_index, axis=0), (seq, self.embed_dim)
         )
-        full_mask = _segment_mask(cu_full, seq)
+        cos = ops.reshape(
+            ops.take(
+                ops.reshape(cos, (seq // u, u, self.head_dim)), window_index, axis=0
+            ),
+            (seq, -1),
+        )
+        sin = ops.reshape(
+            ops.take(
+                ops.reshape(sin, (seq // u, u, self.head_dim)), window_index, axis=0
+            ),
+            (seq, -1),
+        )
+
+        cu_full = [0]
+        for t, h, w in grid_rows:
+            for _ in range(t):
+                cu_full.append(cu_full[-1] + h * w)
+        full_mask = None if len(cu_full) <= 2 else _segment_mask(cu_full, seq)
         window_mask = _segment_mask(cu_window, seq)
-        full_mask = None if len(cu_full) <= 2 else ops.convert_to_tensor(full_mask)
-        window_mask_t = ops.convert_to_tensor(window_mask)
 
         for i, block in enumerate(self.blocks):
-            mask = full_mask if i in self.fullatt_block_indexes else window_mask_t
-            hidden = block(hidden, cos_t, sin_t, attention_mask=mask)
+            mask = full_mask if i in self.fullatt_block_indexes else window_mask
+            hidden = block(hidden, cos, sin, attention_mask=mask)
 
         merged = self.merger(hidden)
-        reverse = np.argsort(window_index)
-        merged = ops.take(merged, reverse, axis=0)
-        return merged
+        reverse = ops.argsort(window_index)
+        return ops.take(merged, reverse, axis=0)
 
     def get_config(self):
         config = super().get_config()
