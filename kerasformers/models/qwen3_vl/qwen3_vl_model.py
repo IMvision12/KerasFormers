@@ -47,8 +47,35 @@ def qwen3_text_cos_sin(position_ids, head_dim, theta, mrope_section):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLVisionModel(layers.Layer):
-    """Qwen3-VL vision tower: learned pos-embeds, full-attention GELU blocks,
-    a final merger plus DeepStack mergers feeding the LLM's early layers."""
+    """Qwen3-VL vision tower: learned pos-embeds -> GELU blocks -> merger + DeepStack.
+
+    A ViT with **learned** position embeddings (bilinearly interpolated to each
+    image's grid and added to the patch embeddings), ``depth`` full-attention GELU
+    blocks with 2D rotary positions, and a final 2x2 merger. At each index in
+    ``deepstack_visual_indexes`` an extra "DeepStack" merger taps the block output;
+    those features are later injected into the text decoder's early layers.
+
+    Args:
+        embed_dim: Vision hidden width.
+        depth: Number of vision blocks.
+        num_heads: Vision attention heads.
+        intermediate_size: Vision MLP hidden width.
+        out_hidden_size: Output width of the mergers (the LLM's hidden size).
+        num_position_embeddings: Size of the learned position-embedding grid.
+        deepstack_visual_indexes: Block indices that feed a DeepStack merger.
+        hidden_act: Vision MLP activation (e.g. ``"gelu_pytorch_tanh"``).
+        patch_size: Vision patch size, in pixels.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+
+    Call args:
+        pixel_values: Flattened patches ``(num_patches, patch_dim)``.
+        grid_thw: Per-image ``(t, h, w)`` patch-grid sizes.
+
+    Returns:
+        ``(merged, deepstack)`` — merged image embeddings
+        ``(num_merged_tokens, out_hidden_size)`` plus one DeepStack tensor of the
+        same shape per entry in ``deepstack_visual_indexes``.
+    """
 
     def __init__(
         self,
@@ -209,9 +236,35 @@ class Qwen3VLVisionModel(layers.Layer):
 class Qwen3VLTextModel(layers.Layer):
     """Qwen3 causal decoder with DeepStack visual-feature injection.
 
-    Identical to the Qwen3 decoder except that, during prefill, the i-th
-    DeepStack feature map (scattered to a full ``(batch, seq, hidden)`` tensor by
-    the model) is added to the output of decoder layer ``i``.
+    A Qwen3 decoder (per-head QK-norm, no qkv bias, SwiGLU) whose token embedding is
+    reused (tied) as the LM head. Identical to the plain Qwen3 decoder except that,
+    during prefill, the i-th DeepStack feature map (scattered to a full
+    ``(batch, seq, embed_dim)`` tensor by the model) is added to the output of
+    decoder layer ``i``. ``call`` takes the merged interleaved-M-RoPE tables and
+    threads an optional KV cache.
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width per layer.
+        num_layers: Number of decoder blocks.
+        num_heads: Query heads per layer.
+        num_kv_heads: Key/value heads per layer (grouped-query attention).
+        head_dim: Per-head dim of the attention.
+        norm_eps: RMSNorm epsilon (shared by the per-head QK-norms too).
+
+    Call args:
+        inputs_embeds: ``(batch, seq, embed_dim)`` fused token + vision embeddings.
+        cos, sin: merged interleaved-M-RoPE tables ``(batch, seq, head_dim)``.
+        attention_mask: additive mask broadcastable to ``(batch, 1, q_len, kv_len)``,
+            or ``None``.
+        past_key_values: optional list of per-layer ``(key, value)`` cache entries.
+        use_cache: when ``True``, also return the updated per-layer cache.
+        deepstack_full: optional list of ``(batch, seq, embed_dim)`` DeepStack maps
+            added to the first ``len(deepstack_full)`` decoder layers (prefill only).
+
+    Returns:
+        ``(batch, seq, embed_dim)``, or ``(hidden, new_cache)`` when ``use_cache``.
     """
 
     def __init__(
@@ -304,13 +357,72 @@ class Qwen3VLTextModel(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLModel(Qwen2VLModel):
-    """Qwen3-VL multimodal model (vision + Qwen3 decoder + DeepStack).
+    """Qwen3-VL multimodal backbone: vision tower + Qwen3 decoder + DeepStack.
 
-    Reuses :class:`Qwen2VLModel`'s fusion / M-RoPE-index / generation machinery,
-    but overrides the rotary tables (interleaved M-RoPE via
-    :func:`qwen3_text_cos_sin`) and the input prep (which also scatters the vision
-    tower's DeepStack features into ``extra["deepstack_full"]`` for the text
-    decoder's early layers).
+    Subclasses :class:`Qwen2VLModel`, reusing its multimodal fusion and M-RoPE
+    indexing, but uses a Qwen3 decoder (per-head QK-norm, no qkv bias),
+    **interleaved** M-RoPE (:func:`qwen3_text_cos_sin`), a vision tower with learned
+    (interpolated) position embeddings and GELU blocks, and **DeepStack**: features
+    from several vision layers are scattered into the text decoder's early layers
+    during prefill. This base model returns raw features (no LM head); use
+    :class:`Qwen3VLGenerate` for logits / text.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({
+            "input_ids": ...,            # (B, L) int, image/video placeholders
+            "pixel_values": ...,         # (num_patches, patch_dim) image patches
+            "image_grid_thw": ...,       # (num_images, 3) per-image (t, h, w)
+            "pixel_values_videos": ...,  # (num_patches, patch_dim) video patches
+            "video_grid_thw": ...,       # (num_videos, 3) per-video (t, h, w)
+        })
+        out["last_hidden_state"]   # (B, L, embed_dim)
+
+    The vision keys are optional — pass images, video, both, or neither (text-only).
+
+    Construction:
+
+    >>> Qwen3VLModel.from_weights("qwen3-vl-2b-instruct")
+    >>> Qwen3VLModel.from_weights("hf:Qwen/Qwen3-VL-4B-Instruct")
+
+    Reference:
+        - `Qwen3 Technical Report <https://arxiv.org/abs/2505.09388>`_
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Text decoder / residual-stream width.
+        mlp_dim: SwiGLU hidden width per text layer.
+        num_layers: Number of text decoder blocks.
+        num_heads: Query heads per text layer.
+        num_kv_heads: Key/value heads per text layer (grouped-query attention).
+        head_dim: Per-head dim of the text attention.
+        norm_eps: RMSNorm epsilon (shared by the per-head QK-norms too).
+        rope_theta: Rotary base frequency.
+        mrope_section: Per-axis (temporal, height, width) channel split of the
+            interleaved M-RoPE.
+        tie_embeddings: Whether :class:`Qwen3VLGenerate` ties the LM head to the
+            token embedding instead of a separate projection.
+        vision_depth: Number of vision-transformer blocks.
+        vision_hidden_size: Vision hidden width.
+        vision_intermediate_size: Vision MLP hidden width.
+        vision_num_heads: Vision attention heads.
+        vision_out_hidden_size: Output width of the vision merger; defaults to
+            ``embed_dim`` (the LLM hidden size).
+        vision_hidden_act: Vision MLP activation (e.g. ``"gelu_pytorch_tanh"``).
+        num_position_embeddings: Size of the learned vision position-embedding grid
+            (bilinearly interpolated per image).
+        deepstack_visual_indexes: Vision block indices whose features are injected
+            into the text decoder's early layers (DeepStack).
+        patch_size: Vision patch size, in pixels.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+        temporal_patch_size: Number of frames grouped into one temporal patch.
+        in_channels: Image channels (``3`` for RGB).
+        image_token_id: Placeholder token id replaced by image patch embeddings.
+        video_token_id: Placeholder token id replaced by video patch embeddings.
+        vision_start_token_id: Token id marking the start of a vision span.
+        vision_end_token_id: Token id marking the end of a vision span.
     """
 
     HF_MODEL_TYPE = "qwen3_vl"

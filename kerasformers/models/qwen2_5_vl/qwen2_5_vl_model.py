@@ -18,11 +18,32 @@ from .qwen2_5_vl_layers import (
 
 
 def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):
-    """Window partition over merged-patch groups (mirrors HF get_window_index).
+    """Window-partition the merged-patch sequence (mirrors HF ``get_window_index``).
 
-    Returns ``(window_index, cu_window_seqlens)``: a permutation tensor of the
-    ``seq // merge_unit`` merge-unit groups into window-contiguous order, and a
-    list of cumulative per-window sequence lengths (in patch units).
+    Qwen2.5-VL runs *windowed* attention on most vision blocks: patches are
+    reordered so each spatial window is contiguous, attention is masked
+    block-diagonally per window, then the output is scattered back. This computes
+    that permutation. Per image, the merged-patch grid (``h // merge`` x
+    ``w // merge`` per temporal slice) is padded up to whole
+    ``vit_window`` x ``vit_window`` windows
+    (``vit_window = window_size // merge // patch_size``), laid out window by
+    window, and the padding (sentinel ``-100``) is dropped.
+
+    Args:
+        grid_thw: Per-image ``(t, h, w)`` patch-grid sizes (tensor / array / list).
+        window_size: Attention window size, in pixels.
+        spatial_merge_size: Spatial patch-merge factor.
+        patch_size: Vision patch size, in pixels.
+
+    Returns:
+        ``(window_index, cu_window_seqlens)``:
+
+        - ``window_index`` — an ``int32`` permutation tensor of the
+          ``seq // merge_unit`` merge-unit groups into window-contiguous order
+          (apply with ``ops.take``; invert with ``ops.argsort``).
+        - ``cu_window_seqlens`` — a Python list of cumulative per-window sequence
+          lengths in patch units (consecutive duplicates removed), used to build
+          the block-diagonal window attention mask.
     """
     m = spatial_merge_size
     merge_unit = m * m
@@ -57,20 +78,36 @@ def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):
     return ops.convert_to_tensor(window_index, dtype="int32"), cu
 
 
-def _segment_mask(cu_seqlens, total):
-    """Additive block-diagonal mask (1,1,total,total) from cumulative seqlens."""
-    seg = [0] * total
-    for i in range(len(cu_seqlens) - 1):
-        for j in range(int(cu_seqlens[i]), int(cu_seqlens[i + 1])):
-            seg[j] = i
-    seg = ops.convert_to_tensor(seg, dtype="int32")
-    mask = ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG)
-    return ops.cast(mask, "float32")[None, None]
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLVisionModel(layers.Layer):
-    """Qwen2.5-VL vision tower: windowed RMSNorm/SwiGLU blocks + 2x2 merger."""
+    """Qwen2.5-VL vision tower: patch-embed -> windowed blocks -> 2x2 merger.
+
+    Differs from the Qwen2-VL tower in its blocks (RMSNorm + SwiGLU instead of
+    LayerNorm + quick-gelu) and, mainly, in using **windowed** attention: ``call``
+    reorders the flattened patches into window-contiguous order
+    (:func:`get_window_index`), runs the blocks under a block-diagonal mask that is
+    per-window on most layers and per-image (full) on ``fullatt_block_indexes``,
+    merges each ``spatial_merge_size`` x ``spatial_merge_size`` patch group, then
+    un-permutes (``argsort``) back to row-major order.
+
+    Args:
+        embed_dim: Vision hidden width.
+        depth: Number of vision blocks.
+        num_heads: Vision attention heads.
+        intermediate_size: SwiGLU hidden width inside the vision blocks.
+        out_hidden_size: Output width of the merger (the LLM's hidden size).
+        window_size: Windowed-attention window size, in pixels.
+        fullatt_block_indexes: Block indices that use full (non-windowed) attention.
+        patch_size: Vision patch size, in pixels.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+
+    Call args:
+        pixel_values: Flattened patches ``(num_patches, patch_dim)``.
+        grid_thw: Per-image ``(t, h, w)`` patch-grid sizes.
+
+    Returns:
+        Merged image embeddings ``(num_merged_tokens, out_hidden_size)``.
+    """
 
     def __init__(
         self,
@@ -150,8 +187,25 @@ class Qwen2_5_VLVisionModel(layers.Layer):
         for t, h, w in grid_rows:
             for _ in range(t):
                 cu_full.append(cu_full[-1] + h * w)
-        full_mask = None if len(cu_full) <= 2 else _segment_mask(cu_full, seq)
-        window_mask = _segment_mask(cu_window, seq)
+        full_mask = None
+        if len(cu_full) > 2:
+            seg = [0] * seq
+            for i in range(len(cu_full) - 1):
+                for j in range(cu_full[i], cu_full[i + 1]):
+                    seg[j] = i
+            seg = ops.convert_to_tensor(seg, dtype="int32")
+            full_mask = ops.cast(
+                ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG), "float32"
+            )[None, None]
+
+        seg = [0] * seq
+        for i in range(len(cu_window) - 1):
+            for j in range(cu_window[i], cu_window[i + 1]):
+                seg[j] = i
+        seg = ops.convert_to_tensor(seg, dtype="int32")
+        window_mask = ops.cast(
+            ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG), "float32"
+        )[None, None]
 
         for i, block in enumerate(self.blocks):
             mask = full_mask if i in self.fullatt_block_indexes else window_mask
@@ -181,7 +235,35 @@ class Qwen2_5_VLVisionModel(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLTextModel(layers.Layer):
-    """Qwen2.5 causal decoder (same as Qwen2): embed -> N blocks -> RMSNorm."""
+    """Qwen2.5 causal decoder: ``embed -> N x Qwen2_5_VLDecoderLayer -> RMSNorm``.
+
+    Architecturally the same as the Qwen2 text decoder (GQA with qkv bias, SwiGLU).
+    The token embedding lives here (``token_embedding``) and is reused (tied) as the
+    LM head by :class:`Qwen2_5_VLGenerate`. ``call`` takes the pre-computed
+    multimodal-fused ``inputs_embeds`` and merged M-RoPE ``cos`` / ``sin``, and
+    threads an optional KV cache for incremental decoding.
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width per layer.
+        num_layers: Number of decoder blocks.
+        num_heads: Query heads per layer.
+        num_kv_heads: Key/value heads per layer (grouped-query attention).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+        norm_eps: RMSNorm epsilon.
+
+    Call args:
+        inputs_embeds: ``(batch, seq, embed_dim)`` fused token + vision embeddings.
+        cos, sin: merged M-RoPE tables ``(batch, seq, head_dim)``.
+        attention_mask: additive mask broadcastable to ``(batch, 1, q_len, kv_len)``,
+            or ``None``.
+        past_key_values: optional list of per-layer ``(key, value)`` cache entries.
+        use_cache: when ``True``, also return the updated per-layer cache.
+
+    Returns:
+        ``(batch, seq, embed_dim)``, or ``(hidden, new_cache)`` when ``use_cache``.
+    """
 
     def __init__(
         self,
@@ -269,7 +351,72 @@ class Qwen2_5_VLTextModel(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLModel(Qwen2VLModel):
-    """Qwen2.5-VL: Qwen2-VL text/fusion/generation with a windowed vision tower."""
+    """Qwen2.5-VL multimodal backbone: windowed vision tower + Qwen2.5 decoder.
+
+    Subclasses :class:`Qwen2VLModel`, reusing its M-RoPE multimodal fusion, 3D
+    position indexing, and image/video handling, but swaps in the Qwen2.5-VL
+    **windowed** vision tower (:class:`Qwen2_5_VLVisionModel`) and adds its extra
+    configuration (``window_size``, ``fullatt_block_indexes``, ``tokens_per_second``
+    and the ``vision_*`` dims). This base model returns raw features (no LM head);
+    use :class:`Qwen2_5_VLGenerate` for logits / text.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({
+            "input_ids": ...,            # (B, L) int, image/video placeholders
+            "pixel_values": ...,         # (num_patches, patch_dim) image patches
+            "image_grid_thw": ...,       # (num_images, 3) per-image (t, h, w)
+            "pixel_values_videos": ...,  # (num_patches, patch_dim) video patches
+            "video_grid_thw": ...,       # (num_videos, 3) per-video (t, h, w)
+        })
+        out["last_hidden_state"]   # (B, L, embed_dim)
+
+    The vision keys are optional — pass the image pair, the video pair, both, or
+    neither (text-only).
+
+    Construction:
+
+    >>> Qwen2_5_VLModel.from_weights("qwen2.5-vl-3b-instruct")
+    >>> Qwen2_5_VLModel.from_weights("hf:Qwen/Qwen2.5-VL-7B-Instruct")
+
+    Reference:
+        - `Qwen2.5-VL Technical Report <https://arxiv.org/abs/2502.13923>`_
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Text decoder / residual-stream width
+            (``head_dim = embed_dim // num_heads``).
+        mlp_dim: SwiGLU hidden width per text layer.
+        num_layers: Number of text decoder blocks.
+        num_heads: Query heads per text layer.
+        num_kv_heads: Key/value heads per text layer (grouped-query attention).
+        norm_eps: RMSNorm epsilon.
+        rope_theta: Rotary base frequency.
+        mrope_section: Per-axis (temporal, height, width) channel split of the
+            merged M-RoPE; sums to ``head_dim // 2``.
+        tie_embeddings: Whether :class:`Qwen2_5_VLGenerate` ties the LM head to the
+            token embedding instead of a separate projection.
+        vision_depth: Number of vision-transformer blocks.
+        vision_hidden_size: Vision hidden width.
+        vision_intermediate_size: Vision SwiGLU hidden width.
+        vision_num_heads: Vision attention heads.
+        vision_out_hidden_size: Output width of the vision merger; defaults to
+            ``embed_dim`` (the LLM hidden size).
+        window_size: Windowed-attention window size, in pixels.
+        fullatt_block_indexes: Vision block indices that use full (non-windowed)
+            attention instead of windowed attention.
+        tokens_per_second: Video temporal-position scale used by M-RoPE.
+        patch_size: Vision patch size, in pixels.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+        temporal_patch_size: Number of frames grouped into one temporal patch.
+        in_channels: Image channels (``3`` for RGB).
+        image_token_id: Placeholder token id replaced by image patch embeddings.
+        video_token_id: Placeholder token id replaced by video patch embeddings.
+        vision_start_token_id: Token id marking the start of a vision span.
+        vision_end_token_id: Token id marking the end of a vision span.
+    """
 
     HF_MODEL_TYPE = "qwen2_5_vl"
     BASE_MODEL_CONFIG = QWEN2_5_VL_CONFIG

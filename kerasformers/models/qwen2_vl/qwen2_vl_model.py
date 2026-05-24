@@ -117,11 +117,27 @@ def merge_mrope(table, mrope_section):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2VLVisionModel(layers.Layer):
-    """Vision tower: Conv3d-as-Dense patch embed -> rotary blocks -> 2x2 merger.
+    """Qwen2-VL vision tower: patch-embed -> rotary blocks -> 2x2 merger.
 
-    ``call(pixel_values, grid_thw)`` takes the processor's flattened patches
-    ``(num_patches, patch_dim)`` plus the per-image ``(t, h, w)`` grid and
-    returns merged image embeddings ``(num_merged_tokens, llm_hidden)``.
+    A ViT over the flattened patch sequence: a Conv3d-as-Dense patch embed, ``depth``
+    full-attention blocks with 2D rotary positions and a per-image block-diagonal
+    mask, then a 2x2 patch merger projecting to the LLM hidden width. All images /
+    video frames are processed in one packed sequence.
+
+    Args:
+        embed_dim: Vision hidden width.
+        depth: Number of vision blocks.
+        num_heads: Vision attention heads.
+        llm_hidden_size: Output width of the merger (the LLM's hidden size).
+        mlp_ratio: MLP expansion ratio inside the vision blocks.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+
+    Call args:
+        pixel_values: Flattened patches ``(num_patches, patch_dim)``.
+        grid_thw: Per-image ``(t, h, w)`` patch-grid sizes.
+
+    Returns:
+        Merged image embeddings ``(num_merged_tokens, llm_hidden_size)``.
     """
 
     def __init__(
@@ -179,12 +195,33 @@ class Qwen2VLVisionModel(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2VLTextModel(layers.Layer):
-    """Qwen2 causal decoder: embed -> N decoder layers -> RMSNorm.
+    """Qwen2 causal decoder: ``embed -> num_layers x Qwen2VLDecoderLayer -> RMSNorm``.
 
-    Token embedding lives here (``embed_tokens``) and is reused (tied) as the
-    LM head by :class:`Qwen2VLModel`. ``call`` accepts pre-computed
-    ``inputs_embeds`` (the multimodal-fused sequence) and merged M-RoPE
-    ``cos`` / ``sin``; it threads an optional KV cache for decoding.
+    The token embedding lives here (``token_embedding``) and is reused (tied) as the
+    LM head by :class:`Qwen2VLModel`. A standard Qwen2 stack (GQA with qkv bias,
+    SwiGLU); ``call`` takes the pre-computed multimodal-fused ``inputs_embeds`` and
+    merged M-RoPE tables, and threads an optional KV cache for incremental decoding.
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width per layer.
+        num_layers: Number of decoder blocks.
+        num_heads: Query heads per layer.
+        num_kv_heads: Key/value heads per layer (grouped-query attention).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+        norm_eps: RMSNorm epsilon.
+
+    Call args:
+        inputs_embeds: ``(batch, seq, embed_dim)`` fused token + vision embeddings.
+        cos, sin: merged M-RoPE tables ``(batch, seq, head_dim)``.
+        attention_mask: additive mask broadcastable to ``(batch, 1, q_len, kv_len)``,
+            or ``None``.
+        past_key_values: optional list of per-layer ``(key, value)`` cache entries.
+        use_cache: when ``True``, also return the updated per-layer cache.
+
+    Returns:
+        ``(batch, seq, embed_dim)``, or ``(hidden, new_cache)`` when ``use_cache``.
     """
 
     def __init__(
@@ -274,22 +311,65 @@ class Qwen2VLTextModel(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2VLModel(BaseModel):
-    """Qwen2-VL: vision tower + Qwen2 decoder fused by M-RoPE, with LM head.
+    """Qwen2-VL multimodal backbone: vision tower + Qwen2 decoder fused by M-RoPE.
 
-    Call with a dict::
+    A ViT-style vision tower (Conv3d-as-Dense patch embed -> full-attention rotary
+    blocks -> 2x2 merger) whose merged image/video embeddings are scattered into the
+    ``image_token_id`` / ``video_token_id`` placeholder slots of a Qwen2 decoder,
+    with 3D M-RoPE positions from :meth:`get_rope_index`. The forward pass runs
+    eagerly with ``keras.ops``. This base model returns raw features (no LM head);
+    use :class:`Qwen2VLGenerate` for logits / text.
+
+    Output dict:
+
+    .. code-block:: python
 
         out = model({
-            "input_ids": (batch, seq),            # int, with image placeholders
-            "pixel_values": (num_patches, pdim),  # flattened image patches
-            "image_grid_thw": (num_images, 3),    # per-image (t, h, w)
-            "attention_mask": (batch, seq),        # optional 1/0 padding mask
+            "input_ids": ...,            # (B, L) int, image/video placeholders
+            "pixel_values": ...,         # (num_patches, patch_dim) image patches
+            "image_grid_thw": ...,       # (num_images, 3) per-image (t, h, w)
+            "pixel_values_videos": ...,  # (num_patches, patch_dim) video patches
+            "video_grid_thw": ...,       # (num_videos, 3) per-video (t, h, w)
         })
-        out["logits"]  # (batch, seq, vocab_size)
+        out["last_hidden_state"]   # (B, L, embed_dim)
 
-    Text-only inputs (no ``pixel_values`` / ``image_grid_thw``) are supported.
-    The forward pass runs eagerly with ``keras.ops``; image features are
-    scattered into the ``image_token_id`` placeholder slots and 3D M-RoPE
-    positions come from :meth:`get_rope_index`.
+    The vision keys are optional — pass images, video, both, or neither (text-only).
+
+    Construction:
+
+    >>> Qwen2VLModel.from_weights("qwen2-vl-2b-instruct")
+    >>> Qwen2VLModel.from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")
+
+    Reference:
+        - `Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at
+          Any Resolution <https://arxiv.org/abs/2409.12191>`_
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Text decoder / residual-stream width
+            (``head_dim = embed_dim // num_heads``).
+        mlp_dim: SwiGLU hidden width per text layer.
+        num_layers: Number of text decoder blocks.
+        num_heads: Query heads per text layer.
+        num_kv_heads: Key/value heads per text layer (grouped-query attention).
+        norm_eps: RMSNorm epsilon.
+        rope_theta: Rotary base frequency.
+        mrope_section: Per-axis (temporal, height, width) channel split of the
+            merged M-RoPE; sums to ``head_dim // 2``.
+        tie_embeddings: Whether :class:`Qwen2VLGenerate` ties the LM head to the
+            token embedding instead of a separate projection.
+        vision_depth: Number of vision-transformer blocks.
+        vision_embed_dim: Vision hidden width.
+        vision_num_heads: Vision attention heads.
+        vision_mlp_ratio: MLP expansion ratio in the vision blocks.
+        patch_size: Vision patch size, in pixels.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+        temporal_patch_size: Number of frames grouped into one temporal patch.
+        in_channels: Image channels (``3`` for RGB).
+        image_token_id: Placeholder token id replaced by image patch embeddings.
+        video_token_id: Placeholder token id replaced by video patch embeddings.
+        vision_start_token_id: Token id marking the start of a vision span.
+        vision_end_token_id: Token id marking the end of a vision span.
     """
 
     HF_MODEL_TYPE = "qwen2_vl"
