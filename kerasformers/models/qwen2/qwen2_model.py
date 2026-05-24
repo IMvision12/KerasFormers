@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
@@ -12,10 +11,30 @@ _MASK_NEG = -1e9
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2Model(BaseModel):
-    """Qwen2 decoder: token_embedding -> N decoder layers -> final RMSNorm.
+    """Qwen2 dense decoder-only transformer backbone (no LM head).
 
-    Call with ``{"input_ids": (B, L), "attention_mask": (B, L) optional}`` ->
-    ``{"last_hidden_state": (B, L, embed_dim)}``.
+    ``token_embedding -> num_layers x Qwen2DecoderLayer -> final RMSNorm``, with
+    grouped-query attention and 1D rotary positions. This is a subclassed
+    (imperative) :class:`BaseModel`: the sequence length and decode-step count are
+    data dependent, so the forward pass runs eagerly with ``keras.ops`` rather
+    than as a static graph. Returns raw features; use :class:`Qwen2Generate` for
+    logits / text.
+
+        model = Qwen2Model.from_weights("qwen2-0.5b-instruct")
+        out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width per layer.
+        num_layers: Number of decoder blocks.
+        num_heads: Query heads per layer.
+        num_kv_heads: Key/value heads per layer (GQA).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+        norm_eps: RMSNorm epsilon.
+        rope_theta: Rotary base frequency.
+        tie_embeddings: Whether :class:`Qwen2Generate` ties the LM head to the
+            token embedding instead of a separate projection.
     """
 
     HF_MODEL_TYPE = "qwen2"
@@ -65,73 +84,31 @@ class Qwen2Model(BaseModel):
         ]
         self.final_norm = Qwen2RMSNorm(eps=norm_eps, name="final_norm")
 
-    def _causal_mask(self, q_len, kv_len, offset):
-        qi = np.arange(q_len)[:, None] + offset
-        ki = np.arange(kv_len)[None, :]
-        mask = np.where(ki <= qi, 0.0, _MASK_NEG).astype("float32")
-        return ops.convert_to_tensor(mask[None, None])
-
-    def _positions(self, attention_mask, batch, seq):
-        if attention_mask is not None:
-            am = np.asarray(ops.convert_to_numpy(attention_mask))
-            pos = np.cumsum(am, axis=-1) - 1
-            return np.where(am == 0, 1, pos).astype("int64")
-        return np.broadcast_to(np.arange(seq), (batch, seq)).astype("int64")
-
-    def _run_decoder(
-        self,
-        inputs_embeds,
-        cos,
-        sin,
-        attention_mask,
-        past_key_values=None,
-        use_cache=False,
-    ):
-        hidden = inputs_embeds
-        new_cache = [] if use_cache else None
-        for i, layer in enumerate(self.decoder_layers):
-            past = past_key_values[i] if past_key_values is not None else None
-            out = layer(
-                hidden,
-                cos,
-                sin,
-                attention_mask=attention_mask,
-                past_key_value=past,
-                use_cache=use_cache,
-            )
-            if use_cache:
-                hidden, kv = out
-                new_cache.append(kv)
-            else:
-                hidden = out
-        hidden = self.final_norm(hidden)
-        return (hidden, new_cache) if use_cache else hidden
-
-    def _forward_features(self, inputs):
+    def call(self, inputs):
         if not isinstance(inputs, dict):
             inputs = {"input_ids": inputs}
-        input_ids_np = np.asarray(ops.convert_to_numpy(inputs["input_ids"])).astype(
-            "int64"
-        )
-        batch, seq = input_ids_np.shape
+        input_ids = ops.cast(ops.convert_to_tensor(inputs["input_ids"]), "int32")
+        batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         attention_mask = inputs.get("attention_mask")
-        inputs_embeds = self.token_embedding(ops.convert_to_tensor(input_ids_np))
-        position_ids = self._positions(attention_mask, batch, seq)
-        inv_freq = 1.0 / (
-            self.rope_theta
-            ** (np.arange(0, self.head_dim, 2, dtype=np.float32) / self.head_dim)
+        hidden = self.token_embedding(input_ids)
+        if attention_mask is not None:
+            am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+            position_ids = ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
+        else:
+            position_ids = ops.broadcast_to(ops.arange(seq), (batch, seq))
+        inv_freq = 1.0 / ops.power(
+            self.rope_theta,
+            ops.arange(0, self.head_dim, 2, dtype="float32") / self.head_dim,
         )
-        emb = np.concatenate(
-            [position_ids.astype("float32")[..., None] * inv_freq] * 2, axis=-1
-        )
-        cos = ops.convert_to_tensor(np.cos(emb).astype("float32"))
-        sin = ops.convert_to_tensor(np.sin(emb).astype("float32"))
-        attn_mask = self._causal_mask(seq, seq, offset=0)
-        return self._run_decoder(inputs_embeds, cos, sin, attn_mask)
-
-    def call(self, inputs):
-        """Return raw features. Use ``Qwen2Generate`` for logits / text."""
-        return {"last_hidden_state": self._forward_features(inputs)}
+        freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
+        emb = ops.concatenate([freqs, freqs], axis=-1)
+        cos, sin = ops.cos(emb), ops.sin(emb)
+        qi = ops.arange(seq)[:, None]
+        ki = ops.arange(seq)[None, :]
+        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        for layer in self.decoder_layers:
+            hidden = layer(hidden, cos, sin, attention_mask=attn_mask)
+        return {"last_hidden_state": self.final_norm(hidden)}
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -175,7 +152,18 @@ class Qwen2Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2Generate(Qwen2Model):
-    """Qwen2 with an LM head + greedy ``.generate()`` (text -> text)."""
+    """Qwen2 backbone + a language-model head and greedy ``.generate()``.
+
+    Adds a vocabulary projection on top of :class:`Qwen2Model`: a separate
+    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
+    (transposed) token embedding (weight tying). ``call`` returns both ``logits``
+    ``(batch, seq, vocab_size)`` and ``last_hidden_state``; :meth:`generate` does
+    greedy decoding with a KV cache. Constructor ``Args`` are inherited from
+    :class:`Qwen2Model`.
+
+        gen = Qwen2Generate.from_weights("qwen2-0.5b-instruct")
+        ids = gen.generate(tokenizer(messages)["input_ids"])
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -191,76 +179,79 @@ class Qwen2Generate(Qwen2Model):
         return ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
 
     def call(self, inputs):
-        hidden = self._forward_features(inputs)
+        hidden = super().call(inputs)["last_hidden_state"]
         return {"logits": self._lm_logits(hidden), "last_hidden_state": hidden}
 
     def generate(
         self, input_ids, attention_mask=None, max_new_tokens=128, eos_token_id=(151645,)
     ):
-        """Greedy decoding with a KV cache. Returns ``(batch, num_new)`` ids."""
-        input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
-        batch, prompt_len = input_ids_np.shape
-        inputs_embeds = self.token_embedding(ops.convert_to_tensor(input_ids_np))
-        position_ids = self._positions(attention_mask, batch, prompt_len)
-        inv_freq = 1.0 / (
-            self.rope_theta
-            ** (np.arange(0, self.head_dim, 2, dtype=np.float32) / self.head_dim)
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
+        hidden = self.token_embedding(input_ids)
+        if attention_mask is not None:
+            am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+            position_ids = ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
+        else:
+            position_ids = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
+        inv_freq = 1.0 / ops.power(
+            self.rope_theta,
+            ops.arange(0, self.head_dim, 2, dtype="float32") / self.head_dim,
         )
-        emb = np.concatenate(
-            [position_ids.astype("float32")[..., None] * inv_freq] * 2, axis=-1
+        freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
+        emb = ops.concatenate([freqs, freqs], axis=-1)
+        cos, sin = ops.cos(emb), ops.sin(emb)
+        qi = ops.arange(prompt_len)[:, None]
+        ki = ops.arange(prompt_len)[None, :]
+        causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        cache = []
+        for layer in self.decoder_layers:
+            hidden, kv = layer(hidden, cos, sin, attention_mask=causal, use_cache=True)
+            cache.append(kv)
+        hidden = self.final_norm(hidden)
+        next_tok = ops.cast(
+            ops.argmax(self._lm_logits(hidden[:, -1:, :]), axis=-1), "int32"
         )
-        cos, sin = np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
-        hidden, cache = self._run_decoder(
-            inputs_embeds,
-            ops.convert_to_tensor(cos),
-            ops.convert_to_tensor(sin),
-            self._causal_mask(prompt_len, prompt_len, offset=0),
-            use_cache=True,
-        )
-        next_tok = np.asarray(
-            ops.convert_to_numpy(
-                ops.argmax(self._lm_logits(hidden[:, -1:, :]), axis=-1)
-            )
-        ).astype("int64")
 
-        eos = {
+        eos = [
             int(e)
             for e in (
                 eos_token_id
                 if isinstance(eos_token_id, (list, tuple))
                 else [eos_token_id]
             )
-        }
-        first_eos = next(iter(eos)) if eos else 0
-        finished = np.isin(next_tok[:, 0], list(eos))
+        ]
+        first_eos = eos[0] if eos else 0
+        finished = ops.zeros((batch,), dtype="bool")
+        for e in eos:
+            finished = ops.logical_or(finished, next_tok[:, 0] == e)
         generated = [next_tok]
         cur_len = prompt_len
         for _ in range(max_new_tokens - 1):
-            if finished.all():
+            if bool(ops.all(finished)):
                 break
-            pos = np.full((batch, 1), cur_len, dtype="int64")
-            inv_freq = 1.0 / (
-                self.rope_theta
-                ** (np.arange(0, self.head_dim, 2, dtype=np.float32) / self.head_dim)
+            pos = ops.full((batch, 1), cur_len, dtype="int32")
+            inv_freq = 1.0 / ops.power(
+                self.rope_theta,
+                ops.arange(0, self.head_dim, 2, dtype="float32") / self.head_dim,
             )
-            emb = np.concatenate(
-                [pos.astype("float32")[..., None] * inv_freq] * 2, axis=-1
+            freqs = ops.cast(pos, "float32")[..., None] * inv_freq
+            emb = ops.concatenate([freqs, freqs], axis=-1)
+            c, s = ops.cos(emb), ops.sin(emb)
+            hidden = self.token_embedding(next_tok)
+            new_cache = []
+            for i, layer in enumerate(self.decoder_layers):
+                hidden, kv = layer(
+                    hidden, c, s, past_key_value=cache[i], use_cache=True
+                )
+                new_cache.append(kv)
+            hidden = self.final_norm(hidden)
+            cache = new_cache
+            next_tok = ops.cast(ops.argmax(self._lm_logits(hidden), axis=-1), "int32")
+            next_tok = ops.cast(
+                ops.where(finished[:, None], first_eos, next_tok), "int32"
             )
-            c, s = np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
-            step = self.token_embedding(ops.convert_to_tensor(next_tok))
-            hidden, cache = self._run_decoder(
-                step,
-                ops.convert_to_tensor(c),
-                ops.convert_to_tensor(s),
-                None,
-                past_key_values=cache,
-                use_cache=True,
-            )
-            next_tok = np.asarray(
-                ops.convert_to_numpy(ops.argmax(self._lm_logits(hidden), axis=-1))
-            ).astype("int64")
-            next_tok[finished, 0] = first_eos
             generated.append(next_tok)
             cur_len += 1
-            finished = finished | np.isin(next_tok[:, 0], list(eos))
-        return np.concatenate(generated, axis=1)
+            for e in eos:
+                finished = ops.logical_or(finished, next_tok[:, 0] == e)
+        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))
