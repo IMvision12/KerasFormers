@@ -17,6 +17,13 @@ class BaseTokenizer(keras.layers.Layer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+    def __call__(self, *args, **kwargs):
+        # Tokenizers are stateless utility layers (no weights to build) and take
+        # Python inputs — strings or chat-message lists, not tensors. Forward
+        # straight to `call` so they can be passed positionally (Keras's
+        # Layer.__call__ rejects non-tensor positional args).
+        return self.call(*args, **kwargs)
+
     def call(self, inputs):
         raise NotImplementedError(
             f"{type(self).__name__} must implement `call(inputs)`."

@@ -40,13 +40,13 @@ def qwen3_text_cos_sin(position_ids, head_dim, theta, mrope_section):
     ``(batch, seq, head_dim)`` cos/sin.
     """
     inv_freq = 1.0 / (theta ** (np.arange(0, head_dim, 2, dtype=np.float32) / head_dim))
-    freqs = position_ids.astype("float32")[..., None] * inv_freq  # (3, b, s, hd/2)
-    freqs_t = freqs[0].copy()  # (b, s, hd/2)
-    for dim, offset in ((1, 1), (2, 2)):  # H, W
+    freqs = position_ids.astype("float32")[..., None] * inv_freq
+    freqs_t = freqs[0].copy()
+    for dim, offset in ((1, 1), (2, 2)):
         length = mrope_section[dim] * 3
         idx = np.arange(offset, length, 3)
         freqs_t[..., idx] = freqs[dim][..., idx]
-    emb = np.concatenate([freqs_t, freqs_t], axis=-1)  # (b, s, hd)
+    emb = np.concatenate([freqs_t, freqs_t], axis=-1)
     return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
 
 
@@ -151,8 +151,7 @@ class Qwen3VLVisionModel(layers.Layer):
                 + ops.take(self.pos_embed, i01, axis=0) * w01
                 + ops.take(self.pos_embed, i10, axis=0) * w10
                 + ops.take(self.pos_embed, i11, axis=0) * w11
-            )  # (h*w, embed) row-major
-            # repeat over frames, reorder into merge-block order
+            )
             emb = ops.reshape(emb, (1, h // m, m, w // m, m, self.embed_dim))
             emb = ops.transpose(emb, (0, 1, 3, 2, 4, 5))
             emb = ops.reshape(emb, (h * w, self.embed_dim))
@@ -263,10 +262,6 @@ class Qwen3VLTextModel(layers.Layer):
         use_cache=False,
         deepstack_full=None,
     ):
-        # `deepstack_full` is a list of (batch, seq, hidden) tensors (DeepStack
-        # features already scattered to visual positions, zero elsewhere) — added
-        # into the first len(...) layers. Passing pre-built tensors (not index
-        # arrays) keeps this JAX-trace-safe.
         hidden = inputs_embeds
         new_cache = [] if use_cache else None
         n_ds = 0 if deepstack_full is None else len(deepstack_full)
@@ -375,7 +370,7 @@ class Qwen3VLModel(Qwen2VLModel):
         self.vision_start_token_id = vision_start_token_id
         self.vision_end_token_id = vision_end_token_id
         self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
-        self.tokens_per_second = 1  # Qwen3-VL uses no temporal scaling for images
+        self.tokens_per_second = 1
 
         self.visual = Qwen3VLVisionModel(
             embed_dim=vision_hidden_size,

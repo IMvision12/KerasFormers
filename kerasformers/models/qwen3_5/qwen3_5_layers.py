@@ -181,7 +181,7 @@ class Qwen3_5Attention(layers.Layer):
         )
         query, gate = qg[..., : self.head_dim], qg[..., self.head_dim :]
         gate = ops.reshape(gate, (b, q_len, self.num_attention_heads * self.head_dim))
-        query = self.q_norm(query)  # (b, q_len, nh, hd)
+        query = self.q_norm(query)
         key = self.k_norm(
             ops.reshape(
                 self.k_proj(hidden_states),
@@ -278,7 +278,6 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
         self.out_proj = layers.Dense(hidden_size, use_bias=False, name="out_proj")
 
     def build(self, input_shape):
-        # depthwise causal conv1d weight (conv_dim, kernel) + per-head dt/A_log
         self.conv_weight = self.add_weight(
             name="conv_weight",
             shape=(self.conv_dim, self.conv_kernel_dim),
@@ -297,10 +296,9 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
         self.built = True
 
     def _causal_conv(self, x, conv_state=None):
-        # x (b, seq, conv_dim); depthwise causal conv + SiLU. Returns (out, new_state).
         k = self.conv_kernel_dim
         if conv_state is not None:
-            x_pad = ops.concatenate([conv_state, x], axis=1)  # (b, k-1+seq, conv_dim)
+            x_pad = ops.concatenate([conv_state, x], axis=1)
         else:
             x_pad = ops.concatenate(
                 [ops.zeros((ops.shape(x)[0], k - 1, self.conv_dim), dtype=x.dtype), x],
@@ -314,7 +312,6 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
         return ops.silu(out), new_state
 
     def _delta_rule(self, q, k, v, g, beta, init_state=None):
-        # q,k (b,seq,nv,hk); v (b,seq,nv,hv); g,beta (b,seq,nv)
         q = l2norm(q) * (self.head_k_dim**-0.5)
         k = l2norm(k)
         b = ops.shape(q)[0]
@@ -328,15 +325,15 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
         )
         outs = []
         for t in range(seq):
-            q_t, k_t, v_t = q[:, t], k[:, t], v[:, t]  # (b,nv,hk)/(b,nv,hv)
-            g_t = ops.exp(g[:, t])[:, :, None, None]  # (b,nv,1,1)
-            beta_t = beta[:, t][:, :, None]  # (b,nv,1)
+            q_t, k_t, v_t = q[:, t], k[:, t], v[:, t]
+            g_t = ops.exp(g[:, t])[:, :, None, None]
+            beta_t = beta[:, t][:, :, None]
             state = state * g_t
-            kv_mem = ops.sum(state * k_t[..., None], axis=-2)  # (b,nv,hv)
+            kv_mem = ops.sum(state * k_t[..., None], axis=-2)
             delta = (v_t - kv_mem) * beta_t
             state = state + k_t[..., None] * delta[:, :, None, :]
-            outs.append(ops.sum(state * q_t[..., None], axis=-2))  # (b,nv,hv)
-        core = ops.stack(outs, axis=1)  # (b,seq,nv,hv)
+            outs.append(ops.sum(state * q_t[..., None], axis=-2))
+        core = ops.stack(outs, axis=1)
         return core, state
 
     def call(self, hidden_states, past_key_value=None, use_cache=False):
@@ -345,7 +342,7 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
         conv_state = past_key_value[0] if past_key_value is not None else None
         rec_state = past_key_value[1] if past_key_value is not None else None
 
-        mixed = self.in_proj_qkv(hidden_states)  # (b, seq, conv_dim)
+        mixed = self.in_proj_qkv(hidden_states)
         mixed, new_conv_state = self._causal_conv(mixed, conv_state)
         query = ops.reshape(
             mixed[..., : self.key_dim], (b, seq, self.num_k_heads, self.head_k_dim)
@@ -361,7 +358,7 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
         z = ops.reshape(
             self.in_proj_z(hidden_states), (b, seq, self.num_v_heads, self.head_v_dim)
         )
-        beta = ops.sigmoid(self.in_proj_b(hidden_states))  # (b, seq, nv)
+        beta = ops.sigmoid(self.in_proj_b(hidden_states))
         a = self.in_proj_a(hidden_states)
         g = -ops.exp(ops.cast(self.A_log, "float32")) * ops.softplus(
             ops.cast(a, "float32") + ops.cast(self.dt_bias, "float32")
@@ -372,7 +369,7 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
             key = ops.repeat(key, self.kv_ratio, axis=2)
 
         core, new_rec_state = self._delta_rule(query, key, value, g, beta, rec_state)
-        core = self.norm(core, z)  # gated RMSNorm over head_v_dim
+        core = self.norm(core, z)
         core = ops.reshape(core, (b, seq, self.value_dim))
         out = self.out_proj(core)
         return (out, (new_conv_state, new_rec_state)) if use_cache else out

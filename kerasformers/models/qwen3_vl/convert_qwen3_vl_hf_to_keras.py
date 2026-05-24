@@ -15,7 +15,6 @@ def transfer_qwen3_vl_weights(keras_model, hf_state_dict):
         _build_model(keras_model)
     state = _normalize_state(hf_state_dict)
 
-    # ---- Vision tower ----
     visual = keras_model.visual
     conv = _np(state, "visual.patch_embed.proj.weight")
     visual.patch_embed.proj.kernel.assign(conv.reshape(conv.shape[0], -1).T)
@@ -72,7 +71,6 @@ def transfer_qwen3_vl_weights(keras_model, hf_state_dict):
     for j, dm in enumerate(visual.deepstack_mergers):
         _merger(dm, f"visual.deepstack_merger_list.{j}")
 
-    # ---- Text decoder (Qwen3: q_norm/k_norm, no qkv bias) ----
     lm = keras_model.language_model
     lm.embed_tokens.embeddings.assign(_np(state, "model.embed_tokens.weight"))
     for i, layer in enumerate(lm.decoder_layers):

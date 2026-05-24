@@ -2,6 +2,7 @@
 ``apply_chat_template`` helper."""
 
 import keras
+import numpy as np
 
 from kerasformers.base import BaseTokenizer
 
@@ -47,8 +48,30 @@ class Qwen3_5Tokenizer(BaseTokenizer):
         return text
 
     def call(self, inputs):
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
-        return {"input_ids": [self.encode(t) for t in texts]}
+        """Tokenize text(s) or a chat ``messages`` list into model inputs.
+
+        Accepts a single string, a list of strings, or a ChatML-style
+        conversation (``[{"role": ..., "content": ...}, ...]``) — the latter is
+        run through :meth:`apply_chat_template` first. Returns padded
+        ``{"input_ids", "attention_mask"}`` (numpy) ready for ``model.generate``.
+        """
+        if (
+            isinstance(inputs, (list, tuple))
+            and inputs
+            and isinstance(inputs[0], dict)
+            and "role" in inputs[0]
+        ):
+            texts = [self.apply_chat_template(inputs)]
+        else:
+            texts = [inputs] if isinstance(inputs, str) else list(inputs)
+        ids = [self.encode(t) for t in texts]
+        max_len = max(len(s) for s in ids)
+        input_ids = np.zeros((len(ids), max_len), dtype="int32")
+        attention_mask = np.zeros((len(ids), max_len), dtype="int32")
+        for i, s in enumerate(ids):
+            input_ids[i, : len(s)] = s
+            attention_mask[i, : len(s)] = 1
+        return {"input_ids": input_ids, "attention_mask": attention_mask}
 
     def decode(self, ids, skip_special_tokens=True):
         if hasattr(ids, "tolist"):

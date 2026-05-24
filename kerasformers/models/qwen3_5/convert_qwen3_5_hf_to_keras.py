@@ -68,7 +68,6 @@ def transfer_qwen3_5_weights(keras_model, hf_state_dict):
             _assign_dense(la.in_proj_a, _np(state, f"{p}.linear_attn.in_proj_a.weight"))
             _assign_dense(la.out_proj, _np(state, f"{p}.linear_attn.out_proj.weight"))
             _assign_rmsnorm(la.norm, _np(state, f"{p}.linear_attn.norm.weight"))
-            # depthwise conv1d (conv_dim, 1, kernel) -> (conv_dim, kernel)
             la.conv_weight.assign(
                 _np(state, f"{p}.linear_attn.conv1d.weight").squeeze(1)
             )

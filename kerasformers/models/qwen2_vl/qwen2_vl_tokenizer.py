@@ -36,10 +36,6 @@ class Qwen2VLTokenizer(BaseTokenizer):
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
 
-        # `<|image_pad|>` / `<|video_pad|>` live in tokenizer_config.json (not
-        # tokenizer.json), so add them here at their canonical ids 151655/151656
-        # (vocab is 151655, so these append in order) — otherwise they'd
-        # BPE-split and the image-token scatter would miss them.
         for pad_token in ("<|image_pad|>", "<|video_pad|>"):
             if self._tok.token_to_id(pad_token) is None:
                 self._tok.add_special_tokens(

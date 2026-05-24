@@ -1,22 +1,3 @@
-# Qwen3.5 (text backbone) — the Qwen3-Next hybrid LLM. Most layers are
-# Gated-DeltaNet linear attention (depthwise conv1d + delta-rule recurrence +
-# gated RMSNorm); every `full_attention_interval`-th layer is gated full
-# attention (QK-norm, partial rotary, output gate). Zero-centered (1+weight)
-# RMSNorm throughout.
-#
-# Qwen3.5 ships as a multimodal series (Qwen3_5ForConditionalGeneration); this
-# is the text decoder (model_type "qwen3_5_text"), loaded from each checkpoint's
-# `model.language_model.*` tensors. Each dense size ships a main model and a
-# `-Base` pretrained one (same architecture). The 35B-A3B / 122B-A10B /
-# 397B-A17B checkpoints are Mixture-of-Experts (model_type "qwen3_5_moe_text")
-# and need a separate implementation, so they are absent here.
-#
-# Load by variant name:
-#     Qwen3_5Generate.from_weights("qwen3.5-2b")
-#
-# For 0.8B/2B linear_num_key_heads == linear_num_value_heads (16); 4B+ use a
-# 16/32 (or 16/48) key/value-head split.
-
 QWEN3_5_CONFIG = {
     "qwen3.5-0.8b": {
         "vocab_size": 248320,
@@ -191,9 +172,6 @@ QWEN3_5_CONFIG = {
     },
 }
 
-# Release weights (public Qwen repos; on-the-fly transfer_from_hf). The text
-# backbone is loaded from each Qwen3.5 checkpoint's `model.language_model.*`
-# tensors. Keys mirror QWEN3_5_CONFIG -> `from_weights("qwen3.5-2b")`.
 QWEN3_5_WEIGHTS = {
     "qwen3.5-0.8b": {"hf_id": "Qwen/Qwen3.5-0.8B", "gated": False, "safetensors": True},
     "qwen3.5-0.8b-base": {

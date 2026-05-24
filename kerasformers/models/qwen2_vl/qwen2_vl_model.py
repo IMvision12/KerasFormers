@@ -32,7 +32,6 @@ from .qwen2_vl_layers import (
     Qwen2VLVisionBlock,
 )
 
-# Large negative additive-mask fill (kept finite so softmax never sees NaNs).
 _MASK_NEG = -1e9
 
 
@@ -65,14 +64,14 @@ def vision_rotary_cos_sin(grid_thw, head_dim, spatial_merge_size, theta=10000.0)
         wpos = np.broadcast_to(np.arange(w)[None, :], (h, w))
         wpos = wpos.reshape(h // m, m, w // m, m).transpose(0, 2, 1, 3).flatten()
         pos_ids.append(np.tile(np.stack([hpos, wpos], axis=-1), (t, 1)))
-    pos_ids = np.concatenate(pos_ids, axis=0)  # (total, 2)
+    pos_ids = np.concatenate(pos_ids, axis=0)
 
     max_grid = int(max(int(h) for _, h, w in grid_thw) | 0)
     max_grid = max(int(max(h, w)) for _, h, w in grid_thw)
     seq = np.arange(max_grid, dtype=np.float32)
-    freqs_full = np.outer(seq, inv_freq)  # (max_grid, rotary_dim/2)
-    rotary = freqs_full[pos_ids].reshape(pos_ids.shape[0], -1)  # (total, rotary_dim)
-    emb = np.concatenate([rotary, rotary], axis=-1)  # (total, head_dim)
+    freqs_full = np.outer(seq, inv_freq)
+    rotary = freqs_full[pos_ids].reshape(pos_ids.shape[0], -1)
+    emb = np.concatenate([rotary, rotary], axis=-1)
     return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
 
 
@@ -102,8 +101,8 @@ def text_rope_cos_sin(position_ids, head_dim, theta):
         ``(cos, sin)`` numpy arrays, each ``(3, batch, seq, head_dim)``.
     """
     inv_freq = 1.0 / (theta ** (np.arange(0, head_dim, 2, dtype=np.float32) / head_dim))
-    freqs = position_ids.astype("float32")[..., None] * inv_freq  # (3,b,s,hd/2)
-    emb = np.concatenate([freqs, freqs], axis=-1)  # (3,b,s,hd)
+    freqs = position_ids.astype("float32")[..., None] * inv_freq
+    emb = np.concatenate([freqs, freqs], axis=-1)
     return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
 
 
@@ -352,7 +351,7 @@ class Qwen2VLModel(BaseModel):
         self.vision_start_token_id = vision_start_token_id
         self.vision_end_token_id = vision_end_token_id
         self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
-        self.tokens_per_second = 1  # Qwen2-VL uses no temporal scaling
+        self.tokens_per_second = 1
 
         self.visual = Qwen2VLVisionModel(
             embed_dim=vision_embed_dim,
@@ -375,7 +374,6 @@ class Qwen2VLModel(BaseModel):
             name="language_model",
         )
 
-    # ---- M-RoPE position ids (host-side, mirrors HF get_rope_index) ----
     def get_rope_index(self, input_ids, image_grid_thw=None, attention_mask=None):
         """3D position ids ``(3, batch, seq)`` and ``rope_deltas`` ``(batch,)``."""
         m = self.spatial_merge_size
@@ -403,20 +401,18 @@ class Qwen2VLModel(BaseModel):
             ):
                 g = list(group)
                 start, end = g[0][0], g[-1][0] + 1
-                if key == 0:  # text — shared 1D positions across the 3 axes
+                if key == 0:
                     length = end - start
                     pieces.append(
                         np.broadcast_to(np.arange(length) + cur, (3, length)).copy()
                     )
                     cur += length
-                else:  # image / video — 3D temporal/height/width grid
+                else:
                     t, h, w = (int(v) for v in next(img_iter))
                     lt, lh, lw = t, h // m, w // m
                     n = lt * lh * lw
                     wpos = np.tile(np.arange(cur, cur + lw), lh * lt)
                     hpos = np.repeat(np.arange(cur, cur + lh), lw * lt)
-                    # Qwen2.5-VL scales the temporal index by tokens_per_second
-                    # (× second_per_grid_t, =1 for images); Qwen2-VL uses 1.
                     tpos = np.full(n, cur * self.tokens_per_second)
                     pieces.append(np.stack([tpos, hpos, wpos], axis=0))
                     cur += max(h, w) // m
@@ -482,7 +478,7 @@ class Qwen2VLModel(BaseModel):
 
         if pixel_values is not None and image_grid_thw is not None:
             grid = np.asarray(ops.convert_to_numpy(image_grid_thw)).astype("int64")
-            image_embeds = self.get_image_features(pixel_values, grid)  # (N, hidden)
+            image_embeds = self.get_image_features(pixel_values, grid)
             flat_mask = (input_ids_np == self.image_token_id).reshape(-1)
             embeds_flat = ops.reshape(inputs_embeds, (batch * seq, self.hidden_size))
             idx = np.nonzero(flat_mask)[0]
@@ -515,7 +511,6 @@ class Qwen2VLModel(BaseModel):
         sin = ops.convert_to_tensor(merge_mrope(sin3, self.mrope_section))
         return cos, sin
 
-    # ---- HF on-the-fly loading ----
     @classmethod
     def config_from_hf(cls, hf_config):
         vc = hf_config.get("vision_config", {})
@@ -604,7 +599,6 @@ class _QwenVLGenerateMixin:
     def _lm_logits(self, hidden):
         if getattr(self, "lm_head", None) is not None:
             return self.lm_head(hidden)
-        # Tied head: logits = hidden @ embed_tokens.T
         emb = self.language_model.embed_tokens.embeddings
         return ops.matmul(hidden, ops.transpose(emb))
 

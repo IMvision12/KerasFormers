@@ -159,7 +159,6 @@ class Qwen2VLAttention(layers.Layer):
         self.o_proj = layers.Dense(hidden_size, use_bias=False, name="o_proj")
 
     def _split_heads(self, x, num_heads):
-        # (batch, seq, num_heads * head_dim) -> (batch, num_heads, seq, head_dim)
         b = ops.shape(x)[0]
         s = ops.shape(x)[1]
         x = ops.reshape(x, (b, s, num_heads, self.head_dim))
@@ -181,7 +180,6 @@ class Qwen2VLAttention(layers.Layer):
         key = self._split_heads(self.k_proj(hidden_states), self.num_key_value_heads)
         value = self._split_heads(self.v_proj(hidden_states), self.num_key_value_heads)
 
-        # Merged M-RoPE tables are (batch, seq, head_dim); broadcast over heads.
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
         query = apply_rotary(query, cos, sin)
@@ -193,7 +191,6 @@ class Qwen2VLAttention(layers.Layer):
             value = ops.concatenate([past_v, value], axis=2)
         new_key_value = (key, value) if use_cache else None
 
-        # GQA: repeat K/V heads to match the query head count.
         if self.num_key_value_groups > 1:
             key = ops.repeat(key, self.num_key_value_groups, axis=1)
             value = ops.repeat(value, self.num_key_value_groups, axis=1)
@@ -202,7 +199,7 @@ class Qwen2VLAttention(layers.Layer):
         if attention_mask is not None:
             attn = attn + attention_mask
         attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
-        out = ops.matmul(attn, value)  # (b, heads, q_len, head_dim)
+        out = ops.matmul(attn, value)
         out = ops.transpose(out, (0, 2, 1, 3))
         out = ops.reshape(out, (b, q_len, self.num_attention_heads * self.head_dim))
         out = self.o_proj(out)
@@ -301,11 +298,6 @@ class Qwen2VLDecoderLayer(layers.Layer):
         return config
 
 
-# --------------------------------------------------------------------------- #
-# Vision tower
-# --------------------------------------------------------------------------- #
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2VLPatchEmbed(layers.Layer):
     """Patch embedding for Qwen2-VL's vision tower.
@@ -363,18 +355,16 @@ class Qwen2VLVisionAttention(layers.Layer):
 
     def call(self, hidden_states, cos, sin, attention_mask=None):
         seq = ops.shape(hidden_states)[0]
-        qkv = self.qkv(hidden_states)  # (seq, 3*embed_dim)
+        qkv = self.qkv(hidden_states)
         qkv = ops.reshape(qkv, (seq, 3, self.num_heads, self.head_dim))
-        qkv = ops.transpose(qkv, (1, 0, 2, 3))  # (3, seq, num_heads, head_dim)
+        qkv = ops.transpose(qkv, (1, 0, 2, 3))
         query, key, value = qkv[0], qkv[1], qkv[2]
 
-        # Vision rotary: cos/sin are (seq, head_dim); broadcast over heads.
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
         query = apply_rotary(query, cos, sin)
         key = apply_rotary(key, cos, sin)
 
-        # -> (1, num_heads, seq, head_dim)
         query = ops.expand_dims(ops.transpose(query, (1, 0, 2)), axis=0)
         key = ops.expand_dims(ops.transpose(key, (1, 0, 2)), axis=0)
         value = ops.expand_dims(ops.transpose(value, (1, 0, 2)), axis=0)
@@ -383,8 +373,8 @@ class Qwen2VLVisionAttention(layers.Layer):
         if attention_mask is not None:
             attn = attn + attention_mask
         attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
-        out = ops.matmul(attn, value)  # (1, num_heads, seq, head_dim)
-        out = ops.transpose(out[0], (1, 0, 2))  # (seq, num_heads, head_dim)
+        out = ops.matmul(attn, value)
+        out = ops.transpose(out[0], (1, 0, 2))
         out = ops.reshape(out, (seq, self.embed_dim))
         return self.proj(out)
 
@@ -469,13 +459,11 @@ class Qwen2VLPatchMerger(layers.Layer):
         self.spatial_merge_size = spatial_merge_size
         self.use_rmsnorm = use_rmsnorm
         self.hidden_size = context_dim * (spatial_merge_size**2)
-        # Qwen2-VL uses LayerNorm here; Qwen2.5-VL uses RMSNorm.
         self.ln_q = (
             Qwen2VLRMSNorm(eps=1e-6, name="ln_q")
             if use_rmsnorm
             else layers.LayerNormalization(epsilon=1e-6, name="ln_q")
         )
-        # HF names these merger.mlp.0 / merger.mlp.2 (Sequential with GELU at 1).
         self.mlp_fc1 = layers.Dense(self.hidden_size, use_bias=True, name="mlp_fc1")
         self.mlp_fc2 = layers.Dense(dim, use_bias=True, name="mlp_fc2")
 

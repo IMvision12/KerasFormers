@@ -64,7 +64,6 @@ def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):
         cu_window_seqlens.extend(cu.tolist())
         offset += t * lh * lw
     window_index = np.concatenate(window_index, axis=0)
-    # de-duplicate consecutive (empty windows produce repeats), like HF.
     cu = np.array(cu_window_seqlens, dtype=np.int64)
     cu = cu[np.concatenate([[True], np.diff(cu) != 0])]
     return window_index, cu
@@ -128,14 +127,13 @@ class Qwen2_5_VLVisionModel(layers.Layer):
         u = self.merge_unit
         seq = int(np.prod(grid, axis=1).sum())
 
-        hidden = self.patch_embed(pixel_values)  # (seq, embed_dim)
+        hidden = self.patch_embed(pixel_values)
 
         cos, sin = vision_rotary_cos_sin(grid, self.head_dim, self.spatial_merge_size)
         window_index, cu_window = get_window_index(
             grid, self.window_size, self.spatial_merge_size, self.patch_size
         )
 
-        # Reorder patches (and rotary) into window-contiguous order, by group.
         hidden = ops.reshape(hidden, (seq // u, u, self.embed_dim))
         hidden = ops.take(hidden, window_index, axis=0)
         hidden = ops.reshape(hidden, (seq, self.embed_dim))
@@ -144,7 +142,6 @@ class Qwen2_5_VLVisionModel(layers.Layer):
         cos_t = ops.convert_to_tensor(cos)
         sin_t = ops.convert_to_tensor(sin)
 
-        # Per-image full-attention boundaries (t=1 images stay contiguous here).
         cu_full = np.concatenate(
             [[0], np.cumsum(np.repeat(grid[:, 1] * grid[:, 2], grid[:, 0]))]
         )
@@ -157,7 +154,7 @@ class Qwen2_5_VLVisionModel(layers.Layer):
             mask = full_mask if i in self.fullatt_block_indexes else window_mask_t
             hidden = block(hidden, cos_t, sin_t, attention_mask=mask)
 
-        merged = self.merger(hidden)  # (seq // u, out_hidden_size), window order
+        merged = self.merger(hidden)
         reverse = np.argsort(window_index)
         merged = ops.take(merged, reverse, axis=0)
         return merged
@@ -306,7 +303,6 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         vision_end_token_id=QWEN2_5_VL_TOKENS["vision_end_token_id"],
         **kwargs,
     ):
-        # Bypass Qwen2VLModel.__init__ (different vision tower); set up directly.
         from kerasformers.base import BaseModel
 
         BaseModel.__init__(self, **kwargs)
@@ -408,7 +404,6 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         transfer_qwen2_5_vl_weights(keras_model, hf_state_dict)
 
     def get_config(self):
-        # BaseModel/keras.Model base config + our hyperparameters.
         config = super(Qwen2VLModel, self).get_config()
         config.update(
             {

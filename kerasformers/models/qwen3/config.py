@@ -1,14 +1,3 @@
-# Qwen3 — dense decoder-only LLM. Like Qwen2 but the attention adds per-head
-# QK-norm (RMSNorm on q/k) and drops the q/k/v bias. RMSNorm, GQA, SwiGLU,
-# 1D rotary. Each size ships a main (hybrid-thinking) model and a `-Base`
-# pretrained model that share an architecture (they differ only in weights).
-#
-# The 30B-A3B / 235B-A22B checkpoints are Mixture-of-Experts (model_type
-# "qwen3_moe") and need a separate implementation, so they are absent here.
-#
-# Load by variant name:
-#     Qwen3Generate.from_weights("qwen3-4b")
-
 QWEN3_CONFIG = {
     "qwen3-0.6b": {
         "vocab_size": 151936,
@@ -144,8 +133,6 @@ QWEN3_CONFIG = {
     },
 }
 
-# Release weights (public Qwen repos; on-the-fly transfer_from_hf). Keys mirror
-# QWEN3_CONFIG, so `from_weights("qwen3-0.6b")` builds + loads in one call.
 QWEN3_WEIGHTS = {
     "qwen3-0.6b": {"hf_id": "Qwen/Qwen3-0.6B", "gated": False, "safetensors": True},
     "qwen3-0.6b-base": {

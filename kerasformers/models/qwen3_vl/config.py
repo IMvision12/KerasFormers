@@ -1,21 +1,3 @@
-# Qwen3-VL — third-gen Qwen multimodal LLM. Bigger architectural deltas:
-#   * Text decoder is Qwen3 (QK-norm in attention, no qkv bias), rope_theta 5e6,
-#     and INTERLEAVED M-RoPE (mrope_interleaved) instead of sectioned.
-#   * Vision tower: Conv3d (with bias) patch embed (patch_size 16), bilinearly
-#     interpolated LEARNED position embeddings, LayerNorm + (non-gated) GELU MLP
-#     blocks, full attention (no windowing), and DeepStack — features from a few
-#     vision layers are injected into the first text layers.
-#
-# Dense sizes only (2B/4B/8B/32B); each ships as -Instruct and -Thinking, which
-# share an architecture (they differ only in weights). The 30B-A3B / 235B-A22B
-# checkpoints are Mixture-of-Experts (model_type "qwen3_vl_moe") and need a
-# separate MoE implementation, so they are absent here.
-#
-# Load by variant name (converts on the fly from the public HF checkpoint;
-# raw hf: ids still work):
-#     Qwen3VLModel.from_weights("qwen3-vl-4b-instruct")
-#     Qwen3VLModel.from_weights("qwen3-vl-8b-thinking")
-
 QWEN3_VL_CONFIG = {
     "qwen3-vl-2b-instruct": {
         "vocab_size": 151936,
@@ -218,8 +200,6 @@ QWEN3_VL_TOKENS = {
     "vision_end_token_id": 151653,
 }
 
-# Release weights (public Qwen repos; on-the-fly transfer_from_hf). Keys mirror
-# QWEN3_VL_CONFIG -> `from_weights("qwen3-vl-4b-instruct")`.
 QWEN3_VL_WEIGHTS = {
     "qwen3-vl-2b-instruct": {
         "hf_id": "Qwen/Qwen3-VL-2B-Instruct",

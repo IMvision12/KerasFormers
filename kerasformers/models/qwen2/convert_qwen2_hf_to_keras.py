@@ -16,7 +16,7 @@ def _np(state, key):
 
 
 def _assign_dense(dense, weight, bias=None):
-    dense.kernel.assign(np.asarray(weight).T)  # torch (out,in) -> keras (in,out)
+    dense.kernel.assign(np.asarray(weight).T)
     if bias is not None:
         dense.bias.assign(np.asarray(bias))
 

@@ -86,11 +86,49 @@ class Qwen2VLProcessor(BaseProcessor):
             out += self.image_token * n + parts[i + 1]
         return out
 
-    def call(self, text=None, images=None, messages=None, add_generation_prompt=True):
+    def _load_image(self, item):
+        """Resolve an image content item to a PIL image (path / url / inline)."""
+        from PIL import Image
+
+        if item.get("image") is not None:
+            return item["image"]
+        if item.get("path") is not None:
+            return Image.open(item["path"])
+        if item.get("url") is not None:
+            import io
+            import urllib.request
+
+            with urllib.request.urlopen(item["url"]) as resp:
+                return Image.open(io.BytesIO(resp.read()))
+        raise ValueError("Image content item needs a 'path', 'url', or 'image'.")
+
+    def _extract_images(self, conversation):
+        """Collect inline images from a conversation's content lists, in order."""
+        images = []
+        for msg in conversation:
+            content = msg.get("content")
+            if isinstance(content, (list, tuple)):
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "image":
+                        images.append(self._load_image(item))
+        return images or None
+
+    def call(
+        self,
+        conversation=None,
+        text=None,
+        images=None,
+        messages=None,
+        add_generation_prompt=True,
+    ):
+        if conversation is not None:
+            messages = conversation
+            if images is None:
+                images = self._extract_images(conversation)
         if messages is not None:
             text = self.apply_chat_template(messages, add_generation_prompt)
         if text is None:
-            raise ValueError("Provide `text` or `messages`.")
+            raise ValueError("Provide a `conversation`, `messages`, or `text`.")
         texts = [text] if isinstance(text, str) else list(text)
 
         out = {}
@@ -104,15 +142,13 @@ class Qwen2VLProcessor(BaseProcessor):
             grids = np.asarray(image_inputs["image_grid_thw"])
 
         if grids is not None:
-            # distribute images across prompts in order (1 image-set per prompt
-            # when batching; simple single-prompt case covers the common path)
             texts = [self._expand_image_pads(t, grids) for t in texts]
 
         ids = [self.tokenizer.encode(t) for t in texts]
         max_len = max(len(x) for x in ids)
         input_ids = np.zeros((len(ids), max_len), dtype="int32")
         attention_mask = np.zeros((len(ids), max_len), dtype="int32")
-        for i, seq in enumerate(ids):  # left-unpadded (single prompt is the norm)
+        for i, seq in enumerate(ids):
             input_ids[i, : len(seq)] = seq
             attention_mask[i, : len(seq)] = 1
         out["input_ids"] = ops.convert_to_tensor(input_ids)

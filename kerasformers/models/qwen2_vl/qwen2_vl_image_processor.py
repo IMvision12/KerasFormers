@@ -16,7 +16,6 @@ import math
 
 import numpy as np
 
-# OpenAI CLIP normalization constants (what Qwen2-VL uses).
 OPENAI_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
 OPENAI_CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
 
@@ -75,18 +74,17 @@ class Qwen2VLImageProcessor:
         rh, rw = smart_resize(h, w, factor, self.min_pixels, self.max_pixels)
         img = img.resize((rw, rh), resample=Image.BICUBIC)
 
-        x = np.asarray(img, dtype="float32") / 255.0  # (rh, rw, 3)
+        x = np.asarray(img, dtype="float32") / 255.0
         x = (x - self.image_mean) / self.image_std
-        x = np.transpose(x, (2, 0, 1))  # (3, rh, rw)
+        x = np.transpose(x, (2, 0, 1))
 
         t = self.temporal_patch_size
         m = self.spatial_merge_size
         p = self.patch_size
-        frames = np.stack([x] * t, axis=0)  # (t, 3, rh, rw)
+        frames = np.stack([x] * t, axis=0)
         grid_t, grid_h, grid_w = 1, rh // p, rw // p
 
         patches = frames.reshape(grid_t, t, 3, grid_h // m, m, p, grid_w // m, m, p)
-        # (grid_t, gh/m, gw/m, m_h, m_w, channel, temporal, patch_h, patch_w)
         patches = patches.transpose(0, 3, 6, 4, 7, 2, 1, 5, 8)
         flat = patches.reshape(grid_t * grid_h * grid_w, 3 * t * p * p)
         return flat.astype("float32"), [grid_t, grid_h, grid_w]

@@ -36,12 +36,10 @@ def _np(state, key):
     v = state[key]
     if not isinstance(v, np.ndarray):
         v = v.detach().cpu().numpy()
-    # Hub checkpoints are bf16/fp16; we run float32, so cast on transfer.
     return v.astype("float32")
 
 
 def _assign_dense(dense, weight, bias=None):
-    # torch Linear weight (out, in) -> keras Dense kernel (in, out)
     dense.kernel.assign(np.asarray(weight).T)
     if bias is not None:
         dense.bias.assign(np.asarray(bias))
@@ -81,9 +79,7 @@ def transfer_qwen2_vl_weights(keras_model, hf_state_dict):
 
     state = _normalize_state(hf_state_dict)
 
-    # ---- Vision tower (visual.*) ----
     visual = keras_model.visual
-    # Conv3d (embed_dim, in_ch, t, ph, pw) -> Dense kernel (patch_dim, embed_dim)
     conv = _np(state, "visual.patch_embed.proj.weight")
     visual.patch_embed.proj.kernel.assign(conv.reshape(conv.shape[0], -1).T)
     for i, block in enumerate(visual.blocks):
@@ -168,7 +164,6 @@ def _transfer_text(keras_model, state):
         _assign_dense(layer.mlp.down_proj, _np(state, f"{p}.mlp.down_proj.weight"))
     _assign_rmsnorm(lm.norm, _np(state, "model.norm.weight"))
 
-    # LM head (only present on *Generate classes, untied; tied reuses embeds).
     lm_head = getattr(keras_model, "lm_head", None)
     if lm_head is not None and "lm_head.weight" in state:
         _assign_dense(lm_head, _np(state, "lm_head.weight"))

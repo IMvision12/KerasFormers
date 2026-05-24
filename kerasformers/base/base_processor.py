@@ -16,6 +16,13 @@ class BaseProcessor(keras.layers.Layer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+    def __call__(self, *args, **kwargs):
+        # Processors are stateless utility layers (no weights to build) and take
+        # Python inputs — a conversation / messages / raw images, not tensors.
+        # Forward straight to `call` so a `conversation` can be passed
+        # positionally (Keras's Layer.__call__ rejects non-tensor positional args).
+        return self.call(*args, **kwargs)
+
     def call(self, *args, **kwargs):
         raise NotImplementedError(f"{type(self).__name__} must implement `call`.")
 
