@@ -4,7 +4,17 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2RMSNorm(layers.Layer):
-    """RMSNorm: normalize by RMS in float32, then scale."""
+    """Root-mean-square layer norm (Llama / Qwen style).
+
+    Normalizes the last axis by its RMS in float32 (for numerical stability),
+    casts back to the input dtype, then scales by a learned per-channel weight.
+    There is no mean subtraction and no bias. Shape-preserving:
+    ``(..., dim) -> (..., dim)``.
+
+    Args:
+        eps: Variance epsilon added before the reciprocal square root.
+            Defaults to ``1e-6``.
+    """
 
     def __init__(self, eps=1e-6, **kwargs):
         super().__init__(**kwargs)
@@ -31,7 +41,16 @@ class Qwen2RMSNorm(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2MLP(layers.Layer):
-    """SwiGLU MLP: ``down(silu(gate(x)) * up(x))`` (bias-free)."""
+    """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
+
+    Two parallel bias-free projections to ``mlp_dim`` — a SiLU-gated ``gate`` and
+    a linear ``up`` — are multiplied elementwise, then projected back to
+    ``embed_dim`` by ``down``. Shape-preserving on the last axis.
+
+    Args:
+        embed_dim: Model / residual-stream width (input and output dim).
+        mlp_dim: Hidden expansion width of the ``gate`` / ``up`` projections.
+    """
 
     def __init__(self, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
@@ -52,12 +71,33 @@ class Qwen2MLP(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2Attention(layers.Layer):
-    """Grouped-query causal self-attention with 1D rotary positions.
+    """Grouped-query causal self-attention with 1D rotary positions (Qwen2).
 
-    ``query`` / ``key`` / ``value`` carry a bias (Qwen2); ``output_proj`` does
-    not. K/V heads (``num_kv_heads``) are repeated to match the query heads
-    (GQA). A KV cache may be threaded through ``past_key_value`` for incremental
-    decode.
+    ``query`` / ``key`` / ``value`` are biased projections; ``output_proj`` is
+    bias-free. When ``num_kv_heads < num_heads`` (GQA) the K/V heads are repeated
+    to match the query heads. Rotary embeddings are applied to Q and K from the
+    ``cos`` / ``sin`` tables computed by the model. A KV cache can be threaded
+    through ``past_key_value`` for O(1)-per-token incremental decoding.
+
+    Args:
+        embed_dim: Model width (output dim of ``output_proj``).
+        num_heads: Number of query heads.
+        num_kv_heads: Number of key/value heads (``<= num_heads`` for GQA).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+
+    Call args:
+        hidden_states: ``(batch, q_len, embed_dim)``.
+        cos, sin: rotary tables ``(batch, q_len, head_dim)``.
+        attention_mask: additive mask broadcastable to
+            ``(batch, 1, q_len, kv_len)`` (``0`` keep / large-negative block), or
+            ``None``.
+        past_key_value: optional ``(past_k, past_v)``, each
+            ``(batch, num_kv_heads, past_len, head_dim)``.
+        use_cache: when ``True``, also return the updated ``(key, value)``.
+
+    Returns:
+        Output ``(batch, q_len, embed_dim)``, or ``(output, (key, value))`` when
+        ``use_cache`` is set.
     """
 
     def __init__(self, embed_dim, num_heads, num_kv_heads, head_dim=None, **kwargs):
@@ -78,6 +118,7 @@ class Qwen2Attention(layers.Layer):
         self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
 
     def _split_heads(self, x, num_heads):
+        """Reshape ``(b, s, num_heads*head_dim)`` -> ``(b, num_heads, s, head_dim)``."""
         b = ops.shape(x)[0]
         s = ops.shape(x)[1]
         return ops.transpose(
@@ -144,7 +185,27 @@ class Qwen2Attention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2DecoderLayer(layers.Layer):
-    """One Qwen2 decoder block: pre-norm GQA attention then pre-norm SwiGLU."""
+    """One Qwen2 transformer block: pre-norm GQA attention, then pre-norm SwiGLU.
+
+    Computes ``h = x + attention(attention_norm(x))`` followed by
+    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual adds.
+    The rotary tables, mask, and KV cache pass straight through to the attention.
+
+    Args:
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width.
+        num_heads: Number of query heads.
+        num_kv_heads: Number of key/value heads (GQA).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+        norm_eps: Epsilon shared by both RMSNorms.
+
+    Call args:
+        hidden_states, cos, sin, attention_mask, past_key_value, use_cache: as in
+            :class:`Qwen2Attention`.
+
+    Returns:
+        The block output, or ``(output, (key, value))`` when ``use_cache`` is set.
+    """
 
     def __init__(
         self,
