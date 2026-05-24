@@ -5,7 +5,6 @@ from kerasformers.base import BaseModel
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     _MASK_NEG,
     Qwen2VLModel,
-    _QwenVLGenerateMixin,
     vision_rotary_cos_sin,
 )
 
@@ -572,9 +571,108 @@ class Qwen3VLModel(Qwen2VLModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3VLGenerate(_QwenVLGenerateMixin, Qwen3VLModel):
-    """Qwen3-VL with an LM head + greedy ``.generate()`` (image+text -> text)."""
+class Qwen3VLGenerate(Qwen3VLModel):
+    """Qwen3-VL with an LM head + greedy ``.generate()`` (image+text -> text).
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._init_lm_head()
+    ``call`` returns both ``logits`` and ``last_hidden_state``; :meth:`generate`
+    does greedy decoding with a KV cache and incremental M-RoPE (each new token's
+    position is ``cache_len + rope_delta`` on all three axes). DeepStack vision
+    features are threaded through the prefill via ``extra``. The ``lm_head`` (a
+    bias-free projection, or the tied token embedding) is created by
+    :class:`Qwen3VLModel`. Image / video pixels are passed as for that class.
+    """
+
+    def call(self, inputs):
+        hidden = self._forward_features(inputs)
+        logits = (
+            self.lm_head(hidden)
+            if self.lm_head is not None
+            else ops.matmul(
+                hidden, ops.transpose(self.language_model.token_embedding.embeddings)
+            )
+        )
+        return {"logits": logits, "last_hidden_state": hidden}
+
+    def generate(
+        self,
+        input_ids,
+        pixel_values=None,
+        image_grid_thw=None,
+        attention_mask=None,
+        max_new_tokens=128,
+        eos_token_id=(151645,),
+        pixel_values_videos=None,
+        video_grid_thw=None,
+    ):
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
+        inputs_embeds, position_ids, rope_deltas, extra = self._prepare_inputs(
+            input_ids,
+            pixel_values,
+            image_grid_thw,
+            attention_mask,
+            pixel_values_videos=pixel_values_videos,
+            video_grid_thw=video_grid_thw,
+        )
+        cos, sin = self._merged_cos_sin(position_ids)
+        hidden, cache = self.language_model(
+            inputs_embeds,
+            cos,
+            sin,
+            attention_mask=self._causal_mask(prompt_len, prompt_len, offset=0),
+            use_cache=True,
+            **extra,
+        )
+        emb = self.language_model.token_embedding.embeddings
+        last = hidden[:, -1:, :]
+        logits = (
+            self.lm_head(last)
+            if self.lm_head is not None
+            else ops.matmul(last, ops.transpose(emb))
+        )
+        next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
+
+        eos = [
+            int(e)
+            for e in (
+                eos_token_id
+                if isinstance(eos_token_id, (list, tuple))
+                else [eos_token_id]
+            )
+        ]
+        first_eos = eos[0] if eos else 0
+        finished = ops.zeros((batch,), dtype="bool")
+        for e in eos:
+            finished = ops.logical_or(finished, next_tok[:, 0] == e)
+        generated = [next_tok]
+        cur_len = prompt_len
+        for _ in range(max_new_tokens - 1):
+            if bool(ops.all(finished)):
+                break
+            pos = ops.broadcast_to(
+                ops.reshape(cur_len + rope_deltas, (1, batch, 1)), (3, batch, 1)
+            )
+            step_cos, step_sin = self._merged_cos_sin(pos)
+            step_embeds = self.language_model.token_embedding(next_tok)
+            hidden, cache = self.language_model(
+                step_embeds,
+                step_cos,
+                step_sin,
+                attention_mask=None,
+                past_key_values=cache,
+                use_cache=True,
+            )
+            logits = (
+                self.lm_head(hidden)
+                if self.lm_head is not None
+                else ops.matmul(hidden, ops.transpose(emb))
+            )
+            next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
+            next_tok = ops.cast(
+                ops.where(finished[:, None], first_eos, next_tok), "int32"
+            )
+            generated.append(next_tok)
+            cur_len += 1
+            for e in eos:
+                finished = ops.logical_or(finished, next_tok[:, 0] == e)
+        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))

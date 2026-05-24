@@ -607,20 +607,21 @@ class Qwen2VLModel(BaseModel):
         return config
 
 
-class _QwenVLGenerateMixin:
-    """Adds an LM head + greedy multimodal ``.generate()`` on top of a base
-    Qwen-VL model.
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLGenerate(Qwen2VLModel):
+    """Qwen2-VL with an LM head + greedy ``.generate()`` (image+text -> text).
 
-    The base model supplies the feature machinery (``_prepare_inputs`` ->
-    ``(inputs_embeds, position_ids, rope_deltas, extra)``, ``_merged_cos_sin``,
-    ``_causal_mask``, ``language_model``). ``extra`` lets Qwen3-VL thread its
-    DeepStack tensors through the prefill; decode steps are text-only so they
-    pass no ``extra``. Generation is therefore shared across all three families.
-    The LM head is the (transposed) token embedding when ``tie_embeddings`` is
-    ``True``, otherwise a separate bias-free projection.
+    Adds a vocabulary projection on top of :class:`Qwen2VLModel`: a separate
+    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
+    (transposed) token embedding (weight tying). ``call`` returns both ``logits``
+    and ``last_hidden_state``; :meth:`generate` does greedy decoding with a KV
+    cache and incremental M-RoPE (each new token's position is
+    ``cache_len + rope_delta`` on all three axes). Image / video pixels are passed
+    exactly as for :class:`Qwen2VLModel`.
     """
 
-    def _init_lm_head(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.lm_head = (
             None
             if self.tie_embeddings
@@ -646,7 +647,6 @@ class _QwenVLGenerateMixin:
         attention_mask=None,
         max_new_tokens=128,
         eos_token_id=(151645,),
-        return_ids=True,
         pixel_values_videos=None,
         video_grid_thw=None,
     ):
@@ -722,12 +722,3 @@ class _QwenVLGenerateMixin:
             for e in eos:
                 finished = ops.logical_or(finished, next_tok[:, 0] == e)
         return ops.convert_to_numpy(ops.concatenate(generated, axis=1))
-
-
-@keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2VLGenerate(_QwenVLGenerateMixin, Qwen2VLModel):
-    """Qwen2-VL with an LM head + greedy ``.generate()`` (image+text -> text)."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._init_lm_head()
