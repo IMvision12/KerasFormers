@@ -82,28 +82,24 @@ class Qwen2VLMLP(layers.Layer):
     it with ``use_bias=True``.
     """
 
-    def __init__(self, hidden_size, intermediate_size, use_bias=False, **kwargs):
+    def __init__(self, embed_dim, mlp_dim, use_bias=False, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
         self.use_bias = use_bias
-        self.gate_proj = layers.Dense(
-            intermediate_size, use_bias=use_bias, name="gate_proj"
-        )
-        self.up_proj = layers.Dense(
-            intermediate_size, use_bias=use_bias, name="up_proj"
-        )
-        self.down_proj = layers.Dense(hidden_size, use_bias=use_bias, name="down_proj")
+        self.gate = layers.Dense(mlp_dim, use_bias=use_bias, name="gate")
+        self.up = layers.Dense(mlp_dim, use_bias=use_bias, name="up")
+        self.down = layers.Dense(embed_dim, use_bias=use_bias, name="down")
 
     def call(self, x):
-        return self.down_proj(ops.silu(self.gate_proj(x)) * self.up_proj(x))
+        return self.down(ops.silu(self.gate(x)) * self.up(x))
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
                 "use_bias": self.use_bias,
             }
         )
@@ -114,12 +110,11 @@ class Qwen2VLMLP(layers.Layer):
 class Qwen2VLAttention(layers.Layer):
     """Grouped-query causal self-attention with multimodal rotary positions.
 
-    ``q_proj`` / ``k_proj`` / ``v_proj`` carry a bias (Qwen2), ``o_proj`` does
-    not. ``num_key_value_heads`` may be smaller than ``num_attention_heads``
-    (GQA); the K/V heads are repeated to match Q. The merged M-RoPE ``cos`` /
-    ``sin`` (shape ``(batch, seq, head_dim)``) are computed by the model and
-    passed in. A KV cache can be threaded through ``past_key_value`` for
-    incremental decoding.
+    ``query`` / ``key`` / ``value`` carry a bias (Qwen2), ``output_proj`` does
+    not. ``num_kv_heads`` may be smaller than ``num_heads`` (GQA); the K/V heads
+    are repeated to match Q. The merged M-RoPE ``cos`` / ``sin`` (shape
+    ``(batch, seq, head_dim)``) are computed by the model and passed in. A KV
+    cache can be threaded through ``past_key_value`` for incremental decoding.
 
     Call args:
         hidden_states: ``(batch, seq, hidden)``.
@@ -133,30 +128,28 @@ class Qwen2VLAttention(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
-        num_attention_heads,
-        num_key_value_heads,
+        embed_dim,
+        num_heads,
+        num_kv_heads,
         head_dim=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
-        self.head_dim = head_dim or hidden_size // num_attention_heads
-        self.num_key_value_groups = num_attention_heads // num_key_value_heads
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = head_dim or embed_dim // num_heads
+        self.num_kv_groups = num_heads // num_kv_heads
         self.scaling = self.head_dim**-0.5
 
-        self.q_proj = layers.Dense(
-            num_attention_heads * self.head_dim, use_bias=True, name="q_proj"
+        self.query = layers.Dense(
+            num_heads * self.head_dim, use_bias=True, name="query"
         )
-        self.k_proj = layers.Dense(
-            num_key_value_heads * self.head_dim, use_bias=True, name="k_proj"
+        self.key = layers.Dense(num_kv_heads * self.head_dim, use_bias=True, name="key")
+        self.value = layers.Dense(
+            num_kv_heads * self.head_dim, use_bias=True, name="value"
         )
-        self.v_proj = layers.Dense(
-            num_key_value_heads * self.head_dim, use_bias=True, name="v_proj"
-        )
-        self.o_proj = layers.Dense(hidden_size, use_bias=False, name="o_proj")
+        self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
 
     def _split_heads(self, x, num_heads):
         b = ops.shape(x)[0]
@@ -176,9 +169,9 @@ class Qwen2VLAttention(layers.Layer):
         b = ops.shape(hidden_states)[0]
         q_len = ops.shape(hidden_states)[1]
 
-        query = self._split_heads(self.q_proj(hidden_states), self.num_attention_heads)
-        key = self._split_heads(self.k_proj(hidden_states), self.num_key_value_heads)
-        value = self._split_heads(self.v_proj(hidden_states), self.num_key_value_heads)
+        query = self._split_heads(self.query(hidden_states), self.num_heads)
+        key = self._split_heads(self.key(hidden_states), self.num_kv_heads)
+        value = self._split_heads(self.value(hidden_states), self.num_kv_heads)
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
@@ -191,9 +184,9 @@ class Qwen2VLAttention(layers.Layer):
             value = ops.concatenate([past_v, value], axis=2)
         new_key_value = (key, value) if use_cache else None
 
-        if self.num_key_value_groups > 1:
-            key = ops.repeat(key, self.num_key_value_groups, axis=1)
-            value = ops.repeat(value, self.num_key_value_groups, axis=1)
+        if self.num_kv_groups > 1:
+            key = ops.repeat(key, self.num_kv_groups, axis=1)
+            value = ops.repeat(value, self.num_kv_groups, axis=1)
 
         attn = ops.matmul(query, ops.transpose(key, (0, 1, 3, 2))) * self.scaling
         if attention_mask is not None:
@@ -201,17 +194,17 @@ class Qwen2VLAttention(layers.Layer):
         attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
         out = ops.matmul(attn, value)
         out = ops.transpose(out, (0, 2, 1, 3))
-        out = ops.reshape(out, (b, q_len, self.num_attention_heads * self.head_dim))
-        out = self.o_proj(out)
+        out = ops.reshape(out, (b, q_len, self.num_heads * self.head_dim))
+        out = self.output_proj(out)
         return (out, new_key_value) if use_cache else out
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
-                "num_key_value_heads": self.num_key_value_heads,
+                "embed_dim": self.embed_dim,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
             }
         )
@@ -224,34 +217,32 @@ class Qwen2VLDecoderLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
-        intermediate_size,
-        num_attention_heads,
-        num_key_value_heads,
+        embed_dim,
+        mlp_dim,
+        num_heads,
+        num_kv_heads,
         head_dim=None,
-        rms_norm_eps=1e-6,
+        norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
-        self.head_dim = head_dim or hidden_size // num_attention_heads
-        self.rms_norm_eps = rms_norm_eps
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = head_dim or embed_dim // num_heads
+        self.norm_eps = norm_eps
 
-        self.input_layernorm = Qwen2VLRMSNorm(eps=rms_norm_eps, name="input_layernorm")
-        self.self_attn = Qwen2VLAttention(
-            hidden_size,
-            num_attention_heads,
-            num_key_value_heads,
+        self.attention_norm = Qwen2VLRMSNorm(eps=norm_eps, name="attention_norm")
+        self.attention = Qwen2VLAttention(
+            embed_dim,
+            num_heads,
+            num_kv_heads,
             head_dim=self.head_dim,
-            name="self_attn",
+            name="attention",
         )
-        self.post_attention_layernorm = Qwen2VLRMSNorm(
-            eps=rms_norm_eps, name="post_attention_layernorm"
-        )
-        self.mlp = Qwen2VLMLP(hidden_size, intermediate_size, name="mlp")
+        self.mlp_norm = Qwen2VLRMSNorm(eps=norm_eps, name="mlp_norm")
+        self.mlp = Qwen2VLMLP(embed_dim, mlp_dim, name="mlp")
 
     def call(
         self,
@@ -263,8 +254,8 @@ class Qwen2VLDecoderLayer(layers.Layer):
         use_cache=False,
     ):
         residual = hidden_states
-        hidden_states = self.input_layernorm(hidden_states)
-        attn_out = self.self_attn(
+        hidden_states = self.attention_norm(hidden_states)
+        attn_out = self.attention(
             hidden_states,
             cos,
             sin,
@@ -279,7 +270,7 @@ class Qwen2VLDecoderLayer(layers.Layer):
         hidden_states = residual + attn_out
 
         residual = hidden_states
-        hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = self.mlp_norm(hidden_states)
         hidden_states = residual + self.mlp(hidden_states)
         return (hidden_states, new_key_value) if use_cache else hidden_states
 
@@ -287,12 +278,12 @@ class Qwen2VLDecoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
-                "num_attention_heads": self.num_attention_heads,
-                "num_key_value_heads": self.num_key_value_heads,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
-                "rms_norm_eps": self.rms_norm_eps,
+                "norm_eps": self.norm_eps,
             }
         )
         return config

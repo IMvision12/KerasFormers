@@ -1,20 +1,12 @@
-"""On-the-fly weight conversion for Qwen2 (HF safetensors -> Keras).
-
-Follows the library's name-mapped convention (see CLIP / DINOv3 / DETR): driven
-off the Keras model's own weights, each weight's hierarchical ``path`` is mapped
-to the HF tensor name and assigned via the shared ``transfer_weights`` helper.
-
-kerasformers uses its own layer names (``attention.query`` etc.), so
-``hf_weight_name`` bridges them to HF's (``self_attn.q_proj`` etc.).
-"""
-
 import numpy as np
 
 from kerasformers.weight_utils.custom_exception import WeightMappingError
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
-# kerasformers layer-name segment -> HF segment (applied after "/"->".").
-_LAYER_MAP = {
+WEIGHT_NAME_MAPPING = {
+    "token_embedding.embeddings": "model.embed_tokens.weight",
+    "final_norm.weight": "model.norm.weight",
+    "decoder_layer_": "model.layers.",
     "attention.query": "self_attn.q_proj",
     "attention.key": "self_attn.k_proj",
     "attention.value": "self_attn.v_proj",
@@ -24,34 +16,17 @@ _LAYER_MAP = {
     "mlp.gate": "mlp.gate_proj",
     "mlp.up": "mlp.up_proj",
     "mlp.down": "mlp.down_proj",
+    "kernel": "weight",
 }
-
-
-def hf_weight_name(path):
-    """Map a Keras weight ``path`` to its HuggingFace tensor name."""
-    rest = path.split("/", 1)[1]  # drop the model-name root
-    if rest.startswith("token_embedding"):
-        return "model.embed_tokens.weight"
-    if rest.startswith("final_norm"):
-        return "model.norm.weight"
-    if rest.startswith("lm_head"):
-        return "lm_head.weight"
-    rest = rest.replace("decoder_layer_", "layers.").replace("/", ".")
-    for old, new in _LAYER_MAP.items():
-        rest = rest.replace(old, new)
-    return "model." + rest.replace(".kernel", ".weight")
-
-
-def build_model(model):
-    """Materialize weights with a tiny dummy forward."""
-    model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
 
 
 def transfer_qwen2_weights(keras_model, hf_state_dict):
     if not keras_model.built or not keras_model.weights:
-        build_model(keras_model)
+        keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
     for weight in keras_model.weights:
-        name = hf_weight_name(weight.path)
+        name = weight.path.split("/", 1)[1].replace("/", ".")
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            name = name.replace(old, new)
         if name not in hf_state_dict:
             raise WeightMappingError(weight.path, name)
         transfer_weights(weight.path, weight, hf_state_dict[name])

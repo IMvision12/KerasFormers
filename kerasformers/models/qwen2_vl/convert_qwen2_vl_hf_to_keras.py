@@ -1,89 +1,68 @@
-"""On-the-fly weight conversion for Qwen2-VL (HF safetensors -> Keras).
-
-Follows the library's name-mapped convention (see CLIP / DINOv3 / DETR): driven
-off the Keras model's own weights, each weight's hierarchical ``path`` is mapped
-to the HF tensor name and assigned via the shared ``transfer_weights`` helper.
-The one tensor needing manual handling is the vision Conv3d patch embed
-(``(embed_dim, in*t*p*p)`` reshaped to feed the Keras ``Dense``).
-
-Keys use the flat legacy layout: text under ``model.*``, vision under
-``visual.*``, tied LM head (no ``lm_head.weight``) for the 2B. The
-``__main__`` block runs a local logit-parity check against the HF reference.
-"""
-
 import numpy as np
 
 from kerasformers.weight_utils.custom_exception import WeightMappingError
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
-from .qwen2_vl_model import Qwen2VLModel
+from .qwen2_vl_model import Qwen2VLGenerate
+
+WEIGHT_NAME_MAPPING = {
+    "token_embedding.embeddings": "model.embed_tokens.weight",
+    "language_model.final_norm.weight": "model.norm.weight",
+    "language_model.": "model.",
+    "decoder_layer_": "layers.",
+    "attention.query": "self_attn.q_proj",
+    "attention.key": "self_attn.k_proj",
+    "attention.value": "self_attn.v_proj",
+    "attention.output_proj": "self_attn.o_proj",
+    "attention_norm": "input_layernorm",
+    "mlp_norm": "post_attention_layernorm",
+    "mlp.gate": "mlp.gate_proj",
+    "mlp.up": "mlp.up_proj",
+    "mlp.down": "mlp.down_proj",
+    "blocks_": "blocks.",
+    "merger.mlp_fc1": "merger.mlp.0",
+    "merger.mlp_fc2": "merger.mlp.2",
+    "gamma": "weight",
+    "beta": "bias",
+    "kernel": "weight",
+}
 
 
-def normalize_state(state):
-    """Accept either the legacy (``visual.*`` / ``model.*``) hub layout or a
-    recent ``state_dict()`` (``model.visual.*`` / ``model.language_model.*``)."""
-    out = {}
-    for k, v in state.items():
+def transfer_qwen2_vl_weights(keras_model, hf_state_dict):
+    if not keras_model.built or not keras_model.weights:
+        m = keras_model.spatial_merge_size
+        h = w = 2 * m
+        n_merged = (h * w) // (m * m)
+        keras_model(
+            {
+                "input_ids": np.array(
+                    [[0] + [keras_model.image_token_id] * n_merged + [1]], dtype="int64"
+                ),
+                "pixel_values": np.zeros(
+                    (h * w, keras_model.patch_dim), dtype="float32"
+                ),
+                "image_grid_thw": np.array([[1, h, w]], dtype=np.int64),
+            }
+        )
+
+    state = {}
+    for k, v in hf_state_dict.items():
         if k.startswith("model.visual."):
             k = k[len("model.") :]
         elif k.startswith("model.language_model."):
             k = "model." + k[len("model.language_model.") :]
-        out[k] = v
-    return out
+        state[k] = v
 
-
-def hf_weight_name(path):
-    """Map a Keras weight ``path`` to its HuggingFace (legacy-layout) name."""
-    rest = path.split("/", 1)[1]  # drop the model-name root
-    if rest.startswith("visual/"):
-        name = rest.replace("/", ".").replace("blocks_", "blocks.")
-        name = name.replace(".gamma", ".weight").replace(".beta", ".bias")
-        name = name.replace("merger.mlp_fc1", "merger.mlp.0")
-        name = name.replace("merger.mlp_fc2", "merger.mlp.2")
-        return name.replace(".kernel", ".weight")
-    if rest.startswith("embed_tokens/"):
-        return "model.embed_tokens.weight"
-    if rest.startswith("lm_head"):
-        return "lm_head.weight"
-    name = (
-        rest[len("language_model/") :].replace("/", ".").replace("layers_", "layers.")
-    )
-    return "model." + name.replace(".kernel", ".weight")
-
-
-def build_model(model):
-    """Materialize all weights with a minimal, self-consistent dummy forward."""
-    m = model.spatial_merge_size
-    h = w = 2 * m
-    grid = np.array([[1, h, w]], dtype=np.int64)
-    n_patches = h * w
-    n_merged = n_patches // (m * m)
-    model(
-        {
-            "input_ids": np.array(
-                [[0] + [model.image_token_id] * n_merged + [1]], dtype="int64"
-            ),
-            "pixel_values": np.zeros((n_patches, model.patch_dim), dtype="float32"),
-            "image_grid_thw": grid,
-        }
-    )
-
-
-def transfer_qwen2_vl_weights(keras_model, hf_state_dict):
-    """Assign HF Qwen2-VL weights into ``keras_model`` (built if needed)."""
-    if not keras_model.built or not keras_model.weights:
-        build_model(keras_model)
-    state = normalize_state(hf_state_dict)
     for weight in keras_model.weights:
-        name = hf_weight_name(weight.path)
+        name = weight.path.split("/", 1)[1].replace("/", ".")
+        for old, new in WEIGHT_NAME_MAPPING.items():
+            name = name.replace(old, new)
         if name not in state:
             raise WeightMappingError(weight.path, name)
         torch_weight = state[name]
         if "patch_embed" in weight.path:
-            # Conv3d (embed_dim, in, t, p, p) -> Dense (in*t*p*p, embed_dim)
-            torch_weight = np.asarray(torch_weight).reshape(
-                np.asarray(torch_weight).shape[0], -1
-            )
+            tw = np.asarray(torch_weight)
+            torch_weight = tw.reshape(tw.shape[0], -1)
         transfer_weights(weight.path, weight, torch_weight)
 
 
@@ -103,7 +82,7 @@ if __name__ == "__main__":
 
     print("[2/4] Building Keras model + transferring weights")
     state = {k: v.detach().cpu().numpy() for k, v in hf.state_dict().items()}
-    model = Qwen2VLModel.from_weights(
+    model = Qwen2VLGenerate.from_weights(
         HF_ID.replace("Qwen/", "").lower(), load_weights=False
     )
     transfer_qwen2_vl_weights(model, state)

@@ -53,25 +53,23 @@ class Qwen3VLRMSNorm(layers.Layer):
 class Qwen3VLMLP(layers.Layer):
     """SwiGLU MLP: ``down(silu(gate(x)) * up(x))`` (bias-free; Qwen3 text)."""
 
-    def __init__(self, hidden_size, intermediate_size, **kwargs):
+    def __init__(self, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.gate_proj = layers.Dense(
-            intermediate_size, use_bias=False, name="gate_proj"
-        )
-        self.up_proj = layers.Dense(intermediate_size, use_bias=False, name="up_proj")
-        self.down_proj = layers.Dense(hidden_size, use_bias=False, name="down_proj")
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.gate = layers.Dense(mlp_dim, use_bias=False, name="gate")
+        self.up = layers.Dense(mlp_dim, use_bias=False, name="up")
+        self.down = layers.Dense(embed_dim, use_bias=False, name="down")
 
     def call(self, x):
-        return self.down_proj(ops.silu(self.gate_proj(x)) * self.up_proj(x))
+        return self.down(ops.silu(self.gate(x)) * self.up(x))
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
             }
         )
         return config
@@ -83,33 +81,27 @@ class Qwen3VLTextAttention(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
-        num_attention_heads,
-        num_key_value_heads,
+        embed_dim,
+        num_heads,
+        num_kv_heads,
         head_dim,
-        rms_norm_eps=1e-6,
+        norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
-        self.rms_norm_eps = rms_norm_eps
-        self.num_key_value_groups = num_attention_heads // num_key_value_heads
+        self.norm_eps = norm_eps
+        self.num_kv_groups = num_heads // num_kv_heads
         self.scaling = head_dim**-0.5
-        self.q_proj = layers.Dense(
-            num_attention_heads * head_dim, use_bias=False, name="q_proj"
-        )
-        self.k_proj = layers.Dense(
-            num_key_value_heads * head_dim, use_bias=False, name="k_proj"
-        )
-        self.v_proj = layers.Dense(
-            num_key_value_heads * head_dim, use_bias=False, name="v_proj"
-        )
-        self.o_proj = layers.Dense(hidden_size, use_bias=False, name="o_proj")
-        self.q_norm = Qwen3VLRMSNorm(eps=rms_norm_eps, name="q_norm")
-        self.k_norm = Qwen3VLRMSNorm(eps=rms_norm_eps, name="k_norm")
+        self.query = layers.Dense(num_heads * head_dim, use_bias=False, name="query")
+        self.key = layers.Dense(num_kv_heads * head_dim, use_bias=False, name="key")
+        self.value = layers.Dense(num_kv_heads * head_dim, use_bias=False, name="value")
+        self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
+        self.query_norm = Qwen3VLRMSNorm(eps=norm_eps, name="query_norm")
+        self.key_norm = Qwen3VLRMSNorm(eps=norm_eps, name="key_norm")
 
     def call(
         self,
@@ -122,21 +114,21 @@ class Qwen3VLTextAttention(layers.Layer):
     ):
         b = ops.shape(hidden_states)[0]
         q_len = ops.shape(hidden_states)[1]
-        q = self.q_norm(
+        q = self.query_norm(
             ops.reshape(
-                self.q_proj(hidden_states),
-                (b, q_len, self.num_attention_heads, self.head_dim),
+                self.query(hidden_states),
+                (b, q_len, self.num_heads, self.head_dim),
             )
         )
-        k = self.k_norm(
+        k = self.key_norm(
             ops.reshape(
-                self.k_proj(hidden_states),
-                (b, q_len, self.num_key_value_heads, self.head_dim),
+                self.key(hidden_states),
+                (b, q_len, self.num_kv_heads, self.head_dim),
             )
         )
         v = ops.reshape(
-            self.v_proj(hidden_states),
-            (b, q_len, self.num_key_value_heads, self.head_dim),
+            self.value(hidden_states),
+            (b, q_len, self.num_kv_heads, self.head_dim),
         )
         q = ops.transpose(q, (0, 2, 1, 3))
         k = ops.transpose(k, (0, 2, 1, 3))
@@ -153,9 +145,9 @@ class Qwen3VLTextAttention(layers.Layer):
             v = ops.concatenate([past_v, v], axis=2)
         new_kv = (k, v) if use_cache else None
 
-        if self.num_key_value_groups > 1:
-            k = ops.repeat(k, self.num_key_value_groups, axis=1)
-            v = ops.repeat(v, self.num_key_value_groups, axis=1)
+        if self.num_kv_groups > 1:
+            k = ops.repeat(k, self.num_kv_groups, axis=1)
+            v = ops.repeat(v, self.num_kv_groups, axis=1)
 
         attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
         if attention_mask is not None:
@@ -164,20 +156,20 @@ class Qwen3VLTextAttention(layers.Layer):
         out = ops.matmul(attn, v)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)),
-            (b, q_len, self.num_attention_heads * self.head_dim),
+            (b, q_len, self.num_heads * self.head_dim),
         )
-        out = self.o_proj(out)
+        out = self.output_proj(out)
         return (out, new_kv) if use_cache else out
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
-                "num_key_value_heads": self.num_key_value_heads,
+                "embed_dim": self.embed_dim,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
-                "rms_norm_eps": self.rms_norm_eps,
+                "norm_eps": self.norm_eps,
             }
         )
         return config
@@ -189,34 +181,32 @@ class Qwen3VLTextDecoderLayer(layers.Layer):
 
     def __init__(
         self,
-        hidden_size,
-        intermediate_size,
-        num_attention_heads,
-        num_key_value_heads,
+        embed_dim,
+        mlp_dim,
+        num_heads,
+        num_kv_heads,
         head_dim,
-        rms_norm_eps=1e-6,
+        norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
-        self.rms_norm_eps = rms_norm_eps
-        self.input_layernorm = Qwen3VLRMSNorm(eps=rms_norm_eps, name="input_layernorm")
-        self.self_attn = Qwen3VLTextAttention(
-            hidden_size,
-            num_attention_heads,
-            num_key_value_heads,
+        self.norm_eps = norm_eps
+        self.attention_norm = Qwen3VLRMSNorm(eps=norm_eps, name="attention_norm")
+        self.attention = Qwen3VLTextAttention(
+            embed_dim,
+            num_heads,
+            num_kv_heads,
             head_dim,
-            rms_norm_eps,
-            name="self_attn",
+            norm_eps,
+            name="attention",
         )
-        self.post_attention_layernorm = Qwen3VLRMSNorm(
-            eps=rms_norm_eps, name="post_attention_layernorm"
-        )
-        self.mlp = Qwen3VLMLP(hidden_size, intermediate_size, name="mlp")
+        self.mlp_norm = Qwen3VLRMSNorm(eps=norm_eps, name="mlp_norm")
+        self.mlp = Qwen3VLMLP(embed_dim, mlp_dim, name="mlp")
 
     def call(
         self,
@@ -228,8 +218,8 @@ class Qwen3VLTextDecoderLayer(layers.Layer):
         use_cache=False,
     ):
         residual = hidden_states
-        hidden_states = self.input_layernorm(hidden_states)
-        attn_out = self.self_attn(
+        hidden_states = self.attention_norm(hidden_states)
+        attn_out = self.attention(
             hidden_states,
             cos,
             sin,
@@ -242,7 +232,7 @@ class Qwen3VLTextDecoderLayer(layers.Layer):
             attn_out, new_kv = attn_out
         hidden_states = residual + attn_out
         residual = hidden_states
-        hidden_states = self.post_attention_layernorm(hidden_states)
+        hidden_states = self.mlp_norm(hidden_states)
         hidden_states = residual + self.mlp(hidden_states)
         return (hidden_states, new_kv) if use_cache else hidden_states
 
@@ -250,12 +240,12 @@ class Qwen3VLTextDecoderLayer(layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
-                "num_attention_heads": self.num_attention_heads,
-                "num_key_value_heads": self.num_key_value_heads,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
-                "rms_norm_eps": self.rms_norm_eps,
+                "norm_eps": self.norm_eps,
             }
         )
         return config

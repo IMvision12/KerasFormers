@@ -184,40 +184,40 @@ class Qwen2_5_VLTextModel(layers.Layer):
     def __init__(
         self,
         vocab_size,
-        hidden_size,
-        intermediate_size,
-        num_hidden_layers,
-        num_attention_heads,
-        num_key_value_heads,
+        embed_dim,
+        mlp_dim,
+        num_layers,
+        num_heads,
+        num_kv_heads,
         head_dim=None,
-        rms_norm_eps=1e-6,
+        norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
-        self.head_dim = head_dim or hidden_size // num_attention_heads
-        self.rms_norm_eps = rms_norm_eps
-        self.embed_tokens = layers.Embedding(
-            vocab_size, hidden_size, name="embed_tokens"
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = head_dim or embed_dim // num_heads
+        self.norm_eps = norm_eps
+        self.token_embedding = layers.Embedding(
+            vocab_size, embed_dim, name="token_embedding"
         )
         self.decoder_layers = [
             Qwen2_5_VLDecoderLayer(
-                hidden_size,
-                intermediate_size,
-                num_attention_heads,
-                num_key_value_heads,
+                embed_dim,
+                mlp_dim,
+                num_heads,
+                num_kv_heads,
                 head_dim=self.head_dim,
-                rms_norm_eps=rms_norm_eps,
-                name=f"layers_{i}",
+                norm_eps=norm_eps,
+                name=f"decoder_layer_{i}",
             )
-            for i in range(num_hidden_layers)
+            for i in range(num_layers)
         ]
-        self.norm = Qwen2_5_VLRMSNorm(eps=rms_norm_eps, name="norm")
+        self.final_norm = Qwen2_5_VLRMSNorm(eps=norm_eps, name="final_norm")
 
     def call(
         self,
@@ -245,7 +245,7 @@ class Qwen2_5_VLTextModel(layers.Layer):
                 new_cache.append(kv)
             else:
                 hidden = out
-        hidden = self.norm(hidden)
+        hidden = self.final_norm(hidden)
         return (hidden, new_cache) if use_cache else hidden
 
     def get_config(self):
@@ -253,13 +253,13 @@ class Qwen2_5_VLTextModel(layers.Layer):
         config.update(
             {
                 "vocab_size": self.vocab_size,
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
-                "num_hidden_layers": self.num_hidden_layers,
-                "num_attention_heads": self.num_attention_heads,
-                "num_key_value_heads": self.num_key_value_heads,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
-                "rms_norm_eps": self.rms_norm_eps,
+                "norm_eps": self.norm_eps,
             }
         )
         return config
@@ -276,15 +276,15 @@ class Qwen2_5_VLModel(Qwen2VLModel):
     def __init__(
         self,
         vocab_size=151936,
-        hidden_size=2048,
-        intermediate_size=11008,
-        num_hidden_layers=36,
-        num_attention_heads=16,
-        num_key_value_heads=2,
-        rms_norm_eps=1e-6,
+        embed_dim=2048,
+        mlp_dim=11008,
+        num_layers=36,
+        num_heads=16,
+        num_kv_heads=2,
+        norm_eps=1e-6,
         rope_theta=1000000.0,
         mrope_section=(16, 24, 24),
-        tie_word_embeddings=True,
+        tie_embeddings=True,
         vision_depth=32,
         vision_hidden_size=1280,
         vision_intermediate_size=3420,
@@ -307,21 +307,21 @@ class Qwen2_5_VLModel(Qwen2VLModel):
 
         BaseModel.__init__(self, **kwargs)
         self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
-        self.head_dim = hidden_size // num_attention_heads
-        self.rms_norm_eps = rms_norm_eps
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = embed_dim // num_heads
+        self.norm_eps = norm_eps
         self.rope_theta = rope_theta
         self.mrope_section = tuple(mrope_section)
-        self.tie_word_embeddings = tie_word_embeddings
+        self.tie_embeddings = tie_embeddings
         self.vision_depth = vision_depth
         self.vision_hidden_size = vision_hidden_size
         self.vision_intermediate_size = vision_intermediate_size
         self.vision_num_heads = vision_num_heads
-        self.vision_out_hidden_size = vision_out_hidden_size or hidden_size
+        self.vision_out_hidden_size = vision_out_hidden_size or embed_dim
         self.window_size = window_size
         self.fullatt_block_indexes = tuple(fullatt_block_indexes)
         self.tokens_per_second = tokens_per_second
@@ -349,13 +349,13 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         )
         self.language_model = Qwen2_5_VLTextModel(
             vocab_size=vocab_size,
-            hidden_size=hidden_size,
-            intermediate_size=intermediate_size,
-            num_hidden_layers=num_hidden_layers,
-            num_attention_heads=num_attention_heads,
-            num_key_value_heads=num_key_value_heads,
+            embed_dim=embed_dim,
+            mlp_dim=mlp_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            num_kv_heads=num_kv_heads,
             head_dim=self.head_dim,
-            rms_norm_eps=rms_norm_eps,
+            norm_eps=norm_eps,
             name="language_model",
         )
 
@@ -366,15 +366,15 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         mrope = rope_scaling.get("mrope_section", [16, 24, 24])
         return {
             "vocab_size": hf_config["vocab_size"],
-            "hidden_size": hf_config["hidden_size"],
-            "intermediate_size": hf_config["intermediate_size"],
-            "num_hidden_layers": hf_config["num_hidden_layers"],
-            "num_attention_heads": hf_config["num_attention_heads"],
-            "num_key_value_heads": hf_config["num_key_value_heads"],
-            "rms_norm_eps": hf_config.get("rms_norm_eps", 1e-6),
+            "embed_dim": hf_config["hidden_size"],
+            "mlp_dim": hf_config["intermediate_size"],
+            "num_layers": hf_config["num_hidden_layers"],
+            "num_heads": hf_config["num_attention_heads"],
+            "num_kv_heads": hf_config["num_key_value_heads"],
+            "norm_eps": hf_config.get("rms_norm_eps", 1e-6),
             "rope_theta": hf_config.get("rope_theta", 1000000.0),
             "mrope_section": tuple(mrope),
-            "tie_word_embeddings": hf_config.get("tie_word_embeddings", False),
+            "tie_embeddings": hf_config.get("tie_word_embeddings", False),
             "vision_depth": vc.get("depth", 32),
             "vision_hidden_size": vc.get("hidden_size", 1280),
             "vision_intermediate_size": vc.get("intermediate_size", 3420),
@@ -408,15 +408,15 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         config.update(
             {
                 "vocab_size": self.vocab_size,
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
-                "num_hidden_layers": self.num_hidden_layers,
-                "num_attention_heads": self.num_attention_heads,
-                "num_key_value_heads": self.num_key_value_heads,
-                "rms_norm_eps": self.rms_norm_eps,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
+                "norm_eps": self.norm_eps,
                 "rope_theta": self.rope_theta,
                 "mrope_section": self.mrope_section,
-                "tie_word_embeddings": self.tie_word_embeddings,
+                "tie_embeddings": self.tie_embeddings,
                 "vision_depth": self.vision_depth,
                 "vision_hidden_size": self.vision_hidden_size,
                 "vision_intermediate_size": self.vision_intermediate_size,
