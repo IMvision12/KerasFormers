@@ -4,7 +4,17 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLRMSNorm(layers.Layer):
-    """RMSNorm: normalize by RMS in float32, then scale."""
+    """Root-mean-square layer norm (Llama / Qwen style).
+
+    Normalizes the last axis by its RMS in float32 (for numerical stability),
+    casts back to the input dtype, then scales by a learned per-channel weight.
+    No mean subtraction and no bias. Shape-preserving ``(..., dim) -> (..., dim)``.
+    Used by both the Qwen2.5 text decoder and the Qwen2.5-VL vision tower.
+
+    Args:
+        eps: Variance epsilon added before the reciprocal square root.
+            Defaults to ``1e-6``.
+    """
 
     def __init__(self, eps=1e-6, **kwargs):
         super().__init__(**kwargs)
@@ -31,7 +41,18 @@ class Qwen2_5_VLRMSNorm(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLMLP(layers.Layer):
-    """SwiGLU MLP: ``down(silu(gate(x)) * up(x))`` (text bias-free, vision biased)."""
+    """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
+
+    Two parallel projections to ``mlp_dim`` — a SiLU-gated ``gate`` and a linear
+    ``up`` — are multiplied elementwise, then projected back to ``embed_dim`` by
+    ``down``. Shape-preserving on the last axis. The Qwen2.5 text decoder uses it
+    bias-free; the Qwen2.5-VL vision blocks reuse it with ``use_bias=True``.
+
+    Args:
+        embed_dim: Model / residual-stream width (input and output dim).
+        mlp_dim: Hidden expansion width of the ``gate`` / ``up`` projections.
+        use_bias: Whether the three projections carry a bias (vision uses ``True``).
+    """
 
     def __init__(self, embed_dim, mlp_dim, use_bias=False, **kwargs):
         super().__init__(**kwargs)
@@ -59,7 +80,34 @@ class Qwen2_5_VLMLP(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLAttention(layers.Layer):
-    """Grouped-query causal self-attention with multimodal rotary positions."""
+    """Grouped-query causal self-attention with multimodal rotary positions.
+
+    The Qwen2.5 text decoder's attention: ``query`` / ``key`` / ``value`` carry a
+    bias, ``output_proj`` does not. When ``num_kv_heads < num_heads`` (GQA) the K/V
+    heads are repeated to match the query heads. The merged M-RoPE ``cos`` / ``sin``
+    (computed by the model) are applied to Q and K, and a KV cache can be threaded
+    through ``past_key_value`` for O(1)-per-token incremental decoding.
+
+    Args:
+        embed_dim: Model width (output dim of ``output_proj``).
+        num_heads: Number of query heads.
+        num_kv_heads: Number of key/value heads (``<= num_heads`` for GQA).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+
+    Call args:
+        hidden_states: ``(batch, q_len, embed_dim)``.
+        cos, sin: merged rotary tables ``(batch, q_len, head_dim)``.
+        attention_mask: additive mask broadcastable to
+            ``(batch, 1, q_len, kv_len)`` (``0`` keep / large-negative block), or
+            ``None``.
+        past_key_value: optional ``(past_k, past_v)``, each
+            ``(batch, num_kv_heads, past_len, head_dim)``.
+        use_cache: when ``True``, also return the updated ``(key, value)``.
+
+    Returns:
+        Output ``(batch, q_len, embed_dim)``, or ``(output, (key, value))`` when
+        ``use_cache`` is set.
+    """
 
     def __init__(
         self,
@@ -152,7 +200,27 @@ class Qwen2_5_VLAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLDecoderLayer(layers.Layer):
-    """One Qwen2 decoder block: pre-norm GQA attention then pre-norm SwiGLU."""
+    """One Qwen2.5 decoder block: pre-norm GQA attention, then pre-norm SwiGLU.
+
+    Computes ``h = x + attention(attention_norm(x))`` followed by
+    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual adds.
+    The rotary tables, mask, and KV cache pass straight through to the attention.
+
+    Args:
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width.
+        num_heads: Number of query heads.
+        num_kv_heads: Number of key/value heads (GQA).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+        norm_eps: Epsilon shared by both RMSNorms.
+
+    Call args:
+        hidden_states, cos, sin, attention_mask, past_key_value, use_cache: as in
+            :class:`Qwen2_5_VLAttention`.
+
+    Returns:
+        The block output, or ``(output, (key, value))`` when ``use_cache`` is set.
+    """
 
     def __init__(
         self,
@@ -227,7 +295,20 @@ class Qwen2_5_VLDecoderLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VisionPatchEmbed(layers.Layer):
-    """Per-patch linear projection (HF's kernel==stride Conv3d as a Dense)."""
+    """Patch embedding for the Qwen2.5-VL vision tower.
+
+    HF uses a ``Conv3d`` whose kernel equals its stride, tiling each
+    ``(temporal_patch_size, patch_size, patch_size)`` patch exactly once — i.e. a
+    per-patch linear projection. The processor already flattens every patch to a
+    ``in_channels * temporal_patch_size * patch_size**2`` vector, so this is just a
+    bias-free ``Dense`` (no spatial axes, hence layout-agnostic).
+
+    Call args:
+        x: ``(num_patches, in_channels * temporal_patch_size * patch_size**2)``.
+
+    Returns:
+        ``(num_patches, embed_dim)``.
+    """
 
     def __init__(self, embed_dim, **kwargs):
         super().__init__(**kwargs)
@@ -245,7 +326,23 @@ class Qwen2_5_VisionPatchEmbed(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLVisionAttention(layers.Layer):
-    """Full vision attention with 2D rotary positions + block-diagonal mask."""
+    """Full (non-causal) vision attention with 2D rotary positions.
+
+    Operates on the flattened patch sequence of (possibly) several images. A fused
+    ``qkv`` projection and the output ``proj`` both carry a bias; 2D vision rotary
+    ``cos`` / ``sin`` are applied to Q and K. The additive ``attention_mask`` makes
+    attention block-diagonal — full per image, or per spatial **window** in the
+    Qwen2.5-VL windowed layers — and is built from cumulative seqlens by the vision
+    model.
+
+    Call args:
+        hidden_states: ``(seq, embed_dim)``.
+        cos, sin: vision rotary tables ``(seq, head_dim)``.
+        attention_mask: additive mask ``(1, 1, seq, seq)`` or ``None``.
+
+    Returns:
+        ``(seq, embed_dim)``.
+    """
 
     def __init__(self, embed_dim, num_heads, **kwargs):
         super().__init__(**kwargs)
@@ -295,7 +392,22 @@ class Qwen2_5_VLVisionAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLVisionBlock(layers.Layer):
-    """Pre-norm vision block with RMSNorm + SwiGLU MLP (Qwen2.5-VL)."""
+    """Pre-norm Qwen2.5-VL vision block: ``h += attn(norm1(h)); h += mlp(norm2(h))``.
+
+    Unlike Qwen2-VL (LayerNorm + quick-gelu MLP), Qwen2.5-VL normalizes with
+    RMSNorm and uses a biased SwiGLU MLP. The attention mask selects full or
+    windowed attention depending on the layer.
+
+    Args:
+        embed_dim: Vision hidden width.
+        num_heads: Number of attention heads.
+        intermediate_size: SwiGLU hidden width of the vision MLP.
+
+    Call args:
+        hidden_states: ``(seq, embed_dim)``.
+        cos, sin: vision rotary tables ``(seq, head_dim)``.
+        attention_mask: additive block-diagonal mask, or ``None``.
+    """
 
     def __init__(self, embed_dim, num_heads, intermediate_size, **kwargs):
         super().__init__(**kwargs)
@@ -330,9 +442,18 @@ class Qwen2_5_VLVisionBlock(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2_5_VLPatchMerger(layers.Layer):
-    """Merge each 2x2 patch group and project to the LLM hidden size.
+    """Merge each 2x2 (``spatial_merge_size``) patch group and project to the LLM
+    hidden size.
 
-    ``ln_q`` is an RMSNorm over the vision dim (Qwen2.5-VL); ``gelu`` is exact.
+    RMSNorm-normalizes (``ln_q``, over the vision ``context_dim``), groups every
+    ``spatial_merge_size**2`` patches into one ``context_dim * merge**2`` vector,
+    then a two-layer MLP with exact GELU projects to ``dim`` (the LLM hidden size).
+    This is the bridge from vision tokens to language tokens.
+
+    Args:
+        dim: Output (LLM hidden) width.
+        context_dim: Vision hidden width of each incoming patch.
+        spatial_merge_size: Patch-merge factor per spatial axis.
     """
 
     def __init__(self, dim, context_dim, spatial_merge_size=2, **kwargs):
