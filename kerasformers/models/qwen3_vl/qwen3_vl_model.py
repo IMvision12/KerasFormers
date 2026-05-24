@@ -415,26 +415,65 @@ class Qwen3VLModel(Qwen2VLModel):
             position_ids, self.head_dim, self.rope_theta, self.mrope_section
         )
 
-    def _prepare_inputs(self, input_ids, pixel_values, image_grid_thw, attention_mask):
+    def _prepare_inputs(
+        self,
+        input_ids,
+        pixel_values,
+        image_grid_thw,
+        attention_mask,
+        pixel_values_videos=None,
+        video_grid_thw=None,
+    ):
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         inputs_embeds = self.language_model.token_embedding(input_ids)
         rope_deltas = ops.zeros((batch,), dtype="int32")
         extra = {}
-        if pixel_values is not None and image_grid_thw is not None:
-            grid = ops.cast(ops.convert_to_tensor(image_grid_thw), "int32")
-            image_embeds, deepstack = self.visual(pixel_values, grid)
+        has_image = pixel_values is not None and image_grid_thw is not None
+        has_video = pixel_values_videos is not None and video_grid_thw is not None
+        image_grid = video_grid = None
+        if has_image or has_video:
             ids_flat = ops.convert_to_numpy(ops.reshape(input_ids, (-1,))).tolist()
-            idx = [j for j, v in enumerate(ids_flat) if v == self.image_token_id]
-            idx_t = ops.reshape(ops.convert_to_tensor(idx, dtype="int32"), (-1, 1))
             flat = ops.reshape(inputs_embeds, (batch * seq, self.embed_dim))
-            flat = ops.scatter_update(flat, idx_t, ops.cast(image_embeds, flat.dtype))
+            deepstack_full = None
+            if has_image:
+                image_grid = ops.cast(ops.convert_to_tensor(image_grid_thw), "int32")
+                image_embeds, ds = self.visual(pixel_values, image_grid)
+                idx_t = ops.reshape(
+                    ops.convert_to_tensor(
+                        [j for j, v in enumerate(ids_flat) if v == self.image_token_id],
+                        dtype="int32",
+                    ),
+                    (-1, 1),
+                )
+                flat = ops.scatter_update(
+                    flat, idx_t, ops.cast(image_embeds, flat.dtype)
+                )
+                deepstack_full = self._deepstack_full(ds, idx_t, batch, seq)
+            if has_video:
+                video_grid = ops.cast(ops.convert_to_tensor(video_grid_thw), "int32")
+                video_embeds, vds = self.visual(pixel_values_videos, video_grid)
+                vidx_t = ops.reshape(
+                    ops.convert_to_tensor(
+                        [j for j, v in enumerate(ids_flat) if v == self.video_token_id],
+                        dtype="int32",
+                    ),
+                    (-1, 1),
+                )
+                flat = ops.scatter_update(
+                    flat, vidx_t, ops.cast(video_embeds, flat.dtype)
+                )
+                vds_full = self._deepstack_full(vds, vidx_t, batch, seq)
+                deepstack_full = (
+                    vds_full
+                    if deepstack_full is None
+                    else [a + b for a, b in zip(deepstack_full, vds_full)]
+                )
             inputs_embeds = ops.reshape(flat, (batch, seq, self.embed_dim))
-            extra = {
-                "deepstack_full": self._deepstack_full(deepstack, idx_t, batch, seq)
-            }
+            if deepstack_full is not None:
+                extra = {"deepstack_full": deepstack_full}
             position_ids, rope_deltas = self.get_rope_index(
-                input_ids, grid, attention_mask
+                input_ids, image_grid, video_grid, attention_mask=attention_mask
             )
         else:
             pos = ops.broadcast_to(ops.arange(seq), (batch, seq))

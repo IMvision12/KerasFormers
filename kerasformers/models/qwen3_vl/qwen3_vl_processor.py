@@ -2,11 +2,16 @@ import keras
 
 from kerasformers.models.qwen2_vl.qwen2_vl_processor import Qwen2VLProcessor
 
+from .qwen3_vl_video_processor import Qwen3VLVideoProcessor
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLProcessor(Qwen2VLProcessor):
-    """Qwen3-VL image+text processor: identical to :class:`Qwen2VLProcessor`
-    except ``patch_size`` defaults to 16."""
+    """Qwen3-VL image/video+text processor: like :class:`Qwen2VLProcessor` but
+    with a 16px patch and the Qwen3-VL video processor (``[0.5]*3`` normalization
+    and a clip-level resize budget)."""
+
+    video_processor_cls = Qwen3VLVideoProcessor
 
     def __init__(
         self,

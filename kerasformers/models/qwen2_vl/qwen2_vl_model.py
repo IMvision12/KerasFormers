@@ -370,24 +370,28 @@ class Qwen2VLModel(BaseModel):
             name="language_model",
         )
 
-    def get_rope_index(self, input_ids, image_grid_thw=None, attention_mask=None):
+    def get_rope_index(
+        self, input_ids, image_grid_thw=None, video_grid_thw=None, attention_mask=None
+    ):
         m = self.spatial_merge_size
         ids_host = ops.convert_to_numpy(ops.convert_to_tensor(input_ids)).tolist()
         batch, seq = len(ids_host), len(ids_host[0])
-        grid_rows = (
-            [
+
+        def _rows(grid):
+            return [
                 tuple(int(v) for v in row)
-                for row in ops.convert_to_numpy(ops.convert_to_tensor(image_grid_thw))
+                for row in ops.convert_to_numpy(ops.convert_to_tensor(grid))
             ]
-            if image_grid_thw is not None
-            else None
-        )
+
+        grid_iters = {
+            1: iter(_rows(image_grid_thw)) if image_grid_thw is not None else None,
+            2: iter(_rows(video_grid_thw)) if video_grid_thw is not None else None,
+        }
         mask_host = (
             ops.convert_to_numpy(ops.convert_to_tensor(attention_mask)).tolist()
             if attention_mask is not None
             else None
         )
-        img_iter = iter(grid_rows) if grid_rows is not None else None
         pos_rows = []
         rope_deltas = []
         for bi in range(batch):
@@ -417,7 +421,7 @@ class Qwen2VLModel(BaseModel):
                     )
                     cur += length
                 else:
-                    t, h, w = (int(v) for v in next(img_iter))
+                    t, h, w = (int(v) for v in next(grid_iters[key]))
                     lt, lh, lw = t, h // m, w // m
                     n = lt * lh * lw
                     wpos = ops.tile(ops.arange(cur, cur + lw), [lh * lt])
@@ -466,6 +470,8 @@ class Qwen2VLModel(BaseModel):
             inputs.get("pixel_values"),
             inputs.get("image_grid_thw"),
             inputs.get("attention_mask"),
+            pixel_values_videos=inputs.get("pixel_values_videos"),
+            video_grid_thw=inputs.get("video_grid_thw"),
         )
         cos, sin = self._merged_cos_sin(position_ids)
         attn_mask = self._causal_mask(seq, seq, offset=0)
@@ -476,26 +482,47 @@ class Qwen2VLModel(BaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self._forward_features(inputs)}
 
-    def _prepare_inputs(self, input_ids, pixel_values, image_grid_thw, attention_mask):
+    def _prepare_inputs(
+        self,
+        input_ids,
+        pixel_values,
+        image_grid_thw,
+        attention_mask,
+        pixel_values_videos=None,
+        video_grid_thw=None,
+    ):
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         inputs_embeds = self.language_model.token_embedding(input_ids)
         rope_deltas = ops.zeros((batch,), dtype="int32")
 
-        if pixel_values is not None and image_grid_thw is not None:
-            grid = ops.cast(ops.convert_to_tensor(image_grid_thw), "int32")
-            image_embeds = self.get_image_features(pixel_values, grid)
+        has_image = pixel_values is not None and image_grid_thw is not None
+        has_video = pixel_values_videos is not None and video_grid_thw is not None
+        image_grid = video_grid = None
+        if has_image or has_video:
             ids_flat = ops.convert_to_numpy(ops.reshape(input_ids, (-1,))).tolist()
-            idx = [j for j, v in enumerate(ids_flat) if v == self.image_token_id]
             embeds_flat = ops.reshape(inputs_embeds, (batch * seq, self.embed_dim))
-            embeds_flat = ops.scatter_update(
-                embeds_flat,
-                ops.reshape(ops.convert_to_tensor(idx, dtype="int32"), (-1, 1)),
-                ops.cast(image_embeds, embeds_flat.dtype),
-            )
+            if has_image:
+                image_grid = ops.cast(ops.convert_to_tensor(image_grid_thw), "int32")
+                image_embeds = self.get_image_features(pixel_values, image_grid)
+                idx = [j for j, v in enumerate(ids_flat) if v == self.image_token_id]
+                embeds_flat = ops.scatter_update(
+                    embeds_flat,
+                    ops.reshape(ops.convert_to_tensor(idx, dtype="int32"), (-1, 1)),
+                    ops.cast(image_embeds, embeds_flat.dtype),
+                )
+            if has_video:
+                video_grid = ops.cast(ops.convert_to_tensor(video_grid_thw), "int32")
+                video_embeds = self.get_image_features(pixel_values_videos, video_grid)
+                vidx = [j for j, v in enumerate(ids_flat) if v == self.video_token_id]
+                embeds_flat = ops.scatter_update(
+                    embeds_flat,
+                    ops.reshape(ops.convert_to_tensor(vidx, dtype="int32"), (-1, 1)),
+                    ops.cast(video_embeds, embeds_flat.dtype),
+                )
             inputs_embeds = ops.reshape(embeds_flat, (batch, seq, self.embed_dim))
             position_ids, rope_deltas = self.get_rope_index(
-                input_ids, grid, attention_mask
+                input_ids, image_grid, video_grid, attention_mask=attention_mask
             )
         else:
             if attention_mask is not None:
@@ -620,11 +647,18 @@ class _QwenVLGenerateMixin:
         max_new_tokens=128,
         eos_token_id=(151645,),
         return_ids=True,
+        pixel_values_videos=None,
+        video_grid_thw=None,
     ):
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
         inputs_embeds, position_ids, rope_deltas, extra = self._prepare_inputs(
-            input_ids, pixel_values, image_grid_thw, attention_mask
+            input_ids,
+            pixel_values,
+            image_grid_thw,
+            attention_mask,
+            pixel_values_videos=pixel_values_videos,
+            video_grid_thw=video_grid_thw,
         )
         cos, sin = self._merged_cos_sin(position_ids)
         hidden, cache = self.language_model(

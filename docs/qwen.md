@@ -101,14 +101,21 @@ VL adds pre-patchified pixels:
 # text
 gen({"input_ids": input_ids})["logits"]            # (B, L, vocab_size)
 
-# vision-language
+# vision-language — images and/or video; placeholders sit inside input_ids
 inputs = {
-    "input_ids":      input_ids,       # (B, L) int, image placeholders inside
-    "pixel_values":   pixel_values,    # (num_patches, patch_dim) flattened patches
-    "image_grid_thw": image_grid_thw,  # (num_images, 3) per-image (t, h, w)
+    "input_ids":           input_ids,            # (B, L) int, image/video placeholders
+    "pixel_values":        pixel_values,         # (num_patches, patch_dim) image patches
+    "image_grid_thw":      image_grid_thw,       # (num_images, 3) per-image (t, h, w)
+    "pixel_values_videos": pixel_values_videos,  # (num_patches, patch_dim) video patches
+    "video_grid_thw":      video_grid_thw,       # (num_videos, 3) per-video (t, h, w)
 }
 gen(inputs)["logits"]                              # (B, L, vocab_size)
 ```
+
+The image and video blocks are each optional. Video patches use the **same
+flattened layout** as images and run through the **same vision tower**; the only
+difference is `grid_t = num_frames // temporal_patch_size` (vs `1` for an image),
+and their embeddings scatter into the `<|video_pad|>` slots.
 
 These are token-id (and pre-flattened-patch) models — **no spatial H/W axes**, so
 `channels_first/last` does not apply (handled like the audio models). The VL
@@ -124,8 +131,10 @@ VL families carry incremental M-RoPE positions (each new token's position is
 
 The API is the same shape for both: build inputs from a chat list, then
 `model.generate(**inputs, max_new_tokens=...)`. **LLMs use the tokenizer**
-(text only); **VLMs use the processor** (tokenizer + image processor), with
-images inline in the conversation via `path` / `url` / a PIL image.
+(text only); **VLMs use the processor** (tokenizer + image / video processor),
+with images or video inline in the conversation — images via `path` / `url` / a
+PIL image, video via a `path` / `url` (decoded and frame-sampled automatically,
+like HF) or inline `frames`.
 
 ```python
 # text LLM — tokenizer takes the chat messages
@@ -169,6 +178,52 @@ HF exactly; pixels match to a small bicubic tolerance.
 from kerasformers.models.qwen2_vl.qwen2_vl_image_processor import Qwen2VLImageProcessor
 feat = Qwen2VLImageProcessor()(pil_image)   # {"pixel_values", "image_grid_thw"}
 ```
+
+## Video processor (VL)
+
+`Qwen2VLVideoProcessor` / `Qwen3VLVideoProcessor` are the pure-`keras.ops` ports of
+HF's video processors. Each frame is smart-resized to a multiple of
+`patch_size · spatial_merge_size`, rescaled + normalized, the frame count is padded
+up to a multiple of `temporal_patch_size` (repeating the last frame), and the clip
+is flattened into the **same `(num_patches, patch_dim)` layout as images** (so the
+shared vision tower consumes both unchanged) with a `video_grid_thw` whose
+`grid_t = num_frames // temporal_patch_size`. Grids match HF exactly; pixels match
+to a small bicubic tolerance.
+
+Qwen3-VL differs from Qwen2-VL: a 16px patch, `[0.5, 0.5, 0.5]` normalization, and a
+**clip-level** resize budget (the frame count factors into the target resolution, so
+more frames → smaller frames) instead of Qwen2-VL's per-frame resize.
+
+```python
+import numpy as np
+from kerasformers.models.qwen2_vl import Qwen2VLVideoProcessor
+
+frames = np.random.randint(0, 256, (8, 224, 224, 3), dtype="uint8")  # (T, H, W, C)
+feat = Qwen2VLVideoProcessor()(frames)   # {"pixel_values_videos", "video_grid_thw"}
+```
+
+The processor wires this in automatically — like HF, you just point at the file. A
+`{"type": "video", "path": "…"}` (or `"url"`) item is decoded by the shared
+`kerasformers.utils.video.load_video` (PyAV backend; OpenCV / decord also available)
+and **frame-sampled to the target fps** (Qwen3-VL: 2 fps, via the same
+`num_frames = total / video_fps · fps` + `linspace` rule as HF; Qwen2-VL keeps every
+frame); inline `frames` are also accepted. It produces `pixel_values_videos` /
+`video_grid_thw` and expands `<|video_pad|>` to the right token count.
+
+```python
+conversation = [
+    {"role": "user", "content": [
+        {"type": "video", "path": "/path/to/video.mp4"},  # or "url", or inline "video": frames
+        {"type": "text", "text": "What happens in the video?"},
+    ]},
+]
+inputs = processor(conversation)
+outputs = model.generate(**inputs, max_new_tokens=128)
+```
+
+> **Not yet ported:** Qwen3-VL's inter-frame timestamp tokens — the processor emits
+> a single `<|vision_start|><|video_pad|><|vision_end|>` block per video (frame
+> decoding + fps sampling already match HF).
 
 ## Architecture notes
 
