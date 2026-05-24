@@ -5,7 +5,7 @@ from keras import layers, ops
 from kerasformers.base import BaseModel
 
 from .config import QWEN2_CONFIG, QWEN2_WEIGHTS
-from .qwen2_layers import Qwen2DecoderLayer, Qwen2RMSNorm, rope_cos_sin
+from .qwen2_layers import Qwen2DecoderLayer, Qwen2RMSNorm
 
 _MASK_NEG = -1e9
 
@@ -117,8 +117,15 @@ class Qwen2Model(BaseModel):
         attention_mask = inputs.get("attention_mask")
         inputs_embeds = self.token_embedding(ops.convert_to_tensor(input_ids_np))
         position_ids = self._positions(attention_mask, batch, seq)
-        cos, sin = rope_cos_sin(position_ids, self.head_dim, self.rope_theta)
-        cos, sin = ops.convert_to_tensor(cos), ops.convert_to_tensor(sin)
+        inv_freq = 1.0 / (
+            self.rope_theta
+            ** (np.arange(0, self.head_dim, 2, dtype=np.float32) / self.head_dim)
+        )
+        emb = np.concatenate(
+            [position_ids.astype("float32")[..., None] * inv_freq] * 2, axis=-1
+        )
+        cos = ops.convert_to_tensor(np.cos(emb).astype("float32"))
+        sin = ops.convert_to_tensor(np.sin(emb).astype("float32"))
         attn_mask = self._causal_mask(seq, seq, offset=0)
         return self._run_decoder(inputs_embeds, cos, sin, attn_mask)
 
@@ -195,7 +202,14 @@ class Qwen2Generate(Qwen2Model):
         batch, prompt_len = input_ids_np.shape
         inputs_embeds = self.token_embedding(ops.convert_to_tensor(input_ids_np))
         position_ids = self._positions(attention_mask, batch, prompt_len)
-        cos, sin = rope_cos_sin(position_ids, self.head_dim, self.rope_theta)
+        inv_freq = 1.0 / (
+            self.rope_theta
+            ** (np.arange(0, self.head_dim, 2, dtype=np.float32) / self.head_dim)
+        )
+        emb = np.concatenate(
+            [position_ids.astype("float32")[..., None] * inv_freq] * 2, axis=-1
+        )
+        cos, sin = np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
         hidden, cache = self._run_decoder(
             inputs_embeds,
             ops.convert_to_tensor(cos),
@@ -225,7 +239,14 @@ class Qwen2Generate(Qwen2Model):
             if finished.all():
                 break
             pos = np.full((batch, 1), cur_len, dtype="int64")
-            c, s = rope_cos_sin(pos, self.head_dim, self.rope_theta)
+            inv_freq = 1.0 / (
+                self.rope_theta
+                ** (np.arange(0, self.head_dim, 2, dtype=np.float32) / self.head_dim)
+            )
+            emb = np.concatenate(
+                [pos.astype("float32")[..., None] * inv_freq] * 2, axis=-1
+            )
+            c, s = np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
             step = self.token_embedding(ops.convert_to_tensor(next_tok))
             hidden, cache = self._run_decoder(
                 step,

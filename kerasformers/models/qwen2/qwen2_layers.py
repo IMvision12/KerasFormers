@@ -1,34 +1,5 @@
 import keras
-import numpy as np
 from keras import layers, ops
-
-
-def rotate_half(x):
-    """Rotate the last dim by halves: ``[-x2, x1]`` (Llama/RoPE convention)."""
-    half = x.shape[-1] // 2
-    return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
-
-
-def apply_rotary(t, cos, sin):
-    """Standard rotary application ``t * cos + rotate_half(t) * sin``."""
-    return (t * cos) + (rotate_half(t) * sin)
-
-
-def rope_cos_sin(position_ids, head_dim, theta):
-    """1D rotary tables from position ids.
-
-    Args:
-        position_ids: ``(batch, seq)`` int positions.
-        head_dim: attention head dim.
-        theta: rotary base.
-
-    Returns:
-        ``(cos, sin)`` numpy arrays, each ``(batch, seq, head_dim)``.
-    """
-    inv_freq = 1.0 / (theta ** (np.arange(0, head_dim, 2, dtype=np.float32) / head_dim))
-    freqs = np.asarray(position_ids, dtype="float32")[..., None] * inv_freq
-    emb = np.concatenate([freqs, freqs], axis=-1)
-    return np.cos(emb).astype("float32"), np.sin(emb).astype("float32")
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -130,8 +101,13 @@ class Qwen2Attention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        query = apply_rotary(query, cos, sin)
-        key = apply_rotary(key, cos, sin)
+        half = self.head_dim // 2
+        query = query * cos + (
+            ops.concatenate([-query[..., half:], query[..., :half]], axis=-1) * sin
+        )
+        key = key * cos + (
+            ops.concatenate([-key[..., half:], key[..., :half]], axis=-1) * sin
+        )
 
         if past_key_value is not None:
             past_k, past_v = past_key_value
