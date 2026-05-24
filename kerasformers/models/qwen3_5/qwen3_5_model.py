@@ -4,7 +4,7 @@
 adds the LM head + greedy ``.generate()``. Weights load on the fly from any
 Qwen3.5 checkpoint's text tower (``model.language_model.*``):
 
-    gen = Qwen3_5Generate.from_weights("hf:Qwen/Qwen3.5-0.8B")
+    gen = Qwen3_5Generate.from_weights("qwen3.5-0.8b")
 
 Most layers are Gated-DeltaNet linear attention; every ``full_attention_interval``
 -th layer is gated full attention with partial rotary. For pure text the three
@@ -25,7 +25,7 @@ _MASK_NEG = -1e9
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3_5Model(BaseModel):
-    """Qwen3.5 decoder: embed -> hybrid linear/full layers -> RMSNorm."""
+    """Qwen3.5 decoder: token_embedding -> hybrid linear/full layers -> RMSNorm."""
 
     HF_MODEL_TYPE = ("qwen3_5", "qwen3_5_text")
     BASE_MODEL_CONFIG = QWEN3_5_CONFIG
@@ -34,16 +34,16 @@ class Qwen3_5Model(BaseModel):
     def __init__(
         self,
         vocab_size=248320,
-        hidden_size=1024,
-        intermediate_size=3584,
-        num_hidden_layers=24,
-        num_attention_heads=8,
-        num_key_value_heads=2,
+        embed_dim=1024,
+        mlp_dim=3584,
+        num_layers=24,
+        num_heads=8,
+        num_kv_heads=2,
         head_dim=256,
-        rms_norm_eps=1e-6,
+        norm_eps=1e-6,
         rope_theta=10000000.0,
         partial_rotary_factor=0.25,
-        tie_word_embeddings=True,
+        tie_embeddings=True,
         full_attention_interval=4,
         linear_conv_kernel_dim=4,
         linear_key_head_dim=128,
@@ -54,16 +54,16 @@ class Qwen3_5Model(BaseModel):
     ):
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.num_key_value_heads = num_key_value_heads
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
-        self.rms_norm_eps = rms_norm_eps
+        self.norm_eps = norm_eps
         self.rope_theta = rope_theta
         self.partial_rotary_factor = partial_rotary_factor
-        self.tie_word_embeddings = tie_word_embeddings
+        self.tie_embeddings = tie_embeddings
         self.full_attention_interval = full_attention_interval
         self.linear_conv_kernel_dim = linear_conv_kernel_dim
         self.linear_key_head_dim = linear_key_head_dim
@@ -73,13 +73,13 @@ class Qwen3_5Model(BaseModel):
         self.rotary_dim = int(head_dim * partial_rotary_factor)
 
         layer_cfg = {
-            "hidden_size": hidden_size,
-            "intermediate_size": intermediate_size,
-            "num_attention_heads": num_attention_heads,
-            "num_key_value_heads": num_key_value_heads,
+            "embed_dim": embed_dim,
+            "mlp_dim": mlp_dim,
+            "num_heads": num_heads,
+            "num_kv_heads": num_kv_heads,
             "head_dim": head_dim,
             "rotary_dim": self.rotary_dim,
-            "rms_norm_eps": rms_norm_eps,
+            "norm_eps": norm_eps,
             "linear_conv_kernel_dim": linear_conv_kernel_dim,
             "linear_key_head_dim": linear_key_head_dim,
             "linear_value_head_dim": linear_value_head_dim,
@@ -90,16 +90,18 @@ class Qwen3_5Model(BaseModel):
             "full_attention"
             if (i + 1) % full_attention_interval == 0
             else "linear_attention"
-            for i in range(num_hidden_layers)
+            for i in range(num_layers)
         ]
-        self.embed_tokens = layers.Embedding(
-            vocab_size, hidden_size, name="embed_tokens"
+        self.token_embedding = layers.Embedding(
+            vocab_size, embed_dim, name="token_embedding"
         )
         self.decoder_layers = [
-            Qwen3_5DecoderLayer(layer_cfg, self.layer_types[i], name=f"layers_{i}")
-            for i in range(num_hidden_layers)
+            Qwen3_5DecoderLayer(
+                layer_cfg, self.layer_types[i], name=f"decoder_layer_{i}"
+            )
+            for i in range(num_layers)
         ]
-        self.norm = Qwen3_5RMSNorm(eps=rms_norm_eps, name="norm")
+        self.final_norm = Qwen3_5RMSNorm(eps=norm_eps, name="final_norm")
 
     def _causal_mask(self, q_len, kv_len, offset):
         qi = np.arange(q_len)[:, None] + offset
@@ -140,7 +142,7 @@ class Qwen3_5Model(BaseModel):
                 new_cache.append(state)
             else:
                 hidden = out
-        hidden = self.norm(hidden)
+        hidden = self.final_norm(hidden)
         return (hidden, new_cache) if use_cache else hidden
 
     def _forward_features(self, inputs):
@@ -150,7 +152,7 @@ class Qwen3_5Model(BaseModel):
             "int64"
         )
         batch, seq = input_ids_np.shape
-        inputs_embeds = self.embed_tokens(ops.convert_to_tensor(input_ids_np))
+        inputs_embeds = self.token_embedding(ops.convert_to_tensor(input_ids_np))
         position_ids = self._positions(inputs.get("attention_mask"), batch, seq)
         cos, sin = rope_cos_sin(position_ids, self.rotary_dim, self.rope_theta)
         cos, sin = ops.convert_to_tensor(cos), ops.convert_to_tensor(sin)
@@ -167,16 +169,16 @@ class Qwen3_5Model(BaseModel):
         rope = c.get("rope_parameters", c)
         return {
             "vocab_size": c["vocab_size"],
-            "hidden_size": c["hidden_size"],
-            "intermediate_size": c["intermediate_size"],
-            "num_hidden_layers": c["num_hidden_layers"],
-            "num_attention_heads": c["num_attention_heads"],
-            "num_key_value_heads": c["num_key_value_heads"],
+            "embed_dim": c["hidden_size"],
+            "mlp_dim": c["intermediate_size"],
+            "num_layers": c["num_hidden_layers"],
+            "num_heads": c["num_attention_heads"],
+            "num_kv_heads": c["num_key_value_heads"],
             "head_dim": c["head_dim"],
-            "rms_norm_eps": c.get("rms_norm_eps", 1e-6),
+            "norm_eps": c.get("rms_norm_eps", 1e-6),
             "rope_theta": rope.get("rope_theta", c.get("rope_theta", 10000000.0)),
             "partial_rotary_factor": rope.get("partial_rotary_factor", 0.25),
-            "tie_word_embeddings": c.get("tie_word_embeddings", True),
+            "tie_embeddings": c.get("tie_word_embeddings", True),
             "full_attention_interval": c["full_attention_interval"],
             "linear_conv_kernel_dim": c["linear_conv_kernel_dim"],
             "linear_key_head_dim": c["linear_key_head_dim"],
@@ -196,16 +198,16 @@ class Qwen3_5Model(BaseModel):
         config.update(
             {
                 "vocab_size": self.vocab_size,
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
-                "num_hidden_layers": self.num_hidden_layers,
-                "num_attention_heads": self.num_attention_heads,
-                "num_key_value_heads": self.num_key_value_heads,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
-                "rms_norm_eps": self.rms_norm_eps,
+                "norm_eps": self.norm_eps,
                 "rope_theta": self.rope_theta,
                 "partial_rotary_factor": self.partial_rotary_factor,
-                "tie_word_embeddings": self.tie_word_embeddings,
+                "tie_embeddings": self.tie_embeddings,
                 "full_attention_interval": self.full_attention_interval,
                 "linear_conv_kernel_dim": self.linear_conv_kernel_dim,
                 "linear_key_head_dim": self.linear_key_head_dim,
@@ -225,14 +227,14 @@ class Qwen3_5Generate(Qwen3_5Model):
         super().__init__(*args, **kwargs)
         self.lm_head = (
             None
-            if self.tie_word_embeddings
+            if self.tie_embeddings
             else layers.Dense(self.vocab_size, use_bias=False, name="lm_head")
         )
 
     def _lm_logits(self, hidden):
         if getattr(self, "lm_head", None) is not None:
             return self.lm_head(hidden)
-        return ops.matmul(hidden, ops.transpose(self.embed_tokens.embeddings))
+        return ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
 
     def call(self, inputs):
         hidden = self._forward_features(inputs)
@@ -244,7 +246,7 @@ class Qwen3_5Generate(Qwen3_5Model):
         """Greedy decoding with a hybrid KV / conv+recurrent cache."""
         input_ids_np = np.asarray(ops.convert_to_numpy(input_ids)).astype("int64")
         batch, prompt_len = input_ids_np.shape
-        inputs_embeds = self.embed_tokens(ops.convert_to_tensor(input_ids_np))
+        inputs_embeds = self.token_embedding(ops.convert_to_tensor(input_ids_np))
         position_ids = self._positions(attention_mask, batch, prompt_len)
         cos, sin = rope_cos_sin(position_ids, self.rotary_dim, self.rope_theta)
         hidden, cache = self._run_decoder(
@@ -277,7 +279,7 @@ class Qwen3_5Generate(Qwen3_5Model):
                 break
             pos = np.full((batch, 1), cur_len, dtype="int64")
             c, s = rope_cos_sin(pos, self.rotary_dim, self.rope_theta)
-            step = self.embed_tokens(ops.convert_to_tensor(next_tok))
+            step = self.token_embedding(ops.convert_to_tensor(next_tok))
             hidden, cache = self._run_decoder(
                 step,
                 ops.convert_to_tensor(c),

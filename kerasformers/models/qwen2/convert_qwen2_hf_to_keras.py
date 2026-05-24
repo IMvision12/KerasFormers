@@ -1,75 +1,60 @@
 """On-the-fly weight conversion for Qwen2 (HF safetensors -> Keras).
 
-``transfer_qwen2_weights`` is what ``Qwen2Model.transfer_from_hf`` calls at load
-time. Raw checkpoint keys: ``model.embed_tokens``, ``model.layers.{i}.*``,
-``model.norm``, and ``lm_head.weight`` (absent when the head is tied).
+Follows the library's name-mapped convention (see CLIP / DINOv3 / DETR): driven
+off the Keras model's own weights, each weight's hierarchical ``path`` is mapped
+to the HF tensor name and assigned via the shared ``transfer_weights`` helper.
+
+kerasformers uses its own layer names (``attention.query`` etc.), so
+``hf_weight_name`` bridges them to HF's (``self_attn.q_proj`` etc.).
 """
 
 import numpy as np
 
+from kerasformers.weight_utils.custom_exception import WeightMappingError
+from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
-def _np(state, key):
-    v = state[key]
-    if not isinstance(v, np.ndarray):
-        v = v.detach().cpu().numpy()
-    return v.astype("float32")
+# kerasformers layer-name segment -> HF segment (applied after "/"->".").
+_LAYER_MAP = {
+    "attention.query": "self_attn.q_proj",
+    "attention.key": "self_attn.k_proj",
+    "attention.value": "self_attn.v_proj",
+    "attention.output_proj": "self_attn.o_proj",
+    "attention_norm": "input_layernorm",
+    "mlp_norm": "post_attention_layernorm",
+    "mlp.gate": "mlp.gate_proj",
+    "mlp.up": "mlp.up_proj",
+    "mlp.down": "mlp.down_proj",
+}
 
 
-def _assign_dense(dense, weight, bias=None):
-    dense.kernel.assign(np.asarray(weight).T)
-    if bias is not None:
-        dense.bias.assign(np.asarray(bias))
+def hf_weight_name(path):
+    """Map a Keras weight ``path`` to its HuggingFace tensor name."""
+    rest = path.split("/", 1)[1]  # drop the model-name root
+    if rest.startswith("token_embedding"):
+        return "model.embed_tokens.weight"
+    if rest.startswith("final_norm"):
+        return "model.norm.weight"
+    if rest.startswith("lm_head"):
+        return "lm_head.weight"
+    rest = rest.replace("decoder_layer_", "layers.").replace("/", ".")
+    for old, new in _LAYER_MAP.items():
+        rest = rest.replace(old, new)
+    return "model." + rest.replace(".kernel", ".weight")
 
 
-def _assign_rmsnorm(norm, weight):
-    norm.weight.assign(np.asarray(weight))
-
-
-def _build_model(model):
+def build_model(model):
     """Materialize weights with a tiny dummy forward."""
     model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
 
 
 def transfer_qwen2_weights(keras_model, hf_state_dict):
     if not keras_model.built or not keras_model.weights:
-        _build_model(keras_model)
-    state = hf_state_dict
-
-    keras_model.embed_tokens.embeddings.assign(_np(state, "model.embed_tokens.weight"))
-    for i, layer in enumerate(keras_model.decoder_layers):
-        p = f"model.layers.{i}"
-        _assign_rmsnorm(
-            layer.input_layernorm, _np(state, f"{p}.input_layernorm.weight")
-        )
-        _assign_rmsnorm(
-            layer.post_attention_layernorm,
-            _np(state, f"{p}.post_attention_layernorm.weight"),
-        )
-        attn = layer.self_attn
-        _assign_dense(
-            attn.q_proj,
-            _np(state, f"{p}.self_attn.q_proj.weight"),
-            _np(state, f"{p}.self_attn.q_proj.bias"),
-        )
-        _assign_dense(
-            attn.k_proj,
-            _np(state, f"{p}.self_attn.k_proj.weight"),
-            _np(state, f"{p}.self_attn.k_proj.bias"),
-        )
-        _assign_dense(
-            attn.v_proj,
-            _np(state, f"{p}.self_attn.v_proj.weight"),
-            _np(state, f"{p}.self_attn.v_proj.bias"),
-        )
-        _assign_dense(attn.o_proj, _np(state, f"{p}.self_attn.o_proj.weight"))
-        _assign_dense(layer.mlp.gate_proj, _np(state, f"{p}.mlp.gate_proj.weight"))
-        _assign_dense(layer.mlp.up_proj, _np(state, f"{p}.mlp.up_proj.weight"))
-        _assign_dense(layer.mlp.down_proj, _np(state, f"{p}.mlp.down_proj.weight"))
-    _assign_rmsnorm(keras_model.norm, _np(state, "model.norm.weight"))
-
-    lm_head = getattr(keras_model, "lm_head", None)
-    if lm_head is not None and "lm_head.weight" in state:
-        _assign_dense(lm_head, _np(state, "lm_head.weight"))
+        build_model(keras_model)
+    for weight in keras_model.weights:
+        name = hf_weight_name(weight.path)
+        if name not in hf_state_dict:
+            raise WeightMappingError(weight.path, name)
+        transfer_weights(weight.path, weight, hf_state_dict[name])
 
 
 if __name__ == "__main__":
@@ -94,7 +79,6 @@ if __name__ == "__main__":
     hf.set_attn_implementation("eager")
     with torch.no_grad():
         hf_logits = hf(torch.tensor(ids)).logits.float().numpy()
-    state = {k: v.detach().cpu().numpy() for k, v in hf.state_dict().items()}
     del hf
     gc.collect()
 
