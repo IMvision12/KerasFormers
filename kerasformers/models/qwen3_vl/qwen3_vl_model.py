@@ -1,13 +1,3 @@
-"""Qwen3-VL — Qwen3 text decoder + DeepStack vision tower, in pure Keras 3.
-
-Inherits the multimodal scatter / M-RoPE position computation / generation
-machinery from :class:`Qwen2VLModel`, overriding the cos/sin builder
-(interleaved M-RoPE), the vision tower (learned pos-embeds + DeepStack), and
-the text stack (Qwen3 QK-norm blocks with DeepStack feature injection).
-
-    model = Qwen3VLModel.from_weights("hf:Qwen/Qwen3-VL-2B-Instruct")
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops

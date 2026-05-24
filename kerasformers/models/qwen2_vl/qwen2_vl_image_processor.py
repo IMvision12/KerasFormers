@@ -1,17 +1,3 @@
-"""Pure-Python Qwen2-VL image processor (image -> flattened patches + grid).
-
-Mirrors HF ``Qwen2VLImageProcessor``: smart-resize each image so both sides are
-multiples of ``patch_size * spatial_merge_size`` and the pixel count stays in
-``[min_pixels, max_pixels]``, CLIP-normalize, repeat the single frame to fill
-``temporal_patch_size``, then reshape into the ``(num_patches, patch_dim)``
-layout the model's Conv3d-as-Dense patch embed expects, with a matching
-``image_grid_thw``.
-
-Resampling uses PIL bicubic; HF uses torchvision bicubic, so pixel values match
-to a small tolerance (immaterial for generation). The grid + patch layout match
-exactly.
-"""
-
 import math
 
 import numpy as np

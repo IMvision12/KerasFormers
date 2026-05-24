@@ -1,6 +1,3 @@
-"""Qwen3.5 tokenizer — Qwen byte-level BPE loaded from the hub, with a ChatML
-``apply_chat_template`` helper."""
-
 import keras
 import numpy as np
 

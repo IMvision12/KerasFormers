@@ -1,12 +1,3 @@
-"""Qwen2-VL processor — bundles the image processor + tokenizer.
-
-Mirrors HF's ``Qwen2VLProcessor`` API surface: build a ChatML prompt from
-messages, run images through the (pure) image processor, expand each
-``<|image_pad|>`` placeholder to the right number of merged-patch tokens, and
-tokenize. Reused by Qwen2.5-VL (same patch size); Qwen3-VL subclasses with
-``patch_size=16``.
-"""
-
 import keras
 import numpy as np
 from keras import ops

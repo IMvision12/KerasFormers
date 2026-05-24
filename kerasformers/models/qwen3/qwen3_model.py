@@ -1,11 +1,3 @@
-"""Qwen3 dense LLM in pure Keras 3 (self-contained).
-
-``Qwen3Model`` returns features (``last_hidden_state``); ``Qwen3Generate`` adds
-the LM head + greedy ``.generate()``.
-
-    gen = Qwen3Generate.from_weights("qwen3-0.6b")
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops

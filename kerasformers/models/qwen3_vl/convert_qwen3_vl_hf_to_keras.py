@@ -29,6 +29,12 @@ WEIGHT_NAME_MAPPING = {
 
 
 def transfer_qwen3_vl_weights(keras_model, hf_state_dict):
+    """Load an HF Qwen3-VL state dict into a (freshly built) Keras model in place.
+
+    Like Qwen2-VL but for the Qwen3 text decoder (QK-norm) plus the Qwen3-VL
+    vision extras: the learned ``pos_embed`` is assigned directly and the Conv3d
+    patch embed is reshaped to feed the Keras ``Dense``.
+    """
     if not keras_model.built or not keras_model.weights:
         m = keras_model.spatial_merge_size
         h = w = 2 * m

@@ -1,11 +1,3 @@
-"""Pure Keras 3 layers for Qwen2.5-VL (self-contained — no qwen2_vl imports).
-
-Text decoder layers match Qwen2 (RMSNorm, GQA with q/k/v bias + bias-free
-o_proj, SwiGLU). The vision tower differs from Qwen2-VL: RMSNorm blocks with a
-SwiGLU MLP (bias) and an RMSNorm ``ln_q`` in the patch merger. Windowed
-attention is orchestrated by the model, not here.
-"""
-
 import keras
 from keras import layers, ops
 

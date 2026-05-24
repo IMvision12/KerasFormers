@@ -1,16 +1,3 @@
-"""Qwen3.5 hybrid LLM (text backbone) in pure Keras 3 (self-contained).
-
-``Qwen3_5Model`` returns features (``last_hidden_state``); ``Qwen3_5Generate``
-adds the LM head + greedy ``.generate()``. Weights load on the fly from any
-Qwen3.5 checkpoint's text tower (``model.language_model.*``):
-
-    gen = Qwen3_5Generate.from_weights("qwen3.5-0.8b")
-
-Most layers are Gated-DeltaNet linear attention; every ``full_attention_interval``
--th layer is gated full attention with partial rotary. For pure text the three
-M-RoPE position axes coincide, so rotary reduces to standard 1D partial rope.
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops

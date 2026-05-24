@@ -1,12 +1,3 @@
-"""Qwen2-VL tokenizer — the Qwen2 byte-level BPE, loaded from the hub.
-
-Wraps a ``tokenizers.Tokenizer`` built from the checkpoint's ``tokenizer.json``
-(downloaded via ``huggingface_hub``), which carries the BPE merges, the Qwen2
-pre-tokenizer regex, and all the special tokens (``<|im_start|>``,
-``<|image_pad|>``, ``<|vision_start|>``, …). Shared verbatim across Qwen2-VL /
-Qwen2.5-VL / Qwen3-VL.
-"""
-
 import keras
 
 from kerasformers.base import BaseTokenizer

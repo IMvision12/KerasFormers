@@ -1,9 +1,3 @@
-"""Pure Keras 3 layers for the Qwen3 dense LLM (self-contained).
-
-Like Qwen2 but the attention applies per-head RMSNorm to query and key
-(pre-RoPE) and has no q/k/v bias. RMSNorm, 1D rotary, GQA, SwiGLU.
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops
@@ -16,6 +10,7 @@ def rotate_half(x):
 
 
 def apply_rotary(t, cos, sin):
+    """Standard rotary application ``t * cos + rotate_half(t) * sin``."""
     return (t * cos) + (rotate_half(t) * sin)
 
 

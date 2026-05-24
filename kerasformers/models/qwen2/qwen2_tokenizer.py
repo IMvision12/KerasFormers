@@ -1,9 +1,3 @@
-"""Qwen2 tokenizer — the Qwen2 byte-level BPE, loaded from the hub.
-
-Wraps a ``tokenizers.Tokenizer`` built from the checkpoint's ``tokenizer.json``
-and adds a ChatML ``apply_chat_template`` helper for instruct models.
-"""
-
 import keras
 import numpy as np
 

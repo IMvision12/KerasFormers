@@ -21,6 +21,12 @@ WEIGHT_NAME_MAPPING = {
 
 
 def transfer_qwen2_weights(keras_model, hf_state_dict):
+    """Load an HF Qwen2 state dict into a (freshly built) Keras model in place.
+
+    Builds the model on a dummy input if needed, then maps each Keras weight
+    path to its HF name and copies the tensor. Raises ``WeightMappingError`` if a
+    mapped name is missing from ``hf_state_dict``.
+    """
     if not keras_model.built or not keras_model.weights:
         keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
     for weight in keras_model.weights:

@@ -1,13 +1,3 @@
-"""Qwen2 dense LLM in pure Keras 3 (self-contained).
-
-``Qwen2Model`` is a subclassed :class:`BaseModel` (imperative ``call`` — the
-sequence length and decode step count are data dependent). It returns raw
-features (``last_hidden_state``); ``Qwen2Generate`` adds the LM head + greedy
-``.generate()``.
-
-    gen = Qwen2Generate.from_weights("qwen2-0.5b-instruct")
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops

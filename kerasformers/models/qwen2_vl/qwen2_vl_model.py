@@ -1,20 +1,3 @@
-"""Qwen2-VL — multimodal (image/video + text) causal LLM in pure Keras 3.
-
-``Qwen2VLModel`` is a subclassed :class:`BaseModel` (not Functional): the
-vision sequence length, the number of image placeholder tokens, and the decode
-step count are all data dependent, so the forward pass is written imperatively
-with ``keras.ops``. The vision tower and the Qwen2 text decoder are exposed as
-``model.visual`` / ``model.language_model`` (mirroring HF) for the generation
-loop.
-
-Weights load on the fly from Hugging Face:
-
-    model = Qwen2VLModel.from_weights("hf:Qwen/Qwen2-VL-2B-Instruct")
-
-There are no kerasformers release uploads for this family; the ``hf:`` path
-(``config_from_hf`` + ``transfer_from_hf``) is canonical.
-"""
-
 import itertools
 
 import keras

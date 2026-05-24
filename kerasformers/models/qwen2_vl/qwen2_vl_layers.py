@@ -1,22 +1,3 @@
-"""Pure Keras 3 layers for Qwen2-VL.
-
-Two groups live here:
-
-1. **Shared Qwen LLM primitives** — RMSNorm, rotary helpers, GQA causal
-   self-attention (with multimodal M-RoPE and an optional KV cache), the
-   SwiGLU MLP, and the decoder block. Qwen2.5-VL / Qwen3-VL reuse these by
-   importing from this module (mirroring how SigLIP2 builds on SigLIP).
-2. **Qwen2-VL vision tower** — the Conv3d-as-Dense patch embed, 2D-rotary
-   block-diagonal vision attention, the vision MLP, the vision block, and the
-   2x2 patch merger.
-
-Everything is written against ``keras.ops`` so the same code runs on the
-TensorFlow / PyTorch / JAX backends. The layers are plain (subclassed)
-``keras.layers.Layer`` objects driven eagerly by the (subclassed) model — the
-vision sequence length and the decode step count are data dependent, so a
-static Functional graph is intentionally not used.
-"""
-
 import keras
 from keras import layers, ops
 

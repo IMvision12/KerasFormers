@@ -1,23 +1,10 @@
-"""Pure Keras 3 layers for the Qwen3.5 (Qwen3-Next) hybrid LLM — self-contained.
-
-Two token mixers, chosen per layer by ``layer_types``:
-
-* **Gated-DeltaNet linear attention** — a depthwise causal Conv1d (+ SiLU) over
-  fused q/k/v, then the gated delta-rule recurrence (decay ``g``, gate ``beta``,
-  L2-normed q/k), a gated RMSNorm, and an output projection.
-* **Gated full attention** — GQA with per-head QK-norm, *partial* rotary, and a
-  sigmoid output gate.
-
-Norms are zero-centered RMSNorm (``(1 + weight)``); the gated norm inside the
-DeltaNet uses ``weight`` directly. Everything is ``keras.ops`` (TF/Torch/JAX).
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops
 
 
 def rotate_half(x):
+    """Rotate the last dim by halves: ``[-x2, x1]`` (Llama/RoPE convention)."""
     half = x.shape[-1] // 2
     return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
 
@@ -40,6 +27,7 @@ def apply_partial_rotary(t, cos, sin, rotary_dim):
 
 
 def l2norm(x, eps=1e-6):
+    """L2-normalize over the last axis (used on the Gated-DeltaNet q/k)."""
     return x * ops.rsqrt(ops.sum(ops.square(x), axis=-1, keepdims=True) + eps)
 
 

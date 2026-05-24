@@ -1,12 +1,3 @@
-"""Pure Keras 3 layers for Qwen3-VL (self-contained — no qwen2_vl imports).
-
-Text: Qwen3 attention with per-head QK-norm and no qkv bias (RoPE applied after
-the norm), SwiGLU MLP. Vision: LayerNorm blocks with a non-gated GELU MLP
-(``gelu_pytorch_tanh``), Conv3d-as-Dense (biased) patch embed, and two patch
-mergers (pre- vs post-shuffle LayerNorm) — the post-shuffle ones produce the
-DeepStack features.
-"""
-
 import keras
 from keras import layers, ops
 

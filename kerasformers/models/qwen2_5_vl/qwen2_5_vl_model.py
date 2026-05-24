@@ -1,13 +1,3 @@
-"""Qwen2.5-VL — Qwen2-VL with a windowed-attention RMSNorm/SwiGLU vision tower.
-
-The text decoder and the multimodal fusion / M-RoPE / generation are inherited
-unchanged from :class:`Qwen2VLModel`; only the vision tower is replaced. For
-image inputs the position logic is identical to Qwen2-VL (the extra
-``tokens_per_second`` only rescales *video* temporal positions).
-
-    model = Qwen2_5_VLModel.from_weights("hf:Qwen/Qwen2.5-VL-3B-Instruct")
-"""
-
 import keras
 import numpy as np
 from keras import layers, ops

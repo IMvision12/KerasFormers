@@ -24,6 +24,7 @@ WEIGHT_NAME_MAPPING = {
 
 
 def transfer_qwen3_5_weights(keras_model, hf_state_dict):
+    """Load an HF Qwen3.5 state dict into a (freshly built) Keras model in place."""
     if not keras_model.built or not keras_model.weights:
         keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
     for weight in keras_model.weights:
