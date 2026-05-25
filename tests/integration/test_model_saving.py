@@ -10,6 +10,25 @@ from tests.base.model_test_registry import (
 
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
+# Subclassed (non-Functional) models materialize weights on first call, so
+# `load_weights` into a freshly constructed (unbuilt) instance can't work via
+# this roundtrip. Their weight save/load is exercised by the from_weights HF
+# parity path instead.
+SKIP_SAVING = {
+    "Qwen2VLModel",
+    "Qwen2_5_VLModel",
+    "Qwen3VLModel",
+    "Qwen2VLGenerate",
+    "Qwen2_5_VLGenerate",
+    "Qwen3VLGenerate",
+    "Qwen2Model",
+    "Qwen3Model",
+    "Qwen3_5Model",
+    "Qwen2Generate",
+    "Qwen3Generate",
+    "Qwen3_5Generate",
+}
+
 
 def _to_numpy(tensor):
     return ops.convert_to_numpy(tensor)
@@ -47,6 +66,8 @@ def _assert_outputs_close(original, loaded, model_name, rtol=1e-5, atol=1e-5):
 @pytest.mark.saving
 @pytest.mark.parametrize("model_name", MODEL_IDS)
 def test_save_weights_h5_roundtrip(model_name, tmp_path):
+    if model_name in SKIP_SAVING:
+        pytest.skip(f"{model_name} is subclassed; load_weights needs a built model")
     config = MODEL_TEST_CONFIGS[model_name]
     model_cls = import_model_class(config)
     model = model_cls(**config["init_kwargs"])

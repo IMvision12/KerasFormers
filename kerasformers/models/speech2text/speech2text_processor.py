@@ -54,6 +54,18 @@ class Speech2TextProcessor(BaseProcessor):
         )
         self.decoder_start_token_id = decoder_start_token_id
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a finetune's tokenizer (``vocab.json`` + ``sentencepiece.bpe.model``)
+        from the HF ``repo`` instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            vocab_file=hf_hub_download(repo, "vocab.json"),
+            spm_file=hf_hub_download(repo, "sentencepiece.bpe.model"),
+            **kwargs,
+        )
+
     def decode(self, token_ids, skip_special_tokens: bool = True) -> str:
         return self.tokenizer.decode(token_ids, skip_special_tokens=skip_special_tokens)
 

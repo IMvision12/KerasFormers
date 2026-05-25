@@ -15,7 +15,7 @@ METACLIP2_MT5_PAD_TOKEN_ID = 1
 METACLIP2_MT5_UNK_TOKEN_ID = 2
 
 DEFAULT_MT5_SENTENCEPIECE_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/"
+    "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/"
     "spiece.model"
 )
 
@@ -55,7 +55,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
 
     Example:
         >>> from kerasformers.models.metaclip2 import MetaClip2Mt5Tokenizer
-        >>> tok = MetaClip2Mt5Tokenizer()
+        >>> tok = MetaClip2Mt5Tokenizer.from_weights("metaclip2_mt5_worldwide_s16_224")
         >>> out = tok(["A photo of a cat."])
         >>> out["token_ids"].shape       # (1, 77)
         >>> out["padding_mask"].shape    # (1, 77)

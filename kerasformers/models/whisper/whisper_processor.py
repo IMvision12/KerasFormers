@@ -79,6 +79,19 @@ class WhisperProcessor(BaseProcessor):
             pad_token_id=pad_token_id,
         )
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a finetune's tokenizer (``vocab.json`` + ``merges.txt`` +
+        ``added_tokens.json``) from the HF ``repo`` instead of the release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            vocab_file=hf_hub_download(repo, "vocab.json"),
+            merges_file=hf_hub_download(repo, "merges.txt"),
+            added_tokens_file=hf_hub_download(repo, "added_tokens.json"),
+            **kwargs,
+        )
+
     @property
     def added_tokens(self) -> dict:
         return self.tokenizer.added_tokens

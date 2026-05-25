@@ -70,7 +70,7 @@ image = Image.open(BytesIO(requests.get(
 ).content)).convert("RGB")
 text_queries = [["a photo of a cat", "a photo of a dog", "a photo of a remote"]]
 
-processor = OwlViTProcessor()
+processor = OwlViTProcessor.from_weights("owlvit-base-patch32")
 model = OwlViTDetect.from_weights("owlvit-base-patch32")
 
 inputs = processor(text=text_queries, images=image)
@@ -127,21 +127,16 @@ back to `(B, Q, ...)` and masks padded queries to `-inf` logits).
 If you want to drive the components separately:
 
 ```python
-from kerasformers.models.owlvit import OwlViTDetect, OwlViTImageProcessor
-from kerasformers.models.clip import CLIPTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.models.owlvit import (
+    OwlViTDetect,
+    OwlViTImageProcessor,
+    OwlViTProcessor,
+)
 
 image_processor = OwlViTImageProcessor(size={"height": 768, "width": 768})
-tokenizer = CLIPTokenizer(
-    vocab_file=download_file(
-        "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_vocab.json"
-    ),
-    merges_file=download_file(
-        "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_merges.txt"
-    ),
-    context_length=16,
-    pad_token="!",
-)
+# OwlViT's preconfigured tokenizer (owlvit vocab/merges, max_seq_len=16,
+# pad_token="!"), pulled off the processor.
+tokenizer = OwlViTProcessor.from_weights("owlvit-base-patch32").tokenizer
 
 pixel_values = image_processor(image)["pixel_values"]
 text_inputs  = tokenizer(inputs=["a photo of a cat", "a photo of a dog"])

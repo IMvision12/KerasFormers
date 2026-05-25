@@ -46,8 +46,8 @@ class SigLIPProcessor(BaseProcessor):
 
     Example:
         ```python
-        # Creating a processor with default settings
-        processor = SigLIPProcessor()
+        # Load the processor for a SigLIP release variant
+        processor = SigLIPProcessor.from_weights("siglip_base_p16_224")
 
         # Processing text and images together
         import numpy as np
@@ -79,10 +79,11 @@ class SigLIPProcessor(BaseProcessor):
         )
 
         # Custom configuration for higher resolution
-        high_res_processor = SigLIPProcessor(
+        high_res_processor = SigLIPProcessor.from_weights(
+            "siglip_base_p16_384",
             image_resolution=384,
             max_seq_len=128,
-            do_lower_case=False
+            do_lower_case=False,
         )
 
         inputs = high_res_processor(
@@ -91,8 +92,9 @@ class SigLIPProcessor(BaseProcessor):
         )
 
         # Using multilingual model
-        multilingual_processor = SigLIPProcessor(
-            multilingual=True
+        multilingual_processor = SigLIPProcessor.from_weights(
+            "siglip_base_p16_multilingual_256",
+            multilingual=True,
         )
 
         inputs = multilingual_processor(
@@ -133,11 +135,11 @@ class SigLIPProcessor(BaseProcessor):
         if vocab_file is None:
             if multilingual:
                 vocab_file_path = download_file(
-                    "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip_multilingual_vocab.model"
+                    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_multilingual_vocab.model"
                 )
             else:
                 vocab_file_path = download_file(
-                    "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip_vocab.model"
+                    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_vocab.model"
                 )
         else:
             vocab_file_path = vocab_file
@@ -165,6 +167,14 @@ class SigLIPProcessor(BaseProcessor):
             "pad_token": pad_token,
             "eos_token": eos_token,
         }
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a finetune's SentencePiece tokenizer (``spiece.model``) from the HF
+        ``repo`` instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(vocab_file=hf_hub_download(repo, "spiece.model"), **kwargs)
 
     def call(
         self,
@@ -236,7 +246,3 @@ class SigLIPProcessor(BaseProcessor):
         config = super().get_config()
         config.update(self._config)
         return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)

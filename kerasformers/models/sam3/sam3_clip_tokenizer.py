@@ -39,7 +39,7 @@ class SAM3CLIPTokenizer(BaseTokenizer):
         max_seq_len: Max sequence length (default 32 for SAM3).
 
     Usage:
-        tokenizer = SAM3CLIPTokenizer()
+        tokenizer = SAM3CLIPTokenizer.from_weights("sam3_saco")
         input_ids, attention_mask = tokenizer.encode("a cat")
         # input_ids: (1, 32) int32, attention_mask: (1, 32) float32
     """

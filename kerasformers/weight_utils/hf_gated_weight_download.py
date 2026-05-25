@@ -112,7 +112,11 @@ def load_and_convert_from_hf(
             ) from e
         raise
 
-    hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+    # bf16/fp16 tensors can't go straight to numpy -> upcast floating types.
+    hf_state_dict = {
+        k: (v.float() if v.is_floating_point() else v).cpu().numpy()
+        for k, v in hf_model.state_dict().items()
+    }
     del hf_model
 
     print(f"Converting {model_name} weights to Keras...")

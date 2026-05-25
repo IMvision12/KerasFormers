@@ -1,0 +1,804 @@
+import itertools
+
+import keras
+from keras import layers, ops
+
+from kerasformers.base import BaseModel
+
+from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS
+from .qwen2_vl_layers import (
+    Qwen2VLDecoderLayer,
+    Qwen2VLPatchEmbed,
+    Qwen2VLPatchMerger,
+    Qwen2VLRMSNorm,
+    Qwen2VLVisionBlock,
+)
+
+_MASK_NEG = -1e9
+
+
+def vision_rotary_cos_sin(grid_thw, head_dim, spatial_merge_size, theta=10000.0):
+    """2D vision rotary tables for the flattened patch sequence.
+
+    Replicates HF ``Qwen2VisionTransformer.rot_pos_emb``: per image, height and
+    width position ids are laid out in ``spatial_merge_size`` block order, the
+    rotary table is gathered per position, and ``emb = cat(freqs, freqs)``.
+
+    Args:
+        grid_thw: iterable of ``(t, h, w)`` patch-grid sizes per image.
+        head_dim: vision attention head dim (rotary covers all of it).
+        spatial_merge_size: patch merge factor (block ordering).
+        theta: rotary base.
+
+    Returns:
+        ``(cos, sin)`` tensors, each ``(total_patches, head_dim)``.
+    """
+    m = spatial_merge_size
+    rotary_dim = head_dim // 2
+    grid_rows = [
+        tuple(int(v) for v in row)
+        for row in ops.convert_to_numpy(ops.convert_to_tensor(grid_thw))
+    ]
+    inv_freq = 1.0 / ops.power(
+        theta, ops.arange(0, rotary_dim, 2, dtype="float32") / rotary_dim
+    )
+    pieces = []
+    for t, h, w in grid_rows:
+        hpos = ops.broadcast_to(ops.arange(h)[:, None], (h, w))
+        hpos = ops.reshape(
+            ops.transpose(ops.reshape(hpos, (h // m, m, w // m, m)), (0, 2, 1, 3)),
+            (-1,),
+        )
+        wpos = ops.broadcast_to(ops.arange(w)[None, :], (h, w))
+        wpos = ops.reshape(
+            ops.transpose(ops.reshape(wpos, (h // m, m, w // m, m)), (0, 2, 1, 3)),
+            (-1,),
+        )
+        pieces.append(ops.tile(ops.stack([hpos, wpos], axis=-1), [t, 1]))
+    pos_ids = ops.concatenate(pieces, axis=0)
+    total = sum(t * h * w for t, h, w in grid_rows)
+    max_grid = max(max(h, w) for _, h, w in grid_rows)
+    freqs = ops.arange(max_grid, dtype="float32")[:, None] * inv_freq
+    rotary = ops.reshape(ops.take(freqs, pos_ids, axis=0), (total, -1))
+    emb = ops.concatenate([rotary, rotary], axis=-1)
+    return ops.cos(emb), ops.sin(emb)
+
+
+def vision_block_mask(grid_thw):
+    """Additive block-diagonal mask so patches only attend within their image.
+
+    Returns ``None`` when there's a single block (full attention), else a
+    ``(1, 1, total, total)`` float mask (0 within an image, ``_MASK_NEG`` across).
+    """
+    grid_rows = [
+        tuple(int(v) for v in row)
+        for row in ops.convert_to_numpy(ops.convert_to_tensor(grid_thw))
+    ]
+    seqlens = [t * h * w for t, h, w in grid_rows]
+    if len(seqlens) <= 1:
+        return None
+    seg = ops.concatenate(
+        [ops.full((n,), i, dtype="int32") for i, n in enumerate(seqlens)], axis=0
+    )
+    mask = ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG)
+    return ops.cast(mask, "float32")[None, None]
+
+
+def text_rope_cos_sin(position_ids, head_dim, theta):
+    """Per-axis rotary tables from 3D position ids.
+
+    Args:
+        position_ids: ``(3, batch, seq)`` int tensor (temporal/height/width).
+        head_dim: text attention head dim.
+        theta: rotary base.
+
+    Returns:
+        ``(cos, sin)`` tensors, each ``(3, batch, seq, head_dim)``.
+    """
+    inv_freq = 1.0 / ops.power(
+        theta, ops.arange(0, head_dim, 2, dtype="float32") / head_dim
+    )
+    freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
+    emb = ops.concatenate([freqs, freqs], axis=-1)
+    return ops.cos(emb), ops.sin(emb)
+
+
+def merge_mrope(table, mrope_section):
+    """Collapse the 3 position axes into one per the M-RoPE channel sections.
+
+    ``table`` is ``(3, batch, seq, head_dim)``; for the i-th channel chunk we
+    keep the ``i % 3`` position axis. Returns ``(batch, seq, head_dim)``.
+    """
+    sections = list(mrope_section) * 2
+    pts = list(itertools.accumulate(sections))[:-1]
+    splits = ops.split(table, pts, axis=-1)
+    return ops.concatenate([splits[i][i % 3] for i in range(len(splits))], axis=-1)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLVisionModel(layers.Layer):
+    """Qwen2-VL vision tower: patch-embed -> rotary blocks -> 2x2 merger.
+
+    A ViT over the flattened patch sequence: a Conv3d-as-Dense patch embed, ``depth``
+    full-attention blocks with 2D rotary positions and a per-image block-diagonal
+    mask, then a 2x2 patch merger projecting to the LLM hidden width. All images /
+    video frames are processed in one packed sequence.
+
+    Args:
+        embed_dim: Vision hidden width.
+        depth: Number of vision blocks.
+        num_heads: Vision attention heads.
+        llm_hidden_size: Output width of the merger (the LLM's hidden size).
+        mlp_ratio: MLP expansion ratio inside the vision blocks.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+
+    Call args:
+        pixel_values: Flattened patches ``(num_patches, patch_dim)``.
+        grid_thw: Per-image ``(t, h, w)`` patch-grid sizes.
+
+    Returns:
+        Merged image embeddings ``(num_merged_tokens, llm_hidden_size)``.
+    """
+
+    def __init__(
+        self,
+        embed_dim,
+        depth,
+        num_heads,
+        llm_hidden_size,
+        mlp_ratio=4,
+        spatial_merge_size=2,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.embed_dim = embed_dim
+        self.depth = depth
+        self.num_heads = num_heads
+        self.llm_hidden_size = llm_hidden_size
+        self.mlp_ratio = mlp_ratio
+        self.spatial_merge_size = spatial_merge_size
+        self.head_dim = embed_dim // num_heads
+
+        self.patch_embed = Qwen2VLPatchEmbed(embed_dim, name="patch_embed")
+        self.blocks = [
+            Qwen2VLVisionBlock(embed_dim, num_heads, mlp_ratio, name=f"blocks_{i}")
+            for i in range(depth)
+        ]
+        self.merger = Qwen2VLPatchMerger(
+            llm_hidden_size, embed_dim, spatial_merge_size, name="merger"
+        )
+
+    def call(self, pixel_values, grid_thw):
+        cos, sin = vision_rotary_cos_sin(
+            grid_thw, self.head_dim, self.spatial_merge_size
+        )
+        mask = vision_block_mask(grid_thw)
+        hidden = self.patch_embed(pixel_values)
+        for block in self.blocks:
+            hidden = block(hidden, cos, sin, attention_mask=mask)
+        return self.merger(hidden)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "embed_dim": self.embed_dim,
+                "depth": self.depth,
+                "num_heads": self.num_heads,
+                "llm_hidden_size": self.llm_hidden_size,
+                "mlp_ratio": self.mlp_ratio,
+                "spatial_merge_size": self.spatial_merge_size,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLTextModel(layers.Layer):
+    """Qwen2 causal decoder: ``embed -> num_layers x Qwen2VLDecoderLayer -> RMSNorm``.
+
+    The token embedding lives here (``token_embedding``) and is reused (tied) as the
+    LM head by :class:`Qwen2VLModel`. A standard Qwen2 stack (GQA with qkv bias,
+    SwiGLU); ``call`` takes the pre-computed multimodal-fused ``inputs_embeds`` and
+    merged M-RoPE tables, and threads an optional KV cache for incremental decoding.
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Model / residual-stream width.
+        mlp_dim: SwiGLU hidden width per layer.
+        num_layers: Number of decoder blocks.
+        num_heads: Query heads per layer.
+        num_kv_heads: Key/value heads per layer (grouped-query attention).
+        head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
+        norm_eps: RMSNorm epsilon.
+
+    Call args:
+        inputs_embeds: ``(batch, seq, embed_dim)`` fused token + vision embeddings.
+        cos, sin: merged M-RoPE tables ``(batch, seq, head_dim)``.
+        attention_mask: additive mask broadcastable to ``(batch, 1, q_len, kv_len)``,
+            or ``None``.
+        past_key_values: optional list of per-layer ``(key, value)`` cache entries.
+        use_cache: when ``True``, also return the updated per-layer cache.
+
+    Returns:
+        ``(batch, seq, embed_dim)``, or ``(hidden, new_cache)`` when ``use_cache``.
+    """
+
+    def __init__(
+        self,
+        vocab_size,
+        embed_dim,
+        mlp_dim,
+        num_layers,
+        num_heads,
+        num_kv_heads,
+        head_dim=None,
+        norm_eps=1e-6,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = head_dim or embed_dim // num_heads
+        self.norm_eps = norm_eps
+
+        self.token_embedding = layers.Embedding(
+            vocab_size, embed_dim, name="token_embedding"
+        )
+        self.decoder_layers = [
+            Qwen2VLDecoderLayer(
+                embed_dim,
+                mlp_dim,
+                num_heads,
+                num_kv_heads,
+                head_dim=self.head_dim,
+                norm_eps=norm_eps,
+                name=f"decoder_layer_{i}",
+            )
+            for i in range(num_layers)
+        ]
+        self.final_norm = Qwen2VLRMSNorm(eps=norm_eps, name="final_norm")
+
+    def call(
+        self,
+        inputs_embeds,
+        cos,
+        sin,
+        attention_mask=None,
+        past_key_values=None,
+        use_cache=False,
+    ):
+        hidden = inputs_embeds
+        new_cache = [] if use_cache else None
+        for i, layer in enumerate(self.decoder_layers):
+            past = past_key_values[i] if past_key_values is not None else None
+            out = layer(
+                hidden,
+                cos,
+                sin,
+                attention_mask=attention_mask,
+                past_key_value=past,
+                use_cache=use_cache,
+            )
+            if use_cache:
+                hidden, kv = out
+                new_cache.append(kv)
+            else:
+                hidden = out
+        hidden = self.final_norm(hidden)
+        return (hidden, new_cache) if use_cache else hidden
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
+                "head_dim": self.head_dim,
+                "norm_eps": self.norm_eps,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLModel(BaseModel):
+    """Qwen2-VL multimodal backbone: vision tower + Qwen2 decoder fused by M-RoPE.
+
+    A ViT-style vision tower (Conv3d-as-Dense patch embed -> full-attention rotary
+    blocks -> 2x2 merger) whose merged image/video embeddings are scattered into the
+    ``image_token_id`` / ``video_token_id`` placeholder slots of a Qwen2 decoder,
+    with 3D M-RoPE positions from :meth:`get_rope_index`. The forward pass runs
+    eagerly with ``keras.ops``. This base model returns raw features (no LM head);
+    use :class:`Qwen2VLGenerate` for logits / text.
+
+    Output dict:
+
+    .. code-block:: python
+
+        out = model({
+            "input_ids": ...,            # (B, L) int, image/video placeholders
+            "pixel_values": ...,         # (num_patches, patch_dim) image patches
+            "image_grid_thw": ...,       # (num_images, 3) per-image (t, h, w)
+            "pixel_values_videos": ...,  # (num_patches, patch_dim) video patches
+            "video_grid_thw": ...,       # (num_videos, 3) per-video (t, h, w)
+        })
+        out["last_hidden_state"]   # (B, L, embed_dim)
+
+    The vision keys are optional — pass images, video, both, or neither (text-only).
+
+    Construction:
+
+    >>> Qwen2VLModel.from_weights("qwen2-vl-2b-instruct")
+    >>> Qwen2VLModel.from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")
+
+    Reference:
+        - `Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at
+          Any Resolution <https://arxiv.org/abs/2409.12191>`_
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Text decoder / residual-stream width
+            (``head_dim = embed_dim // num_heads``).
+        mlp_dim: SwiGLU hidden width per text layer.
+        num_layers: Number of text decoder blocks.
+        num_heads: Query heads per text layer.
+        num_kv_heads: Key/value heads per text layer (grouped-query attention).
+        norm_eps: RMSNorm epsilon.
+        rope_theta: Rotary base frequency.
+        mrope_section: Per-axis (temporal, height, width) channel split of the
+            merged M-RoPE; sums to ``head_dim // 2``.
+        tie_embeddings: Whether :class:`Qwen2VLGenerate` ties the LM head to the
+            token embedding instead of a separate projection.
+        vision_depth: Number of vision-transformer blocks.
+        vision_embed_dim: Vision hidden width.
+        vision_num_heads: Vision attention heads.
+        vision_mlp_ratio: MLP expansion ratio in the vision blocks.
+        patch_size: Vision patch size, in pixels.
+        spatial_merge_size: Spatial patch-merge factor (e.g. ``2`` -> 2x2 groups).
+        temporal_patch_size: Number of frames grouped into one temporal patch.
+        in_channels: Image channels (``3`` for RGB).
+        image_token_id: Placeholder token id replaced by image patch embeddings.
+        video_token_id: Placeholder token id replaced by video patch embeddings.
+        vision_start_token_id: Token id marking the start of a vision span.
+        vision_end_token_id: Token id marking the end of a vision span.
+    """
+
+    HF_MODEL_TYPE = "qwen2_vl"
+    BASE_MODEL_CONFIG = QWEN2_VL_CONFIG
+    BASE_WEIGHT_CONFIG = QWEN2_VL_WEIGHTS
+
+    def __init__(
+        self,
+        vocab_size=151936,
+        embed_dim=1536,
+        mlp_dim=8960,
+        num_layers=28,
+        num_heads=12,
+        num_kv_heads=2,
+        norm_eps=1e-6,
+        rope_theta=1000000.0,
+        mrope_section=(16, 24, 24),
+        tie_embeddings=True,
+        vision_depth=32,
+        vision_embed_dim=1280,
+        vision_num_heads=16,
+        vision_mlp_ratio=4,
+        patch_size=14,
+        spatial_merge_size=2,
+        temporal_patch_size=2,
+        in_channels=3,
+        image_token_id=QWEN2_VL_TOKENS["image_token_id"],
+        video_token_id=QWEN2_VL_TOKENS["video_token_id"],
+        vision_start_token_id=QWEN2_VL_TOKENS["vision_start_token_id"],
+        vision_end_token_id=QWEN2_VL_TOKENS["vision_end_token_id"],
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.vocab_size = vocab_size
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads
+        self.head_dim = embed_dim // num_heads
+        self.norm_eps = norm_eps
+        self.rope_theta = rope_theta
+        self.mrope_section = tuple(mrope_section)
+        self.tie_embeddings = tie_embeddings
+        self.vision_depth = vision_depth
+        self.vision_embed_dim = vision_embed_dim
+        self.vision_num_heads = vision_num_heads
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.patch_size = patch_size
+        self.spatial_merge_size = spatial_merge_size
+        self.temporal_patch_size = temporal_patch_size
+        self.in_channels = in_channels
+        self.image_token_id = image_token_id
+        self.video_token_id = video_token_id
+        self.vision_start_token_id = vision_start_token_id
+        self.vision_end_token_id = vision_end_token_id
+        self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
+        self.tokens_per_second = 1
+
+        self.visual = Qwen2VLVisionModel(
+            embed_dim=vision_embed_dim,
+            depth=vision_depth,
+            num_heads=vision_num_heads,
+            llm_hidden_size=embed_dim,
+            mlp_ratio=vision_mlp_ratio,
+            spatial_merge_size=spatial_merge_size,
+            name="visual",
+        )
+        self.language_model = Qwen2VLTextModel(
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            mlp_dim=mlp_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            num_kv_heads=num_kv_heads,
+            head_dim=self.head_dim,
+            norm_eps=norm_eps,
+            name="language_model",
+        )
+
+    def get_rope_index(
+        self, input_ids, image_grid_thw=None, video_grid_thw=None, attention_mask=None
+    ):
+        m = self.spatial_merge_size
+        ids_host = ops.convert_to_numpy(ops.convert_to_tensor(input_ids)).tolist()
+        batch, seq = len(ids_host), len(ids_host[0])
+
+        def _rows(grid):
+            return [
+                tuple(int(v) for v in row)
+                for row in ops.convert_to_numpy(ops.convert_to_tensor(grid))
+            ]
+
+        grid_iters = {
+            1: iter(_rows(image_grid_thw)) if image_grid_thw is not None else None,
+            2: iter(_rows(video_grid_thw)) if video_grid_thw is not None else None,
+        }
+        mask_host = (
+            ops.convert_to_numpy(ops.convert_to_tensor(attention_mask)).tolist()
+            if attention_mask is not None
+            else None
+        )
+        pos_rows = []
+        rope_deltas = []
+        for bi in range(batch):
+            ids = ids_host[bi]
+            keep = (
+                [bool(v) for v in mask_host[bi]]
+                if mask_host is not None
+                else [True] * seq
+            )
+            kept_idx = [j for j in range(seq) if keep[j]]
+            ids_kept = [ids[j] for j in kept_idx]
+            ttype = [
+                1
+                if v == self.image_token_id
+                else (2 if v == self.video_token_id else 0)
+                for v in ids_kept
+            ]
+            cur = 0
+            pieces = []
+            for key, group in itertools.groupby(enumerate(ttype), lambda x: x[1]):
+                g = list(group)
+                start, end = g[0][0], g[-1][0] + 1
+                if key == 0:
+                    length = end - start
+                    pieces.append(
+                        ops.broadcast_to(ops.arange(cur, cur + length), (3, length))
+                    )
+                    cur += length
+                else:
+                    t, h, w = (int(v) for v in next(grid_iters[key]))
+                    lt, lh, lw = t, h // m, w // m
+                    n = lt * lh * lw
+                    wpos = ops.tile(ops.arange(cur, cur + lw), [lh * lt])
+                    hpos = ops.repeat(ops.arange(cur, cur + lh), lw * lt)
+                    tpos = ops.full((n,), cur * self.tokens_per_second, dtype="int32")
+                    pieces.append(ops.stack([tpos, hpos, wpos], axis=0))
+                    cur += max(h, w) // m
+            llm_positions = ops.concatenate(pieces, axis=1)
+            if len(kept_idx) == seq:
+                pos_b = llm_positions
+            else:
+                scatter_idx = ops.reshape(
+                    ops.convert_to_tensor(kept_idx, dtype="int32"), (-1, 1)
+                )
+                pos_b = ops.stack(
+                    [
+                        ops.scatter(scatter_idx, llm_positions[r], (seq,))
+                        for r in range(3)
+                    ],
+                    axis=0,
+                )
+            rope_deltas.append(int(ops.max(llm_positions)) + 1 - len(ids_kept))
+            pos_rows.append(ops.cast(pos_b, "int32"))
+        position_ids = ops.stack(pos_rows, axis=1)
+        return position_ids, ops.convert_to_tensor(rope_deltas, dtype="int32")
+
+    def embed_tokens(self, input_ids):
+        return self.language_model.token_embedding(input_ids)
+
+    def get_image_features(self, pixel_values, image_grid_thw):
+        return self.visual(pixel_values, image_grid_thw)
+
+    def _causal_mask(self, q_len, kv_len, offset):
+        qi = ops.arange(q_len)[:, None] + offset
+        ki = ops.arange(kv_len)[None, :]
+        mask = ops.where(ki <= qi, 0.0, _MASK_NEG)
+        return ops.cast(mask, "float32")[None, None]
+
+    def _forward_features(self, inputs):
+        if not isinstance(inputs, dict):
+            raise ValueError(f"{type(self).__name__} expects a dict of inputs.")
+        input_ids = ops.cast(ops.convert_to_tensor(inputs["input_ids"]), "int32")
+        seq = int(input_ids.shape[1])
+        inputs_embeds, position_ids, _, extra = self._prepare_inputs(
+            input_ids,
+            inputs.get("pixel_values"),
+            inputs.get("image_grid_thw"),
+            inputs.get("attention_mask"),
+            pixel_values_videos=inputs.get("pixel_values_videos"),
+            video_grid_thw=inputs.get("video_grid_thw"),
+        )
+        cos, sin = self._merged_cos_sin(position_ids)
+        attn_mask = self._causal_mask(seq, seq, offset=0)
+        return self.language_model(
+            inputs_embeds, cos, sin, attention_mask=attn_mask, **extra
+        )
+
+    def call(self, inputs):
+        return {"last_hidden_state": self._forward_features(inputs)}
+
+    def _prepare_inputs(
+        self,
+        input_ids,
+        pixel_values,
+        image_grid_thw,
+        attention_mask,
+        pixel_values_videos=None,
+        video_grid_thw=None,
+    ):
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
+        inputs_embeds = self.language_model.token_embedding(input_ids)
+        rope_deltas = ops.zeros((batch,), dtype="int32")
+
+        has_image = pixel_values is not None and image_grid_thw is not None
+        has_video = pixel_values_videos is not None and video_grid_thw is not None
+        image_grid = video_grid = None
+        if has_image or has_video:
+            ids_flat = ops.convert_to_numpy(ops.reshape(input_ids, (-1,))).tolist()
+            embeds_flat = ops.reshape(inputs_embeds, (batch * seq, self.embed_dim))
+            if has_image:
+                image_grid = ops.cast(ops.convert_to_tensor(image_grid_thw), "int32")
+                image_embeds = self.get_image_features(pixel_values, image_grid)
+                idx = [j for j, v in enumerate(ids_flat) if v == self.image_token_id]
+                embeds_flat = ops.scatter_update(
+                    embeds_flat,
+                    ops.reshape(ops.convert_to_tensor(idx, dtype="int32"), (-1, 1)),
+                    ops.cast(image_embeds, embeds_flat.dtype),
+                )
+            if has_video:
+                video_grid = ops.cast(ops.convert_to_tensor(video_grid_thw), "int32")
+                video_embeds = self.get_image_features(pixel_values_videos, video_grid)
+                vidx = [j for j, v in enumerate(ids_flat) if v == self.video_token_id]
+                embeds_flat = ops.scatter_update(
+                    embeds_flat,
+                    ops.reshape(ops.convert_to_tensor(vidx, dtype="int32"), (-1, 1)),
+                    ops.cast(video_embeds, embeds_flat.dtype),
+                )
+            inputs_embeds = ops.reshape(embeds_flat, (batch, seq, self.embed_dim))
+            position_ids, rope_deltas = self.get_rope_index(
+                input_ids, image_grid, video_grid, attention_mask=attention_mask
+            )
+        else:
+            if attention_mask is not None:
+                am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+                pos = ops.where(am == 0, 0, ops.cumsum(am, axis=-1) - 1)
+            else:
+                pos = ops.broadcast_to(ops.arange(seq), (batch, seq))
+            position_ids = ops.broadcast_to(pos, (3, batch, seq))
+        return inputs_embeds, position_ids, rope_deltas, {}
+
+    def _merged_cos_sin(self, position_ids):
+        cos3, sin3 = text_rope_cos_sin(position_ids, self.head_dim, self.rope_theta)
+        return (
+            merge_mrope(cos3, self.mrope_section),
+            merge_mrope(sin3, self.mrope_section),
+        )
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        vc = hf_config.get("vision_config", {})
+        rope_scaling = hf_config.get("rope_scaling") or {}
+        mrope = rope_scaling.get("mrope_section", [16, 24, 24])
+        return {
+            "vocab_size": hf_config["vocab_size"],
+            "embed_dim": hf_config["hidden_size"],
+            "mlp_dim": hf_config["intermediate_size"],
+            "num_layers": hf_config["num_hidden_layers"],
+            "num_heads": hf_config["num_attention_heads"],
+            "num_kv_heads": hf_config["num_key_value_heads"],
+            "norm_eps": hf_config.get("rms_norm_eps", 1e-6),
+            "rope_theta": hf_config.get("rope_theta", 1000000.0),
+            "mrope_section": tuple(mrope),
+            "tie_embeddings": hf_config.get("tie_word_embeddings", False),
+            "vision_depth": vc.get("depth", 32),
+            "vision_embed_dim": vc.get("embed_dim", 1280),
+            "vision_num_heads": vc.get("num_heads", 16),
+            "vision_mlp_ratio": vc.get("mlp_ratio", 4),
+            "patch_size": vc.get("patch_size", 14),
+            "spatial_merge_size": vc.get("spatial_merge_size", 2),
+            "temporal_patch_size": vc.get("temporal_patch_size", 2),
+            "in_channels": vc.get("in_chans", vc.get("in_channels", 3)),
+            "image_token_id": hf_config.get("image_token_id", 151655),
+            "video_token_id": hf_config.get("video_token_id", 151656),
+            "vision_start_token_id": hf_config.get("vision_start_token_id", 151652),
+            "vision_end_token_id": hf_config.get("vision_end_token_id", 151653),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        from .convert_qwen2_vl_hf_to_keras import transfer_qwen2_vl_weights
+
+        transfer_qwen2_vl_weights(keras_model, hf_state_dict)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "num_kv_heads": self.num_kv_heads,
+                "norm_eps": self.norm_eps,
+                "rope_theta": self.rope_theta,
+                "mrope_section": self.mrope_section,
+                "tie_embeddings": self.tie_embeddings,
+                "vision_depth": self.vision_depth,
+                "vision_embed_dim": self.vision_embed_dim,
+                "vision_num_heads": self.vision_num_heads,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "patch_size": self.patch_size,
+                "spatial_merge_size": self.spatial_merge_size,
+                "temporal_patch_size": self.temporal_patch_size,
+                "in_channels": self.in_channels,
+                "image_token_id": self.image_token_id,
+                "video_token_id": self.video_token_id,
+                "vision_start_token_id": self.vision_start_token_id,
+                "vision_end_token_id": self.vision_end_token_id,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLGenerate(Qwen2VLModel):
+    """Qwen2-VL with an LM head + greedy ``.generate()`` (image+text -> text).
+
+    Adds a vocabulary projection on top of :class:`Qwen2VLModel`: a separate
+    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
+    (transposed) token embedding (weight tying). ``call`` returns both ``logits``
+    and ``last_hidden_state``; :meth:`generate` does greedy decoding with a KV
+    cache and incremental M-RoPE (each new token's position is
+    ``cache_len + rope_delta`` on all three axes). Image / video pixels are passed
+    exactly as for :class:`Qwen2VLModel`.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lm_head = (
+            None
+            if self.tie_embeddings
+            else layers.Dense(self.vocab_size, use_bias=False, name="lm_head")
+        )
+
+    def call(self, inputs):
+        hidden = self._forward_features(inputs)
+        logits = (
+            self.lm_head(hidden)
+            if self.lm_head is not None
+            else ops.matmul(
+                hidden, ops.transpose(self.language_model.token_embedding.embeddings)
+            )
+        )
+        return {"logits": logits, "last_hidden_state": hidden}
+
+    def generate(
+        self,
+        input_ids,
+        pixel_values=None,
+        image_grid_thw=None,
+        attention_mask=None,
+        max_new_tokens=128,
+        eos_token_id=(151645,),
+        pixel_values_videos=None,
+        video_grid_thw=None,
+    ):
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
+        inputs_embeds, position_ids, rope_deltas, extra = self._prepare_inputs(
+            input_ids,
+            pixel_values,
+            image_grid_thw,
+            attention_mask,
+            pixel_values_videos=pixel_values_videos,
+            video_grid_thw=video_grid_thw,
+        )
+        cos, sin = self._merged_cos_sin(position_ids)
+        hidden, cache = self.language_model(
+            inputs_embeds,
+            cos,
+            sin,
+            attention_mask=self._causal_mask(prompt_len, prompt_len, offset=0),
+            use_cache=True,
+            **extra,
+        )
+        emb = self.language_model.token_embedding.embeddings
+        last = hidden[:, -1:, :]
+        logits = (
+            self.lm_head(last)
+            if self.lm_head is not None
+            else ops.matmul(last, ops.transpose(emb))
+        )
+        next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
+
+        eos = [
+            int(e)
+            for e in (
+                eos_token_id
+                if isinstance(eos_token_id, (list, tuple))
+                else [eos_token_id]
+            )
+        ]
+        first_eos = eos[0] if eos else 0
+        finished = ops.zeros((batch,), dtype="bool")
+        for e in eos:
+            finished = ops.logical_or(finished, next_tok[:, 0] == e)
+        generated = [next_tok]
+        cur_len = prompt_len
+        for _ in range(max_new_tokens - 1):
+            if bool(ops.all(finished)):
+                break
+            pos = ops.broadcast_to(
+                ops.reshape(cur_len + rope_deltas, (1, batch, 1)), (3, batch, 1)
+            )
+            step_cos, step_sin = self._merged_cos_sin(pos)
+            step_embeds = self.language_model.token_embedding(next_tok)
+            hidden, cache = self.language_model(
+                step_embeds,
+                step_cos,
+                step_sin,
+                attention_mask=None,
+                past_key_values=cache,
+                use_cache=True,
+            )
+            logits = (
+                self.lm_head(hidden)
+                if self.lm_head is not None
+                else ops.matmul(hidden, ops.transpose(emb))
+            )
+            next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
+            next_tok = ops.cast(
+                ops.where(finished[:, None], first_eos, next_tok), "int32"
+            )
+            generated.append(next_tok)
+            cur_len += 1
+            for e in eos:
+                finished = ops.logical_or(finished, next_tok[:, 0] == e)
+        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))

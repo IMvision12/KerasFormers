@@ -6,6 +6,12 @@ import sentencepiece as spm
 from keras import ops
 
 from kerasformers.base import BaseTokenizer
+from kerasformers.weight_utils import download_file
+
+DEFAULT_VOCAB_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/"
+    "siglip2_vocab.model"
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -17,7 +23,8 @@ class SigLIP2Tokenizer(BaseTokenizer):
     This layer mirrors that behavior: EOS is always appended on ``call``.
 
     Args:
-        vocab_file: Path to the SentencePiece ``.model`` file.
+        vocab_file: Path to the SentencePiece ``.model`` file. When ``None``,
+            downloads the default SigLIP2 release file on first use.
         max_seq_len: Maximum sequence length (default 64).
         add_bos / add_eos: Exposed for compatibility with legacy code
             paths like ``prepare_for_model`` — ``call`` always follows
@@ -27,7 +34,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
 
     def __init__(
         self,
-        vocab_file: str,
+        vocab_file: str = None,
         max_seq_len: int = 64,
         add_bos: bool = False,
         add_eos: bool = True,
@@ -38,6 +45,8 @@ class SigLIP2Tokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        if vocab_file is None:
+            vocab_file = download_file(DEFAULT_VOCAB_URL)
         self.vocab_file = vocab_file
         self.max_seq_len = max_seq_len
         self.add_bos = add_bos
@@ -185,7 +194,3 @@ class SigLIP2Tokenizer(BaseTokenizer):
             }
         )
         return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)

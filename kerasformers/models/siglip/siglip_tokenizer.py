@@ -14,6 +14,16 @@ from tokenizers.pre_tokenizers import Metaspace
 from tokenizers.processors import TemplateProcessing
 
 from kerasformers.base import BaseTokenizer
+from kerasformers.weight_utils import download_file
+
+DEFAULT_VOCAB_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/"
+    "siglip_vocab.model"
+)
+DEFAULT_MULTILINGUAL_VOCAB_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/"
+    "siglip_multilingual_vocab.model"
+)
 
 _PUNCT_CHARS = "".join(
     f"\\{c}" if c in r"\^$.|?*+()[]{}" else c for c in string.punctuation
@@ -31,24 +41,33 @@ class SigLIPTokenizer(BaseTokenizer):
     itself case-folds (nmt_nfkc_cf).
 
     Args:
-        vocab_file: Path to the SentencePiece ``.model`` file.
+        vocab_file: Path to the SentencePiece ``.model`` file. When ``None``,
+            downloads the default SigLIP release file (base or multilingual, per
+            ``multilingual``) on first use.
         max_seq_len: Maximum sequence length (default 64).
         do_lower_case: When True, apply the reference ``canonicalize_text``.
         unk_token / pad_token / eos_token: Special token strings.
+        multilingual: When ``vocab_file`` is ``None``, download the multilingual
+            vocab instead of the base one. Defaults to ``False``.
     """
 
     def __init__(
         self,
-        vocab_file: str,
+        vocab_file: str = None,
         max_seq_len: int = 64,
         do_lower_case: bool = False,
         unk_token: str = "<unk>",
         pad_token: str = "</s>",
         eos_token: str = "</s>",
+        multilingual: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        if vocab_file is None:
+            url = DEFAULT_MULTILINGUAL_VOCAB_URL if multilingual else DEFAULT_VOCAB_URL
+            vocab_file = download_file(url)
         self.vocab_file = vocab_file
+        self.multilingual = multilingual
         self.max_seq_len = max_seq_len
         self.do_lower_case = do_lower_case
         self.unk_token = unk_token
@@ -217,10 +236,7 @@ class SigLIPTokenizer(BaseTokenizer):
                 "unk_token": self.unk_token,
                 "pad_token": self.pad_token,
                 "eos_token": self.eos_token,
+                "multilingual": self.multilingual,
             }
         )
         return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)

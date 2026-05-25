@@ -14,7 +14,7 @@ METACLIP2_UNK_TOKEN_ID = 3
 METACLIP2_MASK_TOKEN_ID = 901628
 
 DEFAULT_SENTENCEPIECE_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/"
+    "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/"
     "sentencepiece.bpe.model"
 )
 
@@ -58,7 +58,7 @@ class MetaClip2Tokenizer(BaseTokenizer):
 
     Example:
         >>> from kerasformers.models.metaclip2 import MetaClip2Tokenizer
-        >>> tok = MetaClip2Tokenizer()
+        >>> tok = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_s16_224")
         >>> out = tok(["un chat", "a cat"])
         >>> out["token_ids"].shape       # (2, 77)
         >>> out["padding_mask"].shape    # (2, 77) — 1 for real tokens

@@ -29,6 +29,20 @@ SKIP_DATA_FORMAT = {
     "Speech2TextSpeechToText",
     "MaskFormerUniversalSegment",
     "Mask2FormerUniversalSegment",
+    # Qwen-VL inputs are pre-patchified (no spatial axes) -> layout-agnostic.
+    "Qwen2VLModel",
+    "Qwen2_5_VLModel",
+    "Qwen3VLModel",
+    "Qwen2VLGenerate",
+    "Qwen2_5_VLGenerate",
+    "Qwen3VLGenerate",
+    # Text LLMs are token-id only -> no image data format.
+    "Qwen2Model",
+    "Qwen3Model",
+    "Qwen3_5Model",
+    "Qwen2Generate",
+    "Qwen3Generate",
+    "Qwen3_5Generate",
 }
 
 

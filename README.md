@@ -28,6 +28,20 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
 ## 📑 Models
 
+### 📝 Text Models
+
+- Text LLMs (text → text)
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | Qwen2 | [Qwen2 Technical Report](https://arxiv.org/abs/2407.10671) | on-the-fly `hf:` |
+    | Qwen3 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+    | Qwen3.5 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+
+<br>
+
+### 👁️ Vision Models
+
 - Backbones
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
@@ -120,7 +134,9 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
 <br>
 
-- Multimodal Models
+### 🖼️ Multimodal Models
+
+- Vision-Language Encoders
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
@@ -131,7 +147,19 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
 <br>
 
-- Speech
+- Multimodal LLMs (image + text → text)
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | Qwen2-VL | [Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution](https://arxiv.org/abs/2409.12191) | on-the-fly `hf:` |
+    | Qwen2.5-VL | [Qwen2.5-VL Technical Report](https://arxiv.org/abs/2502.13923) | on-the-fly `hf:` |
+    | Qwen3-VL | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+
+<br>
+
+### 🔊 Audio Models
+
+- Speech (speech → text)
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
