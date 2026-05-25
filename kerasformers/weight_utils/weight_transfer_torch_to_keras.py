@@ -27,13 +27,17 @@ Example:
     )
 """
 
+from __future__ import annotations
+
 import contextlib
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
 import keras
 import numpy as np
-import torch
+
+if TYPE_CHECKING:
+    import torch
 
 _skip_state: Dict[str, Any] = {"active": False, "skipped": []}
 
@@ -123,6 +127,8 @@ class WeightMismatchError(Exception):
 def validate_input_weights(
     keras_weight: Any, torch_weight: Union[np.ndarray, torch.Tensor]
 ) -> Tuple[np.ndarray, Tuple[int, ...], Tuple[int, ...]]:
+    import torch
+
     # Ensure torch_weight is numpy array
     if isinstance(torch_weight, torch.Tensor):
         torch_weight = torch_weight.numpy()
@@ -456,6 +462,7 @@ def compare_keras_torch_names(
     Raises:
         WeightMismatchError: When weights don't match and detailed error information
     """
+    import torch
 
     def _format_mismatch(error_type: str, details: str) -> str:
         return (

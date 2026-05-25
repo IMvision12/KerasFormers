@@ -8,7 +8,8 @@ caches the result locally so subsequent loads are instant.
 Requires:
     1. User has accepted the model's license on the model Hub.
     2. ``HF_TOKEN`` env var is set, or ``huggingface-cli login`` has been run.
-    3. ``torch`` and ``transformers`` are installed.
+    3. ``safetensors`` + ``huggingface_hub`` installed (``torch`` only as a CPU
+       fallback for legacy ``.bin`` checkpoints).
 
 Usage::
 
@@ -55,9 +56,12 @@ def load_and_convert_from_hf(
         model: The Keras model instance to load weights into.
         model_name: String used as the cache subdirectory name.
         hf_model_id: Model-hub identifier.
-        transfer_fn: Callable ``(keras_model, hf_state_dict) -> None``.
-        hf_model_cls: Optional model class name (``AutoModel`` by default).
-        hf_kwargs: Optional kwargs passed to ``from_pretrained``.
+        transfer_fn: Callable ``(keras_model, hf_state_dict) -> None``. Receives
+            the raw on-disk checkpoint tensors (the same key layout the
+            ``hf:`` / safetensors release path produces).
+        hf_model_cls: Ignored (legacy). Weights are read straight from
+            safetensors, so no HF model class is instantiated.
+        hf_kwargs: Ignored (legacy); see ``hf_model_cls``.
         is_gated: When True, emits the license-acceptance error message
             on 401/403. When False (default), lets the download error propagate.
     """
@@ -69,31 +73,15 @@ def load_and_convert_from_hf(
         model.load_weights(cached_weights)
         return
 
-    try:
-        import torch  # noqa: F401
-        import transformers
-    except ImportError as e:
-        raise ImportError(
-            f"Converting {model_name} weights requires `torch` and `transformers`. "
-            "Install them with: pip install torch transformers"
-        ) from e
+    from kerasformers.base.base_model import download_hf_state_dict
 
     gated_note = " (requires accepted license + HF token)" if is_gated else ""
     print(f"Downloading {model_name} from HuggingFace{gated_note}...")
 
     hf_token = os.environ.get("HF_TOKEN")
-    kwargs = {"token": hf_token} if hf_token else {}
-    if hf_kwargs:
-        kwargs.update(hf_kwargs)
-
-    if hf_model_cls is not None:
-        cls = getattr(transformers, hf_model_cls)
-    else:
-        cls = transformers.AutoModel
-
     try:
-        hf_model = cls.from_pretrained(hf_model_id, **kwargs).eval()
-    except OSError as e:
+        hf_state_dict = download_hf_state_dict(hf_model_id, token=hf_token)
+    except Exception as e:
         error_msg = str(e)
         if is_gated and (
             "gated" in error_msg.lower() or "401" in error_msg or "403" in error_msg
@@ -111,13 +99,6 @@ def load_and_convert_from_hf(
                 f"{'=' * 60}"
             ) from e
         raise
-
-    # bf16/fp16 tensors can't go straight to numpy -> upcast floating types.
-    hf_state_dict = {
-        k: (v.float() if v.is_floating_point() else v).cpu().numpy()
-        for k, v in hf_model.state_dict().items()
-    }
-    del hf_model
 
     print(f"Converting {model_name} weights to Keras...")
     transfer_fn(model, hf_state_dict)

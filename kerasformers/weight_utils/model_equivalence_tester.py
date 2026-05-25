@@ -100,22 +100,20 @@ Notes:
 - Detailed error reporting includes maximum and mean differences when tests fail
 """
 
+from __future__ import annotations
+
 import os
 from time import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import keras
 import numpy as np
-import torch
 from keras import ops, utils
 from keras.src.applications.imagenet_utils import decode_predictions
 
-try:
+if TYPE_CHECKING:
+    import torch
     import transformers
-
-    TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    TRANSFORMERS_AVAILABLE = False
 
 
 def verify_cls_model_equivalence(
@@ -157,6 +155,16 @@ def verify_cls_model_equivalence(
     Returns:
         Dictionary containing test results
     """
+    import torch
+
+    try:
+        import transformers
+
+        TRANSFORMERS_AVAILABLE = True
+    except ImportError:
+        transformers = None
+        TRANSFORMERS_AVAILABLE = False
+
     results = {}
 
     if comparison_type == "hf_to_keras" and not TRANSFORMERS_AVAILABLE:
