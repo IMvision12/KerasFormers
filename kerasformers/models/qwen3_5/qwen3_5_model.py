@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import SubclassedBaseModel
 
 from .config import QWEN3_5_CONFIG, QWEN3_5_WEIGHTS
 from .qwen3_5_layers import Qwen3_5DecoderLayer, Qwen3_5RMSNorm
@@ -10,7 +10,7 @@ _MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3_5Model(BaseModel):
+class Qwen3_5Model(SubclassedBaseModel):
     """Qwen3.5 (Qwen3-Next) hybrid decoder-only backbone (no LM head).
 
     ``token_embedding -> num_layers x Qwen3_5DecoderLayer -> final RMSNorm``. The

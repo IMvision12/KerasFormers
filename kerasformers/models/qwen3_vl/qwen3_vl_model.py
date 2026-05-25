@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import SubclassedBaseModel
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     _MASK_NEG,
     Qwen2VLModel,
@@ -460,7 +460,11 @@ class Qwen3VLModel(Qwen2VLModel):
         vision_end_token_id=QWEN3_VL_TOKENS["vision_end_token_id"],
         **kwargs,
     ):
-        BaseModel.__init__(self, **kwargs)
+        # Skip Qwen2VLModel.__init__ (it builds the 2-VL layers); run only the
+        # base keras init via this model's actual base (SubclassedBaseModel),
+        # not the functional BaseModel (whose `__bases__` get rewritten to
+        # `Functional` once any functional model is built).
+        SubclassedBaseModel.__init__(self, **kwargs)
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
         self.mlp_dim = mlp_dim
