@@ -452,9 +452,13 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         vision_end_token_id=QWEN2_5_VL_TOKENS["vision_end_token_id"],
         **kwargs,
     ):
-        from kerasformers.base import BaseModel
+        from kerasformers.base import SubclassedBaseModel
 
-        BaseModel.__init__(self, **kwargs)
+        # Skip Qwen2VLModel.__init__ (it builds the 2-VL layers); run only the
+        # base keras init. Use SubclassedBaseModel (this model's actual base),
+        # not BaseModel — the functional BaseModel gets its `__bases__`
+        # rewritten to `Functional` when a functional model is built.
+        SubclassedBaseModel.__init__(self, **kwargs)
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
         self.mlp_dim = mlp_dim

@@ -3,7 +3,7 @@ import itertools
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import SubclassedBaseModel
 
 from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS
 from .qwen2_vl_layers import (
@@ -310,7 +310,7 @@ class Qwen2VLTextModel(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2VLModel(BaseModel):
+class Qwen2VLModel(SubclassedBaseModel):
     """Qwen2-VL multimodal backbone: vision tower + Qwen2 decoder fused by M-RoPE.
 
     A ViT-style vision tower (Conv3d-as-Dense patch embed -> full-attention rotary

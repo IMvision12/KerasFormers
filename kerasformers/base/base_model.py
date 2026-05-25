@@ -121,10 +121,14 @@ def download_hf_state_dict(hf_id, token=None):
     )
 
 
-class BaseModel(keras.Model):
-    """Base class for kerasformers models with unified weight loading.
+class WeightLoadingMixin:
+    """Unified pretrained-weight loading API shared by all kerasformers models.
 
-    Subclasses are Functional Keras models that share a single entry
+    Mixed into :class:`BaseModel` (functional models) and
+    :class:`SubclassedBaseModel` (imperative / subclassed models). Kept as a
+    plain mixin — **not** a ``keras.Model`` subclass — so those two bases stay
+    independent ``keras.Model`` subclasses (see :class:`SubclassedBaseModel`
+    for why that independence matters). Subclasses share a single entry
     point for loading pretrained weights, regardless of source:
 
     1. **kerasformers release** — weights hosted on GitHub Releases keyed by
@@ -436,3 +440,23 @@ class BaseModel(keras.Model):
         raise NotImplementedError(
             f"{cls.__name__}.transfer_from_hf is not implemented."
         )
+
+
+class BaseModel(WeightLoadingMixin, keras.Model):
+    """Base for *functional* kerasformers models (CLIP, ViT, detectors, …) that
+    build themselves with ``super().__init__(inputs=..., outputs=...)``."""
+
+
+class SubclassedBaseModel(WeightLoadingMixin, keras.Model):
+    """Base for *imperative / subclassed* kerasformers models (Qwen LLMs & VLMs).
+
+    Deliberately a **separate** ``keras.Model`` subclass from :class:`BaseModel`,
+    not a subclass of it. When a functional model is built, Keras runs
+    ``inject_functional_model_class`` and rewrites the functional base's
+    ``__bases__`` from ``keras.Model`` to ``Functional`` (functional models rely
+    on this for their subsequent builds). If subclassed models shared that base,
+    ``Functional`` would leak into their MRO too — making Keras treat them as
+    functional and fail with ``Functional.__init__() missing ... 'inputs' and
+    'outputs'`` on construction, or ``'<Model>' object has no attribute
+    '_inputs'`` on call. A separate base keeps subclassed models unaffected.
+    """
