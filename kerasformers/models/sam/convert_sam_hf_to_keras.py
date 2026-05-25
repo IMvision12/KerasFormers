@@ -3,9 +3,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import SamModel
 
 from kerasformers.models.sam import SAMPromptableSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
@@ -271,6 +269,9 @@ SAM_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import SamModel
+
     for variant, hf_id in SAM_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

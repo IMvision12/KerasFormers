@@ -3,7 +3,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-import transformers
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.mit import MiTImageClassify
@@ -84,6 +83,8 @@ def transfer_mit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
 
 
 if __name__ == "__main__":
+    import transformers
+
     for variant, meta in MIT_WEIGHT_CONFIG.items():
         hf_id = meta["hf_id"]
         print(f"\n{'=' * 60}")

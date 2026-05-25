@@ -5,9 +5,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import Dinov2Model
 
 from kerasformers.models.dino_v2 import DinoV2Model
 from kerasformers.weight_utils.custom_exception import (
@@ -40,6 +38,8 @@ DINOV2_NAME_MAPPING: Dict[str, str] = {
 def transfer_dinov2_weights(
     keras_model: keras.Model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
+    import torch
+
     if any(k.startswith("dinov2.") for k in hf_state_dict):
         hf_state_dict = {
             k[len("dinov2.") :]: v
@@ -171,6 +171,9 @@ DINOV2_VARIANTS: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import Dinov2Model
+
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
     for variant, hf_id in DINOV2_VARIANTS:

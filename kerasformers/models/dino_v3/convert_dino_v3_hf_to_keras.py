@@ -5,9 +5,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import AutoModel
 
 from kerasformers.models.dino_v3 import DinoV3ConvNeXtModel, DinoV3ViTModel
 from kerasformers.weight_utils.custom_exception import (
@@ -188,6 +186,9 @@ def transfer_dinov3_convnext_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import AutoModel
+
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
     for variant, hf_id in DINOV3_VIT_VARIANTS:

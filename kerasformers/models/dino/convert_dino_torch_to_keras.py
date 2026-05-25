@@ -4,7 +4,6 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
 
 from kerasformers.models.dino import DinoResNetModel, DinoViTModel
@@ -120,6 +119,8 @@ DINO_RESNET_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+
     for variant, torch_hub_name in DINO_VIT_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  (torch.hub: {torch_hub_name})")

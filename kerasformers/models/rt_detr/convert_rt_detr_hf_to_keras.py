@@ -1,9 +1,7 @@
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import RTDetrForObjectDetection
 
 from kerasformers.models.rt_detr import RTDETRDetect
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
@@ -280,6 +278,9 @@ def transfer_rt_detr_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import RTDetrForObjectDetection
+
     model_configs: List[Dict[str, Any]] = [
         {
             "variant": "rtdetr-r50vd",

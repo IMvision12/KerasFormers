@@ -1,7 +1,6 @@
 import gc
 
 import keras
-import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.resnet.convert_resnet_timm_to_keras import (
@@ -12,6 +11,8 @@ from kerasformers.models.resnext.config import RESNEXT_WEIGHT_CONFIG
 from kerasformers.weight_utils import verify_cls_model_equivalence
 
 if __name__ == "__main__":
+    import timm
+
     for variant, meta in RESNEXT_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

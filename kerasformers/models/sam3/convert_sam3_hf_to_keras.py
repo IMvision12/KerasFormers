@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 from tqdm import tqdm
-from transformers import Sam3Model as HFSam3Model
 
 from kerasformers.models.sam3 import SAM3Model
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
@@ -348,6 +347,8 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
 
 
 if __name__ == "__main__":
+    from transformers import Sam3Model as HFSam3Model
+
     HF_TOKEN = os.environ.get("HF_TOKEN")
     variant = "sam3_saco"
 

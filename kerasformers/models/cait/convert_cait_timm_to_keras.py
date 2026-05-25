@@ -4,7 +4,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.cait import CaiTImageClassify
@@ -86,6 +85,8 @@ def transfer_cait_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> Non
 
 
 if __name__ == "__main__":
+    import timm
+
     for variant, meta in CAIT_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

@@ -4,11 +4,8 @@ from typing import Any, Dict, List
 
 import keras
 import numpy as np
-import torch
 from PIL import Image
 from tqdm import tqdm
-from transformers import Owlv2ForObjectDetection
-from transformers import Owlv2Processor as HfOwlv2Processor
 
 from kerasformers.models.owlv2 import Owlv2Detect
 from kerasformers.weight_utils.custom_exception import (
@@ -203,6 +200,10 @@ def transfer_owlv2_detection_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import Owlv2ForObjectDetection
+    from transformers import Owlv2Processor as HfOwlv2Processor
+
     model_configs: List[Dict[str, Any]] = [
         {
             "variant": "owlv2-base-patch16",

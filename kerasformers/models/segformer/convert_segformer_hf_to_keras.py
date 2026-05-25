@@ -3,9 +3,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import SegformerForSemanticSegmentation
 
 from kerasformers.models.segformer import SegFormerSemanticSegment
 from kerasformers.weight_utils.custom_exception import (
@@ -151,6 +149,9 @@ SEGFORMER_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import SegformerForSemanticSegmentation
+
     for variant, hf_id in SEGFORMER_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

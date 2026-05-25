@@ -4,8 +4,6 @@ from typing import Any, Dict, List
 
 import keras
 import numpy as np
-import torch
-from transformers import Mask2FormerForUniversalSegmentation
 
 from kerasformers.models.mask2former import Mask2FormerUniversalSegment
 from kerasformers.models.mask2former.config import MASK2FORMER_WEIGHTS
@@ -315,6 +313,9 @@ MASK2FORMER_CONVERSION_CONFIG: List[Dict[str, Any]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import Mask2FormerForUniversalSegmentation
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     for cfg in MASK2FORMER_CONVERSION_CONFIG:

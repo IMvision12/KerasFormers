@@ -3,7 +3,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-from transformers import SiglipModel
 
 from kerasformers.models.siglip.convert_siglip_hf_to_keras import (
     transfer_siglip_weights,
@@ -16,6 +15,8 @@ def transfer_siglip2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
 
 
 if __name__ == "__main__":
+    from transformers import SiglipModel
+
     SIGLIP2_CONVERSION_CONFIG = [
         ("siglip2_base_p16_224", "google/siglip2-base-patch16-224"),
         ("siglip2_base_p16_256", "google/siglip2-base-patch16-256"),

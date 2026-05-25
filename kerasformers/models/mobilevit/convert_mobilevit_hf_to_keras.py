@@ -4,9 +4,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import MobileViTForSemanticSegmentation
 
 from kerasformers.models.mobilevit import MobileViTSemanticSegment
 from kerasformers.weight_utils.custom_exception import (
@@ -222,6 +220,9 @@ MOBILEVIT_SEGMENT_VARIANTS: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import MobileViTForSemanticSegmentation
+
     # Run the reference model on the same device Keras (torch backend) uses. On a
     # GPU, comparing GPU-Keras against the CPU reference lets cuDNN-vs-CPU float divergence
     # compound through MobileViT's deep conv stack and blows up the unnormalized

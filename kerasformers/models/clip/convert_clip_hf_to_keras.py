@@ -3,7 +3,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-from transformers import AutoModel
 
 from kerasformers.models.clip import CLIPZeroShotClassify
 from kerasformers.weight_utils.custom_exception import (
@@ -167,6 +166,8 @@ def transfer_clip_image_classify_weights(
 
 
 if __name__ == "__main__":
+    from transformers import AutoModel
+
     CLIP_CONVERSION_CONFIG = [
         ("clip_vit_base_16", "openai/clip-vit-base-patch16"),
         ("clip_vit_base_32", "openai/clip-vit-base-patch32"),

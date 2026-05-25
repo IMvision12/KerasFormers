@@ -4,9 +4,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import DepthAnythingForDepthEstimation
 
 from kerasformers.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
 from kerasformers.weight_utils.custom_exception import WeightMappingError
@@ -93,6 +91,9 @@ DEPTH_ANYTHING_V1_VARIANTS: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import DepthAnythingForDepthEstimation
+
     for variant, hf_id in DEPTH_ANYTHING_V1_VARIANTS:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

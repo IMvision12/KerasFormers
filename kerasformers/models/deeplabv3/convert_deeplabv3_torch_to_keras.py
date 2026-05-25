@@ -3,13 +3,6 @@ from typing import Callable, Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
-from torchvision.models.segmentation import (
-    DeepLabV3_ResNet50_Weights,
-    DeepLabV3_ResNet101_Weights,
-    deeplabv3_resnet50,
-    deeplabv3_resnet101,
-)
 from tqdm import tqdm
 
 from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment
@@ -129,21 +122,28 @@ def transfer_deeplabv3_weights(
     cls_layer.weights[1].assign(torch_state_dict["classifier.4.bias"])
 
 
-DEEPLABV3_CONVERSION_CONFIG: List[Tuple[str, Callable, object]] = [
-    (
-        "deeplabv3_resnet50_coco_voc",
-        deeplabv3_resnet50,
-        DeepLabV3_ResNet50_Weights.COCO_WITH_VOC_LABELS_V1,
-    ),
-    (
-        "deeplabv3_resnet101_coco_voc",
-        deeplabv3_resnet101,
-        DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1,
-    ),
-]
-
-
 if __name__ == "__main__":
+    import torch
+    from torchvision.models.segmentation import (
+        DeepLabV3_ResNet50_Weights,
+        DeepLabV3_ResNet101_Weights,
+        deeplabv3_resnet50,
+        deeplabv3_resnet101,
+    )
+
+    DEEPLABV3_CONVERSION_CONFIG: List[Tuple[str, Callable, object]] = [
+        (
+            "deeplabv3_resnet50_coco_voc",
+            deeplabv3_resnet50,
+            DeepLabV3_ResNet50_Weights.COCO_WITH_VOC_LABELS_V1,
+        ),
+        (
+            "deeplabv3_resnet101_coco_voc",
+            deeplabv3_resnet101,
+            DeepLabV3_ResNet101_Weights.COCO_WITH_VOC_LABELS_V1,
+        ),
+    ]
+
     for variant, torch_model_fn, torch_weights in DEEPLABV3_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}")

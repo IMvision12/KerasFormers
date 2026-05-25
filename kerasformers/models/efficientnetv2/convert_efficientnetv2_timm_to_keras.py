@@ -4,7 +4,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.efficientnetv2 import EfficientNetV2ImageClassify
@@ -77,6 +76,8 @@ def transfer_efficientnetv2_weights(
 
 
 if __name__ == "__main__":
+    import timm
+
     for variant, meta in EFFICIENTNETV2_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
