@@ -48,7 +48,7 @@ class MetaClip2Processor(BaseProcessor):
         >>> from kerasformers.models.metaclip2 import (
         ...     MetaClip2Processor, MetaClip2ZeroShotClassify,
         ... )
-        >>> processor = MetaClip2Processor()
+        >>> processor = MetaClip2Processor.from_weights("metaclip2_worldwide_b32_224")
         >>> model = MetaClip2ZeroShotClassify.from_weights(
         ...     "metaclip2_worldwide_b32_224"
         ... )
@@ -78,11 +78,13 @@ class MetaClip2Processor(BaseProcessor):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        # MetaCLIP 2 always uses direct square resize (no center crop); the
+        # ``do_center_crop`` arg is kept for API/config compatibility but is a
+        # no-op here — ``MetaClip2ImageProcessor`` hard-disables cropping.
         self.image_processor = MetaClip2ImageProcessor(
             image_resolution=image_resolution,
             mean=mean,
             std=std,
-            do_center_crop=do_center_crop,
             do_normalize=do_normalize,
             do_resize=do_resize,
             data_format=data_format,
@@ -90,6 +92,17 @@ class MetaClip2Processor(BaseProcessor):
         self.tokenizer = MetaClip2Tokenizer(
             sentencepiece_model_file=sentencepiece_model_file,
             max_seq_len=max_seq_len,
+        )
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a finetune's SentencePiece tokenizer (``sentencepiece.bpe.model``)
+        from the HF ``repo`` instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            sentencepiece_model_file=hf_hub_download(repo, "sentencepiece.bpe.model"),
+            **kwargs,
         )
 
     def call(self, text=None, images=None, image_paths=None):

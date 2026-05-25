@@ -515,7 +515,7 @@ class Speech2TextSpeechToText(Speech2TextModel):
     .. code-block:: python
 
         model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
-        processor = Speech2TextProcessor()
+        processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
         text = model.generate(audio, processor)
     """
 

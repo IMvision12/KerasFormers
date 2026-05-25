@@ -136,11 +136,19 @@ with images or video inline in the conversation — images via `path` / `url` / 
 PIL image, video via a `path` / `url` (decoded and frame-sampled automatically,
 like HF) or inline `frames`.
 
+Load the tokenizer / processor with `.from_weights(...)` — passing the **same**
+identifier you give the model — so its files match the checkpoint, e.g.
+`Qwen2Tokenizer.from_weights("hf:Qwen/Qwen2-7B-Instruct")` or
+`Qwen2VLProcessor.from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")`. A release variant
+like `"qwen2-7b-instruct"` uses the family's shared tokenizer, and the bare
+`Qwen2Tokenizer()` / `Qwen2VLProcessor()` constructors fall back to a default Qwen
+repo.
+
 ```python
 # text LLM — tokenizer takes the chat messages
 from kerasformers.models.qwen3 import Qwen3Generate, Qwen3Tokenizer
 model = Qwen3Generate.from_weights("qwen3-0.6b")
-tokenizer = Qwen3Tokenizer()
+tokenizer = Qwen3Tokenizer.from_weights("qwen3-0.6b")
 
 messages = [
     {"role": "system", "content": "You are a helpful assistant."},
@@ -153,7 +161,7 @@ print(tokenizer.decode(outputs[0]))
 # vision-language — processor takes the conversation (images inline)
 from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLProcessor
 model = Qwen2VLGenerate.from_weights("qwen2-vl-2b-instruct")
-processor = Qwen2VLProcessor()
+processor = Qwen2VLProcessor.from_weights("qwen2-vl-2b-instruct")
 
 conversation = [
     {"role": "user", "content": [

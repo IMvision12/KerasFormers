@@ -13,6 +13,14 @@ from tokenizers.pre_tokenizers import Sequence as PreSeq
 from tokenizers.processors import RobertaProcessing
 
 from kerasformers.base import BaseTokenizer
+from kerasformers.weight_utils import download_file
+
+DEFAULT_VOCAB_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/clip/vocab.json"
+)
+DEFAULT_MERGES_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/clip/merges.txt"
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -25,16 +33,17 @@ class CLIPTokenizer(BaseTokenizer):
     ``[BOS] ... [EOS]`` RoBERTa-style post-processing with EOS padding.
 
     Args:
-        vocab_file: Path to ``vocab.json``.
-        merges_file: Path to ``merges.txt``.
+        vocab_file: Path to ``vocab.json``. When ``None`` (and ``merges_file`` is
+            also ``None``), downloads the default CLIP release files on first use.
+        merges_file: Path to ``merges.txt``. See ``vocab_file``.
         max_seq_len: Max sequence length (default 77).
         unk_token / bos_token / eos_token / pad_token: Special token strings.
     """
 
     def __init__(
         self,
-        vocab_file: str,
-        merges_file: str,
+        vocab_file: str = None,
+        merges_file: str = None,
         max_seq_len: int = 77,
         errors: str = "replace",
         unk_token: str = "<|endoftext|>",
@@ -44,6 +53,9 @@ class CLIPTokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        if vocab_file is None and merges_file is None:
+            vocab_file = download_file(DEFAULT_VOCAB_URL)
+            merges_file = download_file(DEFAULT_MERGES_URL)
         self.vocab_file = vocab_file
         self.merges_file = merges_file
         self.max_seq_len = max_seq_len
@@ -106,6 +118,18 @@ class CLIPTokenizer(BaseTokenizer):
             length=max_seq_len,
         )
         self._tok = tok
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a CLIP finetune's ``vocab.json`` + ``merges.txt`` from the HF
+        ``repo`` instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            vocab_file=hf_hub_download(repo, "vocab.json"),
+            merges_file=hf_hub_download(repo, "merges.txt"),
+            **kwargs,
+        )
 
     @property
     def vocab_size(self) -> int:

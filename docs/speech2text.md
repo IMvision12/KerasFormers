@@ -155,7 +155,7 @@ from kerasformers.models.speech2text import (
 )
 
 model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
-processor = Speech2TextProcessor()
+processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
 
 # raw_audio: 1-D float32 in [-1, 1] at 16 kHz
 text = model.generate(raw_audio, processor)
@@ -174,7 +174,7 @@ HuggingFace's `transformers.Speech2TextProcessor` API.
 ```python
 from kerasformers.models.speech2text import Speech2TextProcessor
 
-processor = Speech2TextProcessor()
+processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
 
 # audio path
 out = processor(audio=wave, sampling_rate=16000)
@@ -230,7 +230,7 @@ end-of-sequence token (Bart convention).
 ```python
 from kerasformers.models.speech2text import Speech2TextTokenizer
 
-tok = Speech2TextTokenizer()             # downloads vocab.json + spm model
+tok = Speech2TextTokenizer.from_weights("s2t-small-librispeech-asr")  # downloads vocab.json + spm model
 text = tok.decode([10, 42, 2], skip_special_tokens=True)
 ```
 
@@ -263,7 +263,7 @@ from kerasformers.models.speech2text import Speech2TextModel, Speech2TextProcess
 
 model = Speech2TextModel.from_weights("s2t-small-librispeech-asr")
 encoder, decoder = model.encoder, model.decoder
-processor = Speech2TextProcessor()
+processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
 
 inputs = processor(audio=audio_batch, sampling_rate=16000)  # input_features
 labels = processor(text=text_batch)["input_ids"]            # label ids

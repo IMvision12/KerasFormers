@@ -63,7 +63,7 @@ from kerasformers.models.metaclip2 import (
 )
 
 model = MetaClip2WorldwideB32(weights="worldwide_224")
-processor = MetaClip2Processor(image_resolution=224)
+processor = MetaClip2Processor.from_weights("metaclip2_worldwide_b32_224", image_resolution=224)
 
 inputs = processor(
     text=["un chat", "a dog", "ein Auto"],
@@ -96,7 +96,7 @@ img_proc = MetaClip2ImageProcessor(image_resolution=224)
 images = img_proc("assets/coco_horse_dog.jpg")["pixel_values"]  # (1, 224, 224, 3)
 
 # 3) tokenize candidate prompts (pure-sentencepiece XLM-R tokenizer, 300+ langs)
-tokenizer = MetaClip2Tokenizer(context_length=77)
+tokenizer = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_b32_224")
 prompts = [
     "a photo of a horse",
     "a photo of a dog",
@@ -166,7 +166,7 @@ from kerasformers.models.metaclip2 import (
 
 model = MetaClip2Mt5WorldwideB32(weights="mt5_worldwide_224")
 img_proc = MetaClip2ImageProcessor(image_resolution=224)
-tokenizer = MetaClip2Mt5Tokenizer(context_length=77)
+tokenizer = MetaClip2Mt5Tokenizer.from_weights("metaclip2_mt5_worldwide_b32_224")
 # same pipeline from step 2 onward
 ```
 
@@ -192,7 +192,7 @@ from kerasformers.models.metaclip2 import (
 
 model = MetaClip2WorldwideS16(weights="worldwide_224")
 img_proc = MetaClip2ImageProcessor(image_resolution=224)
-tokenizer = MetaClip2Tokenizer(context_length=77)
+tokenizer = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_s16_224")
 
 prompts = [
     "a photo of a horse and a dog in the snow",   # English
@@ -262,7 +262,7 @@ padding. Hardcoded token ids: `<s>=0`, `<pad>=1`, `</s>=2`, `<unk>=3`,
 
 ```python
 from kerasformers.models.metaclip2 import MetaClip2Tokenizer
-tok = MetaClip2Tokenizer(context_length=77)
+tok = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_b32_224")
 out = tok(inputs=["hello world", "bonjour le monde"])
 print(out["token_ids"].shape)  # (2, 77)
 ```
@@ -274,7 +274,7 @@ pad with `eos` (no bos). Hardcoded token ids: `eos=1`, `pad=1`, `unk=2`.
 
 ```python
 from kerasformers.models.metaclip2 import MetaClip2Mt5Tokenizer
-tok = MetaClip2Mt5Tokenizer(context_length=77)
+tok = MetaClip2Mt5Tokenizer.from_weights("metaclip2_mt5_worldwide_b32_224")
 out = tok(inputs=["hello world", "una foto de un gato"])
 print(out["token_ids"].shape)  # (2, 77)
 ```

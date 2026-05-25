@@ -49,7 +49,7 @@ class SigLIP2Processor(BaseProcessor):
 
         if vocab_file is None:
             vocab_file_path = download_file(
-                "https://github.com/IMvision12/KerasFormers/releases/download/SigLIP/siglip2_vocab.model"
+                "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_vocab.model"
             )
         else:
             vocab_file_path = vocab_file
@@ -81,6 +81,14 @@ class SigLIP2Processor(BaseProcessor):
             "add_bos": add_bos,
             "add_eos": add_eos,
         }
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a finetune's Gemma SentencePiece tokenizer (``tokenizer.model``)
+        from the HF ``repo`` instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(vocab_file=hf_hub_download(repo, "tokenizer.model"), **kwargs)
 
     def call(
         self,
@@ -127,7 +135,3 @@ class SigLIP2Processor(BaseProcessor):
         config = super().get_config()
         config.update(self._config)
         return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)

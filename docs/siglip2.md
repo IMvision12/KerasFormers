@@ -28,7 +28,7 @@ SigLIP2 is the next generation of the SigLIP model, building upon the original a
 import keras
 import kerasformers
 
-processor = kerasformers.models.siglip2.SigLIP2Processor()
+processor = kerasformers.models.siglip2.SigLIP2Processor.from_weights("siglip2_base_p16_224")
 model = kerasformers.models.siglip2.SigLIP2BaseP16(
    weights="google_224",
    input_image_shape=(224, 224, 3),
@@ -64,7 +64,7 @@ Image processors return tensors in the requested layout; post-processors accept 
 import keras
 import kerasformers
 
-processor = kerasformers.models.siglip2.SigLIP2Processor()
+processor = kerasformers.models.siglip2.SigLIP2Processor.from_weights("siglip2_base_p16_224")
 model = kerasformers.models.siglip2.SigLIP2BaseP16(weights="google_224")
 
 image_paths = ["dog.jpg", "cat1.jpg"]
@@ -91,7 +91,7 @@ for i, img_path in enumerate(image_paths):
 import keras
 import kerasformers
 
-processor = kerasformers.models.siglip2.SigLIP2Processor()
+processor = kerasformers.models.siglip2.SigLIP2Processor.from_weights("siglip2_base_p16_224")
 model = kerasformers.models.siglip2.SigLIP2BaseP16(weights="google_256", input_image_shape=(224, 224, 3))
 
 multilingual_labels = [
@@ -118,7 +118,7 @@ print(result)
 import keras
 import kerasformers
 
-processor = kerasformers.models.siglip2.SigLIP2Processor(image_resolution=384)
+processor = kerasformers.models.siglip2.SigLIP2Processor.from_weights("siglip2_so400m_p16_384", image_resolution=384)
 model = kerasformers.models.siglip2.SigLIP2So400mP16(
     weights="google_384",
     input_image_shape=(384, 384, 3)

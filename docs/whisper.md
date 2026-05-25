@@ -143,7 +143,7 @@ state-dict layouts.
 from kerasformers.models.whisper import WhisperSpeechToText, WhisperProcessor
 
 model = WhisperSpeechToText.from_weights("hf:aware-ai/whisper-tiny-german")
-processor = WhisperProcessor(variant="v1")
+processor = WhisperProcessor.from_weights("whisper_tiny")
 text = model.generate(audio, processor, language="de", task="transcribe")
 ```
 
@@ -188,7 +188,7 @@ method (audio in, text out).
 from kerasformers.models.whisper import WhisperSpeechToText, WhisperProcessor
 
 model = WhisperSpeechToText.from_weights("whisper_tiny")
-processor = WhisperProcessor(variant="v1")    # 51865 vocab, 80 mels
+processor = WhisperProcessor.from_weights("whisper_tiny")    # 51865 vocab, 80 mels
 
 # raw_audio: 1-D float32 in [-1, 1] at 16 kHz
 text = model.generate(raw_audio, processor, language="en", task="transcribe")
@@ -224,7 +224,7 @@ from kerasformers.models.whisper import WhisperSpeechToText, WhisperProcessor
 
 # Build model + processor
 model = WhisperSpeechToText.from_weights("whisper_base")
-processor = WhisperProcessor(variant="v1")
+processor = WhisperProcessor.from_weights("whisper_base")
 
 # Load a 16 kHz mono float32 waveform
 audio, sr = sf.read("assets/librispeech_sample.wav")
@@ -298,7 +298,7 @@ processor handles both via constructor kwargs:
 from kerasformers.models.whisper import WhisperModel, WhisperProcessor
 
 model = WhisperModel.from_weights("whisper_large_v3_turbo")
-processor = WhisperProcessor(variant="v3", n_mels=128)
+processor = WhisperProcessor.from_weights("whisper_large_v3_turbo", variant="v3", n_mels=128)
 
 # Cantonese transcription
 forced = processor.get_decoder_prompt_ids(language="yue", task="transcribe")
@@ -320,7 +320,8 @@ builder behind a single object that mirrors HuggingFace's
 ```python
 from kerasformers.models.whisper import WhisperProcessor
 
-processor = WhisperProcessor(
+processor = WhisperProcessor.from_weights(
+    "whisper_tiny",
     variant="v1",        # or "v3"
     n_mels=80,           # 128 for large-v3 / large-v3-turbo
     sampling_rate=16000,
@@ -396,11 +397,11 @@ runtime `transformers` dependency.
 ```python
 from kerasformers.models.whisper import WhisperTokenizer
 
-tok = WhisperTokenizer(variant="v1")    # tiny..large-v2 (51865 vocab)
+tok = WhisperTokenizer.from_weights("whisper_tiny")    # tiny..large-v2 (51865 vocab)
 ids = tok.encode("Hello, world!")
 text = tok.decode(ids, skip_special_tokens=True)
 
-tok_v3 = WhisperTokenizer(variant="v3") # large-v3 / large-v3-turbo (51866 vocab)
+tok_v3 = WhisperTokenizer.from_weights("whisper_large_v3", variant="v3") # large-v3 / large-v3-turbo (51866 vocab)
 ```
 
 Vocab files (`vocab.json`, `merges.txt`, `added_tokens.json`) are
@@ -495,7 +496,7 @@ from kerasformers.models.whisper import WhisperModel, WhisperProcessor
 
 model = WhisperModel.from_weights("whisper_tiny")
 encoder, decoder = model.encoder, model.decoder
-processor = WhisperProcessor(variant="v1")
+processor = WhisperProcessor.from_weights("whisper_tiny")
 
 # audio batch -> input features
 inputs = processor(audio=audio_batch, sampling_rate=16000)

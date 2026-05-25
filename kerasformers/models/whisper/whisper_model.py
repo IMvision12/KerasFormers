@@ -597,7 +597,7 @@ class WhisperSpeechToText(WhisperModel):
     .. code-block:: python
 
         model = WhisperSpeechToText.from_weights("whisper_tiny")
-        processor = WhisperProcessor(variant="v1")
+        processor = WhisperProcessor.from_weights("whisper_tiny")
         text = model.generate(audio, processor, language="en", task="transcribe")
     """
 

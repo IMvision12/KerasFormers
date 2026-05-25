@@ -43,8 +43,8 @@ class CLIPProcessor(BaseProcessor):
 
     Example:
         ```python
-        # Creating a processor with default settings
-        processor = CLIPProcessor()
+        # Load the processor for a CLIP release variant
+        processor = CLIPProcessor.from_weights("clip_vit_base_16")
 
         # Processing text and images together
         import numpy as np
@@ -126,6 +126,18 @@ class CLIPProcessor(BaseProcessor):
             bos_token=bos_token,
             eos_token=eos_token,
             pad_token=pad_token,
+        )
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a CLIP finetune's tokenizer (``vocab.json`` + ``merges.txt``) from
+        the HF ``repo`` instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            vocab_file=hf_hub_download(repo, "vocab.json"),
+            merges_file=hf_hub_download(repo, "merges.txt"),
+            **kwargs,
         )
 
     def call(

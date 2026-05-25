@@ -87,7 +87,7 @@ image_logits[i, j] = exp(logit_scale) * cos_sim(image_embed_i, text_embed_j)
 import keras
 from kerasformers.models.clip import CLIPModel, CLIPProcessor
 
-processor = CLIPProcessor()
+processor = CLIPProcessor.from_weights("clip_vit_base_16")
 model = CLIPModel.from_weights("clip_vit_base_16")
 
 inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")
@@ -110,7 +110,7 @@ print(result)
 import keras
 from kerasformers.models.clip import CLIPModel, CLIPProcessor
 
-processor = CLIPProcessor()
+processor = CLIPProcessor.from_weights("clip_vit_base_16")
 model = CLIPModel.from_weights("clip_vit_base_16")
 
 image_paths = ["dog.jpg", "cat1.jpg"]

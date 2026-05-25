@@ -13,8 +13,53 @@ class BaseProcessor(keras.layers.Layer):
     the tokenizer.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    @classmethod
+    def from_weights(cls, identifier, **kwargs):
+        """Load the processor to match a model load.
+
+        Mirrors :meth:`BaseModel.from_weights` and takes the *same* ``identifier``,
+        so the two stay in lockstep::
+
+            gen  = Qwen2VLGenerate.from_weights("qwen2-vl-7b-instruct")
+            proc = Qwen2VLProcessor.from_weights("qwen2-vl-7b-instruct")
+
+        - a kerasformers release variant (e.g. ``"clip_vit_base_16"``) — the
+          official model; dispatches to :meth:`from_release`.
+        - ``"hf:org/repo"`` — a community finetune; dispatches to :meth:`from_hf`,
+          pulling the tokenizer files from that repo.
+        """
+        if identifier.startswith("hf:"):
+            return cls.from_hf(identifier[len("hf:") :], **kwargs)
+        return cls.from_release(identifier, **kwargs)
+
+    @classmethod
+    def from_release(cls, variant, /, **kwargs):
+        """Build the family-standard processor for an official release ``variant``.
+
+        The official tokenizer is shared across a family's sizes, so the default
+        just builds the class default (its constructor pulls the bundled / hub
+        assets). Override only if a family needs per-variant resolution.
+        """
+        return cls(**kwargs)
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Build the processor from a Hugging Face repo (a community finetune).
+
+        The default loads the tokenizer files via the ``hf_id`` constructor
+        argument (e.g. ``tokenizer.json``). Families whose tokenizer is assembled
+        from other files (e.g. CLIP's ``vocab.json`` + ``merges.txt``) override
+        this to fetch them from ``repo``.
+        """
+        import inspect
+
+        if "hf_id" not in inspect.signature(cls).parameters:
+            raise NotImplementedError(
+                f"{cls.__name__} cannot load from an 'hf:' repo — its constructor "
+                f"takes no `hf_id`. Use a release variant, or override `from_hf` "
+                f"to fetch the tokenizer files from {repo!r}."
+            )
+        return cls(hf_id=repo, **kwargs)
 
     def __call__(self, *args, **kwargs):
         # Processors are stateless utility layers (no weights to build) and take

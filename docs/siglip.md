@@ -24,7 +24,7 @@ SigLIP (Sigmoid Loss for Language Image Pre-training) uses a simple pairwise sig
 import keras
 import kerasformers
 
-processor = kerasformers.models.siglip.SigLIPProcessor()
+processor = kerasformers.models.siglip.SigLIPProcessor.from_weights("siglip_base_p16_224")
 model = kerasformers.models.siglip.SigLIPBaseP16(
    weights="google_224",
    input_image_shape=(224, 224, 3),
@@ -60,7 +60,7 @@ Image processors return tensors in the requested layout; post-processors accept 
 import keras
 import kerasformers
 
-processor = kerasformers.models.siglip.SigLIPProcessor()
+processor = kerasformers.models.siglip.SigLIPProcessor.from_weights("siglip_base_p16_224")
 model = kerasformers.models.siglip.SigLIPBaseP16(weights="google_224")
 
 image_paths = ["dog.jpg", "cat1.jpg"]
@@ -87,7 +87,7 @@ for i, img_path in enumerate(image_paths):
 import keras
 import kerasformers
 
-processor = kerasformers.models.siglip.SigLIPProcessor(multilingual=True)
+processor = kerasformers.models.siglip.SigLIPProcessor.from_weights("siglip_base_p16_multilingual_256", multilingual=True)
 model = kerasformers.models.siglip.SigLIPBaseP16(weights="google_multilingual_256", input_image_shape=(224, 224, 3))
 
 multilingual_labels = [

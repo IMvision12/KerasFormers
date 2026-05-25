@@ -75,7 +75,7 @@ image = Image.open(BytesIO(requests.get(
 ).content)).convert("RGB")
 text_queries = [["a photo of a cat", "a photo of a dog", "a photo of a remote"]]
 
-processor = Owlv2Processor()
+processor = Owlv2Processor.from_weights("owlv2-base-patch16-ensemble")
 model = Owlv2Detect.from_weights("owlv2-base-patch16-ensemble")
 
 inputs = processor(text=text_queries, images=image)
@@ -128,21 +128,16 @@ text-conditional `sigmoid(logits)` if you want the joint score.
 If you want to drive the components separately:
 
 ```python
-from kerasformers.models.owlv2 import Owlv2Detect, Owlv2ImageProcessor
-from kerasformers.models.clip import CLIPTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.models.owlv2 import (
+    Owlv2Detect,
+    Owlv2ImageProcessor,
+    Owlv2Processor,
+)
 
 image_processor = Owlv2ImageProcessor(size={"height": 960, "width": 960})
-tokenizer = CLIPTokenizer(
-    vocab_file=download_file(
-        "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_vocab.json"
-    ),
-    merges_file=download_file(
-        "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_merges.txt"
-    ),
-    context_length=16,
-    pad_token="!",
-)
+# Owlv2's preconfigured tokenizer (owlvit vocab/merges, max_seq_len=16,
+# pad_token="!"), pulled off the processor.
+tokenizer = Owlv2Processor.from_weights("owlv2-base-patch16-ensemble").tokenizer
 
 pixel_values = image_processor(image)["pixel_values"]
 text_inputs  = tokenizer(inputs=["a photo of a cat", "a photo of a dog"])
