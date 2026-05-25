@@ -43,8 +43,12 @@ def hf_num_classes(hf_config):
     )
 
 
-def download_hf_state_dict(hf_id):
+def download_hf_state_dict(hf_id, token=None):
     """Download model weights and return a flat ``{name: numpy_array}`` dict.
+
+    ``token`` is forwarded to ``hf_hub_download`` for gated / private repos.
+    Safetensors are read straight to numpy on CPU; torch is used only as a CPU
+    fallback for legacy ``.bin`` checkpoints (never touches CUDA).
 
     Tries (in order):
 
@@ -54,7 +58,7 @@ def download_hf_state_dict(hf_id):
     4. ``pytorch_model.bin.index.json`` (sharded pickle)
     """
     try:
-        path = hf_hub_download(hf_id, "model.safetensors")
+        path = hf_hub_download(hf_id, "model.safetensors", token=token)
     except EntryNotFoundError:
         path = None
     if path is not None:
@@ -63,7 +67,7 @@ def download_hf_state_dict(hf_id):
         return load_file(path)
 
     try:
-        index_path = hf_hub_download(hf_id, "model.safetensors.index.json")
+        index_path = hf_hub_download(hf_id, "model.safetensors.index.json", token=token)
     except EntryNotFoundError:
         index_path = None
     if index_path is not None:
@@ -74,12 +78,12 @@ def download_hf_state_dict(hf_id):
         weight_map = index["weight_map"]
         state_dict = {}
         for shard_file in sorted(set(weight_map.values())):
-            shard_path = hf_hub_download(hf_id, shard_file)
+            shard_path = hf_hub_download(hf_id, shard_file, token=token)
             state_dict.update(load_file(shard_path))
         return state_dict
 
     try:
-        path = hf_hub_download(hf_id, "pytorch_model.bin")
+        path = hf_hub_download(hf_id, "pytorch_model.bin", token=token)
     except EntryNotFoundError:
         path = None
     if path is not None:
@@ -89,7 +93,7 @@ def download_hf_state_dict(hf_id):
         return {k: v.cpu().numpy() if hasattr(v, "cpu") else v for k, v in sd.items()}
 
     try:
-        index_path = hf_hub_download(hf_id, "pytorch_model.bin.index.json")
+        index_path = hf_hub_download(hf_id, "pytorch_model.bin.index.json", token=token)
     except EntryNotFoundError:
         index_path = None
     if index_path is not None:
@@ -100,7 +104,7 @@ def download_hf_state_dict(hf_id):
         weight_map = index["weight_map"]
         state_dict = {}
         for shard_file in sorted(set(weight_map.values())):
-            shard_path = hf_hub_download(hf_id, shard_file)
+            shard_path = hf_hub_download(hf_id, shard_file, token=token)
             shard = torch.load(shard_path, map_location="cpu", weights_only=True)
             state_dict.update(
                 {

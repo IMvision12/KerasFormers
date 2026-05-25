@@ -1,8 +1,21 @@
-from typing import Any, Dict, List, Optional, OrderedDict, Set, Tuple, Union
+from __future__ import annotations
+
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    OrderedDict,
+    Set,
+    Tuple,
+    Union,
+)
 
 import keras
-import torch
-from torch import nn
+
+if TYPE_CHECKING:
+    import torch
 
 # Constants for weight classification
 IRRELEVANT_KEYWORDS = {
@@ -179,6 +192,8 @@ def split_model_weights(
         ValueError: If model type is unsupported or model is invalid
         RuntimeError: If weight extraction fails
     """
+    from torch import nn
+
     try:
         # Check Keras first: on torch backend, Keras models inherit nn.Module
         if isinstance(model, keras.Model):
