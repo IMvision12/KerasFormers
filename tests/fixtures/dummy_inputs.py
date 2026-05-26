@@ -30,6 +30,24 @@ def qwen_text_input(batch_size=2, seq_len=6, vocab_size=128):
     return {"input_ids": ops.convert_to_tensor(ids)}
 
 
+def bert_input(batch_size=2, seq_len=16):
+    """Token-id / mask / segment input for the BERT encoder models."""
+    return {
+        "input_ids": ops.ones((batch_size, seq_len), dtype="int32"),
+        "attention_mask": ops.ones((batch_size, seq_len), dtype="int32"),
+        "token_type_ids": ops.zeros((batch_size, seq_len), dtype="int32"),
+    }
+
+
+def bert_multiple_choice_input(batch_size=2, num_choices=3, seq_len=16):
+    """Per-choice token input for BertMultipleChoice: (B, num_choices, seq)."""
+    return {
+        "input_ids": ops.ones((batch_size, num_choices, seq_len), dtype="int32"),
+        "attention_mask": ops.ones((batch_size, num_choices, seq_len), dtype="int32"),
+        "token_type_ids": ops.zeros((batch_size, num_choices, seq_len), dtype="int32"),
+    }
+
+
 def backbone_input(batch_size=2, spatial=32, channels=3):
     return ops.ones((batch_size, spatial, spatial, channels))
 

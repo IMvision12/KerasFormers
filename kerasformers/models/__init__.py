@@ -1,4 +1,5 @@
 from kerasformers.models import (
+    bert,
     cait,
     clip,
     convmixer,
