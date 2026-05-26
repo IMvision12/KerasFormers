@@ -1,6 +1,9 @@
 from .bert_model import (
     BertMaskedLM,
     BertModel,
+    BertMultipleChoice,
+    BertNextSentencePredict,
+    BertQnA,
     BertSequenceClassify,
     BertTokenClassify,
 )
@@ -11,5 +14,8 @@ __all__ = [
     "BertMaskedLM",
     "BertSequenceClassify",
     "BertTokenClassify",
+    "BertNextSentencePredict",
+    "BertQnA",
+    "BertMultipleChoice",
     "BertTokenizer",
 ]

@@ -13,13 +13,17 @@ bit-close parity to Hugging Face on real checkpoints (see below).
 | `BertMaskedLM` | `kerasformers.models.bert` | MLM logits `(B, L, vocab_size)` |
 | `BertSequenceClassify` | `kerasformers.models.bert` | sequence logits `(B, num_classes)` |
 | `BertTokenClassify` | `kerasformers.models.bert` | per-token logits `(B, L, num_classes)` |
+| `BertNextSentencePredict` | `kerasformers.models.bert` | next-sentence logits `(B, 2)` |
+| `BertQnA` | `kerasformers.models.bert` | `{"start_logits": (B, L), "end_logits": (B, L)}` |
+| `BertMultipleChoice` | `kerasformers.models.bert` | per-choice logits `(B, num_choices)` |
 | `BertTokenizer` | `kerasformers.models.bert` | WordPiece → `input_ids` / `attention_mask` / `token_type_ids` |
 
-All four models are functional `BaseModel`s; the three head classes compose a
-`BertModel` backbone. For the official release variants the classify head is
-randomly initialized (ready for fine-tuning); a `hf:` fine-tune loads its trained
-head. The architecture is identical across variants — only the vocabulary and
-tokenizer casing differ.
+All models are functional `BaseModel`s; the head classes compose a `BertModel`
+backbone. The next-sentence head is part of the pretrained checkpoint, so it
+loads real weights; the other task heads are randomly initialized for the
+official release (ready for fine-tuning) and load trained weights from a `hf:`
+fine-tune. The architecture is identical across variants — only the vocabulary
+and tokenizer casing differ.
 
 ## Loading
 
@@ -68,6 +72,9 @@ position):
 | `BertMaskedLM` | `google-bert/bert-base-uncased` | 1.7e-5 |
 | `BertSequenceClassify` | `textattack/bert-base-uncased-SST-2` (`hf:`) | 4.8e-7 |
 | `BertTokenClassify` | `dslim/bert-base-NER` (`hf:`) | 2.9e-6 |
+| `BertNextSentencePredict` | `google-bert/bert-base-uncased` | 4.8e-6 |
+| `BertQnA` | `deepset/bert-base-cased-squad2` (`hf:`) | 4.3e-6 |
+| `BertMultipleChoice` | `google-bert/bert-base-uncased` | 3.3e-7 |
 
 The kerasformers WordPiece tokenizer reproduces HF's `input_ids` /
 `token_type_ids` / `attention_mask` exactly (single, pair, and `[MASK]` inputs;
@@ -116,6 +123,29 @@ ner = BertTokenClassify.from_weights("hf:dslim/bert-base-NER")
 ```
 
 `num_classes` is read from the repo's config, so the head matches the fine-tune.
+
+### Other task heads
+
+```python
+from kerasformers.models.bert import (
+    BertNextSentencePredict, BertQnA, BertMultipleChoice,
+)
+
+# next-sentence prediction — head is pretrained, so a base checkpoint works
+nsp = BertNextSentencePredict.from_weights("hf:google-bert/bert-base-uncased")
+
+# extractive QA — start/end span logits, from a SQuAD fine-tune
+qa = BertQnA.from_weights("hf:deepset/bert-base-cased-squad2")
+out = qa(tokenizer("Where is Paris?", text_pair="Paris is in France."))
+out["start_logits"]  # (B, L)   out["end_logits"]  # (B, L)
+
+# multiple choice — inputs are (B, num_choices, seq); fix num_choices at build
+mc = BertMultipleChoice.from_weights("hf:org/bert-swag", num_choices=4)
+```
+
+`BertMultipleChoice` takes a static `num_choices` (the choice axis is folded into
+the batch through the shared backbone, then back out); its `classifier` head is
+shape-independent of `num_choices`, so the same weights load for any value.
 
 ## Tokenizer
 

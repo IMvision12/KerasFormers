@@ -26,10 +26,15 @@ WEIGHT_NAME_MAPPING = {
     "mlm_transform_layernorm/beta": "cls.predictions.transform.LayerNorm.bias",
     "mlm_decoder/kernel": "cls.predictions.decoder.weight",
     "mlm_decoder/bias": "cls.predictions.bias",
-    # Task heads (present only in fine-tuned sequence/token-classification repos).
     "classifier/kernel": "classifier.weight",
     "classifier/bias": "classifier.bias",
+    "qa_outputs/kernel": "qa_outputs.weight",
+    "qa_outputs/bias": "qa_outputs.bias",
+    "nsp_classifier/kernel": "cls.seq_relationship.weight",
+    "nsp_classifier/bias": "cls.seq_relationship.bias",
 }
+
+_OPTIONAL_HEADS = ("classifier", "qa_outputs", "nsp_classifier")
 
 
 def hf_name_for(path: str) -> Optional[str]:
@@ -66,19 +71,22 @@ def hf_name_for(path: str) -> Optional[str]:
     return None
 
 
+def normalize_hf_key(key: str) -> str:
+    if key.startswith("bert."):
+        key = key[len("bert.") :]
+    return key.replace("LayerNorm.gamma", "LayerNorm.weight").replace(
+        "LayerNorm.beta", "LayerNorm.bias"
+    )
+
+
 def transfer_bert_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    hf = {
-        (k[len("bert.") :] if k.startswith("bert.") else k): v
-        for k, v in hf_state_dict.items()
-    }
+    hf = {normalize_hf_key(k): v for k, v in hf_state_dict.items()}
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
         hf_name = hf_name_for(weight.path)
         if hf_name is None:
             continue
         if hf_name not in hf:
-            # The task head exists only in fine-tuned repos; leave it randomly
-            # initialized when loading a backbone-only / base checkpoint.
-            if weight.path.startswith("classifier"):
+            if weight.path.startswith(_OPTIONAL_HEADS):
                 continue
             raise WeightMappingError(weight.path, hf_name)
         transfer_weights(weight.path, weight, hf[hf_name])
@@ -126,7 +134,6 @@ if __name__ == "__main__":
             "token_type_ids": torch.from_numpy(types),
         }
 
-        # --- BertModel (backbone + pooler) ---
         hf_model = HFBertModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
         keras_model = BertModel(**arch)
         transfer_bert_weights(keras_model, dict(hf_model.state_dict()))
@@ -146,7 +153,6 @@ if __name__ == "__main__":
         keras_model.save_weights(path)
         print(f"  saved -> {path}")
 
-        # --- BertMaskedLM (backbone + MLM head) ---
         hf_mlm = BertForMaskedLM.from_pretrained(hf_id, token=HF_TOKEN).eval()
         keras_mlm = BertMaskedLM(**arch)
         transfer_bert_weights(keras_mlm, dict(hf_mlm.state_dict()))

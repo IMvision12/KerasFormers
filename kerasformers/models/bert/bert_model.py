@@ -4,7 +4,12 @@ from keras import layers, ops
 from kerasformers.base import BaseModel
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
-from .bert_layers import BertEmbeddings, BertSelfAttention
+from .bert_layers import (
+    BertEmbeddings,
+    BertSelfAttention,
+    FlattenChoices,
+    UnflattenChoices,
+)
 from .config import BERT_MODEL_CONFIG, BERT_WEIGHT_CONFIG
 
 BASE_MODEL_CONFIG = {
@@ -703,6 +708,413 @@ class BertTokenClassify(BaseModel):
                 "num_classes": self.num_classes,
                 "classifier_dropout": self.classifier_dropout,
                 "classifier_activation": self.classifier_activation,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class BertNextSentencePredict(BaseModel):
+    """BERT next-sentence-prediction head.
+
+    Wraps a :class:`BertModel` backbone (with pooler) and attaches BERT's
+    next-sentence head — a dense projection of the pooled [CLS] token to two
+    logits (``isNext`` / ``notNext``), ``(B, 2)``. These head weights are part
+    of the pretrained checkpoint, so loading a base BERT via ``hf:`` restores a
+    working NSP model.
+
+    References:
+    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+
+    Args:
+        See :class:`BertModel` for the backbone arguments.
+        name: String, model name. Defaults to `"BertNextSentencePredict"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
+
+    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "bert"
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        from .convert_bert_hf_to_keras import transfer_bert_weights
+
+        transfer_bert_weights(keras_model, state_dict)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return BertModel.config_from_hf(hf_config)
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    def __init__(
+        self,
+        vocab_size=30522,
+        embed_dim=768,
+        num_layers=12,
+        num_heads=12,
+        mlp_dim=3072,
+        max_position_embeddings=512,
+        type_vocab_size=2,
+        hidden_act="gelu",
+        layer_norm_eps=1e-12,
+        pad_token_id=0,
+        dropout=0.0,
+        attention_dropout=0.0,
+        name="BertNextSentencePredict",
+        **kwargs,
+    ):
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
+            kwargs.pop(k, None)
+
+        backbone = BertModel(
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            mlp_dim=mlp_dim,
+            max_position_embeddings=max_position_embeddings,
+            type_vocab_size=type_vocab_size,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            pad_token_id=pad_token_id,
+            dropout=dropout,
+            attention_dropout=attention_dropout,
+            add_pooler=True,
+            name=f"{name}_backbone",
+        )
+
+        x = backbone.output["pooler_output"]
+        logits = layers.Dense(2, name="nsp_classifier")(x)
+
+        super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
+
+        self.vocab_size = vocab_size
+        self.embed_dim = embed_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.mlp_dim = mlp_dim
+        self.max_position_embeddings = max_position_embeddings
+        self.type_vocab_size = type_vocab_size
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.pad_token_id = pad_token_id
+        self.dropout = dropout
+        self.attention_dropout = attention_dropout
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "embed_dim": self.embed_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "mlp_dim": self.mlp_dim,
+                "max_position_embeddings": self.max_position_embeddings,
+                "type_vocab_size": self.type_vocab_size,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "pad_token_id": self.pad_token_id,
+                "dropout": self.dropout,
+                "attention_dropout": self.attention_dropout,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class BertQnA(BaseModel):
+    """BERT extractive question-answering head.
+
+    Wraps a :class:`BertModel` backbone (no pooler) and attaches a dense span
+    head that maps each token to two logits, split into ``start_logits`` and
+    ``end_logits`` (each ``(B, seq)``). The head is randomly initialized from
+    the pretrained checkpoint and meant for fine-tuning (or loaded from a
+    fine-tuned ``hf:`` repo such as a SQuAD model).
+
+    References:
+    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+
+    Args:
+        See :class:`BertModel` for the backbone arguments.
+        name: String, model name. Defaults to `"BertQnA"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
+
+    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "bert"
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        from .convert_bert_hf_to_keras import transfer_bert_weights
+
+        transfer_bert_weights(keras_model, state_dict)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return BertModel.config_from_hf(hf_config)
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    def __init__(
+        self,
+        vocab_size=30522,
+        embed_dim=768,
+        num_layers=12,
+        num_heads=12,
+        mlp_dim=3072,
+        max_position_embeddings=512,
+        type_vocab_size=2,
+        hidden_act="gelu",
+        layer_norm_eps=1e-12,
+        pad_token_id=0,
+        dropout=0.0,
+        attention_dropout=0.0,
+        name="BertQnA",
+        **kwargs,
+    ):
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
+            kwargs.pop(k, None)
+
+        backbone = BertModel(
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            mlp_dim=mlp_dim,
+            max_position_embeddings=max_position_embeddings,
+            type_vocab_size=type_vocab_size,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            pad_token_id=pad_token_id,
+            dropout=dropout,
+            attention_dropout=attention_dropout,
+            add_pooler=False,
+            name=f"{name}_backbone",
+        )
+
+        x = backbone.output["last_hidden_state"]
+        span = layers.Dense(2, name="qa_outputs")(x)
+        outputs = {"start_logits": span[:, :, 0], "end_logits": span[:, :, 1]}
+
+        super().__init__(inputs=backbone.input, outputs=outputs, name=name, **kwargs)
+
+        self.vocab_size = vocab_size
+        self.embed_dim = embed_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.mlp_dim = mlp_dim
+        self.max_position_embeddings = max_position_embeddings
+        self.type_vocab_size = type_vocab_size
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.pad_token_id = pad_token_id
+        self.dropout = dropout
+        self.attention_dropout = attention_dropout
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "embed_dim": self.embed_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "mlp_dim": self.mlp_dim,
+                "max_position_embeddings": self.max_position_embeddings,
+                "type_vocab_size": self.type_vocab_size,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "pad_token_id": self.pad_token_id,
+                "dropout": self.dropout,
+                "attention_dropout": self.attention_dropout,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class BertMultipleChoice(BaseModel):
+    """BERT multiple-choice head (e.g. SWAG).
+
+    Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
+    into the batch, runs the :class:`BertModel` backbone (with pooler), and
+    scores each choice with a shared dense layer, reshaping back to per-example
+    ``(B, num_choices)`` logits. The head is randomly initialized and meant for
+    fine-tuning (or loaded from a fine-tuned ``hf:`` repo).
+
+    References:
+    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+
+    Args:
+        See :class:`BertModel` for the backbone arguments.
+        classifier_dropout: Float, dropout before the choice scorer. Defaults to `0.0`.
+        name: String, model name. Defaults to `"BertMultipleChoice"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
+
+    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "bert"
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        from .convert_bert_hf_to_keras import transfer_bert_weights
+
+        transfer_bert_weights(keras_model, state_dict)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return BertModel.config_from_hf(hf_config)
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
+
+    def __init__(
+        self,
+        vocab_size=30522,
+        embed_dim=768,
+        num_layers=12,
+        num_heads=12,
+        mlp_dim=3072,
+        max_position_embeddings=512,
+        type_vocab_size=2,
+        hidden_act="gelu",
+        layer_norm_eps=1e-12,
+        pad_token_id=0,
+        dropout=0.0,
+        attention_dropout=0.0,
+        num_choices=4,
+        classifier_dropout=0.0,
+        name="BertMultipleChoice",
+        **kwargs,
+    ):
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
+            kwargs.pop(k, None)
+
+        input_ids = layers.Input(
+            shape=(num_choices, None), dtype="int32", name="input_ids"
+        )
+        attention_mask = layers.Input(
+            shape=(num_choices, None), dtype="int32", name="attention_mask"
+        )
+        token_type_ids = layers.Input(
+            shape=(num_choices, None), dtype="int32", name="token_type_ids"
+        )
+
+        backbone = BertModel(
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            mlp_dim=mlp_dim,
+            max_position_embeddings=max_position_embeddings,
+            type_vocab_size=type_vocab_size,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            pad_token_id=pad_token_id,
+            dropout=dropout,
+            attention_dropout=attention_dropout,
+            add_pooler=True,
+            name=f"{name}_backbone",
+        )
+
+        flatten = FlattenChoices(name="flatten_choices")
+        pooled = backbone(
+            {
+                "input_ids": flatten(input_ids),
+                "attention_mask": flatten(attention_mask),
+                "token_type_ids": flatten(token_type_ids),
+            }
+        )["pooler_output"]
+        x = layers.Dropout(classifier_dropout)(pooled)
+        x = layers.Dense(1, name="classifier")(x)
+        logits = UnflattenChoices(num_choices, name="unflatten_choices")(x)
+
+        inputs = {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "token_type_ids": token_type_ids,
+        }
+        super().__init__(inputs=inputs, outputs=logits, name=name, **kwargs)
+
+        self.vocab_size = vocab_size
+        self.embed_dim = embed_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.mlp_dim = mlp_dim
+        self.max_position_embeddings = max_position_embeddings
+        self.type_vocab_size = type_vocab_size
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.pad_token_id = pad_token_id
+        self.dropout = dropout
+        self.attention_dropout = attention_dropout
+        self.num_choices = num_choices
+        self.classifier_dropout = classifier_dropout
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "embed_dim": self.embed_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "mlp_dim": self.mlp_dim,
+                "max_position_embeddings": self.max_position_embeddings,
+                "type_vocab_size": self.type_vocab_size,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "pad_token_id": self.pad_token_id,
+                "dropout": self.dropout,
+                "attention_dropout": self.attention_dropout,
+                "num_choices": self.num_choices,
+                "classifier_dropout": self.classifier_dropout,
                 "name": self.name,
             }
         )
