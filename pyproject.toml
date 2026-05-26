@@ -46,13 +46,22 @@ classifiers = [
         'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 dynamic = ["version"]
-dependencies = ["keras"]
+dependencies = ["keras", "huggingface_hub", "safetensors"]
 
 [project.optional-dependencies]
 test = [
     "pytest",
     "pytest-cov",
     "requests",
+]
+# Conversion-only backends: needed to convert source checkpoints to Keras
+# weights (offline scripts + on-the-fly `from_weights("hf:...")` / timm loads),
+# never to build or run a model. Install with: pip install kerasformers[conversion]
+conversion = [
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
+    "timm",
+    "transformers",
 ]
 
 [project.scripts]
