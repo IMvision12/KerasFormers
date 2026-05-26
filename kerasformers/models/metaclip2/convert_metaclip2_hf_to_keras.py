@@ -2,9 +2,7 @@ import gc
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import AutoModel
 
 from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
 from kerasformers.models.metaclip2.config import METACLIP2_WEIGHTS
@@ -171,6 +169,9 @@ def transfer_metaclip2_image_classify_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import AutoModel
+
     for variant, hf_id in HF_REPO.items():
         # Skip on-the-fly variants (l14 / huge / giant): their weights are not
         # hosted — a single token-embedding tensor exceeds GitHub's 2 GiB asset

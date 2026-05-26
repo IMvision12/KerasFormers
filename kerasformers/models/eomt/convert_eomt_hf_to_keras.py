@@ -3,9 +3,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import EomtForUniversalSegmentation
 
 from kerasformers.models.eomt import EoMTUniversalSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
@@ -146,6 +144,9 @@ EOMT_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import EomtForUniversalSegmentation
+
     for variant, hf_id in EOMT_CONVERSION_CONFIG:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

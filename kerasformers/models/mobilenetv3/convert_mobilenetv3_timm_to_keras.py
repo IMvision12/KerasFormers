@@ -6,7 +6,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-import timm
 
 from kerasformers.models.mobilenetv3 import MobileNetV3ImageClassify
 from kerasformers.models.mobilenetv3.config import (
@@ -124,6 +123,8 @@ def transfer_mobilenetv3_weights(
 
 
 if __name__ == "__main__":
+    import timm
+
     sys.setrecursionlimit(10000)
 
     for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items():

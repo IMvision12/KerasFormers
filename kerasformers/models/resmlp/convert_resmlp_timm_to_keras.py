@@ -4,7 +4,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.resmlp import ResMLPImageClassify
@@ -76,6 +75,8 @@ def transfer_resmlp_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 
 
 if __name__ == "__main__":
+    import timm
+
     for variant, meta in RESMLP_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

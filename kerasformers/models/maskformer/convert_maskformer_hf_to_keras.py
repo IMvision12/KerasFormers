@@ -4,8 +4,6 @@ from typing import Any, Dict, List
 
 import keras
 import numpy as np
-import torch
-from transformers import MaskFormerForInstanceSegmentation
 
 from kerasformers.models.maskformer import MaskFormerUniversalSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
@@ -269,6 +267,9 @@ MASKFORMER_CONVERSION_CONFIG: List[Dict[str, Any]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import MaskFormerForInstanceSegmentation
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     for cfg in MASKFORMER_CONVERSION_CONFIG:

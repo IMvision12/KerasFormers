@@ -3,8 +3,6 @@ from typing import List, Tuple
 
 import keras
 import numpy as np
-import torch
-from transformers import DepthAnythingForDepthEstimation
 
 from kerasformers.models.depth_anything_v1.convert_depth_anything_v1_hf_to_keras import (
     transfer_depth_anything_weights,
@@ -43,6 +41,9 @@ DEPTH_ANYTHING_V2_VARIANTS: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import DepthAnythingForDepthEstimation
+
     for variant, hf_id in DEPTH_ANYTHING_V2_VARIANTS:
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

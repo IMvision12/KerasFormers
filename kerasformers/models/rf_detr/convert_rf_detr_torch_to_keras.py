@@ -6,8 +6,6 @@ from typing import Dict, List, Tuple, Union
 
 import keras
 import numpy as np
-import torch
-import torchvision.transforms as T
 from tqdm import tqdm
 
 from kerasformers.models.rf_detr.config import RF_DETR_CONFIG
@@ -78,6 +76,9 @@ model_configs: List[Dict[str, Union[str, type]]] = [
 ]
 
 if __name__ == "__main__":
+    import torch
+    import torchvision.transforms as T
+
     for model_config in model_configs:
         variant = model_config["variant"]
         output = model_config["output"]

@@ -2,10 +2,7 @@ from typing import Dict, List
 
 import keras
 import numpy as np
-import torch
-import torchvision.transforms as T
 from tqdm import tqdm
-from transformers import DetrForObjectDetection
 
 from kerasformers.models.detr import DETRDetect, DETRSegment
 from kerasformers.weight_utils.custom_exception import (
@@ -269,6 +266,10 @@ def transfer_detr_segment_weights(keras_model, state_dict):
 
 
 if __name__ == "__main__":
+    import torch
+    import torchvision.transforms as T
+    from transformers import DetrForObjectDetection
+
     model_configs: List[Dict[str, object]] = [
         {
             "variant": "detr-resnet-50",

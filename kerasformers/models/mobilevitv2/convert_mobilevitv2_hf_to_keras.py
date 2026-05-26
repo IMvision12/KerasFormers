@@ -4,9 +4,7 @@ from typing import Dict, List, Tuple
 
 import keras
 import numpy as np
-import torch
 from tqdm import tqdm
-from transformers import MobileViTV2ForSemanticSegmentation
 
 from kerasformers.models.mobilevitv2 import MobileViTV2SemanticSegment
 from kerasformers.weight_utils.custom_exception import (
@@ -203,6 +201,9 @@ MOBILEVITV2_SEGMENT_VARIANTS: List[Tuple[str, str]] = [
 
 
 if __name__ == "__main__":
+    import torch
+    from transformers import MobileViTV2ForSemanticSegmentation
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     for variant, hf_id in MOBILEVITV2_SEGMENT_VARIANTS:

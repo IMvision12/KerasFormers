@@ -1,7 +1,6 @@
 import gc
 
 import keras
-import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.flexivit import FlexiViTImageClassify
@@ -15,6 +14,8 @@ __all__ = ["transfer_flexivit_weights"]
 
 
 if __name__ == "__main__":
+    import timm
+
     for variant, meta in FLEXIVIT_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")

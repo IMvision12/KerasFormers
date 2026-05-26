@@ -4,7 +4,6 @@ from typing import Dict
 
 import keras
 import numpy as np
-import timm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.inception_next import InceptionNextImageClassify
@@ -74,6 +73,8 @@ def transfer_inception_next_weights(
 
 
 if __name__ == "__main__":
+    import timm
+
     for variant, meta in INCEPTION_NEXT_WEIGHT_CONFIG.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
