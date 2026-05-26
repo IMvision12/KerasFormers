@@ -3,6 +3,7 @@ from typing import Dict
 
 import keras
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.models.siglip import SigLIPZeroShotClassify
 from kerasformers.weight_utils.custom_exception import (
@@ -57,7 +58,9 @@ ATTN_NAME_REPLACE = {
 def transfer_siglip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
     trainable, non_trainable = split_model_weights(keras_model)
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        trainable + non_trainable, desc="Transferring weights to Keras"
+    ):
         torch_weight_name = keras_weight_name
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
@@ -127,7 +130,9 @@ def transfer_siglip_image_classify_weights(
     )
     trainable, non_trainable = split_model_weights(keras_model)
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        trainable + non_trainable, desc="Transferring weights to Keras"
+    ):
         if keras_weight_name in ("classifier_kernel", "classifier_bias"):
             if not has_classifier:
                 continue

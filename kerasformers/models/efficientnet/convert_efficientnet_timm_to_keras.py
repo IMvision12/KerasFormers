@@ -4,6 +4,7 @@ from typing import Dict
 
 import keras
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.efficientnet import EfficientNetImageClassify
@@ -51,7 +52,9 @@ def transfer_efficientnet_weights(
 ) -> None:
     trainable, non_trainable = split_model_weights(keras_model)
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        trainable + non_trainable, desc="Transferring weights to Keras"
+    ):
         torch_weight_name = keras_weight_name
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = re.sub(

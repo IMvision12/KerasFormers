@@ -2,6 +2,7 @@ import gc
 from typing import Dict
 
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
@@ -37,7 +38,9 @@ def transfer_speech2text_weights(
         for layer in encoder.layers
         if isinstance(layer, Speech2TextAttention)
     }
-    for i in range(keras_model.encoder_num_layers):
+    for i in tqdm(
+        range(keras_model.encoder_num_layers), desc="Transferring encoder layers"
+    ):
         kp, hp = f"encoder_layers_{i}", f"encoder.layers.{i}"
         transfer_nested_layer_weights(
             enc_attns[f"{kp}_self_attn"],
@@ -82,7 +85,9 @@ def transfer_speech2text_weights(
         for layer in decoder.layers
         if isinstance(layer, Speech2TextAttention)
     }
-    for i in range(keras_model.decoder_num_layers):
+    for i in tqdm(
+        range(keras_model.decoder_num_layers), desc="Transferring decoder layers"
+    ):
         kp, hp = f"decoder_layers_{i}", f"decoder.layers.{i}"
         transfer_nested_layer_weights(
             dec_attns[f"{kp}_self_attn"],

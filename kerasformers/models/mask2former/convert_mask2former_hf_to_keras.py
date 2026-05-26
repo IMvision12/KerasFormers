@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 import keras
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.models.mask2former import Mask2FormerUniversalSegment
 from kerasformers.models.mask2former.config import MASK2FORMER_WEIGHTS
@@ -154,7 +155,9 @@ def transfer_mask2former_weights(keras_model, hf_state_dict):
         transfer_weights("gamma", nrm.weights[0], sd[f"{p_proj}.1.weight"])
         transfer_weights("beta", nrm.weights[1], sd[f"{p_proj}.1.bias"])
 
-    for i in range(keras_model.encoder_num_layers):
+    for i in tqdm(
+        range(keras_model.encoder_num_layers), desc="Transferring encoder layers"
+    ):
         p = f"{pixel_decoder_prefix}.encoder.layers.{i}"
         prefix_k = f"pixel_decoder_encoder_layers_{i}"
         attn = keras_model.get_layer(f"{prefix_k}_self_attn")
@@ -237,7 +240,9 @@ def transfer_mask2former_weights(keras_model, hf_state_dict):
         sd[f"{transformer_prefix}.level_embed.weight"]
     )
 
-    for i in range(keras_model.decoder_num_layers):
+    for i in tqdm(
+        range(keras_model.decoder_num_layers), desc="Transferring decoder layers"
+    ):
         p = f"{transformer_prefix}.decoder.layers.{i}"
         prefix_k = f"transformer_decoder_layers_{i}"
 

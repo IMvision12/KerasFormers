@@ -3,6 +3,7 @@ from typing import Dict
 
 import keras
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.models.clip import CLIPZeroShotClassify
 from kerasformers.weight_utils.custom_exception import (
@@ -69,7 +70,9 @@ def transfer_clip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
     state = _strip_model_prefix(hf_state_dict)
     trainable, non_trainable = split_model_weights(keras_model)
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        trainable + non_trainable, desc="Transferring weights to Keras"
+    ):
         torch_weight_name: str = keras_weight_name
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
@@ -124,7 +127,9 @@ def transfer_clip_image_classify_weights(
     has_classifier = "classifier.weight" in state and "classifier.bias" in state
     trainable, non_trainable = split_model_weights(keras_model)
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        trainable + non_trainable, desc="Transferring weights to Keras"
+    ):
         if keras_weight_name in ("classifier_kernel", "classifier_bias"):
             if not has_classifier:
                 continue

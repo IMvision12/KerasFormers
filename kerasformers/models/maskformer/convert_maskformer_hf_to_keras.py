@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 import keras
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.models.maskformer import MaskFormerUniversalSegment
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
@@ -187,7 +188,9 @@ def transfer_maskformer_weights(keras_model, hf_state_dict):
         "bias", input_proj.weights[1], sd[f"{transformer_prefix}.input_projection.bias"]
     )
 
-    for i in range(keras_model.decoder_num_layers):
+    for i in tqdm(
+        range(keras_model.decoder_num_layers), desc="Transferring decoder layers"
+    ):
         p = f"{transformer_prefix}.decoder.layers.{i}"
         prefix_k = f"transformer_decoder_layers_{i}"
 

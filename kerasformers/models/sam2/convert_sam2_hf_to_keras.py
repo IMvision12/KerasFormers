@@ -3,6 +3,7 @@ import os
 from typing import Dict
 
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
@@ -45,7 +46,7 @@ def transfer_sam2_encoder_weights(
     pos_layer._recompute_full_pos()
 
     total_blocks = sum(keras_model.blocks_per_stage)
-    for i in range(total_blocks):
+    for i in tqdm(range(total_blocks), desc="Transferring vision encoder blocks"):
         layer = keras_model.get_layer(f"backbone_blocks_{i}")
         transfer_nested_layer_weights(
             layer,
@@ -93,7 +94,9 @@ def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
     mask_dec.iou_token.assign(hf_state_dict["mask_decoder.iou_token.weight"])
     mask_dec.mask_tokens.assign(hf_state_dict["mask_decoder.mask_tokens.weight"])
 
-    for i in range(mask_dec.num_hidden_layers):
+    for i in tqdm(
+        range(mask_dec.num_hidden_layers), desc="Transferring mask decoder layers"
+    ):
         hf_prefix = f"mask_decoder.transformer.layers.{i}"
 
         for attn_layer, attn_suffix in [

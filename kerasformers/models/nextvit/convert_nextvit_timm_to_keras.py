@@ -3,6 +3,7 @@ from typing import Dict
 
 import keras
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.nextvit import NextViTImageClassify as NextViT
@@ -37,7 +38,9 @@ _E_MHSA_NAME_REPLACEMENTS: Dict[str, str] = {"e.mhsa": "e_mhsa"}
 def transfer_nextvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
     trainable, non_trainable = split_model_weights(keras_model)
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        trainable + non_trainable, desc="Transferring weights to Keras"
+    ):
         torch_weight_name = keras_weight_name
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
