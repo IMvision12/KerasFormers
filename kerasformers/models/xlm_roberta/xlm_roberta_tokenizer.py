@@ -66,8 +66,6 @@ class XLMRobertaTokenizer(BaseTokenizer):
 
         sp = spm.SentencePieceProcessor()
         sp.load(vocab_file)
-        # fairseq id remapping: 4 special tokens up front, then every
-        # SentencePiece piece shifted by +1, then <mask> last.
         vocab = [
             (bos_token, 0.0),
             (pad_token, 0.0),
@@ -98,9 +96,6 @@ class XLMRobertaTokenizer(BaseTokenizer):
             special_tokens=[(bos_token, 0), (eos_token, 2)],
         )
         tok.decoder = MetaspaceDecoder(replacement="▁", prepend_scheme="always")
-        # Protect special tokens so a literal "<mask>" / "<s>" in the input maps
-        # to its id instead of being SentencePiece-split (matches Hugging Face);
-        # the mask token is left-stripping, so it absorbs a single leading space.
         tok.add_special_tokens(
             [
                 AddedToken(bos_token, special=True, normalized=False),

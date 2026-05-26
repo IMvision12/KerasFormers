@@ -10,11 +10,6 @@ from kerasformers.models.roberta.convert_roberta_hf_to_keras import (
 def transfer_xlm_roberta_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer Hugging Face XLM-RoBERTa weights into a kerasformers model.
-
-    XLM-RoBERTa shares RoBERTa's module layout and weight names (the backbone is
-    exposed as ``roberta.*``), so the RoBERTa converter applies unchanged.
-    """
     transfer_roberta_weights(keras_model, hf_state_dict)
 
 
