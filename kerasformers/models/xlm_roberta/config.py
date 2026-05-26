@@ -28,21 +28,21 @@ XLM_ROBERTA_MODEL_CONFIG = {
 XLM_ROBERTA_WEIGHT_CONFIG = {
     "xlm_roberta_base": {
         "model": "xlm_roberta_base",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/xlm_roberta/xlm_roberta_base.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/xlm_roberta/xlm_roberta_base_mlm.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base.weights.h5",
+        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base_mlm.weights.json",
     },
     "xlm_roberta_large": {
         "model": "xlm_roberta_large",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/xlm_roberta/xlm_roberta_large.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/xlm_roberta/xlm_roberta_large_mlm.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_large.weights.json",
+        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_large_mlm.weights.json",
     },
 }
 
 XLM_ROBERTA_VOCAB_CONFIG = {
     "xlm_roberta_base": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/xlm_roberta/sentencepiece.bpe.model",
+        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/sentencepiece.bpe.model",
     },
     "xlm_roberta_large": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/xlm_roberta/sentencepiece.bpe.model",
+        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/sentencepiece.bpe.model",
     },
 }

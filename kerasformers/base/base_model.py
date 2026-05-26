@@ -313,7 +313,15 @@ class WeightLoadingMixin:
                             f"Sharded weights index '{url}' must contain 'weight_map'."
                         )
                     base_url = "/".join(url.split("/")[:-1])
-                    for shard_file in sorted(set(index["weight_map"].values())):
+                    # weight_map values are a shard filename (older keras) or a
+                    # list of shard filenames per weight group (keras >= 3.14).
+                    shard_files = set()
+                    for value in index["weight_map"].values():
+                        if isinstance(value, list):
+                            shard_files.update(value)
+                        else:
+                            shard_files.add(value)
+                    for shard_file in sorted(shard_files):
                         download_file(f"{base_url}/{shard_file}")
                     model.load_weights(json_path, skip_mismatch=skip_mismatch)
                 else:

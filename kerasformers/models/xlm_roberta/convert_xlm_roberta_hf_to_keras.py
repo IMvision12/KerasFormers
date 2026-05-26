@@ -76,9 +76,16 @@ if __name__ == "__main__":
         )
         if max(d_seq, d_pool) > 1e-3:
             raise ValueError(f"{variant}: XLMRobertaModel parity failed")
-        out_path = f"{variant}.weights.h5"
-        keras_model.save_weights(out_path)
-        print(f"  Saved -> {out_path}")
+        total_gb = (
+            sum(int(np.prod(w.shape)) for w in keras_model.weights) * 4 / (1024**3)
+        )
+        if total_gb > 1.7:
+            out_path = f"{variant}.weights.json"
+            keras_model.save_weights(out_path, max_shard_size=1.7)
+        else:
+            out_path = f"{variant}.weights.h5"
+            keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path} (~{total_gb:.2f} GiB)")
 
         hf_mlm = XLMRobertaForMaskedLM.from_pretrained(hf_id, token=HF_TOKEN).eval()
         keras_mlm = XLMRobertaMaskedLM(**arch)
@@ -91,9 +98,14 @@ if __name__ == "__main__":
         print(f"  mlm logits max diff: {d_mlm:.3e}")
         if d_mlm > 1e-3:
             raise ValueError(f"{variant}: XLMRobertaMaskedLM parity failed")
-        out_path = f"{variant}_mlm.weights.h5"
-        keras_mlm.save_weights(out_path)
-        print(f"  Saved -> {out_path}")
+        total_gb = sum(int(np.prod(w.shape)) for w in keras_mlm.weights) * 4 / (1024**3)
+        if total_gb > 1.7:
+            out_path = f"{variant}_mlm.weights.json"
+            keras_mlm.save_weights(out_path, max_shard_size=1.7)
+        else:
+            out_path = f"{variant}_mlm.weights.h5"
+            keras_mlm.save_weights(out_path)
+        print(f"  Saved -> {out_path} (~{total_gb:.2f} GiB)")
 
         del hf_model, hf_mlm, keras_model, keras_mlm
         keras.backend.clear_session()
