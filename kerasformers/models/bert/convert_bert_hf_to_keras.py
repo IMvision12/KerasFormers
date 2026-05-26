@@ -104,12 +104,10 @@ if __name__ == "__main__":
     from kerasformers.models.bert import BertMaskedLM, BertModel
     from kerasformers.models.bert.config import BERT_MODEL_CONFIG, BERT_WEIGHT_CONFIG
 
-    OUT_DIR = "C:/Users/gites/Desktop/code/v1_weights"
-    os.makedirs(OUT_DIR, exist_ok=True)
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
-    # Keras outputs on the torch backend require grad and HF returns torch
-    # tensors, so detach both before comparing (np.asarray would call .numpy()).
+    # Detach both sides before comparing parity: Keras torch-backend outputs
+    # require grad, and np.asarray would call .numpy() and fail.
     rng = np.random.default_rng(0)
 
     for variant, meta in BERT_WEIGHT_CONFIG.items():
@@ -149,9 +147,16 @@ if __name__ == "__main__":
         )
         if max(d_seq, d_pool) > 1e-4:
             raise ValueError(f"{variant}: BertModel parity failed")
-        path = f"{OUT_DIR}/{variant}.weights.h5"
-        keras_model.save_weights(path)
-        print(f"  saved -> {path}")
+        total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
+        total_gb = (total_params * 4) / (1024**3)
+        if total_gb > 1.7:
+            out_path = f"{variant}.weights.json"
+            keras_model.save_weights(out_path, max_shard_size=1.7)
+            print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
+        else:
+            out_path = f"{variant}.weights.h5"
+            keras_model.save_weights(out_path)
+            print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
 
         hf_mlm = BertForMaskedLM.from_pretrained(hf_id, token=HF_TOKEN).eval()
         keras_mlm = BertMaskedLM(**arch)
@@ -164,9 +169,16 @@ if __name__ == "__main__":
         print(f"  mlm logits max diff: {d_mlm:.3e}")
         if d_mlm > 1e-3:
             raise ValueError(f"{variant}: BertMaskedLM parity failed")
-        path = f"{OUT_DIR}/{variant}_mlm.weights.h5"
-        keras_mlm.save_weights(path)
-        print(f"  saved -> {path}")
+        total_params = sum(int(np.prod(w.shape)) for w in keras_mlm.weights)
+        total_gb = (total_params * 4) / (1024**3)
+        if total_gb > 1.7:
+            out_path = f"{variant}_mlm.weights.json"
+            keras_mlm.save_weights(out_path, max_shard_size=1.7)
+            print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
+        else:
+            out_path = f"{variant}_mlm.weights.h5"
+            keras_mlm.save_weights(out_path)
+            print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
 
         del hf_model, hf_mlm, keras_model, keras_mlm
         keras.backend.clear_session()
