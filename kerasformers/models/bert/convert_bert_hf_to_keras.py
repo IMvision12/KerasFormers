@@ -149,16 +149,9 @@ if __name__ == "__main__":
         # large stack (24 layers) lands ~1.5e-4 vs HF's eager reference.
         if max(d_seq, d_pool) > 1e-3:
             raise ValueError(f"{variant}: BertModel parity failed")
-        total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
-        total_gb = (total_params * 4) / (1024**3)
-        if total_gb > 1.7:
-            out_path = f"{variant}.weights.json"
-            keras_model.save_weights(out_path, max_shard_size=1.7)
-            print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
-        else:
-            out_path = f"{variant}.weights.h5"
-            keras_model.save_weights(out_path)
-            print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
+        out_path = f"{variant}.weights.h5"
+        keras_model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
 
         hf_mlm = BertForMaskedLM.from_pretrained(hf_id, token=HF_TOKEN).eval()
         keras_mlm = BertMaskedLM(**arch)
@@ -171,16 +164,9 @@ if __name__ == "__main__":
         print(f"  mlm logits max diff: {d_mlm:.3e}")
         if d_mlm > 1e-3:
             raise ValueError(f"{variant}: BertMaskedLM parity failed")
-        total_params = sum(int(np.prod(w.shape)) for w in keras_mlm.weights)
-        total_gb = (total_params * 4) / (1024**3)
-        if total_gb > 1.7:
-            out_path = f"{variant}_mlm.weights.json"
-            keras_mlm.save_weights(out_path, max_shard_size=1.7)
-            print(f"  Saved -> {out_path} (sharded, ~{total_gb:.2f} GB)")
-        else:
-            out_path = f"{variant}_mlm.weights.h5"
-            keras_mlm.save_weights(out_path)
-            print(f"  Saved -> {out_path} (~{total_gb:.2f} GB)")
+        out_path = f"{variant}_mlm.weights.h5"
+        keras_mlm.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
 
         del hf_model, hf_mlm, keras_model, keras_mlm
         keras.backend.clear_session()

@@ -13,9 +13,7 @@ from tokenizers.processors import TemplateProcessing
 from kerasformers.base import BaseTokenizer
 from kerasformers.weight_utils import download_file
 
-DEFAULT_VOCAB_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab.txt"
-)
+from .config import BERT_VOCAB_CONFIG
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -52,7 +50,9 @@ class BertTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         if vocab_file is None:
-            vocab_file = download_file(DEFAULT_VOCAB_URL)
+            vocab_file = download_file(
+                BERT_VOCAB_CONFIG["bert_base_uncased"]["vocab_url"]
+            )
         self.vocab_file = vocab_file
         self.max_seq_len = max_seq_len
         self.do_lower_case = do_lower_case
@@ -101,9 +101,7 @@ class BertTokenizer(BaseTokenizer):
     def from_release(cls, variant, /, **kwargs):
         """Build the tokenizer for a release ``variant``, resolving its vocab and
         casing (the cased models use a different vocab and ``do_lower_case=False``)."""
-        from .config import BERT_WEIGHT_CONFIG
-
-        entry = BERT_WEIGHT_CONFIG.get(variant, {})
+        entry = BERT_VOCAB_CONFIG.get(variant, {})
         if "vocab_url" in entry and "vocab_file" not in kwargs:
             kwargs["vocab_file"] = download_file(entry["vocab_url"])
         if "do_lower_case" in entry:

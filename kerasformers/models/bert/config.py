@@ -55,30 +55,41 @@ BERT_WEIGHT_CONFIG = {
         "hf_id": "google-bert/bert-base-uncased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased_mlm.weights.h5",
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab.txt",
-        "do_lower_case": True,
     },
     "bert_large_uncased": {
         "model": "bert_large_uncased",
         "hf_id": "google-bert/bert-large-uncased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased_mlm.weights.h5",
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab.txt",
-        "do_lower_case": True,
     },
     "bert_base_cased": {
         "model": "bert_base_cased",
         "hf_id": "google-bert/bert-base-cased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased_mlm.weights.h5",
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab_cased.txt",
-        "do_lower_case": False,
     },
     "bert_large_cased": {
         "model": "bert_large_cased",
         "hf_id": "google-bert/bert-large-cased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased_mlm.weights.h5",
+    },
+}
+
+BERT_VOCAB_CONFIG = {
+    "bert_base_uncased": {
+        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab.txt",
+        "do_lower_case": True,
+    },
+    "bert_large_uncased": {
+        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab.txt",
+        "do_lower_case": True,
+    },
+    "bert_base_cased": {
+        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab_cased.txt",
+        "do_lower_case": False,
+    },
+    "bert_large_cased": {
         "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab_cased.txt",
         "do_lower_case": False,
     },
