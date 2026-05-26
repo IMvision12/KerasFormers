@@ -3,6 +3,7 @@ from typing import Dict
 
 import keras
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.maxvit import MaxViTImageClassify as MaxViT
@@ -68,7 +69,9 @@ def transfer_maxvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
             keras_weight_name = f"{layer_name}_{weight_suffix}"
             all_keras_weights.append((w, keras_weight_name))
 
-    for keras_weight, keras_weight_name in all_keras_weights:
+    for keras_weight, keras_weight_name in tqdm(
+        all_keras_weights, desc="Transferring weights to Keras"
+    ):
         torch_weight_name = keras_weight_name
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)

@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 
 from kerasformers.weight_utils.custom_exception import WeightMappingError
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
@@ -60,7 +61,7 @@ def transfer_qwen2_vl_weights(keras_model, hf_state_dict):
             k = "model." + k[len("model.language_model.") :]
         state[k] = v
 
-    for weight in keras_model.weights:
+    for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
         name = weight.path.split("/", 1)[1].replace("/", ".")
         for old, new in WEIGHT_NAME_MAPPING.items():
             name = name.replace(old, new)

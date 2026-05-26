@@ -4,6 +4,7 @@ from typing import Dict
 
 import numpy as np
 from keras import ops
+from tqdm import tqdm
 
 from kerasformers.models.whisper import WhisperModel
 from kerasformers.models.whisper.whisper_layers import WhisperAttention
@@ -51,7 +52,9 @@ def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
         for layer in encoder.layers
         if isinstance(layer, WhisperAttention)
     }
-    for i in range(keras_model.encoder_num_layers):
+    for i in tqdm(
+        range(keras_model.encoder_num_layers), desc="Transferring encoder layers"
+    ):
         kp, hp = f"encoder_layers_{i}", f"encoder.layers.{i}"
         transfer_nested_layer_weights(
             enc_attns[f"{kp}_self_attn"],
@@ -100,7 +103,9 @@ def transfer_whisper_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
         for layer in decoder.layers
         if isinstance(layer, WhisperAttention)
     }
-    for i in range(keras_model.decoder_num_layers):
+    for i in tqdm(
+        range(keras_model.decoder_num_layers), desc="Transferring decoder layers"
+    ):
         kp, hp = f"decoder_layers_{i}", f"decoder.layers.{i}"
         transfer_nested_layer_weights(
             dec_attns[f"{kp}_self_attn"],
@@ -171,7 +176,9 @@ def transfer_whisper_audio_classify_weights(
         for layer in encoder.layers
         if isinstance(layer, WhisperAttention)
     }
-    for i in range(keras_model.encoder_num_layers):
+    for i in tqdm(
+        range(keras_model.encoder_num_layers), desc="Transferring encoder layers"
+    ):
         kp, hp = f"encoder_layers_{i}", f"encoder.layers.{i}"
         transfer_nested_layer_weights(
             enc_attns[f"{kp}_self_attn"],
