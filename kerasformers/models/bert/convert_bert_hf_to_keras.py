@@ -108,10 +108,8 @@ if __name__ == "__main__":
     os.makedirs(OUT_DIR, exist_ok=True)
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
-    def max_diff(a, b):
-        a = a.detach().cpu().numpy() if hasattr(a, "detach") else np.asarray(a)
-        return float(np.abs(a - b).max())
-
+    # Keras outputs on the torch backend require grad and HF returns torch
+    # tensors, so detach both before comparing (np.asarray would call .numpy()).
     rng = np.random.default_rng(0)
 
     for variant, meta in BERT_WEIGHT_CONFIG.items():
@@ -140,10 +138,12 @@ if __name__ == "__main__":
         with torch.no_grad():
             hf_out = hf_model(**pt)
         k_out = keras_model(k_inputs, training=False)
-        d_seq = max_diff(
-            hf_out.last_hidden_state, np.asarray(k_out["last_hidden_state"])
+        seq = k_out["last_hidden_state"].detach().cpu().numpy()
+        pool = k_out["pooler_output"].detach().cpu().numpy()
+        d_seq = float(
+            np.abs(hf_out.last_hidden_state.detach().cpu().numpy() - seq).max()
         )
-        d_pool = max_diff(hf_out.pooler_output, np.asarray(k_out["pooler_output"]))
+        d_pool = float(np.abs(hf_out.pooler_output.detach().cpu().numpy() - pool).max())
         print(
             f"  last_hidden_state max diff: {d_seq:.3e}   pooler max diff: {d_pool:.3e}"
         )
@@ -159,7 +159,8 @@ if __name__ == "__main__":
         with torch.no_grad():
             hf_logits = hf_mlm(**pt).logits
         k_logits = keras_mlm(k_inputs, training=False)
-        d_mlm = max_diff(hf_logits, np.asarray(k_logits))
+        mlm = k_logits.detach().cpu().numpy()
+        d_mlm = float(np.abs(hf_logits.detach().cpu().numpy() - mlm).max())
         print(f"  mlm logits max diff: {d_mlm:.3e}")
         if d_mlm > 1e-3:
             raise ValueError(f"{variant}: BertMaskedLM parity failed")
