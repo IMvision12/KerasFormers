@@ -29,7 +29,7 @@ XLM_ROBERTA_WEIGHT_CONFIG = {
     "xlm_roberta_base": {
         "model": "xlm_roberta_base",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base_mlm.weights.json",
+        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base_mlm.weights.h5",
     },
     "xlm_roberta_large": {
         "model": "xlm_roberta_large",

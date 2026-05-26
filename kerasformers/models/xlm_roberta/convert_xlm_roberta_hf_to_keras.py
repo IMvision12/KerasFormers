@@ -34,6 +34,7 @@ if __name__ == "__main__":
         "xlm_roberta_base": "FacebookAI/xlm-roberta-base",
         "xlm_roberta_large": "FacebookAI/xlm-roberta-large",
     }
+    SHARD_THRESHOLD_GB = 1.9
 
     rng = np.random.default_rng(0)
 
@@ -79,7 +80,7 @@ if __name__ == "__main__":
         total_gb = (
             sum(int(np.prod(w.shape)) for w in keras_model.weights) * 4 / (1024**3)
         )
-        if total_gb > 1.7:
+        if total_gb > SHARD_THRESHOLD_GB:
             out_path = f"{variant}.weights.json"
             keras_model.save_weights(out_path, max_shard_size=1.7)
         else:
@@ -99,7 +100,7 @@ if __name__ == "__main__":
         if d_mlm > 1e-3:
             raise ValueError(f"{variant}: XLMRobertaMaskedLM parity failed")
         total_gb = sum(int(np.prod(w.shape)) for w in keras_mlm.weights) * 4 / (1024**3)
-        if total_gb > 1.7:
+        if total_gb > SHARD_THRESHOLD_GB:
             out_path = f"{variant}_mlm.weights.json"
             keras_mlm.save_weights(out_path, max_shard_size=1.7)
         else:
