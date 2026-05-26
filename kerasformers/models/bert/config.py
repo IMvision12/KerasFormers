@@ -52,25 +52,21 @@ BERT_MODEL_CONFIG = {
 BERT_WEIGHT_CONFIG = {
     "bert_base_uncased": {
         "model": "bert_base_uncased",
-        "hf_id": "google-bert/bert-base-uncased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased_mlm.weights.h5",
     },
     "bert_large_uncased": {
         "model": "bert_large_uncased",
-        "hf_id": "google-bert/bert-large-uncased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased_mlm.weights.h5",
     },
     "bert_base_cased": {
         "model": "bert_base_cased",
-        "hf_id": "google-bert/bert-base-cased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased_mlm.weights.h5",
     },
     "bert_large_cased": {
         "model": "bert_large_cased",
-        "hf_id": "google-bert/bert-large-cased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased.weights.h5",
         "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased_mlm.weights.h5",
     },

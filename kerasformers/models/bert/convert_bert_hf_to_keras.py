@@ -106,13 +106,18 @@ if __name__ == "__main__":
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
-    # Detach both sides before comparing parity: Keras torch-backend outputs
-    # require grad, and np.asarray would call .numpy() and fail.
+    HF_SOURCES = {
+        "bert_base_uncased": "google-bert/bert-base-uncased",
+        "bert_large_uncased": "google-bert/bert-large-uncased",
+        "bert_base_cased": "google-bert/bert-base-cased",
+        "bert_large_cased": "google-bert/bert-large-cased",
+    }
+
     rng = np.random.default_rng(0)
 
     for variant, meta in BERT_WEIGHT_CONFIG.items():
         arch = BERT_MODEL_CONFIG[meta["model"]]
-        hf_id = meta["hf_id"]
+        hf_id = HF_SOURCES[variant]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         ids = rng.integers(0, arch["vocab_size"], (2, 16)).astype("int64")
@@ -145,8 +150,6 @@ if __name__ == "__main__":
         print(
             f"  last_hidden_state max diff: {d_seq:.3e}   pooler max diff: {d_pool:.3e}"
         )
-        # Looser than base (~1e-5): float32 accumulation over the deeper/wider
-        # large stack (24 layers) lands ~1.5e-4 vs HF's eager reference.
         if max(d_seq, d_pool) > 1e-3:
             raise ValueError(f"{variant}: BertModel parity failed")
         out_path = f"{variant}.weights.h5"
