@@ -6,9 +6,9 @@ from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DEBERTA_MODEL_CONFIG, DEBERTA_WEIGHT_CONFIG
 from .deberta_layers import (
+    DebertaDisentangledSelfAttention,
     DebertaEmbeddings,
-    DisentangledSelfAttention,
-    RelativeEmbedding,
+    DebertaRelativeEmbedding,
 )
 
 BASE_MODEL_CONFIG = {
@@ -42,7 +42,7 @@ def deberta_encoder_layer(
     """
     prefix = f"blocks_{layer_idx}"
 
-    attn = DisentangledSelfAttention(
+    attn = DebertaDisentangledSelfAttention(
         embed_dim,
         num_heads,
         max_relative_positions,
@@ -110,7 +110,7 @@ def deberta_backbone(
     pos = ops.cumsum(ops.ones_like(input_ids), axis=1) - 1
     relative_pos = ops.expand_dims(pos, 2) - ops.expand_dims(pos, 1)
 
-    rel_embeddings = RelativeEmbedding(
+    rel_embeddings = DebertaRelativeEmbedding(
         2 * max_relative_positions, embed_dim, name="rel_embeddings"
     )(embeddings)
 

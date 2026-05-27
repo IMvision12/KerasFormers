@@ -268,24 +268,6 @@ class DebertaV3MaskedLM(BaseModel):
         return cls(**config)
 
 
-def _classify_head(
-    backbone,
-    embed_dim,
-    num_classes,
-    pooler_dropout,
-    classifier_dropout,
-    classifier_activation,
-):
-    x = backbone.output["last_hidden_state"][:, 0]
-    x = layers.Dropout(pooler_dropout)(x)
-    x = layers.Dense(embed_dim, name="pooler_dense")(x)
-    x = layers.Activation("gelu", name="pooler_act")(x)
-    x = layers.Dropout(classifier_dropout)(x)
-    return layers.Dense(
-        num_classes, activation=classifier_activation, name="classifier"
-    )(x)
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3SequenceClassify(BaseModel):
     """DeBERTa-v3 sentence/sequence classifier.
@@ -371,14 +353,16 @@ class DebertaV3SequenceClassify(BaseModel):
             **kwargs,
         }
         backbone = DebertaV3Model(**cfg, name=f"{name}_backbone")
-        logits = _classify_head(
-            backbone,
-            cfg["embed_dim"],
-            num_classes,
-            pooler_dropout,
-            classifier_dropout,
-            classifier_activation,
-        )
+
+        x = backbone.output["last_hidden_state"][:, 0]
+        x = layers.Dropout(pooler_dropout)(x)
+        x = layers.Dense(cfg["embed_dim"], name="pooler_dense")(x)
+        x = layers.Activation("gelu", name="pooler_act")(x)
+        x = layers.Dropout(classifier_dropout)(x)
+        logits = layers.Dense(
+            num_classes, activation=classifier_activation, name="classifier"
+        )(x)
+
         super().__init__(inputs=backbone.input, outputs=logits, name=name)
         self._cfg = cfg
         self.num_classes = num_classes

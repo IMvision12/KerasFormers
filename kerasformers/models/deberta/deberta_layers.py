@@ -3,7 +3,7 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class RelativeEmbedding(layers.Layer):
+class DebertaRelativeEmbedding(layers.Layer):
     """Holds DeBERTa's shared relative-position embedding table.
 
     Returns the full ``(2 * max_relative_positions, embed_dim)`` table (ignoring
@@ -93,7 +93,7 @@ class DebertaEmbeddings(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DisentangledSelfAttention(layers.Layer):
+class DebertaDisentangledSelfAttention(layers.Layer):
     """DeBERTa (v1) disentangled self-attention.
 
     Adds content->position (c2p) and position->content (p2c) relative-attention
