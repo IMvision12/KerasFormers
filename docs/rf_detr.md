@@ -28,13 +28,19 @@ model = RFDETRDetect.from_weights("rfdetr-small")
 model = RFDETRDetect.from_weights("rfdetr-medium")
 model = RFDETRDetect.from_weights("rfdetr-large")
 
+# Or load the original Roboflow checkpoints straight from the HuggingFace Hub
+model = RFDETRDetect.from_weights("hf:Roboflow/rf-detr-base")
+
 # Untrained
 model = RFDETRDetect.from_weights("rfdetr-base", load_weights=False)
 ```
 
-> RF-DETR is not available through HuggingFace transformers. Use the
-> kerasformers release variants above, or load a custom checkpoint via
-> `model.load_weights(...)`.
+> The five `rfdetr-*` variants correspond to the Hub checkpoints
+> `Roboflow/rf-detr-{nano,small,medium,base,large}`.
+> `from_weights("hf:Roboflow/rf-detr-...")` reads the repo's `config.json` and
+> safetensors directly (via `huggingface_hub`, no `transformers` dependency) and
+> converts them to Keras on the fly — the architecture and weights are identical
+> to the kerasformers release variants above.
 
 ## Example Inference
 

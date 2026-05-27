@@ -1,0 +1,307 @@
+from typing import Dict
+
+import numpy as np
+from tqdm import tqdm
+
+from kerasformers.weight_utils.custom_exception import (
+    WeightMappingError,
+    WeightShapeMismatchError,
+)
+from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+    compare_keras_torch_names,
+    transfer_nested_layer_weights,
+    transfer_weights,
+)
+
+# RF-DETR is hosted on the model Hub (Roboflow/rf-detr-*) whose safetensors use
+# the same parameter names as the official rfdetr package, so the keras<-source
+# name mapping below is identical regardless of which one the state dict came from.
+HF_SOURCES: Dict[str, str] = {
+    "rfdetr-nano": "Roboflow/rf-detr-nano",
+    "rfdetr-small": "Roboflow/rf-detr-small",
+    "rfdetr-medium": "Roboflow/rf-detr-medium",
+    "rfdetr-base": "Roboflow/rf-detr-base",
+    "rfdetr-large": "Roboflow/rf-detr-large",
+}
+
+weight_name_mapping: Dict[str, str] = {
+    "backbone_encoder_layer_": "backbone.0.encoder.encoder.encoder.layer.",
+    "backbone_encoder_layernorm_": "backbone.0.encoder.encoder.layernorm.",
+    "_attention_query_": ".attention.attention.query.",
+    "_attention_key_": ".attention.attention.key.",
+    "_attention_value_": ".attention.attention.value.",
+    "_attention_out_proj_": ".attention.output.dense.",
+    "_norm1_": ".norm1.",
+    "_norm2_": ".norm2.",
+    "_layer_scale1_": ".layer_scale1.",
+    "_layer_scale2_": ".layer_scale2.",
+    "_mlp_fc1_": ".mlp.fc1.",
+    "_mlp_fc2_": ".mlp.fc2.",
+    "_mlp_weights_in_": ".mlp.fc1.",
+    "_mlp_weights_out_": ".mlp.fc2.",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+}
+
+decoder_name_mapping: Dict[str, str] = {
+    "self_attn_out_proj": "self_attn.out_proj",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+}
+
+
+def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
+    """Transfer RF-DETR weights into a built ``RFDETRDetect`` keras model.
+
+    ``state_dict`` is a flat ``{name: numpy_array}`` mapping in the HF
+    ``Roboflow/rf-detr-*`` layout (identical to the official rfdetr checkpoint
+    layout). The number of decoder layers and object queries are read off the
+    keras model, so the same routine serves every variant.
+    """
+    sd = state_dict
+
+    layer_names = {layer.name for layer in keras_model.layers}
+    dec_layers = 0
+    while f"decoder_layer_{dec_layers}" in layer_names:
+        dec_layers += 1
+
+    # 1) DINOv2 backbone transformer encoder + final layernorm.
+    backbone_encoder_weights = []
+    for layer in keras_model.layers:
+        if layer.name.startswith("backbone_encoder_layer_") or (
+            layer.name == "backbone_encoder_layernorm"
+        ):
+            for weight in layer.trainable_weights:
+                backbone_encoder_weights.append((weight, f"{layer.name}_{weight.name}"))
+            for weight in layer.non_trainable_weights:
+                backbone_encoder_weights.append((weight, f"{layer.name}_{weight.name}"))
+
+    for keras_weight, keras_weight_name in tqdm(
+        backbone_encoder_weights,
+        total=len(backbone_encoder_weights),
+        desc="Transferring backbone encoder weights",
+    ):
+        torch_weight_name = keras_weight_name
+        for keras_name_part, torch_name_part in weight_name_mapping.items():
+            torch_weight_name = torch_weight_name.replace(
+                keras_name_part, torch_name_part
+            )
+
+        if torch_weight_name not in sd:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight = sd[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+    # 2) Patch embeddings (cls/mask/position tokens + patch projection conv).
+    transfer_nested_layer_weights(
+        keras_model.get_layer("backbone_embeddings"),
+        sd,
+        "backbone.0.encoder.encoder.embeddings",
+        name_mapping={
+            "conv_projection": "patch_embeddings.projection",
+            "kernel": "weight",
+        },
+    )
+
+    # 3) C2F projector (conv + batchnorm pairs, then the output norm).
+    pt_proj = "backbone.0.projector.stages.0"
+    projector_conv_ln_pairs = [
+        ("projector_c2f_cv1_conv", f"{pt_proj}.0.cv1.conv"),
+        ("projector_c2f_cv1_ln", f"{pt_proj}.0.cv1.bn"),
+        ("projector_c2f_cv2_conv", f"{pt_proj}.0.cv2.conv"),
+        ("projector_c2f_cv2_ln", f"{pt_proj}.0.cv2.bn"),
+    ]
+    for b_idx in range(3):
+        for cv in ("cv1", "cv2"):
+            projector_conv_ln_pairs.append(
+                (
+                    f"projector_c2f_bottleneck_{b_idx}_{cv}_conv",
+                    f"{pt_proj}.0.m.{b_idx}.{cv}.conv",
+                )
+            )
+            projector_conv_ln_pairs.append(
+                (
+                    f"projector_c2f_bottleneck_{b_idx}_{cv}_ln",
+                    f"{pt_proj}.0.m.{b_idx}.{cv}.bn",
+                )
+            )
+
+    for keras_name, pt_name in tqdm(
+        projector_conv_ln_pairs, desc="Transferring projector weights"
+    ):
+        layer = keras_model.get_layer(keras_name)
+        if keras_name.endswith("_conv"):
+            layer.weights[0].assign(np.transpose(sd[f"{pt_name}.weight"], (2, 3, 1, 0)))
+        else:
+            layer.weights[0].assign(sd[f"{pt_name}.weight"])
+            layer.weights[1].assign(sd[f"{pt_name}.bias"])
+
+    proj_ln = keras_model.get_layer("projector_ln")
+    proj_ln.weights[0].assign(sd[f"{pt_proj}.1.weight"])
+    proj_ln.weights[1].assign(sd[f"{pt_proj}.1.bias"])
+
+    # 4) Two-stage encoder-output heads (group 0 is used at inference).
+    enc_output = keras_model.get_layer("enc_output_0")
+    enc_output.weights[0].assign(sd["transformer.enc_output.0.weight"].T)
+    enc_output.weights[1].assign(sd["transformer.enc_output.0.bias"])
+
+    enc_output_norm = keras_model.get_layer("enc_output_norm_0")
+    enc_output_norm.weights[0].assign(sd["transformer.enc_output_norm.0.weight"])
+    enc_output_norm.weights[1].assign(sd["transformer.enc_output_norm.0.bias"])
+
+    enc_cls = keras_model.get_layer("enc_out_class_embed_0")
+    enc_cls.weights[0].assign(sd["transformer.enc_out_class_embed.0.weight"].T)
+    enc_cls.weights[1].assign(sd["transformer.enc_out_class_embed.0.bias"])
+
+    for i in range(3):
+        bbox_layer = keras_model.get_layer(f"enc_bbox_{i}")
+        bbox_layer.weights[0].assign(
+            sd[f"transformer.enc_out_bbox_embed.0.layers.{i}.weight"].T
+        )
+        bbox_layer.weights[1].assign(
+            sd[f"transformer.enc_out_bbox_embed.0.layers.{i}.bias"]
+        )
+
+    # 5) Decoder reference-point head.
+    for i in range(2):
+        rph = keras_model.get_layer(f"ref_point_head_{i}")
+        rph.weights[0].assign(
+            sd[f"transformer.decoder.ref_point_head.layers.{i}.weight"].T
+        )
+        rph.weights[1].assign(sd[f"transformer.decoder.ref_point_head.layers.{i}.bias"])
+
+    # 6) Decoder layers (fused self-attn in_proj split into q/k/v) + final norm.
+    for i in tqdm(range(dec_layers), desc="Transferring decoder weights"):
+        pt_dl = f"transformer.decoder.layers.{i}"
+        k_dl = f"decoder_layer_{i}"
+        dec_layer = keras_model.get_layer(k_dl)
+
+        q_w, k_w, v_w = np.split(sd[f"{pt_dl}.self_attn.in_proj_weight"], 3, axis=0)
+        q_b, k_b, v_b = np.split(sd[f"{pt_dl}.self_attn.in_proj_bias"], 3, axis=0)
+        weight_dict = {w.path: w for w in dec_layer.weights}
+        weight_dict[f"{k_dl}/self_attn_q_proj/kernel"].assign(q_w.T)
+        weight_dict[f"{k_dl}/self_attn_q_proj/bias"].assign(q_b)
+        weight_dict[f"{k_dl}/self_attn_k_proj/kernel"].assign(k_w.T)
+        weight_dict[f"{k_dl}/self_attn_k_proj/bias"].assign(k_b)
+        weight_dict[f"{k_dl}/self_attn_v_proj/kernel"].assign(v_w.T)
+        weight_dict[f"{k_dl}/self_attn_v_proj/bias"].assign(v_b)
+
+        transfer_nested_layer_weights(
+            dec_layer,
+            sd,
+            pt_dl,
+            name_mapping=decoder_name_mapping,
+            skip_paths=["self_attn_q_proj", "self_attn_k_proj", "self_attn_v_proj"],
+        )
+
+    dec_norm = keras_model.get_layer("decoder_norm")
+    dec_norm.weights[0].assign(sd["transformer.decoder.norm.weight"])
+    dec_norm.weights[1].assign(sd["transformer.decoder.norm.bias"])
+
+    # 7) Query embeddings (group 0 slice) and the class / bbox prediction heads.
+    num_queries = int(keras_model.get_layer("query_feat_embed").weights[0].shape[0])
+
+    keras_model.get_layer("refpoint_embed_layer").weights[0].assign(
+        sd["refpoint_embed.weight"][:num_queries]
+    )
+    keras_model.get_layer("query_feat_embed").weights[0].assign(
+        sd["query_feat.weight"][:num_queries]
+    )
+
+    cls_embed = keras_model.get_layer("class_embed")
+    cls_embed.weights[0].assign(sd["class_embed.weight"].T)
+    cls_embed.weights[1].assign(sd["class_embed.bias"])
+
+    for i in range(3):
+        bbox_layer = keras_model.get_layer(f"bbox_embed_{i}")
+        bbox_layer.weights[0].assign(sd[f"bbox_embed.layers.{i}.weight"].T)
+        bbox_layer.weights[1].assign(sd[f"bbox_embed.layers.{i}.bias"])
+
+
+if __name__ == "__main__":
+    import keras
+    import torch
+
+    from kerasformers.base.base_model import download_hf_state_dict
+    from kerasformers.models.rf_detr.config import RF_DETR_CONFIG
+    from kerasformers.models.rf_detr.rf_detr_model import RFDETRDetect
+
+    for variant, hf_id in HF_SOURCES.items():
+        config = RF_DETR_CONFIG[variant]
+        res = config["resolution"]
+        print(f"\n{'=' * 60}\nConverting {variant}  <-  {hf_id}\n{'=' * 60}")
+
+        keras_model = RFDETRDetect.from_weights(
+            variant,
+            load_weights=False,
+            backbone_use_swiglu=False,
+            num_register_tokens=0,
+            image_size=res,
+        )
+        _ = keras_model(keras.random.uniform((1, res, res, 3), dtype="float32"))
+        print(f"  Parameters: {keras_model.count_params():,}")
+
+        state_dict = download_hf_state_dict(hf_id)
+        print(f"  HF keys: {len(state_dict)}")
+        transfer_rf_detr_weights(keras_model, state_dict)
+
+        # True HF parity: compare against transformers' RfDetrForObjectDetection on
+        # the same normalized input (run with the latest transformers that ships RF-DETR).
+        print("\nVerifying parity against transformers RfDetrForObjectDetection...")
+        from transformers import RfDetrForObjectDetection
+
+        hf_model = RfDetrForObjectDetection.from_pretrained(hf_id).eval()
+
+        np.random.seed(42)
+        test_input = np.random.rand(1, res, res, 3).astype(np.float32)
+        mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
+        std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
+        norm = ((test_input - mean) / std).astype(np.float32)
+
+        with torch.no_grad():
+            pt_out = hf_model(pixel_values=torch.from_numpy(norm).permute(0, 3, 1, 2))
+        pt_logits = pt_out.logits.cpu().numpy()
+        pt_boxes = pt_out.pred_boxes.cpu().numpy()
+
+        keras_out = keras_model(norm, training=False)
+        keras_logits = keras.ops.convert_to_numpy(keras_out["pred_logits"])
+        keras_boxes = keras.ops.convert_to_numpy(keras_out["pred_boxes"])
+
+        def cosine(a, b):
+            a, b = a.ravel(), b.ravel()
+            return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+
+        logits_cos = cosine(pt_logits, keras_logits)
+        boxes_cos = cosine(pt_boxes, keras_boxes)
+        class_agree = float(
+            (pt_logits[0].argmax(-1) == keras_logits[0].argmax(-1)).mean()
+        )
+        print(
+            f"  logits cosine: {logits_cos:.4f}  boxes cosine: {boxes_cos:.4f}  "
+            f"class agreement: {class_agree * 100:.1f}%"
+        )
+        # RF-DETR's deformable attention (bilinear grid-sample) and positional-encoding
+        # interpolation diverge slightly across frameworks, so parity is judged by
+        # cosine similarity / prediction agreement rather than max abs diff. A few
+        # low-confidence queries can flip class at the largest resolutions, so the
+        # agreement floor is loose.
+        if logits_cos < 0.99 or class_agree < 0.95:
+            raise ValueError(f"{variant}: HF parity failed")
+
+        keras_model.save_weights(f"rf_detr_{variant.split('-')[1]}.weights.h5")
+        print(f"  Saved -> rf_detr_{variant.split('-')[1]}.weights.h5")
+
+        del keras_model, hf_model, state_dict
+        keras.backend.clear_session()

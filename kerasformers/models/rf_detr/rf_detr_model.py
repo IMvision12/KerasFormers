@@ -1297,8 +1297,9 @@ class RFDetrModel(BaseModel):
     also downstream of the output and naturally excluded. Use
     ``RFDETRDetect`` for full detection outputs.
 
-    RF-DETR is not on the model Hub, so this class also does not
-    support ``from_weights("hf:...")``.
+    This bare-backbone variant has no class head, so it does not implement
+    ``from_weights("hf:...")``; use :class:`RFDETRDetect` to load the
+    ``Roboflow/rf-detr-*`` checkpoints from the model Hub.
     """
 
     BASE_MODEL_CONFIG = RF_DETR_CONFIG
@@ -1445,9 +1446,9 @@ class RFDetrModel(BaseModel):
     @classmethod
     def from_hf(cls, hf_id, load_weights=True, **kwargs):
         raise NotImplementedError(
-            "RF-DETR is not available on HuggingFace Hub. "
-            "Use the kerasformers release variants (e.g. 'rfdetr-base') or pass a "
-            "local .weights.h5 path via model.load_weights(...)."
+            "RFDetrModel is the headless backbone variant with no Hub checkpoint. "
+            "Use RFDETRDetect.from_weights('hf:Roboflow/rf-detr-base') for the "
+            "detection model, or pass a local .weights.h5 path to model.load_weights()."
         )
 
 
@@ -1501,6 +1502,63 @@ class RFDETRDetect(BaseModel):
 
     BASE_MODEL_CONFIG = RF_DETR_CONFIG
     BASE_WEIGHT_CONFIG = RF_DETR_WEIGHTS
+    HF_MODEL_TYPE = "rf_detr"
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        import numpy as np
+
+        from .convert_rf_detr_hf_to_keras import transfer_rf_detr_weights
+
+        # RF-DETR's custom layers create their weights on the first call, so
+        # build the functional graph on a dummy input before assigning weights.
+        shape = [d if d is not None else 1 for d in keras_model.inputs[0].shape]
+        keras_model(np.zeros(shape, dtype="float32"))
+        transfer_rf_detr_weights(keras_model, state_dict)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        import math
+
+        bb = hf_config["backbone_config"]
+        patch_size = bb["patch_size"]
+        num_windows = bb.get("num_windows", 1)
+        image_size = bb["image_size"]
+        # Input resolution isn't stored in config.json; reconstruct the value the
+        # image processor uses — the smallest multiple of patch_size * num_windows
+        # that is >= the backbone image_size (windowed attention needs the feature
+        # grid divisible by num_windows).
+        unit = patch_size * max(num_windows, 1)
+        resolution = math.ceil(image_size / unit) * unit
+        num_classes = (
+            len(hf_config["id2label"])
+            if "id2label" in hf_config
+            else hf_config.get("num_labels", 91)
+        )
+        return {
+            "hidden_dim": hf_config["d_model"],
+            "backbone_hidden_size": bb["hidden_size"],
+            "backbone_num_heads": bb["num_attention_heads"],
+            "backbone_num_layers": bb["num_hidden_layers"],
+            "backbone_mlp_ratio": bb.get("mlp_ratio", 4),
+            "backbone_use_swiglu": bb.get("use_swiglu_ffn", False),
+            "num_register_tokens": bb.get("num_register_tokens", 0),
+            "out_feature_indexes": [
+                int(s.removeprefix("stage")) for s in bb["out_features"]
+            ],
+            "patch_size": patch_size,
+            "num_windows": num_windows,
+            "positional_encoding_size": image_size // patch_size,
+            "resolution": resolution,
+            "dec_layers": hf_config["decoder_layers"],
+            "sa_nheads": hf_config["decoder_self_attention_heads"],
+            "ca_nheads": hf_config["decoder_cross_attention_heads"],
+            "dec_n_points": hf_config["decoder_n_points"],
+            "num_queries": hf_config["num_queries"],
+            "num_classes": num_classes,
+            "group_detr": hf_config["group_detr"],
+            "dim_feedforward": hf_config["decoder_ffn_dim"],
+        }
 
     def __init__(
         self,
@@ -1637,11 +1695,3 @@ class RFDETRDetect(BaseModel):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-    @classmethod
-    def from_hf(cls, hf_id, load_weights=True, **kwargs):
-        raise NotImplementedError(
-            "RF-DETR is not available on HuggingFace Hub. "
-            "Use the kerasformers release variants (e.g. 'rfdetr-base') or pass a "
-            "local .weights.h5 path via model.load_weights(...)."
-        )
