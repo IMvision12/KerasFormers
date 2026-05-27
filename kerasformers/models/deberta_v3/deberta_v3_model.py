@@ -24,58 +24,6 @@ MLM_WEIGHT_CONFIG = {
     v: {**m, "url": m["mlm_url"]} for v, m in DEBERTA_V3_WEIGHT_CONFIG.items()
 }
 
-_BACKBONE_KW = {
-    "vocab_size": 128100,
-    "embed_dim": 768,
-    "num_layers": 12,
-    "num_heads": 12,
-    "mlp_dim": 3072,
-    "max_position_embeddings": 512,
-    "max_relative_positions": 512,
-    "position_buckets": 256,
-    "pos_att_type": ("p2c", "c2p"),
-    "norm_rel_ebd": True,
-    "conv_kernel_size": 0,
-    "conv_act": "gelu",
-    "hidden_act": "gelu",
-    "layer_norm_eps": 1e-7,
-    "pad_token_id": 0,
-    "dropout": 0.0,
-    "attention_dropout": 0.0,
-}
-
-# Subset of _BACKBONE_KW that deberta_v2_backbone() actually accepts
-# (max_position_embeddings / pad_token_id are model-level only).
-_BACKBONE_FN_KEYS = (
-    "vocab_size",
-    "embed_dim",
-    "num_layers",
-    "num_heads",
-    "mlp_dim",
-    "max_relative_positions",
-    "position_buckets",
-    "pos_att_type",
-    "norm_rel_ebd",
-    "conv_kernel_size",
-    "conv_act",
-    "hidden_act",
-    "layer_norm_eps",
-    "dropout",
-    "attention_dropout",
-)
-
-
-def _split(kwargs):
-    """Separate backbone kwargs from the rest (head args, name)."""
-    cfg = {**_BACKBONE_KW}
-    rest = {}
-    for k, v in kwargs.items():
-        if k in _BACKBONE_KW:
-            cfg[k] = v
-        elif k not in ("model", "hf_id", "url", "mlm_url"):
-            rest[k] = v
-    return cfg, rest
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3Model(BaseModel):
@@ -115,8 +63,32 @@ class DebertaV3Model(BaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    def __init__(self, name="DebertaV3Model", **kwargs):
-        cfg, _ = _split(kwargs)
+    def __init__(
+        self,
+        vocab_size=128100,
+        embed_dim=768,
+        num_layers=12,
+        num_heads=12,
+        mlp_dim=3072,
+        max_position_embeddings=512,
+        max_relative_positions=512,
+        position_buckets=256,
+        pos_att_type=("p2c", "c2p"),
+        norm_rel_ebd=True,
+        conv_kernel_size=0,
+        conv_act="gelu",
+        hidden_act="gelu",
+        layer_norm_eps=1e-7,
+        pad_token_id=0,
+        dropout=0.0,
+        attention_dropout=0.0,
+        name="DebertaV3Model",
+        **kwargs,
+    ):
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
+            kwargs.pop(k, None)
+        pos_att_type = list(pos_att_type)
+
         inputs = {
             "input_ids": layers.Input(shape=(None,), dtype="int32", name="input_ids"),
             "attention_mask": layers.Input(
@@ -126,22 +98,78 @@ class DebertaV3Model(BaseModel):
                 shape=(None,), dtype="int32", name="token_type_ids"
             ),
         }
+        # deberta_v2_backbone() takes every backbone kwarg except the model-level
+        # max_position_embeddings / pad_token_id.
         sequence_output = deberta_v2_backbone(
             inputs["input_ids"],
             inputs["attention_mask"],
             inputs["token_type_ids"],
-            **{k: cfg[k] for k in _BACKBONE_FN_KEYS},
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            mlp_dim=mlp_dim,
+            max_relative_positions=max_relative_positions,
+            position_buckets=position_buckets,
+            pos_att_type=pos_att_type,
+            norm_rel_ebd=norm_rel_ebd,
+            conv_kernel_size=conv_kernel_size,
+            conv_act=conv_act,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            dropout=dropout,
+            attention_dropout=attention_dropout,
         )
+
         super().__init__(
             inputs=inputs,
             outputs={"last_hidden_state": sequence_output},
             name=name,
+            **kwargs,
         )
-        self._cfg = cfg
+
+        self.vocab_size = vocab_size
+        self.embed_dim = embed_dim
+        self.num_layers = num_layers
+        self.num_heads = num_heads
+        self.mlp_dim = mlp_dim
+        self.max_position_embeddings = max_position_embeddings
+        self.max_relative_positions = max_relative_positions
+        self.position_buckets = position_buckets
+        self.pos_att_type = pos_att_type
+        self.norm_rel_ebd = norm_rel_ebd
+        self.conv_kernel_size = conv_kernel_size
+        self.conv_act = conv_act
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.pad_token_id = pad_token_id
+        self.dropout = dropout
+        self.attention_dropout = attention_dropout
 
     def get_config(self):
         config = super().get_config()
-        config.update({**self._cfg, "name": self.name})
+        config.update(
+            {
+                "vocab_size": self.vocab_size,
+                "embed_dim": self.embed_dim,
+                "num_layers": self.num_layers,
+                "num_heads": self.num_heads,
+                "mlp_dim": self.mlp_dim,
+                "max_position_embeddings": self.max_position_embeddings,
+                "max_relative_positions": self.max_relative_positions,
+                "position_buckets": self.position_buckets,
+                "pos_att_type": self.pos_att_type,
+                "norm_rel_ebd": self.norm_rel_ebd,
+                "conv_kernel_size": self.conv_kernel_size,
+                "conv_act": self.conv_act,
+                "hidden_act": self.hidden_act,
+                "layer_norm_eps": self.layer_norm_eps,
+                "pad_token_id": self.pad_token_id,
+                "dropout": self.dropout,
+                "attention_dropout": self.attention_dropout,
+                "name": self.name,
+            }
+        )
         return config
 
     @classmethod
@@ -166,7 +194,28 @@ class DebertaV3MaskedLM(BaseModel):
         return DebertaV2Model.config_from_hf(hf_config)
 
     def __init__(self, name="DebertaV3MaskedLM", **kwargs):
-        cfg, _ = _split(kwargs)
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
+            kwargs.pop(k, None)
+        cfg = {
+            "vocab_size": 128100,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "position_buckets": 256,
+            "pos_att_type": ("p2c", "c2p"),
+            "norm_rel_ebd": True,
+            "conv_kernel_size": 0,
+            "conv_act": "gelu",
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaV3Model(**cfg, name=f"{name}_backbone")
         x = backbone.output["last_hidden_state"]
         x = layers.Dense(cfg["embed_dim"], name="lm_head_dense")(x)
@@ -246,7 +295,28 @@ class DebertaV3SequenceClassify(BaseModel):
         name="DebertaV3SequenceClassify",
         **kwargs,
     ):
-        cfg, _ = _split(kwargs)
+        for k in ("model", "hf_id", "url", "mlm_url"):
+            kwargs.pop(k, None)
+        cfg = {
+            "vocab_size": 128100,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "position_buckets": 256,
+            "pos_att_type": ("p2c", "c2p"),
+            "norm_rel_ebd": True,
+            "conv_kernel_size": 0,
+            "conv_act": "gelu",
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaV3Model(**cfg, name=f"{name}_backbone")
         logits = _classify_head(
             backbone,
@@ -321,7 +391,28 @@ class DebertaV3TokenClassify(BaseModel):
         name="DebertaV3TokenClassify",
         **kwargs,
     ):
-        cfg, _ = _split(kwargs)
+        for k in ("model", "hf_id", "url", "mlm_url"):
+            kwargs.pop(k, None)
+        cfg = {
+            "vocab_size": 128100,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "position_buckets": 256,
+            "pos_att_type": ("p2c", "c2p"),
+            "norm_rel_ebd": True,
+            "conv_kernel_size": 0,
+            "conv_act": "gelu",
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaV3Model(**cfg, name=f"{name}_backbone")
         x = backbone.output["last_hidden_state"]
         x = layers.Dropout(classifier_dropout)(x)
@@ -378,7 +469,28 @@ class DebertaV3QnA(BaseModel):
         return model
 
     def __init__(self, name="DebertaV3QnA", **kwargs):
-        cfg, _ = _split(kwargs)
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
+            kwargs.pop(k, None)
+        cfg = {
+            "vocab_size": 128100,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "position_buckets": 256,
+            "pos_att_type": ("p2c", "c2p"),
+            "norm_rel_ebd": True,
+            "conv_kernel_size": 0,
+            "conv_act": "gelu",
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaV3Model(**cfg, name=f"{name}_backbone")
         span = layers.Dense(2, name="qa_outputs")(backbone.output["last_hidden_state"])
         outputs = {"start_logits": span[:, :, 0], "end_logits": span[:, :, 1]}
@@ -428,7 +540,28 @@ class DebertaV3MultipleChoice(BaseModel):
         name="DebertaV3MultipleChoice",
         **kwargs,
     ):
-        cfg, _ = _split(kwargs)
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
+            kwargs.pop(k, None)
+        cfg = {
+            "vocab_size": 128100,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "position_buckets": 256,
+            "pos_att_type": ("p2c", "c2p"),
+            "norm_rel_ebd": True,
+            "conv_kernel_size": 0,
+            "conv_act": "gelu",
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         input_ids = layers.Input(
             shape=(num_choices, None), dtype="int32", name="input_ids"
         )
