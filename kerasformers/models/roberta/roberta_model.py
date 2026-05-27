@@ -4,23 +4,23 @@ from keras import layers, ops
 from kerasformers.base import BaseModel
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
-from .bert_layers import (
-    BertEmbeddings,
-    BertFlattenChoices,
-    BertSelfAttention,
-    BertUnflattenChoices,
+from .config import ROBERTA_MODEL_CONFIG, ROBERTA_WEIGHT_CONFIG
+from .roberta_layers import (
+    RobertaEmbeddings,
+    RobertaFlattenChoices,
+    RobertaSelfAttention,
+    RobertaUnflattenChoices,
 )
-from .config import BERT_MODEL_CONFIG, BERT_WEIGHT_CONFIG
 
 BASE_MODEL_CONFIG = {
-    v: BERT_MODEL_CONFIG[m["model"]] for v, m in BERT_WEIGHT_CONFIG.items()
+    v: ROBERTA_MODEL_CONFIG[m["model"]] for v, m in ROBERTA_WEIGHT_CONFIG.items()
 }
 MLM_WEIGHT_CONFIG = {
-    v: {**m, "url": m["mlm_url"]} for v, m in BERT_WEIGHT_CONFIG.items()
+    v: {**m, "url": m["mlm_url"]} for v, m in ROBERTA_WEIGHT_CONFIG.items()
 }
 
 
-def bert_encoder_layer(
+def roberta_encoder_layer(
     x,
     attention_mask,
     *,
@@ -33,10 +33,10 @@ def bert_encoder_layer(
     attention_dropout,
     layer_idx,
 ):
-    """One BERT transformer block: self-attention + feed-forward.
+    """One RoBERTa transformer block: self-attention + feed-forward.
 
-    Both sub-blocks use post-LayerNorm residuals, matching the original BERT
-    (``LayerNorm(x + Sublayer(x))``).
+    Both sub-blocks use post-LayerNorm residuals, matching the original
+    RoBERTa/BERT encoder (``LayerNorm(x + Sublayer(x))``).
 
     Args:
         x: Input token states ``(B, seq, embed_dim)``.
@@ -55,7 +55,7 @@ def bert_encoder_layer(
     """
     prefix = f"blocks_{layer_idx}"
 
-    attn = BertSelfAttention(
+    attn = RobertaSelfAttention(
         embed_dim,
         num_heads,
         attention_dropout=attention_dropout,
@@ -80,7 +80,7 @@ def bert_encoder_layer(
     return out
 
 
-def bert_backbone(
+def roberta_backbone(
     input_ids,
     attention_mask,
     token_type_ids,
@@ -92,22 +92,24 @@ def bert_backbone(
     mlp_dim,
     max_position_embeddings,
     type_vocab_size,
+    pad_token_id,
     hidden_act,
     layer_norm_eps,
     dropout,
     attention_dropout,
     add_pooler,
 ):
-    """BERT embeddings + transformer encoder (+ optional pooler).
+    """RoBERTa embeddings + transformer encoder (+ optional pooler).
 
     Returns ``(sequence_output, pooled_output)`` where ``pooled_output`` is
     ``None`` when ``add_pooler`` is False.
     """
-    embeddings = BertEmbeddings(
+    embeddings = RobertaEmbeddings(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
         max_position_embeddings=max_position_embeddings,
         type_vocab_size=type_vocab_size,
+        pad_token_id=pad_token_id,
         layer_norm_eps=layer_norm_eps,
         dropout=dropout,
         name="embeddings",
@@ -119,7 +121,7 @@ def bert_backbone(
 
     x = embeddings
     for i in range(num_layers):
-        x = bert_encoder_layer(
+        x = roberta_encoder_layer(
             x,
             mask,
             embed_dim=embed_dim,
@@ -143,55 +145,58 @@ def bert_backbone(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertModel(BaseModel):
-    """Instantiates the BERT encoder backbone.
+class RobertaModel(BaseModel):
+    """Instantiates the RoBERTa encoder backbone.
 
-    BERT embeds tokens with summed word / absolute-position / token-type
-    embeddings, then applies a stack of bidirectional transformer encoder
-    layers (multi-head self-attention + feed-forward, each with a post-LayerNorm
-    residual). An optional pooler applies a ``tanh`` dense projection to the
-    first ([CLS]) token.
+    RoBERTa embeds tokens with summed word / absolute-position / token-type
+    embeddings, then applies a stack of bidirectional transformer encoder layers
+    (multi-head self-attention + feed-forward, each with a post-LayerNorm
+    residual). It differs from BERT in that position ids are offset by the
+    padding id (the embedding table has two extra slots), there is a single
+    token-type, and the LayerNorm epsilon is ``1e-5``. An optional pooler applies
+    a ``tanh`` dense projection to the first (``<s>``) token.
 
     The model takes a dict of ``input_ids``, ``attention_mask`` and
     ``token_type_ids`` (all ``(B, seq)`` int tensors, as produced by
-    :class:`BertTokenizer`) and returns a dict with ``last_hidden_state``
+    :class:`RobertaTokenizer`) and returns a dict with ``last_hidden_state``
     ``(B, seq, embed_dim)`` and, when ``add_pooler=True``, ``pooler_output``
     ``(B, embed_dim)``.
 
     References:
-    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+    - [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692)
 
     Args:
-        vocab_size: Integer, token vocabulary size. Defaults to `30522`.
+        vocab_size: Integer, token vocabulary size. Defaults to `50265`.
         embed_dim: Integer, model / embedding dimension. Defaults to `768`.
         num_layers: Integer, number of transformer encoder layers.
             Defaults to `12`.
         num_heads: Integer, number of attention heads. Defaults to `12`.
         mlp_dim: Integer, feed-forward hidden dimension. Defaults to `3072`.
         max_position_embeddings: Integer, size of the position-embedding table.
-            Defaults to `512`.
-        type_vocab_size: Integer, number of token-type ids. Defaults to `2`.
-        hidden_act: String, feed-forward / pooler-free activation. Defaults to `"gelu"`.
-        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-12`.
-        pad_token_id: Integer, padding token id. Defaults to `0`.
+            Defaults to `514`.
+        type_vocab_size: Integer, number of token-type ids. Defaults to `1`.
+        hidden_act: String, feed-forward activation. Defaults to `"gelu"`.
+        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-5`.
+        pad_token_id: Integer, padding token id (also the position offset).
+            Defaults to `1`.
         dropout: Float, hidden dropout rate. Defaults to `0.0`.
         attention_dropout: Float, attention-weight dropout rate. Defaults to `0.0`.
-        add_pooler: Boolean, whether to add the [CLS] pooler. Defaults to `True`.
-        name: String, model name. Defaults to `"BertModel"`.
+        add_pooler: Boolean, whether to add the ``<s>`` pooler. Defaults to `True`.
+        name: String, model name. Defaults to `"RobertaModel"`.
 
     Returns:
         A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "bert"
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "roberta"
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_bert_hf_to_keras import transfer_bert_weights
+        from .convert_roberta_hf_to_keras import transfer_roberta_weights
 
-        transfer_bert_weights(keras_model, state_dict)
+        transfer_roberta_weights(keras_model, state_dict)
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -204,26 +209,26 @@ class BertModel(BaseModel):
             "max_position_embeddings": hf_config["max_position_embeddings"],
             "type_vocab_size": hf_config["type_vocab_size"],
             "hidden_act": hf_config.get("hidden_act", "gelu"),
-            "layer_norm_eps": hf_config.get("layer_norm_eps", 1e-12),
-            "pad_token_id": hf_config.get("pad_token_id", 0),
+            "layer_norm_eps": hf_config.get("layer_norm_eps", 1e-5),
+            "pad_token_id": hf_config.get("pad_token_id", 1),
         }
 
     def __init__(
         self,
-        vocab_size=30522,
+        vocab_size=50265,
         embed_dim=768,
         num_layers=12,
         num_heads=12,
         mlp_dim=3072,
-        max_position_embeddings=512,
-        type_vocab_size=2,
+        max_position_embeddings=514,
+        type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
+        layer_norm_eps=1e-5,
+        pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
         add_pooler=True,
-        name="BertModel",
+        name="RobertaModel",
         **kwargs,
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
@@ -238,7 +243,7 @@ class BertModel(BaseModel):
                 shape=(None,), dtype="int32", name="token_type_ids"
             ),
         }
-        sequence_output, pooled_output = bert_backbone(
+        sequence_output, pooled_output = roberta_backbone(
             inputs["input_ids"],
             inputs["attention_mask"],
             inputs["token_type_ids"],
@@ -249,6 +254,7 @@ class BertModel(BaseModel):
             mlp_dim=mlp_dim,
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
+            pad_token_id=pad_token_id,
             hidden_act=hidden_act,
             layer_norm_eps=layer_norm_eps,
             dropout=dropout,
@@ -304,21 +310,21 @@ class BertModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertMaskedLM(BaseModel):
-    """BERT with the masked-language-modeling head.
+class RobertaMaskedLM(BaseModel):
+    """RoBERTa with the masked-language-modeling head.
 
-    Wraps a :class:`BertModel` backbone (no pooler) and attaches BERT's MLM head
-    — a dense transform with ``hidden_act`` + LayerNorm, then a vocabulary
+    Wraps a :class:`RobertaModel` backbone (no pooler) and attaches RoBERTa's
+    MLM head — a dense transform with ``gelu`` + LayerNorm, then a vocabulary
     projection — producing token logits ``(B, seq, vocab_size)``. The head's
     weights are part of the pretrained checkpoint, so ``from_weights`` restores
     a ready-to-use fill-mask model.
 
     References:
-    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+    - [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692)
 
     Args:
-        See :class:`BertModel` for the backbone arguments.
-        name: String, model name. Defaults to `"BertMaskedLM"`.
+        See :class:`RobertaModel` for the backbone arguments.
+        name: String, model name. Defaults to `"RobertaMaskedLM"`.
 
     Returns:
         A Keras `Model` instance.
@@ -326,39 +332,39 @@ class BertMaskedLM(BaseModel):
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
     BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "bert"
+    HF_MODEL_TYPE = "roberta"
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_bert_hf_to_keras import transfer_bert_weights
+        from .convert_roberta_hf_to_keras import transfer_roberta_weights
 
-        transfer_bert_weights(keras_model, state_dict)
+        transfer_roberta_weights(keras_model, state_dict)
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return BertModel.config_from_hf(hf_config)
+        return RobertaModel.config_from_hf(hf_config)
 
     def __init__(
         self,
-        vocab_size=30522,
+        vocab_size=50265,
         embed_dim=768,
         num_layers=12,
         num_heads=12,
         mlp_dim=3072,
-        max_position_embeddings=512,
-        type_vocab_size=2,
+        max_position_embeddings=514,
+        type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
+        layer_norm_eps=1e-5,
+        pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
-        name="BertMaskedLM",
+        name="RobertaMaskedLM",
         **kwargs,
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
 
-        backbone = BertModel(
+        backbone = RobertaModel(
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             num_layers=num_layers,
@@ -376,12 +382,12 @@ class BertMaskedLM(BaseModel):
         )
 
         x = backbone.output["last_hidden_state"]
-        x = layers.Dense(embed_dim, name="mlm_transform_dense")(x)
-        x = layers.Activation(hidden_act, name="mlm_transform_act")(x)
-        x = layers.LayerNormalization(
-            epsilon=layer_norm_eps, name="mlm_transform_layernorm"
-        )(x)
-        logits = layers.Dense(vocab_size, name="mlm_decoder")(x)
+        x = layers.Dense(embed_dim, name="lm_head_dense")(x)
+        x = layers.Activation("gelu", name="lm_head_act")(x)
+        x = layers.LayerNormalization(epsilon=layer_norm_eps, name="lm_head_layernorm")(
+            x
+        )
+        logits = layers.Dense(vocab_size, name="lm_head_decoder")(x)
 
         super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
 
@@ -425,44 +431,47 @@ class BertMaskedLM(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertSequenceClassify(BaseModel):
-    """BERT sentence/sequence classifier.
+class RobertaSequenceClassify(BaseModel):
+    """RoBERTa sentence/sequence classifier.
 
-    Wraps a :class:`BertModel` backbone (with pooler) and attaches dropout plus a
-    dense head on the pooled [CLS] representation, producing ``num_classes``
-    logits ``(B, num_classes)``. The pretrained checkpoint has no task head, so
-    ``from_weights`` restores the backbone + pooler and leaves the classifier
-    randomly initialized (ready for fine-tuning) unless a fine-tuned release is
-    configured.
+    Wraps a :class:`RobertaModel` backbone (no pooler) and attaches RoBERTa's
+    classification head: on the first (``<s>``) token, dropout then a ``tanh``
+    dense projection, dropout, and a final dense layer to ``num_classes`` logits
+    ``(B, num_classes)``. Unlike BERT, this head operates directly on the
+    ``<s>`` hidden state rather than the pooler. The pretrained checkpoint has no
+    task head, so ``from_weights`` restores the backbone and leaves the
+    classifier randomly initialized (ready for fine-tuning) unless a fine-tuned
+    release is configured.
 
     References:
-    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+    - [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692)
 
     Args:
-        See :class:`BertModel` for the backbone arguments.
+        See :class:`RobertaModel` for the backbone arguments.
         num_classes: Integer, number of output classes. Defaults to `2`.
-        classifier_dropout: Float, dropout before the classifier. Defaults to `0.0`.
-        classifier_activation: String/callable, head activation (`"linear"` for
-            logits). Defaults to `"linear"`.
-        name: String, model name. Defaults to `"BertSequenceClassify"`.
+        classifier_dropout: Float, dropout inside the classification head.
+            Defaults to `0.0`.
+        classifier_activation: String/callable, final head activation
+            (`"linear"` for logits). Defaults to `"linear"`.
+        name: String, model name. Defaults to `"RobertaSequenceClassify"`.
 
     Returns:
         A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "bert"
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "roberta"
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_bert_hf_to_keras import transfer_bert_weights
+        from .convert_roberta_hf_to_keras import transfer_roberta_weights
 
-        transfer_bert_weights(keras_model, state_dict)
+        transfer_roberta_weights(keras_model, state_dict)
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = BertModel.config_from_hf(hf_config)
+        config = RobertaModel.config_from_hf(hf_config)
         config["num_classes"] = (
             len(hf_config["id2label"])
             if "id2label" in hf_config
@@ -474,35 +483,35 @@ class BertSequenceClassify(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = RobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     def __init__(
         self,
-        vocab_size=30522,
+        vocab_size=50265,
         embed_dim=768,
         num_layers=12,
         num_heads=12,
         mlp_dim=3072,
-        max_position_embeddings=512,
-        type_vocab_size=2,
+        max_position_embeddings=514,
+        type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
+        layer_norm_eps=1e-5,
+        pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
         num_classes=2,
         classifier_dropout=0.0,
         classifier_activation="linear",
-        name="BertSequenceClassify",
+        name="RobertaSequenceClassify",
         **kwargs,
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "add_pooler"):
             kwargs.pop(k, None)
 
-        backbone = BertModel(
+        backbone = RobertaModel(
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             num_layers=num_layers,
@@ -515,14 +524,16 @@ class BertSequenceClassify(BaseModel):
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
-            add_pooler=True,
+            add_pooler=False,
             name=f"{name}_backbone",
         )
 
-        x = backbone.output["pooler_output"]
+        x = backbone.output["last_hidden_state"][:, 0]
+        x = layers.Dropout(classifier_dropout)(x)
+        x = layers.Dense(embed_dim, activation="tanh", name="classifier_dense")(x)
         x = layers.Dropout(classifier_dropout)(x)
         logits = layers.Dense(
-            num_classes, activation=classifier_activation, name="classifier"
+            num_classes, activation=classifier_activation, name="classifier_out_proj"
         )(x)
 
         super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
@@ -573,42 +584,41 @@ class BertSequenceClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertTokenClassify(BaseModel):
-    """BERT token classifier (e.g. NER / POS tagging).
+class RobertaTokenClassify(BaseModel):
+    """RoBERTa token classifier (e.g. NER / POS tagging).
 
-    Wraps a :class:`BertModel` backbone (no pooler) and attaches dropout plus a
-    dense head applied per token, producing ``num_classes`` logits
-    ``(B, seq, num_classes)``. As with :class:`BertSequenceClassify`, the head is
-    randomly initialized from the pretrained checkpoint and meant for
-    fine-tuning.
+    Wraps a :class:`RobertaModel` backbone (no pooler) and attaches dropout plus
+    a dense head applied per token, producing ``num_classes`` logits
+    ``(B, seq, num_classes)``. The head is randomly initialized from the
+    pretrained checkpoint and meant for fine-tuning.
 
     References:
-    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+    - [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692)
 
     Args:
-        See :class:`BertModel` for the backbone arguments.
+        See :class:`RobertaModel` for the backbone arguments.
         num_classes: Integer, number of token classes. Defaults to `2`.
         classifier_dropout: Float, dropout before the classifier. Defaults to `0.0`.
         classifier_activation: String/callable, head activation. Defaults to `"linear"`.
-        name: String, model name. Defaults to `"BertTokenClassify"`.
+        name: String, model name. Defaults to `"RobertaTokenClassify"`.
 
     Returns:
         A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "bert"
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "roberta"
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_bert_hf_to_keras import transfer_bert_weights
+        from .convert_roberta_hf_to_keras import transfer_roberta_weights
 
-        transfer_bert_weights(keras_model, state_dict)
+        transfer_roberta_weights(keras_model, state_dict)
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = BertModel.config_from_hf(hf_config)
+        config = RobertaModel.config_from_hf(hf_config)
         config["num_classes"] = (
             len(hf_config["id2label"])
             if "id2label" in hf_config
@@ -620,35 +630,35 @@ class BertTokenClassify(BaseModel):
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = RobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     def __init__(
         self,
-        vocab_size=30522,
+        vocab_size=50265,
         embed_dim=768,
         num_layers=12,
         num_heads=12,
         mlp_dim=3072,
-        max_position_embeddings=512,
-        type_vocab_size=2,
+        max_position_embeddings=514,
+        type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
+        layer_norm_eps=1e-5,
+        pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
         num_classes=2,
         classifier_dropout=0.0,
         classifier_activation="linear",
-        name="BertTokenClassify",
+        name="RobertaTokenClassify",
         **kwargs,
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "add_pooler"):
             kwargs.pop(k, None)
 
-        backbone = BertModel(
+        backbone = RobertaModel(
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             num_layers=num_layers,
@@ -719,195 +729,70 @@ class BertTokenClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertNextSentencePredict(BaseModel):
-    """BERT next-sentence-prediction head.
+class RobertaQnA(BaseModel):
+    """RoBERTa extractive question-answering head.
 
-    Wraps a :class:`BertModel` backbone (with pooler) and attaches BERT's
-    next-sentence head — a dense projection of the pooled [CLS] token to two
-    logits (``isNext`` / ``notNext``), ``(B, 2)``. These head weights are part
-    of the pretrained checkpoint, so loading a base BERT via ``hf:`` restores a
-    working NSP model.
-
-    References:
-    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
-
-    Args:
-        See :class:`BertModel` for the backbone arguments.
-        name: String, model name. Defaults to `"BertNextSentencePredict"`.
-
-    Returns:
-        A Keras `Model` instance.
-    """
-
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "bert"
-
-    @classmethod
-    def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_bert_hf_to_keras import transfer_bert_weights
-
-        transfer_bert_weights(keras_model, state_dict)
-
-    @classmethod
-    def config_from_hf(cls, hf_config):
-        return BertModel.config_from_hf(hf_config)
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    def __init__(
-        self,
-        vocab_size=30522,
-        embed_dim=768,
-        num_layers=12,
-        num_heads=12,
-        mlp_dim=3072,
-        max_position_embeddings=512,
-        type_vocab_size=2,
-        hidden_act="gelu",
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
-        dropout=0.0,
-        attention_dropout=0.0,
-        name="BertNextSentencePredict",
-        **kwargs,
-    ):
-        for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
-            kwargs.pop(k, None)
-
-        backbone = BertModel(
-            vocab_size=vocab_size,
-            embed_dim=embed_dim,
-            num_layers=num_layers,
-            num_heads=num_heads,
-            mlp_dim=mlp_dim,
-            max_position_embeddings=max_position_embeddings,
-            type_vocab_size=type_vocab_size,
-            hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
-            pad_token_id=pad_token_id,
-            dropout=dropout,
-            attention_dropout=attention_dropout,
-            add_pooler=True,
-            name=f"{name}_backbone",
-        )
-
-        x = backbone.output["pooler_output"]
-        logits = layers.Dense(2, name="nsp_classifier")(x)
-
-        super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
-
-        self.vocab_size = vocab_size
-        self.embed_dim = embed_dim
-        self.num_layers = num_layers
-        self.num_heads = num_heads
-        self.mlp_dim = mlp_dim
-        self.max_position_embeddings = max_position_embeddings
-        self.type_vocab_size = type_vocab_size
-        self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
-        self.pad_token_id = pad_token_id
-        self.dropout = dropout
-        self.attention_dropout = attention_dropout
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "vocab_size": self.vocab_size,
-                "embed_dim": self.embed_dim,
-                "num_layers": self.num_layers,
-                "num_heads": self.num_heads,
-                "mlp_dim": self.mlp_dim,
-                "max_position_embeddings": self.max_position_embeddings,
-                "type_vocab_size": self.type_vocab_size,
-                "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
-                "pad_token_id": self.pad_token_id,
-                "dropout": self.dropout,
-                "attention_dropout": self.attention_dropout,
-                "name": self.name,
-            }
-        )
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kerasformers")
-class BertQnA(BaseModel):
-    """BERT extractive question-answering head.
-
-    Wraps a :class:`BertModel` backbone (no pooler) and attaches a dense span
+    Wraps a :class:`RobertaModel` backbone (no pooler) and attaches a dense span
     head that maps each token to two logits, split into ``start_logits`` and
-    ``end_logits`` (each ``(B, seq)``). The head is randomly initialized from
-    the pretrained checkpoint and meant for fine-tuning (or loaded from a
-    fine-tuned ``hf:`` repo such as a SQuAD model).
+    ``end_logits`` (each ``(B, seq)``). The head is randomly initialized from the
+    pretrained checkpoint and meant for fine-tuning (or loaded from a fine-tuned
+    ``hf:`` repo such as a SQuAD model).
 
     References:
-    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+    - [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692)
 
     Args:
-        See :class:`BertModel` for the backbone arguments.
-        name: String, model name. Defaults to `"BertQnA"`.
+        See :class:`RobertaModel` for the backbone arguments.
+        name: String, model name. Defaults to `"RobertaQnA"`.
 
     Returns:
         A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "bert"
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "roberta"
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_bert_hf_to_keras import transfer_bert_weights
+        from .convert_roberta_hf_to_keras import transfer_roberta_weights
 
-        transfer_bert_weights(keras_model, state_dict)
+        transfer_roberta_weights(keras_model, state_dict)
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return BertModel.config_from_hf(hf_config)
+        return RobertaModel.config_from_hf(hf_config)
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = RobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     def __init__(
         self,
-        vocab_size=30522,
+        vocab_size=50265,
         embed_dim=768,
         num_layers=12,
         num_heads=12,
         mlp_dim=3072,
-        max_position_embeddings=512,
-        type_vocab_size=2,
+        max_position_embeddings=514,
+        type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
+        layer_norm_eps=1e-5,
+        pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
-        name="BertQnA",
+        name="RobertaQnA",
         **kwargs,
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
 
-        backbone = BertModel(
+        backbone = RobertaModel(
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             num_layers=num_layers,
@@ -970,67 +855,68 @@ class BertQnA(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertMultipleChoice(BaseModel):
-    """BERT multiple-choice head (e.g. SWAG).
+class RobertaMultipleChoice(BaseModel):
+    """RoBERTa multiple-choice head (e.g. SWAG).
 
     Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
-    into the batch, runs the :class:`BertModel` backbone (with pooler), and
+    into the batch, runs the :class:`RobertaModel` backbone (with pooler), and
     scores each choice with a shared dense layer, reshaping back to per-example
     ``(B, num_choices)`` logits. The head is randomly initialized and meant for
     fine-tuning (or loaded from a fine-tuned ``hf:`` repo).
 
     References:
-    - [BERT: Pre-training of Deep Bidirectional Transformers](https://arxiv.org/abs/1810.04805)
+    - [RoBERTa: A Robustly Optimized BERT Pretraining Approach](https://arxiv.org/abs/1907.11692)
 
     Args:
-        See :class:`BertModel` for the backbone arguments.
+        See :class:`RobertaModel` for the backbone arguments.
+        num_choices: Integer, number of choices per example. Defaults to `4`.
         classifier_dropout: Float, dropout before the choice scorer. Defaults to `0.0`.
-        name: String, model name. Defaults to `"BertMultipleChoice"`.
+        name: String, model name. Defaults to `"RobertaMultipleChoice"`.
 
     Returns:
         A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "bert"
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    HF_MODEL_TYPE = "roberta"
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_bert_hf_to_keras import transfer_bert_weights
+        from .convert_roberta_hf_to_keras import transfer_roberta_weights
 
-        transfer_bert_weights(keras_model, state_dict)
+        transfer_roberta_weights(keras_model, state_dict)
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return BertModel.config_from_hf(hf_config)
+        return RobertaModel.config_from_hf(hf_config)
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
-            src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = RobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
 
     def __init__(
         self,
-        vocab_size=30522,
+        vocab_size=50265,
         embed_dim=768,
         num_layers=12,
         num_heads=12,
         mlp_dim=3072,
-        max_position_embeddings=512,
-        type_vocab_size=2,
+        max_position_embeddings=514,
+        type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
-        pad_token_id=0,
+        layer_norm_eps=1e-5,
+        pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
         num_choices=4,
         classifier_dropout=0.0,
-        name="BertMultipleChoice",
+        name="RobertaMultipleChoice",
         **kwargs,
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
@@ -1046,7 +932,7 @@ class BertMultipleChoice(BaseModel):
             shape=(num_choices, None), dtype="int32", name="token_type_ids"
         )
 
-        backbone = BertModel(
+        backbone = RobertaModel(
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             num_layers=num_layers,
@@ -1063,7 +949,7 @@ class BertMultipleChoice(BaseModel):
             name=f"{name}_backbone",
         )
 
-        flatten = BertFlattenChoices(name="flatten_choices")
+        flatten = RobertaFlattenChoices(name="flatten_choices")
         pooled = backbone(
             {
                 "input_ids": flatten(input_ids),
@@ -1073,7 +959,7 @@ class BertMultipleChoice(BaseModel):
         )["pooler_output"]
         x = layers.Dropout(classifier_dropout)(pooled)
         x = layers.Dense(1, name="classifier")(x)
-        logits = BertUnflattenChoices(num_choices, name="unflatten_choices")(x)
+        logits = RobertaUnflattenChoices(num_choices, name="unflatten_choices")(x)
 
         inputs = {
             "input_ids": input_ids,

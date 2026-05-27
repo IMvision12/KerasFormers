@@ -3,19 +3,23 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertEmbeddings(layers.Layer):
-    """Constructs BERT's input embeddings.
+class RobertaEmbeddings(layers.Layer):
+    """Constructs RoBERTa's input embeddings.
 
-    Sums learned word, absolute-position, and token-type (segment) embeddings,
-    then applies LayerNorm and dropout. Position ids are derived from the input
-    length with ``cumsum(ones_like) - 1`` rather than ``arange`` so the layer
-    stays shape-polymorphic across the TensorFlow / JAX / PyTorch backends.
+    Sums learned word, absolute-position, and token-type embeddings, then
+    applies LayerNorm and dropout. Unlike BERT, RoBERTa derives position ids
+    from the non-padding mask: each non-pad token is numbered sequentially
+    starting at ``pad_token_id + 1`` and pad tokens map to ``pad_token_id``
+    (``cumsum(input_ids != pad) * mask + pad``). This is computed with masked
+    ``cumsum`` rather than ``arange`` so the layer stays shape-polymorphic
+    across the TensorFlow / JAX / PyTorch backends.
 
     Args:
         vocab_size: Token vocabulary size.
         embed_dim: Embedding / model dimension.
         max_position_embeddings: Size of the position-embedding table.
-        type_vocab_size: Number of token-type (segment) ids.
+        type_vocab_size: Number of token-type ids (``1`` for RoBERTa).
+        pad_token_id: Padding token id; positions are offset by this value.
         layer_norm_eps: Epsilon for the embedding LayerNorm.
         dropout: Dropout rate applied to the summed embeddings.
     """
@@ -26,7 +30,8 @@ class BertEmbeddings(layers.Layer):
         embed_dim,
         max_position_embeddings,
         type_vocab_size,
-        layer_norm_eps=1e-12,
+        pad_token_id=1,
+        layer_norm_eps=1e-5,
         dropout=0.0,
         **kwargs,
     ):
@@ -35,6 +40,7 @@ class BertEmbeddings(layers.Layer):
         self.embed_dim = embed_dim
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
+        self.pad_token_id = pad_token_id
         self.layer_norm_eps = layer_norm_eps
         self.dropout_rate = dropout
 
@@ -54,7 +60,8 @@ class BertEmbeddings(layers.Layer):
 
     def call(self, inputs, training=None):
         input_ids, token_type_ids = inputs
-        position_ids = ops.cumsum(ops.ones_like(input_ids), axis=1) - 1
+        mask = ops.cast(ops.not_equal(input_ids, self.pad_token_id), input_ids.dtype)
+        position_ids = ops.cumsum(mask, axis=1) * mask + self.pad_token_id
 
         embeddings = (
             self.word_embeddings(input_ids)
@@ -72,6 +79,7 @@ class BertEmbeddings(layers.Layer):
                 "embed_dim": self.embed_dim,
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
+                "pad_token_id": self.pad_token_id,
                 "layer_norm_eps": self.layer_norm_eps,
                 "dropout": self.dropout_rate,
             }
@@ -80,8 +88,8 @@ class BertEmbeddings(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertSelfAttention(layers.Layer):
-    """BERT multi-head self-attention (the ``attention.self`` sub-block).
+class RobertaSelfAttention(layers.Layer):
+    """RoBERTa multi-head self-attention (the ``attention.self`` sub-block).
 
     Projects the input to query/key/value, computes scaled dot-product
     attention with an additive padding mask, and returns the concatenated
@@ -169,7 +177,7 @@ class BertSelfAttention(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertFlattenChoices(layers.Layer):
+class RobertaFlattenChoices(layers.Layer):
     """Merge the multiple-choice axis into the batch: ``(B, C, S) -> (B*C, S)``.
 
     Defining ``compute_output_shape`` keeps the dynamic reshape out of the
@@ -185,8 +193,8 @@ class BertFlattenChoices(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertUnflattenChoices(layers.Layer):
-    """Inverse of :class:`BertFlattenChoices` for the scores: ``(B*C, 1) -> (B, C)``.
+class RobertaUnflattenChoices(layers.Layer):
+    """Inverse of :class:`RobertaFlattenChoices` for the scores: ``(B*C, 1) -> (B, C)``.
 
     Args:
         num_choices: Number of choices ``C`` to fold back out of the batch.

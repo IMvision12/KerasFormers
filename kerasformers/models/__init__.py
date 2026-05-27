@@ -49,6 +49,7 @@ from kerasformers.models import (
     resnetv2,
     resnext,
     rf_detr,
+    roberta,
     rt_detr,
     rt_detr_v2,
     sam,
@@ -64,4 +65,5 @@ from kerasformers.models import (
     vgg,
     vit,
     xception,
+    xlm_roberta,
 )

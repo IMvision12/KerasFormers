@@ -48,6 +48,29 @@ def bert_multiple_choice_input(batch_size=2, num_choices=3, seq_len=16):
     }
 
 
+def roberta_input(batch_size=2, seq_len=16):
+    """Token / mask / segment input for the RoBERTa and XLM-R encoders. Token
+    ids avoid the pad id (1) so the padding-offset position ids are exercised."""
+    ids = np.full((batch_size, seq_len), 5, dtype="int32")
+    ids[:, 0] = 0
+    return {
+        "input_ids": ops.convert_to_tensor(ids),
+        "attention_mask": ops.ones((batch_size, seq_len), dtype="int32"),
+        "token_type_ids": ops.zeros((batch_size, seq_len), dtype="int32"),
+    }
+
+
+def roberta_multiple_choice_input(batch_size=2, num_choices=3, seq_len=16):
+    """Per-choice token input for RoBERTa/XLM-R multiple choice: (B, C, seq)."""
+    ids = np.full((batch_size, num_choices, seq_len), 5, dtype="int32")
+    ids[..., 0] = 0
+    return {
+        "input_ids": ops.convert_to_tensor(ids),
+        "attention_mask": ops.ones((batch_size, num_choices, seq_len), dtype="int32"),
+        "token_type_ids": ops.zeros((batch_size, num_choices, seq_len), dtype="int32"),
+    }
+
+
 def backbone_input(batch_size=2, spatial=32, channels=3):
     return ops.ones((batch_size, spatial, spatial, channels))
 
