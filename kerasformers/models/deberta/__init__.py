@@ -1,7 +1,6 @@
 from .deberta_model import (
     DebertaMaskedLM,
     DebertaModel,
-    DebertaMultipleChoice,
     DebertaQnA,
     DebertaSequenceClassify,
     DebertaTokenClassify,
@@ -14,6 +13,5 @@ __all__ = [
     "DebertaSequenceClassify",
     "DebertaTokenClassify",
     "DebertaQnA",
-    "DebertaMultipleChoice",
     "DebertaTokenizer",
 ]

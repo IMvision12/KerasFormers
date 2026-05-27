@@ -40,6 +40,5 @@ DEBERTA_WEIGHT_CONFIG = {
     },
 }
 
-# DeBERTa v1 uses a GPT-2 byte-level BPE tokenizer (shared across base / large).
 DEBERTA_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_vocab.json"
 DEBERTA_MERGES_URL = "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_merges.txt"

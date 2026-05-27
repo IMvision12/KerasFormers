@@ -72,8 +72,6 @@ class DebertaEmbeddings(layers.Layer):
         self.dropout = layers.Dropout(dropout)
 
     def call(self, inputs, training=None):
-        # token_type_ids (inputs[2]) is accepted for API parity but unused:
-        # DeBERTa has no token-type embeddings (type_vocab_size == 0).
         input_ids, attention_mask = inputs[0], inputs[1]
         embeddings = self.word_embeddings(input_ids)
         embeddings = self.layer_norm(embeddings)
@@ -174,15 +172,12 @@ class DisentangledSelfAttention(layers.Layer):
         return input_shape
 
     def split_heads(self, x):
-        # (B, L, num_heads * d) -> (B, num_heads, L, d), with d inferred (so it
-        # also handles the fused q|k|v projection where d == 3 * head_dim).
         batch = ops.shape(x)[0]
         length = ops.shape(x)[1]
         x = ops.reshape(x, (batch, length, self.num_heads, -1))
         return ops.transpose(x, (0, 2, 1, 3))
 
     def gather_rel(self, att, pos):
-        # att: (B, heads, q, 2*max_rel); pos: (1, q, k) -> gather along -1 -> (B, heads, q, k)
         idx = ops.expand_dims(ops.cast(pos, "int32"), 1)
         idx = idx + ops.zeros_like(ops.cast(att[..., :1], "int32"))
         return ops.take_along_axis(att, idx, axis=-1)
@@ -226,8 +221,6 @@ class DisentangledSelfAttention(layers.Layer):
         )
 
         mask = ops.cast(attention_mask, "bool")
-        # large finite negative (HF uses finfo.min); finite avoids NaN on fully
-        # masked padding rows and is identical for real tokens (masked -> ~0).
         scores = ops.where(mask, scores, ops.cast(-1e30, scores.dtype))
         probs = ops.softmax(scores, axis=-1)
         probs = self.dropout(probs, training=training)
@@ -249,43 +242,4 @@ class DisentangledSelfAttention(layers.Layer):
                 "block_prefix": self.block_prefix,
             }
         )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaFlattenChoices(layers.Layer):
-    """Merge the multiple-choice axis into the batch: ``(B, C, S) -> (B*C, S)``.
-
-    Defining ``compute_output_shape`` keeps the dynamic reshape out of the
-    functional-build trace, so it builds on every backend.
-    """
-
-    def call(self, inputs):
-        return ops.reshape(inputs, (-1, ops.shape(inputs)[-1]))
-
-    def compute_output_shape(self, input_shape):
-        return (None, input_shape[-1])
-
-
-@keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaUnflattenChoices(layers.Layer):
-    """Inverse of :class:`DebertaFlattenChoices` for scores: ``(B*C, 1) -> (B, C)``.
-
-    Args:
-        num_choices: Number of choices ``C`` to fold back out of the batch.
-    """
-
-    def __init__(self, num_choices, **kwargs):
-        super().__init__(**kwargs)
-        self.num_choices = num_choices
-
-    def call(self, inputs):
-        return ops.reshape(inputs, (-1, self.num_choices))
-
-    def compute_output_shape(self, input_shape):
-        return (None, self.num_choices)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"num_choices": self.num_choices})
         return config

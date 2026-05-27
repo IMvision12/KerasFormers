@@ -79,16 +79,10 @@ def hf_name_for(path: str) -> Optional[str]:
     return None
 
 
-def normalize_hf_key(key: str) -> str:
-    if key.startswith("deberta."):
-        key = key[len("deberta.") :]
-    return key
-
-
 def transfer_deberta_v2_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    hf = {normalize_hf_key(k): v for k, v in hf_state_dict.items()}
+    hf = {k.removeprefix("deberta."): v for k, v in hf_state_dict.items()}
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
         hf_name = hf_name_for(weight.path)
         if hf_name is None:

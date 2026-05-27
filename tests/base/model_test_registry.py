@@ -1916,24 +1916,6 @@ MODEL_TEST_CONFIGS = {
         "input_factory_kwargs": {"seq_len": 16},
         "expected_output_shape": {"start_logits": (2, 16), "end_logits": (2, 16)},
     },
-    "DebertaMultipleChoice": {
-        "module": "kerasformers.models.deberta",
-        "model_cls": "DebertaMultipleChoice",
-        "model_type": "llm",
-        "init_kwargs": {
-            "vocab_size": 128,
-            "embed_dim": 32,
-            "num_layers": 2,
-            "num_heads": 2,
-            "mlp_dim": 64,
-            "max_position_embeddings": 64,
-            "max_relative_positions": 64,
-            "num_choices": 3,
-        },
-        "input_factory": "bert_multiple_choice_input",
-        "input_factory_kwargs": {"num_choices": 3, "seq_len": 16},
-        "expected_output_shape": (2, 3),
-    },
     # ---- Text encoders (DeBERTa v2) ----
     "DebertaV2Model": {
         "module": "kerasformers.models.deberta_v2",

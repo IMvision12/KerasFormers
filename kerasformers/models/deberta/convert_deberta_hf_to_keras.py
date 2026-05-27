@@ -12,14 +12,12 @@ WEIGHT_NAME_MAPPING = {
     "embeddings/LayerNorm/gamma": "embeddings.LayerNorm.weight",
     "embeddings/LayerNorm/beta": "embeddings.LayerNorm.bias",
     "rel_embeddings/embeddings": "encoder.rel_embeddings.weight",
-    # masked-LM head (lm_predictions.lm_head.*); decoder is tied to word embeddings
     "lm_head_dense/kernel": "lm_predictions.lm_head.dense.weight",
     "lm_head_dense/bias": "lm_predictions.lm_head.dense.bias",
     "lm_head_layernorm/gamma": "lm_predictions.lm_head.LayerNorm.weight",
     "lm_head_layernorm/beta": "lm_predictions.lm_head.LayerNorm.bias",
     "lm_head_decoder/kernel": "embeddings.word_embeddings.weight",
     "lm_head_decoder/bias": "lm_predictions.lm_head.bias",
-    # context pooler + task heads
     "pooler_dense/kernel": "pooler.dense.weight",
     "pooler_dense/bias": "pooler.dense.bias",
     "classifier/kernel": "classifier.weight",
@@ -78,14 +76,8 @@ def hf_name_for(path: str) -> Optional[str]:
     return None
 
 
-def normalize_hf_key(key: str) -> str:
-    if key.startswith("deberta."):
-        key = key[len("deberta.") :]
-    return key
-
-
 def transfer_deberta_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    hf = {normalize_hf_key(k): v for k, v in hf_state_dict.items()}
+    hf = {k.removeprefix("deberta."): v for k, v in hf_state_dict.items()}
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
         hf_name = hf_name_for(weight.path)
         if hf_name is None:

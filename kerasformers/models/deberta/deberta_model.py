@@ -7,8 +7,6 @@ from kerasformers.weight_utils import copy_weights_by_path_suffix
 from .config import DEBERTA_MODEL_CONFIG, DEBERTA_WEIGHT_CONFIG
 from .deberta_layers import (
     DebertaEmbeddings,
-    DebertaFlattenChoices,
-    DebertaUnflattenChoices,
     DisentangledSelfAttention,
     RelativeEmbedding,
 )
@@ -645,121 +643,6 @@ class DebertaQnA(BaseModel):
     def get_config(self):
         config = super().get_config()
         config.update({**self._cfg, "name": self.name})
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaMultipleChoice(BaseModel):
-    """DeBERTa multiple-choice head (e.g. SWAG).
-
-    Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
-    into the batch, runs the :class:`DebertaModel` backbone, scores each choice
-    with the context pooler + a shared dense layer, and reshapes back to
-    per-example ``(B, num_choices)`` logits. The head is randomly initialized and
-    meant for fine-tuning.
-
-    References:
-    - [DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654)
-
-    Args:
-        See :class:`DebertaModel` for the backbone arguments.
-        num_choices: Integer, number of choices per example. Defaults to `4`.
-        pooler_dropout: Float, dropout inside the context pooler. Defaults to `0.0`.
-        classifier_dropout: Float, dropout before the choice scorer. Defaults to `0.0`.
-        name: String, model name. Defaults to `"DebertaMultipleChoice"`.
-
-    Returns:
-        A Keras `Model` instance.
-    """
-
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHT_CONFIG
-    HF_MODEL_TYPE = "deberta"
-
-    @classmethod
-    def transfer_from_hf(cls, keras_model, state_dict):
-        from .convert_deberta_hf_to_keras import transfer_deberta_weights
-
-        transfer_deberta_weights(keras_model, state_dict)
-
-    @classmethod
-    def config_from_hf(cls, hf_config):
-        return DebertaModel.config_from_hf(hf_config)
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = DebertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
-            del src
-        return model
-
-    def __init__(
-        self,
-        num_choices=4,
-        pooler_dropout=0.0,
-        classifier_dropout=0.0,
-        name="DebertaMultipleChoice",
-        **kwargs,
-    ):
-        for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
-            kwargs.pop(k, None)
-        cfg = {**_BACKBONE_KW, **kwargs}
-
-        input_ids = layers.Input(
-            shape=(num_choices, None), dtype="int32", name="input_ids"
-        )
-        attention_mask = layers.Input(
-            shape=(num_choices, None), dtype="int32", name="attention_mask"
-        )
-        token_type_ids = layers.Input(
-            shape=(num_choices, None), dtype="int32", name="token_type_ids"
-        )
-
-        backbone = DebertaModel(**cfg, name=f"{name}_backbone")
-        flatten = DebertaFlattenChoices(name="flatten_choices")
-        seq = backbone(
-            {
-                "input_ids": flatten(input_ids),
-                "attention_mask": flatten(attention_mask),
-                "token_type_ids": flatten(token_type_ids),
-            }
-        )["last_hidden_state"]
-        x = seq[:, 0]
-        x = layers.Dropout(pooler_dropout)(x)
-        x = layers.Dense(cfg["embed_dim"], name="pooler_dense")(x)
-        x = layers.Activation("gelu", name="pooler_act")(x)
-        x = layers.Dropout(classifier_dropout)(x)
-        x = layers.Dense(1, name="classifier")(x)
-        logits = DebertaUnflattenChoices(num_choices, name="unflatten_choices")(x)
-
-        inputs = {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "token_type_ids": token_type_ids,
-        }
-        super().__init__(inputs=inputs, outputs=logits, name=name)
-        self._cfg = cfg
-        self.num_choices = num_choices
-        self.pooler_dropout = pooler_dropout
-        self.classifier_dropout = classifier_dropout
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                **self._cfg,
-                "num_choices": self.num_choices,
-                "pooler_dropout": self.pooler_dropout,
-                "classifier_dropout": self.classifier_dropout,
-                "name": self.name,
-            }
-        )
         return config
 
     @classmethod

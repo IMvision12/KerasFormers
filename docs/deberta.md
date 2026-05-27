@@ -11,8 +11,9 @@ checkpoints (see below).
 (v1 / v2) · [DeBERTaV3: ELECTRA-Style Pre-Training with Gradient-Disentangled Embedding Sharing](https://arxiv.org/abs/2111.09543)
 (v3)
 
-Each generation lives in its own package with the same six model classes plus a
-tokenizer; only the module path and the class prefix change:
+Each generation lives in its own package with the same set of model classes plus a
+tokenizer; only the module path and the class prefix change (v1 has no
+multiple-choice head):
 
 | Task | v1 — `kerasformers.models.deberta` | v2 — `kerasformers.models.deberta_v2` | v3 — `kerasformers.models.deberta_v3` | Output |
 |---|---|---|---|---|
@@ -21,7 +22,7 @@ tokenizer; only the module path and the class prefix change:
 | Sequence classify | `DebertaSequenceClassify` | `DebertaV2SequenceClassify` | `DebertaV3SequenceClassify` | `(B, num_classes)` |
 | Token classify | `DebertaTokenClassify` | `DebertaV2TokenClassify` | `DebertaV3TokenClassify` | `(B, L, num_classes)` |
 | Question answering | `DebertaQnA` | `DebertaV2QnA` | `DebertaV3QnA` | `{"start_logits": (B, L), "end_logits": (B, L)}` |
-| Multiple choice | `DebertaMultipleChoice` | `DebertaV2MultipleChoice` | `DebertaV3MultipleChoice` | `(B, num_choices)` |
+| Multiple choice | — | `DebertaV2MultipleChoice` | `DebertaV3MultipleChoice` | `(B, num_choices)` |
 | Tokenizer | `DebertaTokenizer` (byte-level BPE) | `DebertaV2Tokenizer` (SentencePiece) | `DebertaV3Tokenizer` (SentencePiece) | `input_ids` / `attention_mask` / `token_type_ids` |
 
 All models are functional `BaseModel`s; the head classes compose the matching
