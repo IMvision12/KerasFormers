@@ -112,9 +112,6 @@ if __name__ == "__main__":
     }
 
     def raw_state_dict(hf_id):
-        # The released MLM head lives in the raw checkpoint as
-        # `lm_predictions.lm_head.*` (DebertaForMaskedLM mishandles it in current
-        # transformers), so read the raw weights directly.
         try:
             from safetensors.torch import load_file
 
@@ -164,8 +161,6 @@ if __name__ == "__main__":
 
         keras_mlm = DebertaMaskedLM(**arch)
         transfer_deberta_weights(keras_mlm, sd)
-        # Reference logits: validated backbone + DebertaLMPredictionHead.forward
-        # (HF's DebertaForMaskedLM is unreliable on these checkpoints).
         with torch.no_grad():
             h = seq_ref @ sd["lm_predictions.lm_head.dense.weight"].T
             h = h + sd["lm_predictions.lm_head.dense.bias"]

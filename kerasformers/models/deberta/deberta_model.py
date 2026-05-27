@@ -103,14 +103,10 @@ def deberta_backbone(
         name="embeddings",
     )([input_ids, attention_mask, token_type_ids])
 
-    # Product attention mask (B, 1, seq, seq): position (i, j) is kept only when
-    # both token i and token j are non-padding (DeBERTa masks query and key).
     m = ops.cast(attention_mask, "int32")
     ext = ops.expand_dims(ops.expand_dims(m, 1), 1)
     att_mask = ext * ops.transpose(ext, (0, 1, 3, 2))
 
-    # Relative positions rel[i, j] = i - j, via cumsum (arange-free, backend-safe).
-    # Computed per batch row (identical across rows) to avoid symbolic slicing.
     pos = ops.cumsum(ops.ones_like(input_ids), axis=1) - 1
     relative_pos = ops.expand_dims(pos, 2) - ops.expand_dims(pos, 1)
 
@@ -305,23 +301,6 @@ class DebertaModel(BaseModel):
         return cls(**config)
 
 
-_BACKBONE_KW = {
-    "vocab_size": 50265,
-    "embed_dim": 768,
-    "num_layers": 12,
-    "num_heads": 12,
-    "mlp_dim": 3072,
-    "max_position_embeddings": 512,
-    "max_relative_positions": 512,
-    "pos_att_type": ("c2p", "p2c"),
-    "hidden_act": "gelu",
-    "layer_norm_eps": 1e-7,
-    "pad_token_id": 0,
-    "dropout": 0.0,
-    "attention_dropout": 0.0,
-}
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaMaskedLM(BaseModel):
     """DeBERTa with the masked-language-modeling head.
@@ -360,7 +339,22 @@ class DebertaMaskedLM(BaseModel):
     def __init__(self, name="DebertaMaskedLM", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
-        cfg = {**_BACKBONE_KW, **kwargs}
+        cfg = {
+            "vocab_size": 50265,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "pos_att_type": ("c2p", "p2c"),
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaModel(**cfg, name=f"{name}_backbone")
 
         x = backbone.output["last_hidden_state"]
@@ -450,7 +444,22 @@ class DebertaSequenceClassify(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url"):
             kwargs.pop(k, None)
-        cfg = {**_BACKBONE_KW, **kwargs}
+        cfg = {
+            "vocab_size": 50265,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "pos_att_type": ("c2p", "p2c"),
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaModel(**cfg, name=f"{name}_backbone")
 
         x = backbone.output["last_hidden_state"][:, 0]
@@ -550,7 +559,22 @@ class DebertaTokenClassify(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url"):
             kwargs.pop(k, None)
-        cfg = {**_BACKBONE_KW, **kwargs}
+        cfg = {
+            "vocab_size": 50265,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "pos_att_type": ("c2p", "p2c"),
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaModel(**cfg, name=f"{name}_backbone")
 
         x = backbone.output["last_hidden_state"]
@@ -630,7 +654,22 @@ class DebertaQnA(BaseModel):
     def __init__(self, name="DebertaQnA", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
-        cfg = {**_BACKBONE_KW, **kwargs}
+        cfg = {
+            "vocab_size": 50265,
+            "embed_dim": 768,
+            "num_layers": 12,
+            "num_heads": 12,
+            "mlp_dim": 3072,
+            "max_position_embeddings": 512,
+            "max_relative_positions": 512,
+            "pos_att_type": ("c2p", "p2c"),
+            "hidden_act": "gelu",
+            "layer_norm_eps": 1e-7,
+            "pad_token_id": 0,
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            **kwargs,
+        }
         backbone = DebertaModel(**cfg, name=f"{name}_backbone")
 
         x = backbone.output["last_hidden_state"]
