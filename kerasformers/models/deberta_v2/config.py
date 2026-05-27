@@ -48,5 +48,4 @@ DEBERTA_V2_WEIGHT_CONFIG = {
     },
 }
 
-# DeBERTa-v2's SentencePiece tokenizer is shared across all sizes.
 DEBERTA_V2_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v2/deberta_v2_spm.model"

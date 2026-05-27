@@ -61,8 +61,6 @@ class DebertaV2Tokenizer(BaseTokenizer):
 
         sp = spm.SentencePieceProcessor()
         sp.load(vocab_file)
-        # SentencePiece ids are the vocab ids directly (no offset); [MASK] is the
-        # one extra token appended after the SentencePiece pieces.
         vocab = [
             (sp.id_to_piece(i), sp.get_score(i)) for i in range(sp.get_piece_size())
         ]
@@ -78,8 +76,6 @@ class DebertaV2Tokenizer(BaseTokenizer):
                 byte_fallback=proto.trainer_spec.byte_fallback,
             )
         )
-        # Precompiled charsmap + SentencePiece's remove_extra_whitespaces
-        # (collapse runs of whitespace, strip ends) so spacing matches HF.
         tok.normalizer = NormSeq(
             [
                 Precompiled(proto.normalizer_spec.precompiled_charsmap),
@@ -115,8 +111,6 @@ class DebertaV2Tokenizer(BaseTokenizer):
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
-        """Load a DeBERTa-v2/v3 finetune's ``spm.model`` from the HF ``repo``
-        instead of the bundled kerasformers-release default."""
         from huggingface_hub import hf_hub_download
 
         return cls(vocab_file=hf_hub_download(repo, "spm.model"), **kwargs)

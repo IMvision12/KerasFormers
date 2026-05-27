@@ -18,14 +18,12 @@ WEIGHT_NAME_MAPPING = {
     "conv/conv/bias": "encoder.conv.conv.bias",
     "conv/LayerNorm/gamma": "encoder.conv.LayerNorm.weight",
     "conv/LayerNorm/beta": "encoder.conv.LayerNorm.bias",
-    # masked-LM head (legacy cls.predictions.*); decoder is present + tied to embeddings
     "lm_head_dense/kernel": "cls.predictions.transform.dense.weight",
     "lm_head_dense/bias": "cls.predictions.transform.dense.bias",
     "lm_head_layernorm/gamma": "cls.predictions.transform.LayerNorm.weight",
     "lm_head_layernorm/beta": "cls.predictions.transform.LayerNorm.bias",
     "lm_head_decoder/kernel": "cls.predictions.decoder.weight",
     "lm_head_decoder/bias": "cls.predictions.bias",
-    # context pooler + task heads
     "pooler_dense/kernel": "pooler.dense.weight",
     "pooler_dense/bias": "pooler.dense.bias",
     "classifier/kernel": "classifier.weight",
@@ -93,7 +91,6 @@ def transfer_deberta_v2_weights(
             raise WeightMappingError(weight.path, hf_name)
         value = hf[hf_name]
         if weight.path == "conv/conv/kernel":
-            # torch Conv1d (out, in, k) -> keras Conv1D (k, in, out)
             value = (
                 value.detach().cpu().numpy()
                 if hasattr(value, "detach")

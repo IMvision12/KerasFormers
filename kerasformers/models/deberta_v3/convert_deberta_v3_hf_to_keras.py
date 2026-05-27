@@ -10,7 +10,6 @@ from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
 def transfer_deberta_v3_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer HF DeBERTa-v3 weights. v3 shares DeBERTa-v2's module layout."""
     transfer_deberta_v2_weights(keras_model, hf_state_dict)
 
 
@@ -56,8 +55,6 @@ if __name__ == "__main__":
             "attention_mask": torch.from_numpy(mask),
         }
 
-        # deberta-v3 checkpoints ship as float16; load in float32 so the
-        # parity reference (and the saved weights) match Keras's fp32 compute.
         hf_model = HFDebertaV2Model.from_pretrained(
             hf_id, token=HF_TOKEN, dtype=torch.float32
         ).eval()
