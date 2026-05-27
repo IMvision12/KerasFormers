@@ -1,4 +1,3 @@
 from kerasformers.layers.image_normalization import ImageNormalizationLayer
 from kerasformers.layers.layer_scale import LayerScale
-from kerasformers.layers.multiple_choice import FlattenChoices, UnflattenChoices
 from kerasformers.layers.stochastic_depth import StochasticDepth

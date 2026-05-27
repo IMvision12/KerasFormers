@@ -2,7 +2,10 @@ import keras
 from keras import layers
 
 from kerasformers.base import BaseModel
-from kerasformers.layers import FlattenChoices, UnflattenChoices
+from kerasformers.models.roberta.roberta_layers import (
+    RobertaFlattenChoices,
+    RobertaUnflattenChoices,
+)
 from kerasformers.models.roberta.roberta_model import roberta_backbone
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -818,7 +821,7 @@ class XLMRobertaMultipleChoice(BaseModel):
             name=f"{name}_backbone",
         )
 
-        flatten = FlattenChoices(name="flatten_choices")
+        flatten = RobertaFlattenChoices(name="flatten_choices")
         pooled = backbone(
             {
                 "input_ids": flatten(input_ids),
@@ -828,7 +831,7 @@ class XLMRobertaMultipleChoice(BaseModel):
         )["pooler_output"]
         x = layers.Dropout(classifier_dropout)(pooled)
         x = layers.Dense(1, name="classifier")(x)
-        logits = UnflattenChoices(num_choices, name="unflatten_choices")(x)
+        logits = RobertaUnflattenChoices(num_choices, name="unflatten_choices")(x)
 
         inputs = {
             "input_ids": input_ids,

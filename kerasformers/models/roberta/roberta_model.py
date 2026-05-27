@@ -2,11 +2,15 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
-from kerasformers.layers import FlattenChoices, UnflattenChoices
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import ROBERTA_MODEL_CONFIG, ROBERTA_WEIGHT_CONFIG
-from .roberta_layers import RobertaEmbeddings, RobertaSelfAttention
+from .roberta_layers import (
+    RobertaEmbeddings,
+    RobertaFlattenChoices,
+    RobertaSelfAttention,
+    RobertaUnflattenChoices,
+)
 
 BASE_MODEL_CONFIG = {
     v: ROBERTA_MODEL_CONFIG[m["model"]] for v, m in ROBERTA_WEIGHT_CONFIG.items()
@@ -945,7 +949,7 @@ class RobertaMultipleChoice(BaseModel):
             name=f"{name}_backbone",
         )
 
-        flatten = FlattenChoices(name="flatten_choices")
+        flatten = RobertaFlattenChoices(name="flatten_choices")
         pooled = backbone(
             {
                 "input_ids": flatten(input_ids),
@@ -955,7 +959,7 @@ class RobertaMultipleChoice(BaseModel):
         )["pooler_output"]
         x = layers.Dropout(classifier_dropout)(pooled)
         x = layers.Dense(1, name="classifier")(x)
-        logits = UnflattenChoices(num_choices, name="unflatten_choices")(x)
+        logits = RobertaUnflattenChoices(num_choices, name="unflatten_choices")(x)
 
         inputs = {
             "input_ids": input_ids,

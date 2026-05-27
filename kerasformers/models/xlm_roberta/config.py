@@ -38,5 +38,4 @@ XLM_ROBERTA_WEIGHT_CONFIG = {
     },
 }
 
-# XLM-RoBERTa's SentencePiece tokenizer is shared across all sizes (base / large).
 XLM_ROBERTA_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_sentencepiece.bpe.model"
