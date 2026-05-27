@@ -15,7 +15,7 @@ from tokenizers.processors import TemplateProcessing
 from kerasformers.base import BaseTokenizer
 from kerasformers.weight_utils import download_file
 
-from .config import XLM_ROBERTA_VOCAB_CONFIG
+from .config import XLM_ROBERTA_VOCAB_URL
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -53,9 +53,7 @@ class XLMRobertaTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         if vocab_file is None:
-            vocab_file = download_file(
-                XLM_ROBERTA_VOCAB_CONFIG["xlm_roberta_base"]["vocab_url"]
-            )
+            vocab_file = download_file(XLM_ROBERTA_VOCAB_URL)
         self.vocab_file = vocab_file
         self.max_seq_len = max_seq_len
         self.bos_token = bos_token
@@ -114,15 +112,6 @@ class XLMRobertaTokenizer(BaseTokenizer):
         self.unk_token_id = tok.token_to_id(unk_token)
         self.pad_token_id = tok.token_to_id(pad_token)
         self.mask_token_id = tok.token_to_id(mask_token)
-
-    @classmethod
-    def from_release(cls, variant, /, **kwargs):
-        """Build the tokenizer for a release ``variant``, downloading its
-        ``sentencepiece.bpe.model`` from the kerasformers release."""
-        entry = XLM_ROBERTA_VOCAB_CONFIG.get(variant, {})
-        if "vocab_url" in entry and "vocab_file" not in kwargs:
-            kwargs["vocab_file"] = download_file(entry["vocab_url"])
-        return cls(**kwargs)
 
     @classmethod
     def from_hf(cls, repo, **kwargs):

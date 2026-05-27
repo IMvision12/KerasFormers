@@ -12,7 +12,7 @@ from tokenizers.processors import RobertaProcessing
 from kerasformers.base import BaseTokenizer
 from kerasformers.weight_utils import download_file
 
-from .config import ROBERTA_VOCAB_CONFIG
+from .config import ROBERTA_MERGES_URL, ROBERTA_VOCAB_URL
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -50,12 +50,8 @@ class RobertaTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         if vocab_file is None and merges_file is None:
-            vocab_file = download_file(
-                ROBERTA_VOCAB_CONFIG["roberta_base"]["vocab_url"]
-            )
-            merges_file = download_file(
-                ROBERTA_VOCAB_CONFIG["roberta_base"]["merges_url"]
-            )
+            vocab_file = download_file(ROBERTA_VOCAB_URL)
+            merges_file = download_file(ROBERTA_MERGES_URL)
         self.vocab_file = vocab_file
         self.merges_file = merges_file
         self.max_seq_len = max_seq_len
@@ -103,15 +99,6 @@ class RobertaTokenizer(BaseTokenizer):
         tok.enable_truncation(max_length=max_seq_len)
         tok.enable_padding(pad_id=self.pad_token_id, pad_token=pad_token)
         self._tok = tok
-
-    @classmethod
-    def from_release(cls, variant, /, **kwargs):
-        entry = ROBERTA_VOCAB_CONFIG.get(variant, {})
-        if "vocab_url" in entry and "vocab_file" not in kwargs:
-            kwargs["vocab_file"] = download_file(entry["vocab_url"])
-        if "merges_url" in entry and "merges_file" not in kwargs:
-            kwargs["merges_file"] = download_file(entry["merges_url"])
-        return cls(**kwargs)
 
     @classmethod
     def from_hf(cls, repo, **kwargs):

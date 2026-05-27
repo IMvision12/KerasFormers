@@ -38,13 +38,6 @@ ROBERTA_WEIGHT_CONFIG = {
     },
 }
 
-ROBERTA_VOCAB_CONFIG = {
-    "roberta_base": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/vocab.json",
-        "merges_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/merges.txt",
-    },
-    "roberta_large": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/vocab.json",
-        "merges_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/merges.txt",
-    },
-}
+# RoBERTa's byte-level BPE tokenizer is shared across all sizes (base / large).
+ROBERTA_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_vocab.json"
+ROBERTA_MERGES_URL = "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_merges.txt"
