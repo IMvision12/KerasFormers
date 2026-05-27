@@ -343,11 +343,23 @@ class DebertaV2Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV2MaskedLM(BaseModel):
-    """DeBERTa-v2 with the masked-language-modeling head (dense + gelu + LayerNorm
-    + word-embedding-tied decoder). See :class:`DebertaV2Model` for backbone args.
+    """DeBERTa-v2 with the masked-language-modeling head.
+
+    Wraps a :class:`DebertaV2Model` backbone and attaches DeBERTa's MLM head — a
+    dense transform with ``gelu`` + LayerNorm, then a vocabulary projection —
+    producing token logits ``(B, seq, vocab_size)``. The head weights are part of
+    the pretrained checkpoint, so ``from_weights`` restores a ready-to-use
+    fill-mask model.
 
     References:
-    - [DeBERTaV3](https://arxiv.org/abs/2111.09543)
+    - [DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654)
+
+    Args:
+        See :class:`DebertaV2Model` for the backbone arguments.
+        name: String, model name. Defaults to `"DebertaV2MaskedLM"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
@@ -412,16 +424,28 @@ class DebertaV2MaskedLM(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV2SequenceClassify(BaseModel):
-    """DeBERTa-v2 sequence classifier (context pooler + dense classifier). See
-    :class:`DebertaV2Model` for backbone args.
+    """DeBERTa-v2 sentence/sequence classifier.
 
-    Args:
-        num_classes: Integer, number of output classes. Defaults to `2`.
-        pooler_dropout / classifier_dropout: Floats, dropout rates. Default `0.0`.
-        classifier_activation: Head activation. Defaults to `"linear"`.
+    Wraps a :class:`DebertaV2Model` backbone and attaches DeBERTa's context pooler
+    (dense + ``gelu`` on the first token) plus a dense classifier, producing
+    ``num_classes`` logits ``(B, num_classes)``. The pretrained checkpoint has no
+    task head, so ``from_weights`` restores the backbone and leaves the pooler +
+    classifier randomly initialized (ready for fine-tuning) unless a fine-tuned
+    release is configured.
 
     References:
-    - [DeBERTaV3](https://arxiv.org/abs/2111.09543)
+    - [DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654)
+
+    Args:
+        See :class:`DebertaV2Model` for the backbone arguments.
+        num_classes: Integer, number of output classes. Defaults to `2`.
+        pooler_dropout: Float, dropout inside the context pooler. Defaults to `0.0`.
+        classifier_dropout: Float, dropout before the classifier. Defaults to `0.0`.
+        classifier_activation: String/callable, head activation. Defaults to `"linear"`.
+        name: String, model name. Defaults to `"DebertaV2SequenceClassify"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
@@ -523,16 +547,25 @@ class DebertaV2SequenceClassify(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV2TokenClassify(BaseModel):
-    """DeBERTa-v2 token classifier (dropout + per-token dense head). See
-    :class:`DebertaV2Model` for backbone args.
+    """DeBERTa-v2 token classifier (e.g. NER / POS tagging).
 
-    Args:
-        num_classes: Integer, number of token classes. Defaults to `2`.
-        classifier_dropout: Float, dropout before the classifier. Defaults to `0.0`.
-        classifier_activation: Head activation. Defaults to `"linear"`.
+    Wraps a :class:`DebertaV2Model` backbone and attaches dropout plus a per-token
+    dense head, producing ``num_classes`` logits ``(B, seq, num_classes)``. The
+    head is randomly initialized from the pretrained checkpoint and meant for
+    fine-tuning.
 
     References:
-    - [DeBERTaV3](https://arxiv.org/abs/2111.09543)
+    - [DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654)
+
+    Args:
+        See :class:`DebertaV2Model` for the backbone arguments.
+        num_classes: Integer, number of token classes. Defaults to `2`.
+        classifier_dropout: Float, dropout before the classifier. Defaults to `0.0`.
+        classifier_activation: String/callable, head activation. Defaults to `"linear"`.
+        name: String, model name. Defaults to `"DebertaV2TokenClassify"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
@@ -628,11 +661,23 @@ class DebertaV2TokenClassify(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV2QnA(BaseModel):
-    """DeBERTa-v2 extractive QA head (dense span -> start/end logits). See
-    :class:`DebertaV2Model` for backbone args.
+    """DeBERTa-v2 extractive question-answering head.
+
+    Wraps a :class:`DebertaV2Model` backbone and attaches a dense span head that
+    maps each token to two logits, split into ``start_logits`` and ``end_logits``
+    (each ``(B, seq)``). The head is randomly initialized from the pretrained
+    checkpoint and meant for fine-tuning (or loaded from a fine-tuned ``hf:``
+    repo such as a SQuAD model).
 
     References:
-    - [DeBERTaV3](https://arxiv.org/abs/2111.09543)
+    - [DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654)
+
+    Args:
+        See :class:`DebertaV2Model` for the backbone arguments.
+        name: String, model name. Defaults to `"DebertaV2QnA"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
@@ -702,15 +747,26 @@ class DebertaV2QnA(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV2MultipleChoice(BaseModel):
-    """DeBERTa-v2 multiple-choice head (context pooler + shared scorer over the
-    flattened choices). See :class:`DebertaV2Model` for backbone args.
+    """DeBERTa-v2 multiple-choice head (e.g. SWAG).
 
-    Args:
-        num_choices: Integer, number of choices per example. Defaults to `4`.
-        pooler_dropout / classifier_dropout: Floats, dropout rates. Default `0.0`.
+    Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
+    into the batch, runs the :class:`DebertaV2Model` backbone, scores each choice
+    with DeBERTa's context pooler (dense + ``gelu`` on the first token) plus a
+    shared dense layer, and reshapes back to per-example ``(B, num_choices)``
+    logits. The head is randomly initialized and meant for fine-tuning.
 
     References:
-    - [DeBERTaV3](https://arxiv.org/abs/2111.09543)
+    - [DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654)
+
+    Args:
+        See :class:`DebertaV2Model` for the backbone arguments.
+        num_choices: Integer, number of choices per example. Defaults to `4`.
+        pooler_dropout: Float, dropout inside the context pooler. Defaults to `0.0`.
+        classifier_dropout: Float, dropout before the choice scorer. Defaults to `0.0`.
+        name: String, model name. Defaults to `"DebertaV2MultipleChoice"`.
+
+    Returns:
+        A Keras `Model` instance.
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG

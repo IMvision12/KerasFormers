@@ -42,9 +42,23 @@ class DebertaV3Model(BaseModel):
     - [DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training](https://arxiv.org/abs/2111.09543)
 
     Args:
-        See :class:`~kerasformers.models.deberta_v2.DebertaV2Model` for the
-        backbone arguments. Defaults match ``deberta_v3_base`` (768 / 12 / 12,
-        no conv).
+        vocab_size: Integer, token vocabulary size. Defaults to `128100`.
+        embed_dim: Integer, model dimension. Defaults to `768`.
+        num_layers: Integer, number of encoder layers. Defaults to `12`.
+        num_heads: Integer, number of attention heads. Defaults to `12`.
+        mlp_dim: Integer, feed-forward hidden dimension. Defaults to `3072`.
+        max_position_embeddings: Integer, maximum sequence length. Defaults to `512`.
+        max_relative_positions: Integer, max absolute relative position. Defaults to `512`.
+        position_buckets: Integer, relative-position bucket count. Defaults to `256`.
+        pos_att_type: List of disentangled-attention terms. Defaults to `["p2c", "c2p"]`.
+        norm_rel_ebd: Boolean, LayerNorm the relative embeddings. Defaults to `True`.
+        conv_kernel_size: Integer, conv kernel size (0/None disables). Defaults to `0`.
+        conv_act: String, conv activation. Defaults to `"gelu"`.
+        hidden_act: String, feed-forward activation. Defaults to `"gelu"`.
+        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-7`.
+        pad_token_id: Integer, padding token id. Defaults to `0`.
+        dropout: Float, hidden dropout rate. Defaults to `0.0`.
+        attention_dropout: Float, attention dropout rate. Defaults to `0.0`.
         name: String, model name. Defaults to `"DebertaV3Model"`.
 
     Returns:
@@ -179,7 +193,24 @@ class DebertaV3Model(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3MaskedLM(BaseModel):
-    """DeBERTa-v3 masked-LM head (dense + gelu + LayerNorm + tied decoder)."""
+    """DeBERTa-v3 with the masked-language-modeling head.
+
+    Wraps a :class:`DebertaV3Model` backbone and attaches DeBERTa's MLM head — a
+    dense transform with ``gelu`` + LayerNorm, then a vocabulary projection —
+    producing token logits ``(B, seq, vocab_size)``. The head weights are part of
+    the pretrained checkpoint, so ``from_weights`` restores a ready-to-use
+    fill-mask model.
+
+    References:
+    - [DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training](https://arxiv.org/abs/2111.09543)
+
+    Args:
+        See :class:`DebertaV3Model` for the backbone arguments.
+        name: String, model name. Defaults to `"DebertaV3MaskedLM"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
     BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
@@ -257,7 +288,29 @@ def _classify_head(
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3SequenceClassify(BaseModel):
-    """DeBERTa-v3 sequence classifier (context pooler + dense classifier)."""
+    """DeBERTa-v3 sentence/sequence classifier.
+
+    Wraps a :class:`DebertaV3Model` backbone and attaches DeBERTa's context pooler
+    (dense + ``gelu`` on the first token) plus a dense classifier, producing
+    ``num_classes`` logits ``(B, num_classes)``. The pretrained checkpoint has no
+    task head, so ``from_weights`` restores the backbone and leaves the pooler +
+    classifier randomly initialized (ready for fine-tuning) unless a fine-tuned
+    release is configured.
+
+    References:
+    - [DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training](https://arxiv.org/abs/2111.09543)
+
+    Args:
+        See :class:`DebertaV3Model` for the backbone arguments.
+        num_classes: Integer, number of output classes. Defaults to `2`.
+        pooler_dropout: Float, dropout inside the context pooler. Defaults to `0.0`.
+        classifier_dropout: Float, dropout before the classifier. Defaults to `0.0`.
+        classifier_activation: String/callable, head activation. Defaults to `"linear"`.
+        name: String, model name. Defaults to `"DebertaV3SequenceClassify"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
     BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
@@ -354,7 +407,26 @@ class DebertaV3SequenceClassify(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3TokenClassify(BaseModel):
-    """DeBERTa-v3 token classifier (dropout + per-token dense head)."""
+    """DeBERTa-v3 token classifier (e.g. NER / POS tagging).
+
+    Wraps a :class:`DebertaV3Model` backbone and attaches dropout plus a per-token
+    dense head, producing ``num_classes`` logits ``(B, seq, num_classes)``. The
+    head is randomly initialized from the pretrained checkpoint and meant for
+    fine-tuning.
+
+    References:
+    - [DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training](https://arxiv.org/abs/2111.09543)
+
+    Args:
+        See :class:`DebertaV3Model` for the backbone arguments.
+        num_classes: Integer, number of token classes. Defaults to `2`.
+        classifier_dropout: Float, dropout before the classifier. Defaults to `0.0`.
+        classifier_activation: String/callable, head activation. Defaults to `"linear"`.
+        name: String, model name. Defaults to `"DebertaV3TokenClassify"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
     BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
@@ -445,7 +517,24 @@ class DebertaV3TokenClassify(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3QnA(BaseModel):
-    """DeBERTa-v3 extractive QA head (dense span -> start/end logits)."""
+    """DeBERTa-v3 extractive question-answering head.
+
+    Wraps a :class:`DebertaV3Model` backbone and attaches a dense span head that
+    maps each token to two logits, split into ``start_logits`` and ``end_logits``
+    (each ``(B, seq)``). The head is randomly initialized from the pretrained
+    checkpoint and meant for fine-tuning (or loaded from a fine-tuned ``hf:``
+    repo such as a SQuAD model).
+
+    References:
+    - [DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training](https://arxiv.org/abs/2111.09543)
+
+    Args:
+        See :class:`DebertaV3Model` for the backbone arguments.
+        name: String, model name. Defaults to `"DebertaV3QnA"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
     BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
@@ -509,7 +598,27 @@ class DebertaV3QnA(BaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3MultipleChoice(BaseModel):
-    """DeBERTa-v3 multiple-choice head (context pooler + shared scorer)."""
+    """DeBERTa-v3 multiple-choice head (e.g. SWAG).
+
+    Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
+    into the batch, runs the :class:`DebertaV3Model` backbone, scores each choice
+    with DeBERTa's context pooler (dense + ``gelu`` on the first token) plus a
+    shared dense layer, and reshapes back to per-example ``(B, num_choices)``
+    logits. The head is randomly initialized and meant for fine-tuning.
+
+    References:
+    - [DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training](https://arxiv.org/abs/2111.09543)
+
+    Args:
+        See :class:`DebertaV3Model` for the backbone arguments.
+        num_choices: Integer, number of choices per example. Defaults to `4`.
+        pooler_dropout: Float, dropout inside the context pooler. Defaults to `0.0`.
+        classifier_dropout: Float, dropout before the choice scorer. Defaults to `0.0`.
+        name: String, model name. Defaults to `"DebertaV3MultipleChoice"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
     BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
