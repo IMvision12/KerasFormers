@@ -7,10 +7,10 @@ from kerasformers.base import BaseModel
 from kerasformers.utils import standardize_input_shape
 
 from .config import (
-    RF_DETR_CONFIG,
+    RF_DETR_DETECT_CONFIG,
+    RF_DETR_DETECT_WEIGHTS,
     RF_DETR_SEGMENT_CONFIG,
     RF_DETR_SEGMENT_WEIGHTS,
-    RF_DETR_WEIGHTS,
 )
 from .rf_detr_layers import (
     RFDETRChannelLayerNorm,
@@ -1329,7 +1329,7 @@ class RFDetrModel(BaseModel):
     ``Roboflow/rf-detr-*`` checkpoints from the model Hub.
     """
 
-    BASE_MODEL_CONFIG = RF_DETR_CONFIG
+    BASE_MODEL_CONFIG = RF_DETR_DETECT_CONFIG
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
@@ -1527,8 +1527,8 @@ class RFDETRDetect(BaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = RF_DETR_CONFIG
-    BASE_WEIGHT_CONFIG = RF_DETR_WEIGHTS
+    BASE_MODEL_CONFIG = RF_DETR_DETECT_CONFIG
+    BASE_WEIGHT_CONFIG = RF_DETR_DETECT_WEIGHTS
     HF_MODEL_TYPE = "rf_detr"
 
     @classmethod

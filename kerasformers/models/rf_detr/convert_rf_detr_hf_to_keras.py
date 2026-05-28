@@ -280,7 +280,7 @@ if __name__ == "__main__":
     import torch
 
     from kerasformers.base.base_model import download_hf_state_dict
-    from kerasformers.models.rf_detr.config import RF_DETR_CONFIG
+    from kerasformers.models.rf_detr.config import RF_DETR_DETECT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRDetect
 
     def cosine(a, b):
@@ -288,7 +288,7 @@ if __name__ == "__main__":
         return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
 
     for variant, hf_id in HF_SOURCES.items():
-        config = RF_DETR_CONFIG[variant]
+        config = RF_DETR_DETECT_CONFIG[variant]
         res = config["resolution"]
         print(f"\n{'=' * 60}\nConverting {variant}  <-  {hf_id}\n{'=' * 60}")
 

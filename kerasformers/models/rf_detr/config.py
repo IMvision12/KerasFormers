@@ -1,4 +1,4 @@
-RF_DETR_CONFIG = {
+RF_DETR_DETECT_CONFIG = {
     "rfdetr-nano": {
         "out_feature_indexes": [3, 6, 9, 12],
         "patch_size": 16,
@@ -41,7 +41,7 @@ RF_DETR_CONFIG = {
     },
 }
 
-RF_DETR_WEIGHTS = {
+RF_DETR_DETECT_WEIGHTS = {
     "rfdetr-nano": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_nano.weights.h5",
     },
@@ -125,8 +125,26 @@ RF_DETR_SEGMENT_CONFIG = {
     },
 }
 
-_SEG_REL = "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr-seg"
 RF_DETR_SEGMENT_WEIGHTS = {
-    name: {"url": f"{_SEG_REL}/rf_detr_seg_{name.split('-')[-1]}.weights.h5"}
-    for name in RF_DETR_SEGMENT_CONFIG
+    "rfdetr-seg-preview": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_preview.weights.h5",
+    },
+    "rfdetr-seg-nano": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_nano.weights.h5",
+    },
+    "rfdetr-seg-small": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_small.weights.h5",
+    },
+    "rfdetr-seg-medium": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_medium.weights.h5",
+    },
+    "rfdetr-seg-large": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_large.weights.h5",
+    },
+    "rfdetr-seg-xlarge": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_xlarge.weights.h5",
+    },
+    "rfdetr-seg-xxlarge": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_xxlarge.weights.h5",
+    },
 }
