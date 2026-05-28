@@ -15,7 +15,7 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
 
 HF_SOURCES: Dict[str, str] = {
     "rfdetr-nano": "Roboflow/rf-detr-nano",
-    "rfdetr-small": "Roboflow/rf-detr-small",
+    # "rfdetr-small": "Roboflow/rf-detr-small",
     "rfdetr-medium": "Roboflow/rf-detr-medium",
     "rfdetr-base": "Roboflow/rf-detr-base",
     "rfdetr-large": "Roboflow/rf-detr-large",
