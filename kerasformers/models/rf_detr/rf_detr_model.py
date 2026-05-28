@@ -1805,7 +1805,7 @@ def rf_detr_segmentation_head(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class RFDETRSegment(BaseModel):
+class RFDETRInstanceSegment(BaseModel):
     """RF-DETR instance segmentation.
 
     Adds a mask head on top of the :class:`RFDETRDetect` detection architecture
@@ -1885,7 +1885,7 @@ class RFDETRSegment(BaseModel):
         seg_activation="gelu",
         image_size=None,
         input_tensor=None,
-        name="RFDETRSegment",
+        name="RFDETRInstanceSegment",
         **kwargs,
     ):
         if out_feature_indexes is None:

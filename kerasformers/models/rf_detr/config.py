@@ -59,9 +59,6 @@ RF_DETR_WEIGHTS = {
     },
 }
 
-# Instance-segmentation variants. Same DINOv2 backbone + deformable decoder as the
-# detection variants (all patch_size 12), plus a mask head. `num_queries` and
-# `dec_layers` vary per size; `positional_encoding_size = resolution // patch_size`.
 RF_DETR_SEGMENT_CONFIG = {
     "rfdetr-seg-preview": {
         "out_feature_indexes": [3, 6, 9, 12],

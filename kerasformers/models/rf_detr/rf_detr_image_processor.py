@@ -19,7 +19,7 @@ class RFDETRImageProcessor(BaseImageProcessor):
 
             * Detection (``RFDETRDetect``): 384 (nano), 512 (small),
               576 (medium), 560 (base), 704 (large).
-            * Instance segmentation (``RFDETRSegment``): 312 (seg-nano),
+            * Instance segmentation (``RFDETRInstanceSegment``): 312 (seg-nano),
               384 (seg-small), 432 (seg-preview / seg-medium), 504 (seg-large),
               624 (seg-xlarge), 768 (seg-xxlarge).
 
@@ -244,7 +244,7 @@ def rf_detr_post_process_instance_segmentation(
     label_names: Optional[List[str]] = None,
     mask_threshold: float = 0.5,
 ) -> List[Dict[str, np.ndarray]]:
-    """Post-process ``RFDETRSegment`` outputs into instance masks + scores/labels/boxes.
+    """Post-process ``RFDETRInstanceSegment`` outputs into instance masks + scores/labels/boxes.
 
     Mirrors :func:`rf_detr_post_process_object_detection`'s sigmoid + flat top-k
     scoring; a query is emitted at most once (its highest-scoring class). For each

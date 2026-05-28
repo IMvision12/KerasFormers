@@ -234,7 +234,7 @@ def detr_backbone(
     of bottleneck residual blocks). Returns the **four** stage outputs
     (C2/C3/C4/C5 at strides 4/8/16/32) so downstream heads can do
     FPN-style fusion. The DETR encoder uses only the last (C5);
-    :class:`DETRSegment`'s mask head uses C2/C3/C4 as well.
+    :class:`DETRPanopticSegment`'s mask head uses C2/C3/C4 as well.
 
     Sublayer names follow the reference DETR backbone naming
     (``backbone_conv1``, ``backbone_layer{stage}_{block}_*``,
@@ -425,7 +425,7 @@ def detr_encoder(
             reused by the decoder's cross-attention.
         projected: ``(B, H/32, W/32, hidden_dim)`` pre-encoder spatial
             map (the 1×1 ``input_projection`` output). Used by
-            :class:`DETRSegment` as the mask head's ``features`` input.
+            :class:`DETRPanopticSegment` as the mask head's ``features`` input.
     """
     data_format = keras.config.image_data_format()
 
@@ -553,7 +553,7 @@ def detr_functional(
     Classification + bounding-box prediction heads are intentionally
     not built here — they are added by :class:`DETRDetect`, which
     composes :class:`DetrModel` around this graph.
-    :class:`DETRSegment` uses ``return_intermediates=True`` to also
+    :class:`DETRPanopticSegment` uses ``return_intermediates=True`` to also
     grab the multi-scale backbone features and the encoder output for
     its mask head.
 
@@ -894,7 +894,7 @@ class DETRDetect(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DETRSegment(BaseModel):
+class DETRPanopticSegment(BaseModel):
     """DETR for panoptic / instance segmentation — detection + per-query masks.
 
     Composes the
@@ -917,7 +917,7 @@ class DETRSegment(BaseModel):
 
     Construction:
 
-    >>> DETRSegment.from_weights("hf:facebook/detr-resnet-50-panoptic")
+    >>> DETRPanopticSegment.from_weights("hf:facebook/detr-resnet-50-panoptic")
 
     Reference:
         - `End-to-End Object Detection with Transformers
@@ -944,7 +944,7 @@ class DETRSegment(BaseModel):
         image_size: Input image specification. Defaults to ``800``.
         input_tensor: Optional pre-existing Keras tensor for the
             ``images`` input.
-        name: Model name. Defaults to ``"DETRSegment"``.
+        name: Model name. Defaults to ``"DETRPanopticSegment"``.
         **kwargs: Additional keyword arguments forwarded to
             :class:`BaseModel`.
     """
@@ -966,7 +966,7 @@ class DETRSegment(BaseModel):
         num_classes=250,
         image_size=800,
         input_tensor=None,
-        name="DETRSegment",
+        name="DETRPanopticSegment",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()

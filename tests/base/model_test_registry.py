@@ -713,9 +713,9 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
-    "RFDETRSegment": {
+    "RFDETRInstanceSegment": {
         "module": "kerasformers.models.rf_detr",
-        "model_cls": "RFDETRSegment",
+        "model_cls": "RFDETRInstanceSegment",
         "model_type": "instance_segmentation",
         "init_kwargs": {
             "patch_size": 16,

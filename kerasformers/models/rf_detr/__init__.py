@@ -1,9 +1,9 @@
 from .rf_detr_image_processor import RFDETRImageProcessor
-from .rf_detr_model import RFDETRDetect, RFDetrModel, RFDETRSegment
+from .rf_detr_model import RFDETRDetect, RFDETRInstanceSegment, RFDetrModel
 
 __all__ = [
     "RFDetrModel",
     "RFDETRDetect",
-    "RFDETRSegment",
+    "RFDETRInstanceSegment",
     "RFDETRImageProcessor",
 ]

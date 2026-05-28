@@ -153,7 +153,7 @@ If `label_names` is not provided, COCO class names are used by default.
 
 ## Instance Segmentation
 
-`RFDETRSegment` adds a mask head on top of the same DINOv2 backbone + deformable
+`RFDETRInstanceSegment` adds a mask head on top of the same DINOv2 backbone + deformable
 decoder. It returns per-query masks alongside the detection outputs. Seven
 checkpoints are available (sourced from the `Roboflow/rf-detr-seg-*` Hub repos):
 
@@ -168,11 +168,11 @@ checkpoints are available (sourced from the `Roboflow/rf-detr-seg-*` Hub repos):
 | `rfdetr-seg-xxlarge` | 768px | 300 | 6 |
 
 ```python
-from kerasformers.models.rf_detr import RFDETRSegment, RFDETRImageProcessor
+from kerasformers.models.rf_detr import RFDETRInstanceSegment, RFDETRImageProcessor
 
 # kerasformers release, or load the Roboflow checkpoint from the Hub:
-model = RFDETRSegment.from_weights("rfdetr-seg-small")
-model = RFDETRSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
+model = RFDETRInstanceSegment.from_weights("rfdetr-seg-small")
+model = RFDETRInstanceSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
 
 processor = RFDETRImageProcessor(size={"height": 384, "width": 384})
 inputs = processor("image.jpg")
@@ -203,5 +203,5 @@ for name, score, mask in zip(results[0]["label_names"],
 # results[0]["masks"] is (num_detections, H, W) bool — one binary mask per detection
 ```
 
-`RFDETRSegment` is validated to match `transformers.RfDetrForInstanceSegmentation`
+`RFDETRInstanceSegment` is validated to match `transformers.RfDetrForInstanceSegmentation`
 (logits / boxes / masks cosine ≈ 1.0 across all 7 seg variants).

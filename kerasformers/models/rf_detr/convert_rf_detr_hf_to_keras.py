@@ -353,7 +353,7 @@ if __name__ == "__main__":
         keras.backend.clear_session()
 
     from kerasformers.models.rf_detr.config import RF_DETR_SEGMENT_CONFIG
-    from kerasformers.models.rf_detr.rf_detr_model import RFDETRSegment
+    from kerasformers.models.rf_detr.rf_detr_model import RFDETRInstanceSegment
 
     print(f"\n\n{'=' * 60}\nSegmentation variants\n{'=' * 60}")
     for variant, hf_id in HF_SEG_SOURCES.items():
@@ -361,7 +361,7 @@ if __name__ == "__main__":
         res = seg_config["resolution"]
         print(f"\n{'=' * 60}\nConverting {variant}  <-  {hf_id}\n{'=' * 60}")
 
-        keras_model = RFDETRSegment.from_weights(
+        keras_model = RFDETRInstanceSegment.from_weights(
             variant,
             load_weights=False,
             backbone_use_swiglu=False,
