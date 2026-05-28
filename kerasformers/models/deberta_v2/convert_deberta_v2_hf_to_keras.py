@@ -163,6 +163,7 @@ if __name__ == "__main__":
         hf_model = (
             HFDebertaV2Model.from_pretrained(hf_id, token=HF_TOKEN).float().eval()
         )
+        print(f"  HF reference dtype: {hf_model.dtype}  (must be float32)")
         keras_model = DebertaV2Model(**arch)
         transfer_deberta_v2_weights(keras_model, sd)
         with torch.no_grad():
