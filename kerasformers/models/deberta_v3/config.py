@@ -72,24 +72,24 @@ DEBERTA_V3_MODEL_CONFIG = {
 DEBERTA_V3_WEIGHT_CONFIG = {
     "deberta_v3_xsmall": {
         "model": "deberta_v3_xsmall",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_xsmall.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_xsmall_mlm.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_xsmall.weights.h5",
+        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_xsmall_mlm.weights.h5",
     },
     "deberta_v3_small": {
         "model": "deberta_v3_small",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_small.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_small_mlm.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_small.weights.h5",
+        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_small_mlm.weights.h5",
     },
     "deberta_v3_base": {
         "model": "deberta_v3_base",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_base.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_base_mlm.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_base.weights.h5",
+        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_base_mlm.weights.h5",
     },
     "deberta_v3_large": {
         "model": "deberta_v3_large",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_large.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_large_mlm.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_large.weights.h5",
+        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_large_mlm.weights.h5",
     },
 }
 
-DEBERTA_V3_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/deberta_v3/deberta_v3_spm.model"
+DEBERTA_V3_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_spm.model"
