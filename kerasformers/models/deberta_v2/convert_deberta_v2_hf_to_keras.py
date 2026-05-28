@@ -99,3 +99,111 @@ def transfer_deberta_v2_weights(
             weight.assign(np.transpose(value, (2, 1, 0)))
             continue
         transfer_weights(weight.path, weight, value)
+
+
+if __name__ == "__main__":
+    import gc
+    import os
+
+    import keras
+    import torch
+    import torch.nn.functional as F
+    from huggingface_hub import hf_hub_download
+    from transformers import DebertaV2Model as HFDebertaV2Model
+
+    from kerasformers.models.deberta_v2 import DebertaV2MaskedLM, DebertaV2Model
+    from kerasformers.models.deberta_v2.config import (
+        DEBERTA_V2_MODEL_CONFIG,
+        DEBERTA_V2_WEIGHT_CONFIG,
+    )
+
+    HF_TOKEN = os.environ.get("HF_TOKEN")
+    HF_SOURCES = {
+        "deberta_v2_xlarge": "microsoft/deberta-v2-xlarge",
+        "deberta_v2_xxlarge": "microsoft/deberta-v2-xxlarge",
+    }
+    # xlarge/xxlarge exceed GitHub's 2 GB asset limit, so weights are sharded
+    # (config URLs are .weights.json). Keep shards under the limit.
+    MAX_SHARD_GB = 1.7
+
+    def raw_state_dict(hf_id):
+        try:
+            from safetensors.torch import load_file
+
+            return load_file(
+                hf_hub_download(hf_id, "model.safetensors", token=HF_TOKEN)
+            )
+        except Exception:
+            path = hf_hub_download(hf_id, "pytorch_model.bin", token=HF_TOKEN)
+            return torch.load(path, map_location="cpu", weights_only=True)
+
+    rng = np.random.default_rng(0)
+
+    for variant, meta in DEBERTA_V2_WEIGHT_CONFIG.items():
+        arch = DEBERTA_V2_MODEL_CONFIG[meta["model"]]
+        hf_id = HF_SOURCES[variant]
+        eps = arch["layer_norm_eps"]
+        print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
+
+        ids = rng.integers(5, arch["vocab_size"], (2, 16)).astype("int64")
+        mask = np.ones((2, 16), dtype="int64")
+        mask[0, 12:] = 0
+        k_inputs = {
+            "input_ids": ids.astype("int32"),
+            "attention_mask": mask.astype("int32"),
+            "token_type_ids": np.zeros((2, 16), dtype="int32"),
+        }
+        pt = {
+            "input_ids": torch.from_numpy(ids),
+            "attention_mask": torch.from_numpy(mask),
+        }
+        valid = mask[..., None].astype(bool)
+        sd = raw_state_dict(hf_id)
+
+        hf_model = HFDebertaV2Model.from_pretrained(hf_id, token=HF_TOKEN).eval()
+        keras_model = DebertaV2Model(**arch)
+        transfer_deberta_v2_weights(keras_model, sd)
+        with torch.no_grad():
+            seq_ref = hf_model(**pt).last_hidden_state
+        seq = keras_model(k_inputs, training=False)["last_hidden_state"]
+        seq = seq.detach().cpu().numpy() if hasattr(seq, "detach") else np.asarray(seq)
+        d_seq = float(np.abs((seq_ref.numpy() - seq) * valid).max())
+        print(f"  last_hidden_state max diff (non-pad): {d_seq:.3e}")
+        if d_seq > 1e-3:
+            raise ValueError(f"{variant}: DebertaV2Model parity failed")
+        keras_model.save_weights(f"{variant}.weights.json", max_shard_size=MAX_SHARD_GB)
+        print(f"  Saved -> {variant}.weights.json")
+
+        # MLM head uses the legacy cls.predictions.* layout. HF's DebertaV2ForMaskedLM
+        # head is unreliable, so validate against a manual reference from the raw
+        # checkpoint (dense -> gelu -> LayerNorm -> decoder + bias).
+        keras_mlm = DebertaV2MaskedLM(**arch)
+        transfer_deberta_v2_weights(keras_mlm, sd)
+        with torch.no_grad():
+            h = seq_ref @ sd["cls.predictions.transform.dense.weight"].T
+            h = h + sd["cls.predictions.transform.dense.bias"]
+            h = F.gelu(h)
+            h = F.layer_norm(
+                h,
+                (arch["embed_dim"],),
+                sd["cls.predictions.transform.LayerNorm.weight"],
+                sd["cls.predictions.transform.LayerNorm.bias"],
+                eps=eps,
+            )
+            mlm_ref = (
+                h @ sd["cls.predictions.decoder.weight"].T + sd["cls.predictions.bias"]
+            ).numpy()
+        kl = keras_mlm(k_inputs, training=False)
+        kl = kl.detach().cpu().numpy() if hasattr(kl, "detach") else np.asarray(kl)
+        d_mlm = float(np.abs((mlm_ref - kl) * valid).max())
+        print(f"  mlm logits max diff (non-pad): {d_mlm:.3e}")
+        if d_mlm > 1e-3:
+            raise ValueError(f"{variant}: DebertaV2MaskedLM parity failed")
+        keras_mlm.save_weights(
+            f"{variant}_mlm.weights.json", max_shard_size=MAX_SHARD_GB
+        )
+        print(f"  Saved -> {variant}_mlm.weights.json")
+
+        del hf_model, keras_model, keras_mlm, sd
+        keras.backend.clear_session()
+        gc.collect()
