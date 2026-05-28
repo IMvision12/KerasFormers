@@ -323,21 +323,19 @@ if __name__ == "__main__":
         keras_logits = keras.ops.convert_to_numpy(keras_out["pred_logits"])
         keras_boxes = keras.ops.convert_to_numpy(keras_out["pred_boxes"])
 
-        def cosine(a, b):
-            a, b = a.ravel(), b.ravel()
-            return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+        logits_diff = float(np.max(np.abs(pt_logits - keras_logits)))
+        boxes_diff = float(np.max(np.abs(pt_boxes - keras_boxes)))
 
-        logits_cos = cosine(pt_logits, keras_logits)
-        boxes_cos = cosine(pt_boxes, keras_boxes)
-        class_agree = float(
-            (pt_logits[0].argmax(-1) == keras_logits[0].argmax(-1)).mean()
-        )
-        print(
-            f"  logits cosine: {logits_cos:.4f}  boxes cosine: {boxes_cos:.4f}  "
-            f"class agreement: {class_agree * 100:.1f}%"
-        )
-        if logits_cos < 0.99 or class_agree < 0.95:
-            raise ValueError(f"{variant}: HF parity failed")
+        print(f"  Max logits diff: {logits_diff:.6f}")
+        print(f"  Max boxes diff:  {boxes_diff:.6f}")
+
+        if logits_diff > 1e-3 or boxes_diff > 1e-3:
+            raise ValueError(
+                f"{variant}: HF parity failed - model outputs do not match "
+                f"(logits: {logits_diff:.6f}, boxes: {boxes_diff:.6f})"
+            )
+
+        print("Model equivalence test passed!")
 
         keras_model.save_weights(f"rf_detr_{variant.split('-')[1]}.weights.h5")
         print(f"  Saved -> rf_detr_{variant.split('-')[1]}.weights.h5")
@@ -392,22 +390,22 @@ if __name__ == "__main__":
         keras_boxes = keras.ops.convert_to_numpy(keras_out["pred_boxes"])
         keras_masks = keras.ops.convert_to_numpy(keras_out["pred_masks"])
 
-        def cosine(a, b):
-            a, b = a.ravel(), b.ravel()
-            return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+        logits_diff = float(np.max(np.abs(pt_logits - keras_logits)))
+        boxes_diff = float(np.max(np.abs(pt_boxes - keras_boxes)))
+        masks_diff = float(np.max(np.abs(pt_masks - keras_masks)))
 
-        logits_cos = cosine(pt_logits, keras_logits)
-        boxes_cos = cosine(pt_boxes, keras_boxes)
-        masks_cos = cosine(pt_masks, keras_masks)
-        class_agree = float(
-            (pt_logits[0].argmax(-1) == keras_logits[0].argmax(-1)).mean()
-        )
-        print(
-            f"  logits cosine: {logits_cos:.4f}  boxes cosine: {boxes_cos:.4f}  "
-            f"masks cosine: {masks_cos:.4f}  class agreement: {class_agree * 100:.1f}%"
-        )
-        if logits_cos < 0.99 or masks_cos < 0.99 or class_agree < 0.95:
-            raise ValueError(f"{variant}: HF parity failed")
+        print(f"  Max logits diff: {logits_diff:.6f}")
+        print(f"  Max boxes diff:  {boxes_diff:.6f}")
+        print(f"  Max masks diff:  {masks_diff:.6f}")
+
+        if logits_diff > 1e-3 or boxes_diff > 1e-3 or masks_diff > 1e-2:
+            raise ValueError(
+                f"{variant}: HF parity failed - model outputs do not match "
+                f"(logits: {logits_diff:.6f}, boxes: {boxes_diff:.6f}, "
+                f"masks: {masks_diff:.6f})"
+            )
+
+        print("Model equivalence test passed!")
 
         out_name = f"rf_detr_seg_{variant.split('-')[-1]}.weights.h5"
         keras_model.save_weights(out_name)
