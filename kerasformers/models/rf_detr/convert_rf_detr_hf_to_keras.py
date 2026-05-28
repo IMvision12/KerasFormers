@@ -345,7 +345,6 @@ if __name__ == "__main__":
         del keras_model, hf_model, state_dict
         keras.backend.clear_session()
 
-    # ----- Instance segmentation variants -----
     from kerasformers.models.rf_detr.config import RF_DETR_SEGMENT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRSegment
 
@@ -407,7 +406,6 @@ if __name__ == "__main__":
             f"  logits cosine: {logits_cos:.4f}  boxes cosine: {boxes_cos:.4f}  "
             f"masks cosine: {masks_cos:.4f}  class agreement: {class_agree * 100:.1f}%"
         )
-        # Same rationale as the detection gate (cosine, not max-diff); add a masks floor.
         if logits_cos < 0.99 or masks_cos < 0.99 or class_agree < 0.95:
             raise ValueError(f"{variant}: HF parity failed")
 
