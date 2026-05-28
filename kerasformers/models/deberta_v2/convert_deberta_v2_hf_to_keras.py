@@ -160,9 +160,9 @@ if __name__ == "__main__":
         }
         sd = raw_state_dict(hf_id)
 
-        hf_model = HFDebertaV2Model.from_pretrained(
-            hf_id, token=HF_TOKEN, dtype=torch.float32
-        ).eval()
+        hf_model = (
+            HFDebertaV2Model.from_pretrained(hf_id, token=HF_TOKEN).float().eval()
+        )
         keras_model = DebertaV2Model(**arch)
         transfer_deberta_v2_weights(keras_model, sd)
         with torch.no_grad():
