@@ -211,6 +211,11 @@ class DebertaV2Model(BaseModel):
         if max_rel is None or max_rel < 1:
             max_rel = hf_config["max_position_embeddings"]
         norm = (hf_config.get("norm_rel_ebd") or "").lower()
+        # HF stores pos_att_type as a pipe-separated string ("p2c|c2p") or a list;
+        # list("p2c|c2p") would split into characters, so handle the string case.
+        pos_att_type = hf_config.get("pos_att_type") or ["p2c", "c2p"]
+        if isinstance(pos_att_type, str):
+            pos_att_type = pos_att_type.split("|")
         return {
             "vocab_size": hf_config["vocab_size"],
             "embed_dim": hf_config["hidden_size"],
@@ -220,7 +225,7 @@ class DebertaV2Model(BaseModel):
             "max_position_embeddings": hf_config["max_position_embeddings"],
             "max_relative_positions": max_rel,
             "position_buckets": hf_config.get("position_buckets") or 256,
-            "pos_att_type": list(hf_config.get("pos_att_type") or ["p2c", "c2p"]),
+            "pos_att_type": list(pos_att_type),
             "norm_rel_ebd": "layer_norm" in norm,
             "conv_kernel_size": hf_config.get("conv_kernel_size") or 0,
             "conv_act": hf_config.get("conv_act") or "gelu",

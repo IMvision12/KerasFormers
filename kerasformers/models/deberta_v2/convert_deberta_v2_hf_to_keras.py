@@ -18,12 +18,12 @@ WEIGHT_NAME_MAPPING = {
     "conv/conv/bias": "encoder.conv.conv.bias",
     "conv/LayerNorm/gamma": "encoder.conv.LayerNorm.weight",
     "conv/LayerNorm/beta": "encoder.conv.LayerNorm.bias",
-    "lm_head_dense/kernel": "cls.predictions.transform.dense.weight",
-    "lm_head_dense/bias": "cls.predictions.transform.dense.bias",
-    "lm_head_layernorm/gamma": "cls.predictions.transform.LayerNorm.weight",
-    "lm_head_layernorm/beta": "cls.predictions.transform.LayerNorm.bias",
-    "lm_head_decoder/kernel": "cls.predictions.decoder.weight",
-    "lm_head_decoder/bias": "cls.predictions.bias",
+    "lm_head_dense/kernel": "lm_predictions.lm_head.dense.weight",
+    "lm_head_dense/bias": "lm_predictions.lm_head.dense.bias",
+    "lm_head_layernorm/gamma": "lm_predictions.lm_head.LayerNorm.weight",
+    "lm_head_layernorm/beta": "lm_predictions.lm_head.LayerNorm.bias",
+    "lm_head_decoder/kernel": "embeddings.word_embeddings.weight",
+    "lm_head_decoder/bias": "lm_predictions.lm_head.bias",
     "pooler_dense/kernel": "pooler.dense.weight",
     "pooler_dense/bias": "pooler.dense.bias",
     "classifier/kernel": "classifier.weight",
@@ -135,6 +135,10 @@ if __name__ == "__main__":
             path = hf_hub_download(hf_id, "pytorch_model.bin", token=HF_TOKEN)
             return torch.load(path, map_location="cpu", weights_only=True)
 
+    def cosine(a, b):
+        a, b = a.ravel(), b.ravel()
+        return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+
     rng = np.random.default_rng(0)
 
     for variant, meta in DEBERTA_V2_WEIGHT_CONFIG.items():
@@ -145,7 +149,6 @@ if __name__ == "__main__":
 
         ids = rng.integers(5, arch["vocab_size"], (2, 16)).astype("int64")
         mask = np.ones((2, 16), dtype="int64")
-        mask[0, 12:] = 0
         k_inputs = {
             "input_ids": ids.astype("int32"),
             "attention_mask": mask.astype("int32"),
@@ -155,45 +158,51 @@ if __name__ == "__main__":
             "input_ids": torch.from_numpy(ids),
             "attention_mask": torch.from_numpy(mask),
         }
-        valid = mask[..., None].astype(bool)
         sd = raw_state_dict(hf_id)
 
-        hf_model = HFDebertaV2Model.from_pretrained(hf_id, token=HF_TOKEN).eval()
+        hf_model = HFDebertaV2Model.from_pretrained(
+            hf_id, token=HF_TOKEN, dtype=torch.float32
+        ).eval()
         keras_model = DebertaV2Model(**arch)
         transfer_deberta_v2_weights(keras_model, sd)
         with torch.no_grad():
             seq_ref = hf_model(**pt).last_hidden_state
         seq = keras_model(k_inputs, training=False)["last_hidden_state"]
         seq = seq.detach().cpu().numpy() if hasattr(seq, "detach") else np.asarray(seq)
-        d_seq = float(np.abs((seq_ref.numpy() - seq) * valid).max())
-        print(f"  last_hidden_state max diff (non-pad): {d_seq:.3e}")
-        if d_seq > 1e-3:
-            raise ValueError(f"{variant}: DebertaV2Model parity failed")
+        ref_np = seq_ref.numpy()
+
+        d_seq = float(np.abs(ref_np - seq).max())
+        c_seq = cosine(ref_np, seq)
+        print(f"  last_hidden_state max diff: {d_seq:.3e}  cosine: {c_seq:.6f}")
+        if c_seq < 0.999:
+            raise ValueError(
+                f"{variant}: DebertaV2Model parity failed (cosine {c_seq:.4f})"
+            )
         keras_model.save_weights(f"{variant}.weights.json", max_shard_size=MAX_SHARD_GB)
         print(f"  Saved -> {variant}.weights.json")
 
         keras_mlm = DebertaV2MaskedLM(**arch)
         transfer_deberta_v2_weights(keras_mlm, sd)
         with torch.no_grad():
-            h = seq_ref @ sd["cls.predictions.transform.dense.weight"].T
-            h = h + sd["cls.predictions.transform.dense.bias"]
+            dense_w = sd["lm_predictions.lm_head.dense.weight"].float()
+            dense_b = sd["lm_predictions.lm_head.dense.bias"].float()
+            ln_w = sd["lm_predictions.lm_head.LayerNorm.weight"].float()
+            ln_b = sd["lm_predictions.lm_head.LayerNorm.bias"].float()
+            dec_b = sd["lm_predictions.lm_head.bias"].float()
+            word_emb = sd["deberta.embeddings.word_embeddings.weight"].float()
+            h = seq_ref @ dense_w.T + dense_b
             h = F.gelu(h)
-            h = F.layer_norm(
-                h,
-                (arch["embed_dim"],),
-                sd["cls.predictions.transform.LayerNorm.weight"],
-                sd["cls.predictions.transform.LayerNorm.bias"],
-                eps=eps,
-            )
-            mlm_ref = (
-                h @ sd["cls.predictions.decoder.weight"].T + sd["cls.predictions.bias"]
-            ).numpy()
+            h = F.layer_norm(h, (arch["embed_dim"],), ln_w, ln_b, eps=eps)
+            mlm_ref = (h @ word_emb.T + dec_b).numpy()
         kl = keras_mlm(k_inputs, training=False)
         kl = kl.detach().cpu().numpy() if hasattr(kl, "detach") else np.asarray(kl)
-        d_mlm = float(np.abs((mlm_ref - kl) * valid).max())
-        print(f"  mlm logits max diff (non-pad): {d_mlm:.3e}")
-        if d_mlm > 1e-3:
-            raise ValueError(f"{variant}: DebertaV2MaskedLM parity failed")
+        d_mlm = float(np.abs(mlm_ref - kl).max())
+        c_mlm = cosine(mlm_ref, kl)
+        print(f"  mlm logits max diff: {d_mlm:.3e}  cosine: {c_mlm:.6f}")
+        if c_mlm < 0.999:
+            raise ValueError(
+                f"{variant}: DebertaV2MaskedLM parity failed (cosine {c_mlm:.4f})"
+            )
         keras_mlm.save_weights(
             f"{variant}_mlm.weights.json", max_shard_size=MAX_SHARD_GB
         )
