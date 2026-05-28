@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, MobileViT-DeepLabV3), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (Qwen2, Qwen3, Qwen3.5), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (Qwen2, Qwen3, Qwen3.5), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -103,7 +103,7 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | DETR | [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872) | `transformers` |
     | RT-DETR | [DETRs Beat YOLOs on Real-time Object Detection](https://arxiv.org/abs/2304.08069) | `transformers` |
     | RT-DETRv2 | [RT-DETRv2: Improved Baseline with Bag-of-Freebies for Real-Time Detection Transformers](https://arxiv.org/abs/2407.17140) | `transformers` |
-    | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `Official Repo` |
+    | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `transformers` |
     | OWL-ViT | [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230) | `transformers` |
     | OWLv2 | [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683) | `transformers` |
 
@@ -119,6 +119,7 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | Mask2Former | [Masked-attention Mask Transformer for Universal Image Segmentation](https://arxiv.org/abs/2112.01527) | `transformers` |
     | MobileViT | [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178) | `transformers` |
     | MobileViTV2 | [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680) | `transformers` |
+    | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
     | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
     | SAM3 | [SAM 3: Segment Anything with Concepts](https://arxiv.org/abs/2511.16719) | `transformers` (gated) |

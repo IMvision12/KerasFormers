@@ -28,13 +28,19 @@ model = RFDETRDetect.from_weights("rfdetr-small")
 model = RFDETRDetect.from_weights("rfdetr-medium")
 model = RFDETRDetect.from_weights("rfdetr-large")
 
+# Or load the original Roboflow checkpoints straight from the HuggingFace Hub
+model = RFDETRDetect.from_weights("hf:Roboflow/rf-detr-base")
+
 # Untrained
 model = RFDETRDetect.from_weights("rfdetr-base", load_weights=False)
 ```
 
-> RF-DETR is not available through HuggingFace transformers. Use the
-> kerasformers release variants above, or load a custom checkpoint via
-> `model.load_weights(...)`.
+> The five `rfdetr-*` variants correspond to the Hub checkpoints
+> `Roboflow/rf-detr-{nano,small,medium,base,large}`.
+> `from_weights("hf:Roboflow/rf-detr-...")` reads the repo's `config.json` and
+> safetensors directly (via `huggingface_hub`, no `transformers` dependency) and
+> converts them to Keras on the fly — the architecture and weights are identical
+> to the kerasformers release variants above.
 
 ## Example Inference
 
@@ -144,3 +150,58 @@ results = processor.post_process_object_detection(output, threshold=0.5,
 ```
 
 If `label_names` is not provided, COCO class names are used by default.
+
+## Instance Segmentation
+
+`RFDETRInstanceSegment` adds a mask head on top of the same DINOv2 backbone + deformable
+decoder. It returns per-query masks alongside the detection outputs. Seven
+checkpoints are available (sourced from the `Roboflow/rf-detr-seg-*` Hub repos):
+
+| Variant | Resolution | Queries | Decoder layers |
+|---|---|---|---|
+| `rfdetr-seg-preview` | 432px | 200 | 4 |
+| `rfdetr-seg-nano` | 312px | 100 | 4 |
+| `rfdetr-seg-small` | 384px | 100 | 4 |
+| `rfdetr-seg-medium` | 432px | 200 | 5 |
+| `rfdetr-seg-large` | 504px | 300 | 5 |
+| `rfdetr-seg-xlarge` | 624px | 300 | 6 |
+| `rfdetr-seg-xxlarge` | 768px | 300 | 6 |
+
+```python
+from kerasformers.models.rf_detr import RFDETRInstanceSegment, RFDETRImageProcessor
+
+# kerasformers release, or load the Roboflow checkpoint from the Hub:
+model = RFDETRInstanceSegment.from_weights("rfdetr-seg-small")
+model = RFDETRInstanceSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
+
+processor = RFDETRImageProcessor(size={"height": 384, "width": 384})
+inputs = processor("image.jpg")
+out = model(inputs["pixel_values"], training=False)
+# out["pred_logits"]: (1, 100, 91)         — class logits per query
+# out["pred_boxes"]:  (1, 100, 4)          — normalized (cx, cy, w, h)
+# out["pred_masks"]:  (1, 100, 96, 96)     — mask logits (resolution // 4)
+```
+
+Masks are emitted at `resolution // mask_downsample_ratio` (ratio `4`). The image
+processor provides a one-call post-processor that mirrors
+`post_process_object_detection` (sigmoid scoring + top-K + boxes in xyxy pixel
+coords) and additionally upsamples + thresholds each kept query's mask to the
+original image size:
+
+```python
+img = Image.open("image.jpg").convert("RGB")
+orig_h, orig_w = img.size[::-1]
+out = model(processor(img)["pixel_values"], training=False)
+
+results = processor.post_process_instance_segmentation(
+    out, threshold=0.5, target_sizes=[(orig_h, orig_w)]
+)
+for name, score, mask in zip(results[0]["label_names"],
+                              results[0]["scores"],
+                              results[0]["masks"]):
+    print(f"{name}: {score:.2f}, {int(mask.sum())} mask px")
+# results[0]["masks"] is (num_detections, H, W) bool — one binary mask per detection
+```
+
+`RFDETRInstanceSegment` is validated to match `transformers.RfDetrForInstanceSegmentation`
+(logits / boxes / masks cosine ≈ 1.0 across all 7 seg variants).

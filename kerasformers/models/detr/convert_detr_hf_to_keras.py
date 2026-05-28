@@ -4,7 +4,7 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.models.detr import DETRDetect, DETRSegment
+from kerasformers.models.detr import DETRDetect, DETRPanopticSegment
 from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
@@ -207,7 +207,7 @@ def transfer_detr_weights(keras_model, state_dict):
 
 
 def transfer_detr_segment_weights(keras_model, state_dict):
-    """Transfer ``DetrForSegmentation`` weights into :class:`DETRSegment`.
+    """Transfer ``DetrForSegmentation`` weights into :class:`DETRPanopticSegment`.
 
     The source state dict nests the entire detection model under ``detr.*``
     and adds top-level ``bbox_attention.*`` / ``mask_head.*`` keys for
@@ -380,7 +380,7 @@ if __name__ == "__main__":
         print(f"Converting {cfg['hf_model_name']}...")
         print(f"{'=' * 60}")
 
-        keras_model = DETRSegment.from_weights(
+        keras_model = DETRPanopticSegment.from_weights(
             cfg["variant"],
             load_weights=False,
             image_size=cfg["image_size"],

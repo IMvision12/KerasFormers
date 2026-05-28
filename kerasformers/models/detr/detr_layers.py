@@ -343,7 +343,7 @@ class DETRMHAttentionMap(layers.Layer):
     """Multi-head attention map between decoder queries and encoder features.
 
     Computes per-head, per-query attention weights over the encoder's
-    spatial feature map — used by :class:`DETRSegment` as the seed for
+    spatial feature map — used by :class:`DETRPanopticSegment` as the seed for
     the mask head. Matches the reference ``DetrMHAttentionMap`` weights
     and forward semantics.
 

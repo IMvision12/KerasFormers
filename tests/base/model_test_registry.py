@@ -713,6 +713,27 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
+    "RFDETRInstanceSegment": {
+        "module": "kerasformers.models.rf_detr",
+        "model_cls": "RFDETRInstanceSegment",
+        "model_type": "instance_segmentation",
+        "init_kwargs": {
+            "patch_size": 16,
+            "num_windows": 2,
+            "positional_encoding_size": 24,
+            "resolution": 384,
+            "dec_layers": 2,
+            "num_queries": 10,
+            "num_classes": 91,
+            "image_size": 256,
+        },
+        "input_shape": (2, 256, 256, 3),
+        "expected_output_shape": {
+            "pred_logits": (2, 10, 91),
+            "pred_boxes": (2, 10, 4),
+            "pred_masks": (2, 10, 64, 64),
+        },
+    },
     # ---------- Depth estimation ----------
     "DepthAnythingV1DepthEstimation": {
         "module": "kerasformers.models.depth_anything_v1",

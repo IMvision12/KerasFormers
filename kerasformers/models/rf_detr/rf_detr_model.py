@@ -6,13 +6,19 @@ from keras import layers, ops, utils
 from kerasformers.base import BaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import RF_DETR_CONFIG, RF_DETR_WEIGHTS
+from .config import (
+    RF_DETR_DETECT_CONFIG,
+    RF_DETR_DETECT_WEIGHTS,
+    RF_DETR_SEGMENT_CONFIG,
+    RF_DETR_SEGMENT_WEIGHTS,
+)
 from .rf_detr_layers import (
     RFDETRChannelLayerNorm,
     RFDETRDecoderLayer,
     RFDETRDinoV2Embeddings,
     RFDETRDinoV2LayerScale,
     RFDETRLearnedEmbedding,
+    RFDETRSegmentationBias,
 )
 
 
@@ -205,6 +211,9 @@ def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
         - output_memory: Filtered memory features with invalid proposals zeroed.
         - output_proposals: Generated proposals as (cx, cy, w, h) tensors
             in normalized coordinates [0, 1].
+        - valid: Boolean mask ``(B, N, 1)``, True where the proposal is in
+            bounds (used to exclude border proposals from the top-k selection,
+            matching HF's ``masked_fill(invalid_mask, -inf)``).
     """
     proposals = []
     for lvl, (H_, W_) in enumerate(spatial_shapes):
@@ -244,7 +253,7 @@ def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
         output_proposals = ops.where(valid, unsig, inf_val)
 
     output_memory = ops.where(valid, memory, ops.zeros_like(memory))
-    return output_memory, output_proposals
+    return output_memory, output_proposals, valid
 
 
 def rf_detr_two_stage_refine_refpoints(
@@ -938,7 +947,7 @@ def rf_detr_two_stage_refpoints(
     Returns:
         ``(B, num_queries, 4)`` refined reference points.
     """
-    output_memory_filtered, output_proposals = rf_detr_encoder_output_proposals(
+    output_memory_filtered, output_proposals, valid = rf_detr_encoder_output_proposals(
         memory,
         spatial_shapes=spatial_shapes,
         bbox_reparam=bbox_reparam,
@@ -973,6 +982,9 @@ def rf_detr_two_stage_refpoints(
         enc_coords = enc_bbox_delta + output_proposals
 
     proj_shape = spatial_shapes[0]
+    # Exclude out-of-bounds (border) proposals from selection, matching HF's
+    # `enc_outputs_class_proposals.masked_fill(invalid_mask, -inf)` before top-k.
+    enc_cls = ops.where(valid, enc_cls, ops.cast(-1e30, enc_cls.dtype))
     enc_cls_max = ops.max(enc_cls, axis=-1)
     topk_indices = ops.top_k(
         enc_cls_max, k=min(num_queries, proj_shape[0] * proj_shape[1])
@@ -1002,6 +1014,7 @@ def rf_detr_decoder(
     lite_refpoint_refine,
     bbox_reparam,
     spatial_shapes,
+    return_seg_features=False,
 ):
     """Build the RF-DETR deformable decoder with iterative bbox refinement.
 
@@ -1091,6 +1104,7 @@ def rf_detr_decoder(
         query_pos = ref_point_head_1(ref_point_head_0(query_sine))
 
     output = tgt
+    intermediate_hidden_states = []
     for dec_layer in decoder_layers_list:
         if not lite_refpoint_refine:
             if bbox_reparam:
@@ -1115,6 +1129,8 @@ def rf_detr_decoder(
             ref_input,
             training=False,
         )
+        if return_seg_features:
+            intermediate_hidden_states.append(decoder_norm(output))
 
         if not lite_refpoint_refine:
             new_delta = bbox_embed_2(bbox_embed_1(bbox_embed_0(output)))
@@ -1142,6 +1158,8 @@ def rf_detr_decoder(
     else:
         pred_boxes = ops.sigmoid(pred_bbox_delta + refpoints_unsigmoid)
 
+    if return_seg_features:
+        return last_hidden_state, pred_boxes, intermediate_hidden_states
     return last_hidden_state, pred_boxes
 
 
@@ -1169,6 +1187,7 @@ def rf_detr_functional(
     lite_refpoint_refine,
     dim_feedforward,
     input_shape,
+    return_seg_features=False,
 ):
     """Build the full RF-DETR architecture from an input tensor (no class head).
 
@@ -1270,7 +1289,7 @@ def rf_detr_functional(
     else:
         refpoints_unsigmoid = refpoint_embed
 
-    return rf_detr_decoder(
+    decoder_outputs = rf_detr_decoder(
         memory,
         tgt,
         refpoints_unsigmoid,
@@ -1283,7 +1302,15 @@ def rf_detr_functional(
         lite_refpoint_refine=lite_refpoint_refine,
         bbox_reparam=bbox_reparam,
         spatial_shapes=spatial_shapes,
+        return_seg_features=return_seg_features,
     )
+    if not return_seg_features:
+        return decoder_outputs
+
+    last_hidden_state, pred_boxes, intermediate_hidden_states = decoder_outputs
+    num_h, num_w = spatial_shape
+    spatial_features = ops.reshape(memory, (-1, num_h, num_w, hidden_dim))
+    return last_hidden_state, pred_boxes, spatial_features, intermediate_hidden_states
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -1297,11 +1324,12 @@ class RFDetrModel(BaseModel):
     also downstream of the output and naturally excluded. Use
     ``RFDETRDetect`` for full detection outputs.
 
-    RF-DETR is not on the model Hub, so this class also does not
-    support ``from_weights("hf:...")``.
+    This bare-backbone variant has no class head, so it does not implement
+    ``from_weights("hf:...")``; use :class:`RFDETRDetect` to load the
+    ``Roboflow/rf-detr-*`` checkpoints from the model Hub.
     """
 
-    BASE_MODEL_CONFIG = RF_DETR_CONFIG
+    BASE_MODEL_CONFIG = RF_DETR_DETECT_CONFIG
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
@@ -1445,9 +1473,9 @@ class RFDetrModel(BaseModel):
     @classmethod
     def from_hf(cls, hf_id, load_weights=True, **kwargs):
         raise NotImplementedError(
-            "RF-DETR is not available on HuggingFace Hub. "
-            "Use the kerasformers release variants (e.g. 'rfdetr-base') or pass a "
-            "local .weights.h5 path via model.load_weights(...)."
+            "RFDetrModel is the headless backbone variant with no Hub checkpoint. "
+            "Use RFDETRDetect.from_weights('hf:Roboflow/rf-detr-base') for the "
+            "detection model, or pass a local .weights.h5 path to model.load_weights()."
         )
 
 
@@ -1499,8 +1527,65 @@ class RFDETRDetect(BaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = RF_DETR_CONFIG
-    BASE_WEIGHT_CONFIG = RF_DETR_WEIGHTS
+    BASE_MODEL_CONFIG = RF_DETR_DETECT_CONFIG
+    BASE_WEIGHT_CONFIG = RF_DETR_DETECT_WEIGHTS
+    HF_MODEL_TYPE = "rf_detr"
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, state_dict):
+        import numpy as np
+
+        from .convert_rf_detr_hf_to_keras import transfer_rf_detr_weights
+
+        # RF-DETR's custom layers create their weights on the first call, so
+        # build the functional graph on a dummy input before assigning weights.
+        shape = [d if d is not None else 1 for d in keras_model.inputs[0].shape]
+        keras_model(np.zeros(shape, dtype="float32"))
+        transfer_rf_detr_weights(keras_model, state_dict)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        import math
+
+        bb = hf_config["backbone_config"]
+        patch_size = bb["patch_size"]
+        num_windows = bb.get("num_windows", 1)
+        image_size = bb["image_size"]
+        # Input resolution isn't stored in config.json; reconstruct the value the
+        # image processor uses — the smallest multiple of patch_size * num_windows
+        # that is >= the backbone image_size (windowed attention needs the feature
+        # grid divisible by num_windows).
+        unit = patch_size * max(num_windows, 1)
+        resolution = math.ceil(image_size / unit) * unit
+        num_classes = (
+            len(hf_config["id2label"])
+            if "id2label" in hf_config
+            else hf_config.get("num_labels", 91)
+        )
+        return {
+            "hidden_dim": hf_config["d_model"],
+            "backbone_hidden_size": bb["hidden_size"],
+            "backbone_num_heads": bb["num_attention_heads"],
+            "backbone_num_layers": bb["num_hidden_layers"],
+            "backbone_mlp_ratio": bb.get("mlp_ratio", 4),
+            "backbone_use_swiglu": bb.get("use_swiglu_ffn", False),
+            "num_register_tokens": bb.get("num_register_tokens", 0),
+            "out_feature_indexes": [
+                int(s.removeprefix("stage")) for s in bb["out_features"]
+            ],
+            "patch_size": patch_size,
+            "num_windows": num_windows,
+            "positional_encoding_size": image_size // patch_size,
+            "resolution": resolution,
+            "dec_layers": hf_config["decoder_layers"],
+            "sa_nheads": hf_config["decoder_self_attention_heads"],
+            "ca_nheads": hf_config["decoder_cross_attention_heads"],
+            "dec_n_points": hf_config["decoder_n_points"],
+            "num_queries": hf_config["num_queries"],
+            "num_classes": num_classes,
+            "group_detr": hf_config["group_detr"],
+            "dim_feedforward": hf_config["decoder_ffn_dim"],
+        }
 
     def __init__(
         self,
@@ -1638,10 +1723,309 @@ class RFDETRDetect(BaseModel):
     def from_config(cls, config):
         return cls(**config)
 
+
+def rf_detr_segmentation_head(
+    spatial_features,
+    list_query_features,
+    *,
+    num_queries,
+    mask_height,
+    mask_width,
+    hidden_dim,
+    intermediate_size,
+    seg_activation,
+):
+    """RF-DETR mask head: one ConvNeXt-style block per decoder layer, dotted with
+    the (projected) per-layer queries.
+
+    Mirrors HF ``RfDetrForInstanceSegmentation.segmentation_head``: the projector
+    spatial map is bilinearly resized to ``image_size / mask_downsample_ratio``,
+    then for each decoder layer a depthwise-conv block refines it and a
+    ``query x spatial`` product (plus a learned scalar bias) yields per-query mask
+    logits; the last layer's logits are returned.
+
+    Args:
+        spatial_features: ``(B, Hf, Wf, hidden_dim)`` projector feature map.
+        list_query_features: One ``(B, num_queries, hidden_dim)`` post-norm decoder
+            hidden state per decoder layer.
+        num_queries: Number of object queries.
+        mask_height: Target mask height (image height // mask_downsample_ratio).
+        mask_width: Target mask width (image width // mask_downsample_ratio).
+        hidden_dim: Model dimension.
+        intermediate_size: Hidden dimension of the query-features MLP.
+        seg_activation: Activation used in the blocks and the query MLP.
+
+    Returns:
+        ``(B, num_queries, mask_height, mask_width)`` mask logits.
+    """
+    # Layers shared across decoder layers (applied once per layer in the loop).
+    qf_norm = layers.LayerNormalization(
+        epsilon=1e-5, name="seg_query_features_block_norm"
+    )
+    qf_fc1 = layers.Dense(intermediate_size, name="seg_query_features_block_fc1")
+    qf_fc2 = layers.Dense(hidden_dim, name="seg_query_features_block_fc2")
+    qf_proj = layers.Dense(hidden_dim, name="seg_query_features_proj")
+    spatial_proj = layers.Conv2D(
+        hidden_dim, 1, data_format="channels_last", name="seg_spatial_features_proj"
+    )
+    seg_bias = RFDETRSegmentationBias(name="seg_bias")
+
+    sf = ops.image.resize(
+        spatial_features,
+        (mask_height, mask_width),
+        interpolation="bilinear",
+        data_format="channels_last",
+    )
+
+    mask_logits = None
+    for i, query_features in enumerate(list_query_features):
+        residual = sf
+        x = layers.DepthwiseConv2D(
+            3,
+            padding="same",
+            data_format="channels_last",
+            name=f"seg_block_{i}_dwconv",
+        )(sf)
+        x = layers.LayerNormalization(epsilon=1e-6, name=f"seg_block_{i}_norm")(x)
+        x = layers.Dense(hidden_dim, name=f"seg_block_{i}_pwconv")(x)
+        x = layers.Activation(seg_activation)(x)
+        sf = layers.Add()([x, residual])
+
+        spatial = spatial_proj(sf)  # (B, mask_h, mask_w, hidden_dim)
+
+        q = qf_fc2(layers.Activation(seg_activation)(qf_fc1(qf_norm(query_features))))
+        q = layers.Add()([q, query_features])
+        q = qf_proj(q)  # (B, num_queries, hidden_dim)
+
+        spatial_flat = ops.reshape(spatial, (-1, mask_height * mask_width, hidden_dim))
+        logits = ops.matmul(q, ops.transpose(spatial_flat, (0, 2, 1)))
+        logits = ops.reshape(logits, (-1, num_queries, mask_height, mask_width))
+        mask_logits = seg_bias(logits)
+    return mask_logits
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class RFDETRInstanceSegment(BaseModel):
+    """RF-DETR instance segmentation.
+
+    Adds a mask head on top of the :class:`RFDETRDetect` detection architecture
+    (DINOv2 backbone + deformable decoder). The projector's spatial feature map and
+    every decoder layer's query features are routed through the segmentation head
+    to produce per-query masks.
+
+    Takes a ``(B, H, W, 3)`` image (``RFDETRImageProcessor`` output) and returns
+    ``{"pred_logits": (B, num_queries, num_classes), "pred_boxes": (B, num_queries,
+    4), "pred_masks": (B, num_queries, H // mask_downsample_ratio, W //
+    mask_downsample_ratio)}``.
+
+    Reference:
+        - RF-DETR (Roboflow) — https://github.com/roboflow/rf-detr
+
+    Args:
+        See :class:`RFDETRDetect` for the backbone / decoder arguments.
+        mask_downsample_ratio: Mask resolution = image size // this. Defaults to `4`.
+        intermediate_size: Hidden dim of the segmentation query MLP. Defaults to `1024`.
+        seg_activation: Activation in the segmentation head. Defaults to `"gelu"`.
+        image_size: Input image specification (see :class:`RFDETRDetect`).
+        input_tensor: Optional input Keras tensor.
+        name: Model name.
+    """
+
+    BASE_MODEL_CONFIG = RF_DETR_SEGMENT_CONFIG
+    BASE_WEIGHT_CONFIG = RF_DETR_SEGMENT_WEIGHTS
+    HF_MODEL_TYPE = "rf_detr"
+
     @classmethod
-    def from_hf(cls, hf_id, load_weights=True, **kwargs):
-        raise NotImplementedError(
-            "RF-DETR is not available on HuggingFace Hub. "
-            "Use the kerasformers release variants (e.g. 'rfdetr-base') or pass a "
-            "local .weights.h5 path via model.load_weights(...)."
+    def transfer_from_hf(cls, keras_model, state_dict):
+        import numpy as np
+
+        from .convert_rf_detr_hf_to_keras import transfer_rf_detr_seg_weights
+
+        shape = [d if d is not None else 1 for d in keras_model.inputs[0].shape]
+        keras_model(np.zeros(shape, dtype="float32"))
+        transfer_rf_detr_seg_weights(keras_model, state_dict)
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        config = RFDETRDetect.config_from_hf(hf_config)
+        config["mask_downsample_ratio"] = hf_config.get("mask_downsample_ratio", 4)
+        config["intermediate_size"] = hf_config.get("intermediate_size", 1024)
+        config["seg_activation"] = hf_config.get(
+            "segmentation_head_activation_function", "gelu"
         )
+        return config
+
+    def __init__(
+        self,
+        hidden_dim=256,
+        backbone_hidden_size=384,
+        backbone_num_heads=6,
+        backbone_num_layers=12,
+        backbone_mlp_ratio=4,
+        backbone_use_swiglu=False,
+        num_register_tokens=0,
+        out_feature_indexes=None,
+        patch_size=12,
+        num_windows=2,
+        positional_encoding_size=32,
+        resolution=384,
+        dec_layers=4,
+        sa_nheads=8,
+        ca_nheads=16,
+        dec_n_points=2,
+        num_queries=100,
+        num_classes=91,
+        two_stage=True,
+        bbox_reparam=True,
+        lite_refpoint_refine=True,
+        group_detr=13,
+        dim_feedforward=2048,
+        mask_downsample_ratio=4,
+        intermediate_size=1024,
+        seg_activation="gelu",
+        image_size=None,
+        input_tensor=None,
+        name="RFDETRInstanceSegment",
+        **kwargs,
+    ):
+        if out_feature_indexes is None:
+            out_feature_indexes = [3, 6, 9, 12]
+        if image_size is None:
+            image_size = resolution
+
+        data_format = keras.config.image_data_format()
+        image_size = standardize_input_shape(image_size, data_format)
+
+        if input_tensor is None:
+            img_input = layers.Input(shape=image_size)
+        elif not utils.is_keras_tensor(input_tensor):
+            img_input = layers.Input(tensor=input_tensor, shape=image_size)
+        else:
+            img_input = input_tensor
+
+        (
+            last_hidden_state,
+            pred_boxes,
+            spatial_features,
+            intermediate_hidden_states,
+        ) = rf_detr_functional(
+            img_input,
+            hidden_dim=hidden_dim,
+            backbone_hidden_size=backbone_hidden_size,
+            backbone_num_heads=backbone_num_heads,
+            backbone_num_layers=backbone_num_layers,
+            backbone_mlp_ratio=backbone_mlp_ratio,
+            backbone_use_swiglu=backbone_use_swiglu,
+            num_register_tokens=num_register_tokens,
+            out_feature_indexes=out_feature_indexes,
+            patch_size=patch_size,
+            num_windows=num_windows,
+            positional_encoding_size=positional_encoding_size,
+            dec_layers=dec_layers,
+            sa_nheads=sa_nheads,
+            ca_nheads=ca_nheads,
+            dec_n_points=dec_n_points,
+            num_queries=num_queries,
+            num_classes=num_classes,
+            two_stage=two_stage,
+            bbox_reparam=bbox_reparam,
+            lite_refpoint_refine=lite_refpoint_refine,
+            dim_feedforward=dim_feedforward,
+            input_shape=image_size,
+            return_seg_features=True,
+        )
+
+        pred_logits = layers.Dense(num_classes, name="class_embed")(last_hidden_state)
+
+        if data_format == "channels_last":
+            img_h, img_w = image_size[0], image_size[1]
+        else:
+            img_h, img_w = image_size[1], image_size[2]
+
+        pred_masks = rf_detr_segmentation_head(
+            spatial_features,
+            intermediate_hidden_states,
+            num_queries=num_queries,
+            mask_height=img_h // mask_downsample_ratio,
+            mask_width=img_w // mask_downsample_ratio,
+            hidden_dim=hidden_dim,
+            intermediate_size=intermediate_size,
+            seg_activation=seg_activation,
+        )
+
+        outputs = {
+            "pred_logits": pred_logits,
+            "pred_boxes": pred_boxes,
+            "pred_masks": pred_masks,
+        }
+        super().__init__(inputs=img_input, outputs=outputs, name=name, **kwargs)
+
+        self.hidden_dim = hidden_dim
+        self.backbone_hidden_size = backbone_hidden_size
+        self.backbone_num_heads = backbone_num_heads
+        self.backbone_num_layers = backbone_num_layers
+        self.backbone_mlp_ratio = backbone_mlp_ratio
+        self.backbone_use_swiglu = backbone_use_swiglu
+        self.num_register_tokens = num_register_tokens
+        self.out_feature_indexes = out_feature_indexes
+        self.patch_size = patch_size
+        self.num_windows = num_windows
+        self.positional_encoding_size = positional_encoding_size
+        self.resolution = resolution
+        self.dec_layers = dec_layers
+        self.sa_nheads = sa_nheads
+        self.ca_nheads = ca_nheads
+        self.dec_n_points = dec_n_points
+        self.num_queries = num_queries
+        self.num_classes = num_classes
+        self.two_stage = two_stage
+        self.bbox_reparam = bbox_reparam
+        self.lite_refpoint_refine = lite_refpoint_refine
+        self.group_detr = group_detr
+        self.dim_feedforward = dim_feedforward
+        self.mask_downsample_ratio = mask_downsample_ratio
+        self.intermediate_size = intermediate_size
+        self.seg_activation = seg_activation
+        self.image_size = image_size
+        self._input_tensor = input_tensor
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "hidden_dim": self.hidden_dim,
+                "backbone_hidden_size": self.backbone_hidden_size,
+                "backbone_num_heads": self.backbone_num_heads,
+                "backbone_num_layers": self.backbone_num_layers,
+                "backbone_mlp_ratio": self.backbone_mlp_ratio,
+                "backbone_use_swiglu": self.backbone_use_swiglu,
+                "num_register_tokens": self.num_register_tokens,
+                "out_feature_indexes": self.out_feature_indexes,
+                "patch_size": self.patch_size,
+                "num_windows": self.num_windows,
+                "positional_encoding_size": self.positional_encoding_size,
+                "resolution": self.resolution,
+                "dec_layers": self.dec_layers,
+                "sa_nheads": self.sa_nheads,
+                "ca_nheads": self.ca_nheads,
+                "dec_n_points": self.dec_n_points,
+                "num_queries": self.num_queries,
+                "num_classes": self.num_classes,
+                "two_stage": self.two_stage,
+                "bbox_reparam": self.bbox_reparam,
+                "lite_refpoint_refine": self.lite_refpoint_refine,
+                "group_detr": self.group_detr,
+                "dim_feedforward": self.dim_feedforward,
+                "mask_downsample_ratio": self.mask_downsample_ratio,
+                "intermediate_size": self.intermediate_size,
+                "seg_activation": self.seg_activation,
+                "image_size": self.image_size,
+                "input_tensor": self._input_tensor,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

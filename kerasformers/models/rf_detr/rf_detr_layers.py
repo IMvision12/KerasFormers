@@ -842,3 +842,22 @@ class RFDETRLearnedEmbedding(layers.Layer):
             }
         )
         return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class RFDETRSegmentationBias(layers.Layer):
+    """Adds the RF-DETR segmentation head's learned scalar bias to mask logits.
+
+    Holds a single ``(1,)`` parameter (``segmentation_head.bias`` in the source
+    checkpoint) that is broadcast-added to every per-query mask logit.
+    """
+
+    def build(self, input_shape):
+        self.bias = self.add_weight(name="bias", shape=(1,), initializer="zeros")
+        self.built = True
+
+    def call(self, inputs):
+        return inputs + self.bias
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
