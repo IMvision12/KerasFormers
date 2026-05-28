@@ -122,8 +122,6 @@ if __name__ == "__main__":
         "deberta_v2_xlarge": "microsoft/deberta-v2-xlarge",
         "deberta_v2_xxlarge": "microsoft/deberta-v2-xxlarge",
     }
-    # xlarge/xxlarge exceed GitHub's 2 GB asset limit, so weights are sharded
-    # (config URLs are .weights.json). Keep shards under the limit.
     MAX_SHARD_GB = 1.7
 
     def raw_state_dict(hf_id):
@@ -174,9 +172,6 @@ if __name__ == "__main__":
         keras_model.save_weights(f"{variant}.weights.json", max_shard_size=MAX_SHARD_GB)
         print(f"  Saved -> {variant}.weights.json")
 
-        # MLM head uses the legacy cls.predictions.* layout. HF's DebertaV2ForMaskedLM
-        # head is unreliable, so validate against a manual reference from the raw
-        # checkpoint (dense -> gelu -> LayerNorm -> decoder + bias).
         keras_mlm = DebertaV2MaskedLM(**arch)
         transfer_deberta_v2_weights(keras_mlm, sd)
         with torch.no_grad():
