@@ -211,6 +211,9 @@ def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
         - output_memory: Filtered memory features with invalid proposals zeroed.
         - output_proposals: Generated proposals as (cx, cy, w, h) tensors
             in normalized coordinates [0, 1].
+        - valid: Boolean mask ``(B, N, 1)``, True where the proposal is in
+            bounds (used to exclude border proposals from the top-k selection,
+            matching HF's ``masked_fill(invalid_mask, -inf)``).
     """
     proposals = []
     for lvl, (H_, W_) in enumerate(spatial_shapes):
@@ -250,7 +253,7 @@ def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
         output_proposals = ops.where(valid, unsig, inf_val)
 
     output_memory = ops.where(valid, memory, ops.zeros_like(memory))
-    return output_memory, output_proposals
+    return output_memory, output_proposals, valid
 
 
 def rf_detr_two_stage_refine_refpoints(
@@ -944,7 +947,7 @@ def rf_detr_two_stage_refpoints(
     Returns:
         ``(B, num_queries, 4)`` refined reference points.
     """
-    output_memory_filtered, output_proposals = rf_detr_encoder_output_proposals(
+    output_memory_filtered, output_proposals, valid = rf_detr_encoder_output_proposals(
         memory,
         spatial_shapes=spatial_shapes,
         bbox_reparam=bbox_reparam,
@@ -979,6 +982,9 @@ def rf_detr_two_stage_refpoints(
         enc_coords = enc_bbox_delta + output_proposals
 
     proj_shape = spatial_shapes[0]
+    # Exclude out-of-bounds (border) proposals from selection, matching HF's
+    # `enc_outputs_class_proposals.masked_fill(invalid_mask, -inf)` before top-k.
+    enc_cls = ops.where(valid, enc_cls, ops.cast(-1e30, enc_cls.dtype))
     enc_cls_max = ops.max(enc_cls, axis=-1)
     topk_indices = ops.top_k(
         enc_cls_max, k=min(num_queries, proj_shape[0] * proj_shape[1])
