@@ -150,3 +150,53 @@ results = processor.post_process_object_detection(output, threshold=0.5,
 ```
 
 If `label_names` is not provided, COCO class names are used by default.
+
+## Instance Segmentation
+
+`RFDETRSegment` adds a mask head on top of the same DINOv2 backbone + deformable
+decoder. It returns per-query masks alongside the detection outputs. Seven
+checkpoints are available (sourced from the `Roboflow/rf-detr-seg-*` Hub repos):
+
+| Variant | Resolution | Queries | Decoder layers |
+|---|---|---|---|
+| `rfdetr-seg-preview` | 432px | 200 | 4 |
+| `rfdetr-seg-nano` | 312px | 100 | 4 |
+| `rfdetr-seg-small` | 384px | 100 | 4 |
+| `rfdetr-seg-medium` | 432px | 200 | 5 |
+| `rfdetr-seg-large` | 504px | 300 | 5 |
+| `rfdetr-seg-xlarge` | 624px | 300 | 6 |
+| `rfdetr-seg-xxlarge` | 768px | 300 | 6 |
+
+```python
+from kerasformers.models.rf_detr import RFDETRSegment, RFDETRImageProcessor
+
+# kerasformers release, or load the Roboflow checkpoint from the Hub:
+model = RFDETRSegment.from_weights("rfdetr-seg-small")
+model = RFDETRSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
+
+processor = RFDETRImageProcessor(size={"height": 384, "width": 384})
+inputs = processor("image.jpg")
+out = model(inputs["pixel_values"], training=False)
+# out["pred_logits"]: (1, 100, 91)         — class logits per query
+# out["pred_boxes"]:  (1, 100, 4)          — normalized (cx, cy, w, h)
+# out["pred_masks"]:  (1, 100, 96, 96)     — mask logits (resolution // 4)
+```
+
+Masks are emitted at `resolution // mask_downsample_ratio` (ratio `4`). To turn the
+selected queries' mask logits into full-resolution binary masks, sigmoid and resize
+to the original image size, then threshold:
+
+```python
+import keras
+
+scores = keras.ops.softmax(out["pred_logits"], axis=-1)[..., :-1]  # drop "no-object"
+keep = keras.ops.max(scores[0], axis=-1) > 0.5
+
+masks = keras.ops.image.resize(
+    out["pred_masks"][0][..., None], original_size, interpolation="bilinear"
+)[..., 0]
+masks = keras.ops.sigmoid(masks) > 0.5  # (num_queries, H, W) boolean
+```
+
+`RFDETRSegment` is validated to match `transformers.RfDetrForInstanceSegmentation`
+(logits / boxes / masks cosine ≈ 1.0).

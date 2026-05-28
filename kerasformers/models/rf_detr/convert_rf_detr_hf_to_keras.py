@@ -13,9 +13,6 @@ from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-# RF-DETR is hosted on the model Hub (Roboflow/rf-detr-*) whose safetensors use
-# the same parameter names as the official rfdetr package, so the keras<-source
-# name mapping below is identical regardless of which one the state dict came from.
 HF_SOURCES: Dict[str, str] = {
     "rfdetr-nano": "Roboflow/rf-detr-nano",
     "rfdetr-small": "Roboflow/rf-detr-small",
@@ -53,13 +50,6 @@ decoder_name_mapping: Dict[str, str] = {
 
 
 def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None:
-    """Transfer RF-DETR weights into a built ``RFDETRDetect`` keras model.
-
-    ``state_dict`` is a flat ``{name: numpy_array}`` mapping in the HF
-    ``Roboflow/rf-detr-*`` layout (identical to the official rfdetr checkpoint
-    layout). The number of decoder layers and object queries are read off the
-    keras model, so the same routine serves every variant.
-    """
     sd = state_dict
 
     layer_names = {layer.name for layer in keras_model.layers}
@@ -67,7 +57,6 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
     while f"decoder_layer_{dec_layers}" in layer_names:
         dec_layers += 1
 
-    # 1) DINOv2 backbone transformer encoder + final layernorm.
     backbone_encoder_weights = []
     for layer in keras_model.layers:
         if layer.name.startswith("backbone_encoder_layer_") or (
@@ -104,7 +93,6 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
             )
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    # 2) Patch embeddings (cls/mask/position tokens + patch projection conv).
     transfer_nested_layer_weights(
         keras_model.get_layer("backbone_embeddings"),
         sd,
@@ -115,7 +103,6 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
         },
     )
 
-    # 3) C2F projector (conv + batchnorm pairs, then the output norm).
     pt_proj = "backbone.0.projector.stages.0"
     projector_conv_ln_pairs = [
         ("projector_c2f_cv1_conv", f"{pt_proj}.0.cv1.conv"),
@@ -152,7 +139,6 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
     proj_ln.weights[0].assign(sd[f"{pt_proj}.1.weight"])
     proj_ln.weights[1].assign(sd[f"{pt_proj}.1.bias"])
 
-    # 4) Two-stage encoder-output heads (group 0 is used at inference).
     enc_output = keras_model.get_layer("enc_output_0")
     enc_output.weights[0].assign(sd["transformer.enc_output.0.weight"].T)
     enc_output.weights[1].assign(sd["transformer.enc_output.0.bias"])
@@ -174,7 +160,6 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
             sd[f"transformer.enc_out_bbox_embed.0.layers.{i}.bias"]
         )
 
-    # 5) Decoder reference-point head.
     for i in range(2):
         rph = keras_model.get_layer(f"ref_point_head_{i}")
         rph.weights[0].assign(
@@ -182,7 +167,6 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
         )
         rph.weights[1].assign(sd[f"transformer.decoder.ref_point_head.layers.{i}.bias"])
 
-    # 6) Decoder layers (fused self-attn in_proj split into q/k/v) + final norm.
     for i in tqdm(range(dec_layers), desc="Transferring decoder weights"):
         pt_dl = f"transformer.decoder.layers.{i}"
         k_dl = f"decoder_layer_{i}"
@@ -210,7 +194,6 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
     dec_norm.weights[0].assign(sd["transformer.decoder.norm.weight"])
     dec_norm.weights[1].assign(sd["transformer.decoder.norm.bias"])
 
-    # 7) Query embeddings (group 0 slice) and the class / bbox prediction heads.
     num_queries = int(keras_model.get_layer("query_feat_embed").weights[0].shape[0])
 
     keras_model.get_layer("refpoint_embed_layer").weights[0].assign(
@@ -228,6 +211,77 @@ def transfer_rf_detr_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
         bbox_layer = keras_model.get_layer(f"bbox_embed_{i}")
         bbox_layer.weights[0].assign(sd[f"bbox_embed.layers.{i}.weight"].T)
         bbox_layer.weights[1].assign(sd[f"bbox_embed.layers.{i}.bias"])
+
+
+HF_SEG_SOURCES: Dict[str, str] = {
+    "rfdetr-seg-preview": "Roboflow/rf-detr-seg-preview",
+    "rfdetr-seg-nano": "Roboflow/rf-detr-seg-nano",
+    "rfdetr-seg-small": "Roboflow/rf-detr-seg-small",
+    "rfdetr-seg-medium": "Roboflow/rf-detr-seg-medium",
+    "rfdetr-seg-large": "Roboflow/rf-detr-seg-large",
+    "rfdetr-seg-xlarge": "Roboflow/rf-detr-seg-xlarge",
+    "rfdetr-seg-xxlarge": "Roboflow/rf-detr-seg-xxlarge",
+}
+
+
+def transfer_rf_detr_seg_weights(
+    keras_model, state_dict: Dict[str, np.ndarray]
+) -> None:
+    """Transfer RF-DETR instance-segmentation weights into a built RFDETRSegment.
+
+    Reuses :func:`transfer_rf_detr_weights` for the shared backbone / decoder /
+    detection heads, then transfers the mask head. The number of segmentation
+    blocks (= decoder layers) is read off the keras model. Raw checkpoint key
+    names (``segmentation_head.blocks.N.{dwconv,norm,pwconv1}`` etc.) are kept;
+    HF renames them on load via its checkpoint-conversion mapping.
+    """
+    sd = state_dict
+    transfer_rf_detr_weights(keras_model, sd)
+
+    layer_names = {layer.name for layer in keras_model.layers}
+    num_blocks = 0
+    while f"seg_block_{num_blocks}_dwconv" in layer_names:
+        num_blocks += 1
+
+    for i in range(num_blocks):
+        prefix = f"segmentation_head.blocks.{i}"
+        dwconv = keras_model.get_layer(f"seg_block_{i}_dwconv")
+        dwconv.weights[0].assign(
+            np.transpose(sd[f"{prefix}.dwconv.weight"], (2, 3, 0, 1))
+        )
+        dwconv.weights[1].assign(sd[f"{prefix}.dwconv.bias"])
+        norm = keras_model.get_layer(f"seg_block_{i}_norm")
+        norm.weights[0].assign(sd[f"{prefix}.norm.weight"])
+        norm.weights[1].assign(sd[f"{prefix}.norm.bias"])
+        pwconv = keras_model.get_layer(f"seg_block_{i}_pwconv")
+        pwconv.weights[0].assign(sd[f"{prefix}.pwconv1.weight"].T)
+        pwconv.weights[1].assign(sd[f"{prefix}.pwconv1.bias"])
+
+    sp = keras_model.get_layer("seg_spatial_features_proj")
+    sp.weights[0].assign(
+        np.transpose(sd["segmentation_head.spatial_features_proj.weight"], (2, 3, 1, 0))
+    )
+    sp.weights[1].assign(sd["segmentation_head.spatial_features_proj.bias"])
+
+    qn = keras_model.get_layer("seg_query_features_block_norm")
+    qn.weights[0].assign(sd["segmentation_head.query_features_block.norm_in.weight"])
+    qn.weights[1].assign(sd["segmentation_head.query_features_block.norm_in.bias"])
+    fc1 = keras_model.get_layer("seg_query_features_block_fc1")
+    fc1.weights[0].assign(
+        sd["segmentation_head.query_features_block.layers.0.weight"].T
+    )
+    fc1.weights[1].assign(sd["segmentation_head.query_features_block.layers.0.bias"])
+    # MLP is Sequential(Linear, GELU, Linear) -> params at layers.0 and layers.2.
+    fc2 = keras_model.get_layer("seg_query_features_block_fc2")
+    fc2.weights[0].assign(
+        sd["segmentation_head.query_features_block.layers.2.weight"].T
+    )
+    fc2.weights[1].assign(sd["segmentation_head.query_features_block.layers.2.bias"])
+    qp = keras_model.get_layer("seg_query_features_proj")
+    qp.weights[0].assign(sd["segmentation_head.query_features_proj.weight"].T)
+    qp.weights[1].assign(sd["segmentation_head.query_features_proj.bias"])
+
+    keras_model.get_layer("seg_bias").weights[0].assign(sd["segmentation_head.bias"])
 
 
 if __name__ == "__main__":
@@ -257,8 +311,6 @@ if __name__ == "__main__":
         print(f"  HF keys: {len(state_dict)}")
         transfer_rf_detr_weights(keras_model, state_dict)
 
-        # True HF parity: compare against transformers' RfDetrForObjectDetection on
-        # the same normalized input (run with the latest transformers that ships RF-DETR).
         print("\nVerifying parity against transformers RfDetrForObjectDetection...")
         from transformers import RfDetrForObjectDetection
 
@@ -292,11 +344,6 @@ if __name__ == "__main__":
             f"  logits cosine: {logits_cos:.4f}  boxes cosine: {boxes_cos:.4f}  "
             f"class agreement: {class_agree * 100:.1f}%"
         )
-        # RF-DETR's deformable attention (bilinear grid-sample) and positional-encoding
-        # interpolation diverge slightly across frameworks, so parity is judged by
-        # cosine similarity / prediction agreement rather than max abs diff. A few
-        # low-confidence queries can flip class at the largest resolutions, so the
-        # agreement floor is loose.
         if logits_cos < 0.99 or class_agree < 0.95:
             raise ValueError(f"{variant}: HF parity failed")
 
