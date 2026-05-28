@@ -130,6 +130,6 @@ RF_DETR_SEGMENT_CONFIG = {
 
 _SEG_REL = "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr-seg"
 RF_DETR_SEGMENT_WEIGHTS = {
-    name: {"url": f"{_SEG_REL}/rf_detr_{name.replace('-', '_')}.weights.h5"}
+    name: {"url": f"{_SEG_REL}/rf_detr_seg_{name.split('-')[-1]}.weights.h5"}
     for name in RF_DETR_SEGMENT_CONFIG
 }

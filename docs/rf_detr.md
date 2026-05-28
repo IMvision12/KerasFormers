@@ -182,21 +182,26 @@ out = model(inputs["pixel_values"], training=False)
 # out["pred_masks"]:  (1, 100, 96, 96)     — mask logits (resolution // 4)
 ```
 
-Masks are emitted at `resolution // mask_downsample_ratio` (ratio `4`). To turn the
-selected queries' mask logits into full-resolution binary masks, sigmoid and resize
-to the original image size, then threshold:
+Masks are emitted at `resolution // mask_downsample_ratio` (ratio `4`). The image
+processor provides a one-call post-processor that mirrors
+`post_process_object_detection` (sigmoid scoring + top-K + boxes in xyxy pixel
+coords) and additionally upsamples + thresholds each kept query's mask to the
+original image size:
 
 ```python
-import keras
+img = Image.open("image.jpg").convert("RGB")
+orig_h, orig_w = img.size[::-1]
+out = model(processor(img)["pixel_values"], training=False)
 
-scores = keras.ops.softmax(out["pred_logits"], axis=-1)[..., :-1]  # drop "no-object"
-keep = keras.ops.max(scores[0], axis=-1) > 0.5
-
-masks = keras.ops.image.resize(
-    out["pred_masks"][0][..., None], original_size, interpolation="bilinear"
-)[..., 0]
-masks = keras.ops.sigmoid(masks) > 0.5  # (num_queries, H, W) boolean
+results = processor.post_process_instance_segmentation(
+    out, threshold=0.5, target_sizes=[(orig_h, orig_w)]
+)
+for name, score, mask in zip(results[0]["label_names"],
+                              results[0]["scores"],
+                              results[0]["masks"]):
+    print(f"{name}: {score:.2f}, {int(mask.sum())} mask px")
+# results[0]["masks"] is (num_detections, H, W) bool — one binary mask per detection
 ```
 
 `RFDETRSegment` is validated to match `transformers.RfDetrForInstanceSegmentation`
-(logits / boxes / masks cosine ≈ 1.0).
+(logits / boxes / masks cosine ≈ 1.0 across all 7 seg variants).

@@ -227,14 +227,6 @@ HF_SEG_SOURCES: Dict[str, str] = {
 def transfer_rf_detr_seg_weights(
     keras_model, state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Transfer RF-DETR instance-segmentation weights into a built RFDETRSegment.
-
-    Reuses :func:`transfer_rf_detr_weights` for the shared backbone / decoder /
-    detection heads, then transfers the mask head. The number of segmentation
-    blocks (= decoder layers) is read off the keras model. Raw checkpoint key
-    names (``segmentation_head.blocks.N.{dwconv,norm,pwconv1}`` etc.) are kept;
-    HF renames them on load via its checkpoint-conversion mapping.
-    """
     sd = state_dict
     transfer_rf_detr_weights(keras_model, sd)
 
@@ -349,6 +341,79 @@ if __name__ == "__main__":
 
         keras_model.save_weights(f"rf_detr_{variant.split('-')[1]}.weights.h5")
         print(f"  Saved -> rf_detr_{variant.split('-')[1]}.weights.h5")
+
+        del keras_model, hf_model, state_dict
+        keras.backend.clear_session()
+
+    # ----- Instance segmentation variants -----
+    from kerasformers.models.rf_detr.config import RF_DETR_SEGMENT_CONFIG
+    from kerasformers.models.rf_detr.rf_detr_model import RFDETRSegment
+
+    print(f"\n\n{'=' * 60}\nSegmentation variants\n{'=' * 60}")
+    for variant, hf_id in HF_SEG_SOURCES.items():
+        seg_config = RF_DETR_SEGMENT_CONFIG[variant]
+        res = seg_config["resolution"]
+        print(f"\n{'=' * 60}\nConverting {variant}  <-  {hf_id}\n{'=' * 60}")
+
+        keras_model = RFDETRSegment.from_weights(
+            variant,
+            load_weights=False,
+            backbone_use_swiglu=False,
+            num_register_tokens=0,
+            image_size=res,
+        )
+        _ = keras_model(keras.random.uniform((1, res, res, 3), dtype="float32"))
+        print(f"  Parameters: {keras_model.count_params():,}")
+
+        state_dict = download_hf_state_dict(hf_id)
+        print(f"  HF keys: {len(state_dict)}")
+        transfer_rf_detr_seg_weights(keras_model, state_dict)
+
+        print(
+            "\nVerifying parity against transformers RfDetrForInstanceSegmentation..."
+        )
+        from transformers import RfDetrForInstanceSegmentation
+
+        hf_model = RfDetrForInstanceSegmentation.from_pretrained(hf_id).eval()
+
+        np.random.seed(42)
+        test_input = np.random.rand(1, res, res, 3).astype(np.float32)
+        mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
+        std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
+        norm = ((test_input - mean) / std).astype(np.float32)
+
+        with torch.no_grad():
+            pt_out = hf_model(pixel_values=torch.from_numpy(norm).permute(0, 3, 1, 2))
+        pt_logits = pt_out.logits.cpu().numpy()
+        pt_boxes = pt_out.pred_boxes.cpu().numpy()
+        pt_masks = pt_out.pred_masks.cpu().numpy()
+
+        keras_out = keras_model(norm, training=False)
+        keras_logits = keras.ops.convert_to_numpy(keras_out["pred_logits"])
+        keras_boxes = keras.ops.convert_to_numpy(keras_out["pred_boxes"])
+        keras_masks = keras.ops.convert_to_numpy(keras_out["pred_masks"])
+
+        def cosine(a, b):
+            a, b = a.ravel(), b.ravel()
+            return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+
+        logits_cos = cosine(pt_logits, keras_logits)
+        boxes_cos = cosine(pt_boxes, keras_boxes)
+        masks_cos = cosine(pt_masks, keras_masks)
+        class_agree = float(
+            (pt_logits[0].argmax(-1) == keras_logits[0].argmax(-1)).mean()
+        )
+        print(
+            f"  logits cosine: {logits_cos:.4f}  boxes cosine: {boxes_cos:.4f}  "
+            f"masks cosine: {masks_cos:.4f}  class agreement: {class_agree * 100:.1f}%"
+        )
+        # Same rationale as the detection gate (cosine, not max-diff); add a masks floor.
+        if logits_cos < 0.99 or masks_cos < 0.99 or class_agree < 0.95:
+            raise ValueError(f"{variant}: HF parity failed")
+
+        out_name = f"rf_detr_seg_{variant.split('-')[-1]}.weights.h5"
+        keras_model.save_weights(out_name)
+        print(f"  Saved -> {out_name}")
 
         del keras_model, hf_model, state_dict
         keras.backend.clear_session()

@@ -13,10 +13,19 @@ class RFDETRImageProcessor(BaseImageProcessor):
     """Preprocess images for RF-DETR inference.
 
     Args:
-        size: Target size as ``{"height": H, "width": W}``.
-            Default: ``{"height": 560, "width": 560}`` (rfdetr-base
-            resolution). Use the model's resolution: 384 (nano),
-            512 (small), 576 (medium), 560 (base), or 704 (large).
+        size: Target size as ``{"height": H, "width": W}``. Default:
+            ``{"height": 560, "width": 560}`` (rfdetr-base). Use the model's
+            resolution:
+
+            * Detection (``RFDETRDetect``): 384 (nano), 512 (small),
+              576 (medium), 560 (base), 704 (large).
+            * Instance segmentation (``RFDETRSegment``): 312 (seg-nano),
+              384 (seg-small), 432 (seg-preview / seg-medium), 504 (seg-large),
+              624 (seg-xlarge), 768 (seg-xxlarge).
+
+            The same processor serves both — preprocessing is identical
+            (rescale + ImageNet normalize + resize); only the target size
+            and the post-processor differ.
         resample: Interpolation method (``"nearest"``, ``"bilinear"``,
             or ``"bicubic"``).
         do_rescale: Whether to divide pixel values by 255.
@@ -95,6 +104,24 @@ class RFDETRImageProcessor(BaseImageProcessor):
             num_top_queries=num_top_queries,
             target_sizes=target_sizes,
             label_names=label_names,
+        )
+
+    def post_process_instance_segmentation(
+        self,
+        outputs,
+        threshold=0.5,
+        num_top_queries=300,
+        target_sizes=None,
+        label_names=None,
+        mask_threshold=0.5,
+    ):
+        return rf_detr_post_process_instance_segmentation(
+            outputs,
+            threshold=threshold,
+            num_top_queries=num_top_queries,
+            target_sizes=target_sizes,
+            label_names=label_names,
+            mask_threshold=mask_threshold,
         )
 
 
@@ -203,6 +230,126 @@ def rf_detr_post_process_object_detection(
                 "labels": labels,
                 "label_names": mapped_names,
                 "boxes": xyxy_boxes,
+            }
+        )
+
+    return results
+
+
+def rf_detr_post_process_instance_segmentation(
+    outputs,
+    threshold: float = 0.5,
+    num_top_queries: int = 300,
+    target_sizes: Optional[List[Tuple[int, int]]] = None,
+    label_names: Optional[List[str]] = None,
+    mask_threshold: float = 0.5,
+) -> List[Dict[str, np.ndarray]]:
+    """Post-process ``RFDETRSegment`` outputs into instance masks + scores/labels/boxes.
+
+    Mirrors :func:`rf_detr_post_process_object_detection`'s sigmoid + flat top-k
+    scoring; a query is emitted at most once (its highest-scoring class). For each
+    kept detection, its mask logits are bilinearly upsampled to ``target_sizes``
+    (or kept at the model's mask resolution if ``target_sizes`` is None),
+    sigmoid-activated, and thresholded at ``mask_threshold`` to produce a binary
+    mask.
+
+    Args:
+        outputs: Dict with ``pred_logits`` ``(B, Q, num_classes)``, ``pred_boxes``
+            ``(B, Q, 4)`` in normalized (cx, cy, w, h), and ``pred_masks``
+            ``(B, Q, mh, mw)`` of mask logits.
+        threshold: Minimum class score to keep a detection.
+        num_top_queries: Top-k queries (× classes) to consider before threshold.
+        target_sizes: Per-image ``(height, width)`` to scale boxes and upsample
+            masks to. If None, boxes stay normalized and masks stay at the model's
+            mask resolution.
+        label_names: Custom class names (defaults to COCO_91_CLASSES).
+        mask_threshold: Probability threshold for the binary mask (post-sigmoid).
+
+    Returns:
+        List of per-image dicts with keys ``"scores"``, ``"labels"``,
+        ``"label_names"``, ``"boxes"`` (xyxy), and ``"masks"`` — a boolean array of
+        shape ``(K, H, W)`` for each image.
+    """
+    logits = keras.ops.convert_to_numpy(outputs["pred_logits"])
+    boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
+    mask_logits = keras.ops.convert_to_numpy(outputs["pred_masks"]).astype(np.float32)
+
+    batch_size = logits.shape[0]
+    num_classes = logits.shape[2]
+    probs = sigmoid(logits)
+
+    results = []
+    for i in range(batch_size):
+        prob_i = probs[i]
+        boxes_i = boxes[i]
+        masks_i = mask_logits[i]
+
+        flat_scores = prob_i.reshape(-1)
+        num_select = min(num_top_queries, flat_scores.shape[0])
+        topk_indices = np.argpartition(flat_scores, -num_select)[-num_select:]
+        topk_indices = topk_indices[np.argsort(-flat_scores[topk_indices])]
+
+        topk_scores = flat_scores[topk_indices]
+        topk_query_indices = topk_indices // num_classes
+        topk_labels = topk_indices % num_classes
+
+        keep = topk_scores > threshold
+        q_idx = topk_query_indices[keep]
+        labels = topk_labels[keep]
+        scores = topk_scores[keep]
+
+        seen, sel = set(), []
+        for j in range(len(q_idx)):
+            if int(q_idx[j]) not in seen:
+                seen.add(int(q_idx[j]))
+                sel.append(j)
+        q_idx = q_idx[sel]
+        labels = labels[sel]
+        scores = scores[sel]
+
+        kept_boxes = boxes_i[q_idx]
+        cx, cy, w, h = (
+            kept_boxes[:, 0],
+            kept_boxes[:, 1],
+            kept_boxes[:, 2],
+            kept_boxes[:, 3],
+        )
+        xyxy_boxes = np.stack([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2], axis=-1)
+
+        if target_sizes is not None:
+            img_h, img_w = target_sizes[i]
+            xyxy_boxes = xyxy_boxes * np.array(
+                [img_w, img_h, img_w, img_h], dtype=np.float32
+            )
+
+        if q_idx.size > 0:
+            km = masks_i[q_idx][..., None]  # (K, mh, mw, 1)
+            if target_sizes is not None:
+                img_h, img_w = target_sizes[i]
+                km = keras.ops.convert_to_numpy(
+                    keras.ops.image.resize(
+                        km,
+                        (img_h, img_w),
+                        interpolation="bilinear",
+                        data_format="channels_last",
+                    )
+                )
+            km = km[..., 0]
+            masks_bin = (1.0 / (1.0 + np.exp(-km))) > mask_threshold
+        else:
+            mh, mw = target_sizes[i] if target_sizes is not None else masks_i.shape[1:]
+            masks_bin = np.zeros((0, mh, mw), dtype=bool)
+
+        _names = label_names if label_names is not None else COCO_91_CLASSES
+        mapped_names = [_names[l] if l < len(_names) else f"class_{l}" for l in labels]
+
+        results.append(
+            {
+                "scores": scores,
+                "labels": labels,
+                "label_names": mapped_names,
+                "boxes": xyxy_boxes,
+                "masks": masks_bin,
             }
         )
 
