@@ -2,9 +2,6 @@ import keras
 from keras import layers
 
 from kerasformers.base import BaseModel
-from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
-    transfer_deberta_v2_weights,
-)
 from kerasformers.models.deberta_v2.deberta_v2_layers import (
     DebertaV2FlattenChoices,
     DebertaV2UnflattenChoices,
@@ -71,6 +68,10 @@ class DebertaV3Model(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
+            transfer_deberta_v2_weights,
+        )
+
         transfer_deberta_v2_weights(keras_model, state_dict)
 
     @classmethod
@@ -218,6 +219,10 @@ class DebertaV3MaskedLM(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
+            transfer_deberta_v2_weights,
+        )
+
         transfer_deberta_v2_weights(keras_model, state_dict)
 
     @classmethod
@@ -300,6 +305,10 @@ class DebertaV3SequenceClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
+            transfer_deberta_v2_weights,
+        )
+
         transfer_deberta_v2_weights(keras_model, state_dict)
 
     @classmethod
@@ -418,6 +427,10 @@ class DebertaV3TokenClassify(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
+            transfer_deberta_v2_weights,
+        )
+
         transfer_deberta_v2_weights(keras_model, state_dict)
 
     @classmethod
@@ -526,6 +539,10 @@ class DebertaV3QnA(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
+            transfer_deberta_v2_weights,
+        )
+
         transfer_deberta_v2_weights(keras_model, state_dict)
 
     @classmethod
@@ -610,6 +627,10 @@ class DebertaV3MultipleChoice(BaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
+        from kerasformers.models.deberta_v2.convert_deberta_v2_hf_to_keras import (
+            transfer_deberta_v2_weights,
+        )
+
         transfer_deberta_v2_weights(keras_model, state_dict)
 
     @classmethod
