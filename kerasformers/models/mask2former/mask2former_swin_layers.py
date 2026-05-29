@@ -289,24 +289,20 @@ def get_shift_mask(h, w, window_size, shift_size):
         Additive mask of shape
         ``(num_windows, window_size**2, window_size**2)``.
     """
-    img_mask = np.zeros((1, h, w, 1), dtype=np.float32)
-    cnt = 0
-    h_slices = [
-        slice(0, h - window_size),
-        slice(h - window_size, h - shift_size),
-        slice(h - shift_size, h),
-    ]
-    w_slices = [
-        slice(0, w - window_size),
-        slice(w - window_size, w - shift_size),
-        slice(w - shift_size, w),
-    ]
-    for hs in h_slices:
-        for ws in w_slices:
-            img_mask[:, hs, ws, :] = cnt
-            cnt += 1
-    img_mask_t = ops.convert_to_tensor(img_mask)
-    mask_windows = window_partition(img_mask_t, window_size)
+    # Region id (0..8) per location matching the cyclic-shift partition, built
+    # with ops so symbolic h/w (e.g. traced call-kwargs on JAX) don't break. The
+    # absolute ids are arbitrary — only same/different region matters below.
+    hi = ops.arange(h)
+    wi = ops.arange(w)
+    h_idx = ops.cast(hi >= h - window_size, "int32") + ops.cast(
+        hi >= h - shift_size, "int32"
+    )
+    w_idx = ops.cast(wi >= w - window_size, "int32") + ops.cast(
+        wi >= w - shift_size, "int32"
+    )
+    region = h_idx[:, None] * 3 + w_idx[None, :]
+    img_mask = ops.cast(region, "float32")[None, :, :, None]
+    mask_windows = window_partition(img_mask, window_size)
     mask_windows = ops.squeeze(mask_windows, axis=-1)
     attn_mask = ops.expand_dims(mask_windows, axis=1) - ops.expand_dims(
         mask_windows, axis=2
