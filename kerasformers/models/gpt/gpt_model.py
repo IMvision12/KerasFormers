@@ -106,6 +106,24 @@ class GptModel(SubclassedBaseModel):
 
         transfer_gpt_weights(keras_model, hf_state_dict)
 
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        # Subclassed model: build it (weights are created on first call) before
+        # loading the released .weights.h5 / sharded .weights.json.
+        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
+        url = entry.get("url") if isinstance(entry, dict) else entry
+        if not (load_weights and url):
+            return super().from_release(
+                variant,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                **kwargs,
+            )
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        model({"input_ids": ops.zeros((1, 8), dtype="int32")})
+        cls.load_weights_from_url(model, url, skip_mismatch)
+        return model
+
     def get_config(self):
         config = super().get_config()
         config.update(

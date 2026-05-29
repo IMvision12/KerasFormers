@@ -35,3 +35,53 @@ def transfer_gpt_weights(keras_model, hf_state_dict):
             weight.assign(np.asarray(hf_state_dict[name]))
         else:
             transfer_weights(weight.path, weight, hf_state_dict[name])
+
+
+if __name__ == "__main__":
+    import gc
+    import os
+
+    import keras
+    import torch
+    from huggingface_hub import hf_hub_download
+    from safetensors.numpy import load_file
+    from transformers import OpenAIGPTLMHeadModel
+
+    from kerasformers.models.gpt import GptGenerate
+    from kerasformers.models.gpt.config import GPT_CONFIG, GPT_WEIGHTS
+
+    HF_SOURCES = {"gpt": "openai-community/openai-gpt"}
+    rng = np.random.default_rng(0)
+
+    for variant, meta in GPT_WEIGHTS.items():
+        arch = GPT_CONFIG[variant]
+        hf_id = HF_SOURCES[variant]
+        print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
+
+        sd = load_file(hf_hub_download(hf_id, "model.safetensors"))
+        model = GptGenerate(**arch)
+        transfer_gpt_weights(model, sd)
+        del sd
+
+        ids = rng.integers(0, arch["vocab_size"], (1, 16)).astype("int64")
+        k_logits = model({"input_ids": ids.astype("int32")})["logits"]
+        k_logits = (
+            k_logits.detach().cpu().numpy()
+            if hasattr(k_logits, "detach")
+            else np.asarray(k_logits)
+        )
+        hf = OpenAIGPTLMHeadModel.from_pretrained(hf_id).eval()
+        with torch.no_grad():
+            hf_logits = hf(torch.from_numpy(ids)).logits.numpy()
+        d = float(np.abs(hf_logits - k_logits).max())
+        print(f"  logits max diff: {d:.3e}")
+        if d > 1e-3:
+            raise ValueError(f"{variant}: GPT parity failed ({d:.3e})")
+
+        out_path = os.path.basename(meta["url"])
+        model.save_weights(out_path)
+        print(f"  Saved -> {out_path}")
+
+        del hf, model
+        keras.backend.clear_session()
+        gc.collect()

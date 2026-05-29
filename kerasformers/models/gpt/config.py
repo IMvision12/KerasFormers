@@ -13,8 +13,6 @@ GPT_CONFIG = {
 
 GPT_WEIGHTS = {
     "gpt": {
-        "hf_id": "openai-community/openai-gpt",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt.weights.h5"
     },
 }

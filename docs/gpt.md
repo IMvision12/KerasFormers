@@ -4,7 +4,8 @@ OpenAI's original GPT (Radford et al. 2018, "openai-gpt") in **pure Keras 3** â€
 decoder-only language model with learned token + absolute-position embeddings and
 post-LayerNorm causal transformer blocks (no final norm). One implementation runs
 unmodified on **TensorFlow / Torch / JAX**, with bit-close parity to Hugging Face.
-Weights are **converted on the fly** from the Hugging Face repo.
+Weights load from the kerasformers GitHub release (`from_weights("hf:...")` also
+works for on-the-fly conversion).
 
 **Paper**: [Improving Language Understanding by Generative Pre-Training](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf)
 
@@ -19,7 +20,7 @@ Same machinery as GPT-2 (`Conv1D` `(in, out)` weights copied without transpose,
 **post-LayerNorm** (`ln_1(x + attn(x))`, `ln_2(n + mlp(n))`) and there is **no
 final LayerNorm**.
 
-## Loading (on the fly, no release weights)
+## Loading
 
 ```python
 from kerasformers.models.gpt import GptGenerate, GptTokenizer

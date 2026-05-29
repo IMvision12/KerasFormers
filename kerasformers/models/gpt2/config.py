@@ -42,20 +42,16 @@ GPT2_CONFIG = {
 }
 
 GPT2_WEIGHTS = {
-    "gpt2": {"hf_id": "openai-community/gpt2", "gated": False, "safetensors": True},
+    "gpt2": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2.weights.h5"
+    },
     "gpt2-medium": {
-        "hf_id": "openai-community/gpt2-medium",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2-medium.weights.h5"
     },
     "gpt2-large": {
-        "hf_id": "openai-community/gpt2-large",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2-large.weights.json"
     },
     "gpt2-xl": {
-        "hf_id": "openai-community/gpt2-xl",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2-xl.weights.json"
     },
 }
