@@ -2,7 +2,7 @@ GPT_OSS_CONFIG = {
     "gpt-oss-20b": {
         "vocab_size": 201088,
         "embed_dim": 2880,
-        "intermediate_size": 2880,
+        "mlp_dim": 2880,
         "num_layers": 24,
         "num_heads": 64,
         "num_kv_heads": 8,
@@ -23,7 +23,7 @@ GPT_OSS_CONFIG = {
     "gpt-oss-120b": {
         "vocab_size": 201088,
         "embed_dim": 2880,
-        "intermediate_size": 2880,
+        "mlp_dim": 2880,
         "num_layers": 36,
         "num_heads": 64,
         "num_kv_heads": 8,

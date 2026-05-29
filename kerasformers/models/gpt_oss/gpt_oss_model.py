@@ -64,8 +64,8 @@ class GptOssModel(SubclassedBaseModel):
     :class:`GptOssGenerate` for logits / text.
 
     Args:
-        vocab_size, embed_dim, intermediate_size, num_layers, num_heads,
-        num_kv_heads, head_dim: standard decoder dimensions (``intermediate_size``
+        vocab_size, embed_dim, mlp_dim, num_layers, num_heads,
+        num_kv_heads, head_dim: standard decoder dimensions (``mlp_dim``
             is the *per-expert* hidden width).
         num_experts, num_experts_per_tok: MoE expert count and top-k.
         sliding_window: window size of the sliding-attention layers (even layers).
@@ -84,7 +84,7 @@ class GptOssModel(SubclassedBaseModel):
         self,
         vocab_size=201088,
         embed_dim=2880,
-        intermediate_size=2880,
+        mlp_dim=2880,
         num_layers=24,
         num_heads=64,
         num_kv_heads=8,
@@ -106,7 +106,7 @@ class GptOssModel(SubclassedBaseModel):
         super().__init__(**kwargs)
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
-        self.intermediate_size = intermediate_size
+        self.mlp_dim = mlp_dim
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
@@ -130,7 +130,7 @@ class GptOssModel(SubclassedBaseModel):
         self.decoder_layers = [
             GptOssDecoderLayer(
                 embed_dim,
-                intermediate_size,
+                mlp_dim,
                 num_heads,
                 num_kv_heads,
                 head_dim,
@@ -196,7 +196,7 @@ class GptOssModel(SubclassedBaseModel):
         return {
             "vocab_size": hf_config["vocab_size"],
             "embed_dim": hf_config["hidden_size"],
-            "intermediate_size": hf_config["intermediate_size"],
+            "mlp_dim": hf_config["intermediate_size"],
             "num_layers": hf_config["num_hidden_layers"],
             "num_heads": hf_config["num_attention_heads"],
             "num_kv_heads": hf_config["num_key_value_heads"],
@@ -228,7 +228,7 @@ class GptOssModel(SubclassedBaseModel):
             {
                 "vocab_size": self.vocab_size,
                 "embed_dim": self.embed_dim,
-                "intermediate_size": self.intermediate_size,
+                "mlp_dim": self.mlp_dim,
                 "num_layers": self.num_layers,
                 "num_heads": self.num_heads,
                 "num_kv_heads": self.num_kv_heads,

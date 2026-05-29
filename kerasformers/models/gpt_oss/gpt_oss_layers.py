@@ -48,20 +48,20 @@ class GptOssExperts(layers.Layer):
 
     Args:
         num_experts: Number of experts ``E``.
-        hidden_size: Model width ``H``.
-        intermediate_size: Per-expert hidden width ``I``.
+        embed_dim: Model width ``H``.
+        mlp_dim: Per-expert hidden width ``I``.
     """
 
-    def __init__(self, num_experts, hidden_size, intermediate_size, **kwargs):
+    def __init__(self, num_experts, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
         self.num_experts = num_experts
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
         self.alpha = 1.702
         self.limit = 7.0
 
     def build(self, input_shape):
-        e, h, i = self.num_experts, self.hidden_size, self.intermediate_size
+        e, h, i = self.num_experts, self.embed_dim, self.mlp_dim
         self.gate_up_proj = self.add_weight(
             name="gate_up_proj",
             shape=(e, h, 2 * i),
@@ -87,9 +87,7 @@ class GptOssExperts(layers.Layer):
             ops.einsum("th,ehi->tei", hidden_states, self.gate_up_proj)
             + self.gate_up_proj_bias
         )
-        gate_up = ops.reshape(
-            gate_up, (-1, self.num_experts, self.intermediate_size, 2)
-        )
+        gate_up = ops.reshape(gate_up, (-1, self.num_experts, self.mlp_dim, 2))
         gate = gate_up[..., 0]
         up = gate_up[..., 1]
         gate = ops.minimum(gate, self.limit)
@@ -106,8 +104,8 @@ class GptOssExperts(layers.Layer):
         config.update(
             {
                 "num_experts": self.num_experts,
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
             }
         )
         return config
@@ -124,34 +122,30 @@ class GptOssMLP(layers.Layer):
     Args:
         num_experts: Number of experts.
         num_experts_per_tok: Top-k experts routed per token.
-        hidden_size: Model width.
-        intermediate_size: Per-expert hidden width.
+        embed_dim: Model width.
+        mlp_dim: Per-expert hidden width.
     """
 
-    def __init__(
-        self, num_experts, num_experts_per_tok, hidden_size, intermediate_size, **kwargs
-    ):
+    def __init__(self, num_experts, num_experts_per_tok, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
         self.num_experts = num_experts
         self.num_experts_per_tok = num_experts_per_tok
-        self.hidden_size = hidden_size
-        self.intermediate_size = intermediate_size
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
         self.router = layers.Dense(num_experts, use_bias=True, name="router")
-        self.experts = GptOssExperts(
-            num_experts, hidden_size, intermediate_size, name="experts"
-        )
+        self.experts = GptOssExperts(num_experts, embed_dim, mlp_dim, name="experts")
 
     def call(self, hidden_states):
         b = ops.shape(hidden_states)[0]
         s = ops.shape(hidden_states)[1]
-        x = ops.reshape(hidden_states, (-1, self.hidden_size))  # (T, H)
+        x = ops.reshape(hidden_states, (-1, self.embed_dim))  # (T, H)
         router_logits = self.router(x)  # (T, E)
         top_vals, top_idx = ops.top_k(router_logits, self.num_experts_per_tok)
         routing = ops.softmax(top_vals, axis=-1)  # (T, k)
         one_hot = ops.one_hot(top_idx, self.num_experts)  # (T, k, E)
         full_weights = ops.sum(one_hot * routing[..., None], axis=1)  # (T, E)
         out = self.experts(x, full_weights)  # (T, H)
-        return ops.reshape(out, (b, s, self.hidden_size))
+        return ops.reshape(out, (b, s, self.embed_dim))
 
     def get_config(self):
         config = super().get_config()
@@ -159,8 +153,8 @@ class GptOssMLP(layers.Layer):
             {
                 "num_experts": self.num_experts,
                 "num_experts_per_tok": self.num_experts_per_tok,
-                "hidden_size": self.hidden_size,
-                "intermediate_size": self.intermediate_size,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
             }
         )
         return config
@@ -293,7 +287,7 @@ class GptOssDecoderLayer(layers.Layer):
     def __init__(
         self,
         embed_dim,
-        intermediate_size,
+        mlp_dim,
         num_heads,
         num_kv_heads,
         head_dim,
@@ -305,7 +299,7 @@ class GptOssDecoderLayer(layers.Layer):
     ):
         super().__init__(**kwargs)
         self.embed_dim = embed_dim
-        self.intermediate_size = intermediate_size
+        self.mlp_dim = mlp_dim
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
@@ -326,7 +320,7 @@ class GptOssDecoderLayer(layers.Layer):
             eps=norm_eps, name="post_attention_layernorm"
         )
         self.mlp = GptOssMLP(
-            num_experts, num_experts_per_tok, embed_dim, intermediate_size, name="mlp"
+            num_experts, num_experts_per_tok, embed_dim, mlp_dim, name="mlp"
         )
 
     def call(
@@ -362,7 +356,7 @@ class GptOssDecoderLayer(layers.Layer):
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "intermediate_size": self.intermediate_size,
+                "mlp_dim": self.mlp_dim,
                 "num_heads": self.num_heads,
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,

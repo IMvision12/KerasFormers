@@ -2251,7 +2251,7 @@ MODEL_TEST_CONFIGS = {
         "init_kwargs": {
             "vocab_size": 128,
             "embed_dim": 64,
-            "intermediate_size": 32,
+            "mlp_dim": 32,
             "num_layers": 2,
             "num_heads": 4,
             "num_kv_heads": 2,
