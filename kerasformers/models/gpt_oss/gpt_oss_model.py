@@ -184,6 +184,10 @@ class GptOssModel(SubclassedBaseModel):
         sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, _MASK_NEG), "float32")[
             None, None
         ]
+        if attention_mask is not None:
+            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            full_mask = full_mask + pad
+            sliding_mask = sliding_mask + pad
 
         for i, layer in enumerate(self.decoder_layers):
             mask = sliding_mask if self.is_sliding(i) else full_mask
@@ -298,6 +302,10 @@ class GptOssGenerate(GptOssModel):
         sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, _MASK_NEG), "float32")[
             None, None
         ]
+        if attention_mask is not None:
+            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            full_mask = full_mask + pad
+            sliding_mask = sliding_mask + pad
 
         hidden = self.token_embedding(input_ids)
         cache = []

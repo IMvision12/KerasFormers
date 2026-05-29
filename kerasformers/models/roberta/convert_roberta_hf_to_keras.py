@@ -24,7 +24,12 @@ WEIGHT_NAME_MAPPING = {
     "lm_head_dense/bias": "lm_head.dense.bias",
     "lm_head_layernorm/gamma": "lm_head.layer_norm.weight",
     "lm_head_layernorm/beta": "lm_head.layer_norm.bias",
-    "lm_head_decoder/kernel": "lm_head.decoder.weight",
+    # The MLM decoder kernel is tied to the input word embeddings; HF strips the
+    # tied `lm_head.decoder.weight` from safetensors, so map to the embedding
+    # table (transfer_weights transposes it into the Dense kernel). Mapping to
+    # the tied key instead would be silently skipped (lm_head is optional) and
+    # leave a random decoder. Mirrors the BERT / DeBERTa converters.
+    "lm_head_decoder/kernel": "embeddings.word_embeddings.weight",
     "lm_head_decoder/bias": "lm_head.bias",
     "classifier_dense/kernel": "classifier.dense.weight",
     "classifier_dense/bias": "classifier.dense.bias",
@@ -163,7 +168,12 @@ if __name__ == "__main__":
 
         hf_mlm = RobertaForMaskedLM.from_pretrained(hf_id, token=HF_TOKEN).eval()
         keras_mlm = RobertaMaskedLM(**arch)
-        transfer_roberta_weights(keras_mlm, dict(hf_mlm.state_dict()))
+        # Simulate the safetensors / `hf:` path: the tied MLM decoder kernel is
+        # stripped from safetensors, so drop it here too — the converter must
+        # reconstruct it from the word embeddings, not depend on the tied key.
+        mlm_sd = dict(hf_mlm.state_dict())
+        mlm_sd.pop("lm_head.decoder.weight", None)
+        transfer_roberta_weights(keras_mlm, mlm_sd)
         with torch.no_grad():
             hf_logits = hf_mlm(**pt).logits
         k_logits = keras_mlm(k_inputs, training=False)

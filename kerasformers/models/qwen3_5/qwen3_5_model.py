@@ -145,8 +145,15 @@ class Qwen3_5Model(SubclassedBaseModel):
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
         attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        pad_mask = None
+        if attention_mask is not None:
+            am_f = ops.cast(am, "float32")
+            attn_mask = attn_mask + (1.0 - am_f)[:, None, None, :] * _MASK_NEG
+            pad_mask = am_f[:, :, None]
         for layer in self.decoder_layers:
-            hidden = layer(hidden, cos, sin, attention_mask=attn_mask)
+            hidden = layer(
+                hidden, cos, sin, attention_mask=attn_mask, pad_mask=pad_mask
+            )
         return {"last_hidden_state": self.final_norm(hidden)}
 
     @classmethod
@@ -260,10 +267,20 @@ class Qwen3_5Generate(Qwen3_5Model):
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
         causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        pad_mask = None
+        if attention_mask is not None:
+            am_f = ops.cast(am, "float32")
+            causal = causal + (1.0 - am_f)[:, None, None, :] * _MASK_NEG
+            pad_mask = am_f[:, :, None]
         cache = []
         for layer in self.decoder_layers:
             hidden, state = layer(
-                hidden, cos, sin, attention_mask=causal, use_cache=True
+                hidden,
+                cos,
+                sin,
+                attention_mask=causal,
+                use_cache=True,
+                pad_mask=pad_mask,
             )
             cache.append(state)
         hidden = self.final_norm(hidden)[:, -1:, :]

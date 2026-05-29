@@ -534,11 +534,14 @@ class Qwen2VLModel(SubclassedBaseModel):
     def get_image_features(self, pixel_values, image_grid_thw):
         return self.visual(pixel_values, image_grid_thw)
 
-    def _causal_mask(self, q_len, kv_len, offset):
+    def _causal_mask(self, q_len, kv_len, offset, attention_mask=None):
         qi = ops.arange(q_len)[:, None] + offset
         ki = ops.arange(kv_len)[None, :]
-        mask = ops.where(ki <= qi, 0.0, _MASK_NEG)
-        return ops.cast(mask, "float32")[None, None]
+        mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        if attention_mask is not None:
+            am = ops.cast(ops.convert_to_tensor(attention_mask), "float32")
+            mask = mask + (1.0 - am)[:, None, None, :] * _MASK_NEG
+        return mask
 
     def _forward_features(self, inputs):
         if not isinstance(inputs, dict):
@@ -554,7 +557,9 @@ class Qwen2VLModel(SubclassedBaseModel):
             video_grid_thw=inputs.get("video_grid_thw"),
         )
         cos, sin = self._merged_cos_sin(position_ids)
-        attn_mask = self._causal_mask(seq, seq, offset=0)
+        attn_mask = self._causal_mask(
+            seq, seq, offset=0, attention_mask=inputs.get("attention_mask")
+        )
         return self.language_model(
             inputs_embeds, cos, sin, attention_mask=attn_mask, **extra
         )
@@ -745,7 +750,9 @@ class Qwen2VLGenerate(Qwen2VLModel):
             inputs_embeds,
             cos,
             sin,
-            attention_mask=self._causal_mask(prompt_len, prompt_len, offset=0),
+            attention_mask=self._causal_mask(
+                prompt_len, prompt_len, offset=0, attention_mask=attention_mask
+            ),
             use_cache=True,
             **extra,
         )

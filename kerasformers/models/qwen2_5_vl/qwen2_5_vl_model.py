@@ -649,7 +649,9 @@ class Qwen2_5_VLGenerate(Qwen2_5_VLModel):
             inputs_embeds,
             cos,
             sin,
-            attention_mask=self._causal_mask(prompt_len, prompt_len, offset=0),
+            attention_mask=self._causal_mask(
+                prompt_len, prompt_len, offset=0, attention_mask=attention_mask
+            ),
             use_cache=True,
             **extra,
         )
