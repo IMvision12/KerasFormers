@@ -113,27 +113,6 @@ def distilbert_backbone(
     return x
 
 
-def config_from_hf(hf_config):
-    return {
-        "vocab_size": hf_config["vocab_size"],
-        "embed_dim": hf_config["dim"],
-        "num_layers": hf_config["n_layers"],
-        "num_heads": hf_config["n_heads"],
-        "mlp_dim": hf_config["hidden_dim"],
-        "max_position_embeddings": hf_config["max_position_embeddings"],
-        "hidden_act": hf_config.get("activation", "gelu"),
-        "pad_token_id": hf_config.get("pad_token_id", 0),
-    }
-
-
-def num_classes_from_hf(hf_config):
-    return (
-        len(hf_config["id2label"])
-        if "id2label" in hf_config
-        else hf_config.get("num_labels", 2)
-    )
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DistilBertModel(BaseModel):
     """Instantiates the DistilBERT encoder backbone.
@@ -181,7 +160,16 @@ class DistilBertModel(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return config_from_hf(hf_config)
+        return {
+            "vocab_size": hf_config["vocab_size"],
+            "embed_dim": hf_config["dim"],
+            "num_layers": hf_config["n_layers"],
+            "num_heads": hf_config["n_heads"],
+            "mlp_dim": hf_config["hidden_dim"],
+            "max_position_embeddings": hf_config["max_position_embeddings"],
+            "hidden_act": hf_config.get("activation", "gelu"),
+            "pad_token_id": hf_config.get("pad_token_id", 0),
+        }
 
     def __init__(
         self,
@@ -300,7 +288,7 @@ class DistilBertMaskedLM(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return config_from_hf(hf_config)
+        return DistilBertModel.config_from_hf(hf_config)
 
     def __init__(
         self,
@@ -418,8 +406,12 @@ class DistilBertSequenceClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = config_from_hf(hf_config)
-        config["num_classes"] = num_classes_from_hf(hf_config)
+        config = DistilBertModel.config_from_hf(hf_config)
+        config["num_classes"] = (
+            len(hf_config["id2label"])
+            if "id2label" in hf_config
+            else hf_config.get("num_labels", 2)
+        )
         return config
 
     @classmethod
@@ -550,8 +542,12 @@ class DistilBertTokenClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = config_from_hf(hf_config)
-        config["num_classes"] = num_classes_from_hf(hf_config)
+        config = DistilBertModel.config_from_hf(hf_config)
+        config["num_classes"] = (
+            len(hf_config["id2label"])
+            if "id2label" in hf_config
+            else hf_config.get("num_labels", 2)
+        )
         return config
 
     @classmethod
@@ -680,7 +676,7 @@ class DistilBertQnA(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return config_from_hf(hf_config)
+        return DistilBertModel.config_from_hf(hf_config)
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
@@ -806,7 +802,7 @@ class DistilBertMultipleChoice(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return config_from_hf(hf_config)
+        return DistilBertModel.config_from_hf(hf_config)
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):

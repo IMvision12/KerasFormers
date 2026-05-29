@@ -177,32 +177,6 @@ def modernbert_backbone(
     )
 
 
-def config_from_hf(hf_config):
-    return {
-        "vocab_size": hf_config["vocab_size"],
-        "embed_dim": hf_config["hidden_size"],
-        "num_layers": hf_config["num_hidden_layers"],
-        "num_heads": hf_config["num_attention_heads"],
-        "mlp_dim": hf_config["intermediate_size"],
-        "max_position_embeddings": hf_config["max_position_embeddings"],
-        "hidden_act": hf_config.get("hidden_activation", "gelu"),
-        "norm_eps": hf_config.get("norm_eps", 1e-5),
-        "local_attention": hf_config.get("local_attention", 128),
-        "global_attn_every_n_layers": hf_config.get("global_attn_every_n_layers", 3),
-        "global_rope_theta": hf_config.get("global_rope_theta", 160000.0),
-        "local_rope_theta": hf_config.get("local_rope_theta", 10000.0),
-        "pad_token_id": hf_config.get("pad_token_id", 50283),
-    }
-
-
-def num_classes_from_hf(hf_config):
-    return (
-        len(hf_config["id2label"])
-        if "id2label" in hf_config
-        else hf_config.get("num_labels", 2)
-    )
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class ModernBertModel(BaseModel):
     """Instantiates the ModernBERT encoder backbone.
@@ -257,7 +231,23 @@ class ModernBertModel(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return config_from_hf(hf_config)
+        return {
+            "vocab_size": hf_config["vocab_size"],
+            "embed_dim": hf_config["hidden_size"],
+            "num_layers": hf_config["num_hidden_layers"],
+            "num_heads": hf_config["num_attention_heads"],
+            "mlp_dim": hf_config["intermediate_size"],
+            "max_position_embeddings": hf_config["max_position_embeddings"],
+            "hidden_act": hf_config.get("hidden_activation", "gelu"),
+            "norm_eps": hf_config.get("norm_eps", 1e-5),
+            "local_attention": hf_config.get("local_attention", 128),
+            "global_attn_every_n_layers": hf_config.get(
+                "global_attn_every_n_layers", 3
+            ),
+            "global_rope_theta": hf_config.get("global_rope_theta", 160000.0),
+            "local_rope_theta": hf_config.get("local_rope_theta", 10000.0),
+            "pad_token_id": hf_config.get("pad_token_id", 50283),
+        }
 
     def __init__(
         self,
@@ -393,7 +383,7 @@ class ModernBertMaskedLM(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return config_from_hf(hf_config)
+        return ModernBertModel.config_from_hf(hf_config)
 
     def __init__(
         self,
@@ -529,8 +519,12 @@ class ModernBertSequenceClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = config_from_hf(hf_config)
-        config["num_classes"] = num_classes_from_hf(hf_config)
+        config = ModernBertModel.config_from_hf(hf_config)
+        config["num_classes"] = (
+            len(hf_config["id2label"])
+            if "id2label" in hf_config
+            else hf_config.get("num_labels", 2)
+        )
         config["classifier_pooling"] = hf_config.get("classifier_pooling", "mean")
         config["classifier_activation"] = hf_config.get("classifier_activation", "gelu")
         return config
@@ -689,8 +683,12 @@ class ModernBertTokenClassify(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = config_from_hf(hf_config)
-        config["num_classes"] = num_classes_from_hf(hf_config)
+        config = ModernBertModel.config_from_hf(hf_config)
+        config["num_classes"] = (
+            len(hf_config["id2label"])
+            if "id2label" in hf_config
+            else hf_config.get("num_labels", 2)
+        )
         config["classifier_activation"] = hf_config.get("classifier_activation", "gelu")
         return config
 
@@ -842,7 +840,7 @@ class ModernBertQnA(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = config_from_hf(hf_config)
+        config = ModernBertModel.config_from_hf(hf_config)
         config["classifier_activation"] = hf_config.get("classifier_activation", "gelu")
         return config
 
@@ -993,7 +991,7 @@ class ModernBertMultipleChoice(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        config = config_from_hf(hf_config)
+        config = ModernBertModel.config_from_hf(hf_config)
         config["classifier_pooling"] = hf_config.get("classifier_pooling", "mean")
         config["classifier_activation"] = hf_config.get("classifier_activation", "gelu")
         return config
