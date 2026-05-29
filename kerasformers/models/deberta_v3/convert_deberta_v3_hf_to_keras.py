@@ -55,9 +55,9 @@ if __name__ == "__main__":
             "attention_mask": torch.from_numpy(mask),
         }
 
-        hf_model = HFDebertaV2Model.from_pretrained(
-            hf_id, token=HF_TOKEN, dtype=torch.float32
-        ).eval()
+        hf_model = (
+            HFDebertaV2Model.from_pretrained(hf_id, token=HF_TOKEN).float().eval()
+        )
         keras_model = DebertaV3Model(**arch)
         transfer_deberta_v3_weights(keras_model, dict(hf_model.state_dict()))
         with torch.no_grad():

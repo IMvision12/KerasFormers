@@ -549,13 +549,21 @@ def copy_weights_by_path_suffix(src, dst):
     Used to warm-start a task-specific subclass (e.g.
     ``CLIPImageClassify``) from a base model checkpoint
     (``CLIPModel.from_weights(variant)``).
+
+    Returns:
+        list[str]: paths of ``dst`` weights left untouched (no suffix match or
+        shape mismatch) — e.g. a task head absent from the source checkpoint.
     """
 
     def _key(w):
         return "/".join(w.path.split("/")[-2:])
 
     src_map = {_key(w): w for w in src.weights}
+    skipped = []
     for dst_w in dst.weights:
         src_w = src_map.get(_key(dst_w))
         if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
             dst_w.assign(src_w)
+        else:
+            skipped.append(dst_w.path)
+    return skipped
