@@ -2244,6 +2244,25 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
+    "GptOssModel": {
+        "module": "kerasformers.models.gpt_oss",
+        "model_cls": "GptOssModel",
+        "model_type": "llm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "embed_dim": 64,
+            "intermediate_size": 32,
+            "num_layers": 2,
+            "num_heads": 4,
+            "num_kv_heads": 2,
+            "head_dim": 16,
+            "num_experts": 8,
+            "num_experts_per_tok": 2,
+            "sliding_window": 4,
+        },
+        "input_factory": "qwen_text_input",
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
 }
 
 
@@ -2258,7 +2277,7 @@ for _base in ("Qwen2VLModel", "Qwen2_5_VLModel", "Qwen3VLModel"):
 
 
 # Same for the text `*Generate` classes (Qwen2/Qwen3/Qwen3.5).
-for _base in ("Qwen2Model", "Qwen3Model", "Qwen3_5Model"):
+for _base in ("Qwen2Model", "Qwen3Model", "Qwen3_5Model", "GptOssModel"):
     _gen = _base.replace("Model", "Generate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])
     _entry["model_cls"] = _gen

@@ -24,6 +24,7 @@ from kerasformers.models import (
     efficientnetv2,
     eomt,
     flexivit,
+    gpt_oss,
     inception_next,
     inception_resnetv2,
     inceptionv3,
