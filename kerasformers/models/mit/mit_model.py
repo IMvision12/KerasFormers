@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops, utils
 
 from kerasformers.base import BaseModel
@@ -208,7 +207,7 @@ def mit_backbone_feature(
     blockwise_sr_ratios = [8, 4, 2, 1]
 
     total_blocks = sum(depths)
-    dpr = [x.item() for x in np.linspace(0.0, drop_path_rate, total_blocks)]
+    dpr = [drop_path_rate * i / max(total_blocks - 1, 1) for i in range(total_blocks)]
 
     x = inputs
     features = []

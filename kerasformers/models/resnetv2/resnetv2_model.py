@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, utils
 
 from kerasformers.base import BaseModel
@@ -211,7 +210,8 @@ def resnetv2_backbone_feature(
         name="stem_maxpool",
     )(x)
 
-    dpr = list(np.linspace(0.0, drop_path_rate, sum(depths)))
+    n = sum(depths)
+    dpr = [drop_path_rate * i / max(n - 1, 1) for i in range(n)]
     block_idx = 0
     stages = []
     for stage_idx, depths in enumerate(depths):
