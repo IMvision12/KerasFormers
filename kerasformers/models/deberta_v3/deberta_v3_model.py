@@ -17,9 +17,6 @@ from .config import DEBERTA_V3_MODEL_CONFIG, DEBERTA_V3_WEIGHT_CONFIG
 BASE_MODEL_CONFIG = {
     v: DEBERTA_V3_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_V3_WEIGHT_CONFIG.items()
 }
-MLM_WEIGHT_CONFIG = {
-    v: {**m, "url": m["mlm_url"]} for v, m in DEBERTA_V3_WEIGHT_CONFIG.items()
-}
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -198,9 +195,10 @@ class DebertaV3MaskedLM(BaseModel):
 
     Wraps a :class:`DebertaV3Model` backbone and attaches DeBERTa's MLM head — a
     dense transform with ``gelu`` + LayerNorm, then a vocabulary projection —
-    producing token logits ``(B, seq, vocab_size)``. The head weights are part of
-    the pretrained checkpoint, so ``from_weights`` restores a ready-to-use
-    fill-mask model.
+    producing token logits ``(B, seq, vocab_size)``. DeBERTa-v3 is ELECTRA/RTD-
+    pretrained, so the checkpoint has no MLM head; ``from_weights`` restores the
+    backbone and leaves the MLM head randomly initialized (ready for fine-tuning),
+    mirroring Hugging Face when loading DeBERTa-v3 for masked LM.
 
     References:
     - [DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training](https://arxiv.org/abs/2111.09543)
@@ -214,7 +212,7 @@ class DebertaV3MaskedLM(BaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -228,6 +226,15 @@ class DebertaV3MaskedLM(BaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        if load_weights:
+            src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
+            copy_weights_by_path_suffix(src, model)
+            del src
+        return model
 
     def __init__(self, name="DebertaV3MaskedLM", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
