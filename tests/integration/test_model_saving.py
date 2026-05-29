@@ -27,6 +27,12 @@ SKIP_SAVING = {
     "Qwen2Generate",
     "Qwen3Generate",
     "Qwen3_5Generate",
+    "GptOssModel",
+    "GptOssGenerate",
+    "GptModel",
+    "GptGenerate",
+    "GPT2Model",
+    "GPT2Generate",
 }
 
 

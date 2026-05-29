@@ -238,6 +238,36 @@ class WeightLoadingMixin:
             f"repos. Implement `transfer_from_timm` to enable it."
         )
 
+    @staticmethod
+    def load_weights_from_url(model, url, skip_mismatch=False):
+        """Download release weights into an (already built) ``model``.
+
+        Handles a single ``.weights.h5`` or a sharded ``.weights.json`` index
+        (downloads each shard listed in ``weight_map`` from the same release).
+        """
+        if url.lower().endswith(".json"):
+            json_path = download_file(url)
+            with open(json_path, "r") as f:
+                index = json.load(f)
+            if "weight_map" not in index:
+                raise ValueError(
+                    f"Sharded weights index '{url}' must contain 'weight_map'."
+                )
+            base_url = "/".join(url.split("/")[:-1])
+            # weight_map values are a shard filename (older keras) or a list of
+            # shard filenames per weight group (keras >= 3.14).
+            shard_files = set()
+            for value in index["weight_map"].values():
+                if isinstance(value, list):
+                    shard_files.update(value)
+                else:
+                    shard_files.add(value)
+            for shard_file in sorted(shard_files):
+                download_file(f"{base_url}/{shard_file}")
+            model.load_weights(json_path, skip_mismatch=skip_mismatch)
+        else:
+            model.load_weights(download_file(url), skip_mismatch=skip_mismatch)
+
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
         if cls.BASE_MODEL_CONFIG is None:
@@ -304,29 +334,7 @@ class WeightLoadingMixin:
                     )
                 _warn_skipped(skipped)
             elif url:
-                if url.lower().endswith(".json"):
-                    json_path = download_file(url)
-                    with open(json_path, "r") as f:
-                        index = json.load(f)
-                    if "weight_map" not in index:
-                        raise ValueError(
-                            f"Sharded weights index '{url}' must contain 'weight_map'."
-                        )
-                    base_url = "/".join(url.split("/")[:-1])
-                    # weight_map values are a shard filename (older keras) or a
-                    # list of shard filenames per weight group (keras >= 3.14).
-                    shard_files = set()
-                    for value in index["weight_map"].values():
-                        if isinstance(value, list):
-                            shard_files.update(value)
-                        else:
-                            shard_files.add(value)
-                    for shard_file in sorted(shard_files):
-                        download_file(f"{base_url}/{shard_file}")
-                    model.load_weights(json_path, skip_mismatch=skip_mismatch)
-                else:
-                    weights_path = download_file(url)
-                    model.load_weights(weights_path, skip_mismatch=skip_mismatch)
+                cls.load_weights_from_url(model, url, skip_mismatch)
             else:
                 raise ValueError(
                     f"Release weights entry for variant '{variant}' has "
