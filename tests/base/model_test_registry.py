@@ -2263,6 +2263,36 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
+    "GptModel": {
+        "module": "kerasformers.models.gpt",
+        "model_cls": "GptModel",
+        "model_type": "llm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "embed_dim": 64,
+            "mlp_dim": 128,
+            "num_layers": 2,
+            "num_heads": 4,
+            "max_position_embeddings": 64,
+        },
+        "input_factory": "qwen_text_input",
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
+    "GPT2Model": {
+        "module": "kerasformers.models.gpt2",
+        "model_cls": "GPT2Model",
+        "model_type": "llm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "embed_dim": 64,
+            "mlp_dim": 128,
+            "num_layers": 2,
+            "num_heads": 4,
+            "max_position_embeddings": 64,
+        },
+        "input_factory": "qwen_text_input",
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
 }
 
 
@@ -2277,7 +2307,14 @@ for _base in ("Qwen2VLModel", "Qwen2_5_VLModel", "Qwen3VLModel"):
 
 
 # Same for the text `*Generate` classes (Qwen2/Qwen3/Qwen3.5).
-for _base in ("Qwen2Model", "Qwen3Model", "Qwen3_5Model", "GptOssModel"):
+for _base in (
+    "Qwen2Model",
+    "Qwen3Model",
+    "Qwen3_5Model",
+    "GptOssModel",
+    "GptModel",
+    "GPT2Model",
+):
     _gen = _base.replace("Model", "Generate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])
     _entry["model_cls"] = _gen
