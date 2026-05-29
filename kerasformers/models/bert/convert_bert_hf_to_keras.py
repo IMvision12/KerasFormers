@@ -24,7 +24,12 @@ WEIGHT_NAME_MAPPING = {
     "mlm_transform_dense/bias": "cls.predictions.transform.dense.bias",
     "mlm_transform_layernorm/gamma": "cls.predictions.transform.LayerNorm.weight",
     "mlm_transform_layernorm/beta": "cls.predictions.transform.LayerNorm.bias",
-    "mlm_decoder/kernel": "cls.predictions.decoder.weight",
+    # The MLM decoder kernel is tied to the input word embeddings. HF marks it
+    # in `_tied_weights_keys` and safetensors strips the tied
+    # `cls.predictions.decoder.weight`, so map to the embedding table instead
+    # (transfer_weights transposes it into the Dense kernel) — mirrors the
+    # DeBERTa converters and works for both the safetensors and state_dict paths.
+    "mlm_decoder/kernel": "embeddings.word_embeddings.weight",
     "mlm_decoder/bias": "cls.predictions.bias",
     "classifier/kernel": "classifier.weight",
     "classifier/bias": "classifier.bias",
