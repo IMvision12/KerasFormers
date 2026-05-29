@@ -18,6 +18,7 @@ from kerasformers.models import (
     dino,
     dino_v2,
     dino_v3,
+    distilbert,
     efficientformer,
     efficientnet,
     efficientnet_lite,
