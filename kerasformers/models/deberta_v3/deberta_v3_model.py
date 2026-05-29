@@ -1,3 +1,5 @@
+import warnings
+
 import keras
 from keras import layers
 
@@ -232,8 +234,17 @@ class DebertaV3MaskedLM(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"Some weights of DebertaV3MaskedLM were not initialized from "
+                    f"the released checkpoint '{variant}' and are newly initialized: "
+                    f"{skipped}. DeBERTa-v3 is ELECTRA/RTD-pretrained and ships no MLM "
+                    f"head, so fine-tune it on a downstream task before using it for "
+                    f"masked-LM predictions.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(self, name="DebertaV3MaskedLM", **kwargs):
