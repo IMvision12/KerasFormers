@@ -56,7 +56,9 @@ class GptModel(SubclassedBaseModel):
         self.norm_eps = norm_eps
         self.tie_embeddings = tie_embeddings
 
-        self.tokens_embed = layers.Embedding(vocab_size, embed_dim, name="tokens_embed")
+        self.token_embedding = layers.Embedding(
+            vocab_size, embed_dim, name="tokens_embed"
+        )
         self.positions_embed = layers.Embedding(
             max_position_embeddings, embed_dim, name="positions_embed"
         )
@@ -81,7 +83,7 @@ class GptModel(SubclassedBaseModel):
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         attention_mask = inputs.get("attention_mask")
         positions = ops.broadcast_to(ops.arange(seq), (batch, seq))
-        hidden = self.tokens_embed(input_ids) + self.positions_embed(positions)
+        hidden = self.token_embedding(input_ids) + self.positions_embed(positions)
         mask = self.causal_mask(seq, attention_mask)
         for block in self.blocks:
             hidden = block(hidden, attention_mask=mask)
@@ -152,7 +154,7 @@ class GptGenerate(GptModel):
     """
 
     def project(self, hidden):
-        return ops.matmul(hidden, ops.transpose(self.tokens_embed.embeddings))
+        return ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
 
     def call(self, inputs):
         hidden = super().call(inputs)["last_hidden_state"]
@@ -164,7 +166,7 @@ class GptGenerate(GptModel):
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
         positions = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
-        hidden = self.tokens_embed(input_ids) + self.positions_embed(positions)
+        hidden = self.token_embedding(input_ids) + self.positions_embed(positions)
         mask = self.causal_mask(prompt_len, attention_mask)
         cache = []
         for block in self.blocks:
@@ -192,7 +194,7 @@ class GptGenerate(GptModel):
             if eos and bool(ops.all(finished)):
                 break
             pos = ops.full((batch, 1), cur_len, dtype="int32")
-            hidden = self.tokens_embed(next_tok) + self.positions_embed(pos)
+            hidden = self.token_embedding(next_tok) + self.positions_embed(pos)
             new_cache = []
             for i, block in enumerate(self.blocks):
                 hidden, kv = block(hidden, past_key_value=cache[i], use_cache=True)
