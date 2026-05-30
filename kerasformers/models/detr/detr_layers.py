@@ -479,31 +479,52 @@ class DETRMaskHeadSmallConv(layers.Layer):
         ]
         self.inter_dims = tuple(inter_dims)
 
-        self.lay1 = layers.Conv2D(dim, 3, padding="same", name="lay1")
+        # The mask head always operates on channels-last tensors (the panoptic
+        # model permutes every input to channels-last before calling it), so the
+        # convs are pinned to channels_last regardless of the global image format.
+        self.lay1 = layers.Conv2D(
+            dim, 3, padding="same", data_format="channels_last", name="lay1"
+        )
         self.gn1 = layers.GroupNormalization(
             groups=8, axis=-1, epsilon=1e-5, name="gn1"
         )
-        self.lay2 = layers.Conv2D(inter_dims[1], 3, padding="same", name="lay2")
+        self.lay2 = layers.Conv2D(
+            inter_dims[1], 3, padding="same", data_format="channels_last", name="lay2"
+        )
         self.gn2 = layers.GroupNormalization(
             groups=min(8, inter_dims[1]), axis=-1, epsilon=1e-5, name="gn2"
         )
-        self.lay3 = layers.Conv2D(inter_dims[2], 3, padding="same", name="lay3")
+        self.lay3 = layers.Conv2D(
+            inter_dims[2], 3, padding="same", data_format="channels_last", name="lay3"
+        )
         self.gn3 = layers.GroupNormalization(
             groups=min(8, inter_dims[2]), axis=-1, epsilon=1e-5, name="gn3"
         )
-        self.lay4 = layers.Conv2D(inter_dims[3], 3, padding="same", name="lay4")
+        self.lay4 = layers.Conv2D(
+            inter_dims[3], 3, padding="same", data_format="channels_last", name="lay4"
+        )
         self.gn4 = layers.GroupNormalization(
             groups=min(8, inter_dims[3]), axis=-1, epsilon=1e-5, name="gn4"
         )
-        self.lay5 = layers.Conv2D(inter_dims[4], 3, padding="same", name="lay5")
+        self.lay5 = layers.Conv2D(
+            inter_dims[4], 3, padding="same", data_format="channels_last", name="lay5"
+        )
         self.gn5 = layers.GroupNormalization(
             groups=min(8, inter_dims[4]), axis=-1, epsilon=1e-5, name="gn5"
         )
-        self.out_lay = layers.Conv2D(1, 3, padding="same", name="out_lay")
+        self.out_lay = layers.Conv2D(
+            1, 3, padding="same", data_format="channels_last", name="out_lay"
+        )
 
-        self.adapter1 = layers.Conv2D(inter_dims[1], 1, name="adapter1")
-        self.adapter2 = layers.Conv2D(inter_dims[2], 1, name="adapter2")
-        self.adapter3 = layers.Conv2D(inter_dims[3], 1, name="adapter3")
+        self.adapter1 = layers.Conv2D(
+            inter_dims[1], 1, data_format="channels_last", name="adapter1"
+        )
+        self.adapter2 = layers.Conv2D(
+            inter_dims[2], 1, data_format="channels_last", name="adapter2"
+        )
+        self.adapter3 = layers.Conv2D(
+            inter_dims[3], 1, data_format="channels_last", name="adapter3"
+        )
 
     def call(self, x, bbox_mask, fpns):
         b = ops.shape(x)[0]
@@ -548,7 +569,12 @@ class DETRMaskHeadSmallConv(layers.Layer):
         fpn = ops.tile(fpn, (1, q_dim, 1, 1, 1))
         fpn = ops.reshape(fpn, (-1, fpn_h, fpn_w, fpn_c))
 
-        x_resized = ops.image.resize(x, size=(fpn_h, fpn_w), interpolation="nearest")
+        x_resized = ops.image.resize(
+            x,
+            size=(fpn_h, fpn_w),
+            interpolation="nearest",
+            data_format="channels_last",
+        )
         return fpn + x_resized
 
     def compute_output_spec(self, x, bbox_mask, fpns):

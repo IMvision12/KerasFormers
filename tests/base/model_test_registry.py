@@ -651,6 +651,23 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
+    "DETRPanopticSegment": {
+        "module": "kerasformers.models.detr",
+        "model_cls": "DETRPanopticSegment",
+        "model_type": "instance_segmentation",
+        "init_kwargs": {
+            "backbone_variant": "ResNet50",
+            "image_size": 32,
+            "num_classes": 92,
+            "num_queries": 10,
+        },
+        "input_shape": (2, 32, 32, 3),
+        "expected_output_shape": {
+            "logits": (2, 10, 92),
+            "pred_boxes": (2, 10, 4),
+            "pred_masks": (2, 10, 8, 8),
+        },
+    },
     "RTDETRDetect": {
         "module": "kerasformers.models.rt_detr",
         "model_cls": "RTDETRDetect",
