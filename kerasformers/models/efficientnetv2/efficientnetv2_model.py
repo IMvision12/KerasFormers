@@ -1044,6 +1044,7 @@ class EfficientNetV2ImageClassify(BaseModel):
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
+        dropout_rate=0.2,
         name="EfficientNetV2ImageClassify",
         **kwargs,
     ):
@@ -1067,7 +1068,7 @@ class EfficientNetV2ImageClassify(BaseModel):
         x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
             backbone.output
         )
-        x = layers.Dropout(0.2, name="top_dropout")(x)
+        x = layers.Dropout(dropout_rate, name="top_dropout")(x)
         out = layers.Dense(
             num_classes,
             activation=classifier_activation,
@@ -1089,6 +1090,7 @@ class EfficientNetV2ImageClassify(BaseModel):
         self.input_tensor = input_tensor
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
+        self.dropout_rate = dropout_rate
 
     def get_config(self):
         config = super().get_config()
@@ -1105,6 +1107,7 @@ class EfficientNetV2ImageClassify(BaseModel):
                 "input_tensor": self.input_tensor,
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
+                "dropout_rate": self.dropout_rate,
                 "name": self.name,
             }
         )

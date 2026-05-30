@@ -88,6 +88,7 @@ class DebertaV3Model(BaseModel):
         max_relative_positions=512,
         position_buckets=256,
         pos_att_type=("p2c", "c2p"),
+        share_att_key=True,
         norm_rel_ebd=True,
         conv_kernel_size=0,
         conv_act="gelu",
@@ -126,6 +127,7 @@ class DebertaV3Model(BaseModel):
             max_relative_positions=max_relative_positions,
             position_buckets=position_buckets,
             pos_att_type=pos_att_type,
+            share_att_key=share_att_key,
             norm_rel_ebd=norm_rel_ebd,
             conv_kernel_size=conv_kernel_size,
             conv_act=conv_act,
@@ -151,6 +153,7 @@ class DebertaV3Model(BaseModel):
         self.max_relative_positions = max_relative_positions
         self.position_buckets = position_buckets
         self.pos_att_type = pos_att_type
+        self.share_att_key = share_att_key
         self.norm_rel_ebd = norm_rel_ebd
         self.conv_kernel_size = conv_kernel_size
         self.conv_act = conv_act
@@ -173,6 +176,7 @@ class DebertaV3Model(BaseModel):
                 "max_relative_positions": self.max_relative_positions,
                 "position_buckets": self.position_buckets,
                 "pos_att_type": self.pos_att_type,
+                "share_att_key": self.share_att_key,
                 "norm_rel_ebd": self.norm_rel_ebd,
                 "conv_kernel_size": self.conv_kernel_size,
                 "conv_act": self.conv_act,
@@ -260,6 +264,7 @@ class DebertaV3MaskedLM(BaseModel):
             "max_relative_positions": 512,
             "position_buckets": 256,
             "pos_att_type": ("p2c", "c2p"),
+            "share_att_key": True,
             "norm_rel_ebd": True,
             "conv_kernel_size": 0,
             "conv_act": "gelu",
@@ -369,6 +374,7 @@ class DebertaV3SequenceClassify(BaseModel):
             "max_relative_positions": 512,
             "position_buckets": 256,
             "pos_att_type": ("p2c", "c2p"),
+            "share_att_key": True,
             "norm_rel_ebd": True,
             "conv_kernel_size": 0,
             "conv_act": "gelu",
@@ -490,6 +496,7 @@ class DebertaV3TokenClassify(BaseModel):
             "max_relative_positions": 512,
             "position_buckets": 256,
             "pos_att_type": ("p2c", "c2p"),
+            "share_att_key": True,
             "norm_rel_ebd": True,
             "conv_kernel_size": 0,
             "conv_act": "gelu",
@@ -589,6 +596,7 @@ class DebertaV3QnA(BaseModel):
             "max_relative_positions": 512,
             "position_buckets": 256,
             "pos_att_type": ("p2c", "c2p"),
+            "share_att_key": True,
             "norm_rel_ebd": True,
             "conv_kernel_size": 0,
             "conv_act": "gelu",
@@ -684,6 +692,7 @@ class DebertaV3MultipleChoice(BaseModel):
             "max_relative_positions": 512,
             "position_buckets": 256,
             "pos_att_type": ("p2c", "c2p"),
+            "share_att_key": True,
             "norm_rel_ebd": True,
             "conv_kernel_size": 0,
             "conv_act": "gelu",

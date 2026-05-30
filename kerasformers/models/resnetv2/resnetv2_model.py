@@ -334,7 +334,7 @@ class ResNetV2Model(BaseModel):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         image_size = standardize_input_shape(image_size, data_format)
 
@@ -491,7 +491,7 @@ class ResNetV2ImageClassify(BaseModel):
         kwargs.pop("timm_id", None)
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         backbone = ResNetV2Model(
             depths=depths,

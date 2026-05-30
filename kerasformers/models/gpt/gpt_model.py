@@ -174,7 +174,14 @@ class GptGenerate(GptModel):
             ops.argmax(self.project(hidden[:, -1:, :]), axis=-1), "int32"
         )
 
-        eos = [int(e) for e in (eos_token_id or ())]
+        eos = [
+            int(e)
+            for e in (
+                eos_token_id
+                if isinstance(eos_token_id, (list, tuple))
+                else ([eos_token_id] if eos_token_id is not None else [])
+            )
+        ]
         first_eos = eos[0] if eos else 0
         finished = ops.zeros((batch,), dtype="bool")
         for e in eos:

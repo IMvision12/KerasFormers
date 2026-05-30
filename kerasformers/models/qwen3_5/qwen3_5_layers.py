@@ -13,9 +13,10 @@ class Qwen3_5RMSNorm(layers.Layer):
 
     Like a standard RMSNorm but the learned scale is stored *zero-centered*: the
     weight is initialized to ``0`` and the effective per-channel gain is
-    ``1 + weight``. Normalizes the last axis by its RMS in float32, casts back to
-    the input dtype, then scales by ``1 + weight``. No mean subtraction, no bias.
-    Shape-preserving ``(..., dim) -> (..., dim)``.
+    ``1 + weight``. Normalizes the last axis by its RMS in float32, scales by
+    ``1 + weight`` *still in float32*, then casts back to the input dtype (matching
+    HF Qwen3-Next, which differs from Llama's cast-then-scale order). No mean
+    subtraction, no bias. Shape-preserving ``(..., dim) -> (..., dim)``.
 
     Args:
         eps: Variance epsilon added before the reciprocal square root.
@@ -35,7 +36,11 @@ class Qwen3_5RMSNorm(layers.Layer):
         dtype = x.dtype
         x = ops.cast(x, "float32")
         x = x * ops.rsqrt(ops.mean(ops.square(x), axis=-1, keepdims=True) + self.eps)
-        return (1.0 + self.weight) * ops.cast(x, dtype)
+        # Match HF Qwen3-Next: scale by (1 + weight) in float32, THEN cast back to
+        # the input dtype. (Llama instead casts first, then multiplies — this order
+        # reduces fp16/bf16 drift. See HF Qwen3NextRMSNorm / transformers#29402.)
+        x = x * (1.0 + ops.cast(self.weight, "float32"))
+        return ops.cast(x, dtype)
 
     def get_config(self):
         config = super().get_config()

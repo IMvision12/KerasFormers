@@ -31,9 +31,10 @@ def qwen3_text_cos_sin(position_ids, head_dim, theta, mrope_section):
         theta, ops.arange(0, head_dim, 2, dtype="float32") / head_dim
     )
     freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
-    sel = [0] * (head_dim // 2)
+    half = head_dim // 2
+    sel = [0] * half
     for dim, offset in ((1, 1), (2, 2)):
-        for c in range(offset, mrope_section[dim] * 3, 3):
+        for c in range(offset, min(mrope_section[dim] * 3, half), 3):
             sel[c] = dim
     sel = ops.convert_to_tensor(sel, dtype="int32")
     freqs_t = (

@@ -214,9 +214,7 @@ def siglip_vision_embedding(
     position_embeddings = SigLIPPositionEmbedding(
         max_positions=num_positions,
         embed_dim=hidden_dim,
-        embeddings_initializer=initializers.RandomNormal(
-            stddev=1.0 / ops.sqrt(hidden_dim)
-        ),
+        embeddings_initializer=initializers.RandomNormal(stddev=hidden_dim**-0.5),
         name=f"{name}_position_embedding",
     )(position_ids)
 

@@ -108,7 +108,7 @@ def residual_attention_block(
     if attention_mask is not None:
         attention_mask = ops.cast(attention_mask, dtype=x.dtype)
         mask = (
-            ops.add(causal_attention_mask, attention_mask)
+            ops.add(mask, attention_mask)
             if causal_attention_mask is not None
             else attention_mask
         )
