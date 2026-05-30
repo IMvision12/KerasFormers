@@ -300,20 +300,6 @@ def mask2former_decoder_layer(
     return hidden_states
 
 
-def mask2former_predict_class_mask(
-    hidden_states, mask_features, hidden_dim, mask_feature_size, num_classes
-):
-    """Compute class logits + mask logits from current decoder hidden states."""
-    class_logits = (
-        layers.Dense(num_classes + 1, name=f"class_predictor_{hidden_states.name}")(
-            hidden_states
-        )
-        if False
-        else None
-    )
-    return class_logits
-
-
 def mask2former_functional(
     pixel_values,
     *,
