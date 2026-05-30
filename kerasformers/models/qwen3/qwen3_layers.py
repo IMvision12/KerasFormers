@@ -175,6 +175,50 @@ class Qwen3Attention(layers.Layer):
         out = self.output_proj(out)
         return (out, new_kv) if use_cache else out
 
+    def decode_step(
+        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+    ):
+        # Single-token attention against a fixed-size KV cache written in place at
+        # ``write_pos``. Same math as ``call`` with a one-token query, but the cache
+        # keeps a constant shape so the decode loop can be compiled (keras.ops.scan).
+        # ``key_mask`` (additive, (.., max_len)) blocks the still-empty cache slots.
+        b = ops.shape(hidden_states)[0]
+        q = self.query_norm(
+            ops.reshape(
+                self.query(hidden_states), (b, 1, self.num_heads, self.head_dim)
+            )
+        )
+        k = self.key_norm(
+            ops.reshape(
+                self.key(hidden_states), (b, 1, self.num_kv_heads, self.head_dim)
+            )
+        )
+        v = ops.reshape(
+            self.value(hidden_states), (b, 1, self.num_kv_heads, self.head_dim)
+        )
+        q = ops.transpose(q, (0, 2, 1, 3))
+        k = ops.transpose(k, (0, 2, 1, 3))
+        v = ops.transpose(v, (0, 2, 1, 3))
+        cos = ops.expand_dims(cos, axis=1)
+        sin = ops.expand_dims(sin, axis=1)
+        half = self.head_dim // 2
+        q = q * cos + (ops.concatenate([-q[..., half:], q[..., :half]], axis=-1) * sin)
+        k = k * cos + (ops.concatenate([-k[..., half:], k[..., :half]], axis=-1) * sin)
+        cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
+        cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
+        kk, vv = cache_k, cache_v
+        if self.num_kv_groups > 1:
+            kk = ops.repeat(kk, self.num_kv_groups, axis=1)
+            vv = ops.repeat(vv, self.num_kv_groups, axis=1)
+        attn = ops.matmul(q, ops.transpose(kk, (0, 1, 3, 2))) * self.scaling
+        attn = attn + key_mask
+        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
+        out = ops.matmul(attn, vv)
+        out = ops.reshape(
+            ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.head_dim)
+        )
+        return self.output_proj(out), cache_k, cache_v
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -264,6 +308,20 @@ class Qwen3DecoderLayer(layers.Layer):
         hidden_states = self.mlp_norm(hidden_states)
         hidden_states = residual + self.mlp(hidden_states)
         return (hidden_states, new_kv) if use_cache else hidden_states
+
+    def decode_step(
+        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+    ):
+        residual = hidden_states
+        x = self.attention_norm(hidden_states)
+        attn_out, cache_k, cache_v = self.attention.decode_step(
+            x, cos, sin, cache_k, cache_v, write_pos, key_mask
+        )
+        hidden_states = residual + attn_out
+        residual = hidden_states
+        x = self.mlp_norm(hidden_states)
+        hidden_states = residual + self.mlp(x)
+        return hidden_states, cache_k, cache_v
 
     def get_config(self):
         config = super().get_config()
