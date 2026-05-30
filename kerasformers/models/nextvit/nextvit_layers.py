@@ -42,6 +42,7 @@ class NextViTEfficientAttention(layers.Layer):
     ):
         super().__init__(**kwargs)
         self.dim = dim
+        self.prefix = prefix
         self.head_dim = head_dim
         self.num_heads = dim // head_dim
         self.scale = head_dim**-0.5
@@ -115,6 +116,7 @@ class NextViTEfficientAttention(layers.Layer):
                 "sr_ratio": self.sr_ratio,
                 "attn_drop": self.attn_drop.rate,
                 "proj_drop": self.proj_drop.rate,
+                "prefix": self.prefix,
             }
         )
         return config

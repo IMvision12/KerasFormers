@@ -130,6 +130,39 @@ def depth_anything_v1_pre_act_residual(x, channels, name, data_format):
     return layers.Add(name=f"{name}_add")([x, residual])
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
+class DepthAnythingV1Resize(layers.Layer):
+    """Serializable align-corners bilinear resize to a fixed ``(target_h, target_w)``.
+
+    Wraps :func:`depth_anything_v1_aligned_bilinear_resize` (used by the fusion
+    blocks and the head) as a real layer with a ``get_config`` so the model
+    round-trips through ``model.save()`` / ``load_model()`` — unlike a closure
+    ``Lambda``, which Keras cannot serialize.
+    """
+
+    def __init__(self, target_h, target_w, data_format, **kwargs):
+        super().__init__(**kwargs)
+        self.target_h = target_h
+        self.target_w = target_w
+        self.data_format = data_format
+
+    def call(self, x):
+        return depth_anything_v1_aligned_bilinear_resize(
+            x, self.target_h, self.target_w, self.data_format
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "target_h": self.target_h,
+                "target_w": self.target_w,
+                "data_format": self.data_format,
+            }
+        )
+        return config
+
+
 def depth_anything_v1_fusion_block(
     hidden_state,
     residual,
@@ -182,11 +215,8 @@ def depth_anything_v1_fusion_block(
         hidden_state, fusion_hidden_size, f"{name}_res2", data_format
     )
 
-    hidden_state = layers.Lambda(
-        lambda x: depth_anything_v1_aligned_bilinear_resize(
-            x, target_h, target_w, data_format
-        ),
-        name=f"{name}_upsample",
+    hidden_state = DepthAnythingV1Resize(
+        target_h, target_w, data_format, name=f"{name}_upsample"
     )(hidden_state)
 
     hidden_state = layers.Conv2D(
@@ -503,12 +533,7 @@ def depth_anything_v1_head(
         data_format=data_format,
         name=f"{name}_conv1",
     )(fused)
-    x = layers.Lambda(
-        lambda z: depth_anything_v1_aligned_bilinear_resize(
-            z, height, width, data_format
-        ),
-        name=f"{name}_upsample",
-    )(x)
+    x = DepthAnythingV1Resize(height, width, data_format, name=f"{name}_upsample")(x)
     x = layers.Conv2D(
         head_hidden_size,
         3,
@@ -523,7 +548,7 @@ def depth_anything_v1_head(
 
     if depth_estimation_type == "metric":
         x = layers.Activation("sigmoid", name=f"{name}_act2")(x)
-        x = layers.Lambda(lambda z: z * max_depth, name=f"{name}_scale_depth")(x)
+        x = layers.Rescaling(max_depth, name=f"{name}_scale_depth")(x)
     else:
         x = layers.Activation("relu", name=f"{name}_act2")(x)
     return x

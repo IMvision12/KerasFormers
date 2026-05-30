@@ -279,6 +279,7 @@ class DeiTImageClassify(ViTImageClassify):
                 "num_classes": self.num_classes,
                 "classifier_activation": self.classifier_activation,
                 "name": self.name,
+                "trainable": self.trainable,
             }
         )
         return config

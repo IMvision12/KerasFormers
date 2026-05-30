@@ -330,6 +330,10 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
 
     HF_MODEL_TYPE = "siglip"
 
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("name", "SigLIP2ImageClassify")
+        super().__init__(*args, **kwargs)
+
     @classmethod
     def _release_warm_start_cls(cls):
         return SigLIP2Model
