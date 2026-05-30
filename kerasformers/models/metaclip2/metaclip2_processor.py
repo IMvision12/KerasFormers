@@ -96,8 +96,6 @@ class MetaClip2Processor(BaseProcessor):
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
-        """Load a finetune's SentencePiece tokenizer (``sentencepiece.bpe.model``)
-        from the HF ``repo`` instead of the bundled kerasformers-release default."""
         from huggingface_hub import hf_hub_download
 
         return cls(

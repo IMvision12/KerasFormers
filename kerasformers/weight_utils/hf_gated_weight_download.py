@@ -1,30 +1,3 @@
-"""On-the-fly weight conversion from gated source repos.
-
-For models whose licenses do not allow weight redistribution (e.g. SAM3,
-DINOv3), this utility downloads from the original source repo,
-converts to Keras format using a model-specific transfer function, and
-caches the result locally so subsequent loads are instant.
-
-Requires:
-    1. User has accepted the model's license on the model Hub.
-    2. ``HF_TOKEN`` env var is set, or ``huggingface-cli login`` has been run.
-    3. ``safetensors`` + ``huggingface_hub`` installed (``torch`` only as a CPU
-       fallback for legacy ``.bin`` checkpoints).
-
-Usage::
-
-    from kerasformers.weight_utils import load_gated_weights_from_hf
-
-    load_gated_weights_from_hf(
-        model=keras_model,
-        model_name="sam3",
-        hf_model_id="facebook/sam3",
-        transfer_fn=transfer_sam3_weights,
-        hf_model_cls="Sam3Model",
-        hf_kwargs={"attn_implementation": "eager"},
-    )
-"""
-
 import os
 
 

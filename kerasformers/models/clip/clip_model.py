@@ -15,39 +15,10 @@ from .config import CLIP_CONFIG, CLIP_WEIGHTS
 
 
 def quick_gelu(x):
-    """Quick GELU approximation used by the original OpenAI CLIP checkpoints.
-
-    Computes ``x * sigmoid(1.702 * x)`` — a cheaper, looser variant of
-    GELU. OpenAI's released ``ViT-B/16`` and ``ViT-L/14`` weights were
-    trained with this activation, so matching them at inference time
-    requires using it here. LAION / community retrains typically use
-    standard ``gelu`` instead; switch via the ``hidden_act`` argument
-    on the model.
-
-    Args:
-        x: Input tensor of any shape.
-
-    Returns:
-        Tensor of the same shape and dtype as ``x``.
-    """
     return x * ops.sigmoid(1.702 * x)
 
 
 def activation_layer(hidden_act):
-    """Build the activation layer named in the CLIP config.
-
-    Recognizes ``"quick_gelu"`` and wraps :func:`quick_gelu` in a
-    ``Lambda`` (since it is not registered as a Keras activation).
-    Any other name falls through to ``keras.layers.Activation``, which
-    handles standard activations like ``"gelu"``, ``"gelu_new"``, or
-    ``"relu"``.
-
-    Args:
-        hidden_act: Activation name from the ``hidden_act`` config field.
-
-    Returns:
-        A ``keras.layers.Layer`` instance ready to apply to a tensor.
-    """
     if hidden_act == "quick_gelu":
         return keras.layers.Lambda(quick_gelu)
     return keras.layers.Activation(hidden_act)
@@ -65,37 +36,6 @@ def residual_attention_block(
     hidden_act="quick_gelu",
     layer_norm_eps=1e-5,
 ):
-    """One pre-LN residual transformer block (LN → MHSA → Add → LN → MLP → Add).
-
-    Shared building block for both CLIP's vision and text encoders. All
-    sublayer names are deterministic — ``{layer_name_prefix}_{layer_idx}_*``
-    — so the corresponding pretrained weights can be transferred by
-    name during checkpoint conversion.
-
-    Args:
-        x: Input token sequence of shape ``(B, L, proj_dim)``.
-        proj_dim: Hidden / model dimension.
-        num_heads: Attention head count. ``proj_dim`` must be divisible
-            by ``num_heads``.
-        layer_name_prefix: Prefix used for every sublayer name (e.g.
-            ``"vision_model_encoder"`` or ``"text_model_encoder"``).
-        layer_idx: Index of this block within its encoder stack.
-        causal_attention_mask: Optional ``(L, L)`` upper-triangular mask
-            with large-negative values on disallowed positions, added
-            to the attention logits. ``None`` means bidirectional
-            attention (vision side).
-        attention_mask: Optional broadcastable padding mask. Combined
-            additively with ``causal_attention_mask`` when both are
-            provided.
-        mlp_ratio: MLP hidden expansion ratio — the intermediate Dense
-            size is ``int(proj_dim * mlp_ratio)``.
-        hidden_act: Activation name for the MLP. Defaults to
-            ``"quick_gelu"``.
-        layer_norm_eps: Epsilon for both pre-norm LayerNorms.
-
-    Returns:
-        Output tensor of shape ``(B, L, proj_dim)``.
-    """
     layer_prefix = f"{layer_name_prefix}_{layer_idx}"
 
     ln_1_output = keras.layers.LayerNormalization(
@@ -148,32 +88,6 @@ def clip_encoder(
     hidden_act="quick_gelu",
     layer_norm_eps=1e-5,
 ):
-    """Stack of ``num_layers`` CLIP transformer blocks.
-
-    Threads the running tensor through :func:`residual_attention_block`
-    ``num_layers`` times. The same ``layer_prefix`` and a per-iteration
-    ``layer_idx`` give every sublayer a unique, stable name
-    (e.g. ``vision_model_encoder_3_attn_...``), which is what the weight
-    transfer scripts rely on.
-
-    Args:
-        inputs: Token sequence of shape ``(B, L, width)``.
-        width: Hidden dimension.
-        num_layers: Number of transformer blocks to stack.
-        heads: Attention head count per block.
-        layer_prefix: Block-name prefix shared by every layer in this
-            stack (e.g. ``"vision_model_encoder"``).
-        causal_attention_mask: Optional ``(L, L)`` causal mask, forwarded
-            to each block. Used by the text encoder only.
-        attention_mask: Optional padding mask broadcastable over the
-            attention logits.
-        mlp_ratio: MLP expansion ratio passed to each block.
-        hidden_act: MLP activation name. Defaults to ``"quick_gelu"``.
-        layer_norm_eps: LayerNorm epsilon used inside every block.
-
-    Returns:
-        Tensor of shape ``(B, L, width)``.
-    """
     x = inputs
     for i in range(num_layers):
         x = residual_attention_block(
@@ -203,33 +117,6 @@ def clip_vision_features(
     layer_norm_eps=1e-5,
     data_format="channels_last",
 ):
-    """CLIP vision encoder up through the transformer stack (no projection).
-
-    Pipeline: patch ``Conv2D`` → prepend the learned CLS token and add
-    positional embeddings via :class:`CLIPVisionModelEmbedding` → pre-LN →
-    :func:`clip_encoder`. Output is the full token sequence (CLS at
-    index 0), the pre-projection encoder output —
-    useful when you want raw features rather than the projected image
-    embedding.
-
-    Args:
-        inputs: Image tensor. Shape is ``(B, H, W, C)`` for
-            ``channels_last`` or ``(B, C, H, W)`` for ``channels_first``.
-        input_resolution: Image side length, used to size the learned
-            positional embeddings.
-        patch_size: Square patch side length.
-        width: Hidden dimension.
-        num_layers: Transformer depth.
-        heads: Attention head count.
-        vision_mlp_ratio: MLP expansion ratio.
-        hidden_act: MLP activation name.
-        layer_norm_eps: LayerNorm epsilon.
-        data_format: ``"channels_last"`` or ``"channels_first"``.
-
-    Returns:
-        Tensor of shape ``(B, num_patches + 1, width)`` — CLS token at
-        index 0, followed by patch tokens.
-    """
     patch_embeddings = keras.layers.Conv2D(
         filters=width,
         kernel_size=patch_size,
@@ -271,29 +158,6 @@ def clip_vision_backbone(
     layer_norm_eps=1e-5,
     data_format="channels_last",
 ):
-    """CLIP vision encoder up through post-encoder LayerNorm — no projection.
-
-    Vision-encoder forward pass. Pipeline:
-    :func:`clip_vision_features` → slice CLS at index 0 → post-encoder
-    LayerNorm. Returns the full token-sequence ``last_hidden_state``
-    plus the CLS-pooled, post-layernormed ``pooler_output``.
-
-    Args:
-        inputs: Image tensor.
-        input_resolution: Image side length.
-        patch_size: ViT patch size.
-        width: Hidden dimension.
-        num_layers: Transformer depth.
-        heads: Attention head count.
-        vision_mlp_ratio: MLP expansion ratio.
-        hidden_act: MLP activation name.
-        layer_norm_eps: LayerNorm epsilon.
-        data_format: ``"channels_last"`` or ``"channels_first"``.
-
-    Returns:
-        Tuple ``(last_hidden_state, pooler_output)`` of shapes
-        ``(B, num_patches + 1, width)`` and ``(B, width)``.
-    """
     last_hidden_state = clip_vision_features(
         inputs,
         input_resolution=input_resolution,
@@ -327,32 +191,6 @@ def clip_text_backbone(
     hidden_act="quick_gelu",
     layer_norm_eps=1e-5,
 ):
-    """CLIP text encoder up through final LayerNorm + EOT pluck — no projection.
-
-    Text-encoder forward pass. Pipeline:
-    :class:`CLIPTextModelEmbedding` → causal + padding-masked
-    :func:`clip_encoder` → post-encoder LayerNorm → pluck the hidden
-    state at each row's EOT position (the model picks the position with the
-    largest ``token_id``).
-
-    Args:
-        inputs: Token-id tensor of shape ``(B, max_seq_len)``.
-        attention_mask: Padding mask ``(B, max_seq_len)`` — ``1`` for
-            real tokens, ``0`` for padding.
-        text_hidden_dim: Text encoder hidden dimension.
-        text_num_layers: Text encoder depth.
-        text_num_heads: Attention head count.
-        vocab_size: Tokenizer vocabulary size.
-        max_seq_len: Maximum sequence length.
-        text_mlp_ratio: MLP expansion ratio.
-        hidden_act: MLP activation name.
-        layer_norm_eps: LayerNorm epsilon.
-
-    Returns:
-        Tuple ``(last_hidden_state, pooler_output)`` of shapes
-        ``(B, max_seq_len, text_hidden_dim)`` and
-        ``(B, text_hidden_dim)``.
-    """
     x = CLIPTextModelEmbedding(
         vocab_size=vocab_size,
         max_seq_len=max_seq_len,
@@ -394,24 +232,6 @@ def clip_text_backbone(
 
 
 def clip_head(image_embeddings, text_embeddings):
-    """L2-normalize embeddings and produce scaled similarity logits.
-
-    Standard CLIP contrastive head. Each side is L2-normalized along
-    its embedding axis (turning the dot product into cosine similarity),
-    then both are passed to :class:`CLIPLogitScale`, which multiplies by
-    the learned ``exp(logit_scale)`` temperature and returns the
-    ``(B, B)`` image-vs-text similarity logit matrix together with its
-    transpose.
-
-    Args:
-        image_embeddings: Image embedding tensor ``(B, embed_dim)``.
-        text_embeddings: Text embedding tensor ``(B, embed_dim)``.
-
-    Returns:
-        Tuple ``(image_logits, text_logits)``, each of shape ``(B, B)``.
-        ``image_logits[i, j]`` is the temperature-scaled cosine
-        similarity between image ``i`` and text ``j``.
-    """
     image_embeddings = image_embeddings / ops.sqrt(
         ops.sum(ops.power(image_embeddings, 2), axis=-1, keepdims=True)
     )

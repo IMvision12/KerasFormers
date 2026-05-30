@@ -28,23 +28,10 @@ _ACTIVATION_ALIASES = {
 
 
 def _gelu(x):
-    """Exact GELU (``approximate=False``) — the activation Whisper uses.
-
-    OpenAI's Whisper uses the error-function form of GELU, not the
-    tanh approximation that many transformer codebases default to.
-    Wrapping it as a module-level function lets it be passed to
-    :class:`keras.layers.Lambda` and round-trip through serialization.
-    """
     return keras.activations.gelu(x, approximate=False)
 
 
 def _resolve_activation(name):
-    """Return a callable for the given activation name.
-
-    Whisper exposes ``activation_function`` in its config. Defaults to
-    ``"gelu"`` (which means exact GELU, matching OpenAI). Fine-tunes may
-    swap in ``"gelu_new"`` (tanh-approx), ``"relu"``, ``"silu"``, etc.
-    """
     if callable(name):
         return name
     if name in _ACTIVATION_ALIASES:
@@ -61,31 +48,6 @@ def whisper_encoder_block(
     activation=_gelu,
     layer_norm_eps=1e-5,
 ):
-    """One pre-LN Whisper encoder block (self-attention + MLP).
-
-    Structure (matches OpenAI Whisper):
-
-    1. Pre-norm → :class:`WhisperAttention` (bidirectional self-attn) →
-       residual.
-    2. Pre-norm → ``Dense(hidden_dim → mlp_dim) → activation →
-       Dense(mlp_dim → hidden_dim)`` → residual.
-
-    Sublayer names follow ``encoder_layers_{layer_idx}_*`` so the
-    PyTorch state-dict transfers by name.
-
-    Args:
-        x: Encoder token sequence of shape ``(B, T, hidden_dim)``.
-        hidden_dim: Model / residual dimension.
-        num_heads: Number of self-attention heads.
-        mlp_dim: Hidden dimension of the feed-forward layer.
-        layer_idx: Index of this block within the encoder stack.
-        activation: Activation callable applied between the two FFN
-            Dense layers. Defaults to exact GELU (Whisper's choice).
-        layer_norm_eps: Epsilon for both pre-norm LayerNorms.
-
-    Returns:
-        Tensor of shape ``(B, T, hidden_dim)``.
-    """
     prefix = f"encoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
@@ -119,40 +81,6 @@ def whisper_decoder_block(
     activation=_gelu,
     layer_norm_eps=1e-5,
 ):
-    """One pre-LN Whisper decoder block (causal self-attn + cross-attn + MLP).
-
-    Structure (matches OpenAI Whisper):
-
-    1. Pre-norm → causal :class:`WhisperAttention` (Q/K/V from ``x``,
-       additive ``causal_mask`` applied to attention logits) → residual.
-    2. Pre-norm → cross :class:`WhisperAttention` (Q from ``x``, K/V
-       from ``encoder_hidden_states``) → residual.
-    3. Pre-norm → ``Dense(hidden_dim → mlp_dim) → activation →
-       Dense(mlp_dim → hidden_dim)`` → residual.
-
-    Sublayer names follow ``decoder_layers_{layer_idx}_*`` so the
-    PyTorch state-dict transfers by name.
-
-    Args:
-        x: Current decoder token sequence ``(B, L, hidden_dim)``.
-        encoder_hidden_states: Output of the Whisper encoder
-            ``(B, T, hidden_dim)``, used as keys/values in the cross
-            attention.
-        causal_mask: Additive ``(1, 1, L, L)`` mask with large-negative
-            values above the diagonal — built once per call by
-            :func:`_make_causal_mask_from_ids`.
-        hidden_dim: Model / residual dimension.
-        num_heads: Number of attention heads (shared by self- and
-            cross-attention).
-        mlp_dim: Hidden dimension of the feed-forward layer.
-        layer_idx: Index of this block within the decoder stack.
-        activation: Activation callable applied between the two FFN
-            Dense layers. Defaults to exact GELU.
-        layer_norm_eps: Epsilon for all three pre-norm LayerNorms.
-
-    Returns:
-        Tensor of shape ``(B, L, hidden_dim)``.
-    """
     prefix = f"decoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
@@ -197,13 +125,6 @@ def whisper_encoder(
     output_all_hidden_states=False,
     name="encoder",
 ):
-    """Build the Whisper encoder as a Functional :class:`keras.Model`.
-
-    When ``output_all_hidden_states=True`` the model returns the list of
-    ``encoder_num_layers + 1`` hidden states (post-embedding through
-    final-LN) instead of just the last one. Used by
-    :class:`WhisperAudioClassify` with weighted layer sum.
-    """
     mel = layers.Input(shape=(num_mel_bins, None), name="input_features")
     x = layers.Permute((2, 1), name="encoder_permute_in")(mel)
 
@@ -254,22 +175,6 @@ def whisper_encoder(
 
 
 def _make_causal_mask_from_ids(decoder_input_ids):
-    """Build an additive causal mask sized to the decoder input length.
-
-    Returns a ``(1, 1, L, L)`` mask where positions ``j > i`` (future
-    tokens, strictly above the diagonal) carry ``-1e9`` and all other
-    positions are ``0``. Added directly to the pre-softmax attention
-    logits in :class:`WhisperAttention`, this masks out attention to
-    future tokens for the standard left-to-right autoregressive decode.
-    The leading singleton axes broadcast over batch and head dims.
-
-    Args:
-        decoder_input_ids: Decoder input-id tensor of shape ``(B, L)``.
-            Only the length ``L`` (second axis) is used.
-
-    Returns:
-        Float tensor of shape ``(1, 1, L, L)`` — additive causal mask.
-    """
     seq_len = ops.shape(decoder_input_ids)[1]
     i = ops.arange(seq_len)[:, None]
     j = ops.arange(seq_len)[None, :]
@@ -289,42 +194,6 @@ def whisper_decoder(
     scale_embedding=False,
     name="decoder",
 ):
-    """Build the Whisper decoder as a Functional :class:`keras.Model`.
-
-    Pipeline: token embedding (optionally scaled by ``√hidden_dim``) →
-    learned positional embedding → ``decoder_num_layers`` stacked
-    :func:`whisper_decoder_block`s (each consuming a freshly-built
-    causal mask) → final ``LayerNormalization`` → tied LM head (matmul
-    against the transposed token-embedding matrix).
-
-    The returned :class:`keras.Model` consumes a dict with
-    ``decoder_input_ids`` ``(B, L)`` and ``encoder_hidden_states``
-    ``(B, T, hidden_dim)``, and returns logits ``(B, L, vocab_size)``.
-
-    Args:
-        hidden_dim: Model / residual dimension.
-        max_target_positions: Max decoder sequence length used to size
-            the learned positional embedding table.
-        vocab_size: Token vocabulary size (output logit width and
-            tied-embedding rows).
-        decoder_num_layers: Number of stacked decoder blocks.
-        decoder_attention_heads: Heads in each block's self- and
-            cross-attention.
-        decoder_ffn_dim: Hidden width of the FFN inside each block.
-        activation: Activation callable for the FFN. Defaults to exact
-            GELU.
-        layer_norm_eps: Epsilon for every LayerNorm.
-        scale_embedding: If ``True``, multiply token embeddings by
-            ``√hidden_dim`` before adding positional embeddings (matches
-            the ``scale_embedding`` flag — off for the standard
-            Whisper checkpoints).
-        name: Name of the returned :class:`keras.Model`.
-
-    Returns:
-        A :class:`keras.Model` that maps
-        ``{"decoder_input_ids", "encoder_hidden_states"}`` →
-        logits ``(B, L, vocab_size)``.
-    """
     decoder_input_ids = layers.Input(
         shape=(None,), dtype="int32", name="decoder_input_ids"
     )
@@ -613,43 +482,6 @@ class WhisperSpeechToText(WhisperModel):
         suppress_tokens: Optional[List[int]] = None,
         begin_suppress_tokens: Optional[List[int]] = None,
     ) -> Union[List[str], List[List[int]]]:
-        """End-to-end audio → text using a :class:`WhisperProcessor`.
-
-        Runs feature extraction, encoder, autoregressive greedy decoding
-        with the standard Whisper logit processors, and detokenization.
-
-        Mirrors the key logit processors used by Whisper generate:
-
-        * ``forced_decoder_ids`` (built by the processor): at decoded
-          position ``k``, force the output to a specific id — typically
-          ``{1: lang_id, 2: task_id, 3: <|notimestamps|>}`` for English
-          no-timestamps transcription.
-        * ``suppress_tokens``: permanently forbid this set of token ids.
-        * ``begin_suppress_tokens``: suppress these only at the very
-          first generated step (e.g. blank / silent tokens).
-
-        Args:
-            audio: 1-D waveform or list / batched array of waveforms at
-                ``sampling_rate`` Hz.
-            processor: A :class:`WhisperProcessor` matching this model's
-                tokenizer variant + mel bin count.
-            language: Either a 2-3 char ISO code (``"en"``, ``"fr"``,
-                ``"yue"``), the full special token (``"<|en|>"``), or
-                ``None`` to let the decoder auto-detect.
-            task: ``"transcribe"`` (same-language) or ``"translate"``
-                (any language to English).
-            no_timestamps: When ``True`` (default), forces the
-                ``<|notimestamps|>`` token so the output is raw text.
-            max_new_tokens: Maximum decoded tokens after the prompt.
-            sampling_rate: Must match the processor's configured rate
-                (default ``16000``).
-            return_ids: When ``True``, return the raw token-id lists
-                instead of decoded strings.
-            suppress_tokens: Token ids forbidden at every step. ``None``
-                falls back to OpenAI's default 88-token list.
-            begin_suppress_tokens: Token ids forbidden only at the first
-                generated step. ``None`` falls back to ``[220, 50257]``.
-        """
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
         forced = dict(
             processor.get_decoder_prompt_ids(

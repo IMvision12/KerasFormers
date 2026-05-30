@@ -76,7 +76,6 @@ class WhisperAttention(keras.layers.Layer):
         self.built = True
 
     def _split_heads(self, x):
-        """Reshape ``(B, T, proj_dim)`` to ``(B, num_heads, T, head_dim)``."""
         b = ops.shape(x)[0]
         t = ops.shape(x)[1]
         x = ops.reshape(x, (b, t, self.num_heads, self.head_dim))

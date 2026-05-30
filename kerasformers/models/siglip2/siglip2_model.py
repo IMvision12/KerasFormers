@@ -1,16 +1,3 @@
-"""SigLIP 2 model classes.
-
-SigLIP 2 shares the SigLIP v1 architecture (vision + text dual encoder
-with attention pooling on the vision side, last-token pooling + Dense
-on the text side, sigmoid-similarity head). The differences live in
-preprocessing — Gemma SentencePiece tokenizer, vocab 256000, and a
-different set of pretrained checkpoints.
-
-These three classes are thin wrappers over the siglip module's encoder
-code with SigLIP 2's variant registry. ``HF_MODEL_TYPE = "siglip2"``
-keeps each class scoped to its ``model_type``.
-"""
-
 import keras
 
 from kerasformers.base import BaseModel

@@ -35,7 +35,6 @@ class Qwen2Tokenizer(BaseTokenizer):
     def apply_chat_template(
         self, messages, add_generation_prompt=True, system=DEFAULT_SYSTEM
     ):
-        """Render OpenAI-style ``messages`` to a ChatML prompt string."""
         text = ""
         if system is not None and not any(m.get("role") == "system" for m in messages):
             text += f"<|im_start|>system\n{system}<|im_end|>\n"

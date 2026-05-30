@@ -3,12 +3,6 @@ from keras import layers, ops
 
 
 def make_log_bucket_position(relative_pos, bucket_size, max_position):
-    """Map raw relative positions to DeBERTa-v2's log-spaced buckets.
-
-    Small distances (``|pos| <= bucket_size // 2``) keep their value; larger ones
-    are compressed onto a logarithmic scale, so a modest bucket table can cover
-    long sequences. Mirrors HF ``make_log_bucket_position``.
-    """
     rel = ops.cast(relative_pos, "float32")
     sign = ops.sign(rel)
     mid = bucket_size // 2

@@ -41,7 +41,6 @@ def deberta_v2_encoder_layer(
     attention_dropout,
     layer_idx,
 ):
-    """One DeBERTa-v2 transformer block: disentangled attention + feed-forward."""
     prefix = f"blocks_{layer_idx}"
 
     attn = DebertaV2DisentangledSelfAttention(
@@ -99,7 +98,6 @@ def deberta_v2_backbone(
     dropout,
     attention_dropout,
 ):
-    """DeBERTa-v2 word embeddings + disentangled-attention encoder (+ conv)."""
     embeddings = DebertaV2Embeddings(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
