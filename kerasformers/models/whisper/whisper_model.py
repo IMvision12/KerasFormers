@@ -1,7 +1,6 @@
 from typing import List, Optional, Union
 
 import keras
-import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
@@ -670,41 +669,46 @@ class WhisperSpeechToText(WhisperModel):
         )
 
         enc_out = self.encoder(inputs["input_features"])
-        enc_np = (
-            ops.convert_to_numpy(enc_out)
-            if not isinstance(enc_out, np.ndarray)
-            else enc_out
-        )
-        batch = enc_np.shape[0]
+        batch = enc_out.shape[0]
 
-        generated = np.full((batch, 1), decoder_start_token_id, dtype=np.int32)
-        done = np.zeros(batch, dtype=bool)
+        suppress_ids = sorted(suppress_set)
+        begin_ids = sorted(begin_suppress_set)
+        generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
+        done = ops.zeros((batch,), dtype="bool")
+        suppress_bias = None
 
         for step in range(max_new_tokens):
             cur_pos = generated.shape[1]
             if cur_pos in forced:
-                next_ids = np.full((batch,), forced[cur_pos], dtype=np.int32)
+                next_ids = ops.full((batch,), forced[cur_pos], dtype="int32")
             else:
                 logits = self.decoder(
                     {
                         "decoder_input_ids": generated,
-                        "encoder_hidden_states": enc_np,
+                        "encoder_hidden_states": enc_out,
                     }
                 )
-                next_logits = ops.convert_to_numpy(logits)[:, -1, :].copy()
-                if suppress_set:
-                    next_logits[:, list(suppress_set)] = -1e9
-                if step == 0 and begin_suppress_set:
-                    next_logits[:, list(begin_suppress_set)] = -1e9
-                next_ids = np.argmax(next_logits, axis=-1).astype(np.int32)
+                next_logits = logits[:, -1, :]
+                vocab = next_logits.shape[-1]
+                if suppress_ids:
+                    if suppress_bias is None:
+                        idx = ops.convert_to_tensor(suppress_ids, dtype="int32")
+                        suppress_bias = ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
+                    next_logits = next_logits + suppress_bias
+                if step == 0 and begin_ids:
+                    idx = ops.convert_to_tensor(begin_ids, dtype="int32")
+                    next_logits = (
+                        next_logits + ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
+                    )
+                next_ids = ops.cast(ops.argmax(next_logits, axis=-1), "int32")
 
-            next_ids = np.where(done, eos_token_id, next_ids)
-            generated = np.concatenate([generated, next_ids[:, None]], axis=1)
-            done = done | (next_ids == eos_token_id)
-            if done.all():
+            next_ids = ops.cast(ops.where(done, eos_token_id, next_ids), "int32")
+            generated = ops.concatenate([generated, next_ids[:, None]], axis=1)
+            done = ops.logical_or(done, ops.equal(next_ids, eos_token_id))
+            if bool(ops.all(done)):
                 break
 
-        ids = [list(row) for row in generated]
+        ids = [list(row) for row in ops.convert_to_numpy(generated)]
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)
