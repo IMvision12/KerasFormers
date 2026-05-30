@@ -812,6 +812,7 @@ def sam3_mask_decoder(
     fpn_hidden_size,
     mask_decoder_hidden_size,
     mask_decoder_num_attention_heads,
+    num_upsampling_stages=None,
     data_format="channels_last",
 ):
     """Mask decoder: pixel decoder with skip connections and mask prediction.
@@ -866,7 +867,11 @@ def sam3_mask_decoder(
     if data_format == "channels_first":
         pixel_feat = layers.Permute((3, 1, 2), name="pixel_decoder_to_nchw")(pixel_feat)
 
-    num_up = len(fpn_hidden_states) - 2
+    num_up = (
+        num_upsampling_stages
+        if num_upsampling_stages is not None
+        else len(fpn_hidden_states) - 2
+    )
     for stage_idx in range(num_up):
         pixel_feat = layers.UpSampling2D(
             size=2,
@@ -1125,6 +1130,7 @@ class SAM3Model(BaseModel):
             fpn_hidden_size=fpn_hidden_size,
             mask_decoder_hidden_size=mask_decoder_hidden_size,
             mask_decoder_num_attention_heads=mask_decoder_num_attention_heads,
+            num_upsampling_stages=mask_decoder_num_upsampling_stages,
             data_format=data_format,
         )
 
@@ -1263,6 +1269,7 @@ class SAM3Model(BaseModel):
             fpn_hidden_size=fpn_hidden_size,
             mask_decoder_hidden_size=cfg["mask_decoder_hidden_size"],
             mask_decoder_num_attention_heads=cfg["mask_decoder_num_attention_heads"],
+            num_upsampling_stages=cfg["mask_decoder_num_upsampling_stages"],
         )
 
         fpn_3_identity = layers.Identity(name="fpn_3_passthrough")(fpn_3_in)

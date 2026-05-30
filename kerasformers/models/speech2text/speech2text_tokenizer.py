@@ -15,7 +15,6 @@ SPIECE_UNDERLINE = "▁"
 
 
 def _resolve_tokenizer_files(vocab_file, spm_file):
-    """Return ``(vocab_file, spm_file)``, downloading from the release if needed."""
     if vocab_file is None and spm_file is None:
         vocab_file = download_file(SPEECH2TEXT_TOKENIZER_FILES["vocab"])
         spm_file = download_file(SPEECH2TEXT_TOKENIZER_FILES["spm"])
@@ -93,8 +92,6 @@ class Speech2TextTokenizer(BaseTokenizer):
         return len(self.encoder)
 
     def tokenize(self, text: Union[str, List[str]]):
-        """Text -> token ids (no special tokens appended)."""
-
         def _one(t):
             if self.do_lower_case:
                 t = t.lower()

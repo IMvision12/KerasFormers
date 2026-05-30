@@ -45,13 +45,6 @@ class Qwen3Tokenizer(BaseTokenizer):
         return text
 
     def call(self, inputs):
-        """Tokenize text(s) or a chat ``messages`` list into model inputs.
-
-        Accepts a single string, a list of strings, or a ChatML-style
-        conversation (``[{"role": ..., "content": ...}, ...]``) — the latter is
-        run through :meth:`apply_chat_template` first. Returns padded
-        ``{"input_ids", "attention_mask"}`` (numpy) ready for ``model.generate``.
-        """
         if (
             isinstance(inputs, (list, tuple))
             and inputs

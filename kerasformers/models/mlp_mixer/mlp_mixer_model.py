@@ -86,6 +86,7 @@ def mlp_mixer_backbone_feature(
     drop_path_rate,
     data_format,
     channels_axis,
+    drop_rate=0.0,
     return_stages=False,
 ):
     """MLP-Mixer stem (patch embed) + N mixer blocks + final LayerNorm.
@@ -134,7 +135,7 @@ def mlp_mixer_backbone_feature(
 
     stages = []
     for i in range(depths):
-        drop_path = drop_path_rate * (i / depths)
+        drop_path = drop_rate + drop_path_rate * (i / depths)
         x = mixer_block(
             x,
             num_patches,
@@ -150,7 +151,7 @@ def mlp_mixer_backbone_feature(
     if return_stages:
         return stages
 
-    x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernomr")(x)
+    x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernorm")(x)
     return x
 
 
@@ -281,6 +282,7 @@ class MLPMixerModel(BaseModel):
             depths=depths,
             mlp_ratio=mlp_ratio,
             drop_path_rate=drop_path_rate,
+            drop_rate=drop_rate,
             data_format=data_format,
             channels_axis=channels_axis,
             return_stages=as_backbone,

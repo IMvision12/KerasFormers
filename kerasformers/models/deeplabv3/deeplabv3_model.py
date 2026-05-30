@@ -385,6 +385,7 @@ class DeepLabV3Model(BaseModel):
             {
                 "backbone_variant": self.backbone_variant,
                 "image_size": self.image_size,
+                "input_tensor": self.input_tensor,
                 "name": self.name,
             }
         )
@@ -476,6 +477,7 @@ class DeepLabV3SemanticSegment(BaseModel):
                 "backbone_variant": self.backbone_variant,
                 "num_classes": self.num_classes,
                 "image_size": self.image_size,
+                "input_tensor": self.input_tensor,
                 "name": self.name,
             }
         )

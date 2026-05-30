@@ -59,9 +59,12 @@ class GptOssModel(SubclassedBaseModel):
     ``token_embedding -> num_layers x GptOssDecoderLayer -> final RMSNorm``, with
     grouped-query attention + learned per-head attention sinks, alternating
     sliding-window / full causal attention, YaRN-scaled rotary positions, and a
-    top-k sparse MoE feed-forward per layer. Subclassed (imperative) model: the
-    forward runs eagerly with ``keras.ops``. Returns raw features; use
-    :class:`GptOssGenerate` for logits / text.
+    top-k-routed mixture-of-experts feed-forward per layer. (The router picks
+    top-k experts per token; this port evaluates *all* experts densely and
+    combines them by the routing weights — mathematically identical to sparse
+    top-k routing, but compute is O(num_experts).) Subclassed (imperative)
+    model: the forward runs eagerly with ``keras.ops``. Returns raw features;
+    use :class:`GptOssGenerate` for logits / text.
 
     Args:
         vocab_size, embed_dim, mlp_dim, num_layers, num_heads,
@@ -184,6 +187,10 @@ class GptOssModel(SubclassedBaseModel):
         sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, _MASK_NEG), "float32")[
             None, None
         ]
+        if attention_mask is not None:
+            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            full_mask = full_mask + pad
+            sliding_mask = sliding_mask + pad
 
         for i, layer in enumerate(self.decoder_layers):
             mask = sliding_mask if self.is_sliding(i) else full_mask
@@ -298,6 +305,10 @@ class GptOssGenerate(GptOssModel):
         sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, _MASK_NEG), "float32")[
             None, None
         ]
+        if attention_mask is not None:
+            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            full_mask = full_mask + pad
+            sliding_mask = sliding_mask + pad
 
         hidden = self.token_embedding(input_ids)
         cache = []

@@ -52,6 +52,15 @@ class RobertaTokenizer(BaseTokenizer):
         if vocab_file is None and merges_file is None:
             vocab_file = download_file(ROBERTA_VOCAB_URL)
             merges_file = download_file(ROBERTA_MERGES_URL)
+        elif (vocab_file is None) != (merges_file is None):
+            missing = "merges_file" if merges_file is None else "vocab_file"
+            provided = "vocab_file" if merges_file is None else "merges_file"
+            raise ValueError(
+                f"RobertaTokenizer requires both vocab_file (vocab.json) and "
+                f"merges_file (merges.txt), but only {provided} was provided. "
+                f"Either supply {missing} as well, or omit both to download the "
+                f"default kerasformers-release files automatically."
+            )
         self.vocab_file = vocab_file
         self.merges_file = merges_file
         self.max_seq_len = max_seq_len

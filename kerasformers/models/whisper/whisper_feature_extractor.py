@@ -14,9 +14,6 @@ def _build_mel_filter_bank(
     min_hz: float = 0.0,
     max_hz: float = 8000.0,
 ):
-    """Slaney-style mel filter bank as a Keras tensor of shape
-    ``(n_mels, n_fft // 2 + 1)``. Reproduces the OpenAI Whisper filter bank.
-    """
     f_sp = 200.0 / 3.0
     min_log_hz = 1000.0
     min_log_mel = min_log_hz / f_sp
@@ -91,7 +88,6 @@ class WhisperFeatureExtractor(BaseAudioFeatureExtractor):
         self.mel_filters = _build_mel_filter_bank(n_fft, n_mels, sampling_rate)
 
     def _normalize_waves(self, raw_speech) -> np.ndarray:
-        """Return a ``(B, n_samples)`` ``float32`` array, pad/truncated."""
         if isinstance(raw_speech, np.ndarray):
             waves = [raw_speech] if raw_speech.ndim == 1 else list(raw_speech)
         elif isinstance(raw_speech, (list, tuple)):
@@ -108,7 +104,6 @@ class WhisperFeatureExtractor(BaseAudioFeatureExtractor):
         return out
 
     def _log_mel_spectrogram(self, batch):
-        """``batch``: ``(B, n_samples)`` tensor. Returns ``(B, n_mels, T)``."""
         real, imag = ops.stft(
             batch,
             sequence_length=self.n_fft,

@@ -1,7 +1,6 @@
 import math
 
 import keras
-import numpy as np
 from keras import layers, ops
 
 
@@ -562,16 +561,16 @@ class Mask2FormerReferencePoints(layers.Layer):
         n_levels = len(spatial_shapes)
         ref_per_level = []
         for h, w in spatial_shapes:
-            ys = (np.arange(h, dtype=np.float32) + 0.5) / float(h)
-            xs = (np.arange(w, dtype=np.float32) + 0.5) / float(w)
-            yy, xx = np.meshgrid(ys, xs, indexing="ij")
-            ref = np.stack([xx, yy], axis=-1).reshape(-1, 2).astype(np.float32)
+            ys = (ops.cast(ops.arange(h), "float32") + 0.5) / float(h)
+            xs = (ops.cast(ops.arange(w), "float32") + 0.5) / float(w)
+            yy, xx = ops.meshgrid(ys, xs, indexing="ij")
+            ref = ops.reshape(ops.stack([xx, yy], axis=-1), (-1, 2))
             ref_per_level.append(ref)
-        ref_all = np.concatenate(ref_per_level, axis=0)
-        ref_all_levels = np.tile(ref_all[:, None, :], (1, n_levels, 1))
-        t = ops.convert_to_tensor(ref_all_levels)
-        t = ops.expand_dims(t, axis=0)
-        return ops.broadcast_to(t, (b, ref_all_levels.shape[0], n_levels, 2))
+        ref_all = ops.concatenate(ref_per_level, axis=0)
+        ref_all_levels = ops.tile(ref_all[:, None, :], (1, n_levels, 1))
+        n_total = sum(h * w for h, w in spatial_shapes)
+        t = ops.expand_dims(ref_all_levels, axis=0)
+        return ops.broadcast_to(t, (b, n_total, n_levels, 2))
 
     def get_config(self):
         config = super().get_config()

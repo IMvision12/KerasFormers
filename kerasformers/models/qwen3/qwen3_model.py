@@ -107,6 +107,11 @@ class Qwen3Model(SubclassedBaseModel):
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
         attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        if attention_mask is not None:
+            attn_mask = (
+                attn_mask
+                + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            )
         for layer in self.decoder_layers:
             hidden = layer(hidden, cos, sin, attention_mask=attn_mask)
         return {"last_hidden_state": self.final_norm(hidden)}
@@ -204,6 +209,10 @@ class Qwen3Generate(Qwen3Model):
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
         causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        if attention_mask is not None:
+            causal = (
+                causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            )
         cache = []
         for layer in self.decoder_layers:
             hidden, kv = layer(hidden, cos, sin, attention_mask=causal, use_cache=True)

@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, utils
 
 from kerasformers.base import BaseModel
@@ -201,7 +200,9 @@ def sam2_vision_encoder(
     )
     hidden_states = pos_embed_layer(hidden_states)
 
-    stage_ends = (np.cumsum(blocks_per_stage) - 1).tolist()
+    stage_ends = [
+        sum(blocks_per_stage[: i + 1]) - 1 for i in range(len(blocks_per_stage))
+    ]
     intermediate_hidden_states = []
     total_block_idx = 0
     for stage_idx, depths in enumerate(blocks_per_stage):

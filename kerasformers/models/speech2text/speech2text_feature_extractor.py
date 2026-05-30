@@ -8,7 +8,6 @@ _EPSILON = float(np.finfo(np.float32).eps)
 
 
 def _povey_window(frame_length: int) -> np.ndarray:
-    """Kaldi 'povey' window: a Hann window raised to the 0.85 power."""
     n = np.arange(frame_length)
     hann = 0.5 - 0.5 * np.cos(2.0 * np.pi * n / (frame_length - 1))
     return np.power(hann, 0.85).astype(np.float32)
@@ -21,12 +20,6 @@ def _kaldi_mel_banks(
     low_freq: float = 20.0,
     high_freq: float = 0.0,
 ) -> np.ndarray:
-    """Kaldi triangular mel filterbank of shape ``(num_bins, n_fft // 2 + 1)``.
-
-    Uses the HTK mel scale ``mel(f) = 1127 * ln(1 + f / 700)`` with a zero
-    column appended for the Nyquist bin, matching ``torchaudio`` / Kaldi.
-    """
-
     def mel_scale(f):
         return 1127.0 * np.log(1.0 + f / 700.0)
 
@@ -103,7 +96,6 @@ class Speech2TextFeatureExtractor(BaseAudioFeatureExtractor):
         self.mel_banks = _kaldi_mel_banks(num_mel_bins, self.n_fft, sampling_rate)
 
     def _fbank(self, wave: np.ndarray):
-        """Single waveform ``(n,)`` -> log-mel fbank ``(num_frames, num_mel_bins)``."""
         wave = np.asarray(wave, dtype=np.float32) * (2.0**15)
         n = wave.shape[0]
         if n < self.frame_length:
@@ -137,7 +129,6 @@ class Speech2TextFeatureExtractor(BaseAudioFeatureExtractor):
         return mel
 
     def _cmvn(self, mel):
-        """Per-utterance cepstral mean-variance normalization over the time axis."""
         if self.normalize_means:
             mel = mel - ops.mean(mel, axis=0, keepdims=True)
         if self.normalize_vars:

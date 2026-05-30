@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, utils
 
 from kerasformers.base import BaseModel
@@ -146,7 +145,8 @@ def convnext_backbone_feature(
     )(inputs)
     x = spatial_layer_norm(x, data_format, epsilon=1e-6, name="stem_layernorm")
 
-    depth_drop_rates = np.linspace(0.0, drop_path_rate, sum(depths))
+    n = sum(depths)
+    depth_drop_rates = [drop_path_rate * i / max(n - 1, 1) for i in range(n)]
     cur = 0
     stages = []
     for i in range(len(depths)):

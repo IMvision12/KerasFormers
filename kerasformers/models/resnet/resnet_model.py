@@ -654,7 +654,7 @@ class ResNetImageClassify(BaseModel):
             block_fn_config = {
                 "class_name": "function",
                 "config": "bottleneck_block",
-                "module": "kv.models.resnet.resnet_model",
+                "module": "kerasformers.models.resnet.resnet_model",
                 "registered_name": "function",
             }
 

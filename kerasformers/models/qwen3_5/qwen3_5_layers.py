@@ -13,9 +13,10 @@ class Qwen3_5RMSNorm(layers.Layer):
 
     Like a standard RMSNorm but the learned scale is stored *zero-centered*: the
     weight is initialized to ``0`` and the effective per-channel gain is
-    ``1 + weight``. Normalizes the last axis by its RMS in float32, casts back to
-    the input dtype, then scales by ``1 + weight``. No mean subtraction, no bias.
-    Shape-preserving ``(..., dim) -> (..., dim)``.
+    ``1 + weight``. Normalizes the last axis by its RMS in float32, scales by
+    ``1 + weight`` *still in float32*, then casts back to the input dtype (matching
+    HF Qwen3-Next, which differs from Llama's cast-then-scale order). No mean
+    subtraction, no bias. Shape-preserving ``(..., dim) -> (..., dim)``.
 
     Args:
         eps: Variance epsilon added before the reciprocal square root.
@@ -35,7 +36,11 @@ class Qwen3_5RMSNorm(layers.Layer):
         dtype = x.dtype
         x = ops.cast(x, "float32")
         x = x * ops.rsqrt(ops.mean(ops.square(x), axis=-1, keepdims=True) + self.eps)
-        return (1.0 + self.weight) * ops.cast(x, dtype)
+        # Match HF Qwen3-Next: scale by (1 + weight) in float32, THEN cast back to
+        # the input dtype. (Llama instead casts first, then multiplies — this order
+        # reduces fp16/bf16 drift. See HF Qwen3NextRMSNorm / transformers#29402.)
+        x = x * (1.0 + ops.cast(self.weight, "float32"))
+        return ops.cast(x, dtype)
 
     def get_config(self):
         config = super().get_config()
@@ -382,11 +387,17 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
         core = ops.stack(outs, axis=1)
         return core, state
 
-    def call(self, hidden_states, past_key_value=None, use_cache=False):
+    def call(self, hidden_states, past_key_value=None, use_cache=False, pad_mask=None):
         b = ops.shape(hidden_states)[0]
         seq = ops.shape(hidden_states)[1]
         conv_state = past_key_value[0] if past_key_value is not None else None
         rec_state = past_key_value[1] if past_key_value is not None else None
+
+        # Zero padding positions before the causal conv / delta-rule recurrence so
+        # padded tokens don't leak into real ones (mirrors HF
+        # apply_mask_to_padding_states); the recurrence has no additive mask.
+        if pad_mask is not None:
+            hidden_states = hidden_states * ops.cast(pad_mask, hidden_states.dtype)
 
         mixed = self.in_proj_qkv(hidden_states)
         mixed, new_conv_state = self._causal_conv(mixed, conv_state)
@@ -501,6 +512,7 @@ class Qwen3_5DecoderLayer(layers.Layer):
         attention_mask=None,
         past_key_value=None,
         use_cache=False,
+        pad_mask=None,
     ):
         residual = hidden_states
         hidden_states = self.attention_norm(hidden_states)
@@ -516,7 +528,10 @@ class Qwen3_5DecoderLayer(layers.Layer):
             )
         else:
             out = self.linear_attn(
-                hidden_states, past_key_value=past_key_value, use_cache=use_cache
+                hidden_states,
+                past_key_value=past_key_value,
+                use_cache=use_cache,
+                pad_mask=pad_mask,
             )
         if use_cache:
             out, new_state = out

@@ -1,5 +1,6 @@
+import math
+
 import keras
-import numpy as np
 from keras import InputSpec, layers, ops
 
 
@@ -90,22 +91,23 @@ def build_rope_2d_cache(grid_h, grid_w, head_dim, theta=100.0):
         theta: Float, RoPE frequency base. Defaults to ``100.0``.
 
     Returns:
-        Tuple ``(cos, sin)``, each a NumPy array of shape
+        Tuple ``(cos, sin)``, each a tensor of shape
         ``(grid_h * grid_w, head_dim)``.
     """
-    inv_freq = 1.0 / (theta ** np.arange(0, 1, 4 / head_dim, dtype=np.float32))
+    expo = ops.cast(ops.arange(0, head_dim, 4), "float32") / head_dim
+    inv_freq = 1.0 / ops.power(float(theta), expo)
 
-    coords_h = (np.arange(0.5, grid_h, dtype=np.float32) / grid_h) * 2.0 - 1.0
-    coords_w = (np.arange(0.5, grid_w, dtype=np.float32) / grid_w) * 2.0 - 1.0
+    coords_h = (ops.cast(ops.arange(grid_h), "float32") + 0.5) / grid_h * 2.0 - 1.0
+    coords_w = (ops.cast(ops.arange(grid_w), "float32") + 0.5) / grid_w * 2.0 - 1.0
 
-    gh, gw = np.meshgrid(coords_h, coords_w, indexing="ij")
-    coords = np.stack([gh.ravel(), gw.ravel()], axis=-1)
+    gh, gw = ops.meshgrid(coords_h, coords_w, indexing="ij")
+    coords = ops.stack([ops.reshape(gh, [-1]), ops.reshape(gw, [-1])], axis=-1)
 
-    angles = 2.0 * np.pi * coords[:, :, None] * inv_freq[None, None, :]
-    angles = angles.reshape(grid_h * grid_w, -1)
-    angles = np.tile(angles, (1, 2))
+    angles = 2.0 * math.pi * coords[:, :, None] * inv_freq[None, None, :]
+    angles = ops.reshape(angles, (grid_h * grid_w, -1))
+    angles = ops.tile(angles, [1, 2])
 
-    return np.cos(angles).astype(np.float32), np.sin(angles).astype(np.float32)
+    return ops.cos(angles), ops.sin(angles)
 
 
 def _rotate_half(x):

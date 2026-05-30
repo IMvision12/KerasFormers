@@ -28,7 +28,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "dense.3": "mlp_channels.fc1",
     "dense.4": "mlp_channels.fc2",
     "stem.conv": "stem.proj",
-    "final.layernomr": "norm",
+    "final.layernorm": "norm",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",

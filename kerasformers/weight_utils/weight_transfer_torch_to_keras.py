@@ -555,13 +555,20 @@ def copy_weights_by_path_suffix(src, dst):
         shape mismatch) — e.g. a task head absent from the source checkpoint.
     """
 
-    def _key(w):
+    from collections import Counter
+
+    def suffix(w):
         return "/".join(w.path.split("/")[-2:])
 
-    src_map = {_key(w): w for w in src.weights}
+    src_counts = Counter(suffix(w) for w in src.weights)
+
+    def key(w):
+        return w.path if src_counts[suffix(w)] > 1 else suffix(w)
+
+    src_map = {key(w): w for w in src.weights}
     skipped = []
     for dst_w in dst.weights:
-        src_w = src_map.get(_key(dst_w))
+        src_w = src_map.get(key(dst_w))
         if src_w is not None and tuple(src_w.shape) == tuple(dst_w.shape):
             dst_w.assign(src_w)
         else:

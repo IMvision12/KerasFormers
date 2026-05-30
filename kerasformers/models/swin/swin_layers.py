@@ -385,7 +385,7 @@ class SwinWindowAttention(layers.Layer):
         return attn
 
     def call(self, inputs, training=None):
-        inputs, window_size, relative_index, attention_mask = inputs
+        inputs, _, relative_index, attention_mask = inputs
         cf = self.data_format == "channels_first"
 
         if cf:
@@ -395,7 +395,7 @@ class SwinWindowAttention(layers.Layer):
             height, width = ops.shape(inputs)[1], ops.shape(inputs)[2]
             x = inputs
 
-        length = window_size**2
+        length = self.window_size**2
 
         qkv = self.qkv(x)
         if cf:

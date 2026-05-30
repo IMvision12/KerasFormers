@@ -15,19 +15,6 @@ from .config import VIT_MODEL_CONFIG, VIT_WEIGHT_CONFIG
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0):
-    """Standard transformer MLP block: Dense -> GELU -> Drop -> Dense -> Drop.
-
-    Args:
-        inputs: Input token tensor of shape ``(B, N, D)``.
-        hidden_features: Hidden expansion dimension of the first Dense.
-        out_features: Output dimension of the second Dense.
-        drop: Dropout rate applied after each Dense.
-        block_idx: Numeric index used to name the inner layers
-            (``blocks_{block_idx}_*``).
-
-    Returns:
-        Tensor of shape ``(B, N, out_features)``.
-    """
     x = layers.Dense(
         hidden_features, use_bias=True, name=f"blocks_{block_idx}_dense_1"
     )(inputs)
@@ -50,24 +37,6 @@ def transformer_block(
     block_idx=0,
     layer_scale_init=None,
 ):
-    """Standard ViT transformer block: LN -> MHSA -> Add -> LN -> MLP -> Add.
-
-    Args:
-        inputs: Input token tensor of shape ``(B, N, embed_dim)``.
-        embed_dim: Token embedding dimension.
-        num_heads: Number of attention heads.
-        mlp_ratio: Hidden expansion ratio for the MLP sub-block.
-        qkv_bias: Whether to include bias in the QKV projection.
-        qk_norm: Whether to apply LayerNorm to Q and K inside attention.
-        proj_drop: Dropout rate on the attention output projection and MLP.
-        attn_drop: Dropout rate applied to attention weights.
-        block_idx: Numeric index used to name layers inside this block.
-        layer_scale_init: If set, apply LayerScale with this initial gamma on
-            both residual branches.
-
-    Returns:
-        Tensor of shape ``(B, N, embed_dim)`` after both residual branches.
-    """
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
@@ -123,43 +92,6 @@ def vit_backbone_feature(
     return_intermediates=False,
     return_stages=False,
 ):
-    """ViT patch embed + cls/dist tokens + pos embed + transformer blocks.
-
-    Shared by :class:`ViTImageClassify` and :class:`ViTModel`.
-
-    Args:
-        inputs: Input image tensor of shape ``(B, H, W, C)`` for channels-last
-            or ``(B, C, H, W)`` for channels-first.
-        patch_size: Conv-stem patch size in pixels.
-        embed_dim: Token embedding dimension.
-        depth: Number of transformer blocks.
-        num_heads: Number of attention heads per block.
-        mlp_ratio: Hidden expansion ratio for the MLP sub-block.
-        qkv_bias: Whether to include bias in the QKV projection.
-        qk_norm: Whether to apply LayerNorm to Q and K inside attention.
-        drop_rate: Dropout rate after pos-embed and inside the MLP.
-        attn_drop_rate: Dropout rate applied to attention weights.
-        no_embed_class: If ``True``, position embeddings do not cover the
-            class/distillation prefix tokens.
-        use_distillation: If ``True``, prepend a separate distillation token
-            in addition to the class token.
-        layer_scale_init: Optional LayerScale initial gamma value.
-        image_size: Input image resolution; used when ``inputs`` has unknown
-            spatial shape.
-        data_format: ``"channels_last"`` or ``"channels_first"``.
-        return_intermediates: If ``True``, return per-block raw outputs
-            (no final LN) — used by DINO / DINOv2 which apply their own norm.
-        return_stages: If ``True``, return a list of per-block outputs ending
-            with the final-LN output (used as a generic backbone feature
-            extractor).
-
-    Returns:
-        Final encoder tokens of shape ``(B, num_tokens, embed_dim)`` after the
-        final LayerNorm. When ``return_intermediates=True``, a list
-        ``[post_pos_embed, block_0, ..., block_{depth-1}]`` of raw block
-        outputs (no final LN) is returned instead. When ``return_stages=True``,
-        a list ``[block_0, ..., block_{depth-1}, final_ln]`` is returned.
-    """
     if data_format == "channels_first":
         _, height, width = inputs.shape[1:]
     else:

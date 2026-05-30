@@ -102,44 +102,6 @@ def detr_post_process_object_detection(
     target_sizes: Optional[List[Tuple[int, int]]] = None,
     label_names: Optional[List[str]] = None,
 ) -> List[Dict[str, np.ndarray]]:
-    """Post-process raw DETR outputs into usable detections.
-
-    Converts raw model outputs (logits + normalized boxes) into filtered
-    detections with class labels, confidence scores, and bounding boxes
-    in ``[x_min, y_min, x_max, y_max]`` pixel coordinates.
-
-    Args:
-        outputs: Raw model output dict with keys ``"logits"`` of shape
-            ``(B, num_queries, num_classes)`` and ``"pred_boxes"`` of shape
-            ``(B, num_queries, 4)`` in normalized ``(cx, cy, w, h)`` format.
-        threshold: Minimum confidence score to keep a detection.
-        target_sizes: List of ``(height, width)`` tuples for each image in
-            the batch. Used to convert normalized boxes to pixel coordinates.
-            If None, boxes are returned in normalized ``[0, 1]`` coordinates.
-        label_names: Custom class name list for mapping label indices to
-            names. If ``None``, defaults to COCO class names. Provide this
-            when using a model fine-tuned on a custom dataset.
-
-    Returns:
-        List of dicts (one per image in the batch), each containing:
-            - ``"scores"``: Confidence scores, shape ``(num_detections,)``.
-            - ``"labels"``: Integer class IDs, shape ``(num_detections,)``.
-            - ``"label_names"``: Human-readable COCO class names.
-            - ``"boxes"``: Bounding boxes as ``[x_min, y_min, x_max, y_max]``,
-              shape ``(num_detections, 4)``.
-
-    Example:
-        ```python
-        from kerasformers.models.detr import DETRDetect, detr_post_process_object_detection
-
-        model = DETRDetect.from_weights("detr-resnet-50")
-        output = model(image, training=False)
-        results = detr_post_process_object_detection(output, threshold=0.7,
-                                    target_sizes=[(800, 800)])
-        for det in results[0]["label_names"]:
-            print(det)
-        ```
-    """
     logits = keras.ops.convert_to_numpy(outputs["logits"])
     boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
 
@@ -191,6 +153,5 @@ def detr_post_process_object_detection(
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
-    """Numerically stable softmax."""
     e_x = np.exp(x - np.max(x, axis=axis, keepdims=True))
     return e_x / np.sum(e_x, axis=axis, keepdims=True)

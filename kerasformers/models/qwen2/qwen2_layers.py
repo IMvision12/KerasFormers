@@ -118,7 +118,6 @@ class Qwen2Attention(layers.Layer):
         self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
 
     def _split_heads(self, x, num_heads):
-        """Reshape ``(b, s, num_heads*head_dim)`` -> ``(b, num_heads, s, head_dim)``."""
         b = ops.shape(x)[0]
         s = ops.shape(x)[1]
         return ops.transpose(

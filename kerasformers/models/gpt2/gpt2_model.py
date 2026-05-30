@@ -55,7 +55,7 @@ class GPT2Model(SubclassedBaseModel):
         self.norm_eps = norm_eps
         self.tie_embeddings = tie_embeddings
 
-        self.wte = layers.Embedding(vocab_size, embed_dim, name="wte")
+        self.token_embedding = layers.Embedding(vocab_size, embed_dim, name="wte")
         self.wpe = layers.Embedding(max_position_embeddings, embed_dim, name="wpe")
         self.blocks = [
             GPT2Block(embed_dim, mlp_dim, num_heads, norm_eps, name=f"block_{i}")
@@ -79,7 +79,7 @@ class GPT2Model(SubclassedBaseModel):
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         attention_mask = inputs.get("attention_mask")
         positions = ops.broadcast_to(ops.arange(seq), (batch, seq))
-        hidden = self.wte(input_ids) + self.wpe(positions)
+        hidden = self.token_embedding(input_ids) + self.wpe(positions)
         mask = self.causal_mask(seq, attention_mask)
         for block in self.blocks:
             hidden = block(hidden, attention_mask=mask)
@@ -150,7 +150,7 @@ class GPT2Generate(GPT2Model):
     """
 
     def project(self, hidden):
-        return ops.matmul(hidden, ops.transpose(self.wte.embeddings))
+        return ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
 
     def call(self, inputs):
         hidden = super().call(inputs)["last_hidden_state"]
@@ -162,7 +162,7 @@ class GPT2Generate(GPT2Model):
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
         positions = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
-        hidden = self.wte(input_ids) + self.wpe(positions)
+        hidden = self.token_embedding(input_ids) + self.wpe(positions)
         mask = self.causal_mask(prompt_len, attention_mask)
         cache = []
         for block in self.blocks:
@@ -189,7 +189,7 @@ class GPT2Generate(GPT2Model):
             if bool(ops.all(finished)):
                 break
             pos = ops.full((batch, 1), cur_len, dtype="int32")
-            hidden = self.wte(next_tok) + self.wpe(pos)
+            hidden = self.token_embedding(next_tok) + self.wpe(pos)
             new_cache = []
             for i, block in enumerate(self.blocks):
                 hidden, kv = block(hidden, past_key_value=cache[i], use_cache=True)

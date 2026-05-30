@@ -1183,6 +1183,7 @@ def dfine_two_stage_proposals(
     vmask_t,
     hidden_dim,
     num_classes,
+    num_queries,
 ):
     """Score every token and pick the top-K decoder queries (two-stage init).
 
@@ -1213,8 +1214,6 @@ def dfine_two_stage_proposals(
         ref_logit: ``(B, num_queries, 4)`` initial reference box logits
             in inverse-sigmoid space, detached.
     """
-    num_queries = 300
-
     memory = source_flat * vmask_t
     enc_out = layers.Dense(hidden_dim, name="enc_output_linear")(memory)
     enc_out = layers.LayerNormalization(epsilon=1e-5, name="enc_output_layernorm")(
@@ -1375,6 +1374,7 @@ def dfine_decoder(
     num_feature_levels,
     feat_strides,
     num_classes,
+    num_queries,
     spatial_h,
     spatial_w,
 ):
@@ -1425,6 +1425,7 @@ def dfine_decoder(
         vmask_t,
         hidden_dim=hidden_dim,
         num_classes=num_classes,
+        num_queries=num_queries,
     )
     return dfine_fdr_block(
         target,
@@ -1461,6 +1462,7 @@ def dfine_functional(
     num_feature_levels,
     feat_strides,
     num_classes,
+    num_queries,
     input_shape,
 ):
     """Build the full D-FINE architecture from an input tensor (no class heads).
@@ -1575,6 +1577,7 @@ def dfine_functional(
         num_feature_levels=num_feature_levels,
         feat_strides=feat_strides,
         num_classes=num_classes,
+        num_queries=num_queries,
         spatial_h=spatial_h,
         spatial_w=spatial_w,
     )
@@ -1622,6 +1625,7 @@ class DFineModel(BaseModel):
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
         num_classes=80,
+        num_queries=300,
         image_size=640,
         input_tensor=None,
         name="DFineModel",
@@ -1663,6 +1667,7 @@ class DFineModel(BaseModel):
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
             num_classes=num_classes,
+            num_queries=num_queries,
             input_shape=image_size,
         )
 
@@ -1693,6 +1698,7 @@ class DFineModel(BaseModel):
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
         self._num_classes = num_classes
+        self._num_queries = num_queries
         self.image_size = image_size
         self.input_tensor = input_tensor
 
@@ -1720,6 +1726,7 @@ class DFineModel(BaseModel):
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
                 "num_classes": self._num_classes,
+                "num_queries": self._num_queries,
                 "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -1806,6 +1813,7 @@ class DFineDetect(BaseModel):
         num_feature_levels=3,
         feat_strides=(8, 16, 32),
         num_classes=80,
+        num_queries=300,
         image_size=640,
         input_tensor=None,
         name="DFineDetect",
@@ -1835,6 +1843,7 @@ class DFineDetect(BaseModel):
             num_feature_levels=num_feature_levels,
             feat_strides=feat_strides,
             num_classes=num_classes,
+            num_queries=num_queries,
             image_size=image_size,
             input_tensor=input_tensor,
             name=f"{name}_model",
@@ -1844,7 +1853,6 @@ class DFineDetect(BaseModel):
         last_pred_corners = base.output["last_pred_corners"]
 
         max_num_bins = 32
-        num_queries = 300
 
         di_last = decoder_num_layers - 1
         class_logits = layers.Dense(num_classes, name=f"class_embed_{di_last}")(hs_last)
@@ -1886,6 +1894,7 @@ class DFineDetect(BaseModel):
         self._num_feature_levels = num_feature_levels
         self._feat_strides = list(feat_strides)
         self._num_classes = num_classes
+        self._num_queries = num_queries
         self.image_size = base.image_size
         self.input_tensor = input_tensor
 
@@ -1913,6 +1922,7 @@ class DFineDetect(BaseModel):
                 "num_feature_levels": self._num_feature_levels,
                 "feat_strides": self._feat_strides,
                 "num_classes": self._num_classes,
+                "num_queries": self._num_queries,
                 "image_size": self.image_size,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
@@ -1948,6 +1958,7 @@ class DFineDetect(BaseModel):
             "num_feature_levels": hf_config["num_feature_levels"],
             "feat_strides": tuple(hf_config["feat_strides"]),
             "num_classes": hf_num_classes(hf_config),
+            "num_queries": hf_config.get("num_queries", 300),
         }
 
     @classmethod

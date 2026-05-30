@@ -1,7 +1,6 @@
 from typing import List, Union
 
 import keras
-import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
@@ -22,12 +21,10 @@ _ACTIVATION_ALIASES = {
 
 
 def _relu(x):
-    """Module-level ReLU so it round-trips through ``Lambda`` serialization."""
     return keras.activations.relu(x)
 
 
 def _resolve_activation(name):
-    """Return a callable for the activation name (Speech2Text uses ``relu``)."""
     if callable(name):
         return name
     if name == "relu":
@@ -38,7 +35,6 @@ def _resolve_activation(name):
 
 
 def _glu(x):
-    """Gated Linear Unit over the channel (last) axis: ``a * sigmoid(b)``."""
     a, b = ops.split(x, 2, axis=-1)
     return a * ops.sigmoid(b)
 
@@ -51,27 +47,6 @@ def speech2text_conv_subsampler(
     num_conv_layers,
     name="encoder",
 ):
-    """Conv1d feature subsampler (the Speech2Text encoder front-end).
-
-    Stacks ``num_conv_layers`` strided ``Conv1D`` layers, each followed by a
-    GLU that halves the channel dimension. With two kernel-5 / stride-2 layers
-    the time axis is downsampled by 4x while the channel dimension goes
-    ``num_mel_bins -> conv_channels/2 -> hidden_dim``. Explicit
-    ``ZeroPadding1D(k // 2)`` reproduces the reference's symmetric Conv1d
-    padding so output lengths and frame alignment match exactly.
-
-    Args:
-        features: Input fbank features ``(B, T, num_mel_bins)``.
-        hidden_dim: Encoder model dimension (the final output channels).
-        conv_channels: Intermediate channel width before each GLU halving.
-        conv_kernel_sizes: Per-layer kernel sizes (e.g. ``(5, 5)``).
-        num_conv_layers: Number of conv+GLU layers.
-        name: Prefix used for the conv layer names so the source state-dict
-            (``encoder.conv.conv_layers.{i}``) transfers by name.
-
-    Returns:
-        Subsampled tensor ``(B, T // 2**num_conv_layers, hidden_dim)``.
-    """
     x = features
     for i in range(num_conv_layers):
         out_ch = conv_channels if i < num_conv_layers - 1 else hidden_dim * 2
@@ -91,13 +66,6 @@ def speech2text_conv_subsampler(
 def speech2text_encoder_block(
     x, hidden_dim, num_heads, mlp_dim, layer_idx, activation, layer_norm_eps
 ):
-    """One pre-LN Speech2Text encoder block (self-attention + MLP).
-
-    Pre-norm: each sublayer normalizes its input, then the result is added back
-    to the residual (``x = x + sublayer(LN(x))``), matching the reference. A
-    single ``encoder_layer_norm`` is applied once after the whole stack.
-    Sublayer names follow ``encoder_layers_{layer_idx}_*`` for by-name transfer.
-    """
     prefix = f"encoder_layers_{layer_idx}"
 
     residual = x
@@ -131,12 +99,6 @@ def speech2text_decoder_block(
     activation,
     layer_norm_eps,
 ):
-    """One pre-LN Speech2Text decoder block (causal self-attn + cross-attn + MLP).
-
-    Three pre-norm sublayers - causal self-attention, cross-attention over the
-    encoder output, and an MLP - each ``x = x + sublayer(LN(x))``. Sublayer
-    names follow ``decoder_layers_{layer_idx}_*``.
-    """
     prefix = f"decoder_layers_{layer_idx}"
 
     residual = x
@@ -169,7 +131,6 @@ def speech2text_decoder_block(
 
 
 def _make_causal_mask_from_ids(decoder_input_ids):
-    """Additive ``(1, 1, L, L)`` causal mask sized to the decoder length."""
     seq_len = ops.shape(decoder_input_ids)[1]
     i = ops.arange(seq_len)[:, None]
     j = ops.arange(seq_len)[None, :]
@@ -192,7 +153,6 @@ def speech2text_encoder(
     layer_norm_eps,
     name="encoder",
 ):
-    """Build the Speech2Text encoder (conv subsampler + post-LN transformer)."""
     features = layers.Input(shape=(None, num_mel_bins), name="input_features")
     x = speech2text_conv_subsampler(
         features,
@@ -236,7 +196,6 @@ def speech2text_decoder(
     pad_token_id,
     name="decoder",
 ):
-    """Build the Speech2Text decoder (token + sinusoidal embeds + post-LN + lm_head)."""
     decoder_input_ids = layers.Input(
         shape=(None,), dtype="int32", name="decoder_input_ids"
     )
@@ -527,49 +486,28 @@ class Speech2TextSpeechToText(Speech2TextModel):
         sampling_rate: int = 16000,
         return_ids: bool = False,
     ) -> Union[List[str], List[List[int]]]:
-        """End-to-end audio -> text using a :class:`Speech2TextProcessor`.
-
-        Runs fbank extraction, the encoder, greedy autoregressive decoding
-        seeded with ``decoder_start_token_id`` (``</s>``), and detokenization.
-
-        Args:
-            audio: 1-D waveform or a list / batch of waveforms at
-                ``sampling_rate`` Hz.
-            processor: A :class:`Speech2TextProcessor`.
-            max_new_tokens: Maximum decoded tokens.
-            sampling_rate: Input sampling rate (must be 16000).
-            return_ids: When ``True``, return raw token-id lists instead of
-                decoded strings.
-        """
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
         decoder_start_token_id = processor.decoder_start_token_id
         eos_token_id = processor.tokenizer.eos_token_id
 
         enc_out = self.encoder(inputs["input_features"])
-        enc_np = (
-            ops.convert_to_numpy(enc_out)
-            if not isinstance(enc_out, np.ndarray)
-            else enc_out
-        )
-        batch = enc_np.shape[0]
+        batch = enc_out.shape[0]
 
-        generated = np.full((batch, 1), decoder_start_token_id, dtype=np.int32)
-        done = np.zeros(batch, dtype=bool)
+        generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
+        done = ops.zeros((batch,), dtype="bool")
 
         for _ in range(max_new_tokens):
             logits = self.decoder(
-                {"decoder_input_ids": generated, "encoder_hidden_states": enc_np}
+                {"decoder_input_ids": generated, "encoder_hidden_states": enc_out}
             )
-            next_ids = np.argmax(
-                ops.convert_to_numpy(logits)[:, -1, :], axis=-1
-            ).astype(np.int32)
-            next_ids = np.where(done, eos_token_id, next_ids)
-            generated = np.concatenate([generated, next_ids[:, None]], axis=1)
-            done = done | (next_ids == eos_token_id)
-            if done.all():
+            next_ids = ops.cast(ops.argmax(logits[:, -1, :], axis=-1), "int32")
+            next_ids = ops.cast(ops.where(done, eos_token_id, next_ids), "int32")
+            generated = ops.concatenate([generated, next_ids[:, None]], axis=1)
+            done = ops.logical_or(done, ops.equal(next_ids, eos_token_id))
+            if bool(ops.all(done)):
                 break
 
-        ids = [list(row) for row in generated]
+        ids = [list(row) for row in ops.convert_to_numpy(generated)]
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)

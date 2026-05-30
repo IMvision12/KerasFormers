@@ -79,6 +79,7 @@ def resmlp_backbone_feature(
     layer_scale_init,
     drop_path_rate,
     data_format,
+    drop_rate=0.0,
     return_stages=False,
 ):
     """ResMLP stem (patch embed) + ``depth`` ResMLP blocks + final ResMLPAffine.
@@ -125,7 +126,7 @@ def resmlp_backbone_feature(
 
     stages = []
     for i in range(depth):
-        drop_path = drop_path_rate * (i / depth)
+        drop_path = drop_rate + drop_path_rate * (i / depth)
         x = resmlp_block(
             x,
             embed_dim,
@@ -270,6 +271,7 @@ class ResMLPModel(BaseModel):
             mlp_ratio=mlp_ratio,
             layer_scale_init=layer_scale_init,
             drop_path_rate=drop_path_rate,
+            drop_rate=drop_rate,
             data_format=data_format,
             return_stages=as_backbone,
         )

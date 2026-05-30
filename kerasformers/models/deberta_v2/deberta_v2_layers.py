@@ -3,12 +3,6 @@ from keras import layers, ops
 
 
 def make_log_bucket_position(relative_pos, bucket_size, max_position):
-    """Map raw relative positions to DeBERTa-v2's log-spaced buckets.
-
-    Small distances (``|pos| <= bucket_size // 2``) keep their value; larger ones
-    are compressed onto a logarithmic scale, so a modest bucket table can cover
-    long sequences. Mirrors HF ``make_log_bucket_position``.
-    """
     rel = ops.cast(relative_pos, "float32")
     sign = ops.sign(rel)
     mid = bucket_size // 2
@@ -188,17 +182,20 @@ class DebertaV2ConvLayer(layers.Layer):
 class DebertaV2DisentangledSelfAttention(layers.Layer):
     """DeBERTa-v2 disentangled self-attention (log buckets + shared att key).
 
-    Uses separate query/key/value projections. With ``share_att_key`` the
-    relative-position keys/queries reuse the content key/query projections.
-    Content-to-position (c2p) and position-to-content (p2c) terms are gathered
-    per (log-bucketed) relative position and added to the content scores; the
-    sum is scaled by ``1/sqrt(head_dim * (1 + #pos_att_type))``.
+    Uses separate query/key/value projections. With ``share_att_key=True`` the
+    relative-position keys/queries reuse the content key/query projections;
+    otherwise dedicated ``pos_key_proj`` / ``pos_query_proj`` projections are
+    used (mirroring HF). Content-to-position (c2p) and position-to-content (p2c)
+    terms are gathered per (log-bucketed) relative position and added to the
+    content scores; the sum is scaled by ``1/sqrt(head_dim * (1 + #pos_att_type))``.
 
     Args:
         embed_dim: Model dimension. Must be divisible by ``num_heads``.
         num_heads: Number of attention heads.
         position_buckets: Half the relative-embedding table size (= att span).
         pos_att_type: Subset of ``["c2p", "p2c"]`` to enable.
+        share_att_key: Whether the relative-position projections reuse the content
+            key/query projections. Defaults to ``True``.
         attention_dropout: Dropout on the attention weights.
         block_prefix: Prefix for the projection layer names.
     """
@@ -209,6 +206,7 @@ class DebertaV2DisentangledSelfAttention(layers.Layer):
         num_heads,
         position_buckets,
         pos_att_type=("p2c", "c2p"),
+        share_att_key=True,
         attention_dropout=0.0,
         block_prefix=None,
         **kwargs,
@@ -223,6 +221,7 @@ class DebertaV2DisentangledSelfAttention(layers.Layer):
         self.head_dim = embed_dim // num_heads
         self.position_buckets = position_buckets
         self.pos_att_type = list(pos_att_type)
+        self.share_att_key = share_att_key
         self.attention_dropout = attention_dropout
         self.block_prefix = block_prefix if block_prefix is not None else "attention"
         self.scale_factor = 1 + len(self.pos_att_type)
@@ -231,12 +230,26 @@ class DebertaV2DisentangledSelfAttention(layers.Layer):
         self.query_proj = layers.Dense(embed_dim, name=prefix + "query_proj")
         self.key_proj = layers.Dense(embed_dim, name=prefix + "key_proj")
         self.value_proj = layers.Dense(embed_dim, name=prefix + "value_proj")
+        if not self.share_att_key:
+            if "c2p" in self.pos_att_type:
+                self.pos_key_proj = layers.Dense(
+                    embed_dim, name=prefix + "pos_key_proj"
+                )
+            if "p2c" in self.pos_att_type:
+                self.pos_query_proj = layers.Dense(
+                    embed_dim, name=prefix + "pos_query_proj"
+                )
         self.dropout = layers.Dropout(attention_dropout)
 
     def build(self, input_shape):
         dim = input_shape[-1]
         for proj in (self.query_proj, self.key_proj, self.value_proj):
             proj.build((None, dim))
+        if not self.share_att_key:
+            if "c2p" in self.pos_att_type:
+                self.pos_key_proj.build((None, dim))
+            if "p2c" in self.pos_att_type:
+                self.pos_query_proj.build((None, dim))
         self.built = True
 
     def compute_output_shape(self, input_shape, *args, **kwargs):
@@ -257,12 +270,14 @@ class DebertaV2DisentangledSelfAttention(layers.Layer):
         span = self.position_buckets
         score = 0
         if "c2p" in self.pos_att_type:
-            pos_key = self.split_heads(self.key_proj(rel_embeddings)[None])
+            key_proj = self.key_proj if self.share_att_key else self.pos_key_proj
+            pos_key = self.split_heads(key_proj(rel_embeddings)[None])
             c2p = ops.matmul(query, ops.transpose(pos_key, (0, 1, 3, 2)))
             c2p_pos = ops.clip(relative_pos + span, 0, 2 * span - 1)
             score = score + self.gather_rel(c2p, c2p_pos)
         if "p2c" in self.pos_att_type:
-            pos_query = self.split_heads(self.query_proj(rel_embeddings)[None])
+            query_proj = self.query_proj if self.share_att_key else self.pos_query_proj
+            pos_query = self.split_heads(query_proj(rel_embeddings)[None])
             p2c_pos = ops.clip(-relative_pos + span, 0, 2 * span - 1)
             p2c = ops.matmul(key, ops.transpose(pos_query, (0, 1, 3, 2)))
             p2c = self.gather_rel(p2c, p2c_pos)
@@ -301,6 +316,7 @@ class DebertaV2DisentangledSelfAttention(layers.Layer):
                 "num_heads": self.num_heads,
                 "position_buckets": self.position_buckets,
                 "pos_att_type": self.pos_att_type,
+                "share_att_key": self.share_att_key,
                 "attention_dropout": self.attention_dropout,
                 "block_prefix": self.block_prefix,
             }

@@ -48,7 +48,7 @@ def hf_name_for(path: str) -> Optional[str]:
         return WEIGHT_NAME_MAPPING[path]
 
     m = re.match(
-        r"blocks_(\d+)_attention_self/blocks_\d+_(query_proj|key_proj|value_proj)/(kernel|bias)$",
+        r"blocks_(\d+)_attention_self/blocks_\d+_(query_proj|key_proj|value_proj|pos_key_proj|pos_query_proj)/(kernel|bias)$",
         path,
     )
     if m:
