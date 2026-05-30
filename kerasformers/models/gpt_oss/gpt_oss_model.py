@@ -59,9 +59,12 @@ class GptOssModel(SubclassedBaseModel):
     ``token_embedding -> num_layers x GptOssDecoderLayer -> final RMSNorm``, with
     grouped-query attention + learned per-head attention sinks, alternating
     sliding-window / full causal attention, YaRN-scaled rotary positions, and a
-    top-k sparse MoE feed-forward per layer. Subclassed (imperative) model: the
-    forward runs eagerly with ``keras.ops``. Returns raw features; use
-    :class:`GptOssGenerate` for logits / text.
+    top-k-routed mixture-of-experts feed-forward per layer. (The router picks
+    top-k experts per token; this port evaluates *all* experts densely and
+    combines them by the routing weights — mathematically identical to sparse
+    top-k routing, but compute is O(num_experts).) Subclassed (imperative)
+    model: the forward runs eagerly with ``keras.ops``. Returns raw features;
+    use :class:`GptOssGenerate` for logits / text.
 
     Args:
         vocab_size, embed_dim, mlp_dim, num_layers, num_heads,

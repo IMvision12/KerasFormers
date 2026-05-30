@@ -173,7 +173,7 @@ class DebertaV2Model(BaseModel):
     and returns ``{"last_hidden_state": (B, seq, embed_dim)}``. No pooler.
 
     References:
-    - [DeBERTaV3 / DeBERTa-v2: Disentangled attention at scale](https://arxiv.org/abs/2006.03654)
+    - [DeBERTa: Decoding-enhanced BERT with Disentangled Attention](https://arxiv.org/abs/2006.03654)
 
     Args:
         vocab_size: Integer, token vocabulary size. Defaults to `128100`.

@@ -13,7 +13,7 @@ Requires:
 
 Usage::
 
-    from kerasformers.weight_utils.hf_weight_converter import load_gated_weights_from_hf
+    from kerasformers.weight_utils import load_gated_weights_from_hf
 
     load_gated_weights_from_hf(
         model=keras_model,
