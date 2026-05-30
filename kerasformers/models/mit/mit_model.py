@@ -1,5 +1,5 @@
 import keras
-from keras import layers, ops, utils
+from keras import layers, utils
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
@@ -27,11 +27,10 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
     """
     x = layers.Dense(mid_channels, name=f"{name_prefix}_dense_1")(x)
 
-    input_shape = ops.shape(x)
     if data_format == "channels_first":
-        x = layers.Reshape((input_shape[-1], H, W))(x)
+        x = layers.Reshape((mid_channels, H, W))(x)
     else:
-        x = layers.Reshape((H, W, input_shape[-1]))(x)
+        x = layers.Reshape((H, W, mid_channels))(x)
 
     x = layers.DepthwiseConv2D(
         kernel_size=3,
@@ -41,7 +40,7 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
         name=f"{name_prefix}_dwconv",
     )(x)
 
-    x = layers.Reshape((H * W, input_shape[-1]))(x)
+    x = layers.Reshape((H * W, mid_channels))(x)
     x = layers.Activation("gelu")(x)
     x = layers.Dense(channels, name=f"{name_prefix}_dense_2")(x)
     return x
@@ -84,11 +83,10 @@ def overlap_patch_embedding_block(
         data_format=data_format,
         name=f"patch_embed_{pytorch_stage_idx}_conv_proj",
     )(x)
-    shape = ops.shape(x)
     if data_format == "channels_first":
-        H, W = shape[2], shape[3]
+        H, W = x.shape[2], x.shape[3]
     else:
-        H, W = shape[1], shape[2]
+        H, W = x.shape[1], x.shape[2]
     x = layers.Reshape((-1, out_channels))(x)
     x = layers.LayerNormalization(
         axis=-1,

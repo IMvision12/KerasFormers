@@ -511,7 +511,7 @@ class SwinV2Attention(layers.Layer):
         return attn
 
     def call(self, inputs, training=None):
-        inputs, window_size, attention_mask = inputs
+        inputs, _, attention_mask = inputs
         cf = self.data_format == "channels_first"
 
         if cf:
@@ -521,7 +521,7 @@ class SwinV2Attention(layers.Layer):
             height, width = ops.shape(inputs)[1], ops.shape(inputs)[2]
             x = inputs
 
-        length = window_size**2
+        length = self.window_size**2
 
         k_bias = ops.zeros(ops.shape(self.q_bias), dtype=self.q_bias.dtype)
         qkv_bias = ops.concatenate([self.q_bias, k_bias, self.v_bias])
