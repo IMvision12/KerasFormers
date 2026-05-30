@@ -151,7 +151,7 @@ def mlp_mixer_backbone_feature(
     if return_stages:
         return stages
 
-    x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernomr")(x)
+    x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernorm")(x)
     return x
 
 
