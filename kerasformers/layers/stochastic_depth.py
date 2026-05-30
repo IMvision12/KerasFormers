@@ -11,6 +11,8 @@ class StochasticDepth(layers.Layer):
 
     Args:
         drop_path_rate (float): Probability of dropping a path. Should be between 0 and 1.
+        seed (int, optional): Seed for the drop-mask RNG. Backed by a Keras
+            ``SeedGenerator`` so the random op stays valid under JAX ``jit``.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
     Methods:
@@ -28,24 +30,28 @@ class StochasticDepth(layers.Layer):
         >>> output = layer(input_tensor, training=True)
     """
 
-    def __init__(self, drop_path_rate, **kwargs):
+    def __init__(self, drop_path_rate, seed=None, **kwargs):
         super().__init__(**kwargs)
         self.drop_path_rate = drop_path_rate
         if not 0 <= drop_path_rate <= 1:
             raise ValueError(
                 f"drop_path_rate should be between 0 and 1, got {drop_path_rate}"
             )
+        self.seed = seed
+        self.seed_generator = keras.random.SeedGenerator(seed)
 
     def call(self, x, training=None):
         if training:
             keep_prob = 1 - self.drop_path_rate
             shape = (ops.shape(x)[0],) + (1,) * (len(ops.shape(x)) - 1)
-            random_tensor = keep_prob + random.uniform(shape, 0, 1)
-            random_tensor = ops.floor(random_tensor)
+            random_tensor = keep_prob + random.uniform(
+                shape, 0, 1, seed=self.seed_generator
+            )
+            random_tensor = ops.cast(ops.floor(random_tensor), x.dtype)
             return (x / keep_prob) * random_tensor
         return x
 
     def get_config(self):
         config = super().get_config()
-        config.update({"drop_path_rate": self.drop_path_rate})
+        config.update({"drop_path_rate": self.drop_path_rate, "seed": self.seed})
         return config
