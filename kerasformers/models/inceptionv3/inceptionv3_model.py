@@ -1,6 +1,5 @@
 import keras
 from keras import layers, utils
-from keras.src.utils.argument_validation import standardize_tuple
 
 from kerasformers.base import BaseModel
 from kerasformers.layers import ImageNormalizationLayer
@@ -37,7 +36,10 @@ def conv_block(
     Returns:
         Output tensor after Conv -> BN -> ReLU.
     """
-    kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
+    if isinstance(kernel_size, int):
+        kernel_size = (kernel_size, kernel_size)
+    else:
+        kernel_size = tuple(kernel_size)
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     x = inputs
