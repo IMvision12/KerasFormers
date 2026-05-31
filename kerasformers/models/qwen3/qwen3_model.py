@@ -18,7 +18,7 @@ class Qwen3Model(SubclassedBaseModel):
     before rotary), bias-free qkv projections, and 1D rotary positions. This is a
     subclassed (imperative) :class:`BaseModel`: the sequence length and decode-step
     count are data dependent, so the forward pass runs eagerly with ``keras.ops``
-    rather than as a static graph. Returns raw features; use :class:`Qwen3Generate`
+    rather than as a static graph. Returns raw features; use :class:`Qwen3CausalLM`
     for logits / text.
 
         model = Qwen3Model.from_weights("qwen3-0.6b")
@@ -34,7 +34,7 @@ class Qwen3Model(SubclassedBaseModel):
         head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
         norm_eps: RMSNorm epsilon (shared by the per-head QK-norms too).
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`Qwen3Generate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen3CausalLM` ties the LM head to the
             token embedding instead of a separate projection.
     """
 
@@ -266,7 +266,3 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         cache = ops.stack(layer_caches, axis=1)
         logits = self.project(self.final_norm(h))[:, 0, :]
         return logits, cache
-
-
-# Backwards-compatible alias for the former class name.
-Qwen3Generate = Qwen3CausalLM
