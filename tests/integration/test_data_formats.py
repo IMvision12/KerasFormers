@@ -41,7 +41,7 @@ SKIP_DATA_FORMAT = {
     "Qwen3Model",
     "Qwen3_5Model",
     "Qwen2Generate",
-    "Qwen3Generate",
+    "Qwen3CausalLM",
     "Qwen3_5Generate",
 }
 
