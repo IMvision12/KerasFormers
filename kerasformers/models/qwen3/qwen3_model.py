@@ -1,12 +1,11 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import CausalLM, SubclassedBaseModel
+from kerasformers.base import CausalLM, GenerationConfig, SubclassedBaseModel
+from kerasformers.base.constants import MASK_NEG
 
 from .config import QWEN3_CONFIG, QWEN3_WEIGHTS
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
-
-_MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -106,11 +105,10 @@ class Qwen3Model(SubclassedBaseModel):
         cos, sin = ops.cos(emb), ops.sin(emb)
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
-        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if attention_mask is not None:
             attn_mask = (
-                attn_mask
-                + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+                attn_mask + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             )
         for layer in self.decoder_layers:
             hidden = layer(hidden, cos, sin, attention_mask=attn_mask)
@@ -172,6 +170,10 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
+    # Default decoding config: Qwen's <|im_end|> stop id (the generic CausalLM
+    # base carries no model-specific eos). Explicit generate() args override this.
+    generation_config = GenerationConfig(eos_token_id=(151645,))
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.lm_head = (
@@ -223,10 +225,10 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         cos_p, sin_p = self.rope_tables(position_ids)
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
-        causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        causal = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if padding_mask is not None:
             causal = (
-                causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+                causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             )
         hidden = self.token_embedding(token_ids)
         layer_caches = []
@@ -254,7 +256,7 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
         cos_t, sin_t = self.rope_tables(positions)
         key_mask = ops.cast(
-            ops.where(ops.arange(max_len) <= pos, 0.0, _MASK_NEG), "float32"
+            ops.where(ops.arange(max_len) <= pos, 0.0, MASK_NEG), "float32"
         )[None, None, None, :]
         h = self.token_embedding(token_ids)
         layer_caches = []

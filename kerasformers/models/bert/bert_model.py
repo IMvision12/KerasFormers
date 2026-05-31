@@ -1,7 +1,12 @@
+from dataclasses import dataclass
+
 import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
+from kerasformers.base.config import ModelConfig
+from kerasformers.base.constants import MASK_NEG
+from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .bert_layers import (
@@ -18,6 +23,44 @@ BASE_MODEL_CONFIG = {
 MLM_WEIGHT_CONFIG = {
     v: {**m, "url": m["mlm_url"]} for v, m in BERT_WEIGHT_CONFIG.items()
 }
+
+
+@dataclass
+class BertConfig(ModelConfig):
+    """Typed BERT backbone config — the canonical hyperparameter names, and the
+    single place HF ``config.json`` keys are mapped (``BertConfig.from_hf``).
+    Reference for the kerasformers config pattern (see ``kerasformers.base.config``);
+    ``BertModel`` constructs from these names, and ``config_from_hf`` returns
+    ``BertConfig.from_hf(hf).to_dict()``."""
+
+    vocab_size: int = 30522
+    embed_dim: int = 768
+    num_layers: int = 12
+    num_heads: int = 12
+    mlp_dim: int = 3072
+    max_position_embeddings: int = 512
+    type_vocab_size: int = 2
+    hidden_act: str = "gelu"
+    norm_eps: float = 1e-12
+    pad_token_id: int = 0
+    dropout: float = 0.0
+    attention_dropout: float = 0.0
+    add_pooler: bool = True
+
+    @classmethod
+    def from_hf(cls, hf_config):
+        return cls(
+            vocab_size=hf_config["vocab_size"],
+            embed_dim=hf_config["hidden_size"],
+            num_layers=hf_config["num_hidden_layers"],
+            num_heads=hf_config["num_attention_heads"],
+            mlp_dim=hf_config["intermediate_size"],
+            max_position_embeddings=hf_config["max_position_embeddings"],
+            type_vocab_size=hf_config["type_vocab_size"],
+            hidden_act=hf_config.get("hidden_act", "gelu"),
+            norm_eps=hf_config.get("layer_norm_eps", 1e-12),
+            pad_token_id=hf_config.get("pad_token_id", 0),
+        )
 
 
 def bert_encoder_layer(
@@ -115,7 +158,7 @@ def bert_backbone(
 
     mask = ops.cast(attention_mask, "float32")
     mask = ops.expand_dims(ops.expand_dims(mask, 1), 1)
-    mask = (1.0 - mask) * -1e9
+    mask = (1.0 - mask) * MASK_NEG
 
     x = embeddings
     for i in range(num_layers):
@@ -172,7 +215,8 @@ class BertModel(BaseModel):
             Defaults to `512`.
         type_vocab_size: Integer, number of token-type ids. Defaults to `2`.
         hidden_act: String, feed-forward / pooler-free activation. Defaults to `"gelu"`.
-        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-12`.
+        norm_eps: Float, LayerNorm epsilon. Defaults to `1e-12`. Accepts
+            `layer_norm_eps` as a deprecated alias.
         pad_token_id: Integer, padding token id. Defaults to `0`.
         dropout: Float, hidden dropout rate. Defaults to `0.0`.
         attention_dropout: Float, attention-weight dropout rate. Defaults to `0.0`.
@@ -195,18 +239,7 @@ class BertModel(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return {
-            "vocab_size": hf_config["vocab_size"],
-            "embed_dim": hf_config["hidden_size"],
-            "num_layers": hf_config["num_hidden_layers"],
-            "num_heads": hf_config["num_attention_heads"],
-            "mlp_dim": hf_config["intermediate_size"],
-            "max_position_embeddings": hf_config["max_position_embeddings"],
-            "type_vocab_size": hf_config["type_vocab_size"],
-            "hidden_act": hf_config.get("hidden_act", "gelu"),
-            "layer_norm_eps": hf_config.get("layer_norm_eps", 1e-12),
-            "pad_token_id": hf_config.get("pad_token_id", 0),
-        }
+        return BertConfig.from_hf(hf_config).to_dict()
 
     def __init__(
         self,
@@ -218,7 +251,7 @@ class BertModel(BaseModel):
         max_position_embeddings=512,
         type_vocab_size=2,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
+        norm_eps=1e-12,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -228,6 +261,7 @@ class BertModel(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         inputs = {
             "input_ids": layers.Input(shape=(None,), dtype="int32", name="input_ids"),
@@ -250,7 +284,7 @@ class BertModel(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             dropout=dropout,
             attention_dropout=attention_dropout,
             add_pooler=add_pooler,
@@ -270,7 +304,7 @@ class BertModel(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -288,7 +322,7 @@ class BertModel(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -348,7 +382,7 @@ class BertMaskedLM(BaseModel):
         max_position_embeddings=512,
         type_vocab_size=2,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
+        norm_eps=1e-12,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -357,6 +391,7 @@ class BertMaskedLM(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = BertModel(
             vocab_size=vocab_size,
@@ -367,7 +402,7 @@ class BertMaskedLM(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -378,9 +413,9 @@ class BertMaskedLM(BaseModel):
         x = backbone.output["last_hidden_state"]
         x = layers.Dense(embed_dim, name="mlm_transform_dense")(x)
         x = layers.Activation(hidden_act, name="mlm_transform_act")(x)
-        x = layers.LayerNormalization(
-            epsilon=layer_norm_eps, name="mlm_transform_layernorm"
-        )(x)
+        x = layers.LayerNormalization(epsilon=norm_eps, name="mlm_transform_layernorm")(
+            x
+        )
         logits = layers.Dense(vocab_size, name="mlm_decoder")(x)
 
         super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
@@ -393,7 +428,7 @@ class BertMaskedLM(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -410,7 +445,7 @@ class BertMaskedLM(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -475,8 +510,10 @@ class BertSequenceClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(
@@ -489,7 +526,7 @@ class BertSequenceClassify(BaseModel):
         max_position_embeddings=512,
         type_vocab_size=2,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
+        norm_eps=1e-12,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -501,6 +538,7 @@ class BertSequenceClassify(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = BertModel(
             vocab_size=vocab_size,
@@ -511,7 +549,7 @@ class BertSequenceClassify(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -535,7 +573,7 @@ class BertSequenceClassify(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -555,7 +593,7 @@ class BertSequenceClassify(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -621,8 +659,10 @@ class BertTokenClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(
@@ -635,7 +675,7 @@ class BertTokenClassify(BaseModel):
         max_position_embeddings=512,
         type_vocab_size=2,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
+        norm_eps=1e-12,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -647,6 +687,7 @@ class BertTokenClassify(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = BertModel(
             vocab_size=vocab_size,
@@ -657,7 +698,7 @@ class BertTokenClassify(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -681,7 +722,7 @@ class BertTokenClassify(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -701,7 +742,7 @@ class BertTokenClassify(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -758,8 +799,10 @@ class BertNextSentencePredict(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(
@@ -772,7 +815,7 @@ class BertNextSentencePredict(BaseModel):
         max_position_embeddings=512,
         type_vocab_size=2,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
+        norm_eps=1e-12,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -781,6 +824,7 @@ class BertNextSentencePredict(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = BertModel(
             vocab_size=vocab_size,
@@ -791,7 +835,7 @@ class BertNextSentencePredict(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -812,7 +856,7 @@ class BertNextSentencePredict(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -829,7 +873,7 @@ class BertNextSentencePredict(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -883,8 +927,10 @@ class BertQnA(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(
@@ -897,7 +943,7 @@ class BertQnA(BaseModel):
         max_position_embeddings=512,
         type_vocab_size=2,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
+        norm_eps=1e-12,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -906,6 +952,7 @@ class BertQnA(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = BertModel(
             vocab_size=vocab_size,
@@ -916,7 +963,7 @@ class BertQnA(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -938,7 +985,7 @@ class BertQnA(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -955,7 +1002,7 @@ class BertQnA(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -1010,8 +1057,10 @@ class BertMultipleChoice(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = BertModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(
@@ -1024,7 +1073,7 @@ class BertMultipleChoice(BaseModel):
         max_position_embeddings=512,
         type_vocab_size=2,
         hidden_act="gelu",
-        layer_norm_eps=1e-12,
+        norm_eps=1e-12,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -1035,6 +1084,7 @@ class BertMultipleChoice(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         input_ids = layers.Input(
             shape=(num_choices, None), dtype="int32", name="input_ids"
@@ -1055,7 +1105,7 @@ class BertMultipleChoice(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -1090,7 +1140,7 @@ class BertMultipleChoice(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -1109,7 +1159,7 @@ class BertMultipleChoice(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,

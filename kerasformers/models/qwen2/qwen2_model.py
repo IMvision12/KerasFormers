@@ -2,11 +2,10 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
+from kerasformers.base.constants import MASK_NEG
 
 from .config import QWEN2_CONFIG, QWEN2_WEIGHTS
 from .qwen2_layers import Qwen2DecoderLayer, Qwen2RMSNorm
-
-_MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -105,11 +104,10 @@ class Qwen2Model(SubclassedBaseModel):
         cos, sin = ops.cos(emb), ops.sin(emb)
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
-        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if attention_mask is not None:
             attn_mask = (
-                attn_mask
-                + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+                attn_mask + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             )
         for layer in self.decoder_layers:
             hidden = layer(hidden, cos, sin, attention_mask=attn_mask)
@@ -207,10 +205,10 @@ class Qwen2Generate(Qwen2Model):
         cos, sin = ops.cos(emb), ops.sin(emb)
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
-        causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        causal = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if attention_mask is not None:
             causal = (
-                causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+                causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             )
         cache = []
         for layer in self.decoder_layers:

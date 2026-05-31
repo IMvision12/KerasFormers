@@ -1,8 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.constants import MASK_NEG
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
-    _MASK_NEG,
     Qwen2VLModel,
     vision_rotary_cos_sin,
 )
@@ -195,7 +195,7 @@ class Qwen2_5_VLVisionModel(layers.Layer):
                     seg[j] = i
             seg = ops.convert_to_tensor(seg, dtype="int32")
             full_mask = ops.cast(
-                ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG), "float32"
+                ops.where(seg[:, None] == seg[None, :], 0.0, MASK_NEG), "float32"
             )[None, None]
 
         seg = [0] * seq
@@ -204,7 +204,7 @@ class Qwen2_5_VLVisionModel(layers.Layer):
                 seg[j] = i
         seg = ops.convert_to_tensor(seg, dtype="int32")
         window_mask = ops.cast(
-            ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG), "float32"
+            ops.where(seg[:, None] == seg[None, :], 0.0, MASK_NEG), "float32"
         )[None, None]
 
         for i, block in enumerate(self.blocks):

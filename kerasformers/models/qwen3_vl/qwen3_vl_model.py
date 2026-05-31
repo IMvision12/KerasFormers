@@ -2,8 +2,8 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
+from kerasformers.base.constants import MASK_NEG
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
-    _MASK_NEG,
     Qwen2VLModel,
     vision_rotary_cos_sin,
 )
@@ -188,7 +188,7 @@ class Qwen3VLVisionModel(layers.Layer):
             for j in range(cu[i], cu[i + 1]):
                 seg[j] = i
         seg = ops.convert_to_tensor(seg, dtype="int32")
-        mask = ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG)
+        mask = ops.where(seg[:, None] == seg[None, :], 0.0, MASK_NEG)
         return ops.cast(mask, "float32")[None, None]
 
     def call(self, pixel_values, grid_thw):

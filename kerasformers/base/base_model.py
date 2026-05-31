@@ -191,15 +191,14 @@ class WeightLoadingMixin:
             load_weights: If ``False``, only the architecture is built
                 (random init). For ``hf:`` ids, ``config.json`` is still
                 fetched to size the model; the weight files are not.
-            skip_mismatch: If ``True``, layers whose shape in the
-                checkpoint disagrees with the instantiated model are
-                skipped during weight load and left at their default
-                initialization. Useful for fine-tuning: pass
-                ``num_classes=N, skip_mismatch=True`` to swap in a new
-                classifier head while loading the rest of the backbone.
-                Only applied on the kerasformers-release path (``.h5`` /
-                ``.json`` URLs); ``hf:`` paths go through hand-mapped
-                transfer functions and ignore this flag.
+            skip_mismatch: If ``True``, weights whose checkpoint shape
+                disagrees with the instantiated model are skipped during
+                load and left at their default initialization. Useful for
+                fine-tuning: pass ``num_classes=N, skip_mismatch=True`` to
+                swap in a new classifier head while loading the rest of the
+                backbone. Applied on both the kerasformers-release path
+                (``.h5`` / ``.json`` ``load_weights``) and the ``hf:`` /
+                converter transfer path (mismatched targets left at init).
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` when applicable).
 

@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
+from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DEBERTA_MODEL_CONFIG, DEBERTA_WEIGHT_CONFIG
@@ -166,7 +167,8 @@ class DebertaModel(BaseModel):
         pos_att_type: List of disentangled-attention terms. Defaults to
             `["c2p", "p2c"]`.
         hidden_act: String, feed-forward activation. Defaults to `"gelu"`.
-        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-7`.
+        norm_eps: Float, LayerNorm epsilon. Defaults to `1e-7`. The deprecated
+            alias `layer_norm_eps` is still accepted.
         pad_token_id: Integer, padding token id. Defaults to `0`.
         dropout: Float, hidden dropout rate. Defaults to `0.0`.
         attention_dropout: Float, attention-weight dropout rate. Defaults to `0.0`.
@@ -206,7 +208,7 @@ class DebertaModel(BaseModel):
             "max_relative_positions": max_rel,
             "pos_att_type": list(pos_att_type),
             "hidden_act": hf_config.get("hidden_act", "gelu"),
-            "layer_norm_eps": hf_config.get("layer_norm_eps", 1e-7),
+            "norm_eps": hf_config.get("layer_norm_eps", 1e-7),
             "pad_token_id": hf_config.get("pad_token_id", 0),
         }
 
@@ -221,7 +223,7 @@ class DebertaModel(BaseModel):
         max_relative_positions=512,
         pos_att_type=("c2p", "p2c"),
         hidden_act="gelu",
-        layer_norm_eps=1e-7,
+        norm_eps=1e-7,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -230,6 +232,7 @@ class DebertaModel(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
         pos_att_type = list(pos_att_type)
 
         inputs = {
@@ -253,7 +256,7 @@ class DebertaModel(BaseModel):
             max_relative_positions=max_relative_positions,
             pos_att_type=pos_att_type,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             dropout=dropout,
             attention_dropout=attention_dropout,
         )
@@ -274,7 +277,7 @@ class DebertaModel(BaseModel):
         self.max_relative_positions = max_relative_positions
         self.pos_att_type = pos_att_type
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -292,7 +295,7 @@ class DebertaModel(BaseModel):
                 "max_relative_positions": self.max_relative_positions,
                 "pos_att_type": self.pos_att_type,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -434,8 +437,10 @@ class DebertaSequenceClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(
@@ -550,8 +555,10 @@ class DebertaTokenClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(
@@ -652,8 +659,10 @@ class DebertaQnA(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warn_random_head(cls, skipped)
         return model
 
     def __init__(self, name="DebertaQnA", **kwargs):

@@ -2,11 +2,10 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
+from kerasformers.base.constants import MASK_NEG
 
 from .config import GPT2_CONFIG, GPT2_WEIGHTS
 from .gpt2_layers import GPT2Block
-
-_MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -66,10 +65,10 @@ class GPT2Model(SubclassedBaseModel):
     def causal_mask(self, seq, attention_mask=None):
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
-        mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        mask = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if attention_mask is not None:
             am = ops.cast(ops.convert_to_tensor(attention_mask), "float32")
-            mask = mask + (1.0 - am)[:, None, None, :] * _MASK_NEG
+            mask = mask + (1.0 - am)[:, None, None, :] * MASK_NEG
         return mask
 
     def call(self, inputs):

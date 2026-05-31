@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.constants import MASK_NEG
+
 
 def make_log_bucket_position(relative_pos, bucket_size, max_position):
     rel = ops.cast(relative_pos, "float32")
@@ -299,7 +301,7 @@ class DebertaV2DisentangledSelfAttention(layers.Layer):
         scores = scores / scale
 
         mask = ops.cast(attention_mask, "bool")
-        scores = ops.where(mask, scores, ops.cast(-1e30, scores.dtype))
+        scores = ops.where(mask, scores, ops.cast(MASK_NEG, scores.dtype))
         probs = ops.softmax(scores, axis=-1)
         probs = self.dropout(probs, training=training)
 

@@ -2,11 +2,10 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
+from kerasformers.base.constants import MASK_NEG
 
 from .config import QWEN3_5_CONFIG, QWEN3_5_WEIGHTS
 from .qwen3_5_layers import Qwen3_5DecoderLayer, Qwen3_5RMSNorm
-
-_MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -144,11 +143,11 @@ class Qwen3_5Model(SubclassedBaseModel):
         cos, sin = ops.cos(emb), ops.sin(emb)
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
-        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         pad_mask = None
         if attention_mask is not None:
             am_f = ops.cast(am, "float32")
-            attn_mask = attn_mask + (1.0 - am_f)[:, None, None, :] * _MASK_NEG
+            attn_mask = attn_mask + (1.0 - am_f)[:, None, None, :] * MASK_NEG
             pad_mask = am_f[:, :, None]
         for layer in self.decoder_layers:
             hidden = layer(
@@ -266,11 +265,11 @@ class Qwen3_5Generate(Qwen3_5Model):
         cos, sin = ops.cos(emb), ops.sin(emb)
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
-        causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        causal = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         pad_mask = None
         if attention_mask is not None:
             am_f = ops.cast(am, "float32")
-            causal = causal + (1.0 - am_f)[:, None, None, :] * _MASK_NEG
+            causal = causal + (1.0 - am_f)[:, None, None, :] * MASK_NEG
             pad_mask = am_f[:, :, None]
         cache = []
         for layer in self.decoder_layers:

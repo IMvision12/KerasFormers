@@ -4,6 +4,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
+from kerasformers.base.constants import MASK_NEG
 
 from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS
 from .qwen2_vl_layers import (
@@ -13,8 +14,6 @@ from .qwen2_vl_layers import (
     Qwen2VLRMSNorm,
     Qwen2VLVisionBlock,
 )
-
-_MASK_NEG = -1e9
 
 
 def vision_rotary_cos_sin(grid_thw, head_dim, spatial_merge_size, theta=10000.0):
@@ -68,7 +67,7 @@ def vision_block_mask(grid_thw):
     """Additive block-diagonal mask so patches only attend within their image.
 
     Returns ``None`` when there's a single block (full attention), else a
-    ``(1, 1, total, total)`` float mask (0 within an image, ``_MASK_NEG`` across).
+    ``(1, 1, total, total)`` float mask (0 within an image, ``MASK_NEG`` across).
     """
     grid_rows = [
         tuple(int(v) for v in row)
@@ -80,7 +79,7 @@ def vision_block_mask(grid_thw):
     seg = ops.concatenate(
         [ops.full((n,), i, dtype="int32") for i, n in enumerate(seqlens)], axis=0
     )
-    mask = ops.where(seg[:, None] == seg[None, :], 0.0, _MASK_NEG)
+    mask = ops.where(seg[:, None] == seg[None, :], 0.0, MASK_NEG)
     return ops.cast(mask, "float32")[None, None]
 
 
@@ -537,10 +536,10 @@ class Qwen2VLModel(SubclassedBaseModel):
     def _causal_mask(self, q_len, kv_len, offset, attention_mask=None):
         qi = ops.arange(q_len)[:, None] + offset
         ki = ops.arange(kv_len)[None, :]
-        mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        mask = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if attention_mask is not None:
             am = ops.cast(ops.convert_to_tensor(attention_mask), "float32")
-            mask = mask + (1.0 - am)[:, None, None, :] * _MASK_NEG
+            mask = mask + (1.0 - am)[:, None, None, :] * MASK_NEG
         return mask
 
     def _forward_features(self, inputs):

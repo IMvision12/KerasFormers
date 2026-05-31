@@ -4,11 +4,10 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
+from kerasformers.base.constants import MASK_NEG
 
 from .config import GPT_OSS_CONFIG, GPT_OSS_WEIGHTS
 from .gpt_oss_layers import GptOssDecoderLayer, GptOssRMSNorm
-
-_MASK_NEG = -1e9
 
 
 def yarn_inv_freq(head_dim, base, factor, beta_fast, beta_slow, orig_max, truncate):
@@ -182,13 +181,13 @@ class GptOssModel(SubclassedBaseModel):
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
         causal = ki <= qi
-        full_mask = ops.cast(ops.where(causal, 0.0, _MASK_NEG), "float32")[None, None]
+        full_mask = ops.cast(ops.where(causal, 0.0, MASK_NEG), "float32")[None, None]
         sliding_keep = ops.logical_and(causal, ki > qi - self.sliding_window)
-        sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, _MASK_NEG), "float32")[
+        sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, MASK_NEG), "float32")[
             None, None
         ]
         if attention_mask is not None:
-            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             full_mask = full_mask + pad
             sliding_mask = sliding_mask + pad
 
@@ -300,13 +299,13 @@ class GptOssGenerate(GptOssModel):
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
         causal = ki <= qi
-        full_mask = ops.cast(ops.where(causal, 0.0, _MASK_NEG), "float32")[None, None]
+        full_mask = ops.cast(ops.where(causal, 0.0, MASK_NEG), "float32")[None, None]
         sliding_keep = ops.logical_and(causal, ki > qi - self.sliding_window)
-        sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, _MASK_NEG), "float32")[
+        sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, MASK_NEG), "float32")[
             None, None
         ]
         if attention_mask is not None:
-            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+            pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             full_mask = full_mask + pad
             sliding_mask = sliding_mask + pad
 
@@ -341,7 +340,7 @@ class GptOssGenerate(GptOssModel):
             cache_len = cur_len + 1
             kpos = ops.arange(cache_len)
             sliding_dec = ops.cast(
-                ops.where(kpos > cur_len - self.sliding_window, 0.0, _MASK_NEG),
+                ops.where(kpos > cur_len - self.sliding_window, 0.0, MASK_NEG),
                 "float32",
             )[None, None, None]
             new_cache = []
