@@ -1,10 +1,7 @@
-from dataclasses import dataclass
-
 import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
-from kerasformers.base.config import ModelConfig
 from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -24,44 +21,6 @@ BASE_MODEL_CONFIG = {
 MLM_WEIGHT_CONFIG = {
     v: {**m, "url": m["mlm_url"]} for v, m in BERT_WEIGHT_CONFIG.items()
 }
-
-
-@dataclass
-class BertConfig(ModelConfig):
-    """Typed BERT backbone config — the canonical hyperparameter names, and the
-    single place HF ``config.json`` keys are mapped (``BertConfig.from_hf``).
-    Reference for the kerasformers config pattern (see ``kerasformers.base.config``);
-    ``BertModel`` constructs from these names, and ``config_from_hf`` returns
-    ``BertConfig.from_hf(hf).to_dict()``."""
-
-    vocab_size: int = 30522
-    embed_dim: int = 768
-    num_layers: int = 12
-    num_heads: int = 12
-    mlp_dim: int = 3072
-    max_position_embeddings: int = 512
-    type_vocab_size: int = 2
-    hidden_act: str = "gelu"
-    norm_eps: float = 1e-12
-    pad_token_id: int = 0
-    dropout: float = 0.0
-    attention_dropout: float = 0.0
-    add_pooler: bool = True
-
-    @classmethod
-    def from_hf(cls, hf_config):
-        return cls(
-            vocab_size=hf_config["vocab_size"],
-            embed_dim=hf_config["hidden_size"],
-            num_layers=hf_config["num_hidden_layers"],
-            num_heads=hf_config["num_attention_heads"],
-            mlp_dim=hf_config["intermediate_size"],
-            max_position_embeddings=hf_config["max_position_embeddings"],
-            type_vocab_size=hf_config["type_vocab_size"],
-            hidden_act=hf_config.get("hidden_act", "gelu"),
-            norm_eps=hf_config.get("layer_norm_eps", 1e-12),
-            pad_token_id=hf_config.get("pad_token_id", 0),
-        )
 
 
 def bert_encoder_layer(
@@ -240,7 +199,21 @@ class BertModel(BaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        return BertConfig.from_hf(hf_config).to_dict()
+        return {
+            "vocab_size": hf_config["vocab_size"],
+            "embed_dim": hf_config["hidden_size"],
+            "num_layers": hf_config["num_hidden_layers"],
+            "num_heads": hf_config["num_attention_heads"],
+            "mlp_dim": hf_config["intermediate_size"],
+            "max_position_embeddings": hf_config["max_position_embeddings"],
+            "type_vocab_size": hf_config["type_vocab_size"],
+            "hidden_act": hf_config.get("hidden_act", "gelu"),
+            "norm_eps": hf_config.get("layer_norm_eps", 1e-12),
+            "pad_token_id": hf_config.get("pad_token_id", 0),
+            "dropout": 0.0,
+            "attention_dropout": 0.0,
+            "add_pooler": True,
+        }
 
     def __init__(
         self,

@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import CausalLM, GenerationConfig, SubclassedBaseModel
+from kerasformers.base import CausalLM, SubclassedBaseModel
 
 from .config import QWEN3_CONFIG, QWEN3_WEIGHTS
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
@@ -171,9 +171,9 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
-    # Default decoding config: Qwen's <|im_end|> stop id (the generic CausalLM
-    # base carries no model-specific eos). Explicit generate() args override this.
-    generation_config = GenerationConfig(eos_token_id=(151645,))
+    # Default stop token: Qwen's <|im_end|> id (the generic CausalLM base carries no
+    # model-specific eos). Explicit generate() args override this.
+    eos_token_id = (151645,)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
