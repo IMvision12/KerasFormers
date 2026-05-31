@@ -1,8 +1,9 @@
+import warnings
+
 import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
-from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DEBERTA_V2_MODEL_CONFIG, DEBERTA_V2_WEIGHT_CONFIG
@@ -492,7 +493,12 @@ class DebertaV2SequenceClassify(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -615,7 +621,12 @@ class DebertaV2TokenClassify(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -724,7 +735,12 @@ class DebertaV2QnA(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(self, name="DebertaV2QnA", **kwargs):
@@ -816,7 +832,12 @@ class DebertaV2MultipleChoice(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(

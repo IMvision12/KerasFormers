@@ -1,8 +1,9 @@
+import warnings
+
 import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
-from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .bert_layers import (
@@ -487,7 +488,12 @@ class BertSequenceClassify(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -636,7 +642,12 @@ class BertTokenClassify(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -776,7 +787,12 @@ class BertNextSentencePredict(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -904,7 +920,12 @@ class BertQnA(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -1034,7 +1055,12 @@ class BertMultipleChoice(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(

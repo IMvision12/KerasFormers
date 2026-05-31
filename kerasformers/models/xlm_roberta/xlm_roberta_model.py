@@ -1,8 +1,9 @@
+import warnings
+
 import keras
 from keras import layers
 
 from kerasformers.base import BaseModel
-from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.models.roberta.roberta_layers import (
     RobertaFlattenChoices,
     RobertaUnflattenChoices,
@@ -361,7 +362,12 @@ class XLMRobertaSequenceClassify(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -511,7 +517,12 @@ class XLMRobertaTokenClassify(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -651,7 +662,12 @@ class XLMRobertaQnA(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -782,7 +798,12 @@ class XLMRobertaMultipleChoice(BaseModel):
             skipped = copy_weights_by_path_suffix(src, model)
             del src
             if skipped:
-                warn_random_head(cls, skipped)
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
