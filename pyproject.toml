@@ -65,7 +65,7 @@ conversion = [
 ]
 
 [project.scripts]
-kerasformers-test = "kerasformers._test_runner:main"
+kerasformers-test = "tests._test_runner:main"
 
 [project.urls]
 homepage = "https://github.com/IMvision12/KerasFormers"
