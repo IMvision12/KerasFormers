@@ -180,7 +180,7 @@ class Qwen3Attention(layers.Layer):
     ):
         # Single-token attention against a fixed-size KV cache written in place at
         # ``write_pos``. Same math as ``call`` with a one-token query, but the cache
-        # keeps a constant shape so the decode loop can be compiled (keras.ops.scan).
+        # keeps a constant shape so the decode loop can be compiled (ops.while_loop).
         # ``key_mask`` (additive, (.., max_len)) blocks the still-empty cache slots.
         b = ops.shape(hidden_states)[0]
         q = self.query_norm(

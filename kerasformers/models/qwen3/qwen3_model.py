@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import SubclassedBaseModel
+from kerasformers.base import CausalLM, SubclassedBaseModel
 
 from .config import QWEN3_CONFIG, QWEN3_WEIGHTS
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
@@ -157,17 +157,18 @@ class Qwen3Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3Generate(Qwen3Model):
+class Qwen3CausalLM(Qwen3Model, CausalLM):
     """Qwen3 backbone + a language-model head and greedy ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`Qwen3Model`: a separate
     bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
     (transposed) token embedding (weight tying). ``call`` returns both ``logits``
-    ``(batch, seq, vocab_size)`` and ``last_hidden_state``; :meth:`generate` does
-    greedy decoding with a KV cache. Constructor ``Args`` are inherited from
-    :class:`Qwen3Model`.
+    ``(batch, seq, vocab_size)`` and ``last_hidden_state``. Fast generation comes
+    from :class:`~kerasformers.base.CausalLM`, fulfilled here by ``build_cache``
+    (parallel prefill into a fixed KV cache) and ``call_with_cache`` (one compiled
+    decode step). Constructor ``Args`` are inherited from :class:`Qwen3Model`.
 
-        gen = Qwen3Generate.from_weights("qwen3-0.6b")
+        gen = Qwen3CausalLM.from_weights("qwen3-0.6b")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
@@ -193,145 +194,79 @@ class Qwen3Generate(Qwen3Model):
             return self.lm_head(hidden)
         return ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
 
-    def generate(
-        self, input_ids, attention_mask=None, max_new_tokens=128, eos_token_id=(151645,)
-    ):
-        # A parallel prefill populates a pre-allocated fixed-size KV cache, then the
-        # decode loop runs as a compiled ``keras.ops.while_loop`` over single-token
-        # steps. Because the cache shape is constant, the whole per-token step (all
-        # layers + head) is traced/fused once and reused for every token -- no
-        # per-token Python dispatch, no growing-cache reallocation, no per-step host
-        # sync (the eos early-stop is evaluated on-device in the loop condition).
-        # Greedy: the generated tokens are identical to the plain eager loop (verified
-        # token-for-token). Output is a fixed ``(batch, max_new_tokens)`` padded with
-        # the eos id after a sequence finishes.
-        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
-        batch = int(input_ids.shape[0])
-        prompt_len = int(input_ids.shape[1])
-        max_len = prompt_len + max_new_tokens
-        hd, nkv = self.head_dim, self.num_kv_heads
-
+    def rope_tables(self, position_ids):
+        # cos/sin rotary tables for the given integer positions, in the compute
+        # dtype (matches the autocast that Layer.__call__ applies during prefill).
+        hd = self.head_dim
         inv_freq = 1.0 / ops.power(
             self.rope_theta, ops.arange(0, hd, 2, dtype="float32") / hd
         )
-        angles = ops.arange(max_len, dtype="float32")[:, None] * inv_freq
-        emb = ops.concatenate([angles, angles], axis=-1)
-        # Cast to the compute dtype so the directly-called decode_step matches the
-        # autocast that Layer.__call__ applies during prefill -> consistent cache
-        # dtype (a no-op under the default float32 policy).
-        cos_table = ops.cast(ops.cos(emb), self.compute_dtype)
-        sin_table = ops.cast(ops.sin(emb), self.compute_dtype)
+        freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
+        emb = ops.concatenate([freqs, freqs], axis=-1)
+        return (
+            ops.cast(ops.cos(emb), self.compute_dtype),
+            ops.cast(ops.sin(emb), self.compute_dtype),
+        )
 
-        # ---- prefill (parallel over the prompt) ----
-        if attention_mask is not None:
-            am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+    def build_cache(self, token_ids, padding_mask, max_len):
+        # Parallel prefill: run the prompt and write each layer's K/V into a
+        # pre-allocated (batch, num_layers, 2, num_kv_heads, max_len, head_dim) cache.
+        # Returns (cache, last-token logits).
+        batch = int(token_ids.shape[0])
+        prompt_len = int(token_ids.shape[1])
+        hd, nkv = self.head_dim, self.num_kv_heads
+        if padding_mask is not None:
+            am = ops.cast(padding_mask, "int32")
             position_ids = ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
-            cos_p = ops.take(cos_table, position_ids, axis=0)
-            sin_p = ops.take(sin_table, position_ids, axis=0)
         else:
-            cos_p = ops.broadcast_to(
-                cos_table[None, :prompt_len], (batch, prompt_len, hd)
-            )
-            sin_p = ops.broadcast_to(
-                sin_table[None, :prompt_len], (batch, prompt_len, hd)
-            )
+            position_ids = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
+        cos_p, sin_p = self.rope_tables(position_ids)
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
         causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
-        if attention_mask is not None:
+        if padding_mask is not None:
             causal = (
                 causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
             )
-
-        hidden = self.token_embedding(input_ids)
-        cache_k, cache_v = [], []
+        hidden = self.token_embedding(token_ids)
+        layer_caches = []
         for layer in self.decoder_layers:
             hidden, (k, v) = layer(
                 hidden, cos_p, sin_p, attention_mask=causal, use_cache=True
             )
-            cache_k.append(
-                ops.slice_update(
-                    ops.zeros((batch, nkv, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
-                )
+            ck = ops.slice_update(
+                ops.zeros((batch, nkv, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
             )
-            cache_v.append(
-                ops.slice_update(
-                    ops.zeros((batch, nkv, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
-                )
+            cv = ops.slice_update(
+                ops.zeros((batch, nkv, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
             )
-        last = self.final_norm(hidden)[:, -1:, :]
-        first_tok = ops.cast(ops.argmax(self.project(last), axis=-1), "int32")
+            layer_caches.append(ops.stack([ck, cv], axis=1))  # (B, 2, nkv, max_len, hd)
+        cache = ops.stack(layer_caches, axis=1)  # (B, num_layers, 2, nkv, max_len, hd)
+        logits = self.project(self.final_norm(hidden)[:, -1, :])
+        return cache, logits
 
-        eos = [
-            int(e)
-            for e in (
-                eos_token_id
-                if isinstance(eos_token_id, (list, tuple))
-                else [eos_token_id]
+    def call_with_cache(self, token_ids, cache, cache_update_index):
+        # One decode step: embed the single token, run every layer reading/writing
+        # its cache slice at ``cache_update_index``, return (logits, updated cache).
+        batch = int(token_ids.shape[0])
+        max_len = int(cache.shape[4])
+        pos = cache_update_index
+        positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
+        cos_t, sin_t = self.rope_tables(positions)
+        key_mask = ops.cast(
+            ops.where(ops.arange(max_len) <= pos, 0.0, _MASK_NEG), "float32"
+        )[None, None, None, :]
+        h = self.token_embedding(token_ids)
+        layer_caches = []
+        for i, layer in enumerate(self.decoder_layers):
+            h, ck, cv = layer.decode_step(
+                h, cos_t, sin_t, cache[:, i, 0], cache[:, i, 1], pos, key_mask
             )
-        ]
-        first_eos = eos[0] if eos else 0
-        if max_new_tokens <= 1:
-            return ops.convert_to_numpy(first_tok)
+            layer_caches.append(ops.stack([ck, cv], axis=1))
+        cache = ops.stack(layer_caches, axis=1)
+        logits = self.project(self.final_norm(h))[:, 0, :]
+        return logits, cache
 
-        finished = ops.zeros((batch,), dtype="bool")
-        for e in eos:
-            finished = ops.logical_or(finished, first_tok[:, 0] == e)
 
-        cache_k = ops.stack(cache_k, axis=0)  # (num_layers, B, nkv, max_len, hd)
-        cache_v = ops.stack(cache_v, axis=0)
-        key_positions = ops.arange(max_len)
-        steps = max_new_tokens - 1
-        # Tokens 1..steps; pre-filled with the eos id so an early stop leaves eos
-        # padding and the output is a fixed (B, max_new_tokens).
-        token_buffer = ops.full((steps, batch, 1), first_eos, dtype="int32")
-
-        def cond(i, tok, ck, cv, pos, done, buf):
-            return ops.logical_and(i < steps, ops.logical_not(ops.all(done)))
-
-        def body(i, tok, ck, cv, pos, done, buf):
-            cos_t = ops.broadcast_to(
-                ops.take(cos_table, pos, axis=0)[None, None, :], (batch, 1, hd)
-            )
-            sin_t = ops.broadcast_to(
-                ops.take(sin_table, pos, axis=0)[None, None, :], (batch, 1, hd)
-            )
-            key_mask = ops.cast(
-                ops.where(key_positions <= pos, 0.0, _MASK_NEG), "float32"
-            )[None, None, None, :]
-            h = self.token_embedding(tok)
-            new_k, new_v = [], []
-            for j, layer in enumerate(self.decoder_layers):
-                h, ck_j, cv_j = layer.decode_step(
-                    h, cos_t, sin_t, ck[j], cv[j], pos, key_mask
-                )
-                new_k.append(ck_j)
-                new_v.append(cv_j)
-            h = self.final_norm(h)
-            nxt = ops.cast(ops.argmax(self.project(h), axis=-1), "int32")
-            nxt = ops.cast(ops.where(done[:, None], first_eos, nxt), "int32")
-            for e in eos:
-                done = ops.logical_or(done, nxt[:, 0] == e)
-            buf = ops.slice_update(buf, (i, 0, 0), nxt[None])
-            return (
-                i + 1,
-                nxt,
-                ops.stack(new_k, 0),
-                ops.stack(new_v, 0),
-                pos + 1,
-                done,
-                buf,
-            )
-
-        init = (
-            ops.convert_to_tensor(0, dtype="int32"),
-            first_tok,
-            cache_k,
-            cache_v,
-            ops.convert_to_tensor(prompt_len, dtype="int32"),
-            finished,
-            token_buffer,
-        )
-        token_buffer = ops.while_loop(cond, body, init, maximum_iterations=steps)[-1]
-        tail = ops.transpose(token_buffer[:, :, 0], (1, 0))  # (B, steps)
-        return ops.convert_to_numpy(ops.concatenate([first_tok, tail], axis=1))
+# Backwards-compatible alias for the former class name.
+Qwen3Generate = Qwen3CausalLM
