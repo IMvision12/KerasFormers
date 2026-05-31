@@ -2,7 +2,6 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
-from kerasformers.base.constants import MASK_NEG
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     Qwen2VLModel,
     vision_rotary_cos_sin,
@@ -16,6 +15,8 @@ from .qwen3_vl_layers import (
     Qwen3VLVisionPatchEmbed,
     Qwen3VLVisionPatchMerger,
 )
+
+MASK_NEG = -1e9
 
 
 def qwen3_text_cos_sin(position_ids, head_dim, theta, mrope_section):

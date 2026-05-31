@@ -1,7 +1,6 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base.constants import MASK_NEG
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     Qwen2VLModel,
     vision_rotary_cos_sin,
@@ -15,6 +14,8 @@ from .qwen2_5_vl_layers import (
     Qwen2_5_VLRMSNorm,
     Qwen2_5_VLVisionBlock,
 )
+
+MASK_NEG = -1e9
 
 
 def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):

@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base.constants import MASK_NEG
+MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

@@ -2,10 +2,11 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
-from kerasformers.base.constants import MASK_NEG
 
 from .config import GPT_CONFIG, GPT_WEIGHTS
 from .gpt_layers import GptBlock
+
+MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

@@ -2,7 +2,6 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseModel
-from kerasformers.base.constants import MASK_NEG
 from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -13,6 +12,8 @@ from .roberta_layers import (
     RobertaSelfAttention,
     RobertaUnflattenChoices,
 )
+
+MASK_NEG = -1e9
 
 BASE_MODEL_CONFIG = {
     v: ROBERTA_MODEL_CONFIG[m["model"]] for v, m in ROBERTA_WEIGHT_CONFIG.items()

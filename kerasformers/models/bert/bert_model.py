@@ -5,7 +5,6 @@ from keras import layers, ops
 
 from kerasformers.base import BaseModel
 from kerasformers.base.config import ModelConfig
-from kerasformers.base.constants import MASK_NEG
 from kerasformers.base.model_warnings import warn_random_head
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -16,6 +15,8 @@ from .bert_layers import (
     BertUnflattenChoices,
 )
 from .config import BERT_MODEL_CONFIG, BERT_WEIGHT_CONFIG
+
+MASK_NEG = -1e9
 
 BASE_MODEL_CONFIG = {
     v: BERT_MODEL_CONFIG[m["model"]] for v, m in BERT_WEIGHT_CONFIG.items()

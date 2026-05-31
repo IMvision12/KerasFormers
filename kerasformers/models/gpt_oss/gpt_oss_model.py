@@ -4,10 +4,11 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
-from kerasformers.base.constants import MASK_NEG
 
 from .config import GPT_OSS_CONFIG, GPT_OSS_WEIGHTS
 from .gpt_oss_layers import GptOssDecoderLayer, GptOssRMSNorm
+
+MASK_NEG = -1e9
 
 
 def yarn_inv_freq(head_dim, base, factor, beta_fast, beta_slow, orig_max, truncate):

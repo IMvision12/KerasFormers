@@ -2,10 +2,11 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import CausalLM, GenerationConfig, SubclassedBaseModel
-from kerasformers.base.constants import MASK_NEG
 
 from .config import QWEN3_CONFIG, QWEN3_WEIGHTS
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
+
+MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

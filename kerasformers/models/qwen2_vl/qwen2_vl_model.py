@@ -4,7 +4,6 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
-from kerasformers.base.constants import MASK_NEG
 
 from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS
 from .qwen2_vl_layers import (
@@ -14,6 +13,8 @@ from .qwen2_vl_layers import (
     Qwen2VLRMSNorm,
     Qwen2VLVisionBlock,
 )
+
+MASK_NEG = -1e9
 
 
 def vision_rotary_cos_sin(grid_thw, head_dim, spatial_merge_size, theta=10000.0):
