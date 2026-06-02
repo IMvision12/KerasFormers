@@ -6,7 +6,7 @@ from keras import ops
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import get_data_format, load_image
+from kerasformers.utils.image_util import get_data_format, load_image
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

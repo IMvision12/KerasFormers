@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.labels import COCO_80_CLASSES
+from kerasformers.utils.labels_util import COCO_80_CLASSES
 
 
 class RTDETRImageProcessor(BaseImageProcessor):

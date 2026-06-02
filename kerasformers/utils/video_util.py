@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 
-from kerasformers.utils.image import load_image
+from kerasformers.utils.image_util import load_image
 
 VideoInput = Union[
     str,

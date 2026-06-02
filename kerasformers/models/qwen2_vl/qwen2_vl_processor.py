@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 
 from kerasformers.base import BaseProcessor
-from kerasformers.utils.video import load_video
+from kerasformers.utils.video_util import load_video
 
 from .qwen2_vl_image_processor import Qwen2VLImageProcessor
 from .qwen2_vl_tokenizer import DEFAULT_TOKENIZER_REPO, Qwen2VLTokenizer
@@ -120,7 +120,7 @@ class Qwen2VLProcessor(BaseProcessor):
 
         Inline frames come from ``video`` / ``frames``; a ``path`` / ``url`` (or a
         directory of frames / raw bytes) is decoded by
-        :func:`kerasformers.utils.video.load_video` (PyAV backend) and carries the
+        :func:`kerasformers.utils.video_util.load_video` (PyAV backend) and carries the
         source fps in ``metadata`` so the video processor can subsample to its
         target fps. Like HF, the user only has to point at the file.
         """

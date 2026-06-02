@@ -6,7 +6,7 @@ from keras import ops
 from PIL import Image
 
 from kerasformers.models.clip.clip_image_processor import CLIPImageProcessor
-from kerasformers.utils.image import load_image
+from kerasformers.utils.image_util import load_image
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

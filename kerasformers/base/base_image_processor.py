@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 
 from kerasformers.base.base_processor import BasePreprocessingLayer
-from kerasformers.utils.image import get_data_format, load_image
+from kerasformers.utils.image_util import get_data_format, load_image
 
 
 class BaseImageProcessor(BasePreprocessingLayer):
@@ -28,8 +28,6 @@ class BaseImageProcessor(BasePreprocessingLayer):
     vs square, with/without padding).
     """
 
-    # Common per-channel RGB normalization statistics, as constants so concrete
-    # processors reference them instead of repeating the magic numbers.
     OPENAI_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
     OPENAI_CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
     IMAGENET_STANDARD_MEAN = (0.485, 0.456, 0.406)
@@ -44,7 +42,6 @@ class BaseImageProcessor(BasePreprocessingLayer):
 
     @staticmethod
     def to_3_channels(image):
-        # Expand grayscale (1 -> RGB) / drop alpha (RGBA -> RGB); pass RGB through.
         num_channels = ops.shape(image)[-1]
         if num_channels == 1:
             return ops.repeat(image, 3, axis=-1)
@@ -56,16 +53,11 @@ class BaseImageProcessor(BasePreprocessingLayer):
 
     @staticmethod
     def to_unit_range(image):
-        # Cast to float32 and bring 0-255 inputs into [0, 1]; inputs already in
-        # [0, 1] (max <= 1) pass through unchanged.
         image = ops.cast(image, "float32")
         return ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
 
     @staticmethod
     def normalize_image(x, mean, std, data_format=None):
-        # Data-format-aware (x - mean) / std along the channel axis (rank 3 or 4):
-        # reshapes the per-channel stats to the channel position required by
-        # `data_format` (pass data_format="channels_last" for HWC inputs).
         data_format = get_data_format(data_format)
         mean = ops.convert_to_tensor(mean, dtype="float32")
         std = ops.convert_to_tensor(std, dtype="float32")
