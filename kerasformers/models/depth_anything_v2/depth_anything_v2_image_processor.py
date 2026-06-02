@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import get_data_format, preprocess_image
+from kerasformers.utils.image import get_data_format
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -71,7 +71,7 @@ class DepthAnythingV2ImageProcessor(BaseImageProcessor):
     def call(
         self, image: Union[str, np.ndarray, "Image.Image"]
     ) -> Dict[str, "keras.KerasTensor"]:
-        pixel_values, original_sizes, reshaped_hw, _ = preprocess_image(
+        pixel_values, original_sizes, reshaped_hw, _ = self.preprocess_image(
             image,
             target_size=(self.target_h, self.target_w),
             image_mean=self.image_mean,

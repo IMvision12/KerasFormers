@@ -5,7 +5,6 @@ import numpy as np
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import preprocess_image
 from kerasformers.utils.labels import COCO_91_CLASSES
 
 
@@ -72,7 +71,7 @@ class RFDETRImageProcessor(BaseImageProcessor):
     def call(
         self, image: Union[str, np.ndarray, Image.Image]
     ) -> Union[keras.KerasTensor, np.ndarray]:
-        image, _, _, _ = preprocess_image(
+        image, _, _, _ = self.preprocess_image(
             image,
             target_size=(self.size["height"], self.size["width"]),
             image_mean=self.image_mean if self.do_normalize else None,

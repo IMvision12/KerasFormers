@@ -4,8 +4,6 @@ from kerasformers.utils.image import (
     ImageInput,
     get_data_format,
     load_image,
-    normalize_image,
-    preprocess_image,
     standardize_input_shape,
 )
 from kerasformers.utils.video import (
