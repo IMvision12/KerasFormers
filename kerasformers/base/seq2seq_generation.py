@@ -1,12 +1,12 @@
 from keras import ops
 
-from kerasformers.base.generation import BaseGeneration
+from kerasformers.base.base_generation import BaseGeneration
 
 
 class Seq2SeqGeneration(BaseGeneration):
     """Encoder-decoder flavor of :class:`BaseGeneration` (Whisper / Speech2Text / ...).
 
-    Same optimized cross-backend decode engine as :class:`CausalLM`, but the prefill
+    Same optimized cross-backend decode engine as :class:`BaseGeneration`, but the prefill
     first runs an encoder over the source (audio features, source tokens, ...) and the
     decoder cross-attends to that frozen context at every step. The decoder "prompt"
     is the start / forced tokens rather than a user prompt. A model implements three

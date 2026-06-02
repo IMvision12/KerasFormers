@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import CausalLM, SubclassedBaseModel
+from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
 from .config import QWEN3_CONFIG, QWEN3_WEIGHTS
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
@@ -156,14 +156,14 @@ class Qwen3Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3CausalLM(Qwen3Model, CausalLM):
+class Qwen3CausalLM(Qwen3Model, BaseGeneration):
     """Qwen3 backbone + a language-model head and greedy ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`Qwen3Model`: a separate
     bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
     (transposed) token embedding (weight tying). ``call`` returns both ``logits``
     ``(batch, seq, vocab_size)`` and ``last_hidden_state``. Fast generation comes
-    from :class:`~kerasformers.base.CausalLM`, fulfilled here by ``build_cache``
+    from :class:`~kerasformers.base.BaseGeneration`, fulfilled here by ``build_cache``
     (parallel prefill into a fixed KV cache) and ``call_with_cache`` (one compiled
     decode step). Constructor ``Args`` are inherited from :class:`Qwen3Model`.
 
@@ -171,7 +171,7 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
-    # Default stop token: Qwen's <|im_end|> id (the generic CausalLM base carries no
+    # Default stop token: Qwen's <|im_end|> id (the generic BaseGeneration base carries no
     # model-specific eos). Explicit generate() args override this.
     eos_token_id = (151645,)
 

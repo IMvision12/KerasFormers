@@ -5,35 +5,33 @@ from kerasformers.samplers import GreedySampler
 
 
 class BaseGeneration:
-    """Backend-agnostic autoregressive generation engine (mirrors HF's ``GenerationMixin``).
+    """Backend-agnostic autoregressive generation for decoder-only LMs (mirrors HF's ``GenerationMixin``).
 
-    The shared machinery for fast, compiled decoding, factored out of any single
-    model type. Two thin flavors subclass it: :class:`CausalLM` (decoder-only) and
-    :class:`Seq2SeqGeneration` (encoder-decoder). Each flavor only marshals its own
-    inputs and runs the prefill; the optimized decode loop and the per-backend
-    compilation live here and are identical for both.
+    A mixin added to a subclassed decoder backbone (e.g. :class:`Qwen3Model`, and
+    future Granite) to give it a fast ``generate``. It bundles the shared, optimized
+    cross-backend decode engine with the decoder-only entry points (the prompt is the
+    input token ids). :class:`Seq2SeqGeneration` subclasses this and overrides
+    ``generate`` / ``generate_step`` for encoder-decoder models (Whisper, Speech2Text),
+    reusing the same engine.
 
-    A model plugs in by implementing two hooks:
+    A model plugs in two hooks:
 
-    - ``build_cache(...) -> (cache, logits)`` -- the parallel prefill: populate a
-      pre-allocated fixed-size cache (any opaque tensor the model defines) and
-      return it plus the last-token logits. Decoder-only prefills the prompt;
-      encoder-decoder runs the encoder once, builds the static cross-attention KV,
-      and prefills the decoder start tokens.
-    - ``call_with_cache(token_ids, cache, cache_update_index) -> (logits, cache)``
-      -- one decode step that reads/writes the cache at the given index.
+    - ``build_cache(token_ids, padding_mask, max_len) -> (cache, logits)`` -- the
+      parallel prefill: populate a pre-allocated fixed-size KV cache (any opaque tensor
+      the model defines) and return it plus the last-token logits.
+    - ``call_with_cache(token_ids, cache, cache_update_index) -> (logits, cache)`` --
+      one decode step that reads/writes the cache at the given index.
 
-    Performance comes from a single fused decode loop (``keras.ops.while_loop`` over
-    a constant-shape cache) wrapped in a per-backend compiled function -- ``jax.jit``
-    with stateless variable threading on JAX, ``tf.function(jit_compile=True)`` on
+    Performance comes from a single fused decode loop (``keras.ops.while_loop`` over a
+    constant-shape cache) wrapped in a per-backend compiled function -- ``jax.jit`` with
+    stateless variable threading on JAX, ``tf.function(jit_compile=True)`` on
     TensorFlow, eager on Torch -- cached on the instance. Decoding strategy is a
     pluggable :class:`~kerasformers.samplers.Sampler` (greedy by default); for
     stochastic samplers the random noise is drawn once *outside* the loop (via a
     ``SeedGenerator``) and consumed with the Gumbel-max trick, so generation stays
-    identical across backends. Output is a fixed ``(batch, max_new_tokens)`` padded
-    with the eos id after a sequence finishes. A model may set the ``eos_token_id``
-    class attr for its default stop token(s); explicit ``generate`` arguments win
-    over it.
+    identical across backends. Output is a fixed ``(batch, max_new_tokens)`` padded with
+    the eos id after a sequence finishes. A model may set the ``eos_token_id`` class
+    attr for its default stop token(s); explicit ``generate`` arguments win over it.
     """
 
     # Per-model decoding default: stop token id(s). Override as a class attr (e.g.
@@ -41,7 +39,7 @@ class BaseGeneration:
     # library-wide (128 / 0) and are normally passed per call.
     eos_token_id = ()
 
-    def build_cache(self, *args, **kwargs):
+    def build_cache(self, token_ids, padding_mask, max_len):
         raise NotImplementedError(
             f"{type(self).__name__} must implement build_cache()."
         )
@@ -51,9 +49,40 @@ class BaseGeneration:
             f"{type(self).__name__} must implement call_with_cache()."
         )
 
-    def generate_step(self, *args, **kwargs):
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement generate_step()."
+    def generate(
+        self,
+        input_ids,
+        attention_mask=None,
+        max_new_tokens=None,
+        eos_token_id=None,
+        sampler=None,
+        seed=None,
+    ):
+        max_new_tokens, eos, sampler, seed = self.resolve_generation_args(
+            max_new_tokens, eos_token_id, sampler, seed
+        )
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch = int(input_ids.shape[0])
+        padding_mask = (
+            None
+            if attention_mask is None
+            else ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+        )
+        cache_key = (max_new_tokens, eos, attention_mask is not None, id(sampler))
+        fn = self.cached_generate_function(cache_key, max_new_tokens, eos, sampler)
+        noise = self.draw_noise(sampler, max_new_tokens, batch, seed)
+        return self.run_compiled(fn, (input_ids, padding_mask), noise)
+
+    def generate_step(
+        self, token_ids, padding_mask, noise, max_new_tokens, eos, sampler
+    ):
+        token_ids = ops.cast(ops.convert_to_tensor(token_ids), "int32")
+        prompt_len = int(token_ids.shape[1])
+        cache, logits = self.build_cache(
+            token_ids, padding_mask, prompt_len + max_new_tokens
+        )
+        return self.decode_loop(
+            cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
         )
 
     def decode_loop(

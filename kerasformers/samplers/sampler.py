@@ -8,7 +8,7 @@ NEG_INF = -1e9
 class Sampler:
     """Maps logits ``(batch, vocab)`` + per-step uniform ``noise`` to next ids.
 
-    ``stochastic`` tells :class:`CausalLM` whether to pre-compute random noise for
+    ``stochastic`` tells :class:`BaseGeneration` whether to pre-compute random noise for
     the whole decode (cross-backend, *outside* the compiled loop, via a single
     ``SeedGenerator``). Greedy ignores the noise; stochastic samplers turn it into
     a draw with the Gumbel-max trick (``argmax(masked_logits + gumbel(noise))``),
