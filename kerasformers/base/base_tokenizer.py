@@ -1,4 +1,4 @@
-from kerasformers.base.base_preprocessing import BasePreprocessingLayer
+from kerasformers.base.base_processor import BasePreprocessingLayer
 
 
 class BaseTokenizer(BasePreprocessingLayer):
