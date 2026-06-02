@@ -4,8 +4,8 @@ from kerasformers.base.base_image_processor import BaseImageProcessor
 from kerasformers.base.base_model import BaseModel, SubclassedBaseModel
 from kerasformers.base.base_preprocessing import BasePreprocessingLayer
 from kerasformers.base.base_processor import BaseProcessor
+from kerasformers.base.base_seq2seq_generation import Seq2SeqGeneration
 from kerasformers.base.base_tokenizer import BaseTokenizer
-from kerasformers.base.seq2seq_generation import Seq2SeqGeneration
 
 __all__ = [
     "BaseModel",
