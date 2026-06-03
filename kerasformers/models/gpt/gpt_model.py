@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import SubclassedBaseModel
+from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
 from .config import GPT_CONFIG, GPT_WEIGHTS
 from .gpt_layers import GptBlock
@@ -144,12 +144,15 @@ class GptModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GptGenerate(GptModel):
-    """GPT backbone + a (tied) language-model head and greedy ``.generate()``.
+class GptGenerate(GptModel, BaseGeneration):
+    """GPT backbone + a (tied) language-model head and fast ``.generate()``.
 
     ``call`` returns ``logits`` ``(batch, seq, vocab_size)`` and
-    ``last_hidden_state``; :meth:`generate` does greedy decoding with a KV cache.
-    The LM head is the transposed token embedding. Constructor ``Args`` are
+    ``last_hidden_state``. The LM head is the transposed token embedding. Fast
+    generation comes from :class:`~kerasformers.base.BaseGeneration`, fulfilled here
+    by ``build_cache`` (parallel prefill into a fixed KV cache) and
+    ``call_with_cache`` (one compiled decode step); GPT uses learned absolute
+    positions (``positions_embed``) and has no final norm. Constructor ``Args`` are
     inherited from :class:`GptModel`.
     """
 
@@ -160,53 +163,42 @@ class GptGenerate(GptModel):
         hidden = super().call(inputs)["last_hidden_state"]
         return {"logits": self.project(hidden), "last_hidden_state": hidden}
 
-    def generate(
-        self, input_ids, attention_mask=None, max_new_tokens=128, eos_token_id=()
-    ):
-        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
-        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
+    def build_cache(self, token_ids, padding_mask, max_len):
+        batch = int(token_ids.shape[0])
+        prompt_len = int(token_ids.shape[1])
+        nh, hd = self.num_heads, self.embed_dim // self.num_heads
         positions = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
-        hidden = self.token_embedding(input_ids) + self.positions_embed(positions)
-        mask = self.causal_mask(prompt_len, attention_mask)
-        cache = []
+        hidden = self.token_embedding(token_ids) + self.positions_embed(positions)
+        causal = self.causal_mask(prompt_len, padding_mask)
+        layer_caches = []
         for block in self.blocks:
-            hidden, kv = block(hidden, attention_mask=mask, use_cache=True)
-            cache.append(kv)
-        next_tok = ops.cast(
-            ops.argmax(self.project(hidden[:, -1:, :]), axis=-1), "int32"
-        )
-
-        eos = [
-            int(e)
-            for e in (
-                eos_token_id
-                if isinstance(eos_token_id, (list, tuple))
-                else ([eos_token_id] if eos_token_id is not None else [])
+            hidden, (k, v) = block(hidden, attention_mask=causal, use_cache=True)
+            ck = ops.slice_update(
+                ops.zeros((batch, nh, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
             )
-        ]
-        first_eos = eos[0] if eos else 0
-        finished = ops.zeros((batch,), dtype="bool")
-        for e in eos:
-            finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        generated = [next_tok]
-        cur_len = prompt_len
-        for _ in range(max_new_tokens - 1):
-            if eos and bool(ops.all(finished)):
-                break
-            pos = ops.full((batch, 1), cur_len, dtype="int32")
-            hidden = self.token_embedding(next_tok) + self.positions_embed(pos)
-            new_cache = []
-            for i, block in enumerate(self.blocks):
-                hidden, kv = block(hidden, past_key_value=cache[i], use_cache=True)
-                new_cache.append(kv)
-            cache = new_cache
-            next_tok = ops.cast(ops.argmax(self.project(hidden), axis=-1), "int32")
-            if eos:
-                next_tok = ops.cast(
-                    ops.where(finished[:, None], first_eos, next_tok), "int32"
-                )
-            generated.append(next_tok)
-            cur_len += 1
-            for e in eos:
-                finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))
+            cv = ops.slice_update(
+                ops.zeros((batch, nh, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
+            )
+            layer_caches.append(ops.stack([ck, cv], axis=1))
+        cache = ops.stack(layer_caches, axis=1)
+        logits = self.project(hidden[:, -1, :])  # GPT has no final norm
+        return cache, logits
+
+    def call_with_cache(self, token_ids, cache, cache_update_index):
+        batch = int(token_ids.shape[0])
+        max_len = int(cache.shape[4])
+        pos = cache_update_index
+        positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
+        key_mask = ops.cast(
+            ops.where(ops.arange(max_len) <= pos, 0.0, MASK_NEG), "float32"
+        )[None, None, None, :]
+        h = self.token_embedding(token_ids) + self.positions_embed(positions)
+        layer_caches = []
+        for i, block in enumerate(self.blocks):
+            h, ck, cv = block.decode_step(
+                h, cache[:, i, 0], cache[:, i, 1], pos, key_mask
+            )
+            layer_caches.append(ops.stack([ck, cv], axis=1))
+        cache = ops.stack(layer_caches, axis=1)
+        logits = self.project(h)[:, 0, :]
+        return logits, cache

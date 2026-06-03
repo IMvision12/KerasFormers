@@ -3,7 +3,7 @@ import math
 import keras
 from keras import layers, ops
 
-from kerasformers.base import SubclassedBaseModel
+from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
 from .config import GPT_OSS_CONFIG, GPT_OSS_WEIGHTS
 from .gpt_oss_layers import GptOssDecoderLayer, GptOssRMSNorm
@@ -258,15 +258,20 @@ class GptOssModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GptOssGenerate(GptOssModel):
-    """GPT-OSS backbone + a language-model head and greedy ``.generate()``.
+class GptOssGenerate(GptOssModel, BaseGeneration):
+    """GPT-OSS backbone + a language-model head and fast ``.generate()``.
 
-    Adds a bias-free ``lm_head`` (GPT-OSS does not tie embeddings). ``call``
-    returns ``logits`` ``(batch, seq, vocab_size)`` and ``last_hidden_state``;
-    :meth:`generate` does greedy decoding with a KV cache that respects the
-    per-layer sliding window. Constructor ``Args`` are inherited from
-    :class:`GptOssModel`.
+    Adds a bias-free ``lm_head`` (GPT-OSS does not tie embeddings). ``call`` returns
+    ``logits`` ``(batch, seq, vocab_size)`` and ``last_hidden_state``. Fast generation
+    comes from :class:`~kerasformers.base.BaseGeneration`, fulfilled here by
+    ``build_cache`` (parallel prefill into a fixed KV cache) and ``call_with_cache``
+    (one compiled decode step) — both respect the per-layer sliding window (full /
+    sliding key masks) and the learned attention sinks. Constructor ``Args`` are
+    inherited from :class:`GptOssModel`.
     """
+
+    # GPT-OSS <|return|> stop id. Explicit generate() args override this.
+    eos_token_id = (200002,)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -285,18 +290,18 @@ class GptOssGenerate(GptOssModel):
         hidden = super().call(inputs)["last_hidden_state"]
         return {"logits": self.project(hidden), "last_hidden_state": hidden}
 
-    def generate(
-        self, input_ids, attention_mask=None, max_new_tokens=128, eos_token_id=(200002,)
-    ):
-        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
-        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
-        if attention_mask is not None:
-            am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+    def build_cache(self, token_ids, padding_mask, max_len):
+        # Parallel prefill into a fixed (B, num_layers, 2, num_kv_heads, max_len,
+        # head_dim) cache, with the per-layer full / sliding-window causal mask.
+        batch = int(token_ids.shape[0])
+        prompt_len = int(token_ids.shape[1])
+        hd, nkv = self.head_dim, self.num_kv_heads
+        if padding_mask is not None:
+            am = ops.cast(padding_mask, "int32")
             position_ids = ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
         else:
             position_ids = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
         cos, sin = self.rope(position_ids)
-
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
         causal = ki <= qi
@@ -305,65 +310,56 @@ class GptOssGenerate(GptOssModel):
         sliding_mask = ops.cast(ops.where(sliding_keep, 0.0, MASK_NEG), "float32")[
             None, None
         ]
-        if attention_mask is not None:
+        if padding_mask is not None:
             pad = (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             full_mask = full_mask + pad
             sliding_mask = sliding_mask + pad
-
-        hidden = self.token_embedding(input_ids)
-        cache = []
+        hidden = self.token_embedding(token_ids)
+        layer_caches = []
         for i, layer in enumerate(self.decoder_layers):
             mask = sliding_mask if self.is_sliding(i) else full_mask
-            hidden, kv = layer(hidden, cos, sin, attention_mask=mask, use_cache=True)
-            cache.append(kv)
-        hidden = self.final_norm(hidden)[:, -1:, :]
-        next_tok = ops.cast(ops.argmax(self.project(hidden), axis=-1), "int32")
+            hidden, (k, v) = layer(
+                hidden, cos, sin, attention_mask=mask, use_cache=True
+            )
+            ck = ops.slice_update(
+                ops.zeros((batch, nkv, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
+            )
+            cv = ops.slice_update(
+                ops.zeros((batch, nkv, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
+            )
+            layer_caches.append(ops.stack([ck, cv], axis=1))
+        cache = ops.stack(layer_caches, axis=1)
+        logits = self.project(self.final_norm(hidden)[:, -1, :])
+        return cache, logits
 
-        eos = [
-            int(e)
-            for e in (
-                eos_token_id
-                if isinstance(eos_token_id, (list, tuple))
-                else [eos_token_id]
-            )
+    def call_with_cache(self, token_ids, cache, cache_update_index):
+        # One decode step; full layers see slots [0, pos], sliding layers see the
+        # window (pos - sliding_window, pos]. Empty cache slots are masked too.
+        batch = int(token_ids.shape[0])
+        max_len = int(cache.shape[4])
+        pos = cache_update_index
+        positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
+        cos, sin = self.rope(positions)
+        ar = ops.arange(max_len)
+        full_km = ops.cast(ops.where(ar <= pos, 0.0, MASK_NEG), "float32")[
+            None, None, None, :
         ]
-        first_eos = eos[0] if eos else 0
-        finished = ops.zeros((batch,), dtype="bool")
-        for e in eos:
-            finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        generated = [next_tok]
-        cur_len = prompt_len
-        for _ in range(max_new_tokens - 1):
-            if bool(ops.all(finished)):
-                break
-            c, s = self.rope(ops.full((batch, 1), cur_len, dtype="int32"))
-            hidden = self.token_embedding(next_tok)
-            cache_len = cur_len + 1
-            kpos = ops.arange(cache_len)
-            sliding_dec = ops.cast(
-                ops.where(kpos > cur_len - self.sliding_window, 0.0, MASK_NEG),
-                "float32",
-            )[None, None, None]
-            new_cache = []
-            for i, layer in enumerate(self.decoder_layers):
-                mask = sliding_dec if self.is_sliding(i) else None
-                hidden, kv = layer(
-                    hidden,
-                    c,
-                    s,
-                    attention_mask=mask,
-                    past_key_value=cache[i],
-                    use_cache=True,
-                )
-                new_cache.append(kv)
-            hidden = self.final_norm(hidden)
-            cache = new_cache
-            next_tok = ops.cast(ops.argmax(self.project(hidden), axis=-1), "int32")
-            next_tok = ops.cast(
-                ops.where(finished[:, None], first_eos, next_tok), "int32"
+        sliding_km = ops.cast(
+            ops.where(
+                ops.logical_and(ar <= pos, ar > pos - self.sliding_window),
+                0.0,
+                MASK_NEG,
+            ),
+            "float32",
+        )[None, None, None, :]
+        h = self.token_embedding(token_ids)
+        layer_caches = []
+        for i, layer in enumerate(self.decoder_layers):
+            km = sliding_km if self.is_sliding(i) else full_km
+            h, ck, cv = layer.decode_step(
+                h, cos, sin, cache[:, i, 0], cache[:, i, 1], pos, km
             )
-            generated.append(next_tok)
-            cur_len += 1
-            for e in eos:
-                finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))
+            layer_caches.append(ops.stack([ck, cv], axis=1))
+        cache = ops.stack(layer_caches, axis=1)
+        logits = self.project(self.final_norm(h))[:, 0, :]
+        return logits, cache

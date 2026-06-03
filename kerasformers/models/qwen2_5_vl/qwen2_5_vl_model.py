@@ -1,6 +1,7 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base import BaseGeneration
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     Qwen2VLModel,
     vision_rotary_cos_sin,
@@ -14,6 +15,8 @@ from .qwen2_5_vl_layers import (
     Qwen2_5_VLRMSNorm,
     Qwen2_5_VLVisionBlock,
 )
+
+MASK_NEG = -1e9
 
 MASK_NEG = -1e9
 
@@ -593,17 +596,19 @@ class Qwen2_5_VLModel(Qwen2VLModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLGenerate(Qwen2_5_VLModel):
-    """Qwen2.5-VL with an LM head + greedy ``.generate()`` (image+text -> text).
+class Qwen2_5_VLGenerate(Qwen2_5_VLModel, BaseGeneration):
+    """Qwen2.5-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
-    Adds a vocabulary projection on top of :class:`Qwen2_5_VLModel`: a separate
-    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
-    (transposed) token embedding (weight tying). ``call`` returns both ``logits``
-    and ``last_hidden_state``; :meth:`generate` does greedy decoding with a KV
-    cache and incremental M-RoPE (each new token's position is
-    ``cache_len + rope_delta`` on all three axes). Image / video pixels are passed
-    exactly as for :class:`Qwen2_5_VLModel`.
+    Same fast multimodal generation as
+    :class:`~kerasformers.models.qwen2_vl.qwen2_vl_model.Qwen2VLGenerate`: ``build_cache``
+    runs the vision encoder + 3-axis M-RoPE prefill into a fixed KV cache (carrying
+    ``rope_deltas``), then ``call_with_cache`` does text-only decode at M-RoPE position
+    ``cache_idx + rope_delta``. The Qwen2.5-VL backbone (windowed vision encoder) resolves
+    through :class:`Qwen2_5_VLModel`. Pass pixels exactly as for :class:`Qwen2_5_VLModel`:
+    ``gen.generate(input_ids, pixel_values=..., image_grid_thw=...)``.
     """
+
+    eos_token_id = (151645,)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -624,88 +629,80 @@ class Qwen2_5_VLGenerate(Qwen2_5_VLModel):
         )
         return {"logits": logits, "last_hidden_state": hidden}
 
-    def generate(
+    def project(self, hidden):
+        if self.lm_head is not None:
+            return self.lm_head(hidden)
+        return ops.matmul(
+            hidden, ops.transpose(self.language_model.token_embedding.embeddings)
+        )
+
+    def build_cache(
         self,
-        input_ids,
+        token_ids,
+        padding_mask,
+        max_len,
         pixel_values=None,
         image_grid_thw=None,
-        attention_mask=None,
-        max_new_tokens=128,
-        eos_token_id=(151645,),
         pixel_values_videos=None,
         video_grid_thw=None,
     ):
-        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
-        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
+        batch = int(token_ids.shape[0])
+        prompt_len = int(token_ids.shape[1])
+        nkv = self.language_model.num_kv_heads
+        hd = self.language_model.head_dim
         inputs_embeds, position_ids, rope_deltas, extra = self._prepare_inputs(
-            input_ids,
+            token_ids,
             pixel_values,
             image_grid_thw,
-            attention_mask,
+            padding_mask,
             pixel_values_videos=pixel_values_videos,
             video_grid_thw=video_grid_thw,
         )
         cos, sin = self._merged_cos_sin(position_ids)
-        hidden, cache = self.language_model(
-            inputs_embeds,
-            cos,
-            sin,
-            attention_mask=self._causal_mask(
-                prompt_len, prompt_len, offset=0, attention_mask=attention_mask
-            ),
-            use_cache=True,
-            **extra,
+        causal = self._causal_mask(
+            prompt_len, prompt_len, offset=0, attention_mask=padding_mask
         )
-        emb = self.language_model.token_embedding.embeddings
-        last = hidden[:, -1:, :]
-        logits = (
-            self.lm_head(last)
-            if self.lm_head is not None
-            else ops.matmul(last, ops.transpose(emb))
+        hidden, kv = self.language_model(
+            inputs_embeds, cos, sin, attention_mask=causal, use_cache=True, **extra
         )
-        next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
+        layer_caches = []
+        for k, v in kv:
+            ck = ops.slice_update(
+                ops.zeros((batch, nkv, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
+            )
+            cv = ops.slice_update(
+                ops.zeros((batch, nkv, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
+            )
+            layer_caches.append(ops.stack([ck, cv], axis=1))
+        kv_cache = ops.stack(layer_caches, axis=1)
+        logits = self.project(hidden[:, -1, :])
+        return (kv_cache, rope_deltas), logits
 
-        eos = [
-            int(e)
-            for e in (
-                eos_token_id
-                if isinstance(eos_token_id, (list, tuple))
-                else [eos_token_id]
+    def call_with_cache(self, token_ids, cache, cache_update_index):
+        kv_cache, rope_deltas = cache
+        batch = int(token_ids.shape[0])
+        max_len = int(kv_cache.shape[4])
+        pos = ops.broadcast_to(
+            ops.reshape(cache_update_index + rope_deltas, (1, batch, 1)), (3, batch, 1)
+        )
+        cos, sin = self._merged_cos_sin(pos)
+        key_mask = ops.cast(
+            ops.where(ops.arange(max_len) <= cache_update_index, 0.0, MASK_NEG),
+            "float32",
+        )[None, None, None, :]
+        h = self.language_model.token_embedding(token_ids)
+        layer_caches = []
+        for i, layer in enumerate(self.language_model.decoder_layers):
+            h, ck, cv = layer.decode_step(
+                h,
+                cos,
+                sin,
+                kv_cache[:, i, 0],
+                kv_cache[:, i, 1],
+                cache_update_index,
+                key_mask,
             )
-        ]
-        first_eos = eos[0] if eos else 0
-        finished = ops.zeros((batch,), dtype="bool")
-        for e in eos:
-            finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        generated = [next_tok]
-        cur_len = prompt_len
-        for _ in range(max_new_tokens - 1):
-            if bool(ops.all(finished)):
-                break
-            pos = ops.broadcast_to(
-                ops.reshape(cur_len + rope_deltas, (1, batch, 1)), (3, batch, 1)
-            )
-            step_cos, step_sin = self._merged_cos_sin(pos)
-            step_embeds = self.language_model.token_embedding(next_tok)
-            hidden, cache = self.language_model(
-                step_embeds,
-                step_cos,
-                step_sin,
-                attention_mask=None,
-                past_key_values=cache,
-                use_cache=True,
-            )
-            logits = (
-                self.lm_head(hidden)
-                if self.lm_head is not None
-                else ops.matmul(hidden, ops.transpose(emb))
-            )
-            next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
-            next_tok = ops.cast(
-                ops.where(finished[:, None], first_eos, next_tok), "int32"
-            )
-            generated.append(next_tok)
-            cur_len += 1
-            for e in eos:
-                finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))
+            layer_caches.append(ops.stack([ck, cv], axis=1))
+        kv_cache = ops.stack(layer_caches, axis=1)
+        logits = self.project(self.language_model.final_norm(h))[:, 0, :]
+        return logits, (kv_cache, rope_deltas)

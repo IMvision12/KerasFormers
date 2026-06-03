@@ -34,9 +34,6 @@ class BaseGeneration:
     attr for its default stop token(s); explicit ``generate`` arguments win over it.
     """
 
-    # Per-model decoding default: stop token id(s). Override as a class attr (e.g.
-    # Qwen3CausalLM sets eos_token_id = (151645,)). max_new_tokens / seed default
-    # library-wide (128 / 0) and are normally passed per call.
     eos_token_id = ()
 
     def build_cache(self, token_ids, padding_mask, max_len):
@@ -57,6 +54,7 @@ class BaseGeneration:
         eos_token_id=None,
         sampler=None,
         seed=None,
+        **prefill_inputs,
     ):
         max_new_tokens, eos, sampler, seed = self.resolve_generation_args(
             max_new_tokens, eos_token_id, sampler, seed
@@ -68,9 +66,17 @@ class BaseGeneration:
             if attention_mask is None
             else ops.cast(ops.convert_to_tensor(attention_mask), "int32")
         )
+        noise = self.draw_noise(sampler, max_new_tokens, batch, seed)
+        if prefill_inputs:
+            prompt_len = int(input_ids.shape[1])
+            cache, logits = self.build_cache(
+                input_ids, padding_mask, prompt_len + max_new_tokens, **prefill_inputs
+            )
+            return self.run_decode(
+                cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
+            )
         cache_key = (max_new_tokens, eos, attention_mask is not None, id(sampler))
         fn = self.cached_generate_function(cache_key, max_new_tokens, eos, sampler)
-        noise = self.draw_noise(sampler, max_new_tokens, batch, seed)
         return self.run_compiled(fn, (input_ids, padding_mask), noise)
 
     def generate_step(
@@ -88,8 +94,6 @@ class BaseGeneration:
     def decode_loop(
         self, cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
     ):
-        # Shared inner loop: given the prefill's (cache, last-token logits), sample the
-        # first token then run a fixed-shape ``while_loop`` of single-token decode steps.
         batch = int(logits.shape[0])
         first_tok = ops.cast(
             sampler.sample(logits, ops.take(noise, 0, axis=0)), "int32"
@@ -102,8 +106,6 @@ class BaseGeneration:
         for e in eos:
             done = ops.logical_or(done, first_tok[:, 0] == e)
         steps = max_new_tokens - 1
-        # Tokens 1..steps; pre-filled with the eos id so an early stop leaves eos
-        # padding and the output stays a fixed (batch, max_new_tokens).
         buf = ops.full((steps, batch, 1), first_eos, dtype="int32")
 
         def cond(i, tok, cache, pos, done, buf):
@@ -132,9 +134,6 @@ class BaseGeneration:
         return ops.concatenate([first_tok, tail], axis=1)
 
     def make_generate_function(self, max_new_tokens, eos, sampler):
-        # Wrap generate_step in a per-backend compiled callable run(runtime_args, noise).
-        # runtime_args is the flavor's tuple of input tensors (the only things that
-        # vary at run time); max_new_tokens/eos/sampler are baked in (static).
         backend = keras.backend.backend()
         if backend == "jax":
             import itertools
@@ -147,8 +146,6 @@ class BaseGeneration:
                     zip(self.trainable_variables, trainable),
                     zip(self.non_trainable_variables, non_trainable),
                 )
-                # Variables threaded as donated args (sharding-safe, no
-                # constant-baking) rather than closed over -- KerasHub's pattern.
                 with keras.StatelessScope(state_mapping=mapping):
                     return self.generate_step(
                         *runtime_args, noise, max_new_tokens, eos, sampler
@@ -183,8 +180,6 @@ class BaseGeneration:
         return run
 
     def resolve_generation_args(self, max_new_tokens, eos_token_id, sampler, seed):
-        # Merge explicit args over per-model / library defaults, and normalize eos to
-        # a tuple of ints.
         if max_new_tokens is None:
             max_new_tokens = 128
         if eos_token_id is None:
@@ -204,8 +199,6 @@ class BaseGeneration:
         return int(max_new_tokens), eos, sampler, int(seed)
 
     def draw_noise(self, sampler, max_new_tokens, batch, seed):
-        # Stochastic samplers consume per-step uniform noise drawn once here (a
-        # SeedGenerator works on every backend); greedy gets a trivial placeholder.
         if sampler.stochastic:
             return keras.random.uniform(
                 (max_new_tokens, batch, int(self.vocab_size)),
@@ -214,8 +207,6 @@ class BaseGeneration:
         return ops.zeros((max_new_tokens, batch, 1), dtype="float32")
 
     def cached_generate_function(self, cache_key, max_new_tokens, eos, sampler):
-        # Compiled fn cached per (max_new_tokens, eos, has_mask, sampler); `noise` is a
-        # runtime arg so re-seeding never recompiles.
         fns = self.__dict__.setdefault("_generate_functions", {})
         fn = fns.get(cache_key)
         if fn is None:
@@ -231,4 +222,20 @@ class BaseGeneration:
                 out = fn(runtime_args, noise)
         else:
             out = fn(runtime_args, noise)
+        return ops.convert_to_numpy(out)
+
+    def run_decode(
+        self, cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
+    ):
+        if keras.backend.backend() == "torch":
+            import torch
+
+            with torch.no_grad():
+                out = self.decode_loop(
+                    cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
+                )
+        else:
+            out = self.decode_loop(
+                cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
+            )
         return ops.convert_to_numpy(out)
