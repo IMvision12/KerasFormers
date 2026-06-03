@@ -17,15 +17,17 @@ class BaseImageProcessor(BasePreprocessingLayer):
     defaults.
 
     Provides backend-agnostic (``keras.ops``) building blocks shared by the pixel
-    pipelines so processors don't re-derive them: the atoms :meth:`to_3_channels`
-    (grayscale/RGBA -> RGB) and :meth:`to_unit_range` (cast + 0-255 -> [0, 1]); the
-    per-channel normalization constants (``OPENAI_CLIP_*``, ``IMAGENET_STANDARD_*``,
-    ``IMAGENET_INCEPTION_*``);
-    and the heavier shared pipeline pieces :meth:`normalize_image` (data-format-aware
-    normalize, rank 3 or 4) and :meth:`preprocess_image` (one-shot load -> resize ->
-    rescale -> normalize -> transpose, used by the detection / segmentation / depth
-    processors). Resize / crop atoms stay per-model since they vary (aspect-preserving
-    vs square, with/without padding).
+    pipelines so processors don't re-derive them: the dtype/channel atoms
+    :meth:`to_3_channels` (grayscale/RGBA -> RGB) and :meth:`to_unit_range` (cast +
+    0-255 -> [0, 1]); the transform atoms :meth:`rescale` (x * scale), :meth:`resize`,
+    :meth:`center_crop` (center crop, zero-padded if smaller), :meth:`pad`,
+    :meth:`normalize_image` (data-format-aware ``(x - mean) / std``) and the composite
+    :meth:`rescale_and_normalize`; the per-channel normalization constants
+    (``OPENAI_CLIP_*``, ``IMAGENET_STANDARD_*``, ``IMAGENET_INCEPTION_*``); and
+    :meth:`preprocess_image`, the one-shot ``load -> resize -> rescale -> normalize ->
+    transpose`` pipeline (detection / segmentation / depth processors). The per-model
+    *resize policy* (aspect-preserving vs square / shortest-edge / smart-resize) stays
+    in the concrete processor; only the primitives live here.
     """
 
     OPENAI_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
@@ -69,6 +71,87 @@ class BaseImageProcessor(BasePreprocessingLayer):
         mean = ops.reshape(mean, shape)
         std = ops.reshape(std, shape)
         return (x - mean) / std
+
+    @staticmethod
+    def rescale(image, scale=1.0 / 255.0):
+        return ops.cast(image, "float32") * scale
+
+    @staticmethod
+    def resize(image, size, interpolation="bilinear", antialias=True, data_format=None):
+        return ops.image.resize(
+            image,
+            size,
+            interpolation=interpolation,
+            antialias=antialias,
+            data_format=get_data_format(data_format),
+        )
+
+    @staticmethod
+    def center_crop(image, size, data_format=None):
+        data_format = get_data_format(data_format)
+        crop_h, crop_w = int(size[0]), int(size[1])
+        rank = len(image.shape)
+        h_axis, w_axis = (
+            (rank - 2, rank - 1)
+            if data_format == "channels_first"
+            else (rank - 3, rank - 2)
+        )
+        orig_h, orig_w = int(image.shape[h_axis]), int(image.shape[w_axis])
+        top, left = (orig_h - crop_h) // 2, (orig_w - crop_w) // 2
+
+        if orig_h < crop_h or orig_w < crop_w:
+            pad_h, pad_w = max(crop_h - orig_h, 0), max(crop_w - orig_w, 0)
+            top_pad, left_pad = (pad_h + 1) // 2, (pad_w + 1) // 2  # ceil(pad / 2)
+            pad_width = [(0, 0)] * rank
+            pad_width[h_axis] = (top_pad, pad_h - top_pad)
+            pad_width[w_axis] = (left_pad, pad_w - left_pad)
+            image = ops.pad(image, pad_width, constant_values=0)
+            top, left = top + top_pad, left + left_pad
+
+        top, left = max(top, 0), max(left, 0)
+        starts = [0] * rank
+        sizes = [int(d) for d in image.shape]
+        starts[h_axis], sizes[h_axis] = top, crop_h
+        starts[w_axis], sizes[w_axis] = left, crop_w
+        return ops.slice(image, starts, sizes)
+
+    @staticmethod
+    def pad(image, padding, mode="constant", constant_values=0.0, data_format=None):
+        data_format = get_data_format(data_format)
+        if isinstance(padding, int):
+            hw = ((padding, padding), (padding, padding))
+        elif len(padding) == 2 and isinstance(padding[0], int):
+            hw = (tuple(padding), tuple(padding))
+        else:
+            hw = (tuple(padding[0]), tuple(padding[1]))
+        rank = len(image.shape)
+        if data_format == "channels_first":
+            pad_width = [(0, 0)] * (rank - 2) + [hw[0], hw[1]]
+        else:
+            pad_width = [(0, 0)] * (rank - 3) + [hw[0], hw[1], (0, 0)]
+        if mode == "constant":
+            return ops.pad(
+                image, pad_width, mode="constant", constant_values=constant_values
+            )
+        return ops.pad(image, pad_width, mode=mode)
+
+    @staticmethod
+    def rescale_and_normalize(
+        image,
+        do_rescale=True,
+        scale=1.0 / 255.0,
+        do_normalize=True,
+        mean=None,
+        std=None,
+        data_format=None,
+    ):
+        if do_rescale:
+            image = BaseImageProcessor.rescale(image, scale)
+        if do_normalize:
+            image = BaseImageProcessor.normalize_image(
+                image, mean, std, data_format=data_format
+            )
+        return image
 
     @staticmethod
     def preprocess_image(

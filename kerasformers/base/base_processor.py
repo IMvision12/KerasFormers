@@ -27,16 +27,10 @@ class PreloadMixin:
 
     @classmethod
     def from_release(cls, variant, /, **kwargs):
-        # The official preprocessor is shared across a family's sizes, so the
-        # default just builds the class default (its constructor pulls the bundled
-        # / hub assets). Override only for per-variant resolution.
         return cls(**kwargs)
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
-        # Default: download via the ``hf_id`` constructor arg (e.g. tokenizer.json).
-        # Families assembled from multiple files (e.g. CLIP's vocab.json +
-        # merges.txt) override this to fetch them from ``repo``.
         if "hf_id" not in inspect.signature(cls).parameters:
             raise NotImplementedError(
                 f"{cls.__name__} cannot load from an 'hf:' repo — its constructor "
