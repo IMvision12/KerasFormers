@@ -18,7 +18,7 @@ parity to Hugging Face on real checkpoints (see below).
 | `RobertaMultipleChoice` | `kerasformers.models.roberta` | per-choice logits `(B, num_choices)` |
 | `RobertaTokenizer` | `kerasformers.models.roberta` | byte-level BPE → `input_ids` / `attention_mask` / `token_type_ids` |
 
-All models are functional `BaseModel`s; the head classes compose a `RobertaModel`
+All models are functional `FunctionalBaseModel`s; the head classes compose a `RobertaModel`
 backbone. The masked-LM head is part of the pretrained checkpoint, so it loads
 real weights; the other task heads are randomly initialized for the official
 release (ready for fine-tuning) and load trained weights from a `hf:` fine-tune.

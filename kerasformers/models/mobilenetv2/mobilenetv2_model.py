@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -242,7 +242,7 @@ def mobilenetv2_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileNetV2Model(BaseModel):
+class MobileNetV2Model(FunctionalBaseModel):
     """Instantiates the MobileNetV2 backbone.
 
     MobileNetV2 is designed for mobile inference and is built around
@@ -399,7 +399,7 @@ class MobileNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileNetV2ImageClassify(BaseModel):
+class MobileNetV2ImageClassify(FunctionalBaseModel):
     """Instantiates the MobileNetV2 classifier.
 
     This classifier wraps a :class:`MobileNetV2Model` backbone and

@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import LayerScale
 from kerasformers.models.vit.vit_layers import (
     ViTAddPositionEmbs,
@@ -641,7 +641,7 @@ def depth_anything_v1_functional(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DepthAnythingV1Model(BaseModel):
+class DepthAnythingV1Model(FunctionalBaseModel):
     """Depth Anything V1 backbone + DPT neck (no depth-prediction head).
 
     Wraps the functional graph built by
@@ -750,7 +750,7 @@ class DepthAnythingV1Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DepthAnythingV1DepthEstimation(BaseModel):
+class DepthAnythingV1DepthEstimation(FunctionalBaseModel):
     """Depth Anything V1 full monocular depth estimator (backbone + neck + head).
 
     Composes :class:`DepthAnythingV1Model` and adds the DPT depth

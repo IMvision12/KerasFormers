@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -274,7 +274,7 @@ def res2net_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Res2NetModel(BaseModel):
+class Res2NetModel(FunctionalBaseModel):
     """Instantiates the Res2Net (Multi-scale Residual Network) backbone.
 
     Res2Net replaces the standard 3x3 convolution inside the bottleneck
@@ -433,7 +433,7 @@ class Res2NetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Res2NetImageClassify(BaseModel):
+class Res2NetImageClassify(FunctionalBaseModel):
     """Instantiates the Res2Net (Multi-scale Residual Network) classifier.
 
     This classifier wraps a :class:`Res2NetModel` backbone and attaches

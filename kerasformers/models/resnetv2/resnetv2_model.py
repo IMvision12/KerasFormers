@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.resnetv2.resnetv2_layers import ResNetV2StdConv2D
 from kerasformers.utils import standardize_input_shape
@@ -237,7 +237,7 @@ def resnetv2_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResNetV2Model(BaseModel):
+class ResNetV2Model(FunctionalBaseModel):
     """Instantiates the ResNetV2 (Pre-activation ResNet / BiT) backbone.
 
     ResNetV2 is the pre-activation variant of ResNet — it moves
@@ -401,7 +401,7 @@ class ResNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResNetV2ImageClassify(BaseModel):
+class ResNetV2ImageClassify(FunctionalBaseModel):
     """Instantiates the ResNetV2 (Pre-activation ResNet / BiT) classifier.
 
     This classifier wraps a :class:`ResNetV2Model` backbone and attaches

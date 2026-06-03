@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
 from .config import DEEPLABV3_CONFIG, DEEPLABV3_WEIGHTS
@@ -319,7 +319,7 @@ def deeplabv3_classifier_head(x, num_classes, name="classifier"):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepLabV3Model(BaseModel):
+class DeepLabV3Model(FunctionalBaseModel):
     """DeepLabV3 dilated ResNet backbone (no segmentation head).
 
     Builds the dilated ResNet-50 or ResNet-101 backbone used by
@@ -397,7 +397,7 @@ class DeepLabV3Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepLabV3SemanticSegment(BaseModel):
+class DeepLabV3SemanticSegment(FunctionalBaseModel):
     """DeepLabV3 full semantic segmentation model (backbone + ASPP + head).
 
     Composes :class:`DeepLabV3Model`, adds the ASPP module, the

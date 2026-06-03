@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 from keras.src.utils.argument_validation import standardize_tuple
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -396,7 +396,7 @@ def inception_resnet_v2_backbone_feature(inputs, *, data_format, return_stages=F
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionResNetV2Model(BaseModel):
+class InceptionResNetV2Model(FunctionalBaseModel):
     """Instantiates the Inception-ResNet-v2 backbone.
 
     Inception-ResNet-v2 combines Inception modules — parallel branches of
@@ -536,7 +536,7 @@ class InceptionResNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionResNetV2ImageClassify(BaseModel):
+class InceptionResNetV2ImageClassify(FunctionalBaseModel):
     """Instantiates the Inception-ResNet-v2 classifier.
 
     This classifier wraps an :class:`InceptionResNetV2Model` backbone

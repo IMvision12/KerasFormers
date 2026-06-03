@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kerasformers.models.cait.cait_layers import (
     CaiTAddPositionEmbs,
@@ -236,7 +236,7 @@ def cait_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CaiTModel(BaseModel):
+class CaiTModel(FunctionalBaseModel):
     """Instantiates the Class-Attention in Image Transformers (CaiT) backbone.
 
     CaiT refines the vanilla ViT recipe in two ways that make very deep
@@ -402,7 +402,7 @@ class CaiTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CaiTImageClassify(BaseModel):
+class CaiTImageClassify(FunctionalBaseModel):
     """Instantiates the Class-Attention in Image Transformers (CaiT) classifier.
 
     This classifier wraps a :class:`CaiTModel` backbone and attaches a

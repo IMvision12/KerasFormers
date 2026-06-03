@@ -18,7 +18,7 @@ bit-close parity to Hugging Face on real checkpoints (see below).
 | `BertMultipleChoice` | `kerasformers.models.bert` | per-choice logits `(B, num_choices)` |
 | `BertTokenizer` | `kerasformers.models.bert` | WordPiece → `input_ids` / `attention_mask` / `token_type_ids` |
 
-All models are functional `BaseModel`s; the head classes compose a `BertModel`
+All models are functional `FunctionalBaseModel`s; the head classes compose a `BertModel`
 backbone. The next-sentence head is part of the pretrained checkpoint, so it
 loads real weights; the other task heads are randomly initialized for the
 official release (ready for fine-tuning) and load trained weights from a `hf:`

@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kerasformers.models.efficientformer.efficientformer_layers import (
     EfficientFormerAttention4D,
@@ -342,7 +342,7 @@ def efficientformer_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientFormerModel(BaseModel):
+class EfficientFormerModel(FunctionalBaseModel):
     """Instantiates the EfficientFormer backbone.
 
     EfficientFormer is a hybrid CNN-Transformer designed for fast
@@ -539,7 +539,7 @@ class EfficientFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientFormerImageClassify(BaseModel):
+class EfficientFormerImageClassify(FunctionalBaseModel):
     """Instantiates the EfficientFormer classifier.
 
     This classifier wraps a :class:`EfficientFormerModel` backbone and

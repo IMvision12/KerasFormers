@@ -3,7 +3,7 @@ import warnings
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .bert_layers import (
@@ -147,7 +147,7 @@ def bert_backbone(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertModel(BaseModel):
+class BertModel(FunctionalBaseModel):
     """Instantiates the BERT encoder backbone.
 
     BERT embeds tokens with summed word / absolute-position / token-type
@@ -313,7 +313,7 @@ class BertModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertMaskedLM(BaseModel):
+class BertMaskedLM(FunctionalBaseModel):
     """BERT with the masked-language-modeling head.
 
     Wraps a :class:`BertModel` backbone (no pooler) and attaches BERT's MLM head
@@ -435,7 +435,7 @@ class BertMaskedLM(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertSequenceClassify(BaseModel):
+class BertSequenceClassify(FunctionalBaseModel):
     """BERT sentence/sequence classifier.
 
     Wraps a :class:`BertModel` backbone (with pooler) and attaches dropout plus a
@@ -591,7 +591,7 @@ class BertSequenceClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertTokenClassify(BaseModel):
+class BertTokenClassify(FunctionalBaseModel):
     """BERT token classifier (e.g. NER / POS tagging).
 
     Wraps a :class:`BertModel` backbone (no pooler) and attaches dropout plus a
@@ -745,7 +745,7 @@ class BertTokenClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertNextSentencePredict(BaseModel):
+class BertNextSentencePredict(FunctionalBaseModel):
     """BERT next-sentence-prediction head.
 
     Wraps a :class:`BertModel` backbone (with pooler) and attaches BERT's
@@ -878,7 +878,7 @@ class BertNextSentencePredict(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertQnA(BaseModel):
+class BertQnA(FunctionalBaseModel):
     """BERT extractive question-answering head.
 
     Wraps a :class:`BertModel` backbone (no pooler) and attaches a dense span
@@ -1012,7 +1012,7 @@ class BertQnA(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class BertMultipleChoice(BaseModel):
+class BertMultipleChoice(FunctionalBaseModel):
     """BERT multiple-choice head (e.g. SWAG).
 
     Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices

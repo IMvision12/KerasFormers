@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.models.convnext.convnext_model import convnext_backbone_feature
 from kerasformers.utils import standardize_input_shape
@@ -194,7 +194,7 @@ def dinov3_transformer_block(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV3ViTModel(BaseModel):
+class DinoV3ViTModel(FunctionalBaseModel):
     """DINOv3 Vision Transformer model with 2D RoPE and register tokens.
 
     When ``as_backbone=False`` (default), returns the final
@@ -443,7 +443,7 @@ class DinoV3ViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV3ConvNeXtModel(BaseModel):
+class DinoV3ConvNeXtModel(FunctionalBaseModel):
     """DINOv3 ConvNeXt model.
 
     When ``as_backbone=False`` (default), returns the final-stage

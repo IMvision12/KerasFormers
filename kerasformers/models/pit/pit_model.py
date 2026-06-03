@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.vit.vit_layers import (
     ViTAddPositionEmbs,
@@ -245,7 +245,7 @@ def pit_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class PiTModel(BaseModel):
+class PiTModel(FunctionalBaseModel):
     """Instantiates the Pooling-based Vision Transformer (PiT) backbone.
 
     PiT is a hierarchical Vision Transformer that progressively shrinks
@@ -427,7 +427,7 @@ class PiTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class PiTImageClassify(BaseModel):
+class PiTImageClassify(FunctionalBaseModel):
     """Instantiates the Pooling-based Vision Transformer (PiT) classifier.
 
     This classifier wraps a :class:`PiTModel` backbone and attaches a

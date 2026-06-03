@@ -3,7 +3,7 @@ import math
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
 from .config import (
@@ -1314,7 +1314,7 @@ def rf_detr_functional(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class RFDetrModel(BaseModel):
+class RFDetrModel(FunctionalBaseModel):
     """RF-DETR backbone + projector + decoder (no class heads).
 
     bare-backbone ``Model`` variant — outputs the decoder ``last_hidden_state``
@@ -1480,7 +1480,7 @@ class RFDetrModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class RFDETRDetect(BaseModel):
+class RFDETRDetect(FunctionalBaseModel):
     """RF-DETR: Real-Time Detection Transformer.
 
     A real-time object detection model based on DINOv2 backbone with windowed
@@ -1805,7 +1805,7 @@ def rf_detr_segmentation_head(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class RFDETRInstanceSegment(BaseModel):
+class RFDETRInstanceSegment(FunctionalBaseModel):
     """RF-DETR instance segmentation.
 
     Adds a mask head on top of the :class:`RFDETRDetect` detection architecture

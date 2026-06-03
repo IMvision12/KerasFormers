@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.swin.swin_layers import (
     SwinRollLayer,
@@ -452,7 +452,7 @@ def swin_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinModel(BaseModel):
+class SwinModel(FunctionalBaseModel):
     """Instantiates the Swin Transformer backbone.
 
     Swin is a hierarchical vision transformer that computes self-attention
@@ -629,7 +629,7 @@ class SwinModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinImageClassify(BaseModel):
+class SwinImageClassify(FunctionalBaseModel):
     """Instantiates the Swin Transformer classifier.
 
     This classifier wraps a :class:`SwinModel` backbone and attaches a

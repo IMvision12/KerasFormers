@@ -1,6 +1,6 @@
 import keras
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.siglip.siglip_model import (
     SigLIPImageClassify,
     SigLIPModel,
@@ -147,7 +147,7 @@ class SigLIP2Model(SigLIPModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SigLIP2ZeroShotClassify(BaseModel):
+class SigLIP2ZeroShotClassify(FunctionalBaseModel):
     """SigLIP 2 + sigmoid-similarity head for zero-shot classification.
 
     Composes :class:`SigLIP2Model` and adds the standard SigLIP head:

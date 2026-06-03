@@ -5,7 +5,7 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -345,7 +345,7 @@ def efficientnet_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientNetModel(BaseModel):
+class EfficientNetModel(FunctionalBaseModel):
     """Instantiates the EfficientNet backbone.
 
     EfficientNet is a compound-scaled MBConv-based CNN that uniformly
@@ -505,7 +505,7 @@ class EfficientNetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientNetImageClassify(BaseModel):
+class EfficientNetImageClassify(FunctionalBaseModel):
     """Instantiates the EfficientNet classifier.
 
     This classifier wraps a :class:`EfficientNetModel` backbone and

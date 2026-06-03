@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.swinv2.swinv2_layers import (
     SwinV2Attention,
@@ -460,7 +460,7 @@ def swinv2_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinV2Model(BaseModel):
+class SwinV2Model(FunctionalBaseModel):
     """Instantiates the Swin Transformer V2 backbone.
 
     SwinV2 is an improved Swin variant introducing scaled cosine
@@ -642,7 +642,7 @@ class SwinV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinV2ImageClassify(BaseModel):
+class SwinV2ImageClassify(FunctionalBaseModel):
     """Instantiates the Swin Transformer V2 classifier.
 
     This classifier wraps a :class:`SwinV2Model` backbone and attaches a

@@ -3,7 +3,7 @@ import warnings
 import keras
 from keras import layers
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.roberta.roberta_layers import (
     RobertaFlattenChoices,
     RobertaUnflattenChoices,
@@ -23,7 +23,7 @@ MLM_WEIGHT_CONFIG = {
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaModel(BaseModel):
+class XLMRobertaModel(FunctionalBaseModel):
     """Instantiates the XLM-RoBERTa encoder backbone.
 
     XLM-RoBERTa is architecturally identical to RoBERTa (padding-offset position
@@ -187,7 +187,7 @@ class XLMRobertaModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaMaskedLM(BaseModel):
+class XLMRobertaMaskedLM(FunctionalBaseModel):
     """XLM-RoBERTa with the masked-language-modeling head.
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches the
@@ -307,7 +307,7 @@ class XLMRobertaMaskedLM(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaSequenceClassify(BaseModel):
+class XLMRobertaSequenceClassify(FunctionalBaseModel):
     """XLM-RoBERTa sentence/sequence classifier.
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches the
@@ -467,7 +467,7 @@ class XLMRobertaSequenceClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaTokenClassify(BaseModel):
+class XLMRobertaTokenClassify(FunctionalBaseModel):
     """XLM-RoBERTa token classifier (e.g. multilingual NER / POS tagging).
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches dropout
@@ -620,7 +620,7 @@ class XLMRobertaTokenClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaQnA(BaseModel):
+class XLMRobertaQnA(FunctionalBaseModel):
     """XLM-RoBERTa extractive question-answering head.
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches a dense
@@ -754,7 +754,7 @@ class XLMRobertaQnA(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaMultipleChoice(BaseModel):
+class XLMRobertaMultipleChoice(FunctionalBaseModel):
     """XLM-RoBERTa multiple-choice head (e.g. multilingual XCOPA / SWAG).
 
     Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices

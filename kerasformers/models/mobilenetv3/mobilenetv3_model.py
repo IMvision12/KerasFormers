@@ -3,7 +3,7 @@ import math
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -402,7 +402,7 @@ def mobilenetv3_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileNetV3Model(BaseModel):
+class MobileNetV3Model(FunctionalBaseModel):
     """Instantiates the MobileNetV3 backbone.
 
     MobileNetV3 is a NAS-optimized refinement of MobileNetV2 that mixes
@@ -603,7 +603,7 @@ class MobileNetV3Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileNetV3ImageClassify(BaseModel):
+class MobileNetV3ImageClassify(FunctionalBaseModel):
     """Instantiates the MobileNetV3 classifier.
 
     This classifier wraps a :class:`MobileNetV3Model` backbone and

@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
 from .config import SAM_CONFIG, SAM_WEIGHTS
@@ -176,7 +176,7 @@ def sam_mask_embedding(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAMModel(BaseModel):
+class SAMModel(FunctionalBaseModel):
     """SAM vision encoder + neck (no prompt encoder, no mask decoder).
 
     Wraps the ViT vision encoder used by SAM and exposes the image
@@ -304,7 +304,7 @@ class SAMModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAMPromptableSegment(BaseModel):
+class SAMPromptableSegment(FunctionalBaseModel):
     """SAM full promptable segmentation model.
 
     Composes :class:`SAMModel` with the prompt encoder and mask

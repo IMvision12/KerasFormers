@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -219,7 +219,7 @@ def inception_next_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionNextModel(BaseModel):
+class InceptionNextModel(FunctionalBaseModel):
     """Instantiates the InceptionNeXt backbone.
 
     InceptionNeXt decomposes the large-kernel depthwise convolution used
@@ -388,7 +388,7 @@ class InceptionNextModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionNextImageClassify(BaseModel):
+class InceptionNextImageClassify(FunctionalBaseModel):
     """Instantiates the InceptionNeXt classifier.
 
     This classifier wraps an :class:`InceptionNextModel` backbone and

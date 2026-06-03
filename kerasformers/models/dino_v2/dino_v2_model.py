@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.vit.vit_model import vit_backbone_feature
 from kerasformers.utils import standardize_input_shape
@@ -10,7 +10,7 @@ from .config import DINOV2_CONFIG, DINOV2_WEIGHTS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DinoV2Model(BaseModel):
+class DinoV2Model(FunctionalBaseModel):
     """DINOv2 Vision Transformer model.
 
     Standard ViT with LayerScale pretrained with the DINOv2

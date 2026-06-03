@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
 from .config import SAM2_CONFIG, SAM2_WEIGHTS
@@ -293,7 +293,7 @@ def sam2_vision_encoder(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAM2Model(BaseModel):
+class SAM2Model(FunctionalBaseModel):
     """SAM2 vision encoder (Hiera backbone + FPN neck).
 
     Returns multi-scale image embeddings without the prompt encoder or
@@ -443,7 +443,7 @@ class SAM2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAM2PromptableSegment(BaseModel):
+class SAM2PromptableSegment(FunctionalBaseModel):
     """Segment Anything Model 2 (SAM2) for promptable image segmentation.
 
     SAM2 treats image segmentation as a promptable task, producing

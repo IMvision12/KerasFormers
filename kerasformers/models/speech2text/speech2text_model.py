@@ -3,7 +3,7 @@ from typing import List, Union
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 
 from .config import SPEECH2TEXT_CONFIG, SPEECH2TEXT_WEIGHTS
 from .speech2text_layers import (
@@ -249,7 +249,7 @@ def speech2text_decoder(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Speech2TextModel(BaseModel):
+class Speech2TextModel(FunctionalBaseModel):
     """Speech2Text (S2T) conv-Transformer encoder-decoder for ASR / ST.
 
     Wires :func:`speech2text_encoder` and :func:`speech2text_decoder`

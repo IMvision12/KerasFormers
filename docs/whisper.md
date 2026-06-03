@@ -83,7 +83,7 @@ Variant ids for `WhisperModel.from_weights`:
 
 ## Model
 
-`WhisperModel` is a `BaseModel` (Functional) subclass that wires the
+`WhisperModel` is a `FunctionalBaseModel` (Functional) subclass that wires the
 encoder and decoder into a single graph. The encoder and decoder are
 exposed as attributes for inference / generation paths:
 

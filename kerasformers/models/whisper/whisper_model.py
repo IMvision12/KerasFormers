@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 
 from .config import (
     WHISPER_BEGIN_SUPPRESS_TOKENS,
@@ -252,7 +252,7 @@ def whisper_decoder(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WhisperModel(BaseModel):
+class WhisperModel(FunctionalBaseModel):
     """Whisper encoder-decoder transformer for ASR / translation.
 
     Wires :func:`whisper_encoder` and :func:`whisper_decoder` into a single
@@ -547,7 +547,7 @@ class WhisperSpeechToText(WhisperModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WhisperAudioClassify(BaseModel):
+class WhisperAudioClassify(FunctionalBaseModel):
     """Whisper encoder + linear classifier for audio classification.
 
     Uses **only the

@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kerasformers.models.convnext.convnext_layers import ConvNeXtGlobalResponseNorm
 from kerasformers.utils import standardize_input_shape
@@ -185,7 +185,7 @@ def convnext_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ConvNeXtModel(BaseModel):
+class ConvNeXtModel(FunctionalBaseModel):
     """Instantiates the ConvNeXt backbone.
 
     ConvNeXt is a modernized ConvNet that adapts ViT design principles to
@@ -354,7 +354,7 @@ class ConvNeXtModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ConvNeXtImageClassify(BaseModel):
+class ConvNeXtImageClassify(FunctionalBaseModel):
     """Instantiates the ConvNeXt classifier.
 
     This classifier wraps a :class:`ConvNeXtModel` backbone and attaches

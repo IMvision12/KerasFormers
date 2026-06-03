@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
 from kerasformers.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
@@ -406,7 +406,7 @@ def detr_functional(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DetrModel(BaseModel):
+class DetrModel(FunctionalBaseModel):
     """DETR backbone + transformer encoder/decoder (no detection heads).
 
     Matches the reference ``DetrModel`` pattern — outputs the decoder
@@ -455,7 +455,7 @@ class DetrModel(BaseModel):
             Defaults to ``None``.
         name: Model name. Defaults to ``"DetrModel"``.
         **kwargs: Additional keyword arguments forwarded to
-            :class:`BaseModel` / :class:`keras.Model`.
+            :class:`FunctionalBaseModel` / :class:`keras.Model`.
     """
 
     BASE_MODEL_CONFIG = DETR_CONFIG
@@ -555,14 +555,14 @@ class DetrModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DETRDetect(BaseModel):
+class DETRDetect(FunctionalBaseModel):
     """DETR object detection model (encoder-decoder transformer + heads).
 
     Reference:
     - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Loads pretrained weights via ``DETRDetect.from_weights(...)``.
-    See ``BaseModel.from_weights`` for the loading API.
+    See ``FunctionalBaseModel.from_weights`` for the loading API.
     """
 
     BASE_MODEL_CONFIG = DETR_CONFIG
@@ -678,7 +678,7 @@ class DETRDetect(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DETRPanopticSegment(BaseModel):
+class DETRPanopticSegment(FunctionalBaseModel):
     """DETR for panoptic / instance segmentation — detection + per-query masks.
 
     Composes the
@@ -730,7 +730,7 @@ class DETRPanopticSegment(BaseModel):
             ``images`` input.
         name: Model name. Defaults to ``"DETRPanopticSegment"``.
         **kwargs: Additional keyword arguments forwarded to
-            :class:`BaseModel`.
+            :class:`FunctionalBaseModel`.
     """
 
     BASE_MODEL_CONFIG = DETR_SEGMENT_CONFIG
