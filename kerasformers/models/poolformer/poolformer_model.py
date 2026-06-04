@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -58,9 +58,9 @@ def poolformer_block(
     channels_axis,
     name,
 ):
-    """PoolFormer block: pooling-based token mixer + Conv MLP with LayerScale.
+    """PoolFormer block: pooling-based token mixer + Conv MLP with PoolFormerLayerScale.
 
-    Two residual branches each wrapped with GroupNorm + LayerScale +
+    Two residual branches each wrapped with GroupNorm + PoolFormerLayerScale +
     stochastic depth. Token mixing is implemented as
     ``avg_pool(x) - x`` (equivalent to subtracting the pooled signal).
 
@@ -70,7 +70,7 @@ def poolformer_block(
         mlp_ratio: Hidden-dim multiplier inside the Conv MLP.
         drop_rate: Dropout rate inside the MLP.
         drop_path_rate: Stochastic-depth drop rate (no-op when 0).
-        init_scale: Initial LayerScale value for the residual branches.
+        init_scale: Initial PoolFormerLayerScale value for the residual branches.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
         name: Layer-name prefix.
@@ -89,7 +89,7 @@ def poolformer_block(
     )(x)
     x = layers.Subtract(name=f"{name}_token_mixer")([x_pool, x])
 
-    layer_scale_1 = LayerScale(init_scale, name=f"{name}_layerscale_1")(x)
+    layer_scale_1 = PoolFormerLayerScale(init_scale, name=f"{name}_layerscale_1")(x)
 
     if drop_path_rate > 0:
         layer_scale_1 = StochasticDepth(drop_path_rate)(layer_scale_1)
@@ -109,7 +109,7 @@ def poolformer_block(
         name=f"{name}_mlp",
     )
 
-    layer_scale_2 = LayerScale(init_scale, name=f"{name}_layerscale_2")(x)
+    layer_scale_2 = PoolFormerLayerScale(init_scale, name=f"{name}_layerscale_2")(x)
 
     if drop_path_rate > 0:
         layer_scale_2 = StochasticDepth(drop_path_rate)(layer_scale_2)
@@ -141,7 +141,7 @@ def poolformer_backbone_feature(
         mlp_ratio: Hidden-dim multiplier inside each block's MLP.
         drop_rate: Dropout rate inside MLPs.
         drop_path_rate: Maximum stochastic-depth rate (linearly scaled across blocks).
-        init_scale: Initial LayerScale value for the residual branches.
+        init_scale: Initial PoolFormerLayerScale value for the residual branches.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
         return_stages: If True, return a list of the 4 per-stage feature maps
@@ -217,7 +217,7 @@ class PoolFormerModel(FunctionalBaseModel):
     ``avg_pool(x) - x``) rather than self-attention or an MLP. By
     matching transformer-style results with such a trivial mixer, it
     demonstrates that the MetaFormer template — norm + token mixer +
-    norm + channel MLP, each wrapped in residual + LayerScale + drop
+    norm + channel MLP, each wrapped in residual + PoolFormerLayerScale + drop
     path — is what matters, not the mixer itself. The network has 4
     stages with stride-2 conv downsamples between them.
 
@@ -239,7 +239,7 @@ class PoolFormerModel(FunctionalBaseModel):
         drop_rate: Float, dropout rate inside MLPs. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled across blocks. Defaults to `0.0`.
-        init_scale: Float, initial LayerScale value for the residual
+        init_scale: Float, initial PoolFormerLayerScale value for the residual
             branches. Defaults to `1e-5`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -404,7 +404,7 @@ class PoolFormerImageClassify(FunctionalBaseModel):
         drop_rate: Float, dropout rate inside MLPs. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled across blocks. Defaults to `0.0`.
-        init_scale: Float, initial LayerScale value for the residual
+        init_scale: Float, initial PoolFormerLayerScale value for the residual
             branches. Defaults to `1e-5`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -531,3 +531,27 @@ class PoolFormerImageClassify(FunctionalBaseModel):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class PoolFormerLayerScale(layers.Layer):
+    """Learnable per-channel scale (x * gamma), gamma initialized to layer_scale_init."""
+
+    def __init__(self, layer_scale_init, **kwargs):
+        super().__init__(**kwargs)
+        self.layer_scale_init = layer_scale_init
+
+    def build(self, input_shape):
+        self.gamma = self.add_weight(
+            shape=(input_shape[-1],),
+            initializer=keras.initializers.Constant(self.layer_scale_init),
+            trainable=True,
+        )
+
+    def call(self, x):
+        return x * self.gamma
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"layer_scale_init": self.layer_scale_init})
+        return config

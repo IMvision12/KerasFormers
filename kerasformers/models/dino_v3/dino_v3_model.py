@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.convnext.convnext_model import convnext_backbone_feature
 from kerasformers.utils import standardize_input_shape
 
@@ -15,6 +15,7 @@ from .config import (
 from .dino_v3_layers import (
     DinoV3Attention,
     DinoV3CLSToken,
+    DinoV3LayerScale,
     DinoV3RegisterTokens,
     build_rope_2d_cache,
 )
@@ -113,9 +114,9 @@ def dinov3_transformer_block(
 
     1. Pre-norm → :class:`DinoV3Attention` (with 2D RoPE applied to
        Q/K of the patch tokens; prefix tokens — CLS + registers — skip
-       RoPE) → optional :class:`LayerScale` → residual.
+       RoPE) → optional :class:`DinoV3LayerScale` → residual.
     2. Pre-norm → :func:`dinov3_mlp_block` *or* :func:`dinov3_swiglu_ffn`
-       (selected by ``use_swiglu``) → optional :class:`LayerScale` →
+       (selected by ``use_swiglu``) → optional :class:`DinoV3LayerScale` →
        residual.
 
     All sublayer names are deterministic (``blocks_{block_idx}_*``) so
@@ -138,8 +139,8 @@ def dinov3_transformer_block(
         rope_theta: RoPE base frequency.
         use_swiglu: If ``True`` use :func:`dinov3_swiglu_ffn`; otherwise
             :func:`dinov3_mlp_block`.
-        layer_scale_init: Initial LayerScale value. Pass ``None`` to disable
-            LayerScale on both residual branches.
+        layer_scale_init: Initial DinoV3LayerScale value. Pass ``None`` to disable
+            DinoV3LayerScale on both residual branches.
         block_idx: Block index used in every layer name.
         rope_cos: Pre-computed cosine cache for 2D RoPE.
         rope_sin: Pre-computed sine cache for 2D RoPE.
@@ -169,7 +170,7 @@ def dinov3_transformer_block(
     attn.set_rope_cache(rope_cos, rope_sin)
     x = attn(x)
     if layer_scale_init is not None:
-        x = LayerScale(
+        x = DinoV3LayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_1"
         )(x)
     x = layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
@@ -186,7 +187,7 @@ def dinov3_transformer_block(
             y, embed_dim, mlp_hidden_dim, block_idx, hidden_act, mlp_bias
         )
     if layer_scale_init is not None:
-        y = LayerScale(
+        y = DinoV3LayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
         )(y)
     out = layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
@@ -225,7 +226,7 @@ class DinoV3ViTModel(FunctionalBaseModel):
         use_swiglu: Whether to use a gated MLP (GeGLU / SwiGLU)
             instead of the standard two-layer MLP. Defaults to ``False``.
         num_register_tokens: Number of register tokens. Defaults to ``4``.
-        layer_scale_init: LayerScale init value. Defaults to ``1.0``.
+        layer_scale_init: DinoV3LayerScale init value. Defaults to ``1.0``.
         rope_theta: 2D-RoPE frequency base. Defaults to ``100.0``.
         query_bias: Whether the attention Q projection uses bias.
             Defaults to ``True`` (canonical DINOv3 setting).

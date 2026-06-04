@@ -2,11 +2,12 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
 from kerasformers.models.cait.cait_layers import (
     CaiTAddPositionEmbs,
     CaiTClassAttention,
     CaiTClassDistToken,
+    CaiTLayerScale,
     CaiTTalkingHeadAttention,
 )
 from kerasformers.utils import standardize_input_shape
@@ -50,7 +51,7 @@ def layer_scale_talking_head_block(
     layer_scale_init=1e-5,
     block_prefix="block",
 ):
-    """CaiT main block: LN -> TalkingHeadAttn -> LayerScale -> SD -> Add -> LN -> MLP -> LayerScale -> SD -> Add.
+    """CaiT main block: LN -> TalkingHeadAttn -> CaiTLayerScale -> SD -> Add -> LN -> MLP -> CaiTLayerScale -> SD -> Add.
 
     Args:
         x: Input token tensor of shape ``(B, N, embed_dim)``.
@@ -58,7 +59,7 @@ def layer_scale_talking_head_block(
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP block.
         drop_rate: Stochastic-depth drop rate applied to each residual branch.
-        layer_scale_init: Initial value for the LayerScale per-channel gamma.
+        layer_scale_init: Initial value for the CaiTLayerScale per-channel gamma.
         block_prefix: Prefix used to name layers inside the block.
 
     Returns:
@@ -71,7 +72,7 @@ def layer_scale_talking_head_block(
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",
     )(y)
-    attn = LayerScale(
+    attn = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_1"
     )(attn)
     if drop_rate > 0:
@@ -85,7 +86,7 @@ def layer_scale_talking_head_block(
         out_dim=embed_dim,
         block_prefix=f"{block_prefix}_mlp",
     )
-    mlp = LayerScale(
+    mlp = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_2"
     )(mlp)
     if drop_rate > 0:
@@ -110,7 +111,7 @@ def layer_scale_class_attn_block(
         embed_dim: Token embedding dimension.
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP block.
-        layer_scale_init: Initial value for the LayerScale per-channel gamma.
+        layer_scale_init: Initial value for the CaiTLayerScale per-channel gamma.
         block_prefix: Prefix used to name layers inside the block.
 
     Returns:
@@ -126,7 +127,7 @@ def layer_scale_class_attn_block(
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",
     )(y)
-    cls = LayerScale(
+    cls = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_1"
     )(cls)
     cls_token = layers.Add(name=f"{block_prefix}_add_1")([cls_token, cls])
@@ -140,7 +141,7 @@ def layer_scale_class_attn_block(
         out_dim=embed_dim,
         block_prefix=f"{block_prefix}_mlp",
     )
-    mlp = LayerScale(
+    mlp = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_2"
     )(mlp)
     return layers.Add(name=f"{block_prefix}_add_2")([cls_token, mlp])
@@ -241,7 +242,7 @@ class CaiTModel(FunctionalBaseModel):
 
     CaiT refines the vanilla ViT recipe in two ways that make very deep
     transformers trainable for image classification: (1) talking-head
-    self-attention paired with a learnable per-channel LayerScale
+    self-attention paired with a learnable per-channel CaiTLayerScale
     (initialized at ``1e-5``) plus stochastic depth on every residual
     branch, so deep stacks converge without divergence; and (2) a
     dedicated class-attention stage where the model first runs ``depth``

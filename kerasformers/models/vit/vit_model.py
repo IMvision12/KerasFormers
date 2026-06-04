@@ -2,10 +2,11 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.vit.vit_layers import (
     ViTAddPositionEmbs,
     ViTClassDistToken,
+    ViTLayerScale,
     ViTMultiHeadSelfAttention,
 )
 from kerasformers.utils import standardize_input_shape
@@ -50,7 +51,7 @@ def transformer_block(
         block_prefix=f"blocks_{block_idx}",
     )(x)
     if layer_scale_init:
-        x = LayerScale(
+        x = ViTLayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_1"
         )(x)
     x = keras.layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
@@ -66,7 +67,7 @@ def transformer_block(
         block_idx=block_idx,
     )
     if layer_scale_init:
-        y = LayerScale(
+        y = ViTLayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
         )(y)
     return keras.layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
@@ -198,8 +199,8 @@ class ViTModel(FunctionalBaseModel):
         use_distillation: Boolean, if `True`, prepend a separate
             distillation token alongside the class token (DeiT-distilled
             style). Defaults to `False`.
-        layer_scale_init: Optional float, initial gamma value for LayerScale
-            applied on both residual branches. If `None`, LayerScale is
+        layer_scale_init: Optional float, initial gamma value for ViTLayerScale
+            applied on both residual branches. If `None`, ViTLayerScale is
             disabled. Defaults to `None`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -402,8 +403,8 @@ class ViTImageClassify(FunctionalBaseModel):
             distillation token alongside the class token and attach a
             second prediction head whose output is averaged with the CLS
             head. Defaults to `False`.
-        layer_scale_init: Optional float, initial gamma value for LayerScale
-            applied on both residual branches. If `None`, LayerScale is
+        layer_scale_init: Optional float, initial gamma value for ViTLayerScale
+            applied on both residual branches. If `None`, ViTLayerScale is
             disabled. Defaults to `None`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple

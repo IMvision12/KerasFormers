@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -83,14 +83,14 @@ def inception_next_block(
     channels_axis=None,
     name="blocks",
 ):
-    """InceptionNeXt block: token mixer -> BN -> Conv MLP -> LayerScale -> residual.
+    """InceptionNeXt block: token mixer -> BN -> Conv MLP -> InceptionNextLayerScale -> residual.
 
     Args:
         x: Input feature map.
         num_filter: Channel count of the block (input == output).
         mlp_ratio: Hidden-dim expansion ratio for the MLP. Defaults to ``4.0``.
         dropout_rate: Dropout applied inside the MLP. Defaults to ``0.0``.
-        layer_scale_init: Initial value for the LayerScale gamma.
+        layer_scale_init: Initial value for the InceptionNextLayerScale gamma.
             Defaults to ``1e-6``.
         band_kernel_size: Band length for the token mixer. Defaults to ``11``.
         branch_ratio: Channel fraction per token-mixer branch. Defaults to ``0.125``.
@@ -130,7 +130,7 @@ def inception_next_block(
     )(x)
     x = layers.Dropout(dropout_rate)(x)
 
-    x = LayerScale(layer_scale_init, name=f"{name}_gamma")(x)
+    x = InceptionNextLayerScale(layer_scale_init, name=f"{name}_gamma")(x)
     x = layers.Add()([x, x_input])
 
     return x
@@ -228,7 +228,7 @@ class InceptionNextModel(FunctionalBaseModel):
     ``k x k`` depthwise branch and two band ``1 x k`` / ``k x 1``
     depthwise branches, then concatenated. These mixers are dropped into
     a ConvNeXt-shaped 4-stage architecture (stem + per-stage downsample
-    + repeated blocks with a Conv-MLP and LayerScale).
+    + repeated blocks with a Conv-MLP and InceptionNextLayerScale).
 
     Output is the last layer output before the classifier head:
     the final stage feature map ``(B, H, W, C)`` (channels-last) /
@@ -540,3 +540,27 @@ class InceptionNextImageClassify(FunctionalBaseModel):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class InceptionNextLayerScale(layers.Layer):
+    """Learnable per-channel scale (x * gamma), gamma initialized to layer_scale_init."""
+
+    def __init__(self, layer_scale_init, **kwargs):
+        super().__init__(**kwargs)
+        self.layer_scale_init = layer_scale_init
+
+    def build(self, input_shape):
+        self.gamma = self.add_weight(
+            shape=(input_shape[-1],),
+            initializer=keras.initializers.Constant(self.layer_scale_init),
+            trainable=True,
+        )
+
+    def call(self, x):
+        return x * self.gamma
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"layer_scale_init": self.layer_scale_init})
+        return config

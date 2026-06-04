@@ -2,8 +2,11 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
-from kerasformers.models.convnext.convnext_layers import ConvNeXtGlobalResponseNorm
+from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.models.convnext.convnext_layers import (
+    ConvNeXtGlobalResponseNorm,
+    ConvNeXtLayerScale,
+)
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -49,7 +52,7 @@ def convnext_block(
         channels_axis: Axis index of the channels dimension.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         drop_path_rate: Stochastic depth drop probability for this block.
-        layer_scale_init: Initial value for LayerScale; pass ``None`` to skip.
+        layer_scale_init: Initial value for ConvNeXtLayerScale; pass ``None`` to skip.
         name: Name prefix for sub-layers inside the block.
         use_grn: Whether to apply ConvNeXtGlobalResponseNorm (ConvNeXtV2 style).
         use_conv: If True, use 1x1 Conv2D for the MLP; else use Dense layers.
@@ -92,7 +95,7 @@ def convnext_block(
         x = layers.Dense(projection_dim, name=name + "_dense_2")(x)
 
     if layer_scale_init is not None:
-        x = LayerScale(layer_scale_init, name=name + "_layer_scale")(x)
+        x = ConvNeXtLayerScale(layer_scale_init, name=name + "_layer_scale")(x)
 
     if data_format == "channels_first":
         x = layers.Permute((3, 1, 2), name=name + "_to_nchw")(x)
@@ -123,7 +126,7 @@ def convnext_backbone_feature(
         depths: Number of blocks per stage (length-4 list).
         projection_dim: Channel count per stage (length-4 list).
         drop_path_rate: Maximum stochastic-depth rate; linearly scaled across blocks.
-        layer_scale_init: LayerScale init; pass ``None`` to disable.
+        layer_scale_init: ConvNeXtLayerScale init; pass ``None`` to disable.
         use_conv: Use 1x1 Conv2D inside blocks instead of Dense.
         use_grn: Enable ConvNeXtGlobalResponseNorm (ConvNeXtV2 style).
         data_format: ``"channels_last"`` or ``"channels_first"``.
@@ -212,7 +215,7 @@ class ConvNeXtModel(FunctionalBaseModel):
             Linearly scaled from 0 to this value across all blocks.
             Defaults to `0.0`.
         layer_scale_init: Float, initial value for per-channel
-            LayerScale. Pass ``None`` to disable LayerScale.
+            ConvNeXtLayerScale. Pass ``None`` to disable ConvNeXtLayerScale.
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.
@@ -375,7 +378,7 @@ class ConvNeXtImageClassify(FunctionalBaseModel):
             Linearly scaled from 0 to this value across all blocks.
             Defaults to `0.0`.
         layer_scale_init: Float, initial value for per-channel
-            LayerScale. Pass ``None`` to disable LayerScale.
+            ConvNeXtLayerScale. Pass ``None`` to disable ConvNeXtLayerScale.
             Defaults to `1e-6`.
         use_conv: Boolean, if True, use 1x1 Conv2D layers inside each
             block's MLP; otherwise use Dense layers. Defaults to `False`.

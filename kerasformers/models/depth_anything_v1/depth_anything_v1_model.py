@@ -2,7 +2,6 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import LayerScale
 from kerasformers.models.vit.vit_layers import (
     ViTAddPositionEmbs,
     ViTClassDistToken,
@@ -247,7 +246,7 @@ def depth_anything_v1_dino_backbone(
 
     Runs the standard DINOv2 stack — patch embedding, class token,
     learnable position embeddings, ``backbone_depth`` pre-norm
-    transformer blocks with ``LayerScale`` on both branches, and a
+    transformer blocks with ``DepthAnythingV1LayerScale`` on both branches, and a
     final shared ``LayerNorm`` — and returns the intermediate token
     sequences listed in ``out_indices`` as spatial feature maps.
 
@@ -317,7 +316,9 @@ def depth_anything_v1_dino_backbone(
             block_prefix=f"{name}_block_{i}",
             name=f"{name}_block_{i}_attn",
         )(x_norm)
-        x_attn = LayerScale(layer_scale_init=1.0, name=f"{name}_block_{i}_ls1")(x_attn)
+        x_attn = DepthAnythingV1LayerScale(
+            layer_scale_init=1.0, name=f"{name}_block_{i}_ls1"
+        )(x_attn)
         x = layers.Add(name=f"{name}_block_{i}_add1")([x, x_attn])
 
         y_norm = layers.LayerNormalization(
@@ -328,7 +329,9 @@ def depth_anything_v1_dino_backbone(
         )(y_norm)
         y_mlp = layers.Activation("gelu", name=f"{name}_block_{i}_gelu")(y_mlp)
         y_mlp = layers.Dense(backbone_dim, name=f"{name}_block_{i}_mlp_fc2")(y_mlp)
-        y_mlp = LayerScale(layer_scale_init=1.0, name=f"{name}_block_{i}_ls2")(y_mlp)
+        y_mlp = DepthAnythingV1LayerScale(
+            layer_scale_init=1.0, name=f"{name}_block_{i}_ls2"
+        )(y_mlp)
         x = layers.Add(name=f"{name}_block_{i}_add2")([x, y_mlp])
 
         if (i + 1) in out_indices:
@@ -910,3 +913,27 @@ class DepthAnythingV1DepthEstimation(FunctionalBaseModel):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class DepthAnythingV1LayerScale(layers.Layer):
+    """Learnable per-channel scale (x * gamma), gamma initialized to layer_scale_init."""
+
+    def __init__(self, layer_scale_init, **kwargs):
+        super().__init__(**kwargs)
+        self.layer_scale_init = layer_scale_init
+
+    def build(self, input_shape):
+        self.gamma = self.add_weight(
+            shape=(input_shape[-1],),
+            initializer=keras.initializers.Constant(self.layer_scale_init),
+            trainable=True,
+        )
+
+    def call(self, x):
+        return x * self.gamma
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"layer_scale_init": self.layer_scale_init})
+        return config

@@ -565,3 +565,27 @@ class ViTMultiHeadSelfAttention(layers.Layer):
             }
         )
         return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class ViTLayerScale(layers.Layer):
+    """Learnable per-channel scale (x * gamma), gamma initialized to layer_scale_init."""
+
+    def __init__(self, layer_scale_init, **kwargs):
+        super().__init__(**kwargs)
+        self.layer_scale_init = layer_scale_init
+
+    def build(self, input_shape):
+        self.gamma = self.add_weight(
+            shape=(input_shape[-1],),
+            initializer=keras.initializers.Constant(self.layer_scale_init),
+            trainable=True,
+        )
+
+    def call(self, x):
+        return x * self.gamma
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"layer_scale_init": self.layer_scale_init})
+        return config

@@ -2,8 +2,8 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale
-from kerasformers.models.resmlp.resmlp_layers import ResMLPAffine
+from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.models.resmlp.resmlp_layers import ResMLPAffine, ResMLPLayerScale
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -47,7 +47,7 @@ def resmlp_block(
     x_t = layers.Permute((2, 1), name=f"blocks_{block_idx}_permute_2")(x_t)
     if drop_rate > 0:
         x_t = layers.Dropout(drop_rate, name=f"blocks_{block_idx}_dropout_1")(x_t)
-    x_t = LayerScale(layer_scale_init, name=f"blocks_{block_idx}_scale_1")(x_t)
+    x_t = ResMLPLayerScale(layer_scale_init, name=f"blocks_{block_idx}_scale_1")(x_t)
     x = layers.Add(name=f"blocks_{block_idx}_add_1")([inputs, x_t])
 
     inputs = x
@@ -63,7 +63,7 @@ def resmlp_block(
     )(x)
     if drop_rate > 0:
         x = layers.Dropout(drop_rate, name=f"blocks_{block_idx}_dropout_2")(x)
-    x = LayerScale(layer_scale_init, name=f"blocks_{block_idx}_scale_2")(x)
+    x = ResMLPLayerScale(layer_scale_init, name=f"blocks_{block_idx}_scale_2")(x)
     x = layers.Add(name=f"blocks_{block_idx}_add_2")([inputs, x])
 
     return x
@@ -90,7 +90,7 @@ def resmlp_backbone_feature(
         embed_dim: Token (channel) embedding dimension.
         depth: Number of ResMLP blocks.
         mlp_ratio: Hidden-embed_dim multiplier inside each block's channel MLP.
-        layer_scale_init: Initial LayerScale value applied at the end of each residual branch.
+        layer_scale_init: Initial ResMLPLayerScale value applied at the end of each residual branch.
         drop_path_rate: Maximum stochastic-depth-style dropout rate (scaled linearly
             with block index).
         data_format: ``"channels_last"`` or ``"channels_first"``.
@@ -151,10 +151,10 @@ class ResMLPModel(FunctionalBaseModel):
 
     ResMLP is a Mixer-style architecture where per-channel learnable
     ResMLPAffine layers replace LayerNorm and a residual structure (ResMLPAffine
-    pre-norm + LayerScale + residual add on each branch) scales to very
+    pre-norm + ResMLPLayerScale + residual add on each branch) scales to very
     deep models with stable, data-efficient training. Like Mixer it
     alternates a cross-patch linear and a channel MLP, but the
-    normalization-free ResMLPAffine design and LayerScale residuals are what
+    normalization-free ResMLPAffine design and ResMLPLayerScale residuals are what
     make deep stacks trainable.
 
     Output is the last layer output before the classifier head: the
@@ -174,7 +174,7 @@ class ResMLPModel(FunctionalBaseModel):
         depth: Integer, number of ResMLP blocks. Defaults to `12`.
         mlp_ratio: Integer, hidden-embed_dim multiplier inside each block's
             channel MLP. Defaults to `4`.
-        layer_scale_init: Float, initial LayerScale value applied at the end
+        layer_scale_init: Float, initial ResMLPLayerScale value applied at the end
             of each residual branch. Defaults to `1e-4`.
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
@@ -338,7 +338,7 @@ class ResMLPImageClassify(FunctionalBaseModel):
         depth: Integer, number of ResMLP blocks. Defaults to `12`.
         mlp_ratio: Integer, hidden-embed_dim multiplier inside each block's
             channel MLP. Defaults to `4`.
-        layer_scale_init: Float, initial LayerScale value applied at the end
+        layer_scale_init: Float, initial ResMLPLayerScale value applied at the end
             of each residual branch. Defaults to `1e-4`.
         drop_rate: Float, dropout rate. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth-style dropout
