@@ -2,9 +2,9 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.convnext.convnext_model import convnext_backbone_feature
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 
 from .config import (
     DINOV3_CONVNEXT_CONFIG,
@@ -239,7 +239,7 @@ class DinoV3ViTModel(FunctionalBaseModel):
         mlp_bias: Whether MLP Dense layers use bias. Defaults to ``True``.
         layer_norm_eps: Epsilon for LayerNorm layers. Defaults to ``1e-5``.
         include_normalization: Whether to prepend
-            :class:`ImageNormalizationLayer`.
+            image normalization.
         normalization_mode: Normalization preset.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -340,7 +340,7 @@ class DinoV3ViTModel(FunctionalBaseModel):
         mlp_hidden_dim = int(embed_dim * mlp_ratio)
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -467,7 +467,7 @@ class DinoV3ConvNeXtModel(FunctionalBaseModel):
         depths: Per-stage block counts.
         projection_dim: Per-stage channel counts.
         include_normalization: Whether to prepend
-            :class:`ImageNormalizationLayer`.
+            image normalization.
         normalization_mode: Normalization preset.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -527,7 +527,7 @@ class DinoV3ConvNeXtModel(FunctionalBaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )

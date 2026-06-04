@@ -2,9 +2,9 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.vit.vit_model import vit_backbone_feature
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 
 from .config import DINOV2_CONFIG, DINOV2_WEIGHTS
 
@@ -44,7 +44,7 @@ class DinoV2Model(FunctionalBaseModel):
         attn_drop_rate: Attention dropout rate. Defaults to ``0.0``.
         layer_scale_init: LayerScale init value. Defaults to ``1.0``.
         include_normalization: Whether to prepend
-            :class:`ImageNormalizationLayer`.
+            image normalization.
         normalization_mode: Normalization preset.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -113,7 +113,7 @@ class DinoV2Model(FunctionalBaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )

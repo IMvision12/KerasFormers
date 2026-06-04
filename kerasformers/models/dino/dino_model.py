@@ -2,13 +2,13 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.resnet.resnet_model import (
     bottleneck_block,
     resnet_backbone_feature,
 )
 from kerasformers.models.vit.vit_model import vit_backbone_feature
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 
 from .config import (
     DINO_RESNET_CONFIG,
@@ -51,7 +51,7 @@ class DinoViTModel(FunctionalBaseModel):
         drop_rate: Dropout rate. Defaults to ``0.0``.
         attn_drop_rate: Attention dropout rate. Defaults to ``0.0``.
         include_normalization: Whether to prepend
-            :class:`ImageNormalizationLayer`.
+            image normalization.
         normalization_mode: Normalization preset.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -100,7 +100,7 @@ class DinoViTModel(FunctionalBaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -194,7 +194,7 @@ class DinoResNetModel(FunctionalBaseModel):
         depths: Per-stage block counts.
         filters: Per-stage filter counts.
         include_normalization: Whether to prepend
-            :class:`ImageNormalizationLayer`.
+            image normalization.
         normalization_mode: Normalization preset.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -239,7 +239,7 @@ class DinoResNetModel(FunctionalBaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )

@@ -2,8 +2,8 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHT_CONFIG
@@ -301,7 +301,7 @@ class Res2NetModel(FunctionalBaseModel):
         cardinality: Integer, number of groups for grouped convolution
             inside each scale. Defaults to `1`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -381,7 +381,7 @@ class Res2NetModel(FunctionalBaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -455,7 +455,7 @@ class Res2NetImageClassify(FunctionalBaseModel):
         cardinality: Integer, number of groups for grouped convolution
             inside each scale. Defaults to `1`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
