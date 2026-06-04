@@ -2,12 +2,13 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.cait.cait_layers import (
     CaiTAddPositionEmbs,
     CaiTClassAttention,
     CaiTClassDistToken,
     CaiTLayerScale,
+    CaiTStochasticDepth,
     CaiTTalkingHeadAttention,
 )
 from kerasformers.utils import standardize_input_shape
@@ -76,7 +77,7 @@ def layer_scale_talking_head_block(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_1"
     )(attn)
     if drop_rate > 0:
-        attn = StochasticDepth(drop_rate)(attn)
+        attn = CaiTStochasticDepth(drop_rate)(attn)
     x = layers.Add(name=f"{block_prefix}_add_1")([x, attn])
 
     y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_2")(x)
@@ -90,7 +91,7 @@ def layer_scale_talking_head_block(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_2"
     )(mlp)
     if drop_rate > 0:
-        mlp = StochasticDepth(drop_rate)(mlp)
+        mlp = CaiTStochasticDepth(drop_rate)(mlp)
     return layers.Add(name=f"{block_prefix}_add_2")([x, mlp])
 
 

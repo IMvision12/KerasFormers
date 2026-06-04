@@ -2,8 +2,11 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
-from kerasformers.models.mit.mit_layers import MiTEfficientMultiheadSelfAttention
+from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.models.mit.mit_layers import (
+    MiTEfficientMultiheadSelfAttention,
+    MiTStochasticDepth,
+)
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -131,7 +134,7 @@ def hierarchical_transformer_encoder_block(
         Tensor of shape ``(B, H*W, project_dim)`` after both residual branches.
     """
     pytorch_stage_idx = stage_idx - 1
-    drop_path_layer = StochasticDepth(drop_prob)
+    drop_path_layer = MiTStochasticDepth(drop_prob)
 
     norm1 = layers.LayerNormalization(
         axis=-1,

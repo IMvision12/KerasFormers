@@ -2,8 +2,11 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
-from kerasformers.models.resnetv2.resnetv2_layers import ResNetV2StdConv2D
+from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.models.resnetv2.resnetv2_layers import (
+    ResNetV2StdConv2D,
+    ResNetV2StochasticDepth,
+)
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -155,7 +158,7 @@ def preact_bottleneck(
     )
 
     if drop_path_rate > 0:
-        x = StochasticDepth(drop_path_rate)(x)
+        x = ResNetV2StochasticDepth(drop_path_rate)(x)
 
     x = layers.Add(name=f"{block_prefix}_add")([shortcut, x])
     return x

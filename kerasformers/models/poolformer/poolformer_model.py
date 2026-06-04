@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -92,7 +92,7 @@ def poolformer_block(
     layer_scale_1 = PoolFormerLayerScale(init_scale, name=f"{name}_layerscale_1")(x)
 
     if drop_path_rate > 0:
-        layer_scale_1 = StochasticDepth(drop_path_rate)(layer_scale_1)
+        layer_scale_1 = PoolFormerStochasticDepth(drop_path_rate)(layer_scale_1)
 
     x = layers.Add(name=f"{name}_add_1")([shortcut, layer_scale_1])
 
@@ -112,7 +112,7 @@ def poolformer_block(
     layer_scale_2 = PoolFormerLayerScale(init_scale, name=f"{name}_layerscale_2")(x)
 
     if drop_path_rate > 0:
-        layer_scale_2 = StochasticDepth(drop_path_rate)(layer_scale_2)
+        layer_scale_2 = PoolFormerStochasticDepth(drop_path_rate)(layer_scale_2)
 
     x = layers.Add(name=f"{name}_add_2")([shortcut, layer_scale_2])
 
@@ -554,4 +554,35 @@ class PoolFormerLayerScale(layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({"layer_scale_init": self.layer_scale_init})
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class PoolFormerStochasticDepth(keras.layers.Layer):
+    """Stochastic depth: randomly drops the residual path during training (identity at inference)."""
+
+    def __init__(self, drop_path_rate, seed=None, **kwargs):
+        super().__init__(**kwargs)
+        if not 0 <= drop_path_rate <= 1:
+            raise ValueError(
+                f"drop_path_rate should be between 0 and 1, got {drop_path_rate}"
+            )
+        self.drop_path_rate = drop_path_rate
+        self.seed = seed
+        self.seed_generator = keras.random.SeedGenerator(seed)
+
+    def call(self, x, training=None):
+        if training:
+            keep_prob = 1 - self.drop_path_rate
+            shape = (keras.ops.shape(x)[0],) + (1,) * (len(keras.ops.shape(x)) - 1)
+            random_tensor = keep_prob + keras.random.uniform(
+                shape, 0, 1, seed=self.seed_generator
+            )
+            random_tensor = keras.ops.cast(keras.ops.floor(random_tensor), x.dtype)
+            return (x / keep_prob) * random_tensor
+        return x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"drop_path_rate": self.drop_path_rate, "seed": self.seed})
         return config

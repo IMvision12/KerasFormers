@@ -2,10 +2,11 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.efficientformer.efficientformer_layers import (
     EfficientFormerAttention4D,
     EfficientFormerLayerScale,
+    EfficientFormerStochasticDepth,
 )
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -124,7 +125,7 @@ def meta_block_2d(
     x = layers.Subtract(name=f"{name}_pool_sub")([pooled, inputs])
     x = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls1")(x)
     if drop_path > 0.0:
-        x = StochasticDepth(drop_path, name=f"{name}_drop_path1")(x)
+        x = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path1")(x)
     x = layers.Add(name=f"{name}_add1")([inputs, x])
 
     # MLP
@@ -139,7 +140,7 @@ def meta_block_2d(
     )
     y = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls2")(y)
     if drop_path > 0.0:
-        y = StochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
+        y = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
     outputs = layers.Add(name=f"{name}_add2")([x, y])
     return outputs
 
@@ -175,7 +176,7 @@ def meta_block_1d(
     )
     y = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls1")(y)
     if drop_path > 0.0:
-        y = StochasticDepth(drop_path, name=f"{name}_drop_path1")(y)
+        y = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path1")(y)
     x = layers.Add(name=f"{name}_add1")([inputs, y])
 
     # MLP
@@ -189,7 +190,7 @@ def meta_block_1d(
     )
     y = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls2")(y)
     if drop_path > 0.0:
-        y = StochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
+        y = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
     outputs = layers.Add(name=f"{name}_add2")([x, y])
     return outputs
 

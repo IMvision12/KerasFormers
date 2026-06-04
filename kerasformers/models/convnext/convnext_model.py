@@ -2,10 +2,11 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.convnext.convnext_layers import (
     ConvNeXtGlobalResponseNorm,
     ConvNeXtLayerScale,
+    ConvNeXtStochasticDepth,
 )
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
@@ -101,7 +102,7 @@ def convnext_block(
         x = layers.Permute((3, 1, 2), name=name + "_to_nchw")(x)
 
     if drop_path_rate:
-        x = StochasticDepth(drop_path_rate, name=name + "_stochastic_depth")(x)
+        x = ConvNeXtStochasticDepth(drop_path_rate, name=name + "_stochastic_depth")(x)
 
     return layers.Add(name=name + "_add")([inputs, x])
 

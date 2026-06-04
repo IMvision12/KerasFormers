@@ -2,10 +2,11 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.swinv2.swinv2_layers import (
     SwinV2Attention,
     SwinV2Roll,
+    SwinV2StochasticDepth,
     SwinV2WindowPartition,
 )
 from kerasformers.utils import standardize_input_shape
@@ -145,7 +146,7 @@ def swinv2_block(
         trimmed_x, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_1"
     )
 
-    dropout_layer = StochasticDepth(drop_path_rate=drop_path_rate)
+    dropout_layer = SwinV2StochasticDepth(drop_path_rate=drop_path_rate)
     skip_x1 = inputs + dropout_layer(trimmed_x)
 
     # MLP: permute to channels_last for Dense, permute back

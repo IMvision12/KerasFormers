@@ -2,9 +2,10 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.layers import ImageNormalizationLayer
 from kerasformers.models.swin.swin_layers import (
     SwinRollLayer,
+    SwinStochasticDepth,
     SwinWindowAttention,
     SwinWindowPartition,
 )
@@ -143,7 +144,7 @@ def swin_block(
     else:
         trimmed_x = unshifted_x[:, :img_height, :img_width]
 
-    dropout_layer = StochasticDepth(drop_path_rate=drop_path_rate)
+    dropout_layer = SwinStochasticDepth(drop_path_rate=drop_path_rate)
     skip_x1 = inputs + dropout_layer(trimmed_x)
 
     normalized_x = spatial_layer_norm(
