@@ -243,6 +243,58 @@ class Qwen3_5Attention(layers.Layer):
         out = self.output_proj(out)
         return (out, new_kv) if use_cache else out
 
+    def decode_step(
+        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+    ):
+        # Single-token gated full attention against a fixed-size KV cache (QK-norm +
+        # partial rotary + sigmoid output gate). ``key_mask`` blocks empty slots.
+        b = ops.shape(hidden_states)[0]
+        qg = ops.reshape(
+            self.query(hidden_states), (b, 1, self.num_heads, self.head_dim * 2)
+        )
+        query, gate = qg[..., : self.head_dim], qg[..., self.head_dim :]
+        gate = ops.reshape(gate, (b, 1, self.num_heads * self.head_dim))
+        query = self.query_norm(query)
+        key = self.key_norm(
+            ops.reshape(
+                self.key(hidden_states), (b, 1, self.num_kv_heads, self.head_dim)
+            )
+        )
+        value = ops.reshape(
+            self.value(hidden_states), (b, 1, self.num_kv_heads, self.head_dim)
+        )
+        query = ops.transpose(query, (0, 2, 1, 3))
+        key = ops.transpose(key, (0, 2, 1, 3))
+        value = ops.transpose(value, (0, 2, 1, 3))
+        cos = ops.expand_dims(cos, axis=1)
+        sin = ops.expand_dims(sin, axis=1)
+        rd, half = self.rotary_dim, self.rotary_dim // 2
+        q_rot = query[..., :rd]
+        q_rot = q_rot * cos + (
+            ops.concatenate([-q_rot[..., half:], q_rot[..., :half]], axis=-1) * sin
+        )
+        query = ops.concatenate([q_rot, query[..., rd:]], axis=-1)
+        k_rot = key[..., :rd]
+        k_rot = k_rot * cos + (
+            ops.concatenate([-k_rot[..., half:], k_rot[..., :half]], axis=-1) * sin
+        )
+        key = ops.concatenate([k_rot, key[..., rd:]], axis=-1)
+        cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), key)
+        cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), value)
+        kk, vv = cache_k, cache_v
+        if self.num_kv_groups > 1:
+            kk = ops.repeat(kk, self.num_kv_groups, axis=1)
+            vv = ops.repeat(vv, self.num_kv_groups, axis=1)
+        attn = ops.matmul(query, ops.transpose(kk, (0, 1, 3, 2))) * self.scaling
+        attn = attn + key_mask
+        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
+        out = ops.matmul(attn, vv)
+        out = ops.reshape(
+            ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.head_dim)
+        )
+        out = out * ops.sigmoid(gate)
+        return self.output_proj(out), cache_k, cache_v
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -540,6 +592,26 @@ class Qwen3_5DecoderLayer(layers.Layer):
         hidden_states = self.mlp_norm(hidden_states)
         hidden_states = residual + self.mlp(hidden_states)
         return (hidden_states, new_state) if use_cache else hidden_states
+
+    def decode_step(self, hidden_states, cos, sin, state, write_pos, key_mask):
+        # One decode step; ``state`` is the per-layer cache: (cache_k, cache_v) for a
+        # full-attention layer (fixed-slot KV), or (conv_state, recurrent_state) for a
+        # Gated-DeltaNet layer (the recurrence is identical to prefill). cos/sin/
+        # write_pos/key_mask are used only by the full-attention path.
+        residual = hidden_states
+        x = self.attention_norm(hidden_states)
+        if self.layer_type == "full_attention":
+            out, ck, cv = self.attention.decode_step(
+                x, cos, sin, state[0], state[1], write_pos, key_mask
+            )
+            new_state = (ck, cv)
+        else:
+            out, new_state = self.linear_attn(x, past_key_value=state, use_cache=True)
+        hidden_states = residual + out
+        residual = hidden_states
+        x = self.mlp_norm(hidden_states)
+        hidden_states = residual + self.mlp(x)
+        return hidden_states, new_state
 
     def get_config(self):
         config = super().get_config()

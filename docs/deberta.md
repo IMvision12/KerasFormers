@@ -25,7 +25,7 @@ multiple-choice head):
 | Multiple choice | — | `DebertaV2MultipleChoice` | `DebertaV3MultipleChoice` | `(B, num_choices)` |
 | Tokenizer | `DebertaTokenizer` (byte-level BPE) | `DebertaV2Tokenizer` (SentencePiece) | `DebertaV3Tokenizer` (SentencePiece) | `input_ids` / `attention_mask` / `token_type_ids` |
 
-All models are functional `BaseModel`s; the head classes compose the matching
+All models are functional `FunctionalBaseModel`s; the head classes compose the matching
 backbone. Unlike BERT, **DeBERTa has no pooler and no next-sentence head** — the
 backbone returns only `last_hidden_state`, and the sequence/multiple-choice heads
 attach DeBERTa's *context pooler* (a dense + `gelu` over the `[CLS]` token). The

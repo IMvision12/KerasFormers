@@ -1,15 +1,17 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.cait.cait_layers import (
     CaiTAddPositionEmbs,
     CaiTClassAttention,
     CaiTClassDistToken,
+    CaiTLayerScale,
+    CaiTStochasticDepth,
     CaiTTalkingHeadAttention,
 )
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHT_CONFIG
@@ -50,7 +52,7 @@ def layer_scale_talking_head_block(
     layer_scale_init=1e-5,
     block_prefix="block",
 ):
-    """CaiT main block: LN -> TalkingHeadAttn -> LayerScale -> SD -> Add -> LN -> MLP -> LayerScale -> SD -> Add.
+    """CaiT main block: LN -> TalkingHeadAttn -> CaiTLayerScale -> SD -> Add -> LN -> MLP -> CaiTLayerScale -> SD -> Add.
 
     Args:
         x: Input token tensor of shape ``(B, N, embed_dim)``.
@@ -58,7 +60,7 @@ def layer_scale_talking_head_block(
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP block.
         drop_rate: Stochastic-depth drop rate applied to each residual branch.
-        layer_scale_init: Initial value for the LayerScale per-channel gamma.
+        layer_scale_init: Initial value for the CaiTLayerScale per-channel gamma.
         block_prefix: Prefix used to name layers inside the block.
 
     Returns:
@@ -71,11 +73,11 @@ def layer_scale_talking_head_block(
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",
     )(y)
-    attn = LayerScale(
+    attn = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_1"
     )(attn)
     if drop_rate > 0:
-        attn = StochasticDepth(drop_rate)(attn)
+        attn = CaiTStochasticDepth(drop_rate)(attn)
     x = layers.Add(name=f"{block_prefix}_add_1")([x, attn])
 
     y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_2")(x)
@@ -85,11 +87,11 @@ def layer_scale_talking_head_block(
         out_dim=embed_dim,
         block_prefix=f"{block_prefix}_mlp",
     )
-    mlp = LayerScale(
+    mlp = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_2"
     )(mlp)
     if drop_rate > 0:
-        mlp = StochasticDepth(drop_rate)(mlp)
+        mlp = CaiTStochasticDepth(drop_rate)(mlp)
     return layers.Add(name=f"{block_prefix}_add_2")([x, mlp])
 
 
@@ -110,7 +112,7 @@ def layer_scale_class_attn_block(
         embed_dim: Token embedding dimension.
         num_heads: Number of attention heads.
         mlp_ratio: Hidden expansion ratio for the MLP block.
-        layer_scale_init: Initial value for the LayerScale per-channel gamma.
+        layer_scale_init: Initial value for the CaiTLayerScale per-channel gamma.
         block_prefix: Prefix used to name layers inside the block.
 
     Returns:
@@ -126,7 +128,7 @@ def layer_scale_class_attn_block(
         qkv_bias=True,
         block_prefix=f"{block_prefix}_attn",
     )(y)
-    cls = LayerScale(
+    cls = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_1"
     )(cls)
     cls_token = layers.Add(name=f"{block_prefix}_add_1")([cls_token, cls])
@@ -140,7 +142,7 @@ def layer_scale_class_attn_block(
         out_dim=embed_dim,
         block_prefix=f"{block_prefix}_mlp",
     )
-    mlp = LayerScale(
+    mlp = CaiTLayerScale(
         layer_scale_init=layer_scale_init, name=f"{block_prefix}_layerscale_2"
     )(mlp)
     return layers.Add(name=f"{block_prefix}_add_2")([cls_token, mlp])
@@ -236,12 +238,12 @@ def cait_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CaiTModel(BaseModel):
+class CaiTModel(FunctionalBaseModel):
     """Instantiates the Class-Attention in Image Transformers (CaiT) backbone.
 
     CaiT refines the vanilla ViT recipe in two ways that make very deep
     transformers trainable for image classification: (1) talking-head
-    self-attention paired with a learnable per-channel LayerScale
+    self-attention paired with a learnable per-channel CaiTLayerScale
     (initialized at ``1e-5``) plus stochastic depth on every residual
     branch, so deep stacks converge without divergence; and (2) a
     dedicated class-attention stage where the model first runs ``depth``
@@ -283,7 +285,7 @@ class CaiTModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -349,7 +351,7 @@ class CaiTModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -402,7 +404,7 @@ class CaiTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CaiTImageClassify(BaseModel):
+class CaiTImageClassify(FunctionalBaseModel):
     """Instantiates the Class-Attention in Image Transformers (CaiT) classifier.
 
     This classifier wraps a :class:`CaiTModel` backbone and attaches a
@@ -434,7 +436,7 @@ class CaiTImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

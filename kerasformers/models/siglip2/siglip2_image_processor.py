@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 import keras
 
@@ -17,8 +17,8 @@ class SigLIP2ImageProcessor(SigLIPImageProcessor):
     def __init__(
         self,
         image_resolution: int = 224,
-        mean: List[float] = [0.5, 0.5, 0.5],
-        std: List[float] = [0.5, 0.5, 0.5],
+        mean=SigLIPImageProcessor.IMAGENET_INCEPTION_MEAN,
+        std=SigLIPImageProcessor.IMAGENET_INCEPTION_STD,
         do_center_crop: bool = True,
         do_normalize: bool = True,
         do_resize: bool = True,

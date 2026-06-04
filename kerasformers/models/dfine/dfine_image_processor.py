@@ -8,8 +8,8 @@ from keras import ops
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import get_data_format, load_image
-from kerasformers.utils.labels import COCO_80_CLASSES
+from kerasformers.utils.image_util import get_data_format, load_image
+from kerasformers.utils.labels_util import COCO_80_CLASSES
 
 _PIL_RESAMPLE = {
     "nearest": Image.NEAREST,

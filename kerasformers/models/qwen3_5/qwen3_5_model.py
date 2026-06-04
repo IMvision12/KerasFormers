@@ -1,12 +1,12 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import SubclassedBaseModel
+from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
 from .config import QWEN3_5_CONFIG, QWEN3_5_WEIGHTS
 from .qwen3_5_layers import Qwen3_5DecoderLayer, Qwen3_5RMSNorm
 
-_MASK_NEG = -1e9
+MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -18,7 +18,7 @@ class Qwen3_5Model(SubclassedBaseModel):
     attention* (conv1d + delta-rule recurrence), and every ``full_attention_interval``
     -th layer is *gated full attention* (GQA, QK-norm, partial rotary, sigmoid
     output gate). RMSNorm is zero-centered. This is a subclassed (imperative)
-    :class:`BaseModel`: the forward pass runs eagerly with ``keras.ops``. Returns
+    :class:`FunctionalBaseModel`: the forward pass runs eagerly with ``keras.ops``. Returns
     raw features; use :class:`Qwen3_5Generate` for logits / text.
 
         model = Qwen3_5Model.from_weights("hf:Qwen/Qwen3.5-...")
@@ -144,11 +144,11 @@ class Qwen3_5Model(SubclassedBaseModel):
         cos, sin = ops.cos(emb), ops.sin(emb)
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
-        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         pad_mask = None
         if attention_mask is not None:
             am_f = ops.cast(am, "float32")
-            attn_mask = attn_mask + (1.0 - am_f)[:, None, None, :] * _MASK_NEG
+            attn_mask = attn_mask + (1.0 - am_f)[:, None, None, :] * MASK_NEG
             pad_mask = am_f[:, :, None]
         for layer in self.decoder_layers:
             hidden = layer(
@@ -213,21 +213,25 @@ class Qwen3_5Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3_5Generate(Qwen3_5Model):
-    """Qwen3.5 backbone + a language-model head and greedy ``.generate()``.
+class Qwen3_5Generate(Qwen3_5Model, BaseGeneration):
+    """Qwen3.5 backbone + a language-model head and fast ``.generate()``.
 
-    Adds a vocabulary projection on top of :class:`Qwen3_5Model`: a separate
-    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
-    (transposed) token embedding (weight tying). ``call`` returns both ``logits``
-    ``(batch, seq, vocab_size)`` and ``last_hidden_state``; :meth:`generate` does
-    greedy decoding with a hybrid cache — a ``(key, value)`` tuple for the full-
-    attention layers and a ``(conv_state, recurrent_state)`` tuple for the
-    Gated-DeltaNet layers, carried per layer. Constructor ``Args`` are inherited
-    from :class:`Qwen3_5Model`.
+    Adds a vocabulary projection on top of :class:`Qwen3_5Model` (a separate
+    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, else the tied token
+    embedding). ``call`` returns both ``logits`` and ``last_hidden_state``. Fast
+    generation comes from :class:`~kerasformers.base.BaseGeneration`, fulfilled here
+    by ``build_cache`` / ``call_with_cache`` over a **hybrid per-layer cache**: a
+    fixed-slot ``(key, value)`` for the full-attention layers and a
+    ``(conv_state, recurrent_state)`` for the Gated-DeltaNet layers (whose recurrence
+    is identical to prefill, so its decode step is exact). Constructor ``Args`` are
+    inherited from :class:`Qwen3_5Model`.
 
         gen = Qwen3_5Generate.from_weights("hf:Qwen/Qwen3.5-...")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
+
+    # Qwen3.5 default stop id. Explicit generate() args override this.
+    eos_token_id = (248044,)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -246,34 +250,45 @@ class Qwen3_5Generate(Qwen3_5Model):
         )
         return {"logits": logits, "last_hidden_state": hidden}
 
-    def generate(
-        self, input_ids, attention_mask=None, max_new_tokens=128, eos_token_id=(248044,)
-    ):
-        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
-        batch, prompt_len = int(input_ids.shape[0]), int(input_ids.shape[1])
-        hidden = self.token_embedding(input_ids)
-        if attention_mask is not None:
-            am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
-            position_ids = ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
-        else:
-            position_ids = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
+    def project(self, hidden):
+        if self.lm_head is not None:
+            return self.lm_head(hidden)
+        return ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
+
+    def rope_tables(self, position_ids):
+        # Partial-rotary cos/sin over the first ``rotary_dim`` channels (float32, to
+        # match the eager call()).
         inv_freq = 1.0 / ops.power(
             self.rope_theta,
             ops.arange(0, self.rotary_dim, 2, dtype="float32") / self.rotary_dim,
         )
         freqs = ops.cast(position_ids, "float32")[..., None] * inv_freq
         emb = ops.concatenate([freqs, freqs], axis=-1)
-        cos, sin = ops.cos(emb), ops.sin(emb)
+        return ops.cos(emb), ops.sin(emb)
+
+    def build_cache(self, token_ids, padding_mask, max_len):
+        # Parallel prefill into a HYBRID per-layer cache: fixed-slot (k, v) for the
+        # full-attention layers, (conv_state, recurrent_state) for the DeltaNet ones.
+        batch = int(token_ids.shape[0])
+        prompt_len = int(token_ids.shape[1])
+        nkv, hd = self.num_kv_heads, self.head_dim
+        pad_mask = None
+        if padding_mask is not None:
+            am = ops.cast(padding_mask, "int32")
+            position_ids = ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
+            am_f = ops.cast(am, "float32")
+            pad_mask = am_f[:, :, None]
+        else:
+            position_ids = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
+        cos, sin = self.rope_tables(position_ids)
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
-        causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
-        pad_mask = None
-        if attention_mask is not None:
-            am_f = ops.cast(am, "float32")
-            causal = causal + (1.0 - am_f)[:, None, None, :] * _MASK_NEG
-            pad_mask = am_f[:, :, None]
+        causal = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
+        if padding_mask is not None:
+            causal = causal + (1.0 - am_f)[:, None, None, :] * MASK_NEG
+        hidden = self.token_embedding(token_ids)
         cache = []
-        for layer in self.decoder_layers:
+        for i, layer in enumerate(self.decoder_layers):
             hidden, state = layer(
                 hidden,
                 cos,
@@ -282,60 +297,42 @@ class Qwen3_5Generate(Qwen3_5Model):
                 use_cache=True,
                 pad_mask=pad_mask,
             )
-            cache.append(state)
-        hidden = self.final_norm(hidden)[:, -1:, :]
-        logits = (
-            self.lm_head(hidden)
-            if self.lm_head is not None
-            else ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
-        )
-        next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
-
-        eos = [
-            int(e)
-            for e in (
-                eos_token_id
-                if isinstance(eos_token_id, (list, tuple))
-                else [eos_token_id]
-            )
-        ]
-        first_eos = eos[0] if eos else 0
-        finished = ops.zeros((batch,), dtype="bool")
-        for e in eos:
-            finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        generated = [next_tok]
-        cur_len = prompt_len
-        for _ in range(max_new_tokens - 1):
-            if bool(ops.all(finished)):
-                break
-            pos = ops.full((batch, 1), cur_len, dtype="int32")
-            inv_freq = 1.0 / ops.power(
-                self.rope_theta,
-                ops.arange(0, self.rotary_dim, 2, dtype="float32") / self.rotary_dim,
-            )
-            freqs = ops.cast(pos, "float32")[..., None] * inv_freq
-            emb = ops.concatenate([freqs, freqs], axis=-1)
-            c, s = ops.cos(emb), ops.sin(emb)
-            hidden = self.token_embedding(next_tok)
-            new_cache = []
-            for i, layer in enumerate(self.decoder_layers):
-                hidden, state = layer(
-                    hidden, c, s, past_key_value=cache[i], use_cache=True
+            if self.layer_types[i] == "full_attention":
+                k, v = state
+                ck = ops.slice_update(
+                    ops.zeros((batch, nkv, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
                 )
-                new_cache.append(state)
-            hidden = self.final_norm(hidden)
-            cache = new_cache
-            logits = (
-                self.lm_head(hidden)
-                if self.lm_head is not None
-                else ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
-            )
-            next_tok = ops.cast(ops.argmax(logits, axis=-1), "int32")
-            next_tok = ops.cast(
-                ops.where(finished[:, None], first_eos, next_tok), "int32"
-            )
-            generated.append(next_tok)
-            cur_len += 1
-            for e in eos:
-                finished = ops.logical_or(finished, next_tok[:, 0] == e)
-        return ops.convert_to_numpy(ops.concatenate(generated, axis=1))
+                cv = ops.slice_update(
+                    ops.zeros((batch, nkv, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
+                )
+                cache.append((ck, cv))
+            else:
+                cache.append(state)
+        cache = tuple(cache)
+        logits = self.project(self.final_norm(hidden)[:, -1, :])
+        return cache, logits
+
+    def call_with_cache(self, token_ids, cache, cache_update_index):
+        # One decode step: DeltaNet layers advance their recurrence; full-attention
+        # layers write into their fixed KV slot at ``pos`` and read [0, pos].
+        batch = int(token_ids.shape[0])
+        pos = cache_update_index
+        positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
+        cos, sin = self.rope_tables(positions)
+        full_idx = next(
+            (i for i, t in enumerate(self.layer_types) if t == "full_attention"), None
+        )
+        key_mask = None
+        if full_idx is not None:
+            max_len = int(cache[full_idx][0].shape[2])
+            key_mask = ops.cast(
+                ops.where(ops.arange(max_len) <= pos, 0.0, MASK_NEG), "float32"
+            )[None, None, None, :]
+        h = self.token_embedding(token_ids)
+        new_cache = []
+        for i, layer in enumerate(self.decoder_layers):
+            h, state = layer.decode_step(h, cos, sin, cache[i], pos, key_mask)
+            new_cache.append(state)
+        cache = tuple(new_cache)
+        logits = self.project(self.final_norm(h))[:, 0, :]
+        return logits, cache

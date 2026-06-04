@@ -3,7 +3,7 @@ import warnings
 import keras
 from keras import layers
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.deberta_v2.deberta_v2_layers import (
     DebertaV2FlattenChoices,
     DebertaV2UnflattenChoices,
@@ -22,7 +22,7 @@ BASE_MODEL_CONFIG = {
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV3Model(BaseModel):
+class DebertaV3Model(FunctionalBaseModel):
     """Instantiates the DeBERTa-v3 encoder backbone.
 
     DeBERTa-v3 keeps DeBERTa-v2's architecture (log-bucketed disentangled
@@ -51,7 +51,8 @@ class DebertaV3Model(BaseModel):
         conv_kernel_size: Integer, conv kernel size (0/None disables). Defaults to `0`.
         conv_act: String, conv activation. Defaults to `"gelu"`.
         hidden_act: String, feed-forward activation. Defaults to `"gelu"`.
-        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-7`.
+        norm_eps: Float, LayerNorm epsilon. Defaults to `1e-7`. The deprecated
+            alias `layer_norm_eps` is still accepted.
         pad_token_id: Integer, padding token id. Defaults to `0`.
         dropout: Float, hidden dropout rate. Defaults to `0.0`.
         attention_dropout: Float, attention dropout rate. Defaults to `0.0`.
@@ -93,7 +94,7 @@ class DebertaV3Model(BaseModel):
         conv_kernel_size=0,
         conv_act="gelu",
         hidden_act="gelu",
-        layer_norm_eps=1e-7,
+        norm_eps=1e-7,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -102,6 +103,7 @@ class DebertaV3Model(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
         pos_att_type = list(pos_att_type)
 
         inputs = {
@@ -132,7 +134,7 @@ class DebertaV3Model(BaseModel):
             conv_kernel_size=conv_kernel_size,
             conv_act=conv_act,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             dropout=dropout,
             attention_dropout=attention_dropout,
         )
@@ -158,7 +160,7 @@ class DebertaV3Model(BaseModel):
         self.conv_kernel_size = conv_kernel_size
         self.conv_act = conv_act
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -181,7 +183,7 @@ class DebertaV3Model(BaseModel):
                 "conv_kernel_size": self.conv_kernel_size,
                 "conv_act": self.conv_act,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -196,7 +198,7 @@ class DebertaV3Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV3MaskedLM(BaseModel):
+class DebertaV3MaskedLM(FunctionalBaseModel):
     """DeBERTa-v3 with the masked-language-modeling head.
 
     Wraps a :class:`DebertaV3Model` backbone and attaches DeBERTa's MLM head — a
@@ -242,11 +244,9 @@ class DebertaV3MaskedLM(BaseModel):
             del src
             if skipped:
                 warnings.warn(
-                    f"Some weights of DebertaV3MaskedLM were not initialized from "
-                    f"the released checkpoint '{variant}' and are newly initialized: "
-                    f"{skipped}. DeBERTa-v3 is ELECTRA/RTD-pretrained and ships no MLM "
-                    f"head, so fine-tune it on a downstream task before using it for "
-                    f"masked-LM predictions.",
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
         return model
@@ -297,7 +297,7 @@ class DebertaV3MaskedLM(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV3SequenceClassify(BaseModel):
+class DebertaV3SequenceClassify(FunctionalBaseModel):
     """DeBERTa-v3 sentence/sequence classifier.
 
     Wraps a :class:`DebertaV3Model` backbone and attaches DeBERTa's context pooler
@@ -349,8 +349,15 @@ class DebertaV3SequenceClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -423,7 +430,7 @@ class DebertaV3SequenceClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV3TokenClassify(BaseModel):
+class DebertaV3TokenClassify(FunctionalBaseModel):
     """DeBERTa-v3 token classifier (e.g. NER / POS tagging).
 
     Wraps a :class:`DebertaV3Model` backbone and attaches dropout plus a per-token
@@ -472,8 +479,15 @@ class DebertaV3TokenClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -538,7 +552,7 @@ class DebertaV3TokenClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV3QnA(BaseModel):
+class DebertaV3QnA(FunctionalBaseModel):
     """DeBERTa-v3 extractive question-answering head.
 
     Wraps a :class:`DebertaV3Model` backbone and attaches a dense span head that
@@ -579,8 +593,15 @@ class DebertaV3QnA(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(self, name="DebertaV3QnA", **kwargs):
@@ -624,7 +645,7 @@ class DebertaV3QnA(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV3MultipleChoice(BaseModel):
+class DebertaV3MultipleChoice(FunctionalBaseModel):
     """DeBERTa-v3 multiple-choice head (e.g. SWAG).
 
     Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
@@ -668,8 +689,15 @@ class DebertaV3MultipleChoice(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(

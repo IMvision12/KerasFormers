@@ -1,7 +1,7 @@
 import keras
 from keras import initializers, layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -501,7 +501,7 @@ def siglip_head(vision_embedding, text_embedding):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SigLIPVisionModel(BaseModel):
+class SigLIPVisionModel(FunctionalBaseModel):
     """SigLIP vision tower as a standalone model.
 
     Patch embedding +
@@ -660,7 +660,7 @@ class SigLIPVisionModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SigLIPTextModel(BaseModel):
+class SigLIPTextModel(FunctionalBaseModel):
     """SigLIP text tower as a standalone model.
 
     Token + positional
@@ -820,7 +820,7 @@ class SigLIPTextModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SigLIPModel(BaseModel):
+class SigLIPModel(FunctionalBaseModel):
     """SigLIP dual encoder (no contrastive head).
 
     Composes :class:`SigLIPVisionModel` and :class:`SigLIPTextModel`
@@ -1018,7 +1018,7 @@ class SigLIPModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SigLIPZeroShotClassify(BaseModel):
+class SigLIPZeroShotClassify(FunctionalBaseModel):
     """SigLIP + sigmoid-similarity head for zero-shot classification / retrieval.
 
     Composes :class:`SigLIPModel` and adds the standard SigLIP head:
@@ -1161,7 +1161,7 @@ class SigLIPZeroShotClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SigLIPImageClassify(BaseModel):
+class SigLIPImageClassify(FunctionalBaseModel):
     """SigLIP vision tower + linear image-classification head.
 
     Composes :class:`SigLIPVisionModel`, mean-pools the

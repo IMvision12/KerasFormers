@@ -11,7 +11,7 @@ from kerasformers.models.sam.sam_image_processor import (
     filter_masks,
     post_process_for_mask_generation,
 )
-from kerasformers.utils.image import get_data_format, load_image
+from kerasformers.utils.image_util import get_data_format, load_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -226,7 +226,7 @@ def sam2_post_process_masks(
 def _load_image_to_numpy(image: Union[str, np.ndarray, "Image.Image"]) -> np.ndarray:
     """Decode various image inputs into a NumPy ``(H, W, 3)`` float32 array.
 
-    Thin wrapper around :func:`kerasformers.utils.image.load_image` that strips an
+    Thin wrapper around :func:`kerasformers.utils.image_util.load_image` that strips an
     optional leading batch axis and casts to float32, matching the dtype the
     rest of the Sam2 pipeline expects.
     """

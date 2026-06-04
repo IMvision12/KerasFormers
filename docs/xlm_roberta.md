@@ -23,7 +23,7 @@ XLM-RoBERTa is **architecturally identical to RoBERTa** — it reuses the same
 encoder, padding-offset position ids, single token-type, `1e-5` LayerNorm, and
 head structures — and differs only in scale: a 250k multilingual SentencePiece
 vocabulary instead of RoBERTa's 50k byte-level BPE. All models are functional
-`BaseModel`s; the head classes compose an `XLMRobertaModel` backbone.
+`FunctionalBaseModel`s; the head classes compose an `XLMRobertaModel` backbone.
 
 ## Loading
 

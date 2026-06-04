@@ -1,9 +1,9 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHT_CONFIG
@@ -211,7 +211,7 @@ def densenet_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DenseNetModel(BaseModel):
+class DenseNetModel(FunctionalBaseModel):
     """Instantiates the DenseNet backbone.
 
     DenseNet introduces dense connectivity within each block: every
@@ -244,7 +244,7 @@ class DenseNetModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -314,7 +314,7 @@ class DenseNetModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -362,7 +362,7 @@ class DenseNetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DenseNetImageClassify(BaseModel):
+class DenseNetImageClassify(FunctionalBaseModel):
     """Instantiates the DenseNet classifier.
 
     This classifier wraps a :class:`DenseNetModel` backbone and attaches
@@ -388,7 +388,7 @@ class DenseNetImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

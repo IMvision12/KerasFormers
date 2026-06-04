@@ -1,14 +1,15 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.vit.vit_layers import (
     ViTAddPositionEmbs,
     ViTClassDistToken,
+    ViTLayerScale,
     ViTMultiHeadSelfAttention,
 )
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import VIT_MODEL_CONFIG, VIT_WEIGHT_CONFIG
@@ -50,7 +51,7 @@ def transformer_block(
         block_prefix=f"blocks_{block_idx}",
     )(x)
     if layer_scale_init:
-        x = LayerScale(
+        x = ViTLayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_1"
         )(x)
     x = keras.layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
@@ -66,7 +67,7 @@ def transformer_block(
         block_idx=block_idx,
     )
     if layer_scale_init:
-        y = LayerScale(
+        y = ViTLayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
         )(y)
     return keras.layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
@@ -150,7 +151,7 @@ def vit_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ViTModel(BaseModel):
+class ViTModel(FunctionalBaseModel):
     """Instantiates the Vision Transformer (ViT) backbone.
 
     ViT splits the input image into fixed-size patches via a convolutional
@@ -198,8 +199,8 @@ class ViTModel(BaseModel):
         use_distillation: Boolean, if `True`, prepend a separate
             distillation token alongside the class token (DeiT-distilled
             style). Defaults to `False`.
-        layer_scale_init: Optional float, initial gamma value for LayerScale
-            applied on both residual branches. If `None`, LayerScale is
+        layer_scale_init: Optional float, initial gamma value for ViTLayerScale
+            applied on both residual branches. If `None`, ViTLayerScale is
             disabled. Defaults to `None`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -208,7 +209,7 @@ class ViTModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -285,7 +286,7 @@ class ViTModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -361,7 +362,7 @@ class ViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ViTImageClassify(BaseModel):
+class ViTImageClassify(FunctionalBaseModel):
     """Instantiates the Vision Transformer (ViT) classifier.
 
     This classifier wraps a :class:`ViTModel` backbone and attaches a
@@ -402,8 +403,8 @@ class ViTImageClassify(BaseModel):
             distillation token alongside the class token and attach a
             second prediction head whose output is averaged with the CLS
             head. Defaults to `False`.
-        layer_scale_init: Optional float, initial gamma value for LayerScale
-            applied on both residual branches. If `None`, LayerScale is
+        layer_scale_init: Optional float, initial gamma value for ViTLayerScale
+            applied on both residual branches. If `None`, ViTLayerScale is
             disabled. Defaults to `None`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -412,7 +413,7 @@ class ViTImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

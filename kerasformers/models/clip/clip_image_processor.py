@@ -6,7 +6,7 @@ from keras import ops
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import get_data_format, load_image
+from kerasformers.utils.image_util import get_data_format, load_image
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -103,8 +103,8 @@ class CLIPImageProcessor(BaseImageProcessor):
     def __init__(
         self,
         image_resolution: int = 224,
-        mean: List[float] = [0.48145466, 0.4578275, 0.40821073],
-        std: List[float] = [0.26862954, 0.26130258, 0.27577711],
+        mean=BaseImageProcessor.OPENAI_CLIP_MEAN,
+        std=BaseImageProcessor.OPENAI_CLIP_STD,
         do_center_crop: bool = True,
         do_normalize: bool = True,
         do_resize: bool = True,
@@ -121,20 +121,8 @@ class CLIPImageProcessor(BaseImageProcessor):
         self.data_format = get_data_format(data_format)
 
     def preprocess(self, image: Any) -> Any:
-        shape = ops.shape(image)
-        num_channels = shape[-1]
-
-        if num_channels == 1:
-            image = ops.repeat(image, 3, axis=-1)
-        elif num_channels == 4:
-            image = image[..., :3]
-        elif num_channels == 3:
-            pass
-        else:
-            raise ValueError(f"Unsupported number of image channels: {num_channels}")
-
-        image = ops.cast(image, "float32")
-        image = ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
+        image = self.to_3_channels(image)
+        image = self.to_unit_range(image)
 
         if self.do_resize:
             image = self._resize_with_aspect_ratio(image)
@@ -143,7 +131,9 @@ class CLIPImageProcessor(BaseImageProcessor):
             image = self._center_crop(image)
 
         if self.do_normalize:
-            image = (image - self.mean) / self.std
+            image = self.normalize_image(
+                image, self.mean, self.std, data_format="channels_last"
+            )
 
         return image
 
@@ -218,12 +208,13 @@ class CLIPImageProcessor(BaseImageProcessor):
                 pil = Image.fromarray(arr.astype(np.uint8))
                 pil = pil.resize((new_w, new_h), Image.BICUBIC)
                 arr = np.array(pil)
-        image = ops.cast(arr, "float32")
-        image = ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
+        image = self.to_unit_range(arr)
         if self.do_center_crop:
             image = self._center_crop(image)
         if self.do_normalize:
-            image = (image - self.mean) / self.std
+            image = self.normalize_image(
+                image, self.mean, self.std, data_format="channels_last"
+            )
         return image
 
     def __call__(

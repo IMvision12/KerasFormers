@@ -1,14 +1,14 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.mobilevit.mobilevit_layers import (
     MobileViTImageToPatchesLayer,
     MobileViTPatchesToImageLayer,
 )
 from kerasformers.models.mobilevit.mobilevit_model import mobilevit_aspp_head
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import (
@@ -430,7 +430,7 @@ def mobilevitv2_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileViTV2Model(BaseModel):
+class MobileViTV2Model(FunctionalBaseModel):
     """Instantiates the MobileViTV2 backbone.
 
     MobileViTV2 builds on MobileViT by replacing the standard quadratic
@@ -463,7 +463,7 @@ class MobileViTV2Model(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -540,7 +540,7 @@ class MobileViTV2Model(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -585,7 +585,7 @@ class MobileViTV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileViTV2ImageClassify(BaseModel):
+class MobileViTV2ImageClassify(FunctionalBaseModel):
     """Instantiates the MobileViTV2 classifier.
 
     This classifier wraps a :class:`MobileViTV2Model` backbone and
@@ -607,7 +607,7 @@ class MobileViTV2ImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -722,7 +722,7 @@ class MobileViTV2ImageClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MobileViTV2SemanticSegment(BaseModel):
+class MobileViTV2SemanticSegment(FunctionalBaseModel):
     """MobileViTV2 + DeepLabV3 semantic segmentation head.
 
     Composes :class:`MobileViTV2Model` with ASPP and a 1x1 classifier conv to

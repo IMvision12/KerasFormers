@@ -1,7 +1,9 @@
+import warnings
+
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DEBERTA_V2_MODEL_CONFIG, DEBERTA_V2_WEIGHT_CONFIG
@@ -157,7 +159,7 @@ def deberta_v2_backbone(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV2Model(BaseModel):
+class DebertaV2Model(FunctionalBaseModel):
     """Instantiates the DeBERTa-v2 encoder backbone.
 
     DeBERTa-v2 extends DeBERTa's disentangled attention with log-bucketed
@@ -187,7 +189,8 @@ class DebertaV2Model(BaseModel):
         conv_kernel_size: Integer, conv kernel size (0/None disables). Defaults to `3`.
         conv_act: String, conv activation. Defaults to `"gelu"`.
         hidden_act: String, feed-forward activation. Defaults to `"gelu"`.
-        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-7`.
+        norm_eps: Float, LayerNorm epsilon. Defaults to `1e-7`. The deprecated
+            alias `layer_norm_eps` is still accepted.
         pad_token_id: Integer, padding token id. Defaults to `0`.
         dropout: Float, hidden dropout rate. Defaults to `0.0`.
         attention_dropout: Float, attention dropout rate. Defaults to `0.0`.
@@ -233,7 +236,7 @@ class DebertaV2Model(BaseModel):
             "conv_kernel_size": hf_config.get("conv_kernel_size") or 0,
             "conv_act": hf_config.get("conv_act") or "gelu",
             "hidden_act": hf_config.get("hidden_act", "gelu"),
-            "layer_norm_eps": hf_config.get("layer_norm_eps", 1e-7),
+            "norm_eps": hf_config.get("layer_norm_eps", 1e-7),
             "pad_token_id": hf_config.get("pad_token_id", 0),
         }
 
@@ -253,7 +256,7 @@ class DebertaV2Model(BaseModel):
         conv_kernel_size=3,
         conv_act="gelu",
         hidden_act="gelu",
-        layer_norm_eps=1e-7,
+        norm_eps=1e-7,
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
@@ -262,6 +265,7 @@ class DebertaV2Model(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
         pos_att_type = list(pos_att_type)
 
         inputs = {
@@ -290,7 +294,7 @@ class DebertaV2Model(BaseModel):
             conv_kernel_size=conv_kernel_size,
             conv_act=conv_act,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             dropout=dropout,
             attention_dropout=attention_dropout,
         )
@@ -316,7 +320,7 @@ class DebertaV2Model(BaseModel):
         self.conv_kernel_size = conv_kernel_size
         self.conv_act = conv_act
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -339,7 +343,7 @@ class DebertaV2Model(BaseModel):
                 "conv_kernel_size": self.conv_kernel_size,
                 "conv_act": self.conv_act,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -354,7 +358,7 @@ class DebertaV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV2MaskedLM(BaseModel):
+class DebertaV2MaskedLM(FunctionalBaseModel):
     """DeBERTa-v2 with the masked-language-modeling head.
 
     Wraps a :class:`DebertaV2Model` backbone and attaches DeBERTa's MLM head — a
@@ -436,7 +440,7 @@ class DebertaV2MaskedLM(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV2SequenceClassify(BaseModel):
+class DebertaV2SequenceClassify(FunctionalBaseModel):
     """DeBERTa-v2 sentence/sequence classifier.
 
     Wraps a :class:`DebertaV2Model` backbone and attaches DeBERTa's context pooler
@@ -486,8 +490,15 @@ class DebertaV2SequenceClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV2Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -560,7 +571,7 @@ class DebertaV2SequenceClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV2TokenClassify(BaseModel):
+class DebertaV2TokenClassify(FunctionalBaseModel):
     """DeBERTa-v2 token classifier (e.g. NER / POS tagging).
 
     Wraps a :class:`DebertaV2Model` backbone and attaches dropout plus a per-token
@@ -607,8 +618,15 @@ class DebertaV2TokenClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV2Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -675,7 +693,7 @@ class DebertaV2TokenClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV2QnA(BaseModel):
+class DebertaV2QnA(FunctionalBaseModel):
     """DeBERTa-v2 extractive question-answering head.
 
     Wraps a :class:`DebertaV2Model` backbone and attaches a dense span head that
@@ -714,8 +732,15 @@ class DebertaV2QnA(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV2Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(self, name="DebertaV2QnA", **kwargs):
@@ -762,7 +787,7 @@ class DebertaV2QnA(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DebertaV2MultipleChoice(BaseModel):
+class DebertaV2MultipleChoice(FunctionalBaseModel):
     """DeBERTa-v2 multiple-choice head (e.g. SWAG).
 
     Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
@@ -804,8 +829,15 @@ class DebertaV2MultipleChoice(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = DebertaV2Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(

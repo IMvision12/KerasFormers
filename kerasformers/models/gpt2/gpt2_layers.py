@@ -52,6 +52,24 @@ class GPT2Attention(layers.Layer):
         out = self.c_proj(out)
         return (out, new_kv) if use_cache else out
 
+    def decode_step(self, hidden_states, cache_k, cache_v, write_pos, key_mask):
+        # Single-token attention against a fixed-size KV cache (no rotary; GPT-2 uses
+        # learned positions added at the embedding). ``key_mask`` blocks empty slots.
+        b = ops.shape(hidden_states)[0]
+        q, k, v = ops.split(self.c_attn(hidden_states), 3, axis=-1)
+        shape = (b, 1, self.num_heads, self.head_dim)
+        q = ops.transpose(ops.reshape(q, shape), (0, 2, 1, 3))
+        k = ops.transpose(ops.reshape(k, shape), (0, 2, 1, 3))
+        v = ops.transpose(ops.reshape(v, shape), (0, 2, 1, 3))
+        cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
+        cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
+        attn = ops.matmul(q, ops.transpose(cache_k, (0, 1, 3, 2))) * self.scaling
+        attn = attn + key_mask
+        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
+        out = ops.matmul(attn, cache_v)
+        out = ops.reshape(ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.embed_dim))
+        return self.c_proj(out), cache_k, cache_v
+
     def get_config(self):
         config = super().get_config()
         config.update({"embed_dim": self.embed_dim, "num_heads": self.num_heads})
@@ -118,6 +136,14 @@ class GPT2Block(layers.Layer):
         hidden_states = hidden_states + attn_out
         hidden_states = hidden_states + self.mlp(self.ln_2(hidden_states))
         return (hidden_states, new_kv) if use_cache else hidden_states
+
+    def decode_step(self, hidden_states, cache_k, cache_v, write_pos, key_mask):
+        attn_out, cache_k, cache_v = self.attn.decode_step(
+            self.ln_1(hidden_states), cache_k, cache_v, write_pos, key_mask
+        )
+        hidden_states = hidden_states + attn_out
+        hidden_states = hidden_states + self.mlp(self.ln_2(hidden_states))
+        return hidden_states, cache_k, cache_v
 
     def get_config(self):
         config = super().get_config()

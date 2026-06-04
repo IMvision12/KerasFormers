@@ -1,10 +1,13 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
-from kerasformers.models.mit.mit_layers import MiTEfficientMultiheadSelfAttention
+from kerasformers.base import FunctionalBaseModel
+from kerasformers.models.mit.mit_layers import (
+    MiTEfficientMultiheadSelfAttention,
+    MiTStochasticDepth,
+)
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHT_CONFIG
@@ -131,7 +134,7 @@ def hierarchical_transformer_encoder_block(
         Tensor of shape ``(B, H*W, project_dim)`` after both residual branches.
     """
     pytorch_stage_idx = stage_idx - 1
-    drop_path_layer = StochasticDepth(drop_prob)
+    drop_path_layer = MiTStochasticDepth(drop_prob)
 
     norm1 = layers.LayerNormalization(
         axis=-1,
@@ -254,7 +257,7 @@ def mit_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MiTModel(BaseModel):
+class MiTModel(FunctionalBaseModel):
     """Instantiates the Mix Transformer (MiT) backbone — the SegFormer encoder.
 
     MiT is a hierarchical transformer backbone built from four stages.
@@ -298,7 +301,7 @@ class MiTModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -371,7 +374,7 @@ class MiTModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -419,7 +422,7 @@ class MiTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MiTImageClassify(BaseModel):
+class MiTImageClassify(FunctionalBaseModel):
     """Instantiates the Mix Transformer (MiT) classifier.
 
     This classifier wraps a :class:`MiTModel` backbone and attaches a
@@ -447,7 +450,7 @@ class MiTImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

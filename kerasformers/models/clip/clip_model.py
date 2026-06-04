@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
@@ -243,7 +243,7 @@ def clip_head(image_embeddings, text_embeddings):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPVisionModel(BaseModel):
+class CLIPVisionModel(FunctionalBaseModel):
     """CLIP vision tower as a standalone model — no text encoder, no projection.
 
     The patch-embedding +
@@ -396,7 +396,7 @@ class CLIPVisionModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPTextModel(BaseModel):
+class CLIPTextModel(FunctionalBaseModel):
     """CLIP text tower as a standalone model — no vision encoder, no projection.
 
     Token + positional
@@ -555,7 +555,7 @@ class CLIPTextModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPImageEmbed(BaseModel):
+class CLIPImageEmbed(FunctionalBaseModel):
     """CLIP vision tower + ``visual_projection`` — joint-space image embeddings.
 
     Composes
@@ -714,7 +714,7 @@ class CLIPImageEmbed(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPTextEmbed(BaseModel):
+class CLIPTextEmbed(FunctionalBaseModel):
     """CLIP text tower + ``text_projection`` — joint-space text embeddings.
 
     Composes
@@ -888,7 +888,7 @@ class CLIPTextEmbed(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPModel(BaseModel):
+class CLIPModel(FunctionalBaseModel):
     """Contrastive Language-Image Pre-training (CLIP) dual encoder.
 
     Joint vision + text encoder pair projecting to a shared embedding
@@ -1109,7 +1109,7 @@ class CLIPModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPZeroShotClassify(BaseModel):
+class CLIPZeroShotClassify(FunctionalBaseModel):
     """CLIP + contrastive similarity head for zero-shot classification / retrieval.
 
     Composes the same vision + text encoders as :class:`CLIPModel` and
@@ -1249,7 +1249,7 @@ class CLIPZeroShotClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class CLIPImageClassify(BaseModel):
+class CLIPImageClassify(FunctionalBaseModel):
     """CLIP vision encoder + linear image-classification head.
 
     Uses **only the CLIP

@@ -3,9 +3,9 @@ from typing import Optional
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHT_CONFIG
@@ -309,7 +309,7 @@ def resnet_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResNetModel(BaseModel):
+class ResNetModel(FunctionalBaseModel):
     """Instantiates the Residual Network (ResNet) backbone.
 
     ResNet stacks 4 stages of residual bottleneck blocks at progressively
@@ -341,7 +341,7 @@ class ResNetModel(BaseModel):
         width_factor: Integer, width scaling factor (forwarded to
             ResNeXt blocks). Defaults to `2`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -421,7 +421,7 @@ class ResNetModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -508,7 +508,7 @@ class ResNetModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class ResNetImageClassify(BaseModel):
+class ResNetImageClassify(FunctionalBaseModel):
     """Instantiates the Residual Network (ResNet) classifier.
 
     This classifier wraps a :class:`ResNetModel` backbone and attaches a
@@ -538,7 +538,7 @@ class ResNetImageClassify(BaseModel):
         width_factor: Integer, width scaling factor (forwarded to
             ResNeXt blocks). Defaults to `2`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

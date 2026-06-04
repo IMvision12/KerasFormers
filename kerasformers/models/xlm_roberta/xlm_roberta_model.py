@@ -1,7 +1,9 @@
+import warnings
+
 import keras
 from keras import layers
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.roberta.roberta_layers import (
     RobertaFlattenChoices,
     RobertaUnflattenChoices,
@@ -21,7 +23,7 @@ MLM_WEIGHT_CONFIG = {
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaModel(BaseModel):
+class XLMRobertaModel(FunctionalBaseModel):
     """Instantiates the XLM-RoBERTa encoder backbone.
 
     XLM-RoBERTa is architecturally identical to RoBERTa (padding-offset position
@@ -49,7 +51,8 @@ class XLMRobertaModel(BaseModel):
             Defaults to `514`.
         type_vocab_size: Integer, number of token-type ids. Defaults to `1`.
         hidden_act: String, feed-forward activation. Defaults to `"gelu"`.
-        layer_norm_eps: Float, LayerNorm epsilon. Defaults to `1e-5`.
+        norm_eps: Float, LayerNorm epsilon. Defaults to `1e-5`. The deprecated
+            alias ``layer_norm_eps`` is still accepted.
         pad_token_id: Integer, padding token id (also the position offset).
             Defaults to `1`.
         dropout: Float, hidden dropout rate. Defaults to `0.0`.
@@ -82,7 +85,7 @@ class XLMRobertaModel(BaseModel):
             "max_position_embeddings": hf_config["max_position_embeddings"],
             "type_vocab_size": hf_config["type_vocab_size"],
             "hidden_act": hf_config.get("hidden_act", "gelu"),
-            "layer_norm_eps": hf_config.get("layer_norm_eps", 1e-5),
+            "norm_eps": hf_config.get("layer_norm_eps", 1e-5),
             "pad_token_id": hf_config.get("pad_token_id", 1),
         }
 
@@ -96,7 +99,7 @@ class XLMRobertaModel(BaseModel):
         max_position_embeddings=514,
         type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-5,
+        norm_eps=1e-5,
         pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
@@ -106,6 +109,7 @@ class XLMRobertaModel(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         inputs = {
             "input_ids": layers.Input(shape=(None,), dtype="int32", name="input_ids"),
@@ -129,7 +133,7 @@ class XLMRobertaModel(BaseModel):
             type_vocab_size=type_vocab_size,
             pad_token_id=pad_token_id,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             dropout=dropout,
             attention_dropout=attention_dropout,
             add_pooler=add_pooler,
@@ -149,7 +153,7 @@ class XLMRobertaModel(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -167,7 +171,7 @@ class XLMRobertaModel(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -183,7 +187,7 @@ class XLMRobertaModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaMaskedLM(BaseModel):
+class XLMRobertaMaskedLM(FunctionalBaseModel):
     """XLM-RoBERTa with the masked-language-modeling head.
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches the
@@ -227,7 +231,7 @@ class XLMRobertaMaskedLM(BaseModel):
         max_position_embeddings=514,
         type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-5,
+        norm_eps=1e-5,
         pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
@@ -236,6 +240,7 @@ class XLMRobertaMaskedLM(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = XLMRobertaModel(
             vocab_size=vocab_size,
@@ -246,7 +251,7 @@ class XLMRobertaMaskedLM(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -257,9 +262,7 @@ class XLMRobertaMaskedLM(BaseModel):
         x = backbone.output["last_hidden_state"]
         x = layers.Dense(embed_dim, name="lm_head_dense")(x)
         x = layers.Activation("gelu", name="lm_head_act")(x)
-        x = layers.LayerNormalization(epsilon=layer_norm_eps, name="lm_head_layernorm")(
-            x
-        )
+        x = layers.LayerNormalization(epsilon=norm_eps, name="lm_head_layernorm")(x)
         logits = layers.Dense(vocab_size, name="lm_head_decoder")(x)
 
         super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
@@ -272,7 +275,7 @@ class XLMRobertaMaskedLM(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -289,7 +292,7 @@ class XLMRobertaMaskedLM(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -304,7 +307,7 @@ class XLMRobertaMaskedLM(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaSequenceClassify(BaseModel):
+class XLMRobertaSequenceClassify(FunctionalBaseModel):
     """XLM-RoBERTa sentence/sequence classifier.
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches the
@@ -356,8 +359,15 @@ class XLMRobertaSequenceClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -370,7 +380,7 @@ class XLMRobertaSequenceClassify(BaseModel):
         max_position_embeddings=514,
         type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-5,
+        norm_eps=1e-5,
         pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
@@ -382,6 +392,7 @@ class XLMRobertaSequenceClassify(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = XLMRobertaModel(
             vocab_size=vocab_size,
@@ -392,7 +403,7 @@ class XLMRobertaSequenceClassify(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -418,7 +429,7 @@ class XLMRobertaSequenceClassify(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -438,7 +449,7 @@ class XLMRobertaSequenceClassify(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -456,7 +467,7 @@ class XLMRobertaSequenceClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaTokenClassify(BaseModel):
+class XLMRobertaTokenClassify(FunctionalBaseModel):
     """XLM-RoBERTa token classifier (e.g. multilingual NER / POS tagging).
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches dropout
@@ -503,8 +514,15 @@ class XLMRobertaTokenClassify(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -517,7 +535,7 @@ class XLMRobertaTokenClassify(BaseModel):
         max_position_embeddings=514,
         type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-5,
+        norm_eps=1e-5,
         pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
@@ -529,6 +547,7 @@ class XLMRobertaTokenClassify(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = XLMRobertaModel(
             vocab_size=vocab_size,
@@ -539,7 +558,7 @@ class XLMRobertaTokenClassify(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -563,7 +582,7 @@ class XLMRobertaTokenClassify(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -583,7 +602,7 @@ class XLMRobertaTokenClassify(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -601,7 +620,7 @@ class XLMRobertaTokenClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaQnA(BaseModel):
+class XLMRobertaQnA(FunctionalBaseModel):
     """XLM-RoBERTa extractive question-answering head.
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches a dense
@@ -640,8 +659,15 @@ class XLMRobertaQnA(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -654,7 +680,7 @@ class XLMRobertaQnA(BaseModel):
         max_position_embeddings=514,
         type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-5,
+        norm_eps=1e-5,
         pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
@@ -663,6 +689,7 @@ class XLMRobertaQnA(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         backbone = XLMRobertaModel(
             vocab_size=vocab_size,
@@ -673,7 +700,7 @@ class XLMRobertaQnA(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -695,7 +722,7 @@ class XLMRobertaQnA(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -712,7 +739,7 @@ class XLMRobertaQnA(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
@@ -727,7 +754,7 @@ class XLMRobertaQnA(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class XLMRobertaMultipleChoice(BaseModel):
+class XLMRobertaMultipleChoice(FunctionalBaseModel):
     """XLM-RoBERTa multiple-choice head (e.g. multilingual XCOPA / SWAG).
 
     Takes a dict of ``(B, num_choices, seq)`` int tensors, flattens the choices
@@ -768,8 +795,15 @@ class XLMRobertaMultipleChoice(BaseModel):
         model = super().from_release(variant, load_weights=False, **kwargs)
         if load_weights:
             src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            copy_weights_by_path_suffix(src, model)
+            skipped = copy_weights_by_path_suffix(src, model)
             del src
+            if skipped:
+                warnings.warn(
+                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
+                    f"randomly initialized — the loaded checkpoint has no "
+                    f"weights for them. Fine-tune before use.",
+                    stacklevel=2,
+                )
         return model
 
     def __init__(
@@ -782,7 +816,7 @@ class XLMRobertaMultipleChoice(BaseModel):
         max_position_embeddings=514,
         type_vocab_size=1,
         hidden_act="gelu",
-        layer_norm_eps=1e-5,
+        norm_eps=1e-5,
         pad_token_id=1,
         dropout=0.0,
         attention_dropout=0.0,
@@ -793,6 +827,7 @@ class XLMRobertaMultipleChoice(BaseModel):
     ):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
             kwargs.pop(k, None)
+        norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
         input_ids = layers.Input(
             shape=(num_choices, None), dtype="int32", name="input_ids"
@@ -813,7 +848,7 @@ class XLMRobertaMultipleChoice(BaseModel):
             max_position_embeddings=max_position_embeddings,
             type_vocab_size=type_vocab_size,
             hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
+            layer_norm_eps=norm_eps,
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
@@ -848,7 +883,7 @@ class XLMRobertaMultipleChoice(BaseModel):
         self.max_position_embeddings = max_position_embeddings
         self.type_vocab_size = type_vocab_size
         self.hidden_act = hidden_act
-        self.layer_norm_eps = layer_norm_eps
+        self.norm_eps = norm_eps
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
@@ -867,7 +902,7 @@ class XLMRobertaMultipleChoice(BaseModel):
                 "max_position_embeddings": self.max_position_embeddings,
                 "type_vocab_size": self.type_vocab_size,
                 "hidden_act": self.hidden_act,
-                "layer_norm_eps": self.layer_norm_eps,
+                "norm_eps": self.norm_eps,
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,

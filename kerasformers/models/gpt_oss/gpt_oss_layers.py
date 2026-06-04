@@ -266,6 +266,49 @@ class GptOssAttention(layers.Layer):
         out = self.o_proj(out)
         return (out, new_kv) if use_cache else out
 
+    def decode_step(
+        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+    ):
+        # Single-token sink attention against a fixed-size KV cache. ``key_mask``
+        # (additive, (.., max_len)) is the full or sliding-window mask for this layer
+        # and also blocks the still-empty cache slots.
+        b = ops.shape(hidden_states)[0]
+        q = ops.reshape(
+            self.q_proj(hidden_states), (b, 1, self.num_heads, self.head_dim)
+        )
+        k = ops.reshape(
+            self.k_proj(hidden_states), (b, 1, self.num_kv_heads, self.head_dim)
+        )
+        v = ops.reshape(
+            self.v_proj(hidden_states), (b, 1, self.num_kv_heads, self.head_dim)
+        )
+        q = ops.transpose(q, (0, 2, 1, 3))
+        k = ops.transpose(k, (0, 2, 1, 3))
+        v = ops.transpose(v, (0, 2, 1, 3))
+        cos = ops.expand_dims(cos, axis=1)
+        sin = ops.expand_dims(sin, axis=1)
+        q = q * cos + rotate_half(q) * sin
+        k = k * cos + rotate_half(k) * sin
+        cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
+        cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
+        kk, vv = cache_k, cache_v
+        if self.num_kv_groups > 1:
+            kk = ops.repeat(kk, self.num_kv_groups, axis=1)
+            vv = ops.repeat(vv, self.num_kv_groups, axis=1)
+        attn = ops.matmul(q, ops.transpose(kk, (0, 1, 3, 2))) * self.scaling
+        attn = attn + key_mask
+        sink_col = ops.zeros_like(attn[..., :1]) + ops.reshape(
+            self.sinks, (1, self.num_heads, 1, 1)
+        )
+        combined = ops.concatenate([attn, sink_col], axis=-1)
+        probs = ops.softmax(ops.cast(combined, "float32"), axis=-1)
+        scores = ops.cast(probs[..., :-1], vv.dtype)
+        out = ops.matmul(scores, vv)
+        out = ops.reshape(
+            ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.head_dim)
+        )
+        return self.o_proj(out), cache_k, cache_v
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -350,6 +393,20 @@ class GptOssDecoderLayer(layers.Layer):
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = residual + self.mlp(hidden_states)
         return (hidden_states, new_kv) if use_cache else hidden_states
+
+    def decode_step(
+        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+    ):
+        residual = hidden_states
+        x = self.input_layernorm(hidden_states)
+        attn_out, cache_k, cache_v = self.self_attn.decode_step(
+            x, cos, sin, cache_k, cache_v, write_pos, key_mask
+        )
+        hidden_states = residual + attn_out
+        residual = hidden_states
+        x = self.post_attention_layernorm(hidden_states)
+        hidden_states = residual + self.mlp(x)
+        return hidden_states, cache_k, cache_v
 
     def get_config(self):
         config = super().get_config()

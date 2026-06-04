@@ -1,7 +1,7 @@
 import keras
 from keras import layers
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
 from kerasformers.models.mit.mit_model import MiTModel
 from kerasformers.utils import standardize_input_shape
@@ -96,7 +96,7 @@ def segformer_head(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SegFormerModel(BaseModel):
+class SegFormerModel(FunctionalBaseModel):
     """SegFormer hierarchical Transformer backbone (no decode head).
 
     Wraps the MiT (Mix Transformer) backbone in ``as_backbone=True``
@@ -183,7 +183,7 @@ class SegFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SegFormerSemanticSegment(BaseModel):
+class SegFormerSemanticSegment(FunctionalBaseModel):
     """SegFormer full semantic segmentation model (backbone + decode head).
 
     Composes :class:`SegFormerModel` and adds the all-MLP decode head,

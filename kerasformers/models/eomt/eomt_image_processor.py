@@ -5,8 +5,11 @@ import numpy as np
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import get_data_format, load_image
-from kerasformers.utils.labels import COCO_PANOPTIC_133_CLASSES, COCO_PANOPTIC_STUFF_IDS
+from kerasformers.utils.image_util import get_data_format, load_image
+from kerasformers.utils.labels_util import (
+    COCO_PANOPTIC_133_CLASSES,
+    COCO_PANOPTIC_STUFF_IDS,
+)
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)

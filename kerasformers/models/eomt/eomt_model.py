@@ -1,9 +1,8 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
-from kerasformers.layers import StochasticDepth
 from kerasformers.utils import standardize_input_shape
 
 from .config import EOMT_CONFIG, EOMT_WEIGHTS
@@ -12,6 +11,7 @@ from .eomt_layers import (
     EoMTEmbeddings,
     EoMTLayerScale,
     EoMTQueryInjection,
+    EoMTStochasticDepth,
 )
 
 
@@ -90,10 +90,10 @@ def eomt_encoder_layer(
     Structure (matches the EoMT / DINOv2 reference):
 
     1. Pre-norm → :class:`EoMTAttention` → :class:`EoMTLayerScale` →
-       :class:`StochasticDepth` (if ``drop_path_rate > 0``) → residual.
+       :class:`EoMTStochasticDepth` (if ``drop_path_rate > 0``) → residual.
     2. Pre-norm → :func:`eomt_mlp` *or* :func:`eomt_swiglu_ffn`
        (selected by ``use_swiglu_ffn``) → :class:`EoMTLayerScale` →
-       :class:`StochasticDepth` → residual.
+       :class:`EoMTStochasticDepth` → residual.
 
     All sublayer names are deterministic (``{block_prefix}_*``) so the
     source EoMT state-dict can be transferred by name.
@@ -131,7 +131,7 @@ def eomt_encoder_layer(
         init_value=layerscale_value, name=f"{block_prefix}_layer_scale1"
     )(hidden_states)
     drop_path = (
-        StochasticDepth(drop_path_rate, name=f"{block_prefix}_drop_path")
+        EoMTStochasticDepth(drop_path_rate, name=f"{block_prefix}_drop_path")
         if drop_path_rate > 0.0
         else layers.Identity(name=f"{block_prefix}_identity")
     )
@@ -352,7 +352,7 @@ def eomt_functional(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EoMTModel(BaseModel):
+class EoMTModel(FunctionalBaseModel):
     """EoMT encoder backbone with query injection (no task heads).
 
     Builds the plain DINOv2-style ViT encoder used by EoMT, including
@@ -491,7 +491,7 @@ class EoMTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EoMTUniversalSegment(BaseModel):
+class EoMTUniversalSegment(FunctionalBaseModel):
     """EoMT full universal-segmentation model (encoder + class + mask heads).
 
     Composes :class:`EoMTModel` and adds the class-prediction head, the

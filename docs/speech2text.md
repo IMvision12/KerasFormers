@@ -70,7 +70,7 @@ Variant ids for `Speech2TextModel.from_weights`:
 
 ## Model
 
-`Speech2TextModel` is a `BaseModel` (Functional) subclass that wires the encoder
+`Speech2TextModel` is a `FunctionalBaseModel` (Functional) subclass that wires the encoder
 and decoder into a single graph. Both are exposed as attributes for
 inference / generation paths:
 

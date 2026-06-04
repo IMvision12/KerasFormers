@@ -5,8 +5,8 @@ import numpy as np
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import get_data_format, preprocess_image
-from kerasformers.utils.labels import ADE20K_150_CLASSES
+from kerasformers.utils.image_util import get_data_format
+from kerasformers.utils.labels_util import ADE20K_150_CLASSES
 
 
 class SegFormerImageProcessor(BaseImageProcessor):
@@ -124,7 +124,7 @@ class SegFormerImageProcessor(BaseImageProcessor):
                 )
                 image = (image - mean) / std
         else:
-            image, _, _, _ = preprocess_image(
+            image, _, _, _ = self.preprocess_image(
                 image,
                 target_size=(self.size["height"], self.size["width"]),
                 image_mean=self.image_mean if self.do_normalize else None,
@@ -179,7 +179,7 @@ def segformer_post_process_semantic_segmentation(
             names. If ``None``, defaults to ADE20K class names (150
             classes). Provide this when using a model fine-tuned on a
             custom dataset (e.g. Cityscapes names via
-            ``kerasformers.utils.labels.CITYSCAPES_19_CLASSES``).
+            ``kerasformers.utils.labels_util.CITYSCAPES_19_CLASSES``).
         data_format: Layout of the channel axis in ``outputs``. ``None``
             resolves to the global setting from
             ``keras.config.image_data_format()``.

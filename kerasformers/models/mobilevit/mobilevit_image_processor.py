@@ -5,8 +5,8 @@ import numpy as np
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import get_data_format, load_image
-from kerasformers.utils.labels import PASCAL_VOC_CLASSES
+from kerasformers.utils.image_util import get_data_format, load_image
+from kerasformers.utils.labels_util import PASCAL_VOC_CLASSES
 
 
 class MobileViTImageProcessor(BaseImageProcessor):

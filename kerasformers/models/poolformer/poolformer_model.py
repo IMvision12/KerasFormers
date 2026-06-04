@@ -1,9 +1,9 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHT_CONFIG
@@ -58,9 +58,9 @@ def poolformer_block(
     channels_axis,
     name,
 ):
-    """PoolFormer block: pooling-based token mixer + Conv MLP with LayerScale.
+    """PoolFormer block: pooling-based token mixer + Conv MLP with PoolFormerLayerScale.
 
-    Two residual branches each wrapped with GroupNorm + LayerScale +
+    Two residual branches each wrapped with GroupNorm + PoolFormerLayerScale +
     stochastic depth. Token mixing is implemented as
     ``avg_pool(x) - x`` (equivalent to subtracting the pooled signal).
 
@@ -70,7 +70,7 @@ def poolformer_block(
         mlp_ratio: Hidden-dim multiplier inside the Conv MLP.
         drop_rate: Dropout rate inside the MLP.
         drop_path_rate: Stochastic-depth drop rate (no-op when 0).
-        init_scale: Initial LayerScale value for the residual branches.
+        init_scale: Initial PoolFormerLayerScale value for the residual branches.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
         name: Layer-name prefix.
@@ -89,10 +89,10 @@ def poolformer_block(
     )(x)
     x = layers.Subtract(name=f"{name}_token_mixer")([x_pool, x])
 
-    layer_scale_1 = LayerScale(init_scale, name=f"{name}_layerscale_1")(x)
+    layer_scale_1 = PoolFormerLayerScale(init_scale, name=f"{name}_layerscale_1")(x)
 
     if drop_path_rate > 0:
-        layer_scale_1 = StochasticDepth(drop_path_rate)(layer_scale_1)
+        layer_scale_1 = PoolFormerStochasticDepth(drop_path_rate)(layer_scale_1)
 
     x = layers.Add(name=f"{name}_add_1")([shortcut, layer_scale_1])
 
@@ -109,10 +109,10 @@ def poolformer_block(
         name=f"{name}_mlp",
     )
 
-    layer_scale_2 = LayerScale(init_scale, name=f"{name}_layerscale_2")(x)
+    layer_scale_2 = PoolFormerLayerScale(init_scale, name=f"{name}_layerscale_2")(x)
 
     if drop_path_rate > 0:
-        layer_scale_2 = StochasticDepth(drop_path_rate)(layer_scale_2)
+        layer_scale_2 = PoolFormerStochasticDepth(drop_path_rate)(layer_scale_2)
 
     x = layers.Add(name=f"{name}_add_2")([shortcut, layer_scale_2])
 
@@ -141,7 +141,7 @@ def poolformer_backbone_feature(
         mlp_ratio: Hidden-dim multiplier inside each block's MLP.
         drop_rate: Dropout rate inside MLPs.
         drop_path_rate: Maximum stochastic-depth rate (linearly scaled across blocks).
-        init_scale: Initial LayerScale value for the residual branches.
+        init_scale: Initial PoolFormerLayerScale value for the residual branches.
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis of the channel dimension.
         return_stages: If True, return a list of the 4 per-stage feature maps
@@ -209,7 +209,7 @@ def poolformer_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class PoolFormerModel(BaseModel):
+class PoolFormerModel(FunctionalBaseModel):
     """Instantiates the PoolFormer backbone.
 
     PoolFormer is a MetaFormer instantiation where the token-mixing
@@ -217,7 +217,7 @@ class PoolFormerModel(BaseModel):
     ``avg_pool(x) - x``) rather than self-attention or an MLP. By
     matching transformer-style results with such a trivial mixer, it
     demonstrates that the MetaFormer template — norm + token mixer +
-    norm + channel MLP, each wrapped in residual + LayerScale + drop
+    norm + channel MLP, each wrapped in residual + PoolFormerLayerScale + drop
     path — is what matters, not the mixer itself. The network has 4
     stages with stride-2 conv downsamples between them.
 
@@ -239,7 +239,7 @@ class PoolFormerModel(BaseModel):
         drop_rate: Float, dropout rate inside MLPs. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled across blocks. Defaults to `0.0`.
-        init_scale: Float, initial LayerScale value for the residual
+        init_scale: Float, initial PoolFormerLayerScale value for the residual
             branches. Defaults to `1e-5`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -248,7 +248,7 @@ class PoolFormerModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -324,7 +324,7 @@ class PoolFormerModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -381,7 +381,7 @@ class PoolFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class PoolFormerImageClassify(BaseModel):
+class PoolFormerImageClassify(FunctionalBaseModel):
     """Instantiates the PoolFormer classifier.
 
     This classifier wraps a :class:`PoolFormerModel` backbone and
@@ -404,7 +404,7 @@ class PoolFormerImageClassify(BaseModel):
         drop_rate: Float, dropout rate inside MLPs. Defaults to `0.0`.
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly scaled across blocks. Defaults to `0.0`.
-        init_scale: Float, initial LayerScale value for the residual
+        init_scale: Float, initial PoolFormerLayerScale value for the residual
             branches. Defaults to `1e-5`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -413,7 +413,7 @@ class PoolFormerImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -531,3 +531,58 @@ class PoolFormerImageClassify(BaseModel):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class PoolFormerLayerScale(layers.Layer):
+    """Learnable per-channel scale (x * gamma), gamma initialized to layer_scale_init."""
+
+    def __init__(self, layer_scale_init, **kwargs):
+        super().__init__(**kwargs)
+        self.layer_scale_init = layer_scale_init
+
+    def build(self, input_shape):
+        self.gamma = self.add_weight(
+            shape=(input_shape[-1],),
+            initializer=keras.initializers.Constant(self.layer_scale_init),
+            trainable=True,
+        )
+
+    def call(self, x):
+        return x * self.gamma
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"layer_scale_init": self.layer_scale_init})
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class PoolFormerStochasticDepth(keras.layers.Layer):
+    """Stochastic depth: randomly drops the residual path during training (identity at inference)."""
+
+    def __init__(self, drop_path_rate, seed=None, **kwargs):
+        super().__init__(**kwargs)
+        if not 0 <= drop_path_rate <= 1:
+            raise ValueError(
+                f"drop_path_rate should be between 0 and 1, got {drop_path_rate}"
+            )
+        self.drop_path_rate = drop_path_rate
+        self.seed = seed
+        self.seed_generator = keras.random.SeedGenerator(seed)
+
+    def call(self, x, training=None):
+        if training:
+            keep_prob = 1 - self.drop_path_rate
+            shape = (keras.ops.shape(x)[0],) + (1,) * (len(keras.ops.shape(x)) - 1)
+            random_tensor = keep_prob + keras.random.uniform(
+                shape, 0, 1, seed=self.seed_generator
+            )
+            random_tensor = keras.ops.cast(keras.ops.floor(random_tensor), x.dtype)
+            return (x / keep_prob) * random_tensor
+        return x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"drop_path_rate": self.drop_path_rate, "seed": self.seed})
+        return config

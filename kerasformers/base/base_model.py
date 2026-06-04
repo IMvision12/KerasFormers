@@ -124,7 +124,7 @@ def download_hf_state_dict(hf_id, token=None):
 class WeightLoadingMixin:
     """Unified pretrained-weight loading API shared by all kerasformers models.
 
-    Mixed into :class:`BaseModel` (functional models) and
+    Mixed into :class:`FunctionalBaseModel` (functional models) and
     :class:`SubclassedBaseModel` (imperative / subclassed models). Kept as a
     plain mixin — **not** a ``keras.Model`` subclass — so those two bases stay
     independent ``keras.Model`` subclasses (see :class:`SubclassedBaseModel`
@@ -146,7 +146,7 @@ class WeightLoadingMixin:
 
     .. code-block:: python
 
-        class OwlViTDetect(BaseModel):
+        class OwlViTDetect(FunctionalBaseModel):
             BASE_MODEL_CONFIG = OWLVIT_CONFIG
             BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS
 
@@ -191,15 +191,14 @@ class WeightLoadingMixin:
             load_weights: If ``False``, only the architecture is built
                 (random init). For ``hf:`` ids, ``config.json`` is still
                 fetched to size the model; the weight files are not.
-            skip_mismatch: If ``True``, layers whose shape in the
-                checkpoint disagrees with the instantiated model are
-                skipped during weight load and left at their default
-                initialization. Useful for fine-tuning: pass
-                ``num_classes=N, skip_mismatch=True`` to swap in a new
-                classifier head while loading the rest of the backbone.
-                Only applied on the kerasformers-release path (``.h5`` /
-                ``.json`` URLs); ``hf:`` paths go through hand-mapped
-                transfer functions and ignore this flag.
+            skip_mismatch: If ``True``, weights whose checkpoint shape
+                disagrees with the instantiated model are skipped during
+                load and left at their default initialization. Useful for
+                fine-tuning: pass ``num_classes=N, skip_mismatch=True`` to
+                swap in a new classifier head while loading the rest of the
+                backbone. Applied on both the kerasformers-release path
+                (``.h5`` / ``.json`` ``load_weights``) and the ``hf:`` /
+                converter transfer path (mismatched targets left at init).
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` when applicable).
 
@@ -458,7 +457,7 @@ class WeightLoadingMixin:
         )
 
 
-class BaseModel(WeightLoadingMixin, keras.Model):
+class FunctionalBaseModel(WeightLoadingMixin, keras.Model):
     """Base for *functional* kerasformers models (CLIP, ViT, detectors, …) that
     build themselves with ``super().__init__(inputs=..., outputs=...)``."""
 
@@ -466,7 +465,7 @@ class BaseModel(WeightLoadingMixin, keras.Model):
 class SubclassedBaseModel(WeightLoadingMixin, keras.Model):
     """Base for *imperative / subclassed* kerasformers models (Qwen LLMs & VLMs).
 
-    Deliberately a **separate** ``keras.Model`` subclass from :class:`BaseModel`,
+    Deliberately a **separate** ``keras.Model`` subclass from :class:`FunctionalBaseModel`,
     not a subclass of it. When a functional model is built, Keras runs
     ``inject_functional_model_class`` and rewrites the functional base's
     ``__bases__`` from ``keras.Model`` to ``Functional`` (functional models rely

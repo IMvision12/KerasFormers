@@ -1,12 +1,14 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.efficientformer.efficientformer_layers import (
     EfficientFormerAttention4D,
+    EfficientFormerLayerScale,
+    EfficientFormerStochasticDepth,
 )
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTFORMER_MODEL_CONFIG, EFFICIENTFORMER_WEIGHT_CONFIG
@@ -104,7 +106,7 @@ def meta_block_2d(
         mlp_ratio: Hidden-feature multiplier for the conv MLP.
         drop: Dropout rate applied inside the MLP.
         drop_path: Stochastic-depth drop rate applied on each residual branch.
-        layer_scale_init: Initial value for the LayerScale gamma parameter.
+        layer_scale_init: Initial value for the EfficientFormerLayerScale gamma parameter.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
         data_format: Keras data-format string.
         name: Prefix used to name the layers inside the block.
@@ -121,9 +123,9 @@ def meta_block_2d(
         name=f"{name}_pool_pool",
     )(inputs)
     x = layers.Subtract(name=f"{name}_pool_sub")([pooled, inputs])
-    x = LayerScale(layer_scale_init, name=f"{name}_ls1")(x)
+    x = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls1")(x)
     if drop_path > 0.0:
-        x = StochasticDepth(drop_path, name=f"{name}_drop_path1")(x)
+        x = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path1")(x)
     x = layers.Add(name=f"{name}_add1")([inputs, x])
 
     # MLP
@@ -136,9 +138,9 @@ def meta_block_2d(
         data_format=data_format,
         name=f"{name}_mlp",
     )
-    y = LayerScale(layer_scale_init, name=f"{name}_ls2")(y)
+    y = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls2")(y)
     if drop_path > 0.0:
-        y = StochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
+        y = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
     outputs = layers.Add(name=f"{name}_add2")([x, y])
     return outputs
 
@@ -161,7 +163,7 @@ def meta_block_1d(
         mlp_ratio: Hidden-feature multiplier for the Dense MLP.
         drop: Dropout rate applied inside the MLP.
         drop_path: Stochastic-depth drop rate applied on each residual branch.
-        layer_scale_init: Initial value for the LayerScale gamma parameter.
+        layer_scale_init: Initial value for the EfficientFormerLayerScale gamma parameter.
         resolution: Spatial side length used to size the attention biases.
         name: Prefix used to name the layers inside the block.
 
@@ -172,9 +174,9 @@ def meta_block_1d(
     y = EfficientFormerAttention4D(dim=dim, resolution=resolution, name=f"{name}_attn")(
         y
     )
-    y = LayerScale(layer_scale_init, name=f"{name}_ls1")(y)
+    y = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls1")(y)
     if drop_path > 0.0:
-        y = StochasticDepth(drop_path, name=f"{name}_drop_path1")(y)
+        y = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path1")(y)
     x = layers.Add(name=f"{name}_add1")([inputs, y])
 
     # MLP
@@ -186,9 +188,9 @@ def meta_block_1d(
         drop=drop,
         name=f"{name}_mlp",
     )
-    y = LayerScale(layer_scale_init, name=f"{name}_ls2")(y)
+    y = EfficientFormerLayerScale(layer_scale_init, name=f"{name}_ls2")(y)
     if drop_path > 0.0:
-        y = StochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
+        y = EfficientFormerStochasticDepth(drop_path, name=f"{name}_drop_path2")(y)
     outputs = layers.Add(name=f"{name}_add2")([x, y])
     return outputs
 
@@ -224,7 +226,7 @@ def efficientformer_backbone_feature(
         pool_size: Kernel size of the pooling token mixer used by 2D blocks.
         drop_rate: Dropout rate applied inside the MLPs.
         drop_path_rate: Maximum stochastic-depth drop rate (linearly ramped).
-        layer_scale_init: Initial value for LayerScale gamma parameters.
+        layer_scale_init: Initial value for EfficientFormerLayerScale gamma parameters.
         image_h: Input image height; used to compute the final-stage resolution.
         data_format: Keras data-format string.
         channels_axis: Channel axis (``-1`` for channels-last, ``1`` for channels-first).
@@ -342,12 +344,12 @@ def efficientformer_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientFormerModel(BaseModel):
+class EfficientFormerModel(FunctionalBaseModel):
     """Instantiates the EfficientFormer backbone.
 
     EfficientFormer is a hybrid CNN-Transformer designed for fast
     on-device inference. The network keeps pure-convolutional stages
-    (MetaBlock2D with an average-pool token mixer + LayerScale +
+    (MetaBlock2D with an average-pool token mixer + EfficientFormerLayerScale +
     stochastic depth) at high resolution where attention would be too
     expensive, then switches to transformer (MetaBlock1D) blocks at the
     lowest resolution where attention is cheap. Each stage is preceded
@@ -380,7 +382,7 @@ class EfficientFormerModel(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly ramped across all blocks. Defaults to `0.0`.
         layer_scale_init: Float, initial value for the per-channel
-            LayerScale gamma applied on every residual branch.
+            EfficientFormerLayerScale gamma applied on every residual branch.
             Defaults to `1e-5`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -389,7 +391,7 @@ class EfficientFormerModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -475,7 +477,7 @@ class EfficientFormerModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -539,7 +541,7 @@ class EfficientFormerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientFormerImageClassify(BaseModel):
+class EfficientFormerImageClassify(FunctionalBaseModel):
     """Instantiates the EfficientFormer classifier.
 
     This classifier wraps a :class:`EfficientFormerModel` backbone and
@@ -570,7 +572,7 @@ class EfficientFormerImageClassify(BaseModel):
         drop_path_rate: Float, maximum stochastic-depth drop rate. The
             rate is linearly ramped across all blocks. Defaults to `0.0`.
         layer_scale_init: Float, initial value for the per-channel
-            LayerScale gamma applied on every residual branch.
+            EfficientFormerLayerScale gamma applied on every residual branch.
             Defaults to `1e-5`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
@@ -579,7 +581,7 @@ class EfficientFormerImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+MASK_NEG = -1e9
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaRelativeEmbedding(layers.Layer):
@@ -221,7 +223,7 @@ class DebertaDisentangledSelfAttention(layers.Layer):
         )
 
         mask = ops.cast(attention_mask, "bool")
-        scores = ops.where(mask, scores, ops.cast(-1e30, scores.dtype))
+        scores = ops.where(mask, scores, ops.cast(MASK_NEG, scores.dtype))
         probs = ops.softmax(scores, axis=-1)
         probs = self.dropout(probs, training=training)
 

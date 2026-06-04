@@ -4,9 +4,9 @@ import math
 import keras
 from keras import initializers, layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import EFFICIENTNETV2_MODEL_CONFIG, EFFICIENTNETV2_WEIGHT_CONFIG
@@ -785,7 +785,7 @@ def efficientnetv2_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientNetV2Model(BaseModel):
+class EfficientNetV2Model(FunctionalBaseModel):
     """Instantiates the EfficientNetV2 backbone.
 
     EfficientNetV2 is the faster-training successor to EfficientNet. It
@@ -827,7 +827,7 @@ class EfficientNetV2Model(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `300`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -905,7 +905,7 @@ class EfficientNetV2Model(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -958,7 +958,7 @@ class EfficientNetV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class EfficientNetV2ImageClassify(BaseModel):
+class EfficientNetV2ImageClassify(FunctionalBaseModel):
     """Instantiates the EfficientNetV2 classifier.
 
     This classifier wraps a :class:`EfficientNetV2Model` backbone and
@@ -992,7 +992,7 @@ class EfficientNetV2ImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `300`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

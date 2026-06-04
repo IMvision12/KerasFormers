@@ -1,9 +1,9 @@
 import keras
 from keras import layers, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import VGG_MODEL_CONFIG, VGG_WEIGHT_CONFIG
@@ -125,7 +125,7 @@ def vgg_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class VGGModel(BaseModel):
+class VGGModel(FunctionalBaseModel):
     """Instantiates the VGG backbone.
 
     VGG is a sequential stack of 3x3 convolutions and 2x2 max-pooling
@@ -157,7 +157,7 @@ class VGGModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -226,7 +226,7 @@ class VGGModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -271,7 +271,7 @@ class VGGModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class VGGImageClassify(BaseModel):
+class VGGImageClassify(FunctionalBaseModel):
     """Instantiates the VGG classifier.
 
     This classifier wraps a :class:`VGGModel` backbone and attaches a
@@ -297,7 +297,7 @@ class VGGImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

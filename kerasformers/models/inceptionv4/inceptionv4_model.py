@@ -2,9 +2,9 @@ import keras
 from keras import layers, utils
 from keras.src.utils.argument_validation import standardize_tuple
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import INCEPTIONV4_MODEL_CONFIG, INCEPTIONV4_WEIGHT_CONFIG
@@ -598,7 +598,7 @@ def inceptionv4_backbone_feature(inputs, *, data_format, return_stages=False):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionV4Model(BaseModel):
+class InceptionV4Model(FunctionalBaseModel):
     """Instantiates the Inception V4 backbone.
 
     Inception V4 streamlines the Inception family with three uniform
@@ -622,7 +622,7 @@ class InceptionV4Model(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -693,7 +693,7 @@ class InceptionV4Model(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -729,7 +729,7 @@ class InceptionV4Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InceptionV4ImageClassify(BaseModel):
+class InceptionV4ImageClassify(FunctionalBaseModel):
     """Instantiates the Inception V4 classifier.
 
     This classifier wraps an :class:`InceptionV4Model` backbone and
@@ -749,7 +749,7 @@ class InceptionV4ImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

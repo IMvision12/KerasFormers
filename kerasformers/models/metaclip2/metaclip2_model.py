@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.clip.clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
@@ -240,7 +240,7 @@ def metaclip2_head(image_embeddings, text_embeddings):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MetaClip2VisionModel(BaseModel):
+class MetaClip2VisionModel(FunctionalBaseModel):
     """MetaCLIP 2 vision tower as a standalone model — no text encoder, no projection.
 
     The patch-embedding +
@@ -405,7 +405,7 @@ class MetaClip2VisionModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MetaClip2TextModel(BaseModel):
+class MetaClip2TextModel(FunctionalBaseModel):
     """MetaCLIP 2 text tower as a standalone model — no vision encoder, no projection.
 
     Token + positional
@@ -572,7 +572,7 @@ class MetaClip2TextModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MetaClip2Model(BaseModel):
+class MetaClip2Model(FunctionalBaseModel):
     """MetaCLIP 2 (multilingual / worldwide) contrastive vision-language model.
 
     Returns the projected vision + text embeddings (no head). Use
@@ -771,7 +771,7 @@ class MetaClip2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MetaClip2ZeroShotClassify(BaseModel):
+class MetaClip2ZeroShotClassify(FunctionalBaseModel):
     """MetaCLIP 2 + contrastive similarity head for zero-shot classification / retrieval.
 
     Composes the same vision + text encoders as :class:`MetaClip2Model`
@@ -903,7 +903,7 @@ class MetaClip2ZeroShotClassify(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MetaClip2ImageClassify(BaseModel):
+class MetaClip2ImageClassify(FunctionalBaseModel):
     """MetaCLIP 2 vision encoder + linear image-classification head.
 
     Uses **only the

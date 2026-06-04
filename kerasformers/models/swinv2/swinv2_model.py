@@ -1,14 +1,15 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer, StochasticDepth
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.models.swinv2.swinv2_layers import (
     SwinV2Attention,
     SwinV2Roll,
+    SwinV2StochasticDepth,
     SwinV2WindowPartition,
 )
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import SWINV2_MODEL_CONFIG, SWINV2_WEIGHT_CONFIG
@@ -145,7 +146,7 @@ def swinv2_block(
         trimmed_x, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_1"
     )
 
-    dropout_layer = StochasticDepth(drop_path_rate=drop_path_rate)
+    dropout_layer = SwinV2StochasticDepth(drop_path_rate=drop_path_rate)
     skip_x1 = inputs + dropout_layer(trimmed_x)
 
     # MLP: permute to channels_last for Dense, permute back
@@ -460,7 +461,7 @@ def swinv2_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinV2Model(BaseModel):
+class SwinV2Model(FunctionalBaseModel):
     """Instantiates the Swin Transformer V2 backbone.
 
     SwinV2 is an improved Swin variant introducing scaled cosine
@@ -504,7 +505,7 @@ class SwinV2Model(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -579,7 +580,7 @@ class SwinV2Model(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -642,7 +643,7 @@ class SwinV2Model(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SwinV2ImageClassify(BaseModel):
+class SwinV2ImageClassify(FunctionalBaseModel):
     """Instantiates the Swin Transformer V2 classifier.
 
     This classifier wraps a :class:`SwinV2Model` backbone and attaches a
@@ -681,7 +682,7 @@ class SwinV2ImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `256`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

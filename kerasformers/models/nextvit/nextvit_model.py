@@ -1,9 +1,9 @@
 import keras
 from keras import layers, ops, utils
 
-from kerasformers.base import BaseModel
-from kerasformers.layers import ImageNormalizationLayer
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
+from kerasformers.utils.image_util import normalize_image_for_classify_models
 from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHT_CONFIG
@@ -533,7 +533,7 @@ def nextvit_backbone_feature(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class NextViTModel(BaseModel):
+class NextViTModel(FunctionalBaseModel):
     """Instantiates the NextViT backbone.
 
     NextViT is a next-generation hybrid CNN-Transformer backbone that
@@ -581,7 +581,7 @@ class NextViTModel(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
@@ -653,7 +653,7 @@ class NextViTModel(BaseModel):
             img_input = input_tensor
 
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            normalize_image_for_classify_models(img_input, normalization_mode)
             if include_normalization
             else img_input
         )
@@ -710,7 +710,7 @@ class NextViTModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class NextViTImageClassify(BaseModel):
+class NextViTImageClassify(FunctionalBaseModel):
     """Instantiates the NextViT classifier.
 
     This classifier wraps a :class:`NextViTModel` backbone and attaches
@@ -743,7 +743,7 @@ class NextViTImageClassify(BaseModel):
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
-            :class:`~kerasformers.layers.ImageNormalizationLayer` at the start
+            image normalization at the start
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to

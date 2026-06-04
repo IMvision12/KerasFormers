@@ -169,6 +169,39 @@ class Qwen2Attention(layers.Layer):
         out = self.output_proj(out)
         return (out, new_key_value) if use_cache else out
 
+    def decode_step(
+        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+    ):
+        # Single-token attention against a fixed-size KV cache written in place at
+        # ``write_pos`` (constant cache shape -> compilable decode loop). ``key_mask``
+        # (additive, (.., max_len)) blocks the still-empty cache slots.
+        b = ops.shape(hidden_states)[0]
+        query = self._split_heads(self.query(hidden_states), self.num_heads)
+        key = self._split_heads(self.key(hidden_states), self.num_kv_heads)
+        value = self._split_heads(self.value(hidden_states), self.num_kv_heads)
+        cos = ops.expand_dims(cos, axis=1)
+        sin = ops.expand_dims(sin, axis=1)
+        half = self.head_dim // 2
+        query = query * cos + (
+            ops.concatenate([-query[..., half:], query[..., :half]], axis=-1) * sin
+        )
+        key = key * cos + (
+            ops.concatenate([-key[..., half:], key[..., :half]], axis=-1) * sin
+        )
+        cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), key)
+        cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), value)
+        kk, vv = cache_k, cache_v
+        if self.num_kv_groups > 1:
+            kk = ops.repeat(kk, self.num_kv_groups, axis=1)
+            vv = ops.repeat(vv, self.num_kv_groups, axis=1)
+        attn = ops.matmul(query, ops.transpose(kk, (0, 1, 3, 2))) * self.scaling
+        attn = attn + key_mask
+        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
+        out = ops.matmul(attn, vv)
+        out = ops.transpose(out, (0, 2, 1, 3))
+        out = ops.reshape(out, (b, 1, self.num_heads * self.head_dim))
+        return self.output_proj(out), cache_k, cache_v
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -257,6 +290,20 @@ class Qwen2DecoderLayer(layers.Layer):
         hidden_states = self.mlp_norm(hidden_states)
         hidden_states = residual + self.mlp(hidden_states)
         return (hidden_states, new_key_value) if use_cache else hidden_states
+
+    def decode_step(
+        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+    ):
+        residual = hidden_states
+        x = self.attention_norm(hidden_states)
+        attn_out, cache_k, cache_v = self.attention.decode_step(
+            x, cos, sin, cache_k, cache_v, write_pos, key_mask
+        )
+        hidden_states = residual + attn_out
+        residual = hidden_states
+        x = self.mlp_norm(hidden_states)
+        hidden_states = residual + self.mlp(x)
+        return hidden_states, cache_k, cache_v
 
     def get_config(self):
         config = super().get_config()

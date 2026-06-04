@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseModel
+from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
 from .config import MASK2FORMER_CONFIG, MASK2FORMER_WEIGHTS
@@ -518,7 +518,7 @@ def mask2former_functional(
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Mask2FormerModel(BaseModel):
+class Mask2FormerModel(FunctionalBaseModel):
     """Mask2Former base (backbone + pixel decoder + transformer, with segment heads).
 
     Reference:

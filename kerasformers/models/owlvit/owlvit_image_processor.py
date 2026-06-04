@@ -6,7 +6,6 @@ from keras import ops
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
-from kerasformers.utils.image import preprocess_image
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -72,7 +71,7 @@ class OwlViTImageProcessor(BaseImageProcessor):
     def call(
         self, images: Union[str, np.ndarray, Image.Image, List]
     ) -> Dict[str, Union[keras.KerasTensor, np.ndarray]]:
-        x, _, _, _ = preprocess_image(
+        x, _, _, _ = self.preprocess_image(
             images,
             target_size=(self.size["height"], self.size["width"]),
             image_mean=self.image_mean if self.do_normalize else None,

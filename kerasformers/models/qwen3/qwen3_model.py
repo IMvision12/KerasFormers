@@ -1,12 +1,12 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import CausalLM, SubclassedBaseModel
+from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
 from .config import QWEN3_CONFIG, QWEN3_WEIGHTS
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
 
-_MASK_NEG = -1e9
+MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -16,7 +16,7 @@ class Qwen3Model(SubclassedBaseModel):
     ``token_embedding -> num_layers x Qwen3DecoderLayer -> final RMSNorm``, with
     grouped-query attention, per-head QK-norm (the reshaped query/key are RMSNorm'd
     before rotary), bias-free qkv projections, and 1D rotary positions. This is a
-    subclassed (imperative) :class:`BaseModel`: the sequence length and decode-step
+    subclassed (imperative) :class:`FunctionalBaseModel`: the sequence length and decode-step
     count are data dependent, so the forward pass runs eagerly with ``keras.ops``
     rather than as a static graph. Returns raw features; use :class:`Qwen3CausalLM`
     for logits / text.
@@ -106,11 +106,10 @@ class Qwen3Model(SubclassedBaseModel):
         cos, sin = ops.cos(emb), ops.sin(emb)
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
-        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        attn_mask = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if attention_mask is not None:
             attn_mask = (
-                attn_mask
-                + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+                attn_mask + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             )
         for layer in self.decoder_layers:
             hidden = layer(hidden, cos, sin, attention_mask=attn_mask)
@@ -157,20 +156,24 @@ class Qwen3Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3CausalLM(Qwen3Model, CausalLM):
+class Qwen3CausalLM(Qwen3Model, BaseGeneration):
     """Qwen3 backbone + a language-model head and greedy ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`Qwen3Model`: a separate
     bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
     (transposed) token embedding (weight tying). ``call`` returns both ``logits``
     ``(batch, seq, vocab_size)`` and ``last_hidden_state``. Fast generation comes
-    from :class:`~kerasformers.base.CausalLM`, fulfilled here by ``build_cache``
+    from :class:`~kerasformers.base.BaseGeneration`, fulfilled here by ``build_cache``
     (parallel prefill into a fixed KV cache) and ``call_with_cache`` (one compiled
     decode step). Constructor ``Args`` are inherited from :class:`Qwen3Model`.
 
         gen = Qwen3CausalLM.from_weights("qwen3-0.6b")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
+
+    # Default stop token: Qwen's <|im_end|> id (the generic BaseGeneration base carries no
+    # model-specific eos). Explicit generate() args override this.
+    eos_token_id = (151645,)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -223,10 +226,10 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         cos_p, sin_p = self.rope_tables(position_ids)
         qi = ops.arange(prompt_len)[:, None]
         ki = ops.arange(prompt_len)[None, :]
-        causal = ops.cast(ops.where(ki <= qi, 0.0, _MASK_NEG), "float32")[None, None]
+        causal = ops.cast(ops.where(ki <= qi, 0.0, MASK_NEG), "float32")[None, None]
         if padding_mask is not None:
             causal = (
-                causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * _MASK_NEG
+                causal + (1.0 - ops.cast(am, "float32"))[:, None, None, :] * MASK_NEG
             )
         hidden = self.token_embedding(token_ids)
         layer_caches = []
@@ -254,7 +257,7 @@ class Qwen3CausalLM(Qwen3Model, CausalLM):
         positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
         cos_t, sin_t = self.rope_tables(positions)
         key_mask = ops.cast(
-            ops.where(ops.arange(max_len) <= pos, 0.0, _MASK_NEG), "float32"
+            ops.where(ops.arange(max_len) <= pos, 0.0, MASK_NEG), "float32"
         )[None, None, None, :]
         h = self.token_embedding(token_ids)
         layer_caches = []
