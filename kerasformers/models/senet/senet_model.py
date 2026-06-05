@@ -1,13 +1,13 @@
 import keras
 from keras import layers
 
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.resnet.resnet_model import (
     ResNetImageClassify,
     ResNetModel,
     bottleneck_block,
 )
 from kerasformers.models.resnext.resnext_model import resnext_block
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import SENET_MODEL_CONFIG, SENET_WEIGHT_CONFIG
 

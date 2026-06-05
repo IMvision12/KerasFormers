@@ -3,11 +3,11 @@ from typing import Dict
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.weight_utils.custom_exception import (
+from kerasformers.conversion.exceptions import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.weight_transfer_util import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
     transfer_weights,
@@ -279,7 +279,9 @@ if __name__ == "__main__":
     import keras
     import torch
 
-    from kerasformers.base.base_model import download_hf_state_dict
+    from kerasformers.conversion.hf_download_utils import (
+        download_hf_state_dict,
+    )
     from kerasformers.models.rf_detr.config import RF_DETR_DETECT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRDetect
 

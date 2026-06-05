@@ -2,13 +2,13 @@ import gc
 
 import keras
 
-from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.conversion import verify_cls_model_equivalence
+from kerasformers.conversion.hf_download_utils import download_hf_state_dict
 from kerasformers.models.resnet.convert_resnet_timm_to_keras import (
     transfer_resnet_weights as transfer_senet_weights,
 )
 from kerasformers.models.senet import SENetImageClassify
 from kerasformers.models.senet.config import SENET_WEIGHT_CONFIG
-from kerasformers.weight_utils import verify_cls_model_equivalence
 
 if __name__ == "__main__":
     import timm

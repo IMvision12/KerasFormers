@@ -6,9 +6,9 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
+from kerasformers.conversion.exceptions import WeightMappingError
+from kerasformers.conversion.weight_transfer_util import transfer_weights
 from kerasformers.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
-from kerasformers.weight_utils.custom_exception import WeightMappingError
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "/": ".",

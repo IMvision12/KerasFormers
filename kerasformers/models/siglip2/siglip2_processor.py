@@ -3,9 +3,9 @@ from typing import List, Optional, Union
 import keras
 
 from kerasformers.base import BaseProcessor
+from kerasformers.conversion import download_file
 from kerasformers.models.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
 from kerasformers.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
-from kerasformers.weight_utils import download_file
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

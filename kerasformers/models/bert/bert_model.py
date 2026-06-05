@@ -4,7 +4,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.weight_utils import copy_weights_by_path_suffix
+from kerasformers.conversion import copy_weights_by_path_suffix
 
 from .bert_layers import (
     BertEmbeddings,

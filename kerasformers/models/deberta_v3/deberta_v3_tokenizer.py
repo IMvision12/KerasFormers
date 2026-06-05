@@ -1,7 +1,7 @@
 import keras
 
+from kerasformers.conversion import download_file
 from kerasformers.models.deberta_v2.deberta_v2_tokenizer import DebertaV2Tokenizer
-from kerasformers.weight_utils import download_file
 
 from .config import DEBERTA_V3_VOCAB_URL
 

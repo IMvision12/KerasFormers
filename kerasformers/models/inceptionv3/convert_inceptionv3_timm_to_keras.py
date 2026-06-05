@@ -6,19 +6,19 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.base.base_model import download_hf_state_dict
-from kerasformers.models.inceptionv3 import InceptionV3ImageClassify
-from kerasformers.models.inceptionv3.config import INCEPTIONV3_WEIGHT_CONFIG
-from kerasformers.weight_utils import verify_cls_model_equivalence
-from kerasformers.weight_utils.custom_exception import (
+from kerasformers.conversion import verify_cls_model_equivalence
+from kerasformers.conversion.exceptions import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kerasformers.weight_utils.weight_split_torch_and_keras import split_model_weights
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.hf_download_utils import download_hf_state_dict
+from kerasformers.conversion.weight_split_util import split_model_weights
+from kerasformers.conversion.weight_transfer_util import (
     compare_keras_torch_names,
     transfer_weights,
 )
+from kerasformers.models.inceptionv3 import InceptionV3ImageClassify
+from kerasformers.models.inceptionv3.config import INCEPTIONV3_WEIGHT_CONFIG
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_conv2d_kernel": ".conv.weight",

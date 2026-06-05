@@ -2,8 +2,8 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .clip_layers import (
     CLIPAttention,

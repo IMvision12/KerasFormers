@@ -6,7 +6,7 @@ import sentencepiece as spm
 from keras import ops
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.conversion import download_file
 
 DEFAULT_VOCAB_URL = (
     "https://github.com/IMvision12/KerasFormers/releases/download/siglip/"

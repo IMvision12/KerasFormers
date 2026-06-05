@@ -11,7 +11,7 @@ from tokenizers.pre_tokenizers import BertPreTokenizer
 from tokenizers.processors import TemplateProcessing
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.conversion import download_file
 
 from .config import BERT_VOCAB_CONFIG
 

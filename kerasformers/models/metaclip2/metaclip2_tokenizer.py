@@ -5,7 +5,7 @@ import keras
 import numpy as np
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.conversion import download_file
 
 METACLIP2_EOS_TOKEN_ID = 2
 METACLIP2_BOS_TOKEN_ID = 0

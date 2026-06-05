@@ -51,7 +51,5 @@ SAM3_WEIGHTS = {
     "sam3_saco": {
         "hf_id": "facebook/sam3",
         "gated": True,
-        "hf_model_cls": "Sam3Model",
-        "hf_kwargs": {"attn_implementation": "eager"},
     },
 }

@@ -1,11 +1,11 @@
 import keras
 from keras import layers
 
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.convnext.convnext_model import (
     ConvNeXtImageClassify,
     ConvNeXtModel,
 )
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHT_CONFIG
 

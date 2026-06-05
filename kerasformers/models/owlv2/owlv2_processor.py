@@ -3,9 +3,9 @@ from typing import List, Optional, Sequence, Union
 import keras
 
 from kerasformers.base import BaseProcessor
+from kerasformers.conversion import download_file
 from kerasformers.models.clip.clip_tokenizer import CLIPTokenizer
 from kerasformers.models.owlv2.owlv2_image_processor import Owlv2ImageProcessor
-from kerasformers.weight_utils import download_file
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

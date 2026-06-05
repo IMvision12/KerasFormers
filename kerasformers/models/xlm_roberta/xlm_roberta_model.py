@@ -4,12 +4,12 @@ import keras
 from keras import layers
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.roberta.roberta_layers import (
     RobertaFlattenChoices,
     RobertaUnflattenChoices,
 )
 from kerasformers.models.roberta.roberta_model import roberta_backbone
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import XLM_ROBERTA_MODEL_CONFIG, XLM_ROBERTA_WEIGHT_CONFIG
 

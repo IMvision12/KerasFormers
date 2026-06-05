@@ -4,18 +4,18 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
-from kerasformers.models.metaclip2.config import METACLIP2_WEIGHTS
-from kerasformers.weight_utils.custom_exception import (
+from kerasformers.conversion.exceptions import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kerasformers.weight_utils.weight_split_torch_and_keras import split_model_weights
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.weight_split_util import split_model_weights
+from kerasformers.conversion.weight_transfer_util import (
     compare_keras_torch_names,
     transfer_attention_weights,
     transfer_weights,
 )
+from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
+from kerasformers.models.metaclip2.config import METACLIP2_WEIGHTS
 
 weight_name_mapping = {
     "_": ".",

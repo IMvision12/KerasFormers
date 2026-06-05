@@ -2,6 +2,7 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.mobilevit.mobilevit_layers import (
     MobileViTImageToPatchesLayer,
     MobileViTPatchesToImageLayer,
@@ -9,7 +10,6 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
 from kerasformers.models.mobilevit.mobilevit_model import mobilevit_aspp_head
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import (
     MOBILEVITV2_MODEL_CONFIG,

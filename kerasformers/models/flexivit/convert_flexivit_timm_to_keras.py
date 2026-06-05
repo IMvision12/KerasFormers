@@ -2,13 +2,13 @@ import gc
 
 import keras
 
-from kerasformers.base.base_model import download_hf_state_dict
+from kerasformers.conversion import verify_cls_model_equivalence
+from kerasformers.conversion.hf_download_utils import download_hf_state_dict
 from kerasformers.models.flexivit import FlexiViTImageClassify
 from kerasformers.models.flexivit.config import FLEXIVIT_WEIGHT_CONFIG
 from kerasformers.models.vit.convert_vit_timm_to_keras import (
     transfer_vit_weights as transfer_flexivit_weights,
 )
-from kerasformers.weight_utils import verify_cls_model_equivalence
 
 __all__ = ["transfer_flexivit_weights"]
 

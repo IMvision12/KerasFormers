@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.swinv2.swinv2_layers import (
     SwinV2Attention,
     SwinV2Roll,
@@ -10,7 +11,6 @@ from kerasformers.models.swinv2.swinv2_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import SWINV2_MODEL_CONFIG, SWINV2_WEIGHT_CONFIG
 

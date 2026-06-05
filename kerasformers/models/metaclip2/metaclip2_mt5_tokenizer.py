@@ -6,7 +6,7 @@ import keras
 import numpy as np
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.conversion import download_file
 
 _PUNCT_TABLE = str.maketrans("", "", string.punctuation)
 
