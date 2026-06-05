@@ -16,3 +16,10 @@ GPT_WEIGHTS = {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt.weights.h5"
     },
 }
+
+GPT_VOCAB_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt_vocab.json"
+)
+GPT_MERGES_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt_merges.txt"
+)

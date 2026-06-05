@@ -55,3 +55,10 @@ GPT2_WEIGHTS = {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2-xl.weights.json"
     },
 }
+
+GPT2_VOCAB_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_vocab.json"
+)
+GPT2_MERGES_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_merges.txt"
+)
