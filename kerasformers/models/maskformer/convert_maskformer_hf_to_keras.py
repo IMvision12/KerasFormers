@@ -6,8 +6,8 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
+from kerasformers.conversion.weight_transfer_util import transfer_weights
 from kerasformers.models.maskformer import MaskFormerUniversalSegment
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
 
 def transfer_maskformer_weights(keras_model, hf_state_dict):

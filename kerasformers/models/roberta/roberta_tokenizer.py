@@ -10,7 +10,7 @@ from tokenizers.pre_tokenizers import ByteLevel
 from tokenizers.processors import RobertaProcessing
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.conversion import download_file
 
 from .config import ROBERTA_MERGES_URL, ROBERTA_VOCAB_URL
 

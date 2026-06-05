@@ -6,12 +6,12 @@ import numpy as np
 from keras import ops
 from tqdm import tqdm
 
-from kerasformers.models.whisper import WhisperModel
-from kerasformers.models.whisper.whisper_layers import WhisperAttention
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.weight_transfer_util import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
+from kerasformers.models.whisper import WhisperModel
+from kerasformers.models.whisper.whisper_layers import WhisperAttention
 
 HF_CHECKPOINT = {
     "whisper_tiny": "openai/whisper-tiny",

@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.clip.clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
@@ -9,7 +10,6 @@ from kerasformers.models.clip.clip_layers import (
     CLIPVisionModelEmbedding,
 )
 from kerasformers.utils import standardize_input_shape
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import METACLIP2_CONFIG, METACLIP2_WEIGHTS
 from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID

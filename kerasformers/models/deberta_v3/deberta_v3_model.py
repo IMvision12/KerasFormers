@@ -4,6 +4,7 @@ import keras
 from keras import layers
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.deberta_v2.deberta_v2_layers import (
     DebertaV2FlattenChoices,
     DebertaV2UnflattenChoices,
@@ -12,7 +13,6 @@ from kerasformers.models.deberta_v2.deberta_v2_model import (
     DebertaV2Model,
     deberta_v2_backbone,
 )
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import DEBERTA_V3_MODEL_CONFIG, DEBERTA_V3_WEIGHT_CONFIG
 

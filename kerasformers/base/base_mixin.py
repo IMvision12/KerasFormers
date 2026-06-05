@@ -3,11 +3,11 @@ import json
 
 from huggingface_hub import hf_hub_download
 
-from kerasformers.weight_utils import download_file
-from kerasformers.weight_utils.hf_gated_weight_download import (
+from kerasformers.conversion import download_file
+from kerasformers.conversion.hf_download_utils import (
     download_hf_state_dict,
 )
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.weight_transfer_util import (
     skip_mismatched_weights,
 )
 
@@ -216,7 +216,7 @@ class WeightLoadingMixin:
                     cls.transfer_from_hf(model, state_dict)
                 _warn_skipped(skipped)
             elif hf_id:
-                from kerasformers.weight_utils.hf_gated_weight_download import (
+                from kerasformers.conversion.hf_download_utils import (
                     load_and_convert_from_hf,
                 )
 

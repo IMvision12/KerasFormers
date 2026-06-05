@@ -3,13 +3,13 @@ from typing import Optional
 import keras
 from keras import layers
 
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.resnet.resnet_model import (
     ResNetImageClassify,
     ResNetModel,
     conv_block,
     squeeze_excitation_block,
 )
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHT_CONFIG
 

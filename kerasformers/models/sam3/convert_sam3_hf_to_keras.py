@@ -3,11 +3,11 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.models.sam3 import SAM3Model
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.weight_transfer_util import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
+from kerasformers.models.sam3 import SAM3Model
 
 vit_name_mapping = {
     "mlp_fc1": "mlp.fc1",

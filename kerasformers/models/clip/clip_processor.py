@@ -1,9 +1,9 @@
 import keras
 
 from kerasformers.base import BaseProcessor
+from kerasformers.conversion import download_file
 from kerasformers.models.clip.clip_image_processor import CLIPImageProcessor
 from kerasformers.models.clip.clip_tokenizer import CLIPTokenizer
-from kerasformers.weight_utils import download_file
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

@@ -10,7 +10,7 @@ from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import ByteLevel
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.weight_utils import download_file
+from kerasformers.conversion import download_file
 
 from .config import WHISPER_TOKENIZER_FILES
 

@@ -1,8 +1,8 @@
 import keras
 from keras import layers
 
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHT_CONFIG
 

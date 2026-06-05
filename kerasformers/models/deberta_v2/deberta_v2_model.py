@@ -4,7 +4,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.weight_utils import copy_weights_by_path_suffix
+from kerasformers.conversion import copy_weights_by_path_suffix
 
 from .config import DEBERTA_V2_MODEL_CONFIG, DEBERTA_V2_WEIGHT_CONFIG
 from .deberta_v2_layers import (

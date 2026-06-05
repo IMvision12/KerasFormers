@@ -4,7 +4,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
-from kerasformers.weight_utils import copy_weights_by_path_suffix
+from kerasformers.conversion import copy_weights_by_path_suffix
 
 from .config import ROBERTA_MODEL_CONFIG, ROBERTA_WEIGHT_CONFIG
 from .roberta_layers import (

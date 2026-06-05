@@ -5,11 +5,11 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.models.sam import SAMPromptableSegment
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.weight_transfer_util import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
+from kerasformers.models.sam import SAMPromptableSegment
 
 vision_encoder_name_mapping = {
     "mlp_lin1": "mlp.lin1",

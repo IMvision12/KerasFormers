@@ -8,20 +8,20 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
+from kerasformers.conversion import verify_cls_model_equivalence
+from kerasformers.conversion.exceptions import (
+    WeightMappingError,
+    WeightShapeMismatchError,
+)
+from kerasformers.conversion.weight_split_util import split_model_weights
+from kerasformers.conversion.weight_transfer_util import (
+    compare_keras_torch_names,
+    transfer_weights,
+)
 from kerasformers.models.mobilenetv3 import MobileNetV3ImageClassify
 from kerasformers.models.mobilenetv3.config import (
     MOBILENETV3_MODEL_CONFIG,
     MOBILENETV3_WEIGHT_CONFIG,
-)
-from kerasformers.weight_utils import verify_cls_model_equivalence
-from kerasformers.weight_utils.custom_exception import (
-    WeightMappingError,
-    WeightShapeMismatchError,
-)
-from kerasformers.weight_utils.weight_split_torch_and_keras import split_model_weights
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
-    compare_keras_torch_names,
-    transfer_weights,
 )
 
 _BASE_LARGE_STAGES = [1, 2, 3, 4, 2, 3]

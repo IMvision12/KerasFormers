@@ -2,6 +2,7 @@ import keras
 from keras import layers, utils
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.vit.vit_layers import (
     ViTAddPositionEmbs,
     ViTClassDistToken,
@@ -10,7 +11,6 @@ from kerasformers.models.vit.vit_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
-from kerasformers.weight_utils import copy_weights_by_path_suffix
 
 from .config import VIT_MODEL_CONFIG, VIT_WEIGHT_CONFIG
 

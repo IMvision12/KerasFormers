@@ -1,4 +1,4 @@
-from kerasformers import models, samplers, utils, weight_utils
+from kerasformers import conversion, models, samplers, utils
 from kerasformers.version import version
 
 __version__ = "1.0.2"
@@ -7,7 +7,7 @@ __all__ = [
     "models",
     "samplers",
     "utils",
-    "weight_utils",
+    "conversion",
     "version",
     "__version__",
 ]

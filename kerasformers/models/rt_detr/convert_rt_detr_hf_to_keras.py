@@ -3,12 +3,12 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.models.rt_detr import RTDETRDetect
-from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
+from kerasformers.conversion.weight_transfer_util import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
     transfer_weights,
 )
+from kerasformers.models.rt_detr import RTDETRDetect
 
 backbone_name_mapping: Dict[str, str] = {
     "kernel": "weight",
