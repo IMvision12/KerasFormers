@@ -134,3 +134,11 @@ def speech2text_input(batch_size=2, num_mel_bins=80, feat_length=40, decoder_seq
         "input_features": ops.ones((batch_size, feat_length, num_mel_bins)),
         "decoder_input_ids": ops.zeros((batch_size, decoder_seq_len), dtype="int32"),
     }
+
+
+def moonshine_input(batch_size=2, audio_length=2000, decoder_seq_len=5):
+    # Moonshine consumes the raw 16 kHz waveform directly (conv stem, no mel).
+    return {
+        "input_values": ops.ones((batch_size, audio_length)),
+        "decoder_input_ids": ops.zeros((batch_size, decoder_seq_len), dtype="int32"),
+    }

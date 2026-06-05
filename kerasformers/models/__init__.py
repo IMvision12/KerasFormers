@@ -41,6 +41,7 @@ from kerasformers.models import (
     mobilenetv3,
     mobilevit,
     mobilevitv2,
+    moonshine,
     nextvit,
     owlv2,
     owlvit,

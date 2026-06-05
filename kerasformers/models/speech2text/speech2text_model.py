@@ -130,7 +130,7 @@ def speech2text_decoder_block(
     return x
 
 
-def _make_causal_mask_from_ids(decoder_input_ids):
+def make_causal_mask_from_ids(decoder_input_ids):
     seq_len = ops.shape(decoder_input_ids)[1]
     i = ops.arange(seq_len)[:, None]
     j = ops.arange(seq_len)[None, :]
@@ -217,7 +217,7 @@ def speech2text_decoder(
     )(x)
 
     causal_mask = layers.Lambda(
-        _make_causal_mask_from_ids,
+        make_causal_mask_from_ids,
         name="decoder_causal_mask",
         output_shape=lambda s: (1, 1, s[1], s[1]),
     )(decoder_input_ids)
