@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import keras
 from keras import ops
 
@@ -35,6 +37,11 @@ class BaseGeneration:
     """
 
     eos_token_id = ()
+    # Compiled decode functions are cached per (max_new_tokens, eos, has_mask,
+    # sampler type+config); each holds one XLA executable. Normal use needs 1-2,
+    # but sweeping those keys would otherwise accumulate executables and leak GPU
+    # memory -- bound the cache with an LRU. Raise on the (sub)class if needed.
+    _generate_cache_maxsize = 8
 
     def build_cache(self, token_ids, padding_mask, max_len):
         raise NotImplementedError(
@@ -75,7 +82,12 @@ class BaseGeneration:
             return self.run_decode(
                 cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
             )
-        cache_key = (max_new_tokens, eos, attention_mask is not None, id(sampler))
+
+        sampler_key = (
+            type(sampler).__name__,
+            tuple(sorted(sampler.get_config().items())),
+        )
+        cache_key = (max_new_tokens, eos, attention_mask is not None, sampler_key)
         fn = self.cached_generate_function(cache_key, max_new_tokens, eos, sampler)
         return self.run_compiled(fn, (input_ids, padding_mask), noise)
 
@@ -207,11 +219,18 @@ class BaseGeneration:
         return ops.zeros((max_new_tokens, batch, 1), dtype="float32")
 
     def cached_generate_function(self, cache_key, max_new_tokens, eos, sampler):
-        fns = self.__dict__.setdefault("_generate_functions", {})
+        fns = self.__dict__.get("_generate_functions")
+        if fns is None:
+            fns = self.__dict__["_generate_functions"] = OrderedDict()
         fn = fns.get(cache_key)
-        if fn is None:
-            fn = self.make_generate_function(max_new_tokens, eos, sampler)
-            fns[cache_key] = fn
+        if fn is not None:
+            fns.move_to_end(cache_key)  # mark most-recently-used
+            return fn
+        fn = self.make_generate_function(max_new_tokens, eos, sampler)
+        fns[cache_key] = fn
+        if len(fns) > self._generate_cache_maxsize:
+            # drop the least-recently-used entry -> frees its XLA executable
+            fns.popitem(last=False)
         return fn
 
     def run_compiled(self, fn, runtime_args, noise):
