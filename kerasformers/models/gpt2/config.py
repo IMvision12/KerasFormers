@@ -9,7 +9,7 @@ GPT2_CONFIG = {
         "norm_eps": 1e-5,
         "tie_embeddings": True,
     },
-    "gpt2-medium": {
+    "gpt2_medium": {
         "vocab_size": 50257,
         "embed_dim": 1024,
         "mlp_dim": 4096,
@@ -19,7 +19,7 @@ GPT2_CONFIG = {
         "norm_eps": 1e-5,
         "tie_embeddings": True,
     },
-    "gpt2-large": {
+    "gpt2_large": {
         "vocab_size": 50257,
         "embed_dim": 1280,
         "mlp_dim": 5120,
@@ -29,7 +29,7 @@ GPT2_CONFIG = {
         "norm_eps": 1e-5,
         "tie_embeddings": True,
     },
-    "gpt2-xl": {
+    "gpt2_xl": {
         "vocab_size": 50257,
         "embed_dim": 1600,
         "mlp_dim": 6400,
@@ -45,14 +45,14 @@ GPT2_WEIGHTS = {
     "gpt2": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2.weights.h5"
     },
-    "gpt2-medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2-medium.weights.h5"
+    "gpt2_medium": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_medium.weights.h5"
     },
-    "gpt2-large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2-large.weights.json"
+    "gpt2_large": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_large.weights.json"
     },
-    "gpt2-xl": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2-xl.weights.json"
+    "gpt2_xl": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_xl.weights.json"
     },
 }
 

@@ -53,9 +53,9 @@ if __name__ == "__main__":
 
     HF_SOURCES = {
         "gpt2": "openai-community/gpt2",
-        "gpt2-medium": "openai-community/gpt2-medium",
-        "gpt2-large": "openai-community/gpt2-large",
-        "gpt2-xl": "openai-community/gpt2-xl",
+        "gpt2_medium": "openai-community/gpt2-medium",
+        "gpt2_large": "openai-community/gpt2-large",
+        "gpt2_xl": "openai-community/gpt2-xl",
     }
     MAX_SHARD_GB = 1.7  # GitHub caps release assets at 2 GB; large/xl get sharded
     rng = np.random.default_rng(0)
