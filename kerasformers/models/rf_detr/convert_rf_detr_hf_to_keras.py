@@ -279,9 +279,11 @@ if __name__ == "__main__":
     import keras
     import torch
 
-    from kerasformers.base.base_model import download_hf_state_dict
     from kerasformers.models.rf_detr.config import RF_DETR_DETECT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRDetect
+    from kerasformers.weight_utils.hf_gated_weight_download import (
+        download_hf_state_dict,
+    )
 
     def cosine(a, b):
         a, b = a.ravel(), b.ravel()

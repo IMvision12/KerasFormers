@@ -6,7 +6,6 @@ import keras
 import numpy as np
 from tqdm import tqdm
 
-from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.efficientnetv2 import EfficientNetV2ImageClassify
 from kerasformers.models.efficientnetv2.config import EFFICIENTNETV2_WEIGHT_CONFIG
 from kerasformers.weight_utils import verify_cls_model_equivalence
@@ -14,6 +13,7 @@ from kerasformers.weight_utils.custom_exception import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
+from kerasformers.weight_utils.hf_gated_weight_download import download_hf_state_dict
 from kerasformers.weight_utils.weight_split_torch_and_keras import split_model_weights
 from kerasformers.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,

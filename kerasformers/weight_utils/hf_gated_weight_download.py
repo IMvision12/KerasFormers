@@ -1,8 +1,86 @@
+import json
 import os
 
+from huggingface_hub import hf_hub_download
+from huggingface_hub.utils import EntryNotFoundError
 
-def _get_cache_dir(model_name):
-    return os.path.join(os.path.expanduser("~"), ".cache", "kerasformers", model_name)
+
+def download_hf_state_dict(hf_id, token=None):
+    """Download model weights and return a flat ``{name: numpy_array}`` dict.
+
+    ``token`` is forwarded to ``hf_hub_download`` for gated / private repos.
+    Safetensors are read straight to numpy on CPU; torch is used only as a CPU
+    fallback for legacy ``.bin`` checkpoints (never touches CUDA).
+
+    Tries (in order):
+
+    1. ``model.safetensors`` (single-file safetensors)
+    2. ``model.safetensors.index.json`` (sharded safetensors)
+    3. ``pytorch_model.bin`` (single-file pickle)
+    4. ``pytorch_model.bin.index.json`` (sharded pickle)
+    """
+    try:
+        path = hf_hub_download(hf_id, "model.safetensors", token=token)
+    except EntryNotFoundError:
+        path = None
+    if path is not None:
+        from safetensors.numpy import load_file
+
+        return load_file(path)
+
+    try:
+        index_path = hf_hub_download(hf_id, "model.safetensors.index.json", token=token)
+    except EntryNotFoundError:
+        index_path = None
+    if index_path is not None:
+        from safetensors.numpy import load_file
+
+        with open(index_path, "r") as f:
+            index = json.load(f)
+        weight_map = index["weight_map"]
+        state_dict = {}
+        for shard_file in sorted(set(weight_map.values())):
+            shard_path = hf_hub_download(hf_id, shard_file, token=token)
+            state_dict.update(load_file(shard_path))
+        return state_dict
+
+    try:
+        path = hf_hub_download(hf_id, "pytorch_model.bin", token=token)
+    except EntryNotFoundError:
+        path = None
+    if path is not None:
+        import torch
+
+        sd = torch.load(path, map_location="cpu", weights_only=True)
+        return {k: v.cpu().numpy() if hasattr(v, "cpu") else v for k, v in sd.items()}
+
+    try:
+        index_path = hf_hub_download(hf_id, "pytorch_model.bin.index.json", token=token)
+    except EntryNotFoundError:
+        index_path = None
+    if index_path is not None:
+        import torch
+
+        with open(index_path, "r") as f:
+            index = json.load(f)
+        weight_map = index["weight_map"]
+        state_dict = {}
+        for shard_file in sorted(set(weight_map.values())):
+            shard_path = hf_hub_download(hf_id, shard_file, token=token)
+            shard = torch.load(shard_path, map_location="cpu", weights_only=True)
+            state_dict.update(
+                {
+                    k: v.cpu().numpy() if hasattr(v, "cpu") else v
+                    for k, v in shard.items()
+                }
+            )
+        return state_dict
+
+    raise FileNotFoundError(
+        f"No supported weights file found in HF repo '{hf_id}'. "
+        f"Expected one of: model.safetensors, model.safetensors.index.json, "
+        f"pytorch_model.bin, pytorch_model.bin.index.json."
+    )
 
 
 def load_and_convert_from_hf(
@@ -10,8 +88,6 @@ def load_and_convert_from_hf(
     model_name,
     hf_model_id,
     transfer_fn,
-    hf_model_cls=None,
-    hf_kwargs=None,
     is_gated=False,
 ):
     """Download, convert, and cache source weights for a Keras model.
@@ -32,21 +108,18 @@ def load_and_convert_from_hf(
         transfer_fn: Callable ``(keras_model, hf_state_dict) -> None``. Receives
             the raw on-disk checkpoint tensors (the same key layout the
             ``hf:`` / safetensors release path produces).
-        hf_model_cls: Ignored (legacy). Weights are read straight from
-            safetensors, so no HF model class is instantiated.
-        hf_kwargs: Ignored (legacy); see ``hf_model_cls``.
         is_gated: When True, emits the license-acceptance error message
             on 401/403. When False (default), lets the download error propagate.
     """
-    cache_dir = _get_cache_dir(model_name)
+    cache_dir = os.path.join(
+        os.path.expanduser("~"), ".cache", "kerasformers", model_name
+    )
     cached_weights = os.path.join(cache_dir, f"{model_name}.weights.h5")
 
     if os.path.exists(cached_weights):
         print(f"Loading cached {model_name} weights from {cached_weights}")
         model.load_weights(cached_weights)
         return
-
-    from kerasformers.base.base_model import download_hf_state_dict
 
     gated_note = " (requires accepted license + HF token)" if is_gated else ""
     print(f"Downloading {model_name} from HuggingFace{gated_note}...")
@@ -86,31 +159,3 @@ def load_and_convert_from_hf(
 
     model.save_weights(cached_weights, **save_kwargs)
     print(f"Cached {model_name} weights to {cached_weights} ({size_gb:.1f} GB)")
-
-
-def load_gated_weights_from_hf(
-    model,
-    model_name,
-    hf_model_id,
-    transfer_fn,
-    hf_model_cls=None,
-    hf_kwargs=None,
-):
-    """Gated-repo variant of :func:`load_and_convert_from_hf`.
-
-    Use for models whose licenses do not allow weight redistribution
-    (SAM3, DINOv3). On 401/403 from the model Hub, emits a user-friendly
-    license-acceptance error with setup instructions.
-
-    For non-gated public repos (e.g. MetaCLIP 2) use
-    :func:`load_and_convert_from_hf` directly.
-    """
-    return load_and_convert_from_hf(
-        model=model,
-        model_name=model_name,
-        hf_model_id=hf_model_id,
-        transfer_fn=transfer_fn,
-        hf_model_cls=hf_model_cls,
-        hf_kwargs=hf_kwargs,
-        is_gated=True,
-    )

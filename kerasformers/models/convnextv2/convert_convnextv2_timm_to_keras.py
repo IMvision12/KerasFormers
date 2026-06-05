@@ -3,13 +3,13 @@ import gc
 import keras
 import numpy as np
 
-from kerasformers.base.base_model import download_hf_state_dict
 from kerasformers.models.convnext.convert_convnext_timm_to_keras import (
     transfer_convnext_weights as transfer_convnextv2_weights,
 )
 from kerasformers.models.convnextv2 import ConvNeXtV2ImageClassify
 from kerasformers.models.convnextv2.config import CONVNEXTV2_WEIGHT_CONFIG
 from kerasformers.weight_utils import verify_cls_model_equivalence
+from kerasformers.weight_utils.hf_gated_weight_download import download_hf_state_dict
 
 __all__ = ["transfer_convnextv2_weights"]
 

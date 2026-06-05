@@ -1,43 +1,6 @@
-import inspect
-
 import keras
 
-
-class PreloadMixin:
-    """Shared ``from_weights`` / ``from_release`` / ``from_hf`` for kerasformers
-    preprocessing layers (tokenizers, processors, image processors, feature
-    extractors).
-
-    Mirrors the model-side loading API so a preprocessor loads with the *same*
-    identifier as its model::
-
-        gen = Qwen2Generate.from_weights("qwen2-7b-instruct")
-        tok = Qwen2Tokenizer.from_weights("qwen2-7b-instruct")
-
-    Kept as a plain mixin (not a ``keras.Layer``) so it composes onto any
-    preprocessing base without touching the layer MRO — same spirit as
-    :class:`WeightLoadingMixin` on the model side.
-    """
-
-    @classmethod
-    def from_weights(cls, identifier, **kwargs):
-        if identifier.startswith("hf:"):
-            return cls.from_hf(identifier[len("hf:") :], **kwargs)
-        return cls.from_release(identifier, **kwargs)
-
-    @classmethod
-    def from_release(cls, variant, /, **kwargs):
-        return cls(**kwargs)
-
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        if "hf_id" not in inspect.signature(cls).parameters:
-            raise NotImplementedError(
-                f"{cls.__name__} cannot load from an 'hf:' repo — its constructor "
-                f"takes no `hf_id`. Use a release variant, or override `from_hf` "
-                f"to fetch the files from {repo!r}."
-            )
-        return cls(hf_id=repo, **kwargs)
+from kerasformers.base.base_mixin import PreloadMixin
 
 
 class BasePreprocessingLayer(PreloadMixin, keras.layers.Layer):
