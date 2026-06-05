@@ -43,22 +43,22 @@ GPT2_CONFIG = {
 
 GPT2_WEIGHTS = {
     "gpt2": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2.weights.h5"
     },
     "gpt2_medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_medium.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_medium.weights.h5"
     },
     "gpt2_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_large.weights.json"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_large.weights.json"
     },
     "gpt2_xl": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_xl.weights.json"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_xl.weights.json"
     },
 }
 
 GPT2_VOCAB_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_vocab.json"
+    "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_vocab.json"
 )
 GPT2_MERGES_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/gpt2/gpt2_merges.txt"
+    "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_merges.txt"
 )
