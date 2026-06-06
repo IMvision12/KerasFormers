@@ -48,7 +48,4 @@ GRANITE_SPEECH_WEIGHTS = {
 }
 
 
-# Default Hub repos (tokenizer + on-the-fly hf: conversion source).
-GRANITE_SPEECH_HF_IDS = {
-    "granite-speech-3.3-2b": "ibm-granite/granite-speech-3.3-2b",
-}
+GRANITE_SPEECH_TOKENIZER_URL = "https://github.com/IMvision12/KerasFormers/releases/download/granite_speech/granite_speech_tokenizer.json"

@@ -1,8 +1,9 @@
 import keras
 
 from kerasformers.base import BaseTokenizer
+from kerasformers.conversion import download_file
 
-DEFAULT_TOKENIZER_REPO = "ibm-granite/granite-speech-3.3-2b"
+from .config import GRANITE_SPEECH_TOKENIZER_URL
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -10,14 +11,13 @@ class GraniteSpeechTokenizer(BaseTokenizer):
     """Granite BPE tokenizer (``tokenizers`` backend) with the ``<|audio|>`` token.
 
     Args:
-        hf_id: Hub repo to pull ``tokenizer.json`` from.
-        tokenizer_file: Explicit path to a ``tokenizer.json`` (overrides download).
+        tokenizer_file: Path to ``tokenizer.json``. When ``None``, downloads the
+            bundled kerasformers-release file.
         audio_token: The audio placeholder token string.
     """
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
         tokenizer_file=None,
         audio_token="<|audio|>",
         **kwargs,
@@ -26,10 +26,7 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         from tokenizers import AddedToken, Tokenizer
 
         if tokenizer_file is None:
-            from huggingface_hub import hf_hub_download
-
-            tokenizer_file = hf_hub_download(hf_id, "tokenizer.json")
-        self.hf_id = hf_id
+            tokenizer_file = download_file(GRANITE_SPEECH_TOKENIZER_URL)
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
 
@@ -42,6 +39,14 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         self.eos_token = "<|end_of_text|>"
         eos_id = self._tok.token_to_id(self.eos_token)
         self.eos_token_id = eos_id if eos_id is not None else 0
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a Granite Speech repo's ``tokenizer.json`` from the HF ``repo``
+        instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     @property
     def vocab_size(self):
@@ -68,7 +73,6 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         config = super().get_config()
         config.update(
             {
-                "hf_id": self.hf_id,
                 "tokenizer_file": self.tokenizer_file,
                 "audio_token": self.audio_token,
             }

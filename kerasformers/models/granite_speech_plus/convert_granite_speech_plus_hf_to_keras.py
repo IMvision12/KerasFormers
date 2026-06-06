@@ -16,10 +16,8 @@ if __name__ == "__main__":
     import numpy as np
     from keras import ops
 
-    from .config import GRANITE_SPEECH_PLUS_HF_IDS
-
     VARIANT = "granite-speech-4.1-2b-plus"
-    HF_ID = GRANITE_SPEECH_PLUS_HF_IDS[VARIANT]
+    HF_ID = "ibm-granite/granite-speech-4.1-2b-plus"  # conversion source only
     # Sharded index (+ shards) so the user uploads them under the release tag.
     OUT = f"C:/Users/gites/Desktop/code/v1_weights/{VARIANT.replace('-', '_')}.weights.json"
 

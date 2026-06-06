@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .granite_speech_feature_extractor import GraniteSpeechFeatureExtractor
-from .granite_speech_tokenizer import DEFAULT_TOKENIZER_REPO, GraniteSpeechTokenizer
+from .granite_speech_tokenizer import GraniteSpeechTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -21,21 +21,29 @@ class GraniteSpeechProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        tokenizer_file=None,
         projector_window_size=15,
         projector_downsample_rate=5,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.hf_id = hf_id
+        self.tokenizer_file = tokenizer_file
         self.projector_window_size = projector_window_size
         self.projector_downsample_rate = projector_downsample_rate
         self.feature_extractor = GraniteSpeechFeatureExtractor(
             projector_window_size=projector_window_size,
             projector_downsample_rate=projector_downsample_rate,
         )
-        self.tokenizer = GraniteSpeechTokenizer(hf_id=hf_id)
+        self.tokenizer = GraniteSpeechTokenizer(tokenizer_file=tokenizer_file)
         self.audio_token = self.tokenizer.audio_token
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Build the processor with the tokenizer loaded from an HF ``repo``'s
+        ``tokenizer.json`` instead of the bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     def apply_chat_template(self, messages, add_generation_prompt=True):
         """Render a simple Granite chat prompt; each ``{"type": "audio"}`` content
@@ -111,7 +119,7 @@ class GraniteSpeechProcessor(BaseProcessor):
         config = super().get_config()
         config.update(
             {
-                "hf_id": self.hf_id,
+                "tokenizer_file": self.tokenizer_file,
                 "projector_window_size": self.projector_window_size,
                 "projector_downsample_rate": self.projector_downsample_rate,
             }
