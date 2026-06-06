@@ -29,6 +29,10 @@ SKIP_DATA_FORMAT = {
     "Speech2TextSpeechToText",
     "MoonshineModel",
     "MoonshineSpeechToText",
+    "GraniteSpeechModel",
+    "GraniteSpeechGenerate",
+    "GraniteSpeechPlusModel",
+    "GraniteSpeechPlusGenerate",
     "MaskFormerUniversalSegment",
     "Mask2FormerUniversalSegment",
     # Qwen-VL inputs are pre-patchified (no spatial axes) -> layout-agnostic.

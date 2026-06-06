@@ -142,3 +142,27 @@ def moonshine_input(batch_size=2, audio_length=2000, decoder_seq_len=5):
         "input_values": ops.ones((batch_size, audio_length)),
         "decoder_input_ids": ops.zeros((batch_size, decoder_seq_len), dtype="int32"),
     }
+
+
+def granite_speech_input(
+    batch_size=2, frames=15, input_dim=160, window=15, downsample=5, audio_token_id=4
+):
+    """Audio + text input for Granite Speech: one audio clip per text row, with the
+    matching number of <|audio|> placeholder tokens."""
+    import math
+
+    n_audio = math.ceil(frames / window) * (window // downsample)
+    seq = n_audio + 2
+    ids = np.zeros((batch_size, seq), dtype="int32")
+    ids[:, 0] = 10
+    ids[:, 1 : 1 + n_audio] = audio_token_id
+    ids[:, -1] = 11
+    return {
+        "input_ids": ops.convert_to_tensor(ids),
+        "input_features": ops.convert_to_tensor(
+            np.full((batch_size, frames, input_dim), 0.01, dtype="float32")
+        ),
+        "input_features_mask": ops.convert_to_tensor(
+            np.ones((batch_size, n_audio), dtype=bool)
+        ),
+    }

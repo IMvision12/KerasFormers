@@ -27,6 +27,8 @@ from kerasformers.models import (
     gpt,
     gpt2,
     gpt_oss,
+    granite_speech,
+    granite_speech_plus,
     inception_next,
     inception_resnetv2,
     inceptionv3,
