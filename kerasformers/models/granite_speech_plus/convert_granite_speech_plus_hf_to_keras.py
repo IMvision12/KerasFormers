@@ -1,28 +1,38 @@
 from kerasformers.models.granite_speech.convert_granite_speech_hf_to_keras import (
-    build_merged_state_dict,
     transfer_granite_speech_weights,
 )
 
 from .granite_speech_plus_model import GraniteSpeechPlusGenerate
-
-# GraniteSpeechPlus shares GraniteSpeech's weight layout (the cat_hidden_layers
-# concatenation is a forward-time op, no extra weights), so the transfer + merged
-# state-dict builder are reused verbatim; only the variant + model class differ.
 
 if __name__ == "__main__":
     import gc
     import math
 
     import numpy as np
+    import torch
+    from huggingface_hub import hf_hub_download, list_repo_files
     from keras import ops
+    from safetensors.torch import load_file
 
     VARIANT = "granite_speech_4_1_2b_plus"
     HF_ID = "ibm-granite/granite-speech-4.1-2b-plus"  # conversion source only
-    # Sharded index (+ shards) so the user uploads them under the release tag.
-    OUT = f"C:/Users/gites/Desktop/code/v1_weights/{VARIANT.replace('-', '_')}.weights.json"
+    OUT = f"C:/Users/gites/Desktop/code/v1_weights/{VARIANT}.weights.json"
 
-    print(f"[1/4] Building merged state dict from {HF_ID}")
-    state = build_merged_state_dict(HF_ID)
+    print(f"[1/4] Downloading + merging {HF_ID} (base shards + LoRA adapter)")
+    files = list_repo_files(HF_ID)
+    state = {}
+    for shard in sorted(
+        f for f in files if f.startswith("model") and f.endswith(".safetensors")
+    ):
+        for k, v in load_file(hf_hub_download(HF_ID, shard)).items():
+            state[k] = v.to(torch.float32).cpu().numpy()
+    if "adapter_model.safetensors" in files:
+        for k, v in load_file(
+            hf_hub_download(HF_ID, "adapter_model.safetensors")
+        ).items():
+            state[k.replace("base_model.model.", "")] = (
+                v.to(torch.float32).cpu().numpy()
+            )
 
     print("[2/4] Building Keras model + transferring weights")
     model = GraniteSpeechPlusGenerate.from_weights(VARIANT, load_weights=False)

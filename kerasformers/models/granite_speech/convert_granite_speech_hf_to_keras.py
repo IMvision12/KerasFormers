@@ -6,13 +6,10 @@ from kerasformers.conversion.weight_transfer_util import transfer_weights
 
 from .granite_speech_model import GraniteSpeechGenerate
 
-# Per-component Keras-fragment -> HF-fragment maps. The Keras weight path's first
-# top-level segment (encoder / projector / language_model) selects which map to
-# apply, so identically-named fragments in different components (e.g. the decoder's
-# `attention.query` vs the q-former's `attention.attention.query`) never collide.
-# Within a map, replacements are applied in order (longer/more specific first), and
-# a shared set of generic param-name fixups (gamma/beta/kernel) runs last.
-
+# Per-component Keras-fragment -> HF-fragment maps. The keras weight path's first
+# top-level segment (language_model / encoder / projector) selects which map to
+# apply, so identically-named fragments in different components never collide; a
+# shared set of generic param-name fixups (gamma/beta/kernel) runs last.
 DECODER_MAPPING = {
     "language_model.token_embedding.embeddings": "language_model.model.embed_tokens.weight",
     "language_model.final_norm.weight": "language_model.model.norm.weight",
@@ -59,54 +56,31 @@ GENERIC_FIXUPS = {
 }
 
 
-def map_weight_name(keras_dotted):
-    # The tied token embedding is tracked at the model root (it's first reached via
-    # the LM head's tied access), so its dotted path is the bare
-    # `token_embedding.embeddings` rather than `language_model.token_embedding...`.
-    if keras_dotted == "token_embedding.embeddings":
-        return "language_model.model.embed_tokens.weight"
-    if keras_dotted.startswith("language_model."):
-        table = DECODER_MAPPING
-    elif keras_dotted.startswith("encoder."):
-        table = ENCODER_MAPPING
-    else:
-        table = PROJECTOR_MAPPING
-    name = keras_dotted
-    for old, new in table.items():
-        name = name.replace(old, new)
-    for old, new in GENERIC_FIXUPS.items():
-        name = name.replace(old, new)
-    return name
-
-
 def transfer_granite_speech_weights(keras_model, hf_state_dict):
-    """Load a Granite Speech HF state dict (base + merged LoRA adapter) into a
-    freshly built Keras model in place.
-
-    The HF checkpoint stores the conformer encoder under ``encoder.*``, the
-    Q-Former projector under ``projector.*`` and the Granite decoder under
-    ``language_model.model.*``; the LoRA q/v deltas live in a separate adapter
-    file under ``...self_attn.{q,v}_proj.lora_{A,B}.weight``. Linear weights are
-    transposed (``transfer_weights`` handles 2D); the conformer 1x1 convs (stored
-    ``(out, in, 1)``) and depthwise conv (``(channels, 1, kernel)``) are reshaped
-    here, and the q-former ``query`` / projector ``query`` parameters are copied
-    verbatim.
-    """
     if not keras_model.built or not keras_model.weights:
         keras_model.build_dummy()
 
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
-        name = map_weight_name(weight.path.split("/", 1)[1].replace("/", "."))
+        keras_dotted = weight.path.split("/", 1)[1].replace("/", ".")
+        if keras_dotted == "token_embedding.embeddings":
+            name = "language_model.model.embed_tokens.weight"
+        else:
+            if keras_dotted.startswith("language_model."):
+                table = DECODER_MAPPING
+            elif keras_dotted.startswith("encoder."):
+                table = ENCODER_MAPPING
+            else:
+                table = PROJECTOR_MAPPING
+            name = keras_dotted
+            for old, new in table.items():
+                name = name.replace(old, new)
+            for old, new in GENERIC_FIXUPS.items():
+                name = name.replace(old, new)
 
         if name not in hf_state_dict:
             raise WeightMappingError(weight.path, name)
         torch_weight = np.asarray(hf_state_dict[name])
 
-        # Weights assigned verbatim / with an explicit reshape (transfer_weights
-        # would mis-transpose these 2D tensors as generic Dense kernels):
-        #   - learned query tokens + Shaw relative-position table: same shape.
-        #   - depthwise Conv1d (channels, 1, kernel) -> (kernel, channels).
-        #   - pointwise Conv1d (out, in, 1) -> Dense kernel (in, out).
         if weight.path.endswith("rel_pos_emb") or weight.path.endswith("query"):
             weight.assign(torch_weight)
             continue
@@ -122,46 +96,34 @@ def transfer_granite_speech_weights(keras_model, hf_state_dict):
         transfer_weights(weight.path, weight, torch_weight)
 
 
-def build_merged_state_dict(hf_model_id, dtype="float32"):
-    """Return a flat ``{name: np.ndarray}`` of the base model weights merged with
-    the LoRA adapter tensors (kept as separate ``lora_A`` / ``lora_B`` keys so the
-    Keras LoRA branch loads them directly)."""
-    import torch
-    from huggingface_hub import hf_hub_download, list_repo_files
-    from safetensors.torch import load_file
-
-    files = list_repo_files(hf_model_id)
-    state = {}
-    # Base safetensors shards.
-    shard_files = sorted(
-        f for f in files if f.startswith("model") and f.endswith(".safetensors")
-    )
-    for shard in shard_files:
-        path = hf_hub_download(hf_model_id, shard)
-        for k, v in load_file(path).items():
-            state[k] = v.to(torch.float32).cpu().numpy()
-    # LoRA adapter.
-    if "adapter_model.safetensors" in files:
-        ap = hf_hub_download(hf_model_id, "adapter_model.safetensors")
-        for k, v in load_file(ap).items():
-            k = k.replace("base_model.model.", "")
-            state[k] = v.to(torch.float32).cpu().numpy()
-    return state
-
-
 if __name__ == "__main__":
     import gc
     import math
 
+    import torch
+    from huggingface_hub import hf_hub_download, list_repo_files
     from keras import ops
+    from safetensors.torch import load_file
 
     VARIANT = "granite_speech_3_3_2b"
     HF_ID = "ibm-granite/granite-speech-3.3-2b"  # conversion source only
-    # Sharded index (+ shards) so the user uploads them under the release tag.
-    OUT = f"C:/Users/gites/Desktop/code/v1_weights/{VARIANT.replace('-', '_')}.weights.json"
+    OUT = f"C:/Users/gites/Desktop/code/v1_weights/{VARIANT}.weights.json"
 
-    print(f"[1/4] Building merged state dict from {HF_ID}")
-    state = build_merged_state_dict(HF_ID)
+    print(f"[1/4] Downloading + merging {HF_ID} (base shards + LoRA adapter)")
+    files = list_repo_files(HF_ID)
+    state = {}
+    for shard in sorted(
+        f for f in files if f.startswith("model") and f.endswith(".safetensors")
+    ):
+        for k, v in load_file(hf_hub_download(HF_ID, shard)).items():
+            state[k] = v.to(torch.float32).cpu().numpy()
+    if "adapter_model.safetensors" in files:
+        for k, v in load_file(
+            hf_hub_download(HF_ID, "adapter_model.safetensors")
+        ).items():
+            state[k.replace("base_model.model.", "")] = (
+                v.to(torch.float32).cpu().numpy()
+            )
 
     print("[2/4] Building Keras model + transferring weights")
     model = GraniteSpeechGenerate.from_weights(VARIANT, load_weights=False)
@@ -184,8 +146,6 @@ if __name__ == "__main__":
     print("  logits", tuple(ops.convert_to_numpy(out["logits"]).shape))
 
     print(f"[4/4] Saving sharded weights to {OUT}")
-    # max_shard_size is in GB (a float). 2.0 keeps shards comfortably under the
-    # GitHub-release 2 GB per-asset cap for the ~9 GB 2b checkpoint.
     model.save_weights(OUT, max_shard_size=2.0)
     del state
     gc.collect()
