@@ -33,6 +33,10 @@ SKIP_SAVING = {
     "GptGenerate",
     "GPT2Model",
     "GPT2Generate",
+    "GraniteSpeechModel",
+    "GraniteSpeechGenerate",
+    "GraniteSpeechPlusModel",
+    "GraniteSpeechPlusGenerate",
 }
 
 
