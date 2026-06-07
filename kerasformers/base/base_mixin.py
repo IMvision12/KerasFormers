@@ -1,6 +1,7 @@
 import inspect
 import json
 
+import keras
 from huggingface_hub import hf_hub_download
 
 from kerasformers.conversion import download_file
@@ -354,26 +355,44 @@ class WeightLoadingMixin:
         )
 
 
-class PreloadMixin:
-    """Shared ``from_weights`` / ``from_release`` / ``from_hf`` for kerasformers
-    preprocessing layers (tokenizers, processors, image processors, feature
-    extractors).
+class PreprocessorMixin(keras.layers.Layer):
+    """Single base for every kerasformers preprocessing layer — tokenizers,
+    processors, image processors, and feature extractors all inherit it.
 
-    Mirrors the model-side loading API so a preprocessor loads with the *same*
-    identifier as its model::
+    Preprocessing layers are stateless utility layers (no weights to build) that
+    take *Python* inputs — strings, chat-message lists, raw images, raw audio —
+    not tensors. ``__call__`` forwards straight to ``call`` so those inputs can be
+    passed positionally (Keras's ``Layer.__call__`` rejects non-tensor positional
+    args).
+
+    The loading API — ``from_weights`` / ``from_release`` / ``from_hf`` — mirrors
+    the model-side :class:`WeightLoadingMixin`, so a preprocessor loads with the
+    *same* identifier as its model and can pull its files from a kerasformers
+    release (a variant id) or from the HF Hub (an ``"hf:org/repo"`` id)::
 
         gen = Qwen2Generate.from_weights("qwen2-7b-instruct")
         tok = Qwen2Tokenizer.from_weights("qwen2-7b-instruct")
+        tok = CLIPTokenizer.from_weights("hf:openai/clip-vit-base-patch16")
 
-    Kept as a plain mixin (not a ``keras.Layer``) so it composes onto any
-    preprocessing base without touching the layer MRO — same spirit as
-    :class:`WeightLoadingMixin` on the model side.
+    Subclasses (:class:`BaseTokenizer`, :class:`BaseProcessor`,
+    :class:`BaseImageProcessor`, :class:`BaseAudioFeatureExtractor`) implement
+    ``call`` and add their own state / ``get_config`` — the base bakes in no
+    defaults.
     """
 
     @classmethod
     def from_weights(cls, identifier, **kwargs):
         if identifier.startswith("hf:"):
-            return cls.from_hf(identifier[len("hf:") :], **kwargs)
+            repo = identifier[len("hf:") :]
+            if "/" not in repo:
+                raise ValueError(
+                    f"{cls.__name__}.from_weights('hf:{repo}'): the 'hf:' prefix "
+                    f"expects a Hugging Face repo id of the form 'org/name' (e.g. "
+                    f"'hf:openai/clip-vit-base-patch16'), but got {repo!r} with no "
+                    f"'/'. If {repo!r} is a kerasformers release variant, drop the "
+                    f"'hf:' prefix: {cls.__name__}.from_weights({repo!r})."
+                )
+            return cls.from_hf(repo, **kwargs)
         return cls.from_release(identifier, **kwargs)
 
     @classmethod
@@ -389,3 +408,9 @@ class PreloadMixin:
                 f"to fetch the files from {repo!r}."
             )
         return cls(hf_id=repo, **kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return self.call(*args, **kwargs)
+
+    def call(self, *args, **kwargs):
+        raise NotImplementedError(f"{type(self).__name__} must implement `call`.")

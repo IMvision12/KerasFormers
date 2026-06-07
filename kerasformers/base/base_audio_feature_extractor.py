@@ -1,13 +1,13 @@
-from kerasformers.base.base_processor import BasePreprocessingLayer
+from kerasformers.base.base_mixin import PreprocessorMixin
 
 
-class BaseAudioFeatureExtractor(BasePreprocessingLayer):
+class BaseAudioFeatureExtractor(PreprocessorMixin):
     """Abstract base for kerasformers audio feature extractors.
 
     Subclasses implement ``call(raw_speech, ...)`` returning the spectrogram /
     feature tensor. The loading API (``from_weights`` / ``from_release`` /
     ``from_hf``) and the ``__call__`` -> ``call`` forwarder are inherited from
-    :class:`BasePreprocessingLayer`. Concrete subclasses define their own
+    :class:`PreprocessorMixin`. Concrete subclasses define their own
     constructor kwargs (sampling rate, FFT size, mel bin count, chunk length, …)
     and ``get_config`` payload — the base bakes in no defaults.
     """

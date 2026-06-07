@@ -1,13 +1,13 @@
-from kerasformers.base.base_processor import BasePreprocessingLayer
+from kerasformers.base.base_mixin import PreprocessorMixin
 
 
-class BaseTokenizer(BasePreprocessingLayer):
+class BaseTokenizer(PreprocessorMixin):
     """Abstract base for kerasformers tokenizers.
 
     Subclasses implement ``call`` (text -> ids) and ``decode`` (ids -> text);
     ``batch_decode`` is a pure-Python loop over ``decode``. The loading API
     (``from_weights`` / ``from_release`` / ``from_hf``) and the ``__call__`` ->
-    ``call`` forwarder are inherited from :class:`BasePreprocessingLayer`.
+    ``call`` forwarder are inherited from :class:`PreprocessorMixin`.
 
     Concrete tokenizers add their own state (vocab path, merges, special-token
     ids, BPE / SentencePiece backend) and ``get_config`` payload — the base

@@ -1,17 +1,17 @@
 import numpy as np
 from keras import ops
 
-from kerasformers.base.base_processor import BasePreprocessingLayer
+from kerasformers.base.base_mixin import PreprocessorMixin
 from kerasformers.utils.image_util import get_data_format, load_image
 
 
-class BaseImageProcessor(BasePreprocessingLayer):
+class BaseImageProcessor(PreprocessorMixin):
     """Abstract base for kerasformers image preprocessors.
 
     Subclasses implement ``call(images)`` returning the model-ready pixel tensor
     (or a dict that includes one). The loading API (``from_weights`` /
     ``from_release`` / ``from_hf``) and the ``__call__`` -> ``call`` forwarder are
-    inherited from :class:`BasePreprocessingLayer`. Concrete subclasses define
+    inherited from :class:`PreprocessorMixin`. Concrete subclasses define
     their own constructor kwargs (resolution, normalization stats, interpolation
     mode, patch size, …) and ``get_config`` payload — the base bakes in no
     defaults.
