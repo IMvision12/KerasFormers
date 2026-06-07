@@ -19,6 +19,8 @@ class GraniteSpeechProcessor(BaseProcessor):
     together with ``input_features`` / ``input_features_mask`` for the model.
     """
 
+    TOKENIZER_CLS = GraniteSpeechTokenizer
+
     def __init__(
         self,
         tokenizer_file=None,
@@ -34,7 +36,7 @@ class GraniteSpeechProcessor(BaseProcessor):
             projector_window_size=projector_window_size,
             projector_downsample_rate=projector_downsample_rate,
         )
-        self.tokenizer = GraniteSpeechTokenizer(tokenizer_file=tokenizer_file)
+        self.tokenizer = self.TOKENIZER_CLS(tokenizer_file=tokenizer_file)
         self.audio_token = self.tokenizer.audio_token
 
     @classmethod

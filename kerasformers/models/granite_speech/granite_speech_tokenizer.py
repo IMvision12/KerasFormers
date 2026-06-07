@@ -16,6 +16,8 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         audio_token: The audio placeholder token string.
     """
 
+    TOKENIZER_URL = GRANITE_SPEECH_TOKENIZER_URL
+
     def __init__(
         self,
         tokenizer_file=None,
@@ -26,7 +28,7 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         from tokenizers import AddedToken, Tokenizer
 
         if tokenizer_file is None:
-            tokenizer_file = download_file(GRANITE_SPEECH_TOKENIZER_URL)
+            tokenizer_file = download_file(self.TOKENIZER_URL)
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
 
