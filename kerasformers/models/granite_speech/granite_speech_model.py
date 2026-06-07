@@ -173,7 +173,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
 
     Construction:
 
-    >>> GraniteSpeechModel.from_weights("granite-speech-3.3-2b")
+    >>> GraniteSpeechModel.from_weights("granite_speech_3_3_2b")
     >>> GraniteSpeechModel.from_weights("hf:ibm-granite/granite-speech-3.3-2b")
     """
 

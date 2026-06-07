@@ -1,5 +1,5 @@
 GRANITE_SPEECH_CONFIG = {
-    "granite-speech-3.3-2b": {
+    "granite_speech_3_3_2b": {
         "vocab_size": 49160,
         "embed_dim": 2048,
         "mlp_dim": 8192,
@@ -42,7 +42,7 @@ GRANITE_SPEECH_CONFIG = {
 
 
 GRANITE_SPEECH_WEIGHTS = {
-    "granite-speech-3.3-2b": {
+    "granite_speech_3_3_2b": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite_speech/granite_speech_3_3_2b.weights.json",
     },
 }
