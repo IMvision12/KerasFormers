@@ -26,7 +26,6 @@ def transfer_moonshine_weights(
     encoder = keras_model.encoder
     decoder = keras_model.decoder
 
-    # ---- Encoder conv stem ----
     conv1 = encoder.get_layer("encoder_conv1")
     conv1.kernel.assign(np.transpose(state["encoder.conv1.weight"], (2, 1, 0)))
     for i in (2, 3):
@@ -84,7 +83,6 @@ def transfer_moonshine_weights(
         name_mapping=LN_MAP,
     )
 
-    # ---- Decoder ----
     transfer_nested_layer_weights(
         decoder.get_layer("decoder_embed_tokens"),
         state,

@@ -325,9 +325,6 @@ class GraniteSpeechModel(SubclassedBaseModel):
     def merge_audio_embeddings(
         self, input_ids, inputs_embeds, audio_features, input_features_mask
     ):
-        # Flatten the projected audio features over the batch (optionally dropping
-        # padded positions via input_features_mask), then scatter them into the
-        # audio-placeholder slots of the token embeddings (row-major over (B, L)).
         batch = int(input_ids.shape[0])
         seq = int(input_ids.shape[1])
         if input_features_mask is not None:
@@ -356,8 +353,6 @@ class GraniteSpeechModel(SubclassedBaseModel):
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
 
-        # Replace audio placeholder ids with 0 to keep the embedding lookup in range
-        # (kept as pure ops so the text-only generate path traces under jit/XLA).
         llm_ids = ops.where(input_ids == self.audio_token_id, 0, input_ids)
         inputs_embeds = self.language_model.token_embedding(llm_ids)
 
@@ -370,8 +365,6 @@ class GraniteSpeechModel(SubclassedBaseModel):
             )
         inputs_embeds = inputs_embeds * self.embedding_multiplier
 
-        # Granite uses plain arange positions (the attention_mask only feeds the
-        # additive causal mask, not the RoPE positions) — match HF exactly.
         position_ids = ops.broadcast_to(ops.arange(seq), (batch, seq))
         return inputs_embeds, position_ids, has_audio
 
@@ -449,10 +442,6 @@ class GraniteSpeechModel(SubclassedBaseModel):
         transfer_granite_speech_weights(keras_model, hf_state_dict)
 
     def build_dummy(self):
-        # A minimal audio+text forward so every weight (encoder, projector, LoRA,
-        # decoder) is created before a release load_weights / transfer. The encoder
-        # preserves the frame count, so the projector emits
-        # ceil(frames / window) * (window // downsample) audio tokens.
         frames = 2 * self.window_size
         nblocks = math.ceil(frames / self.window_size)
         n_audio = nblocks * (self.window_size // self.downsample_rate)
@@ -544,7 +533,6 @@ class GraniteSpeechGenerate(GraniteSpeechModel, BaseGeneration):
     ``gen.generate(input_ids, input_features=..., input_features_mask=...)``.
     """
 
-    # Granite's <|end_of_text|> / pad id (eos_token_id=0 in the checkpoint).
     eos_token_id = (0,)
 
     def project(self, hidden):
@@ -594,10 +582,6 @@ class GraniteSpeechGenerate(GraniteSpeechModel, BaseGeneration):
             )
             layer_caches.append(ops.stack([ck, cv], axis=1))
         kv_cache = ops.stack(layer_caches, axis=1)
-        # The LoRA adapter is enabled for the whole turn iff audio was present at
-        # prefill. Keep this a Python-static instance flag (not a traced cache
-        # tensor) so `apply_lora` is a compile-time constant inside the jit/XLA
-        # decode loop on JAX / TensorFlow.
         self._decode_apply_lora = bool(has_audio)
         logits = self.project(hidden[:, -1, :])
         return kv_cache, logits

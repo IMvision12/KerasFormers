@@ -7,34 +7,6 @@ from keras import ops
 from kerasformers.base import BaseAudioFeatureExtractor
 
 
-def hz_to_mel_htk(freq):
-    return 2595.0 * np.log10(1.0 + freq / 700.0)
-
-
-def mel_to_hz_htk(mels):
-    return 700.0 * (10.0 ** (mels / 2595.0) - 1.0)
-
-
-def build_mel_filter_bank_htk(n_fft, n_mels, sample_rate, f_min=0.0, f_max=None):
-    # Matches torchaudio.functional.melscale_fbanks with mel_scale="htk", norm=None
-    # (the defaults used by GraniteSpeechFeatureExtractor's MelSpectrogram).
-    f_max = f_max if f_max is not None else sample_rate / 2.0
-    n_freqs = n_fft // 2 + 1
-    all_freqs = np.linspace(0, sample_rate / 2.0, n_freqs)
-
-    m_min = hz_to_mel_htk(f_min)
-    m_max = hz_to_mel_htk(f_max)
-    m_pts = np.linspace(m_min, m_max, n_mels + 2)
-    f_pts = mel_to_hz_htk(m_pts)
-
-    f_diff = np.diff(f_pts)
-    slopes = f_pts[None, :] - all_freqs[:, None]  # (n_freqs, n_mels+2)
-    down = -slopes[:, :-2] / f_diff[:-1][None, :]
-    up = slopes[:, 2:] / f_diff[1:][None, :]
-    fb = np.maximum(0.0, np.minimum(down, up))  # (n_freqs, n_mels)
-    return fb.astype("float32")
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GraniteSpeechFeatureExtractor(BaseAudioFeatureExtractor):
     """Mel-spectrogram feature extractor for Granite Speech (pure Keras 3).
@@ -73,7 +45,22 @@ class GraniteSpeechFeatureExtractor(BaseAudioFeatureExtractor):
         self.n_mels = n_mels
         self.projector_window_size = projector_window_size
         self.projector_downsample_rate = projector_downsample_rate
-        self.mel_filters = build_mel_filter_bank_htk(n_fft, n_mels, sampling_rate)
+        self.mel_filters = self.build_mel_filters()
+
+    def build_mel_filters(self):
+        f_min, f_max = 0.0, self.sampling_rate / 2.0
+        n_freqs = self.n_fft // 2 + 1
+        all_freqs = np.linspace(0, f_max, n_freqs)
+        m_min = 2595.0 * np.log10(1.0 + f_min / 700.0)
+        m_max = 2595.0 * np.log10(1.0 + f_max / 700.0)
+        m_pts = np.linspace(m_min, m_max, self.n_mels + 2)
+        f_pts = 700.0 * (10.0 ** (m_pts / 2595.0) - 1.0)
+        f_diff = np.diff(f_pts)
+        slopes = f_pts[None, :] - all_freqs[:, None]
+        down = -slopes[:, :-2] / f_diff[:-1][None, :]
+        up = slopes[:, 2:] / f_diff[1:][None, :]
+        fb = np.maximum(0.0, np.minimum(down, up))
+        return fb.astype("float32")
 
     def normalize_waves(self, audios):
         if isinstance(audios, np.ndarray):
@@ -92,8 +79,6 @@ class GraniteSpeechFeatureExtractor(BaseAudioFeatureExtractor):
         return out, lengths
 
     def log_mel(self, batch):
-        # win_length (400) < n_fft (512): torchaudio centers the Hann window in the
-        # n_fft frame (zero-padded both sides), so build that padded window.
         pad = (self.n_fft - self.win_length) // 2
         hann = ops.convert_to_tensor(
             np.hanning(self.win_length + 1)[:-1].astype("float32")
@@ -108,12 +93,8 @@ class GraniteSpeechFeatureExtractor(BaseAudioFeatureExtractor):
             window=window,
             center=True,
         )
-        power = real * real + imag * imag  # (B, n_frames, n_fft//2+1)
-        mel = ops.matmul(
-            power, ops.convert_to_tensor(self.mel_filters)
-        )  # (B, n_frames, n_mels)
-        # HF: transpose to (B, n_mels, n_frames) then clip+log10, but the downstream
-        # stacking reshapes back over (n_frames, n_mels); keep (B, n_frames, n_mels).
+        power = real * real + imag * imag
+        mel = ops.matmul(power, ops.convert_to_tensor(self.mel_filters))
         inv_log10 = 1.0 / math.log(10.0)
         logmel = ops.log(ops.maximum(mel, 1e-10)) * inv_log10
         mx = ops.max(logmel, axis=(1, 2), keepdims=True)

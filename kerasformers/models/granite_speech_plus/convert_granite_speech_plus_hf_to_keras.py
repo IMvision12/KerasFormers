@@ -15,7 +15,7 @@ if __name__ == "__main__":
     from safetensors.torch import load_file
 
     VARIANT = "granite_speech_4_1_2b_plus"
-    HF_ID = "ibm-granite/granite-speech-4.1-2b-plus"  # conversion source only
+    HF_ID = "ibm-granite/granite-speech-4.1-2b-plus"
     OUT = f"C:/Users/gites/Desktop/code/v1_weights/{VARIANT}.weights.json"
 
     print(f"[1/4] Downloading + merging {HF_ID} (base shards + LoRA adapter)")

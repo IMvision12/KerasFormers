@@ -9,11 +9,10 @@ def moonshine_rope_tables(rotary_dim, max_positions, base):
         base ** (np.arange(0, rotary_dim, 2, dtype=np.float32) / rotary_dim)
     )
     positions = np.arange(max_positions, dtype=np.float32)[:, None]
-    freqs = positions * inv_freq[None, :]  # (max_positions, half)
-    emb = np.concatenate([freqs, freqs], axis=-1)  # (max_positions, rotary_dim)
+    freqs = positions * inv_freq[None, :]
+    emb = np.concatenate([freqs, freqs], axis=-1)
     cos = np.cos(emb).astype(np.float32)
     sin = np.sin(emb).astype(np.float32)
-    # GLM-style interleaving: take the first half and repeat each column twice.
     cos = np.repeat(cos[:, :half], 2, axis=-1)
     sin = np.repeat(sin[:, :half], 2, axis=-1)
     return cos, sin

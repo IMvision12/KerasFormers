@@ -1,9 +1,3 @@
-# Moonshine - Useful Sensors raw-waveform ASR, encoder-decoder.
-# Architecture knobs shared by all variants: raw 16 kHz waveform input,
-# 3x Conv1d (k=127/s=64 no-bias, k=7/s=3, k=3/s=2) + GroupNorm stem,
-# rotary (GLM-style interleaved, partial) positions, no-bias LayerNorm,
-# pre-norm blocks, gelu encoder FFN, gated-silu decoder FFN, tied LM head.
-
 MOONSHINE_CONFIG = {
     "moonshine_tiny": {
         "hidden_dim": 288,
@@ -38,9 +32,6 @@ MOONSHINE_CONFIG = {
 }
 
 
-# Release weights: the converter's `__main__` saves `{variant}_usefulsensors.weights.h5`,
-# which the user uploads to the GitHub `moonshine` release tag. On-the-fly conversion
-# stays available via `from_weights("hf:UsefulSensors/moonshine-...")`.
 MOONSHINE_WEIGHTS = {
     "moonshine_tiny": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_tiny_usefulsensors.weights.h5"

@@ -408,11 +408,6 @@ class GraniteSpeechDecoderLayer(layers.Layer):
         return config
 
 
-# ---------------------------------------------------------------------------
-# Conformer / CTC audio encoder
-# ---------------------------------------------------------------------------
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GraniteSpeechConformerFeedForward(layers.Layer):
     """Conformer feed-forward: ``down(silu(up(layernorm(x))))`` (biased Denses)."""
@@ -470,7 +465,6 @@ class GraniteSpeechConformerAttention(layers.Layer):
         self.to_out = layers.Dense(hidden_dim, name="to_out")
 
     def build(self, input_shape):
-        # Per-layer Shaw relative-position table (2*max_pos_emb+1, dim_head).
         self.rel_pos_emb = self.add_weight(
             name="rel_pos_emb",
             shape=(2 * self.max_pos_emb + 1, self.dim_head),
@@ -480,9 +474,6 @@ class GraniteSpeechConformerAttention(layers.Layer):
         self.built = True
 
     def call(self, hidden_states):
-        # Clamped relative-position index matrix (context, context), recomputed in
-        # call() so the index tensor isn't baked at build time (it would otherwise
-        # be captured as zeros on the first layer under subclassed-model tracing).
         c = self.context_size
         seq = ops.arange(c)
         dists = ops.cast(
@@ -511,18 +502,13 @@ class GraniteSpeechConformerAttention(layers.Layer):
         key = to_blocks(key)
         value = to_blocks(value)
 
-        # Shaw relative position: pos_attn[b,m,h,i,j] = sum_d q[b,m,h,i,d] * rel[i,j,d]
         pos_attn = ops.einsum("bmhid,ijd->bmhij", query, rel_pos_emb) * self.scale
 
         attn = ops.matmul(query, ops.transpose(key, (0, 1, 2, 4, 3))) * self.scale
         attn = attn + pos_attn
 
-        # Mask the padded key positions, but only inside the last block (HF masks
-        # both rows and cols of the partial block; masking keys is sufficient
-        # since the padded query rows are sliced off after the projection).
-        valid_key = ops.arange(c) < (c - pad)  # (c,)
-        is_last = ops.arange(num_blocks) == (num_blocks - 1)  # (num_blocks,)
-        # (num_blocks, c): MASK_NEG where in the last block AND key is padding.
+        valid_key = ops.arange(c) < (c - pad)
+        is_last = ops.arange(num_blocks) == (num_blocks - 1)
         block_key_mask = ops.where(
             ops.logical_and(is_last[:, None], ops.logical_not(valid_key)[None, :]),
             MASK_NEG,
@@ -581,8 +567,6 @@ class GraniteSpeechConformerConvModule(layers.Layer):
         )
 
     def build(self, input_shape):
-        # Depthwise kernel stored as (kernel_size, inner_dim) — one length-K filter
-        # per channel (PyTorch Conv1d groups=inner_dim, weight (inner_dim, 1, K)).
         self.depth_kernel = self.add_weight(
             name="depth_kernel",
             shape=(self.conv_kernel_size, self.inner_dim),
@@ -593,13 +577,11 @@ class GraniteSpeechConformerConvModule(layers.Layer):
 
     def call(self, x, training=False):
         x = self.norm(x)
-        x = self.up_conv(x)  # (b, t, 2*inner)
+        x = self.up_conv(x)
         a, b = ops.split(x, 2, axis=-1)
-        x = a * ops.sigmoid(b)  # GLU over channels
+        x = a * ops.sigmoid(b)
 
-        # Depthwise conv over time with symmetric-ish padding.
         x = ops.pad(x, [[0, 0], [self.left_pad, self.right_pad], [0, 0]])
-        # (kernel, channels) -> (kernel, channels, 1) depthwise filter (multiplier 1).
         kernel = self.depth_kernel[:, :, None]
         x = ops.depthwise_conv(
             x, kernel, strides=1, padding="valid", data_format="channels_last"
@@ -793,11 +775,6 @@ class GraniteSpeechCTCEncoder(layers.Layer):
             }
         )
         return config
-
-
-# ---------------------------------------------------------------------------
-# BLIP-2 Q-Former projector
-# ---------------------------------------------------------------------------
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

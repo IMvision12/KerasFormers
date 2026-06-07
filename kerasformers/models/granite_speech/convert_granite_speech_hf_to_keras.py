@@ -6,10 +6,6 @@ from kerasformers.conversion.weight_transfer_util import transfer_weights
 
 from .granite_speech_model import GraniteSpeechGenerate
 
-# Per-component Keras-fragment -> HF-fragment maps. The keras weight path's first
-# top-level segment (language_model / encoder / projector) selects which map to
-# apply, so identically-named fragments in different components never collide; a
-# shared set of generic param-name fixups (gamma/beta/kernel) runs last.
 DECODER_MAPPING = {
     "language_model.token_embedding.embeddings": "language_model.model.embed_tokens.weight",
     "language_model.final_norm.weight": "language_model.model.norm.weight",
@@ -106,7 +102,7 @@ if __name__ == "__main__":
     from safetensors.torch import load_file
 
     VARIANT = "granite_speech_3_3_2b"
-    HF_ID = "ibm-granite/granite-speech-3.3-2b"  # conversion source only
+    HF_ID = "ibm-granite/granite-speech-3.3-2b"
     OUT = f"C:/Users/gites/Desktop/code/v1_weights/{VARIANT}.weights.json"
 
     print(f"[1/4] Downloading + merging {HF_ID} (base shards + LoRA adapter)")
