@@ -1,7 +1,6 @@
 from typing import List, Union
 
 import keras
-import numpy as np
 import sentencepiece as spm
 from sentencepiece import sentencepiece_model_pb2 as sp_pb2
 from tokenizers import AddedToken, Tokenizer
@@ -139,36 +138,12 @@ class XLMRobertaTokenizer(BaseTokenizer):
         return self.decode(token_ids, skip_special_tokens=skip_special_tokens)
 
     def decode(self, ids, skip_special_tokens: bool = True) -> str:
-        if hasattr(ids, "tolist"):
-            ids = ids.tolist()
-        if isinstance(ids, int):
-            ids = [ids]
         return self._tok.decode(
-            [int(i) for i in ids], skip_special_tokens=skip_special_tokens
+            self.to_id_list(ids), skip_special_tokens=skip_special_tokens
         )
 
     def call(self, inputs: Union[str, List[str]], text_pair=None):
-        if inputs is None:
-            raise ValueError("No text inputs provided to XLMRobertaTokenizer")
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
-        if text_pair is None:
-            encs = self._tok.encode_batch(texts)
-        else:
-            pairs = [text_pair] if isinstance(text_pair, str) else list(text_pair)
-            encs = self._tok.encode_batch(list(zip(texts, pairs)))
-
-        input_ids = np.array([e.ids for e in encs], dtype=np.int32)
-        attention_mask = np.array([e.attention_mask for e in encs], dtype=np.int32)
-        token_type_ids = np.array([e.type_ids for e in encs], dtype=np.int32)
-        return {
-            "input_ids": keras.ops.convert_to_tensor(input_ids, dtype="int32"),
-            "attention_mask": keras.ops.convert_to_tensor(
-                attention_mask, dtype="int32"
-            ),
-            "token_type_ids": keras.ops.convert_to_tensor(
-                token_type_ids, dtype="int32"
-            ),
-        }
+        return self.encode_batch_to_inputs(inputs, text_pair)
 
     def get_config(self):
         config = super().get_config()

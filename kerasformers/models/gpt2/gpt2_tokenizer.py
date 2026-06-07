@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 
 from kerasformers.base import BaseTokenizer
 from kerasformers.conversion import download_file
@@ -88,23 +87,13 @@ class GPT2Tokenizer(BaseTokenizer):
         return self._tok.encode(text, add_special_tokens=False).ids
 
     def call(self, inputs):
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
-        ids = [self.encode(t) for t in texts]
-        max_len = max(len(s) for s in ids)
-        input_ids = np.zeros((len(ids), max_len), dtype="int32")
-        attention_mask = np.zeros((len(ids), max_len), dtype="int32")
-        for i, s in enumerate(ids):
-            input_ids[i, : len(s)] = s
-            attention_mask[i, : len(s)] = 1
+        texts = self.normalize_texts(inputs)
+        input_ids, attention_mask = self.pad_batch([self.encode(t) for t in texts])
         return {"input_ids": input_ids, "attention_mask": attention_mask}
 
     def decode(self, ids, skip_special_tokens=True):
-        if hasattr(ids, "tolist"):
-            ids = ids.tolist()
-        if isinstance(ids, int):
-            ids = [ids]
         return self._tok.decode(
-            [int(i) for i in ids], skip_special_tokens=skip_special_tokens
+            self.to_id_list(ids), skip_special_tokens=skip_special_tokens
         )
 
     def get_config(self):

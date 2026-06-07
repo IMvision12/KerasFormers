@@ -2,7 +2,6 @@ import json
 from typing import Dict, List, Optional, Union
 
 import keras
-import numpy as np
 import sentencepiece as spm
 from keras import ops
 
@@ -140,14 +139,10 @@ class Speech2TextTokenizer(BaseTokenizer):
         return {"input_ids": ids}
 
     def call(self, inputs):
-        if inputs is None:
-            raise ValueError("No text inputs provided to Speech2TextTokenizer")
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
+        texts = self.normalize_texts(inputs)
         seqs = [self.tokenize(t) + [self.eos_token_id] for t in texts]
-        max_len = max(len(s) for s in seqs)
-        padded = [s + [self.pad_token_id] * (max_len - len(s)) for s in seqs]
-        ids = np.array(padded, dtype=np.int32)
-        return {"input_ids": ops.convert_to_tensor(ids, dtype="int32")}
+        input_ids, _ = self.pad_batch(seqs, pad_value=self.pad_token_id)
+        return {"input_ids": ops.convert_to_tensor(input_ids, dtype="int32")}
 
     def get_config(self):
         config = super().get_config()

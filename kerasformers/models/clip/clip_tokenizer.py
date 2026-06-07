@@ -2,7 +2,6 @@ import json
 from typing import Dict, List, Union
 
 import keras
-import numpy as np
 from tokenizers import AddedToken, Regex, Tokenizer
 from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.models import BPE
@@ -157,16 +156,9 @@ class CLIPTokenizer(BaseTokenizer):
         return {"input_ids": enc.ids, "attention_mask": enc.attention_mask}
 
     def call(self, inputs: Union[str, List[str]]):
-        if inputs is None:
-            raise ValueError("No text inputs provided to CLIPTokenizer")
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
-        encs = self._tok.encode_batch(texts)
-        ids = np.array([e.ids for e in encs], dtype=np.int32)
-        mask = np.array([e.attention_mask for e in encs], dtype=np.bool_)
-        return {
-            "input_ids": keras.ops.convert_to_tensor(ids, dtype="int32"),
-            "attention_mask": keras.ops.convert_to_tensor(mask, dtype="bool"),
-        }
+        return self.encode_batch_to_inputs(
+            inputs, token_type_ids=False, mask_dtype="bool"
+        )
 
     def get_config(self):
         config = super().get_config()

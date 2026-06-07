@@ -121,20 +121,15 @@ class SAM3CLIPTokenizer(BaseTokenizer):
             input_ids: numpy array (batch, max_seq_len) int32.
             attention_mask: numpy array (batch, max_seq_len) float32.
         """
-        if isinstance(text, str):
-            text = [text]
-        encs = self._tok.encode_batch(list(text))
+        texts = self.normalize_texts(text)
+        encs = self._tok.encode_batch(texts)
         input_ids = np.array([e.ids for e in encs], dtype=np.int32)
         attention_mask = np.array([e.attention_mask for e in encs], dtype=np.float32)
         return input_ids, attention_mask
 
     def decode(self, token_ids):
         """Decode token IDs back to text."""
-        if hasattr(token_ids, "tolist"):
-            token_ids = token_ids.tolist()
-        if isinstance(token_ids, int):
-            token_ids = [token_ids]
         skip = {self.bos_token_id, self.eos_token_id, self.pad_token_id}
-        keep = [int(i) for i in token_ids if int(i) not in skip]
+        keep = [i for i in self.to_id_list(token_ids) if i not in skip]
         text = self._tok.decode(keep, skip_special_tokens=False)
         return text.replace("</w>", " ").strip()

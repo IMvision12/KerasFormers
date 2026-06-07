@@ -166,9 +166,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
         return input_ids[:, :max_length]
 
     def call(self, inputs):
-        if inputs is None:
-            raise ValueError("No text inputs provided to SigLIP2Tokenizer")
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
+        texts = self.normalize_texts(inputs)
         rows = []
         for t in texts:
             seq = self._encode_for_call(t)

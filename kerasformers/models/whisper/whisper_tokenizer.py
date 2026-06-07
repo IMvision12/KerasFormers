@@ -3,7 +3,6 @@ import os
 from typing import List, Union
 
 import keras
-import numpy as np
 from tokenizers import AddedToken, Tokenizer
 from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.models import BPE
@@ -114,11 +113,7 @@ class WhisperTokenizer(BaseTokenizer):
         return [e.ids for e in encs]
 
     def decode(self, token_ids, skip_special_tokens: bool = True) -> str:
-        if hasattr(token_ids, "tolist"):
-            token_ids = token_ids.tolist()
-        if isinstance(token_ids, int):
-            token_ids = [token_ids]
-        ids = [int(i) for i in token_ids]
+        ids = self.to_id_list(token_ids)
         if skip_special_tokens:
             ids = [i for i in ids if i not in self._special_id_set]
         return self._tok.decode(ids, skip_special_tokens=False)
@@ -135,17 +130,9 @@ class WhisperTokenizer(BaseTokenizer):
         return out
 
     def call(self, inputs: Union[str, List[str]]):
-        if inputs is None:
-            raise ValueError("No text inputs provided to WhisperTokenizer")
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
+        texts = self.normalize_texts(inputs)
         encs = self._tok.encode_batch(texts, add_special_tokens=False)
-        lens = [len(e.ids) for e in encs]
-        max_len = max(lens) if lens else 0
-        ids = np.full((len(texts), max_len), self.pad_token_id, dtype=np.int32)
-        mask = np.zeros((len(texts), max_len), dtype=np.int32)
-        for i, e in enumerate(encs):
-            ids[i, : len(e.ids)] = e.ids
-            mask[i, : len(e.ids)] = 1
+        ids, mask = self.pad_batch([e.ids for e in encs], pad_value=self.pad_token_id)
         return {
             "input_ids": keras.ops.convert_to_tensor(ids, dtype="int32"),
             "attention_mask": keras.ops.convert_to_tensor(mask, dtype="int32"),
