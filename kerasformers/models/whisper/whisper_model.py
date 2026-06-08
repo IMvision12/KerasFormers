@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import FunctionalBaseModel, Seq2SeqGeneration
 
 from .config import (
     WHISPER_BEGIN_SUPPRESS_TOKENS,
@@ -447,7 +447,7 @@ class WhisperModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WhisperSpeechToText(WhisperModel):
+class WhisperSpeechToText(WhisperModel, Seq2SeqGeneration):
     """Whisper speech-to-text model (transcription + translation).
 
     Composes the same encoder + decoder + tied LM head Functional graph as
@@ -501,44 +501,35 @@ class WhisperSpeechToText(WhisperModel):
         )
 
         enc_out = self.encoder(inputs["input_features"])
-        batch = enc_out.shape[0]
 
         suppress_ids = sorted(suppress_set)
         begin_ids = sorted(begin_suppress_set)
-        generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
-        done = ops.zeros((batch,), dtype="bool")
-        suppress_bias = None
+        bias_cache = {}
 
-        for step in range(max_new_tokens):
-            cur_pos = generated.shape[1]
-            if cur_pos in forced:
-                next_ids = ops.full((batch,), forced[cur_pos], dtype="int32")
-            else:
-                logits = self.decoder(
-                    {
-                        "decoder_input_ids": generated,
-                        "encoder_hidden_states": enc_out,
-                    }
-                )
-                next_logits = logits[:, -1, :]
-                vocab = next_logits.shape[-1]
-                if suppress_ids:
-                    if suppress_bias is None:
-                        idx = ops.convert_to_tensor(suppress_ids, dtype="int32")
-                        suppress_bias = ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
-                    next_logits = next_logits + suppress_bias
-                if step == 0 and begin_ids:
-                    idx = ops.convert_to_tensor(begin_ids, dtype="int32")
-                    next_logits = (
-                        next_logits + ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
+        def logits_processor(step, next_logits):
+            vocab = next_logits.shape[-1]
+            if suppress_ids:
+                if "suppress" not in bias_cache:
+                    idx = ops.convert_to_tensor(suppress_ids, dtype="int32")
+                    bias_cache["suppress"] = (
+                        ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
                     )
-                next_ids = ops.cast(ops.argmax(next_logits, axis=-1), "int32")
+                next_logits = next_logits + bias_cache["suppress"]
+            if step == 0 and begin_ids:
+                idx = ops.convert_to_tensor(begin_ids, dtype="int32")
+                next_logits = (
+                    next_logits + ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
+                )
+            return next_logits
 
-            next_ids = ops.cast(ops.where(done, eos_token_id, next_ids), "int32")
-            generated = ops.concatenate([generated, next_ids[:, None]], axis=1)
-            done = ops.logical_or(done, ops.equal(next_ids, eos_token_id))
-            if bool(ops.all(done)):
-                break
+        generated = self.greedy_decode(
+            enc_out,
+            decoder_start_token_id,
+            eos_token_id,
+            max_new_tokens,
+            forced_ids=forced,
+            logits_processor=logits_processor,
+        )
 
         ids = [list(row) for row in ops.convert_to_numpy(generated)]
         if return_ids:

@@ -3,7 +3,7 @@ from typing import List, Union
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import FunctionalBaseModel, Seq2SeqGeneration
 
 from .config import SPEECH2TEXT_CONFIG, SPEECH2TEXT_WEIGHTS
 from .speech2text_layers import (
@@ -462,7 +462,7 @@ class Speech2TextModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Speech2TextSpeechToText(Speech2TextModel):
+class Speech2TextSpeechToText(Speech2TextModel, Seq2SeqGeneration):
     """Speech2Text speech-to-text model (transcription / speech translation).
 
     Composes the same encoder + decoder + ``lm_head`` Functional graph as
@@ -491,22 +491,9 @@ class Speech2TextSpeechToText(Speech2TextModel):
         eos_token_id = processor.tokenizer.eos_token_id
 
         enc_out = self.encoder(inputs["input_features"])
-        batch = enc_out.shape[0]
-
-        generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
-        done = ops.zeros((batch,), dtype="bool")
-
-        for _ in range(max_new_tokens):
-            logits = self.decoder(
-                {"decoder_input_ids": generated, "encoder_hidden_states": enc_out}
-            )
-            next_ids = ops.cast(ops.argmax(logits[:, -1, :], axis=-1), "int32")
-            next_ids = ops.cast(ops.where(done, eos_token_id, next_ids), "int32")
-            generated = ops.concatenate([generated, next_ids[:, None]], axis=1)
-            done = ops.logical_or(done, ops.equal(next_ids, eos_token_id))
-            if bool(ops.all(done)):
-                break
-
+        generated = self.greedy_decode(
+            enc_out, decoder_start_token_id, eos_token_id, max_new_tokens
+        )
         ids = [list(row) for row in ops.convert_to_numpy(generated)]
         if return_ids:
             return ids
