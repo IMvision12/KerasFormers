@@ -3,28 +3,36 @@ from keras import ops
 from kerasformers.base.base_generation import BaseGeneration
 
 
-class Seq2SeqGeneration(BaseGeneration):
-    """Encoder-decoder flavor of :class:`BaseGeneration` (Whisper / Speech2Text / ...).
+class BaseSeq2SeqGeneration(BaseGeneration):
+    """Encoder-decoder flavor of :class:`BaseGeneration` (Whisper / Speech2Text / Moonshine).
 
     Same optimized cross-backend decode engine as :class:`BaseGeneration`, but the prefill
     first runs an encoder over the source (audio features, source tokens, ...) and the
-    decoder cross-attends to that frozen context at every step. The decoder "prompt"
-    is the start / forced tokens rather than a user prompt. A model implements three
-    hooks:
+    decoder cross-attends to that frozen context at every step; the decoder "prompt" is
+    the start / forced tokens rather than a user prompt.
 
-    - ``encode(encoder_inputs) -> encoder_hidden_states`` -- run the encoder once.
-    - ``build_cache(decoder_start_ids, encoder_hidden_states, max_len) -> (cache, logits)``
-      -- build the static cross-attention KV from ``encoder_hidden_states`` and prefill
-      the decoder start tokens into a fixed self-attention KV cache (both carried inside
-      the opaque ``cache``); return it plus the last-token logits.
-    - ``call_with_cache(token_ids, cache, cache_update_index) -> (logits, cache)`` --
-      one cached decode step (self-attn reads/writes the cache; cross-attn reads the
-      static cross-KV already inside ``cache``).
+    This base owns the **cache mechanics** so a model only writes its forward:
 
-    NOTE: this is the shared contract; no model is wired onto it yet. Whisper and
-    Speech2Text still use their own ``generate()`` until their functional decoders gain
-    cache-capable attention. Constraints like Whisper's forced-decoder-ids and
-    suppress-tokens will be folded into the decode path when those models are migrated.
+    * :meth:`build_cache` / :meth:`call_with_cache` -- generic: allocate a fixed-size
+      per-layer self-attention KV cache (zeros), pull the static cross-attention KV from
+      the model, then run the model's ``decode_forward`` (prefill, then one token/step).
+      The opaque ``cache`` is a tuple of ``(self_k, self_v, cross_k, cross_v)`` per layer.
+    * :meth:`cached_self_attention` / :meth:`cached_cross_attention` -- the per-layer cache
+      primitives (write the new K/V at ``cache_update_index`` + causal mask; static cross
+      KV), reusable by any Bart-style attention exposing ``query`` / ``project`` / ``attend``.
+
+    A model implements:
+
+    * ``encode(encoder_inputs) -> encoder_hidden_states``.
+    * ``decode_cross_kv(encoder_hidden_states) -> [(cross_k, cross_v), ...]`` -- the static,
+      head-split cross-attention K/V, one pair per decoder layer.
+    * ``decode_forward(ids, cache, start_pos) -> (logits, new_cache)`` -- its block forward
+      (embedding + positions + per-layer self/cross/FFN), using the two cache primitives.
+    * ``decode_num_heads`` / ``decode_head_dim`` attributes (self-cache buffer shape).
+
+    Speech2Text is wired onto this. :meth:`greedy_decode` is the **cacheless** fallback
+    (O(n^2), uncompiled) that Whisper + Moonshine still use until they implement the hooks
+    above; Whisper's forced-decoder-ids + suppress-tokens then fold into ``decode_forward``.
     """
 
     def greedy_decode(
@@ -36,22 +44,6 @@ class Seq2SeqGeneration(BaseGeneration):
         forced_ids=None,
         logits_processor=None,
     ):
-        """Shared **cacheless** greedy seq2seq decode for the functional ASR
-        decoders (Whisper / Speech2Text / Moonshine) that don't yet have a KV
-        cache. ``self.decoder`` is called with ``{"decoder_input_ids",
-        "encoder_hidden_states"}`` over the full growing prefix each step.
-
-        ``forced_ids`` maps a decoder position -> a forced token id (Whisper
-        prompt ids); at those positions the decoder is skipped. ``logits_processor``
-        is ``(step, next_logits) -> next_logits`` for biasing the last-token logits
-        (Whisper suppress / begin-suppress). Greedy (argmax); a row that emits
-        ``eos`` is padded with ``eos`` thereafter. Returns the ``(batch, len)`` id
-        tensor including the start token.
-
-        This is the shared seam; the compiled fixed-cache engine
-        (``build_cache`` / ``call_with_cache``) remains the target once these
-        decoders gain cache-capable attention.
-        """
         forced_ids = forced_ids or {}
         batch = encoder_hidden_states.shape[0]
         generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
@@ -81,6 +73,58 @@ class Seq2SeqGeneration(BaseGeneration):
     def encode(self, encoder_inputs):
         raise NotImplementedError(f"{type(self).__name__} must implement encode().")
 
+    def decode_cross_kv(self, encoder_hidden_states):
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement decode_cross_kv()."
+        )
+
+    def decode_forward(self, ids, cache, start_pos):
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement decode_forward()."
+        )
+
+    @staticmethod
+    def cached_self_attention(
+        attn, hidden_states, cache_k, cache_v, update_index, rotary=None
+    ):
+        q = attn.query(hidden_states)
+        k_new, v_new = attn.project(hidden_states)
+        if rotary is not None:
+            q = rotary(q, update_index)
+            k_new = rotary(k_new, update_index)
+        cache_k = ops.slice_update(cache_k, (0, 0, update_index, 0), k_new)
+        cache_v = ops.slice_update(cache_v, (0, 0, update_index, 0), v_new)
+        n = hidden_states.shape[1]
+        max_len = cache_k.shape[2]
+        q_pos = update_index + ops.arange(n)
+        k_pos = ops.arange(max_len)
+        mask = ops.where(k_pos[None, :] <= q_pos[:, None], 0.0, -1e9)[None, None]
+        return attn.attend(q, cache_k, cache_v, mask), cache_k, cache_v
+
+    @staticmethod
+    def cached_cross_attention(attn, hidden_states, cross_k, cross_v):
+        return attn.attend(attn.query(hidden_states), cross_k, cross_v, None)
+
+    def build_cache(self, decoder_start_ids, encoder_hidden_states, max_len):
+        batch = decoder_start_ids.shape[0]
+        heads = self.decode_num_heads
+        head_dim = self.decode_head_dim
+        cache = tuple(
+            (
+                ops.zeros((batch, heads, max_len, head_dim)),
+                ops.zeros((batch, heads, max_len, head_dim)),
+                cross_k,
+                cross_v,
+            )
+            for cross_k, cross_v in self.decode_cross_kv(encoder_hidden_states)
+        )
+        logits, cache = self.decode_forward(decoder_start_ids, cache, 0)
+        return cache, logits[:, -1, :]
+
+    def call_with_cache(self, token_ids, cache, cache_update_index):
+        logits, cache = self.decode_forward(token_ids, cache, cache_update_index)
+        return logits[:, -1, :], cache
+
     def generate_step(
         self, encoder_inputs, decoder_start_ids, noise, max_new_tokens, eos, sampler
     ):
@@ -108,7 +152,11 @@ class Seq2SeqGeneration(BaseGeneration):
         )
         decoder_input_ids = ops.cast(ops.convert_to_tensor(decoder_input_ids), "int32")
         batch = int(decoder_input_ids.shape[0])
-        cache_key = (max_new_tokens, eos, id(sampler))
+        sampler_key = (
+            type(sampler).__name__,
+            tuple(sorted(sampler.get_config().items())),
+        )
+        cache_key = (max_new_tokens, eos, sampler_key)
         fn = self.cached_generate_function(cache_key, max_new_tokens, eos, sampler)
         noise = self.draw_noise(sampler, max_new_tokens, batch, seed)
         return self.run_compiled(fn, (encoder_inputs, decoder_input_ids), noise)

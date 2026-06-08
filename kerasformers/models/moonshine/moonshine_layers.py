@@ -199,6 +199,27 @@ class MoonshineAttention(keras.layers.Layer):
         )
         return ops.reshape(x, (b, self.num_heads, t, self.head_dim))
 
+    def query(self, hidden_states):
+        return self.split_heads(self.q_proj(hidden_states), self.num_heads)
+
+    def project(self, kv):
+        return (
+            self.split_heads(self.k_proj(kv), self.num_kv_heads),
+            self.split_heads(self.v_proj(kv), self.num_kv_heads),
+        )
+
+    def attend(self, q, k, v, attention_mask=None):
+        k = self.repeat_kv(k)
+        v = self.repeat_kv(v)
+        scores = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
+        if attention_mask is not None:
+            scores = scores + ops.cast(attention_mask, scores.dtype)
+        attn = ops.softmax(scores, axis=-1)
+        out = ops.matmul(attn, v)
+        out = ops.transpose(out, (0, 2, 1, 3))
+        out = ops.reshape(out, (ops.shape(out)[0], -1, self.num_heads * self.head_dim))
+        return self.o_proj(out)
+
     def call(
         self,
         hidden_states,
@@ -207,30 +228,13 @@ class MoonshineAttention(keras.layers.Layer):
         cos=None,
         sin=None,
     ):
-        batch_size = ops.shape(hidden_states)[0]
         kv = key_value_states if key_value_states is not None else hidden_states
-
-        q = self.split_heads(self.q_proj(hidden_states), self.num_heads)
-        k = self.split_heads(self.k_proj(kv), self.num_kv_heads)
-        v = self.split_heads(self.v_proj(kv), self.num_kv_heads)
-
+        q = self.query(hidden_states)
+        k, v = self.project(kv)
         if cos is not None and key_value_states is None:
             q = apply_rotary_pos_emb(q, cos, sin)
             k = apply_rotary_pos_emb(k, cos, sin)
-
-        k = self.repeat_kv(k)
-        v = self.repeat_kv(v)
-
-        scores = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
-        if attention_mask is not None:
-            scores = scores + ops.cast(attention_mask, scores.dtype)
-
-        attn = ops.softmax(scores, axis=-1)
-        out = ops.matmul(attn, v)
-        out = ops.transpose(out, (0, 2, 1, 3))
-        out = ops.reshape(out, (batch_size, -1, self.num_heads * self.head_dim))
-        out = self.o_proj(out)
-        return out
+        return self.attend(q, k, v, attention_mask)
 
     def get_config(self):
         config = super().get_config()

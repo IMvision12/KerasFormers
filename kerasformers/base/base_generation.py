@@ -12,7 +12,7 @@ class BaseGeneration:
     A mixin added to a subclassed decoder backbone (e.g. :class:`Qwen3Model`, and
     future Granite) to give it a fast ``generate``. It bundles the shared, optimized
     cross-backend decode engine with the decoder-only entry points (the prompt is the
-    input token ids). :class:`Seq2SeqGeneration` subclasses this and overrides
+    input token ids). :class:`BaseSeq2SeqGeneration` subclasses this and overrides
     ``generate`` / ``generate_step`` for encoder-decoder models (Whisper, Speech2Text),
     reusing the same engine.
 
@@ -37,10 +37,6 @@ class BaseGeneration:
     """
 
     eos_token_id = ()
-    # Compiled decode functions are cached per (max_new_tokens, eos, has_mask,
-    # sampler type+config); each holds one XLA executable. Normal use needs 1-2,
-    # but sweeping those keys would otherwise accumulate executables and leak GPU
-    # memory -- bound the cache with an LRU. Raise on the (sub)class if needed.
     _generate_cache_maxsize = 8
 
     def build_cache(self, token_ids, padding_mask, max_len):
@@ -224,12 +220,11 @@ class BaseGeneration:
             fns = self.__dict__["_generate_functions"] = OrderedDict()
         fn = fns.get(cache_key)
         if fn is not None:
-            fns.move_to_end(cache_key)  # mark most-recently-used
+            fns.move_to_end(cache_key)
             return fn
         fn = self.make_generate_function(max_new_tokens, eos, sampler)
         fns[cache_key] = fn
         if len(fns) > self._generate_cache_maxsize:
-            # drop the least-recently-used entry -> frees its XLA executable
             fns.popitem(last=False)
         return fn
 
