@@ -64,6 +64,9 @@ class MetaClip2Processor(BaseProcessor):
         >>> out["image_logits"].shape    # (1, 3)
     """
 
+    TOKENIZER_CLS = MetaClip2Tokenizer
+    IMAGE_PROCESSOR_CLS = MetaClip2ImageProcessor
+
     def __init__(
         self,
         image_resolution: int = 224,
@@ -75,13 +78,12 @@ class MetaClip2Processor(BaseProcessor):
         data_format=None,
         sentencepiece_model_file: str = None,
         max_seq_len: int = 77,
+        tokenizer=None,
+        image_processor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        # MetaCLIP 2 always uses direct square resize (no center crop); the
-        # ``do_center_crop`` arg is kept for API/config compatibility but is a
-        # no-op here — ``MetaClip2ImageProcessor`` hard-disables cropping.
-        self.image_processor = MetaClip2ImageProcessor(
+        self.image_processor = image_processor or MetaClip2ImageProcessor(
             image_resolution=image_resolution,
             mean=mean,
             std=std,
@@ -89,18 +91,9 @@ class MetaClip2Processor(BaseProcessor):
             do_resize=do_resize,
             data_format=data_format,
         )
-        self.tokenizer = MetaClip2Tokenizer(
+        self.tokenizer = tokenizer or MetaClip2Tokenizer(
             sentencepiece_model_file=sentencepiece_model_file,
             max_seq_len=max_seq_len,
-        )
-
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        from huggingface_hub import hf_hub_download
-
-        return cls(
-            sentencepiece_model_file=hf_hub_download(repo, "sentencepiece.bpe.model"),
-            **kwargs,
         )
 
     def call(self, text=None, images=None, image_paths=None):

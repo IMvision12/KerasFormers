@@ -3,7 +3,6 @@ from typing import List, Optional, Union
 import keras
 
 from kerasformers.base import BaseProcessor
-from kerasformers.conversion import download_file
 from kerasformers.models.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
 from kerasformers.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
 
@@ -12,11 +11,15 @@ from kerasformers.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
 class SigLIP2Processor(BaseProcessor):
     """Combined processor for SigLIP 2 models — image + Gemma text.
 
-    Pairs :class:`SigLIP2ImageProcessor` (resize / center crop /
-    normalize) with :class:`SigLIP2Tokenizer` (Gemma SentencePiece,
-    vocab 256000). Downloads the Gemma SP model on first use when
-    ``vocab_file`` is not supplied.
+    Pairs :class:`SigLIP2ImageProcessor` (resize / center crop / normalize) with
+    :class:`SigLIP2Tokenizer` (Gemma SentencePiece, vocab 256000).
+    ``from_weights("hf:google/siglip2-...")`` pulls the Gemma tokenizer **and**
+    builds the image processor from the repo; ``from_weights("siglip2_...")`` uses
+    the kerasformers release.
     """
+
+    TOKENIZER_CLS = SigLIP2Tokenizer
+    IMAGE_PROCESSOR_CLS = SigLIP2ImageProcessor
 
     def __init__(
         self,
@@ -34,11 +37,12 @@ class SigLIP2Processor(BaseProcessor):
         unk_token: str = "<unk>",
         add_bos: bool = False,
         add_eos: bool = True,
+        tokenizer=None,
+        image_processor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        self.image_processor = SigLIP2ImageProcessor(
+        self.image_processor = image_processor or SigLIP2ImageProcessor(
             image_resolution=image_resolution,
             mean=mean,
             std=std,
@@ -46,16 +50,8 @@ class SigLIP2Processor(BaseProcessor):
             do_normalize=do_normalize,
             do_resize=do_resize,
         )
-
-        if vocab_file is None:
-            vocab_file_path = download_file(
-                "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_vocab.model"
-            )
-        else:
-            vocab_file_path = vocab_file
-
-        self.tokenizer = SigLIP2Tokenizer(
-            vocab_file=vocab_file_path,
+        self.tokenizer = tokenizer or SigLIP2Tokenizer(
+            vocab_file=vocab_file,
             max_seq_len=max_seq_len,
             add_bos=add_bos,
             add_eos=add_eos,
@@ -64,31 +60,6 @@ class SigLIP2Processor(BaseProcessor):
             eos_token=eos_token,
             unk_token=unk_token,
         )
-
-        self._config = {
-            "image_resolution": image_resolution,
-            "mean": mean,
-            "std": std,
-            "do_center_crop": do_center_crop,
-            "do_normalize": do_normalize,
-            "do_resize": do_resize,
-            "vocab_file": vocab_file,
-            "max_seq_len": max_seq_len,
-            "pad_token": pad_token,
-            "bos_token": bos_token,
-            "eos_token": eos_token,
-            "unk_token": unk_token,
-            "add_bos": add_bos,
-            "add_eos": add_eos,
-        }
-
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        """Load a finetune's Gemma SentencePiece tokenizer (``tokenizer.model``)
-        from the HF ``repo`` instead of the bundled kerasformers-release default."""
-        from huggingface_hub import hf_hub_download
-
-        return cls(vocab_file=hf_hub_download(repo, "tokenizer.model"), **kwargs)
 
     def call(
         self,
@@ -130,8 +101,3 @@ class SigLIP2Processor(BaseProcessor):
     @property
     def eos_token_id(self) -> int:
         return self.tokenizer.eos_token_id
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(self._config)
-        return config

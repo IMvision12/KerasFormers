@@ -101,6 +101,15 @@ class MetaClip2Tokenizer(BaseTokenizer):
 
         self.fairseq_offset = 1
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            sentencepiece_model_file=hf_hub_download(repo, "sentencepiece.bpe.model"),
+            **kwargs,
+        )
+
     def _encode_one(self, text: str) -> List[int]:
         pieces = self._sp.encode(text, out_type=int)
         ids = [p + self.fairseq_offset for p in pieces]

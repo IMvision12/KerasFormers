@@ -16,3 +16,7 @@ class BaseAudioFeatureExtractor(PreprocessorMixin):
         raise NotImplementedError(
             f"{type(self).__name__} must implement `call(raw_speech, ...)`."
         )
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        return cls(**kwargs)

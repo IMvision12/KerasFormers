@@ -51,11 +51,17 @@ class SigLIPTokenizer(BaseTokenizer):
             vocab instead of the base one. Defaults to ``False``.
     """
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
+
+        return cls(vocab_file=hf_hub_download(repo, "spiece.model"), **kwargs)
+
     def __init__(
         self,
         vocab_file: str = None,
         max_seq_len: int = 64,
-        do_lower_case: bool = False,
+        do_lower_case: bool = True,
         unk_token: str = "<unk>",
         pad_token: str = "</s>",
         eos_token: str = "</s>",

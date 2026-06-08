@@ -32,6 +32,12 @@ class SigLIP2Tokenizer(BaseTokenizer):
         pad_token / bos_token / eos_token / unk_token: Special token strings.
     """
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
+
+        return cls(vocab_file=hf_hub_download(repo, "tokenizer.model"), **kwargs)
+
     def __init__(
         self,
         vocab_file: str = None,

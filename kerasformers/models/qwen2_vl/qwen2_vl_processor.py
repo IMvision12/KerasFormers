@@ -24,7 +24,10 @@ class Qwen2VLProcessor(BaseProcessor):
     each video is a ``(num_frames, H, W, C)`` array or a list of frames.
     """
 
+    TOKENIZER_CLS = Qwen2VLTokenizer
+    IMAGE_PROCESSOR_CLS = Qwen2VLImageProcessor
     video_processor_cls = Qwen2VLVideoProcessor
+    COMPONENTS = ("tokenizer",)
 
     def __init__(
         self,
@@ -32,6 +35,9 @@ class Qwen2VLProcessor(BaseProcessor):
         patch_size=14,
         spatial_merge_size=2,
         temporal_patch_size=2,
+        tokenizer=None,
+        image_processor=None,
+        video_processor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -39,19 +45,23 @@ class Qwen2VLProcessor(BaseProcessor):
         self.patch_size = patch_size
         self.spatial_merge_size = spatial_merge_size
         self.temporal_patch_size = temporal_patch_size
-        self.image_processor = Qwen2VLImageProcessor(
+        self.image_processor = image_processor or Qwen2VLImageProcessor(
             patch_size=patch_size,
             spatial_merge_size=spatial_merge_size,
             temporal_patch_size=temporal_patch_size,
         )
-        self.video_processor = self.video_processor_cls(
+        self.video_processor = video_processor or self.video_processor_cls(
             patch_size=patch_size,
             spatial_merge_size=spatial_merge_size,
             temporal_patch_size=temporal_patch_size,
         )
-        self.tokenizer = Qwen2VLTokenizer(hf_id=hf_id)
+        self.tokenizer = tokenizer or Qwen2VLTokenizer(hf_id=hf_id)
         self.image_token = self.tokenizer.image_token
         self.video_token = self.tokenizer.video_token
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        return cls(hf_id=repo, **kwargs)
 
     def apply_chat_template(self, messages, add_generation_prompt=True):
         """Render OpenAI-style ``messages`` to a ChatML prompt string.

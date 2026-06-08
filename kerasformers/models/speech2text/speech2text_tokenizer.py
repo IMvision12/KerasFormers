@@ -43,6 +43,16 @@ class Speech2TextTokenizer(BaseTokenizer):
         bos_token / eos_token / pad_token / unk_token: Special token strings.
     """
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            vocab_file=hf_hub_download(repo, "vocab.json"),
+            spm_file=hf_hub_download(repo, "sentencepiece.bpe.model"),
+            **kwargs,
+        )
+
     def __init__(
         self,
         vocab_file: Optional[str] = None,

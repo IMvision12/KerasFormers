@@ -42,6 +42,39 @@ class BaseImageProcessor(PreprocessorMixin):
             f"{type(self).__name__} must implement `call(images)`."
         )
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        import inspect
+
+        params = set(inspect.signature(cls).parameters)
+        if not (params & {"image_resolution", "mean", "std"}):
+            return cls(**kwargs)
+        try:
+            import json
+
+            from huggingface_hub import hf_hub_download
+
+            with open(
+                hf_hub_download(repo, "preprocessor_config.json"), encoding="utf-8"
+            ) as f:
+                hf = json.load(f)
+        except Exception:
+            return cls(**kwargs)
+        if "mean" in params and "image_mean" in hf:
+            kwargs.setdefault("mean", hf["image_mean"])
+        if "std" in params and "image_std" in hf:
+            kwargs.setdefault("std", hf["image_std"])
+        if "image_resolution" in params and "size" in hf:
+            size = hf["size"]
+            res = (
+                size
+                if isinstance(size, int)
+                else size.get("shortest_edge") or size.get("height")
+            )
+            if res is not None:
+                kwargs.setdefault("image_resolution", res)
+        return cls(**kwargs)
+
     @staticmethod
     def to_3_channels(image):
         num_channels = ops.shape(image)[-1]

@@ -1,81 +1,30 @@
 import keras
 
 from kerasformers.base import BaseProcessor
-from kerasformers.conversion import download_file
 from kerasformers.models.clip.clip_image_processor import CLIPImageProcessor
 from kerasformers.models.clip.clip_tokenizer import CLIPTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPProcessor(BaseProcessor):
+    """Combined processor for CLIP — image processing + text tokenization.
+
+    Composes a :class:`CLIPImageProcessor` and a :class:`CLIPTokenizer` behind one
+    callable. ``processor(text=..., images=...)`` returns the tokenizer outputs
+    (``input_ids`` / ``attention_mask``) plus ``images`` (pixel tensor). Pass
+    ``image_paths=`` to load images from disk.
+
+    Construction:
+
+    * ``CLIPProcessor.from_weights("clip_vit_base_16")`` — kerasformers release.
+    * ``CLIPProcessor.from_weights("hf:openai/clip-vit-base-patch16")`` — pulls the
+      tokenizer files **and** builds the image processor from the HF repo.
+    * ``CLIPProcessor()`` — defaults; or pass pre-built ``tokenizer=`` /
+      ``image_processor=``, or per-component build kwargs (``image_resolution=`` …).
     """
-    Combined processor for CLIP model, handling both image and text inputs.
 
-    This processor combines both image processing and text tokenization for CLIP models.
-    It allows you to process both modalities with a single interface, handling all the
-    necessary preprocessing steps for CLIP model inference or training.
-
-    The processor can be customized with various parameters for both the image processor
-    and tokenizer components.
-
-    Args:
-        image_resolution (int, optional): The target resolution for processed images.
-            Default is 224.
-        mean (list, optional): RGB mean values for image normalization.
-            Default is [0.48145466, 0.4578275, 0.40821073].
-        std (list, optional): RGB standard deviation values for image normalization.
-            Default is [0.26862954, 0.26130258, 0.27577711].
-        do_center_crop (bool, optional): Whether to apply center cropping to images.
-            Default is True.
-        do_normalize (bool, optional): Whether to normalize images. Default is True.
-        do_resize (bool, optional): Whether to resize images. Default is True.
-        vocab_file (str, optional): Path to the vocabulary file for the tokenizer.
-            If None, will download the default vocabulary file.
-        merges_file (str, optional): Path to the merges file for the tokenizer.
-            If None, will download the default merges file.
-        max_seq_len (int, optional): Maximum token sequence length. Default is 77.
-        errors (str, optional): Error handling strategy for the tokenizer. Default is "replace".
-        unk_token (str, optional): Token to use for unknown words. Default is "<|endoftext|>".
-        bos_token (str, optional): Beginning of sequence token. Default is "<|startoftext|>".
-        eos_token (str, optional): End of sequence token. Default is "<|endoftext|>".
-        pad_token (str, optional): Padding token. Default is "<|endoftext|>".
-        **kwargs: Additional keyword arguments passed to the base Layer class.
-
-    Example:
-        ```python
-        # Load the processor for a CLIP release variant
-        processor = CLIPProcessor.from_weights("clip_vit_base_16")
-
-        # Processing text and images together
-        import numpy as np
-        from PIL import Image
-
-        # Load an example image
-        image = Image.open("example.jpg")
-        image_array = keras.utils.img_to_array(image)
-
-        # Process both text and images
-        inputs = processor(
-            text=["A photo of a cat", "An image of a dog"],
-            images=image_array  # Single image or batch of images
-        )
-
-        # The result contains both text and image encodings
-        print(inputs.keys())  # Contains tokenizer outputs + 'images'
-
-        # Process from file paths
-        inputs = processor(
-            text=["A photo of a cat"],
-            image_paths="path/to/image.jpg"
-        )
-
-        # Process multiple images from paths
-        inputs = processor(
-            text=["Photo 1", "Photo 2"],
-            image_paths=["path/to/image1.jpg", "path/to/image2.jpg"]
-        )
-        ```
-    """
+    TOKENIZER_CLS = CLIPTokenizer
+    IMAGE_PROCESSOR_CLS = CLIPImageProcessor
 
     def __init__(
         self,
@@ -93,11 +42,12 @@ class CLIPProcessor(BaseProcessor):
         bos_token="<|startoftext|>",
         eos_token="<|endoftext|>",
         pad_token="<|endoftext|>",
+        tokenizer=None,
+        image_processor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        self.image_processor = CLIPImageProcessor(
+        self.image_processor = image_processor or CLIPImageProcessor(
             image_resolution=image_resolution,
             mean=mean,
             std=std,
@@ -105,21 +55,9 @@ class CLIPProcessor(BaseProcessor):
             do_normalize=do_normalize,
             do_resize=do_resize,
         )
-
-        if vocab_file is None and merges_file is None:
-            vocab_file_path = download_file(
-                "https://github.com/IMvision12/KerasFormers/releases/download/clip/vocab.json"
-            )
-            merges_file_path = download_file(
-                "https://github.com/IMvision12/KerasFormers/releases/download/clip/merges.txt"
-            )
-        else:
-            vocab_file_path = vocab_file
-            merges_file_path = merges_file
-
-        self.tokenizer = CLIPTokenizer(
-            vocab_file=vocab_file_path,
-            merges_file=merges_file_path,
+        self.tokenizer = tokenizer or CLIPTokenizer(
+            vocab_file=vocab_file,
+            merges_file=merges_file,
             max_seq_len=max_seq_len,
             errors=errors,
             unk_token=unk_token,
@@ -128,47 +66,22 @@ class CLIPProcessor(BaseProcessor):
             pad_token=pad_token,
         )
 
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        from huggingface_hub import hf_hub_download
-
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            merges_file=hf_hub_download(repo, "merges.txt"),
-            **kwargs,
-        )
-
-    def call(
-        self,
-        text=None,
-        images=None,
-        image_paths=None,
-    ):
+    def call(self, text=None, images=None, image_paths=None):
         if text is None and images is None and image_paths is None:
             raise ValueError(
                 "At least one of 'text', 'images', or 'image_paths' must be provided"
             )
-
         if images is not None and image_paths is not None:
             raise ValueError("Cannot specify both 'images' and 'image_paths'")
-
-        if image_paths is not None:
-            if isinstance(image_paths, (list, tuple)) and len(image_paths) == 0:
+        if image_paths is not None and isinstance(image_paths, (list, tuple)):
+            if len(image_paths) == 0:
                 raise ValueError("image_paths cannot be an empty list")
 
         encoding = {}
-
         if text is not None:
-            text_encoding = self.tokenizer(inputs=text)
-            encoding.update(text_encoding)
-
-        if images is not None and image_paths is not None:
-            raise ValueError("Cannot specify both 'images' and 'image_paths'")
-
+            encoding.update(self.tokenizer(inputs=text))
         if images is not None:
             encoding["images"] = self.image_processor(images)["pixel_values"]
-
         if image_paths is not None:
             encoding["images"] = self.image_processor(image_paths)["pixel_values"]
-
         return encoding

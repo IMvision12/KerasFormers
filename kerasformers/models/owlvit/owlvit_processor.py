@@ -40,6 +40,9 @@ class OwlViTProcessor(BaseProcessor):
         pad_token: Padding token. Defaults to ``"!"`` to match the reference.
     """
 
+    TOKENIZER_CLS = CLIPTokenizer
+    IMAGE_PROCESSOR_CLS = OwlViTImageProcessor
+
     def __init__(
         self,
         size: Optional[dict] = None,
@@ -58,11 +61,13 @@ class OwlViTProcessor(BaseProcessor):
         bos_token: str = "<|startoftext|>",
         eos_token: str = "<|endoftext|>",
         pad_token: str = "!",
+        tokenizer=None,
+        image_processor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
-        self.image_processor = OwlViTImageProcessor(
+        self.image_processor = image_processor or OwlViTImageProcessor(
             size=size,
             resample=resample,
             do_rescale=do_rescale,
@@ -74,23 +79,25 @@ class OwlViTProcessor(BaseProcessor):
             data_format=data_format,
         )
 
-        if vocab_file is None or merges_file is None:
-            vocab_file = download_file(
-                "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_vocab.json"
+        if tokenizer is not None:
+            self.tokenizer = tokenizer
+        else:
+            if vocab_file is None or merges_file is None:
+                vocab_file = download_file(
+                    "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_vocab.json"
+                )
+                merges_file = download_file(
+                    "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_merges.txt"
+                )
+            self.tokenizer = CLIPTokenizer(
+                vocab_file=vocab_file,
+                merges_file=merges_file,
+                max_seq_len=max_seq_len,
+                unk_token=unk_token,
+                bos_token=bos_token,
+                eos_token=eos_token,
+                pad_token=pad_token,
             )
-            merges_file = download_file(
-                "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_merges.txt"
-            )
-
-        self.tokenizer = CLIPTokenizer(
-            vocab_file=vocab_file,
-            merges_file=merges_file,
-            max_seq_len=max_seq_len,
-            unk_token=unk_token,
-            bos_token=bos_token,
-            eos_token=eos_token,
-            pad_token=pad_token,
-        )
 
     @classmethod
     def from_hf(cls, repo, **kwargs):

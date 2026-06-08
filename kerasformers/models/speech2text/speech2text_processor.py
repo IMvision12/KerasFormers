@@ -31,6 +31,9 @@ class Speech2TextProcessor(BaseProcessor):
         decoder_start_token_id: Seed token id for generation (``</s>`` = 2).
     """
 
+    TOKENIZER_CLS = Speech2TextTokenizer
+    FEATURE_EXTRACTOR_CLS = Speech2TextFeatureExtractor
+
     def __init__(
         self,
         vocab_file: Optional[str] = None,
@@ -40,39 +43,21 @@ class Speech2TextProcessor(BaseProcessor):
         do_upper_case: bool = False,
         do_lower_case: bool = False,
         decoder_start_token_id: int = 2,
+        tokenizer=None,
+        feature_extractor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.feature_extractor = Speech2TextFeatureExtractor(
+        self.feature_extractor = feature_extractor or Speech2TextFeatureExtractor(
             sampling_rate=sampling_rate, num_mel_bins=num_mel_bins
         )
-        self.tokenizer = Speech2TextTokenizer(
+        self.tokenizer = tokenizer or Speech2TextTokenizer(
             vocab_file=vocab_file,
             spm_file=spm_file,
             do_upper_case=do_upper_case,
             do_lower_case=do_lower_case,
         )
         self.decoder_start_token_id = decoder_start_token_id
-
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        from huggingface_hub import hf_hub_download
-
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            spm_file=hf_hub_download(repo, "sentencepiece.bpe.model"),
-            **kwargs,
-        )
-
-    def decode(self, token_ids, skip_special_tokens: bool = True) -> str:
-        return self.tokenizer.decode(token_ids, skip_special_tokens=skip_special_tokens)
-
-    def batch_decode(
-        self, token_ids_batch, skip_special_tokens: bool = True
-    ) -> List[str]:
-        return self.tokenizer.batch_decode(
-            token_ids_batch, skip_special_tokens=skip_special_tokens
-        )
 
     def call(
         self,
@@ -96,15 +81,5 @@ class Speech2TextProcessor(BaseProcessor):
 
     def get_config(self):
         config = super().get_config()
-        config.update(
-            {
-                "vocab_file": self.tokenizer.vocab_file,
-                "spm_file": self.tokenizer.spm_file,
-                "sampling_rate": self.feature_extractor.sampling_rate,
-                "num_mel_bins": self.feature_extractor.num_mel_bins,
-                "do_upper_case": self.tokenizer.do_upper_case,
-                "do_lower_case": self.tokenizer.do_lower_case,
-                "decoder_start_token_id": self.decoder_start_token_id,
-            }
-        )
+        config["decoder_start_token_id"] = self.decoder_start_token_id
         return config

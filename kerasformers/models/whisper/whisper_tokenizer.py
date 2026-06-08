@@ -100,6 +100,17 @@ class WhisperTokenizer(BaseTokenizer):
         self._special_id_set.add(eos_token_id)
         self._special_id_set.add(pad_token_id)
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
+
+        return cls(
+            vocab_file=hf_hub_download(repo, "vocab.json"),
+            merges_file=hf_hub_download(repo, "merges.txt"),
+            added_tokens_file=hf_hub_download(repo, "added_tokens.json"),
+            **kwargs,
+        )
+
     @property
     def vocab_size(self) -> int:
         return self._tok.get_vocab_size(with_added_tokens=True)
