@@ -2,7 +2,6 @@ import keras
 
 from kerasformers.base import BaseProcessor
 
-from .config import MOONSHINE_HF_REPO
 from .moonshine_feature_extractor import MoonshineFeatureExtractor
 from .moonshine_tokenizer import MoonshineTokenizer
 
@@ -26,7 +25,6 @@ class MoonshineProcessor(BaseProcessor):
     def __init__(
         self,
         tokenizer_file=None,
-        hf_id=MOONSHINE_HF_REPO["moonshine_tiny"],
         sampling_rate=16000,
         decoder_start_token_id=1,
         bos_token_id=1,
@@ -42,7 +40,6 @@ class MoonshineProcessor(BaseProcessor):
         )
         self.tokenizer = tokenizer or MoonshineTokenizer(
             tokenizer_file=tokenizer_file,
-            hf_id=hf_id,
             bos_token_id=bos_token_id,
             eos_token_id=eos_token_id,
             unk_token_id=unk_token_id,

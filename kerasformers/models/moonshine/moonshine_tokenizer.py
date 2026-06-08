@@ -5,16 +5,9 @@ import keras
 from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
+from kerasformers.conversion import download_file
 
-from .config import MOONSHINE_HF_REPO
-
-
-def _resolve_tokenizer_file(tokenizer_file, hf_id):
-    if tokenizer_file is not None and os.path.exists(tokenizer_file):
-        return tokenizer_file
-    from huggingface_hub import hf_hub_download
-
-    return hf_hub_download(hf_id, "tokenizer.json")
+from .config import MOONSHINE_TOKENIZER_URL
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -23,9 +16,9 @@ class MoonshineTokenizer(BaseTokenizer):
 
     Loads the canonical ``tokenizer.json`` shipped with the Useful Sensors
     checkpoints — a byte-fallback BPE with a metaspace (``▁``) normalizer and a
-    template post-processor that prepends ``<s>``. The file is downloaded from
-    the Hub repo (``UsefulSensors/moonshine-*``) unless an explicit
-    ``tokenizer_file`` path is given.
+    template post-processor that prepends ``<s>``. The file is pulled from the
+    ``moonshine`` release tag on ``github.com/IMvision12/KerasFormers`` unless an
+    explicit ``tokenizer_file`` path is given (tiny and base share one vocab).
 
     The encode path (used for label preparation) does **not** add special
     tokens; ``MoonshineSpeechToText`` seeds decoding with
@@ -34,31 +27,36 @@ class MoonshineTokenizer(BaseTokenizer):
 
     Args:
         tokenizer_file: Optional explicit path to ``tokenizer.json``. When
-            ``None``, the file is downloaded from ``hf_id``.
-        hf_id: Hub repo to download ``tokenizer.json`` from when
-            ``tokenizer_file`` is not supplied.
+            ``None``, the default kerasformers-release file is downloaded.
         bos_token_id / eos_token_id / unk_token_id: Moonshine special ids.
     """
 
     def __init__(
         self,
         tokenizer_file: str = None,
-        hf_id: str = MOONSHINE_HF_REPO["moonshine_tiny"],
         bos_token_id: int = 1,
         eos_token_id: int = 2,
         unk_token_id: int = 0,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        tokenizer_file = _resolve_tokenizer_file(tokenizer_file, hf_id)
+        if tokenizer_file is None or not os.path.exists(tokenizer_file):
+            tokenizer_file = download_file(MOONSHINE_TOKENIZER_URL)
         self.tokenizer_file = tokenizer_file
-        self.hf_id = hf_id
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
         self.unk_token_id = unk_token_id
 
         self._tok = Tokenizer.from_file(tokenizer_file)
         self._special_id_set = {bos_token_id, eos_token_id, unk_token_id}
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        """Load a finetune's ``tokenizer.json`` from the HF ``repo`` instead of the
+        bundled kerasformers-release default."""
+        from huggingface_hub import hf_hub_download
+
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     @property
     def vocab_size(self) -> int:
@@ -103,7 +101,6 @@ class MoonshineTokenizer(BaseTokenizer):
         config.update(
             {
                 "tokenizer_file": self.tokenizer_file,
-                "hf_id": self.hf_id,
                 "bos_token_id": self.bos_token_id,
                 "eos_token_id": self.eos_token_id,
                 "unk_token_id": self.unk_token_id,
