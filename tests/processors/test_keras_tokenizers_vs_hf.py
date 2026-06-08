@@ -186,7 +186,7 @@ SPECS = {
     "moonshine": (
         "kerasformers.models.moonshine.moonshine_tokenizer",
         "MoonshineTokenizer",
-        None,
+        "UsefulSensors/moonshine-tiny",
         False,
         None,
     ),

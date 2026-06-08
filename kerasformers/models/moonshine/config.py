@@ -42,7 +42,7 @@ MOONSHINE_WEIGHTS = {
 }
 
 
-MOONSHINE_HF_REPO = {
-    "moonshine_tiny": "UsefulSensors/moonshine-tiny",
-    "moonshine_base": "UsefulSensors/moonshine-base",
-}
+MOONSHINE_TOKENIZER_URL = (
+    "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/"
+    "moonshine_tokenizer.json"
+)

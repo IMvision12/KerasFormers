@@ -1,36 +1,70 @@
+import os
+
 import keras
 
 from kerasformers.base import BaseTokenizer
 from kerasformers.conversion import download_file
 
-from .config import GRANITE_SPEECH_TOKENIZER_URL
+from .config import (
+    GRANITE_SPEECH_MERGES_URL,
+    GRANITE_SPEECH_SPECIAL_TOKENS,
+    GRANITE_SPEECH_VOCAB_URL,
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GraniteSpeechTokenizer(BaseTokenizer):
-    """Granite BPE tokenizer (``tokenizers`` backend) with the ``<|audio|>`` token.
+    """Granite byte-level BPE tokenizer (``tokenizers`` backend) with ``<|audio|>``.
+
+    Built from ``vocab.json`` + ``merges.txt`` (ByteLevel BPE pipeline) with the
+    Granite special tokens registered on top, so ``<|audio|>`` / ``<|end_of_text|>``
+    resolve to their checkpoint ids. The files are pulled from the
+    ``granite_speech`` release tag on ``github.com/IMvision12/KerasFormers`` unless
+    explicit paths are given.
 
     Args:
-        tokenizer_file: Path to ``tokenizer.json``. When ``None``, downloads the
-            bundled kerasformers-release file.
+        vocab_file / merges_file: Optional explicit paths. When ``None``, the
+            bundled kerasformers-release files are downloaded.
         audio_token: The audio placeholder token string.
     """
 
-    TOKENIZER_URL = GRANITE_SPEECH_TOKENIZER_URL
+    VOCAB_URL = GRANITE_SPEECH_VOCAB_URL
+    MERGES_URL = GRANITE_SPEECH_MERGES_URL
+    SPECIAL_TOKENS = GRANITE_SPEECH_SPECIAL_TOKENS
 
     def __init__(
         self,
-        tokenizer_file=None,
+        vocab_file=None,
+        merges_file=None,
         audio_token="<|audio|>",
         **kwargs,
     ):
         super().__init__(**kwargs)
         from tokenizers import AddedToken, Tokenizer
+        from tokenizers.decoders import ByteLevel as ByteLevelDecoder
+        from tokenizers.models import BPE
+        from tokenizers.pre_tokenizers import ByteLevel
 
-        if tokenizer_file is None:
-            tokenizer_file = download_file(self.TOKENIZER_URL)
-        self.tokenizer_file = tokenizer_file
-        self._tok = Tokenizer.from_file(tokenizer_file)
+        if vocab_file is None or not os.path.exists(vocab_file):
+            vocab_file = download_file(self.VOCAB_URL)
+        if merges_file is None or not os.path.exists(merges_file):
+            merges_file = download_file(self.MERGES_URL)
+        self.vocab_file = vocab_file
+        self.merges_file = merges_file
+
+        tok = Tokenizer(BPE(vocab=vocab_file, merges=merges_file, fuse_unk=False))
+        tok.pre_tokenizer = ByteLevel(
+            add_prefix_space=False, trim_offsets=True, use_regex=True
+        )
+        tok.decoder = ByteLevelDecoder()
+        tok.add_special_tokens(
+            [AddedToken(t, special=True, normalized=False) for t in self.SPECIAL_TOKENS]
+        )
+        self._tok = tok
+        self.register_special_ids(audio_token)
+
+    def register_special_ids(self, audio_token):
+        from tokenizers import AddedToken
 
         self.audio_token = audio_token
         if self._tok.token_to_id(audio_token) is None:
@@ -44,11 +78,13 @@ class GraniteSpeechTokenizer(BaseTokenizer):
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
-        """Load a Granite Speech repo's ``tokenizer.json`` from the HF ``repo``
-        instead of the bundled kerasformers-release default."""
         from huggingface_hub import hf_hub_download
 
-        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
+        return cls(
+            vocab_file=hf_hub_download(repo, "vocab.json"),
+            merges_file=hf_hub_download(repo, "merges.txt"),
+            **kwargs,
+        )
 
     @property
     def vocab_size(self):
@@ -70,7 +106,8 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         config = super().get_config()
         config.update(
             {
-                "tokenizer_file": self.tokenizer_file,
+                "vocab_file": self.vocab_file,
+                "merges_file": self.merges_file,
                 "audio_token": self.audio_token,
             }
         )

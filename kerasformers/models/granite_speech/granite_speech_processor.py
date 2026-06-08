@@ -24,7 +24,6 @@ class GraniteSpeechProcessor(BaseProcessor):
 
     def __init__(
         self,
-        tokenizer_file=None,
         projector_window_size=15,
         projector_downsample_rate=5,
         tokenizer=None,
@@ -36,7 +35,7 @@ class GraniteSpeechProcessor(BaseProcessor):
             projector_window_size=projector_window_size,
             projector_downsample_rate=projector_downsample_rate,
         )
-        self.tokenizer = tokenizer or self.TOKENIZER_CLS(tokenizer_file=tokenizer_file)
+        self.tokenizer = tokenizer or self.TOKENIZER_CLS()
         self.audio_token = self.tokenizer.audio_token
 
     def apply_chat_template(self, messages, add_generation_prompt=True):
