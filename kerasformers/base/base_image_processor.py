@@ -1,17 +1,17 @@
 import numpy as np
 from keras import ops
 
-from kerasformers.base.base_processor import BasePreprocessingLayer
+from kerasformers.base.base_mixin import PreprocessorMixin
 from kerasformers.utils.image_util import get_data_format, load_image
 
 
-class BaseImageProcessor(BasePreprocessingLayer):
+class BaseImageProcessor(PreprocessorMixin):
     """Abstract base for kerasformers image preprocessors.
 
     Subclasses implement ``call(images)`` returning the model-ready pixel tensor
     (or a dict that includes one). The loading API (``from_weights`` /
     ``from_release`` / ``from_hf``) and the ``__call__`` -> ``call`` forwarder are
-    inherited from :class:`BasePreprocessingLayer`. Concrete subclasses define
+    inherited from :class:`PreprocessorMixin`. Concrete subclasses define
     their own constructor kwargs (resolution, normalization stats, interpolation
     mode, patch size, …) and ``get_config`` payload — the base bakes in no
     defaults.
@@ -41,6 +41,39 @@ class BaseImageProcessor(BasePreprocessingLayer):
         raise NotImplementedError(
             f"{type(self).__name__} must implement `call(images)`."
         )
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        import inspect
+
+        params = set(inspect.signature(cls).parameters)
+        if not (params & {"image_resolution", "mean", "std"}):
+            return cls(**kwargs)
+        try:
+            import json
+
+            from huggingface_hub import hf_hub_download
+
+            with open(
+                hf_hub_download(repo, "preprocessor_config.json"), encoding="utf-8"
+            ) as f:
+                hf = json.load(f)
+        except Exception:
+            return cls(**kwargs)
+        if "mean" in params and "image_mean" in hf:
+            kwargs.setdefault("mean", hf["image_mean"])
+        if "std" in params and "image_std" in hf:
+            kwargs.setdefault("std", hf["image_std"])
+        if "image_resolution" in params and "size" in hf:
+            size = hf["size"]
+            res = (
+                size
+                if isinstance(size, int)
+                else size.get("shortest_edge") or size.get("height")
+            )
+            if res is not None:
+                kwargs.setdefault("image_resolution", res)
+        return cls(**kwargs)
 
     @staticmethod
     def to_3_channels(image):

@@ -58,17 +58,12 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         return self._tok.encode(text, add_special_tokens=False).ids
 
     def call(self, inputs):
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
-        ids = [self.encode(t) for t in texts]
-        return {"input_ids": ids}
+        texts = self.normalize_texts(inputs)
+        return {"input_ids": [self.encode(t) for t in texts]}
 
     def decode(self, ids, skip_special_tokens=True):
-        if hasattr(ids, "tolist"):
-            ids = ids.tolist()
-        if isinstance(ids, int):
-            ids = [ids]
         return self._tok.decode(
-            [int(i) for i in ids], skip_special_tokens=skip_special_tokens
+            self.to_id_list(ids), skip_special_tokens=skip_special_tokens
         )
 
     def get_config(self):

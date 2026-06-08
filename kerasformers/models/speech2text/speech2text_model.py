@@ -1,9 +1,10 @@
 from typing import List, Union
 
 import keras
+import numpy as np
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
 from .config import SPEECH2TEXT_CONFIG, SPEECH2TEXT_WEIGHTS
 from .speech2text_layers import (
@@ -462,7 +463,7 @@ class Speech2TextModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Speech2TextSpeechToText(Speech2TextModel):
+class Speech2TextSpeechToText(Speech2TextModel, BaseSeq2SeqGeneration):
     """Speech2Text speech-to-text model (transcription / speech translation).
 
     Composes the same encoder + decoder + ``lm_head`` Functional graph as
@@ -487,27 +488,101 @@ class Speech2TextSpeechToText(Speech2TextModel):
         return_ids: bool = False,
     ) -> Union[List[str], List[List[int]]]:
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
-        decoder_start_token_id = processor.decoder_start_token_id
-        eos_token_id = processor.tokenizer.eos_token_id
+        start_id = processor.decoder_start_token_id
+        eos_id = processor.tokenizer.eos_token_id
 
-        enc_out = self.encoder(inputs["input_features"])
-        batch = enc_out.shape[0]
-
-        generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
-        done = ops.zeros((batch,), dtype="bool")
-
-        for _ in range(max_new_tokens):
-            logits = self.decoder(
-                {"decoder_input_ids": generated, "encoder_hidden_states": enc_out}
-            )
-            next_ids = ops.cast(ops.argmax(logits[:, -1, :], axis=-1), "int32")
-            next_ids = ops.cast(ops.where(done, eos_token_id, next_ids), "int32")
-            generated = ops.concatenate([generated, next_ids[:, None]], axis=1)
-            done = ops.logical_or(done, ops.equal(next_ids, eos_token_id))
-            if bool(ops.all(done)):
-                break
-
-        ids = [list(row) for row in ops.convert_to_numpy(generated)]
+        features = ops.convert_to_tensor(inputs["input_features"])
+        batch = int(features.shape[0])
+        decoder_start_ids = ops.full((batch, 1), start_id, dtype="int32")
+        generated = super().generate(
+            features,
+            decoder_start_ids,
+            max_new_tokens=max_new_tokens,
+            eos_token_id=eos_id,
+        )
+        start_col = np.full((batch, 1), start_id, dtype=generated.dtype)
+        ids = [list(row) for row in np.concatenate([start_col, generated], axis=1)]
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)
+
+    def encode(self, encoder_inputs):
+        return self.encoder(encoder_inputs)
+
+    def _ensure_decode_layers(self):
+        if getattr(self, "_dec_blocks", None) is not None:
+            return
+        d = self.decoder
+        self._dec_embed = d.get_layer("decoder_embed_tokens")
+        self._dec_pos = d.get_layer("decoder_embed_positions")
+        self._dec_final_ln = d.get_layer("decoder_layer_norm")
+        self._dec_head = d.get_layer("lm_head")
+        self._dec_embed_scale = (
+            float(self.hidden_dim) ** 0.5 if self.scale_embedding else 1.0
+        )
+        self._dec_act = _resolve_activation(self.activation_function)
+        attn = {
+            layer.name_prefix: layer
+            for layer in d.layers
+            if isinstance(layer, Speech2TextAttention)
+        }
+        self._dec_blocks = [
+            {
+                "self_ln": d.get_layer(f"decoder_layers_{i}_self_attn_layer_norm"),
+                "self_attn": attn[f"decoder_layers_{i}_self_attn"],
+                "cross_ln": d.get_layer(f"decoder_layers_{i}_encoder_attn_layer_norm"),
+                "cross_attn": attn[f"decoder_layers_{i}_encoder_attn"],
+                "final_ln": d.get_layer(f"decoder_layers_{i}_final_layer_norm"),
+                "fc1": d.get_layer(f"decoder_layers_{i}_fc1"),
+                "fc2": d.get_layer(f"decoder_layers_{i}_fc2"),
+            }
+            for i in range(self.decoder_num_layers)
+        ]
+
+    @property
+    def decode_num_heads(self):
+        return self.decoder_attention_heads
+
+    @property
+    def decode_head_dim(self):
+        return self.hidden_dim // self.decoder_attention_heads
+
+    def decode_cross_kv(self, encoder_hidden_states):
+        self._ensure_decode_layers()
+        return [
+            blk["cross_attn"].project(encoder_hidden_states) for blk in self._dec_blocks
+        ]
+
+    def decode_forward(self, ids, cache, start_pos):
+        self._ensure_decode_layers()
+        x = self._dec_embed(ids)
+        if self._dec_embed_scale != 1.0:
+            x = x * self._dec_embed_scale
+        n = ids.shape[1]
+        positions = self._dec_pos.offset + start_pos + ops.arange(n)
+        x = x + ops.take(self._dec_pos.pos_embed, positions, axis=0)[None]
+
+        new_cache = []
+        for i, blk in enumerate(self._dec_blocks):
+            self_k, self_v, cross_k, cross_v = cache[i]
+
+            residual = x
+            h = blk["self_ln"](x)
+            h, self_k, self_v = self.cached_self_attention(
+                blk["self_attn"], h, self_k, self_v, start_pos
+            )
+            x = residual + h
+
+            residual = x
+            h = blk["cross_ln"](x)
+            h = self.cached_cross_attention(blk["cross_attn"], h, cross_k, cross_v)
+            x = residual + h
+
+            residual = x
+            h = blk["final_ln"](x)
+            x = residual + blk["fc2"](self._dec_act(blk["fc1"](h)))
+
+            new_cache.append((self_k, self_v, cross_k, cross_v))
+
+        x = self._dec_final_ln(x)
+        return self._dec_head(x), tuple(new_cache)

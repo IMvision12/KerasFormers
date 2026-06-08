@@ -81,28 +81,27 @@ class WhisperAttention(keras.layers.Layer):
         x = ops.reshape(x, (b, t, self.num_heads, self.head_dim))
         return ops.transpose(x, (0, 2, 1, 3))
 
-    def call(self, hidden_states, key_value_states=None, attention_mask=None):
-        batch_size = ops.shape(hidden_states)[0]
-        kv = key_value_states if key_value_states is not None else hidden_states
+    def query(self, hidden_states):
+        return self._split_heads(self.q_proj(hidden_states) * self.scale)
 
-        q = self.q_proj(hidden_states) * self.scale
-        k = self.k_proj(kv)
-        v = self.v_proj(kv)
+    def project(self, kv):
+        return self._split_heads(self.k_proj(kv)), self._split_heads(self.v_proj(kv))
 
-        q = self._split_heads(q)
-        k = self._split_heads(k)
-        v = self._split_heads(v)
-
+    def attend(self, q, k, v, attention_mask=None):
         scores = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2)))
         if attention_mask is not None:
             scores = scores + ops.cast(attention_mask, scores.dtype)
-
         attn = ops.softmax(scores, axis=-1)
         out = ops.matmul(attn, v)
         out = ops.transpose(out, (0, 2, 1, 3))
-        out = ops.reshape(out, (batch_size, -1, self.proj_dim))
-        out = self.out_proj(out)
-        return out
+        out = ops.reshape(out, (ops.shape(out)[0], -1, self.proj_dim))
+        return self.out_proj(out)
+
+    def call(self, hidden_states, key_value_states=None, attention_mask=None):
+        kv = key_value_states if key_value_states is not None else hidden_states
+        q = self.query(hidden_states)
+        k, v = self.project(kv)
+        return self.attend(q, k, v, attention_mask)
 
     def get_config(self):
         config = super().get_config()

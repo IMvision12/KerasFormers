@@ -12,37 +12,19 @@ from .whisper_tokenizer import WhisperTokenizer
 class WhisperProcessor(BaseProcessor):
     """Combined audio + text processor for Whisper.
 
-    Wraps :class:`WhisperFeatureExtractor` and :class:`WhisperTokenizer`,
-    matching the reference ``WhisperProcessor`` API surface. Use it for
-    every input/output transform you need around a Whisper model:
+    Composes :class:`WhisperFeatureExtractor` (log-mel features) and
+    :class:`WhisperTokenizer`. ``decode`` / ``batch_decode`` and the loaders
+    (``from_weights`` / ``from_hf``) come from :class:`BaseProcessor`.
 
-    * ``processor(audio=..., sampling_rate=16000)`` — log-mel features.
-    * ``processor(text=...)`` — BPE token ids + attention mask
-      (label path during fine-tuning).
-    * ``processor.get_decoder_prompt_ids(language, task, no_timestamps)``
-      — turns ``("en", "transcribe")`` into the
-      ``forced_decoder_ids`` list that
-      :class:`kerasformers.models.whisper.WhisperSpeechToText` consumes.
-    * ``processor.decode`` / ``processor.batch_decode`` — proxy to the
-      tokenizer.
-
-    Token ids for languages, tasks and ``<|notimestamps|>`` are looked
-    up from the tokenizer's loaded ``added_tokens.json`` rather than
-    hard-coded, so the same processor works for both v1 (51 865 vocab)
-    and v3 (51 866 vocab) — those vocabularies disagree on the offsets
-    of every special token after the extra Cantonese language id.
-
-    Args:
-        variant: Tokenizer variant — ``"v1"`` (tiny / base / small /
-            medium / large / large-v2) or ``"v3"`` (large-v3 /
-            large-v3-turbo).
-        n_mels: Number of mel bins. ``80`` for v1 variants, ``128`` for
-            large-v3 / large-v3-turbo.
-        sampling_rate / n_fft / hop_length / chunk_length: Forwarded to
-            :class:`WhisperFeatureExtractor`.
-        vocab_file / merges_file / added_tokens_file: Forwarded to
-            :class:`WhisperTokenizer`.
+    Whisper-specific helpers stay here: :meth:`get_decoder_prompt_ids`
+    (``("en", "transcribe")`` -> ``forced_decoder_ids``) and
+    :attr:`decoder_start_token_id`, with the language / task / ``<|notimestamps|>``
+    ids looked up from the tokenizer's ``added_tokens.json`` so the same processor
+    works for both v1 (51865 vocab) and v3 (51866 vocab).
     """
+
+    TOKENIZER_CLS = WhisperTokenizer
+    FEATURE_EXTRACTOR_CLS = WhisperFeatureExtractor
 
     def __init__(
         self,
@@ -58,18 +40,19 @@ class WhisperProcessor(BaseProcessor):
         bos_token_id: int = 50257,
         eos_token_id: int = 50257,
         pad_token_id: int = 50257,
+        tokenizer=None,
+        feature_extractor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.variant = variant
-        self.feature_extractor = WhisperFeatureExtractor(
+        self.feature_extractor = feature_extractor or WhisperFeatureExtractor(
             sampling_rate=sampling_rate,
             n_fft=n_fft,
             hop_length=hop_length,
             n_mels=n_mels,
             chunk_length=chunk_length,
         )
-        self.tokenizer = WhisperTokenizer(
+        self.tokenizer = tokenizer or WhisperTokenizer(
             variant=variant,
             vocab_file=vocab_file,
             merges_file=merges_file,
@@ -78,17 +61,7 @@ class WhisperProcessor(BaseProcessor):
             eos_token_id=eos_token_id,
             pad_token_id=pad_token_id,
         )
-
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        from huggingface_hub import hf_hub_download
-
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            merges_file=hf_hub_download(repo, "merges.txt"),
-            added_tokens_file=hf_hub_download(repo, "added_tokens.json"),
-            **kwargs,
-        )
+        self.variant = self.tokenizer.variant
 
     @property
     def added_tokens(self) -> dict:
@@ -128,16 +101,6 @@ class WhisperProcessor(BaseProcessor):
             prompt.append((pos, self._special_id("<|notimestamps|>")))
         return prompt
 
-    def decode(self, token_ids, skip_special_tokens: bool = True) -> str:
-        return self.tokenizer.decode(token_ids, skip_special_tokens=skip_special_tokens)
-
-    def batch_decode(
-        self, token_ids_batch, skip_special_tokens: bool = True
-    ) -> List[str]:
-        return self.tokenizer.batch_decode(
-            token_ids_batch, skip_special_tokens=skip_special_tokens
-        )
-
     def call(
         self,
         audio=None,
@@ -159,23 +122,3 @@ class WhisperProcessor(BaseProcessor):
             out["input_ids"] = tok_out["input_ids"]
             out["attention_mask"] = tok_out["attention_mask"]
         return out
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "variant": self.variant,
-                "n_mels": self.feature_extractor.n_mels,
-                "sampling_rate": self.feature_extractor.sampling_rate,
-                "n_fft": self.feature_extractor.n_fft,
-                "hop_length": self.feature_extractor.hop_length,
-                "chunk_length": self.feature_extractor.chunk_length,
-                "vocab_file": self.tokenizer.vocab_file,
-                "merges_file": self.tokenizer.merges_file,
-                "added_tokens_file": self.tokenizer.added_tokens_file,
-                "bos_token_id": self.tokenizer.bos_token_id,
-                "eos_token_id": self.tokenizer.eos_token_id,
-                "pad_token_id": self.tokenizer.pad_token_id,
-            }
-        )
-        return config

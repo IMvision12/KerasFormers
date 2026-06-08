@@ -20,32 +20,24 @@ class GraniteSpeechProcessor(BaseProcessor):
     """
 
     TOKENIZER_CLS = GraniteSpeechTokenizer
+    FEATURE_EXTRACTOR_CLS = GraniteSpeechFeatureExtractor
 
     def __init__(
         self,
         tokenizer_file=None,
         projector_window_size=15,
         projector_downsample_rate=5,
+        tokenizer=None,
+        feature_extractor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.tokenizer_file = tokenizer_file
-        self.projector_window_size = projector_window_size
-        self.projector_downsample_rate = projector_downsample_rate
-        self.feature_extractor = GraniteSpeechFeatureExtractor(
+        self.feature_extractor = feature_extractor or GraniteSpeechFeatureExtractor(
             projector_window_size=projector_window_size,
             projector_downsample_rate=projector_downsample_rate,
         )
-        self.tokenizer = self.TOKENIZER_CLS(tokenizer_file=tokenizer_file)
+        self.tokenizer = tokenizer or self.TOKENIZER_CLS(tokenizer_file=tokenizer_file)
         self.audio_token = self.tokenizer.audio_token
-
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        """Build the processor with the tokenizer loaded from an HF ``repo``'s
-        ``tokenizer.json`` instead of the bundled kerasformers-release default."""
-        from huggingface_hub import hf_hub_download
-
-        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     def apply_chat_template(self, messages, add_generation_prompt=True):
         """Render a simple Granite chat prompt; each ``{"type": "audio"}`` content
@@ -116,14 +108,3 @@ class GraniteSpeechProcessor(BaseProcessor):
         out["input_ids"] = ops.convert_to_tensor(input_ids)
         out["attention_mask"] = ops.convert_to_tensor(attention_mask)
         return out
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "tokenizer_file": self.tokenizer_file,
-                "projector_window_size": self.projector_window_size,
-                "projector_downsample_rate": self.projector_downsample_rate,
-            }
-        )
-        return config

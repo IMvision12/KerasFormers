@@ -1,12 +1,17 @@
 from typing import List, Union
 
 import keras
+import numpy as np
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
 from .config import MOONSHINE_CONFIG, MOONSHINE_WEIGHTS
-from .moonshine_layers import MoonshineAttention, MoonshineRotaryEmbedding
+from .moonshine_layers import (
+    MoonshineAttention,
+    MoonshineRotaryEmbedding,
+    apply_rotary_pos_emb,
+)
 
 
 def moonshine_encoder_mlp(x, hidden_dim, mlp_dim, activation, prefix):
@@ -491,7 +496,7 @@ class MoonshineModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MoonshineSpeechToText(MoonshineModel):
+class MoonshineSpeechToText(MoonshineModel, BaseSeq2SeqGeneration):
     """Moonshine speech-to-text model (transcription).
 
     Composes the same encoder + decoder + tied LM head Functional graph as
@@ -521,27 +526,102 @@ class MoonshineSpeechToText(MoonshineModel):
         return_ids: bool = False,
     ) -> Union[List[str], List[List[int]]]:
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
-        decoder_start_token_id = processor.decoder_start_token_id
-        eos_token_id = processor.tokenizer.eos_token_id
+        start_id = processor.decoder_start_token_id
+        eos_id = processor.tokenizer.eos_token_id
 
-        enc_out = self.encoder(inputs["input_values"])
-        batch = enc_out.shape[0]
-
-        generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
-        done = ops.zeros((batch,), dtype="bool")
-
-        for _ in range(max_new_tokens):
-            logits = self.decoder(
-                {"decoder_input_ids": generated, "encoder_hidden_states": enc_out}
-            )
-            next_ids = ops.cast(ops.argmax(logits[:, -1, :], axis=-1), "int32")
-            next_ids = ops.cast(ops.where(done, eos_token_id, next_ids), "int32")
-            generated = ops.concatenate([generated, next_ids[:, None]], axis=1)
-            done = ops.logical_or(done, ops.equal(next_ids, eos_token_id))
-            if bool(ops.all(done)):
-                break
-
-        ids = [list(row) for row in ops.convert_to_numpy(generated)]
+        features = ops.convert_to_tensor(inputs["input_values"])
+        batch = int(features.shape[0])
+        decoder_start_ids = ops.full((batch, 1), start_id, dtype="int32")
+        generated = super().generate(
+            features,
+            decoder_start_ids,
+            max_new_tokens=max_new_tokens,
+            eos_token_id=eos_id,
+        )
+        start_col = np.full((batch, 1), start_id, dtype=generated.dtype)
+        ids = [list(row) for row in np.concatenate([start_col, generated], axis=1)]
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)
+
+    def encode(self, encoder_inputs):
+        return self.encoder(encoder_inputs)
+
+    def _ensure_decode_layers(self):
+        if getattr(self, "_dec_blocks", None) is not None:
+            return
+        d = self.decoder
+        self._dec_embed = d.get_layer("decoder_embed_tokens")
+        self._rope = d.get_layer("decoder_rotary_emb")
+        self._dec_final_ln = d.get_layer("decoder_layer_norm")
+        self._dec_act = keras.activations.silu
+        attn = {
+            layer.name_prefix: layer
+            for layer in d.layers
+            if isinstance(layer, MoonshineAttention)
+        }
+        self._dec_blocks = [
+            {
+                "self_ln": d.get_layer(f"decoder_layers_{i}_input_layernorm"),
+                "self_attn": attn[f"decoder_layers_{i}_self_attn"],
+                "cross_ln": d.get_layer(f"decoder_layers_{i}_post_attention_layernorm"),
+                "cross_attn": attn[f"decoder_layers_{i}_encoder_attn"],
+                "final_ln": d.get_layer(f"decoder_layers_{i}_final_layernorm"),
+                "fc1": d.get_layer(f"decoder_layers_{i}_fc1"),
+                "fc2": d.get_layer(f"decoder_layers_{i}_fc2"),
+            }
+            for i in range(self.decoder_num_layers)
+        ]
+
+    @property
+    def decode_num_heads(self):
+        return self.decoder_num_kv_heads
+
+    @property
+    def decode_head_dim(self):
+        return self.hidden_dim // self.decoder_attention_heads
+
+    def decode_cross_kv(self, encoder_hidden_states):
+        self._ensure_decode_layers()
+        return [
+            blk["cross_attn"].project(encoder_hidden_states) for blk in self._dec_blocks
+        ]
+
+    def decode_forward(self, ids, cache, start_pos):
+        self._ensure_decode_layers()
+        x = self._dec_embed(ids)
+        n = ids.shape[1]
+        positions = start_pos + ops.arange(n)
+        cos = ops.take(self._rope.cos_table, positions, axis=0)[None, None]
+        sin = ops.take(self._rope.sin_table, positions, axis=0)[None, None]
+
+        def rotary(t, _update_index):
+            return apply_rotary_pos_emb(t, cos, sin)
+
+        new_cache = []
+        for i, blk in enumerate(self._dec_blocks):
+            self_k, self_v, cross_k, cross_v = cache[i]
+
+            residual = x
+            h = blk["self_ln"](x)
+            h, self_k, self_v = self.cached_self_attention(
+                blk["self_attn"], h, self_k, self_v, start_pos, rotary=rotary
+            )
+            x = residual + h
+
+            residual = x
+            h = blk["cross_ln"](x)
+            h = self.cached_cross_attention(blk["cross_attn"], h, cross_k, cross_v)
+            x = residual + h
+
+            residual = x
+            h = blk["final_ln"](x)
+            value, gate = ops.split(blk["fc1"](h), 2, axis=-1)
+            h = blk["fc2"](self._dec_act(gate) * value)
+            x = residual + h
+
+            new_cache.append((self_k, self_v, cross_k, cross_v))
+
+        x = self._dec_final_ln(x)
+        logits = ops.matmul(x, ops.transpose(self._dec_embed.embeddings, (1, 0)))
+        return logits, tuple(new_cache)

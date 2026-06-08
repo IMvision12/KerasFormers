@@ -1,9 +1,10 @@
 from typing import List, Optional, Union
 
 import keras
+import numpy as np
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
+from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
 from .config import (
     WHISPER_BEGIN_SUPPRESS_TOKENS,
@@ -447,7 +448,7 @@ class WhisperModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WhisperSpeechToText(WhisperModel):
+class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
     """Whisper speech-to-text model (transcription + translation).
 
     Composes the same encoder + decoder + tied LM head Functional graph as
@@ -488,62 +489,131 @@ class WhisperSpeechToText(WhisperModel):
                 language=language, task=task, no_timestamps=no_timestamps
             )
         )
-        decoder_start_token_id = processor.decoder_start_token_id
-        eos_token_id = processor.tokenizer.eos_token_id
+        sot = processor.decoder_start_token_id
+        eos = processor.tokenizer.eos_token_id
+        prompt_ids = [sot] + [forced[p] for p in sorted(forced)]
 
-        suppress_set = set(
-            suppress_tokens if suppress_tokens is not None else WHISPER_SUPPRESS_TOKENS
+        suppress = sorted(
+            set(
+                suppress_tokens
+                if suppress_tokens is not None
+                else WHISPER_SUPPRESS_TOKENS
+            )
         )
-        begin_suppress_set = set(
-            begin_suppress_tokens
-            if begin_suppress_tokens is not None
-            else WHISPER_BEGIN_SUPPRESS_TOKENS
+        begin = sorted(
+            set(
+                begin_suppress_tokens
+                if begin_suppress_tokens is not None
+                else WHISPER_BEGIN_SUPPRESS_TOKENS
+            )
         )
+        self._suppress_bias = self._token_bias(suppress)
+        self._begin_suppress_bias = self._token_bias(begin)
 
-        enc_out = self.encoder(inputs["input_features"])
-        batch = enc_out.shape[0]
-
-        suppress_ids = sorted(suppress_set)
-        begin_ids = sorted(begin_suppress_set)
-        generated = ops.full((batch, 1), decoder_start_token_id, dtype="int32")
-        done = ops.zeros((batch,), dtype="bool")
-        suppress_bias = None
-
-        for step in range(max_new_tokens):
-            cur_pos = generated.shape[1]
-            if cur_pos in forced:
-                next_ids = ops.full((batch,), forced[cur_pos], dtype="int32")
-            else:
-                logits = self.decoder(
-                    {
-                        "decoder_input_ids": generated,
-                        "encoder_hidden_states": enc_out,
-                    }
-                )
-                next_logits = logits[:, -1, :]
-                vocab = next_logits.shape[-1]
-                if suppress_ids:
-                    if suppress_bias is None:
-                        idx = ops.convert_to_tensor(suppress_ids, dtype="int32")
-                        suppress_bias = ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
-                    next_logits = next_logits + suppress_bias
-                if step == 0 and begin_ids:
-                    idx = ops.convert_to_tensor(begin_ids, dtype="int32")
-                    next_logits = (
-                        next_logits + ops.sum(ops.one_hot(idx, vocab), axis=0) * -1e9
-                    )
-                next_ids = ops.cast(ops.argmax(next_logits, axis=-1), "int32")
-
-            next_ids = ops.cast(ops.where(done, eos_token_id, next_ids), "int32")
-            generated = ops.concatenate([generated, next_ids[:, None]], axis=1)
-            done = ops.logical_or(done, ops.equal(next_ids, eos_token_id))
-            if bool(ops.all(done)):
-                break
-
-        ids = [list(row) for row in ops.convert_to_numpy(generated)]
+        features = ops.convert_to_tensor(inputs["input_features"])
+        batch = int(features.shape[0])
+        decoder_start_ids = ops.convert_to_tensor([prompt_ids] * batch, dtype="int32")
+        generated = super().generate(
+            features, decoder_start_ids, max_new_tokens=max_new_tokens, eos_token_id=eos
+        )
+        prompt_col = np.tile(np.asarray(prompt_ids, dtype=generated.dtype), (batch, 1))
+        ids = [list(row) for row in np.concatenate([prompt_col, generated], axis=1)]
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)
+
+    def encode(self, encoder_inputs):
+        return self.encoder(encoder_inputs)
+
+    def _token_bias(self, token_ids):
+        if not token_ids:
+            return None
+        idx = ops.convert_to_tensor(token_ids, dtype="int32")
+        return ops.sum(ops.one_hot(idx, self.vocab_size), axis=0) * -1e9
+
+    def _ensure_decode_layers(self):
+        if getattr(self, "_dec_blocks", None) is not None:
+            return
+        d = self.decoder
+        self._dec_embed = d.get_layer("decoder_embed_tokens")
+        self._dec_pos = d.get_layer("decoder_embed_positions")
+        self._dec_final_ln = d.get_layer("decoder_layer_norm")
+        self._dec_embed_scale = (
+            float(self.hidden_dim) ** 0.5 if self.scale_embedding else 1.0
+        )
+        self._dec_act = _gelu
+        attn = {
+            layer.name_prefix: layer
+            for layer in d.layers
+            if isinstance(layer, WhisperAttention)
+        }
+        self._dec_blocks = [
+            {
+                "self_ln": d.get_layer(f"decoder_layers_{i}_self_attn_layer_norm"),
+                "self_attn": attn[f"decoder_layers_{i}_self_attn"],
+                "cross_ln": d.get_layer(f"decoder_layers_{i}_encoder_attn_layer_norm"),
+                "cross_attn": attn[f"decoder_layers_{i}_encoder_attn"],
+                "final_ln": d.get_layer(f"decoder_layers_{i}_final_layer_norm"),
+                "fc1": d.get_layer(f"decoder_layers_{i}_fc1"),
+                "fc2": d.get_layer(f"decoder_layers_{i}_fc2"),
+            }
+            for i in range(self.decoder_num_layers)
+        ]
+
+    @property
+    def decode_num_heads(self):
+        return self.decoder_attention_heads
+
+    @property
+    def decode_head_dim(self):
+        return self.hidden_dim // self.decoder_attention_heads
+
+    def decode_cross_kv(self, encoder_hidden_states):
+        self._ensure_decode_layers()
+        return [
+            blk["cross_attn"].project(encoder_hidden_states) for blk in self._dec_blocks
+        ]
+
+    def decode_forward(self, ids, cache, start_pos):
+        self._ensure_decode_layers()
+        x = self._dec_embed(ids)
+        if self._dec_embed_scale != 1.0:
+            x = x * self._dec_embed_scale
+        n = ids.shape[1]
+        positions = start_pos + ops.arange(n)
+        x = x + ops.take(self._dec_pos.pos_embed, positions, axis=0)[None]
+
+        new_cache = []
+        for i, blk in enumerate(self._dec_blocks):
+            self_k, self_v, cross_k, cross_v = cache[i]
+
+            residual = x
+            h = blk["self_ln"](x)
+            h, self_k, self_v = self.cached_self_attention(
+                blk["self_attn"], h, self_k, self_v, start_pos
+            )
+            x = residual + h
+
+            residual = x
+            h = blk["cross_ln"](x)
+            h = self.cached_cross_attention(blk["cross_attn"], h, cross_k, cross_v)
+            x = residual + h
+
+            residual = x
+            h = blk["final_ln"](x)
+            x = residual + blk["fc2"](self._dec_act(blk["fc1"](h)))
+
+            new_cache.append((self_k, self_v, cross_k, cross_v))
+
+        x = self._dec_final_ln(x)
+        logits = ops.matmul(x, ops.transpose(self._dec_embed.embeddings, (1, 0)))
+        suppress_bias = getattr(self, "_suppress_bias", None)
+        if suppress_bias is not None:
+            logits = logits + suppress_bias
+        begin_bias = getattr(self, "_begin_suppress_bias", None)
+        if isinstance(start_pos, int) and start_pos == 0 and begin_bias is not None:
+            logits = logits + begin_bias
+        return logits, tuple(new_cache)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

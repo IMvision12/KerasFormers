@@ -104,10 +104,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
         return ids, attention_mask
 
     def call(self, inputs: Union[str, List[str]]):
-        if isinstance(inputs, str):
-            texts = [inputs]
-        else:
-            texts = list(inputs)
+        texts = self.normalize_texts(inputs)
         token_ids = np.zeros((len(texts), self.max_seq_len), dtype=np.int32)
         attention_mask = np.zeros((len(texts), self.max_seq_len), dtype=np.int32)
         for i, t in enumerate(texts):

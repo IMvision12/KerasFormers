@@ -1,41 +1,47 @@
 import keras
 
-from kerasformers.base.base_mixin import PreloadMixin
+from kerasformers.base.base_mixin import PreprocessorMixin
 
 
-class BasePreprocessingLayer(PreloadMixin, keras.layers.Layer):
-    """Base for every kerasformers preprocessing layer.
-
-    Preprocessing layers are stateless utility layers (no weights to build) that
-    take *Python* inputs — strings, chat-message lists, raw images, raw audio —
-    not tensors. ``__call__`` forwards straight to ``call`` so those inputs can be
-    passed positionally (Keras's ``Layer.__call__`` rejects non-tensor positional
-    args). Loading (``from_weights`` / ``from_release`` / ``from_hf``) is inherited
-    from :class:`PreloadMixin`.
-
-    Subclasses (``BaseTokenizer``, ``BaseProcessor``, ``BaseImageProcessor``,
-    ``BaseAudioFeatureExtractor``) implement ``call`` and add their own state /
-    ``get_config`` — the base bakes in no defaults.
-    """
-
-    def __call__(self, *args, **kwargs):
-        return self.call(*args, **kwargs)
-
-    def call(self, *args, **kwargs):
-        raise NotImplementedError(f"{type(self).__name__} must implement `call`.")
-
-
-class BaseProcessor(BasePreprocessingLayer):
+class BaseProcessor(PreprocessorMixin):
     """Base class for kerasformers multi-modal processors.
 
-    Multi-modal processors compose a :class:`BaseTokenizer` and a
-    :class:`BaseImageProcessor` / :class:`BaseAudioFeatureExtractor` into one
-    callable. Subclasses set ``self.tokenizer`` / ``self.image_processor`` /
-    ``self.feature_extractor`` in ``__init__`` and implement ``call`` to dispatch
-    over their component(s); ``decode`` / ``batch_decode`` are wired through to
-    the tokenizer. The loading API and the ``__call__`` -> ``call`` forwarder are
-    inherited from :class:`BasePreprocessingLayer`.
+    A processor **composes** (has-a) a :class:`BaseTokenizer` and a
+    :class:`BaseImageProcessor` / :class:`BaseAudioFeatureExtractor`; it is not a
+    subclass of them. Each subclass declares the component classes it uses via the
+    ``TOKENIZER_CLS`` / ``IMAGE_PROCESSOR_CLS`` / ``FEATURE_EXTRACTOR_CLS`` class
+    attributes and stores the built instances on ``self.tokenizer`` /
+    ``self.image_processor`` / ``self.feature_extractor``. ``__init__`` accepts
+    pre-built components (used by the loaders) or builds them from kwargs.
+
+    The base then provides, generically over whatever components are declared:
+
+    * ``from_hf(repo)`` — loads **every** component from the HF ``repo`` (tokenizer
+      files + image processor / feature extractor), so ``from_weights("hf:org/repo")``
+      returns a complete processor.
+    * ``get_config`` / ``from_config`` — serialize/deserialize the components.
+    * ``decode`` / ``batch_decode`` — wired through to ``self.tokenizer``.
+
+    Subclasses implement ``call`` (the modality dispatch) and, if they carry extra
+    scalar state, extend ``get_config``. The loading API + ``__call__`` -> ``call``
+    forwarder are inherited from :class:`PreprocessorMixin`.
     """
+
+    TOKENIZER_CLS = None
+    IMAGE_PROCESSOR_CLS = None
+    FEATURE_EXTRACTOR_CLS = None
+    COMPONENTS = ("tokenizer", "image_processor", "feature_extractor")
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        parts = {}
+        if cls.TOKENIZER_CLS is not None:
+            parts["tokenizer"] = cls.TOKENIZER_CLS.from_hf(repo)
+        if cls.IMAGE_PROCESSOR_CLS is not None:
+            parts["image_processor"] = cls.IMAGE_PROCESSOR_CLS.from_hf(repo)
+        if cls.FEATURE_EXTRACTOR_CLS is not None:
+            parts["feature_extractor"] = cls.FEATURE_EXTRACTOR_CLS.from_hf(repo)
+        return cls(**parts, **kwargs)
 
     def decode(self, *args, **kwargs) -> str:
         tokenizer = getattr(self, "tokenizer", None)
@@ -53,3 +59,19 @@ class BaseProcessor(BasePreprocessingLayer):
                 "`self.tokenizer` to be set."
             )
         return tokenizer.batch_decode(*args, **kwargs)
+
+    def get_config(self):
+        config = super().get_config()
+        for attr in self.COMPONENTS:
+            component = getattr(self, attr, None)
+            if component is not None:
+                config[attr] = keras.saving.serialize_keras_object(component)
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        config = dict(config)
+        for attr in cls.COMPONENTS:
+            if isinstance(config.get(attr), dict):
+                config[attr] = keras.saving.deserialize_keras_object(config[attr])
+        return cls(**config)

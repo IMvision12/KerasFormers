@@ -32,6 +32,12 @@ class SigLIP2Tokenizer(BaseTokenizer):
         pad_token / bos_token / eos_token / unk_token: Special token strings.
     """
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
+
+        return cls(vocab_file=hf_hub_download(repo, "tokenizer.model"), **kwargs)
+
     def __init__(
         self,
         vocab_file: str = None,
@@ -166,9 +172,7 @@ class SigLIP2Tokenizer(BaseTokenizer):
         return input_ids[:, :max_length]
 
     def call(self, inputs):
-        if inputs is None:
-            raise ValueError("No text inputs provided to SigLIP2Tokenizer")
-        texts = [inputs] if isinstance(inputs, str) else list(inputs)
+        texts = self.normalize_texts(inputs)
         rows = []
         for t in texts:
             seq = self._encode_for_call(t)
