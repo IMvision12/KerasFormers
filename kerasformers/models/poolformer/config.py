@@ -36,7 +36,7 @@ POOLFORMER_MODEL_CONFIG = {
     },
 }
 
-POOLFORMER_WEIGHT_CONFIG = {
+POOLFORMER_WEIGHTS_URLS = {
     "poolformer_s12_sail_in1k": {
         "model": "poolformer_s12",
         "timm_id": "poolformer_s12.sail_in1k",

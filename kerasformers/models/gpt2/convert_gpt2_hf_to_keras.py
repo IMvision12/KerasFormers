@@ -49,7 +49,7 @@ if __name__ == "__main__":
     from transformers import GPT2LMHeadModel
 
     from kerasformers.models.gpt2 import GPT2Generate
-    from kerasformers.models.gpt2.config import GPT2_CONFIG, GPT2_WEIGHTS
+    from kerasformers.models.gpt2.config import GPT2_CONFIG, GPT2_WEIGHTS_URLS
 
     HF_SOURCES = {
         "gpt2": "openai-community/gpt2",
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     MAX_SHARD_GB = 1.7  # GitHub caps release assets at 2 GB; large/xl get sharded
     rng = np.random.default_rng(0)
 
-    for variant, meta in GPT2_WEIGHTS.items():
+    for variant, meta in GPT2_WEIGHTS_URLS.items():
         arch = GPT2_CONFIG[variant]
         hf_id = HF_SOURCES[variant]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")

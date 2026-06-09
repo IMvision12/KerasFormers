@@ -191,7 +191,7 @@ VGG_MODEL_CONFIG = {
     },
 }
 
-VGG_WEIGHT_CONFIG = {
+VGG_WEIGHTS_URLS = {
     "vgg11_tv_in1k": {
         "model": "vgg11",
         "timm_id": "vgg11.tv_in1k",

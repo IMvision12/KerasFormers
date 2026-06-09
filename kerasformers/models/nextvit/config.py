@@ -61,7 +61,7 @@ NEXTVIT_MODEL_CONFIG = {
     },
 }
 
-NEXTVIT_WEIGHT_CONFIG = {
+NEXTVIT_WEIGHTS_URLS = {
     "nextvit_small_bd_in1k": {
         "model": "nextvit_small",
         "timm_id": "nextvit_small.bd_in1k",

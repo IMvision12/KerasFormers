@@ -5,7 +5,7 @@ INCEPTIONV4_MODEL_CONFIG = {
     },
 }
 
-INCEPTIONV4_WEIGHT_CONFIG = {
+INCEPTIONV4_WEIGHTS_URLS = {
     "inception_v4_tf_in1k": {
         "model": "inception_v4",
         "timm_id": "inception_v4.tf_in1k",

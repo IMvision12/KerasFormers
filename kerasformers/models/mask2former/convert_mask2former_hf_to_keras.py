@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 from kerasformers.models.mask2former import Mask2FormerUniversalSegment
-from kerasformers.models.mask2former.config import MASK2FORMER_WEIGHTS
+from kerasformers.models.mask2former.config import MASK2FORMER_WEIGHTS_URLS
 
 
 def transfer_mask2former_weights(keras_model, hf_state_dict):
@@ -313,7 +313,7 @@ def transfer_mask2former_weights(keras_model, hf_state_dict):
 
 MASK2FORMER_CONVERSION_CONFIG: List[Dict[str, Any]] = [
     {"variant": variant, "hf_id": f"facebook/{variant}"}
-    for variant in MASK2FORMER_WEIGHTS
+    for variant in MASK2FORMER_WEIGHTS_URLS
 ]
 
 

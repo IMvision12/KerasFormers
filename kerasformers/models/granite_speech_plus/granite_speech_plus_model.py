@@ -5,7 +5,7 @@ from kerasformers.models.granite_speech.granite_speech_model import (
     GraniteSpeechModel,
 )
 
-from .config import GRANITE_SPEECH_PLUS_CONFIG, GRANITE_SPEECH_PLUS_WEIGHTS
+from .config import GRANITE_SPEECH_PLUS_CONFIG, GRANITE_SPEECH_PLUS_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -20,7 +20,7 @@ class GraniteSpeechPlusModel(GraniteSpeechModel):
 
     HF_MODEL_TYPE = "granite_speech_plus"
     BASE_MODEL_CONFIG = GRANITE_SPEECH_PLUS_CONFIG
-    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_PLUS_WEIGHTS
+    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_PLUS_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -30,4 +30,4 @@ class GraniteSpeechPlusGenerate(GraniteSpeechGenerate):
 
     HF_MODEL_TYPE = "granite_speech_plus"
     BASE_MODEL_CONFIG = GRANITE_SPEECH_PLUS_CONFIG
-    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_PLUS_WEIGHTS
+    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_PLUS_WEIGHTS_URLS

@@ -6,7 +6,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 
-from .config import DEBERTA_MODEL_CONFIG, DEBERTA_WEIGHT_CONFIG
+from .config import DEBERTA_MODEL_CONFIG, DEBERTA_WEIGHTS_URLS
 from .deberta_layers import (
     DebertaDisentangledSelfAttention,
     DebertaEmbeddings,
@@ -14,10 +14,10 @@ from .deberta_layers import (
 )
 
 BASE_MODEL_CONFIG = {
-    v: DEBERTA_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_WEIGHT_CONFIG.items()
+    v: DEBERTA_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_WEIGHTS_URLS.items()
 }
-MLM_WEIGHT_CONFIG = {
-    v: {**m, "url": m["mlm_url"]} for v, m in DEBERTA_WEIGHT_CONFIG.items()
+MLM_WEIGHTS_URLS = {
+    v: {**m, "url": m["mlm_url"]} for v, m in DEBERTA_WEIGHTS_URLS.items()
 }
 
 
@@ -180,7 +180,7 @@ class DebertaModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta"
 
     @classmethod
@@ -332,7 +332,7 @@ class DebertaMaskedLM(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MLM_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta"
 
     @classmethod
@@ -414,7 +414,7 @@ class DebertaSequenceClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta"
 
     @classmethod
@@ -537,7 +537,7 @@ class DebertaTokenClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta"
 
     @classmethod
@@ -652,7 +652,7 @@ class DebertaQnA(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta"
 
     @classmethod

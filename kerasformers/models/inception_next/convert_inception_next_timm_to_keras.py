@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inception_next import InceptionNextImageClassify
-from kerasformers.models.inception_next.config import INCEPTION_NEXT_WEIGHT_CONFIG
+from kerasformers.models.inception_next.config import INCEPTION_NEXT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -78,7 +78,7 @@ def transfer_inception_next_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in INCEPTION_NEXT_WEIGHT_CONFIG.items():
+    for variant, meta in INCEPTION_NEXT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

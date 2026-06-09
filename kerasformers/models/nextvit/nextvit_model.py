@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHT_CONFIG
+from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHTS_URLS
 from .nextvit_layers import NextViTEfficientAttention
 
 
@@ -599,9 +599,9 @@ class NextViTModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: NEXTVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in NEXTVIT_WEIGHT_CONFIG.items()
+        for variant, meta in NEXTVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = NEXTVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = NEXTVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -768,9 +768,9 @@ class NextViTImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: NEXTVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in NEXTVIT_WEIGHT_CONFIG.items()
+        for variant, meta in NEXTVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = NEXTVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = NEXTVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

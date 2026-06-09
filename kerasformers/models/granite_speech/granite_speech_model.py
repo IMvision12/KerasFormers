@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GRANITE_SPEECH_CONFIG, GRANITE_SPEECH_WEIGHTS
+from .config import GRANITE_SPEECH_CONFIG, GRANITE_SPEECH_WEIGHTS_URLS
 from .granite_speech_layers import (
     GraniteSpeechCTCEncoder,
     GraniteSpeechDecoderLayer,
@@ -179,7 +179,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
 
     HF_MODEL_TYPE = "granite_speech"
     BASE_MODEL_CONFIG = GRANITE_SPEECH_CONFIG
-    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_WEIGHTS
+    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_WEIGHTS_URLS
 
     def __init__(
         self,

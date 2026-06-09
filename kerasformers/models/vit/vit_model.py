@@ -12,7 +12,7 @@ from kerasformers.models.vit.vit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import VIT_MODEL_CONFIG, VIT_WEIGHT_CONFIG
+from .config import VIT_MODEL_CONFIG, VIT_WEIGHTS_URLS
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0):
@@ -226,9 +226,9 @@ class ViTModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHT_CONFIG.items()
+        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = VIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = VIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -437,9 +437,9 @@ class ViTImageClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHT_CONFIG.items()
+        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = VIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = VIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

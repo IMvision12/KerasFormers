@@ -106,7 +106,7 @@ WHISPER_CONFIG = {
 }
 
 
-WHISPER_WEIGHTS = {
+WHISPER_WEIGHTS_URLS = {
     "whisper_tiny": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whispertiny_openai.weights.h5",
     },
@@ -226,15 +226,32 @@ WHISPER_SUPPRESS_TOKENS = [
 ]
 WHISPER_BEGIN_SUPPRESS_TOKENS = [220, 50257]
 
-WHISPER_TOKENIZER_FILES = {
-    "v1": {
-        "vocab": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_vocab.json",
-        "merges": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_merges.txt",
-        "added_tokens": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_added_tokens.json",
+# Per-variant tokenizer.json. The v3 variants (large_v3 / large_v3_turbo) have a
+# 51866-token vocab (one extra language) vs 51865 for the rest, so each carries its
+# own file.
+WHISPER_TOKENIZER_URLS = {
+    "whisper_tiny": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_tiny_tokenizer.json"
     },
-    "v3": {
-        "vocab": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_vocab_v3.json",
-        "merges": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_merges_v3.txt",
-        "added_tokens": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_added_tokens_v3.json",
+    "whisper_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_base_tokenizer.json"
+    },
+    "whisper_small": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_small_tokenizer.json"
+    },
+    "whisper_medium": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_medium_tokenizer.json"
+    },
+    "whisper_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_tokenizer.json"
+    },
+    "whisper_large_v2": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_v2_tokenizer.json"
+    },
+    "whisper_large_v3": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_v3_tokenizer.json"
+    },
+    "whisper_large_v3_turbo": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_v3_turbo_tokenizer.json"
     },
 }

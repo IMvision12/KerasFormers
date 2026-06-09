@@ -46,7 +46,7 @@ INCEPTION_NEXT_MODEL_CONFIG = {
     },
 }
 
-INCEPTION_NEXT_WEIGHT_CONFIG = {
+INCEPTION_NEXT_WEIGHTS_URLS = {
     "inception_next_atto_sail_in1k": {
         "model": "inception_next_atto",
         "timm_id": "inception_next_atto.sail_in1k",

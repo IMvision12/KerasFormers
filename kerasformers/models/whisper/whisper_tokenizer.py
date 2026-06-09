@@ -1,101 +1,57 @@
 import json
-import os
 from typing import List, Union
 
 import keras
-from tokenizers import AddedToken, Tokenizer
-from tokenizers.decoders import ByteLevel as ByteLevelDecoder
-from tokenizers.models import BPE
-from tokenizers.pre_tokenizers import ByteLevel
+from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
 
-from .config import WHISPER_TOKENIZER_FILES
+from .config import WHISPER_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class WhisperTokenizer(BaseTokenizer):
-    """Whisper byte-level BPE tokenizer, built on the ``tokenizers`` library (Rust).
+    """Whisper byte-level BPE tokenizer (``tokenizers`` Rust backend).
 
-    Matches the reference ``WhisperTokenizer`` exactly for text encoding / decoding.
-    The pipeline is: ByteLevel pre-tokenizer + BPE(vocab.json, merges.txt) +
-    ByteLevel decoder, plus the ~1607 Whisper special tokens (languages,
-    timestamps, task tokens) registered via ``add_special_tokens``.
-
-    Vocab files are pulled from the ``whisper`` release tag on
-    ``github.com/IMvision12/KerasFormers`` unless explicit paths are given.
+    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
+    ``whisper`` release tag (or an explicit ``tokenizer_file``) — the byte-level BPE
+    and Whisper's ~1600 special tokens (languages, task, timestamps) are baked into
+    the file. ``added_tokens`` (content -> id) is rebuilt from it for the processor's
+    prompt helpers. ``call`` tokenizes into padded ``{input_ids, attention_mask}``.
 
     Args:
-        variant: Which tokenizer set to use.
-            * ``"v1"`` -> tiny / base / small / medium / large / large-v2
-              (51865 vocab).
-            * ``"v3"`` -> large-v3 / large-v3-turbo (51866 vocab).
-        vocab_file / merges_file / added_tokens_file: Optional explicit
-            paths. When ``None``, the file is downloaded from the kerasformers
-            release URL corresponding to ``variant``.
-        bos_token_id / eos_token_id / pad_token_id: Whisper special ids.
+        variant: Whisper variant key (default ``"whisper_tiny"``); picks which
+            checkpoint's tokenizer.json to load (v3 variants have a 51866 vocab).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        bos_token_id / eos_token_id / pad_token_id: Whisper special ids (all 50257).
     """
+
+    TOKENIZER_URLS = WHISPER_TOKENIZER_URLS
+    DEFAULT_VARIANT = "whisper_tiny"
 
     def __init__(
         self,
-        variant: str = "v1",
-        vocab_file: str = None,
-        merges_file: str = None,
-        added_tokens_file: str = None,
+        variant: str = None,
+        tokenizer_file: str = None,
         bos_token_id: int = 50257,
         eos_token_id: int = 50257,
         pad_token_id: int = 50257,
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        if variant not in WHISPER_TOKENIZER_FILES:
-            raise ValueError(
-                f"Unknown Whisper tokenizer variant {variant!r}. "
-                f"Available: {list(WHISPER_TOKENIZER_FILES)}"
-            )
-        urls = WHISPER_TOKENIZER_FILES[variant]
-        if vocab_file is None or not os.path.exists(vocab_file):
-            vocab_file = download_file(urls["vocab"])
-        if merges_file is None or not os.path.exists(merges_file):
-            merges_file = download_file(urls["merges"])
-        if added_tokens_file is None or not os.path.exists(added_tokens_file):
-            added_tokens_file = download_file(urls["added_tokens"])
-
-        self.variant = variant
-        self.vocab_file = vocab_file
-        self.merges_file = merges_file
-        self.added_tokens_file = added_tokens_file
+        self.variant = variant or self.DEFAULT_VARIANT
+        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.tokenizer_file = tokenizer_file
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
 
-        with open(added_tokens_file, "r", encoding="utf-8") as f:
-            self.added_tokens = json.load(f)
-
-        tok = Tokenizer(
-            BPE(
-                vocab=vocab_file,
-                merges=merges_file,
-                unk_token="<|endoftext|>",
-                fuse_unk=False,
-            )
-        )
-        tok.pre_tokenizer = ByteLevel(
-            add_prefix_space=False, trim_offsets=True, use_regex=True
-        )
-        tok.decoder = ByteLevelDecoder(
-            add_prefix_space=True, trim_offsets=True, use_regex=True
-        )
-        tok.add_special_tokens(
-            [
-                AddedToken(content, special=True, normalized=False)
-                for content in self.added_tokens.keys()
-            ]
-        )
-        self._tok = tok
-
+        self._tok = Tokenizer.from_file(tokenizer_file)
+        with open(tokenizer_file, encoding="utf-8") as f:
+            payload = json.load(f)
+        self.added_tokens = {
+            t["content"]: t["id"] for t in payload.get("added_tokens", [])
+        }
         self._special_id_set = set(self.added_tokens.values())
         self._special_id_set.add(eos_token_id)
         self._special_id_set.add(pad_token_id)
@@ -104,12 +60,7 @@ class WhisperTokenizer(BaseTokenizer):
     def from_hf(cls, repo, **kwargs):
         from huggingface_hub import hf_hub_download
 
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            merges_file=hf_hub_download(repo, "merges.txt"),
-            added_tokens_file=hf_hub_download(repo, "added_tokens.json"),
-            **kwargs,
-        )
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     @property
     def vocab_size(self) -> int:
@@ -154,9 +105,7 @@ class WhisperTokenizer(BaseTokenizer):
         config.update(
             {
                 "variant": self.variant,
-                "vocab_file": self.vocab_file,
-                "merges_file": self.merges_file,
-                "added_tokens_file": self.added_tokens_file,
+                "tokenizer_file": self.tokenizer_file,
                 "bos_token_id": self.bos_token_id,
                 "eos_token_id": self.eos_token_id,
                 "pad_token_id": self.pad_token_id,

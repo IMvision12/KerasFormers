@@ -4,7 +4,7 @@ from keras import layers, utils
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import SAM_CONFIG, SAM_WEIGHTS
+from .config import SAM_CONFIG, SAM_WEIGHTS_URLS
 from .sam_layers import (
     SAMAbsolutePositionEmbedding,
     SAMImagePositionalEmbeddings,
@@ -361,7 +361,7 @@ class SAMPromptableSegment(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SAM_CONFIG
-    BASE_WEIGHT_CONFIG = SAM_WEIGHTS
+    BASE_WEIGHT_CONFIG = SAM_WEIGHTS_URLS
     HF_MODEL_TYPE = "sam"
 
     @classmethod

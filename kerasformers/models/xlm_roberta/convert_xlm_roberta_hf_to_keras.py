@@ -25,7 +25,7 @@ if __name__ == "__main__":
     from kerasformers.models.xlm_roberta import XLMRobertaMaskedLM, XLMRobertaModel
     from kerasformers.models.xlm_roberta.config import (
         XLM_ROBERTA_MODEL_CONFIG,
-        XLM_ROBERTA_WEIGHT_CONFIG,
+        XLM_ROBERTA_WEIGHTS_URLS,
     )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in XLM_ROBERTA_WEIGHT_CONFIG.items():
+    for variant, meta in XLM_ROBERTA_WEIGHTS_URLS.items():
         arch = XLM_ROBERTA_MODEL_CONFIG[meta["model"]]
         hf_id = HF_SOURCES[variant]
         pad = arch["pad_token_id"]

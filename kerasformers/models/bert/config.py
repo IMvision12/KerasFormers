@@ -49,7 +49,7 @@ BERT_MODEL_CONFIG = {
     },
 }
 
-BERT_WEIGHT_CONFIG = {
+BERT_WEIGHTS_URLS = {
     "bert_base_uncased": {
         "model": "bert_base_uncased",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased.weights.h5",
@@ -72,21 +72,17 @@ BERT_WEIGHT_CONFIG = {
     },
 }
 
-BERT_VOCAB_CONFIG = {
+BERT_TOKENIZER_URLS = {
     "bert_base_uncased": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab.txt",
-        "do_lower_case": True,
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased_tokenizer.json"
     },
     "bert_large_uncased": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab.txt",
-        "do_lower_case": True,
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased_tokenizer.json"
     },
     "bert_base_cased": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab_cased.txt",
-        "do_lower_case": False,
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased_tokenizer.json"
     },
     "bert_large_cased": {
-        "vocab_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/vocab_cased.txt",
-        "do_lower_case": False,
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased_tokenizer.json"
     },
 }

@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilenetv2 import MobileNetV2ImageClassify
-from kerasformers.models.mobilenetv2.config import MOBILENETV2_WEIGHT_CONFIG
+from kerasformers.models.mobilenetv2.config import MOBILENETV2_WEIGHTS_URLS
 
 _BLOCK_00 = {
     "blocks.0.0.batchnorm.2": "blocks.0.0.bn1",
@@ -83,7 +83,7 @@ def transfer_mobilenetv2_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in MOBILENETV2_WEIGHT_CONFIG.items():
+    for variant, meta in MOBILENETV2_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

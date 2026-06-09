@@ -97,7 +97,7 @@ MASK2FORMER_CONFIG = {
     },
 }
 
-MASK2FORMER_WEIGHTS = {
+MASK2FORMER_WEIGHTS_URLS = {
     "mask2former-swin-tiny-coco-instance": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-coco-instance.weights.h5",
     },

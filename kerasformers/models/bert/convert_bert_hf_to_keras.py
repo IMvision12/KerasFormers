@@ -107,7 +107,7 @@ if __name__ == "__main__":
     from transformers import BertModel as HFBertModel
 
     from kerasformers.models.bert import BertMaskedLM, BertModel
-    from kerasformers.models.bert.config import BERT_MODEL_CONFIG, BERT_WEIGHT_CONFIG
+    from kerasformers.models.bert.config import BERT_MODEL_CONFIG, BERT_WEIGHTS_URLS
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in BERT_WEIGHT_CONFIG.items():
+    for variant, meta in BERT_WEIGHTS_URLS.items():
         arch = BERT_MODEL_CONFIG[meta["model"]]
         hf_id = HF_SOURCES[variant]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")

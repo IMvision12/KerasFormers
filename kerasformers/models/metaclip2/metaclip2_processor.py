@@ -76,7 +76,8 @@ class MetaClip2Processor(BaseProcessor):
         do_normalize: bool = True,
         do_resize: bool = True,
         data_format=None,
-        sentencepiece_model_file: str = None,
+        variant: str = None,
+        tokenizer_file: str = None,
         max_seq_len: int = 77,
         tokenizer=None,
         image_processor=None,
@@ -92,7 +93,8 @@ class MetaClip2Processor(BaseProcessor):
             data_format=data_format,
         )
         self.tokenizer = tokenizer or MetaClip2Tokenizer(
-            sentencepiece_model_file=sentencepiece_model_file,
+            variant=variant,
+            tokenizer_file=tokenizer_file,
             max_seq_len=max_seq_len,
         )
 

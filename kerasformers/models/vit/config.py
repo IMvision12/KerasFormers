@@ -215,7 +215,7 @@ VIT_MODEL_CONFIG = {
     },
 }
 
-VIT_WEIGHT_CONFIG = {
+VIT_WEIGHTS_URLS = {
     "vit_tiny_patch16_224_augreg_in21k_ft_in1k": {
         "model": "vit_tiny_patch16_224",
         "timm_id": "vit_tiny_patch16_224.augreg_in21k_ft_in1k",

@@ -11,14 +11,13 @@ from kerasformers.models.roberta.roberta_layers import (
 )
 from kerasformers.models.roberta.roberta_model import roberta_backbone
 
-from .config import XLM_ROBERTA_MODEL_CONFIG, XLM_ROBERTA_WEIGHT_CONFIG
+from .config import XLM_ROBERTA_MODEL_CONFIG, XLM_ROBERTA_WEIGHTS_URLS
 
 BASE_MODEL_CONFIG = {
-    v: XLM_ROBERTA_MODEL_CONFIG[m["model"]]
-    for v, m in XLM_ROBERTA_WEIGHT_CONFIG.items()
+    v: XLM_ROBERTA_MODEL_CONFIG[m["model"]] for v, m in XLM_ROBERTA_WEIGHTS_URLS.items()
 }
-MLM_WEIGHT_CONFIG = {
-    v: {**m, "url": m["mlm_url"]} for v, m in XLM_ROBERTA_WEIGHT_CONFIG.items()
+MLM_WEIGHTS_URLS = {
+    v: {**m, "url": m["mlm_url"]} for v, m in XLM_ROBERTA_WEIGHTS_URLS.items()
 }
 
 
@@ -65,7 +64,7 @@ class XLMRobertaModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "xlm-roberta"
 
     @classmethod
@@ -208,7 +207,7 @@ class XLMRobertaMaskedLM(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MLM_WEIGHTS_URLS
     HF_MODEL_TYPE = "xlm-roberta"
 
     @classmethod
@@ -335,7 +334,7 @@ class XLMRobertaSequenceClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "xlm-roberta"
 
     @classmethod
@@ -490,7 +489,7 @@ class XLMRobertaTokenClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "xlm-roberta"
 
     @classmethod
@@ -641,7 +640,7 @@ class XLMRobertaQnA(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "xlm-roberta"
 
     @classmethod
@@ -777,7 +776,7 @@ class XLMRobertaMultipleChoice(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "xlm-roberta"
 
     @classmethod

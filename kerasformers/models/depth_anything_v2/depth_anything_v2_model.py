@@ -5,7 +5,7 @@ from kerasformers.models.depth_anything_v1.depth_anything_v1_model import (
     DepthAnythingV1Model,
 )
 
-from .config import DEPTHANYTHINGV2_CONFIG, DEPTHANYTHINGV2_WEIGHTS
+from .config import DEPTHANYTHINGV2_CONFIG, DEPTHANYTHINGV2_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -47,7 +47,7 @@ class DepthAnythingV2DepthEstimation(DepthAnythingV1DepthEstimation):
     """
 
     BASE_MODEL_CONFIG = DEPTHANYTHINGV2_CONFIG
-    BASE_WEIGHT_CONFIG = DEPTHANYTHINGV2_WEIGHTS
+    BASE_WEIGHT_CONFIG = DEPTHANYTHINGV2_WEIGHTS_URLS
     HF_MODEL_TYPE = "depth_anything"
 
     def __init__(self, name="DepthAnythingV2DepthEstimation", **kwargs):

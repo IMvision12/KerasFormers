@@ -6,7 +6,7 @@ from kerasformers.base.base_model import hf_num_classes
 from kerasformers.models.mit.mit_model import MiTModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS
+from .config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS_URLS
 
 
 def segformer_head(
@@ -217,7 +217,7 @@ class SegFormerSemanticSegment(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SEGFORMER_CONFIG
-    BASE_WEIGHT_CONFIG = SEGFORMER_WEIGHTS
+    BASE_WEIGHT_CONFIG = SEGFORMER_WEIGHTS_URLS
     HF_MODEL_TYPE = "segformer"
 
     @classmethod

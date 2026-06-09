@@ -43,7 +43,7 @@ GPT_OSS_CONFIG = {
     },
 }
 
-GPT_OSS_WEIGHTS = {
+GPT_OSS_WEIGHTS_URLS = {
     "gpt-oss-20b": {"hf_id": "openai/gpt-oss-20b", "gated": False, "safetensors": True},
     "gpt-oss-120b": {
         "hf_id": "openai/gpt-oss-120b",

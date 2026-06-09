@@ -57,7 +57,7 @@ MOBILENETV3_MODEL_CONFIG = {
 }
 
 
-MOBILENETV3_WEIGHT_CONFIG = {
+MOBILENETV3_WEIGHTS_URLS = {
     "mobilenetv3_small_050_lamb_in1k": {
         "model": "mobilenetv3_small_050",
         "timm_id": "mobilenetv3_small_050.lamb_in1k",

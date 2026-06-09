@@ -14,10 +14,10 @@ from kerasformers.models.deberta_v2.deberta_v2_model import (
     deberta_v2_backbone,
 )
 
-from .config import DEBERTA_V3_MODEL_CONFIG, DEBERTA_V3_WEIGHT_CONFIG
+from .config import DEBERTA_V3_MODEL_CONFIG, DEBERTA_V3_WEIGHTS_URLS
 
 BASE_MODEL_CONFIG = {
-    v: DEBERTA_V3_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_V3_WEIGHT_CONFIG.items()
+    v: DEBERTA_V3_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_V3_WEIGHTS_URLS.items()
 }
 
 
@@ -63,7 +63,7 @@ class DebertaV3Model(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -220,7 +220,7 @@ class DebertaV3MaskedLM(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -323,7 +323,7 @@ class DebertaV3SequenceClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -453,7 +453,7 @@ class DebertaV3TokenClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -573,7 +573,7 @@ class DebertaV3QnA(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -669,7 +669,7 @@ class DebertaV3MultipleChoice(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod

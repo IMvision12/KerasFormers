@@ -196,7 +196,49 @@ SIGLIP2_CONFIG = {
     },
 }
 
-SIGLIP2_WEIGHTS = {
+SIGLIP2_TOKENIZER_URLS = {
+    "siglip2_base_p16_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_base_p16_224_tokenizer.json"
+    },
+    "siglip2_base_p16_256": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_base_p16_256_tokenizer.json"
+    },
+    "siglip2_base_p16_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_base_p16_384_tokenizer.json"
+    },
+    "siglip2_base_p16_512": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_base_p16_512_tokenizer.json"
+    },
+    "siglip2_base_p32_256": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_base_p32_256_tokenizer.json"
+    },
+    "siglip2_large_p16_256": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_large_p16_256_tokenizer.json"
+    },
+    "siglip2_large_p16_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_large_p16_384_tokenizer.json"
+    },
+    "siglip2_large_p16_512": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_large_p16_512_tokenizer.json"
+    },
+    "siglip2_so400m_p14_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_so400m_p14_224_tokenizer.json"
+    },
+    "siglip2_so400m_p14_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_so400m_p14_384_tokenizer.json"
+    },
+    "siglip2_so400m_p16_256": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_so400m_p16_256_tokenizer.json"
+    },
+    "siglip2_so400m_p16_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_so400m_p16_384_tokenizer.json"
+    },
+    "siglip2_so400m_p16_512": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_so400m_p16_512_tokenizer.json"
+    },
+}
+
+SIGLIP2_WEIGHTS_URLS = {
     "siglip2_base_p16_224": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip2_base_p16_224.weights.h5",
     },

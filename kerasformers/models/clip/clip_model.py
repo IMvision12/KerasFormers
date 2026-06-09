@@ -11,7 +11,7 @@ from .clip_layers import (
     CLIPTextModelEmbedding,
     CLIPVisionModelEmbedding,
 )
-from .config import CLIP_CONFIG, CLIP_WEIGHTS
+from .config import CLIP_CONFIG, CLIP_WEIGHTS_URLS
 
 
 def quick_gelu(x):
@@ -282,7 +282,7 @@ class CLIPVisionModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -436,7 +436,7 @@ class CLIPTextModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -599,7 +599,7 @@ class CLIPImageEmbed(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -757,7 +757,7 @@ class CLIPTextEmbed(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -942,7 +942,7 @@ class CLIPModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -1140,7 +1140,7 @@ class CLIPZeroShotClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -1284,7 +1284,7 @@ class CLIPImageClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "clip"
 
     @classmethod

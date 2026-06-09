@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import QWEN3_5_CONFIG, QWEN3_5_WEIGHTS
+from .config import QWEN3_5_CONFIG, QWEN3_5_WEIGHTS_URLS
 from .qwen3_5_layers import Qwen3_5DecoderLayer, Qwen3_5RMSNorm
 
 MASK_NEG = -1e9
@@ -49,7 +49,7 @@ class Qwen3_5Model(SubclassedBaseModel):
 
     HF_MODEL_TYPE = ("qwen3_5", "qwen3_5_text")
     BASE_MODEL_CONFIG = QWEN3_5_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN3_5_WEIGHTS
+    BASE_WEIGHT_CONFIG = QWEN3_5_WEIGHTS_URLS
 
     def __init__(
         self,

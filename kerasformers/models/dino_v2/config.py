@@ -22,7 +22,7 @@ DINOV2_CONFIG = {
     },
 }
 
-DINOV2_WEIGHTS = {
+DINOV2_WEIGHTS_URLS = {
     "dinov2_vits14": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dinov2_vits14.weights.h5",
     },

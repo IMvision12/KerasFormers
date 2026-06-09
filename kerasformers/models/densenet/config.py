@@ -29,7 +29,7 @@ DENSENET_MODEL_CONFIG = {
     },
 }
 
-DENSENET_WEIGHT_CONFIG = {
+DENSENET_WEIGHTS_URLS = {
     "densenet121_tv_in1k": {
         "model": "densenet121",
         "timm_id": "densenet121.tv_in1k",

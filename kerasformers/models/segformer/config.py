@@ -92,7 +92,7 @@ SEGFORMER_CONFIG = {
     },
 }
 
-SEGFORMER_WEIGHTS = {
+SEGFORMER_WEIGHTS_URLS = {
     "segformer_b0_cityscapes_1024": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b0_cityscapes_1024.weights.h5",
     },

@@ -48,12 +48,12 @@ if __name__ == "__main__":
     from transformers import OpenAIGPTLMHeadModel
 
     from kerasformers.models.gpt import GptGenerate
-    from kerasformers.models.gpt.config import GPT_CONFIG, GPT_WEIGHTS
+    from kerasformers.models.gpt.config import GPT_CONFIG, GPT_WEIGHTS_URLS
 
     HF_SOURCES = {"gpt": "openai-community/openai-gpt"}
     rng = np.random.default_rng(0)
 
-    for variant, meta in GPT_WEIGHTS.items():
+    for variant, meta in GPT_WEIGHTS_URLS.items():
         arch = GPT_CONFIG[variant]
         hf_id = HF_SOURCES[variant]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")

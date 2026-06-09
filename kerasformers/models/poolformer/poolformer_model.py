@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHT_CONFIG
+from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_URLS
 
 
 def mlp_block(x, hidden_dim, embed_dim, drop_rate, data_format, name):
@@ -270,9 +270,9 @@ class PoolFormerModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: POOLFORMER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in POOLFORMER_WEIGHT_CONFIG.items()
+        for variant, meta in POOLFORMER_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -438,9 +438,9 @@ class PoolFormerImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: POOLFORMER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in POOLFORMER_WEIGHT_CONFIG.items()
+        for variant, meta in POOLFORMER_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -41,7 +41,7 @@ GPT2_CONFIG = {
     },
 }
 
-GPT2_WEIGHTS = {
+GPT2_WEIGHTS_URLS = {
     "gpt2": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2.weights.h5"
     },
@@ -56,9 +56,17 @@ GPT2_WEIGHTS = {
     },
 }
 
-GPT2_VOCAB_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_vocab.json"
-)
-GPT2_MERGES_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_merges.txt"
-)
+GPT2_TOKENIZER_URLS = {
+    "gpt2": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_tokenizer.json"
+    },
+    "gpt2_medium": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_medium_tokenizer.json"
+    },
+    "gpt2_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_large_tokenizer.json"
+    },
+    "gpt2_xl": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_xl_tokenizer.json"
+    },
+}

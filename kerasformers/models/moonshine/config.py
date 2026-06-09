@@ -32,7 +32,7 @@ MOONSHINE_CONFIG = {
 }
 
 
-MOONSHINE_WEIGHTS = {
+MOONSHINE_WEIGHTS_URLS = {
     "moonshine_tiny": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_tiny_usefulsensors.weights.h5"
     },
@@ -42,7 +42,11 @@ MOONSHINE_WEIGHTS = {
 }
 
 
-MOONSHINE_TOKENIZER_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/"
-    "moonshine_tokenizer.json"
-)
+MOONSHINE_TOKENIZER_URLS = {
+    "moonshine_tiny": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_tiny_tokenizer.json"
+    },
+    "moonshine_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_base_tokenizer.json"
+    },
+}

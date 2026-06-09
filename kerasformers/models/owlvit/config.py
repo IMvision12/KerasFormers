@@ -37,7 +37,7 @@ OWLVIT_CONFIG = {
     },
 }
 
-OWLVIT_WEIGHTS = {
+OWLVIT_WEIGHTS_URLS = {
     "owlvit-base-patch32": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_base_patch32.weights.h5",
     },

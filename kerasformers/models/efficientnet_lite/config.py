@@ -41,7 +41,7 @@ EFFICIENTNET_LITE_MODEL_CONFIG = {
     },
 }
 
-EFFICIENTNET_LITE_WEIGHT_CONFIG = {
+EFFICIENTNET_LITE_WEIGHTS_URLS = {
     "tf_efficientnet_lite0_in1k": {
         "model": "efficientnet_lite_b0",
         "timm_id": "tf_efficientnet_lite0.in1k",

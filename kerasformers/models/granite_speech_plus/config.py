@@ -41,11 +41,15 @@ GRANITE_SPEECH_PLUS_CONFIG = {
 }
 
 
-GRANITE_SPEECH_PLUS_WEIGHTS = {
+GRANITE_SPEECH_PLUS_WEIGHTS_URLS = {
     "granite_speech_4_1_2b_plus": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite_speech/granite_speech_4_1_2b_plus.weights.json",
     },
 }
 
 
-GRANITE_SPEECH_PLUS_TOKENIZER_URL = "https://github.com/IMvision12/KerasFormers/releases/download/granite_speech/granite_speech_plus_tokenizer.json"
+GRANITE_SPEECH_PLUS_TOKENIZER_URLS = {
+    "granite_speech_4_1_2b_plus": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/granite_speech/granite_speech_4_1_2b_plus_tokenizer.json"
+    },
+}

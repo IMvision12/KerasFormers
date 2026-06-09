@@ -9,7 +9,7 @@ from kerasformers.models.siglip.siglip_model import (
     siglip_head,
 )
 
-from .config import SIGLIP2_CONFIG, SIGLIP2_WEIGHTS
+from .config import SIGLIP2_CONFIG, SIGLIP2_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -18,7 +18,7 @@ class SigLIP2VisionModel(SigLIPVisionModel):
 
     Thin subclass of :class:`SigLIPVisionModel` — architecture is
     identical; only the variant registry (``SIGLIP2_CONFIG`` /
-    ``SIGLIP2_WEIGHTS``) differs, and ``from_release`` warm-starts the
+    ``SIGLIP2_WEIGHTS_URLS``) differs, and ``from_release`` warm-starts the
     encoder from a :class:`SigLIP2Model` checkpoint instead of
     :class:`SigLIPModel`.
 
@@ -47,7 +47,7 @@ class SigLIP2VisionModel(SigLIPVisionModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -65,7 +65,7 @@ class SigLIP2TextModel(SigLIPTextModel):
 
     Thin subclass of :class:`SigLIPTextModel` — architecture is
     identical; differs only in the variant registry (``SIGLIP2_CONFIG``
-    / ``SIGLIP2_WEIGHTS``) and the Gemma-style ``vocab_size`` of
+    / ``SIGLIP2_WEIGHTS_URLS``) and the Gemma-style ``vocab_size`` of
     256000 set by the SigLIP 2 config entries. ``from_release``
     warm-starts the encoder from a :class:`SigLIP2Model` checkpoint.
 
@@ -92,7 +92,7 @@ class SigLIP2TextModel(SigLIPTextModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -109,7 +109,7 @@ class SigLIP2Model(SigLIPModel):
     """SigLIP 2 dual encoder (no contrastive head).
 
     Thin subclass of :class:`SigLIPModel` — architecture is identical;
-    only the variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS``)
+    only the variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS_URLS``)
     differs. Composes :class:`SigLIP2VisionModel` and
     :class:`SigLIP2TextModel` via the inherited ``__init__``.
 
@@ -138,7 +138,7 @@ class SigLIP2Model(SigLIPModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -180,7 +180,7 @@ class SigLIP2ZeroShotClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -292,7 +292,7 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
 
     Thin subclass of :class:`SigLIPImageClassify` — architecture is
     identical; only the variant registry (``SIGLIP2_CONFIG`` /
-    ``SIGLIP2_WEIGHTS``) differs, and ``from_release`` warm-starts the
+    ``SIGLIP2_WEIGHTS_URLS``) differs, and ``from_release`` warm-starts the
     encoder from a :class:`SigLIP2Model` checkpoint instead of
     :class:`SigLIPModel`.
 
@@ -313,7 +313,7 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
     """
 
     BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
 
     HF_MODEL_TYPE = "siglip"
 

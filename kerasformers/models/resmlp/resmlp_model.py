@@ -7,7 +7,7 @@ from kerasformers.models.resmlp.resmlp_layers import ResMLPAffine, ResMLPLayerSc
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHT_CONFIG
+from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHTS_URLS
 
 
 def resmlp_block(
@@ -207,9 +207,9 @@ class ResMLPModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RESMLP_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESMLP_WEIGHT_CONFIG.items()
+        for variant, meta in RESMLP_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESMLP_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESMLP_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -375,9 +375,9 @@ class ResMLPImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RESMLP_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESMLP_WEIGHT_CONFIG.items()
+        for variant, meta in RESMLP_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESMLP_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESMLP_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHT_CONFIG
+from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHTS_URLS
 
 
 def conv_block(
@@ -263,9 +263,9 @@ class DenseNetModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: DENSENET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in DENSENET_WEIGHT_CONFIG.items()
+        for variant, meta in DENSENET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = DENSENET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DENSENET_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -413,9 +413,9 @@ class DenseNetImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: DENSENET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in DENSENET_WEIGHT_CONFIG.items()
+        for variant, meta in DENSENET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = DENSENET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DENSENET_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

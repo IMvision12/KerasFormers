@@ -8,7 +8,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHT_CONFIG
+from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHTS_URLS
 
 
 def conv_block(
@@ -369,9 +369,9 @@ class ResNetModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RESNET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNET_WEIGHT_CONFIG.items()
+        for variant, meta in RESNET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESNET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNET_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -569,9 +569,9 @@ class ResNetImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RESNET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNET_WEIGHT_CONFIG.items()
+        for variant, meta in RESNET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESNET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNET_WEIGHTS_URLS
     HF_MODEL_TYPE = None  # timm-ported; no HF transformers passthrough.
 
     @classmethod

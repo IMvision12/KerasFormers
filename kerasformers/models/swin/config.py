@@ -109,7 +109,7 @@ SWIN_MODEL_CONFIG = {
     },
 }
 
-SWIN_WEIGHT_CONFIG = {
+SWIN_WEIGHTS_URLS = {
     "swin_tiny_patch4_window7_224_ms_in1k": {
         "model": "swin_tiny",
         "timm_id": "swin_tiny_patch4_window7_224.ms_in1k",

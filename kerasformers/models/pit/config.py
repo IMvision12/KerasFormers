@@ -91,7 +91,7 @@ PIT_MODEL_CONFIG = {
     },
 }
 
-PIT_WEIGHT_CONFIG = {
+PIT_WEIGHTS_URLS = {
     "pit_xs_224_in1k": {
         "model": "pit_xs",
         "timm_id": "pit_xs_224.in1k",

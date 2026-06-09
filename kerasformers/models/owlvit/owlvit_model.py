@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import OWLVIT_CONFIG, OWLVIT_WEIGHTS
+from .config import OWLVIT_CONFIG, OWLVIT_WEIGHTS_URLS
 from .owlvit_layers import (
     OwlViTAttention,
     OwlViTSplitBatchQueries,
@@ -837,7 +837,7 @@ class OwlViTDetect(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = OWLVIT_CONFIG
-    BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS
+    BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = "owlvit"
 
     def __init__(

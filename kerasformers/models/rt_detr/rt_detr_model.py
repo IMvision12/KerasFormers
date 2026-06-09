@@ -5,7 +5,7 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
 from kerasformers.utils import standardize_input_shape
 
-from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHT_CONFIG
+from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHTS_URLS
 from .rt_detr_layers import RTDETRDecoderLayer, RTDETRMultiHeadAttention
 
 
@@ -1105,7 +1105,7 @@ class RTDetrModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RT_DETR_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RT_DETR_WEIGHT_CONFIG.items()
+        for variant, meta in RT_DETR_WEIGHTS_URLS.items()
     }
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rt_detr"
@@ -1303,9 +1303,9 @@ class RTDETRDetect(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RT_DETR_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RT_DETR_WEIGHT_CONFIG.items()
+        for variant, meta in RT_DETR_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RT_DETR_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RT_DETR_WEIGHTS_URLS
     HF_MODEL_TYPE = "rt_detr"
 
     def __init__(

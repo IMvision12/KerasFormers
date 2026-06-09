@@ -89,7 +89,7 @@ EFFICIENTNET_MODEL_CONFIG = {
     },
 }
 
-EFFICIENTNET_WEIGHT_CONFIG = {
+EFFICIENTNET_WEIGHTS_URLS = {
     "tf_efficientnet_b0_ns_jft_in1k": {
         "model": "efficientnet_b0",
         "timm_id": "tf_efficientnet_b0.ns_jft_in1k",

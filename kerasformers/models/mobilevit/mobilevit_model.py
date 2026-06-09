@@ -14,8 +14,8 @@ from kerasformers.utils.image_util import normalize_image_for_classify_models
 from .config import (
     MOBILEVIT_MODEL_CONFIG,
     MOBILEVIT_SEGMENT_MODEL_CONFIG,
-    MOBILEVIT_SEGMENT_WEIGHT_CONFIG,
-    MOBILEVIT_WEIGHT_CONFIG,
+    MOBILEVIT_SEGMENT_WEIGHTS_URLS,
+    MOBILEVIT_WEIGHTS_URLS,
 )
 
 
@@ -461,9 +461,9 @@ class MobileViTModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILEVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = "mobilevit"
 
     @classmethod
@@ -641,9 +641,9 @@ class MobileViTImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVIT_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILEVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = "mobilevit"
 
     @classmethod
@@ -895,9 +895,9 @@ class MobileViTSemanticSegment(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILEVIT_SEGMENT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVIT_SEGMENT_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILEVIT_SEGMENT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILEVIT_SEGMENT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVIT_SEGMENT_WEIGHTS_URLS
     HF_MODEL_TYPE = "mobilevit"
 
     @classmethod

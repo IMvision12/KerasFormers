@@ -15,7 +15,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
-from kerasformers.models.metaclip2.config import METACLIP2_WEIGHTS
+from kerasformers.models.metaclip2.config import METACLIP2_WEIGHTS_URLS
 
 weight_name_mapping = {
     "_": ".",
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         # Skip on-the-fly variants (l14 / huge / giant): their weights are not
         # hosted — a single token-embedding tensor exceeds GitHub's 2 GiB asset
         # limit, so they're converted at runtime via load_and_convert_from_hf.
-        entry = METACLIP2_WEIGHTS.get(variant, {})
+        entry = METACLIP2_WEIGHTS_URLS.get(variant, {})
         if isinstance(entry, dict) and "hf_id" in entry:
             print(f"\nSkipping {variant} (on-the-fly HF conversion, not hosted)")
             continue

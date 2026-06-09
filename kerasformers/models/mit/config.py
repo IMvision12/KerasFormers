@@ -37,7 +37,7 @@ MIT_MODEL_CONFIG = {
     },
 }
 
-MIT_WEIGHT_CONFIG = {
+MIT_WEIGHTS_URLS = {
     "mit_b0_in1k": {
         "model": "mit_b0",
         "hf_id": "nvidia/mit-b0",

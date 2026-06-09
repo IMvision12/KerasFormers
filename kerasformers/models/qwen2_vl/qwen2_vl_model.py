@@ -5,7 +5,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS
+from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS_URLS
 from .qwen2_vl_layers import (
     Qwen2VLDecoderLayer,
     Qwen2VLPatchEmbed,
@@ -374,7 +374,7 @@ class Qwen2VLModel(SubclassedBaseModel):
 
     HF_MODEL_TYPE = "qwen2_vl"
     BASE_MODEL_CONFIG = QWEN2_VL_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN2_VL_WEIGHTS
+    BASE_WEIGHT_CONFIG = QWEN2_VL_WEIGHTS_URLS
 
     def __init__(
         self,

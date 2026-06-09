@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.swinv2 import SwinV2ImageClassify
-from kerasformers.models.swinv2.config import SWINV2_WEIGHT_CONFIG
+from kerasformers.models.swinv2.config import SWINV2_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "moving_variance": "MOVVAR",
@@ -109,7 +109,7 @@ def transfer_swinv2_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in SWINV2_WEIGHT_CONFIG.items():
+    for variant, meta in SWINV2_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

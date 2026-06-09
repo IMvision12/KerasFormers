@@ -51,7 +51,7 @@ MOBILEVITV2_MODEL_CONFIG = {
     },
 }
 
-MOBILEVITV2_WEIGHT_CONFIG = {
+MOBILEVITV2_WEIGHTS_URLS = {
     "mobilevitv2_050_cvnets_in1k": {
         "model": "mobilevitv2_050",
         "timm_id": "mobilevitv2_050.cvnets_in1k",
@@ -132,7 +132,7 @@ MOBILEVITV2_SEGMENT_MODEL_CONFIG = {
     },
 }
 
-MOBILEVITV2_SEGMENT_WEIGHT_CONFIG = {
+MOBILEVITV2_SEGMENT_WEIGHTS_URLS = {
     "mobilevitv2_100_deeplabv3": {
         "model": "mobilevitv2_100_deeplabv3",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevitv2_100_deeplabv3.weights.h5",

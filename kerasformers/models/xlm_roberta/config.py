@@ -25,7 +25,7 @@ XLM_ROBERTA_MODEL_CONFIG = {
     },
 }
 
-XLM_ROBERTA_WEIGHT_CONFIG = {
+XLM_ROBERTA_WEIGHTS_URLS = {
     "xlm_roberta_base": {
         "model": "xlm_roberta_base",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base.weights.h5",
@@ -38,4 +38,11 @@ XLM_ROBERTA_WEIGHT_CONFIG = {
     },
 }
 
-XLM_ROBERTA_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_sentencepiece.bpe.model"
+XLM_ROBERTA_TOKENIZER_URLS = {
+    "xlm_roberta_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base_tokenizer.json"
+    },
+    "xlm_roberta_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_large_tokenizer.json"
+    },
+}

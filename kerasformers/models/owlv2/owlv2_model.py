@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import OWLV2_CONFIG, OWLV2_WEIGHTS
+from .config import OWLV2_CONFIG, OWLV2_WEIGHTS_URLS
 from .owlv2_layers import (
     Owlv2Attention,
     Owlv2SplitBatchQueries,
@@ -864,7 +864,7 @@ class Owlv2Detect(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = OWLV2_CONFIG
-    BASE_WEIGHT_CONFIG = OWLV2_WEIGHTS
+    BASE_WEIGHT_CONFIG = OWLV2_WEIGHTS_URLS
     HF_MODEL_TYPE = "owlv2"
 
     def __init__(

@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientnet import EfficientNetImageClassify
-from kerasformers.models.efficientnet.config import EFFICIENTNET_WEIGHT_CONFIG
+from kerasformers.models.efficientnet.config import EFFICIENTNET_WEIGHTS_URLS
 
 _BLOCK_MAPPINGS = {}
 for i in range(6):
@@ -83,7 +83,7 @@ def transfer_efficientnet_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in EFFICIENTNET_WEIGHT_CONFIG.items():
+    for variant, meta in EFFICIENTNET_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

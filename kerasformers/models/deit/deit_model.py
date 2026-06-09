@@ -4,7 +4,7 @@ from keras import layers
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
 
-from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHT_CONFIG
+from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -52,9 +52,9 @@ class DeiTModel(ViTModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: DEIT_MODEL_CONFIG[m["model"]] for v, m in DEIT_WEIGHT_CONFIG.items()
+        v: DEIT_MODEL_CONFIG[m["model"]] for v, m in DEIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = DEIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -155,9 +155,9 @@ class DeiTImageClassify(ViTImageClassify):
     """
 
     BASE_MODEL_CONFIG = {
-        v: DEIT_MODEL_CONFIG[m["model"]] for v, m in DEIT_WEIGHT_CONFIG.items()
+        v: DEIT_MODEL_CONFIG[m["model"]] for v, m in DEIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = DEIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

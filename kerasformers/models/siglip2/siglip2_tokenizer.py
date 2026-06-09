@@ -2,48 +2,39 @@ from typing import Dict, List, Union
 
 import keras
 import numpy as np
-import sentencepiece as spm
 from keras import ops
+from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
 
-DEFAULT_VOCAB_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/"
-    "siglip2_vocab.model"
-)
+from .config import SIGLIP2_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIP2Tokenizer(BaseTokenizer):
-    """SigLIP2 SentencePiece tokenizer matching ``google/siglip2-*``.
+    """SigLIP2 (Gemma) SentencePiece tokenizer (``tokenizers`` Rust backend).
 
-    The SigLIP2 (Gemma) tokenizer.json always appends ``<eos>`` via a
-    ``TemplateProcessing`` step, regardless of the ``add_eos_token`` flag.
-    This layer mirrors that behavior: EOS is always appended on ``call``.
+    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
+    ``siglip`` release tag (or an explicit ``tokenizer_file``). The Gemma tokenizer
+    appends ``<eos>`` via the file's post-processor (no ``<bos>`` for SigLIP2).
+    ``call`` returns fixed-length (``max_seq_len``) ``input_ids`` padded with
+    ``<pad>``, with no attention mask.
 
     Args:
-        vocab_file: Path to the SentencePiece ``.model`` file. When ``None``,
-            downloads the default SigLIP2 release file on first use.
-        max_seq_len: Maximum sequence length (default 64).
-        add_bos / add_eos: Exposed for compatibility with legacy code
-            paths like ``prepare_for_model`` — ``call`` always follows
-            the reference template and appends EOS.
+        variant: SigLIP2 variant key (default ``"siglip2_base_p16_224"``).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        max_seq_len: Fixed sequence length (default 64).
         pad_token / bos_token / eos_token / unk_token: Special token strings.
     """
 
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        from huggingface_hub import hf_hub_download
-
-        return cls(vocab_file=hf_hub_download(repo, "tokenizer.model"), **kwargs)
+    TOKENIZER_URLS = SIGLIP2_TOKENIZER_URLS
+    DEFAULT_VARIANT = "siglip2_base_p16_224"
 
     def __init__(
         self,
-        vocab_file: str = None,
+        variant: str = None,
+        tokenizer_file: str = None,
         max_seq_len: int = 64,
-        add_bos: bool = False,
-        add_eos: bool = True,
         pad_token: str = "<pad>",
         bos_token: str = "<bos>",
         eos_token: str = "<eos>",
@@ -51,68 +42,70 @@ class SigLIP2Tokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if vocab_file is None:
-            vocab_file = download_file(DEFAULT_VOCAB_URL)
-        self.vocab_file = vocab_file
+        self.variant = variant or self.DEFAULT_VARIANT
+        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
-        self.add_bos = add_bos
-        self.add_eos = add_eos
         self.pad_token = pad_token
         self.bos_token = bos_token
         self.eos_token = eos_token
         self.unk_token = unk_token
 
-        self.sp_model = spm.SentencePieceProcessor()
-        self.sp_model.load(vocab_file)
+        tok = Tokenizer.from_file(tokenizer_file)
+        self.pad_token_id = tok.token_to_id(pad_token)
+        self.bos_token_id = tok.token_to_id(bos_token)
+        self.eos_token_id = tok.token_to_id(eos_token)
+        self.unk_token_id = tok.token_to_id(unk_token)
+        tok.enable_truncation(max_length=max_seq_len)
+        tok.enable_padding(
+            pad_id=self.pad_token_id, pad_token=pad_token, length=max_seq_len
+        )
+        self._tok = tok
 
-        vocab_size = self.sp_model.get_piece_size()
-        self.encoder = {self.sp_model.id_to_piece(i): i for i in range(vocab_size)}
-        self.decoder = {i: self.sp_model.id_to_piece(i) for i in range(vocab_size)}
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
 
-        self.pad_token_id = self._resolve_id(pad_token, self.sp_model.pad_id(), 0)
-        self.bos_token_id = self._resolve_id(bos_token, self.sp_model.bos_id(), 1)
-        self.eos_token_id = self._resolve_id(eos_token, self.sp_model.eos_id(), 2)
-        self.unk_token_id = self._resolve_id(unk_token, self.sp_model.unk_id(), 3)
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
-    def _resolve_id(self, token: str, sp_id: int, fallback: int) -> int:
-        tid = self.encoder.get(token, sp_id)
-        return fallback if tid == -1 else tid
+    @property
+    def vocab_size(self) -> int:
+        return self._tok.get_vocab_size()
 
     def tokenize(
         self, text: Union[str, List[str]]
     ) -> Union[List[int], List[List[int]]]:
         if isinstance(text, str):
-            return [] if not text else self.sp_model.encode_as_ids(text)
-        return [[] if not s else self.sp_model.encode_as_ids(s) for s in text]
+            return self._tok.encode(text, add_special_tokens=False).ids
+        encs = self._tok.encode_batch(text, add_special_tokens=False)
+        return [e.ids for e in encs]
 
-    def detokenize(self, token_ids: List[int]) -> str:
+    def detokenize(self, token_ids, skip_special_tokens: bool = True) -> str:
         if hasattr(token_ids, "tolist"):
             token_ids = token_ids.tolist()
-        skip = {self.pad_token_id, self.bos_token_id, self.eos_token_id}
-        keep = [int(i) for i in token_ids if int(i) not in skip]
-        return self.sp_model.decode_ids(keep) if keep else ""
+        ids = [int(i) for i in token_ids]
+        if skip_special_tokens:
+            skip = {self.pad_token_id, self.bos_token_id, self.eos_token_id}
+            ids = [i for i in ids if i not in skip]
+        return self._tok.decode(ids, skip_special_tokens=False)
 
     def build_inputs_with_special_tokens(self, token_ids: List[int]) -> List[int]:
-        result = list(token_ids)
-        if self.add_bos and self.bos_token_id >= 0:
-            if not result or result[0] != self.bos_token_id:
-                result = [self.bos_token_id] + result
-        if self.add_eos and self.eos_token_id >= 0:
-            if not result or result[-1] != self.eos_token_id:
-                result = result + [self.eos_token_id]
-        return result
+        return list(token_ids) + [self.eos_token_id]
 
-    def _encode_for_call(self, text: str) -> List[int]:
-        ids = self.sp_model.encode_as_ids(text) if text else []
-        ids = ids + [self.eos_token_id]
-        return ids[: self.max_seq_len]
+    def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
+        token_ids = self.tokenize(text) if isinstance(text, str) else list(text)
+        token_ids = self.build_inputs_with_special_tokens(token_ids)[: self.max_seq_len]
+        pad_len = self.max_seq_len - len(token_ids)
+        if pad_len > 0:
+            token_ids = token_ids + [self.pad_token_id] * pad_len
+        return {"input_ids": token_ids}
 
     def prepare_for_model_tensor(
         self, token_ids_list: List[List[int]]
     ) -> Dict[str, keras.KerasTensor]:
         padded = []
         for seq in token_ids_list:
-            seq = self.build_inputs_with_special_tokens(seq)[: self.max_seq_len]
+            seq = self.build_inputs_with_special_tokens(list(seq))[: self.max_seq_len]
             pad_len = self.max_seq_len - len(seq)
             if pad_len > 0:
                 seq = seq + [self.pad_token_id] * pad_len
@@ -120,31 +113,20 @@ class SigLIP2Tokenizer(BaseTokenizer):
         ids = np.array(padded, dtype=np.int32)
         return {"input_ids": ops.convert_to_tensor(ids, dtype="int32")}
 
-    def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
-        token_ids = self.tokenize(text) if isinstance(text, str) else list(text)
-        token_ids = self.build_inputs_with_special_tokens(token_ids)
-        token_ids = token_ids[: self.max_seq_len]
-        pad_len = self.max_seq_len - len(token_ids)
-        if pad_len > 0:
-            token_ids = token_ids + [self.pad_token_id] * pad_len
-        return {"input_ids": token_ids}
-
-    @property
-    def vocab_size(self) -> int:
-        return self.sp_model.get_piece_size()
-
     def get_vocabulary(self) -> List[str]:
-        return [self.sp_model.id_to_piece(i) for i in range(self.vocab_size)]
+        vocab = self._tok.get_vocab()
+        return [tok for tok, _ in sorted(vocab.items(), key=lambda kv: kv[1])]
 
     def id_to_token(self, id: int) -> str:
-        if id >= self.vocab_size or id < 0:
-            raise ValueError(
-                f"`id` must be in range [0, {self.vocab_size - 1}]. Received: {id}"
-            )
-        return self.sp_model.id_to_piece(id)
+        return self._tok.id_to_token(id)
 
     def token_to_id(self, token: str) -> int:
-        return self.sp_model.piece_to_id(token)
+        return self._tok.token_to_id(token)
+
+    def call(self, inputs):
+        return self.encode_batch_to_inputs(
+            inputs, token_type_ids=False, mask_dtype=None
+        )
 
     def batch_decode(
         self, token_ids_batch, skip_special_tokens: bool = True
@@ -171,26 +153,13 @@ class SigLIP2Tokenizer(BaseTokenizer):
             return input_ids
         return input_ids[:, :max_length]
 
-    def call(self, inputs):
-        texts = self.normalize_texts(inputs)
-        rows = []
-        for t in texts:
-            seq = self._encode_for_call(t)
-            pad_len = self.max_seq_len - len(seq)
-            if pad_len > 0:
-                seq = seq + [self.pad_token_id] * pad_len
-            rows.append(seq)
-        ids = np.array(rows, dtype=np.int32)
-        return {"input_ids": ops.convert_to_tensor(ids, dtype="int32")}
-
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "vocab_file": self.vocab_file,
+                "variant": self.variant,
+                "tokenizer_file": self.tokenizer_file,
                 "max_seq_len": self.max_seq_len,
-                "add_bos": self.add_bos,
-                "add_eos": self.add_eos,
                 "pad_token": self.pad_token,
                 "bos_token": self.bos_token,
                 "eos_token": self.eos_token,

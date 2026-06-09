@@ -12,16 +12,14 @@ from .bert_layers import (
     BertSelfAttention,
     BertUnflattenChoices,
 )
-from .config import BERT_MODEL_CONFIG, BERT_WEIGHT_CONFIG
+from .config import BERT_MODEL_CONFIG, BERT_WEIGHTS_URLS
 
 MASK_NEG = -1e9
 
 BASE_MODEL_CONFIG = {
-    v: BERT_MODEL_CONFIG[m["model"]] for v, m in BERT_WEIGHT_CONFIG.items()
+    v: BERT_MODEL_CONFIG[m["model"]] for v, m in BERT_WEIGHTS_URLS.items()
 }
-MLM_WEIGHT_CONFIG = {
-    v: {**m, "url": m["mlm_url"]} for v, m in BERT_WEIGHT_CONFIG.items()
-}
+MLM_WEIGHTS_URLS = {v: {**m, "url": m["mlm_url"]} for v, m in BERT_WEIGHTS_URLS.items()}
 
 
 def bert_encoder_layer(
@@ -189,7 +187,7 @@ class BertModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHTS_URLS
     HF_MODEL_TYPE = "bert"
 
     @classmethod
@@ -334,7 +332,7 @@ class BertMaskedLM(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MLM_WEIGHTS_URLS
     HF_MODEL_TYPE = "bert"
 
     @classmethod
@@ -461,7 +459,7 @@ class BertSequenceClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHTS_URLS
     HF_MODEL_TYPE = "bert"
 
     @classmethod
@@ -615,7 +613,7 @@ class BertTokenClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHTS_URLS
     HF_MODEL_TYPE = "bert"
 
     @classmethod
@@ -766,7 +764,7 @@ class BertNextSentencePredict(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHTS_URLS
     HF_MODEL_TYPE = "bert"
 
     @classmethod
@@ -899,7 +897,7 @@ class BertQnA(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHTS_URLS
     HF_MODEL_TYPE = "bert"
 
     @classmethod
@@ -1034,7 +1032,7 @@ class BertMultipleChoice(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = BERT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = BERT_WEIGHTS_URLS
     HF_MODEL_TYPE = "bert"
 
     @classmethod

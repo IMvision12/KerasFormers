@@ -25,7 +25,7 @@ ROBERTA_MODEL_CONFIG = {
     },
 }
 
-ROBERTA_WEIGHT_CONFIG = {
+ROBERTA_WEIGHTS_URLS = {
     "roberta_base": {
         "model": "roberta_base",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_base.weights.h5",
@@ -38,5 +38,11 @@ ROBERTA_WEIGHT_CONFIG = {
     },
 }
 
-ROBERTA_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_vocab.json"
-ROBERTA_MERGES_URL = "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_merges.txt"
+ROBERTA_TOKENIZER_URLS = {
+    "roberta_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_base_tokenizer.json"
+    },
+    "roberta_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_large_tokenizer.json"
+    },
+}

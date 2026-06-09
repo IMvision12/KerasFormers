@@ -52,7 +52,7 @@ class WeightLoadingMixin:
 
         class OwlViTDetect(FunctionalBaseModel):
             BASE_MODEL_CONFIG = OWLVIT_CONFIG
-            BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS
+            BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS_URLS
 
             @classmethod
             def config_from_hf(cls, hf_config: dict): ...
@@ -397,6 +397,8 @@ class PreprocessorMixin(keras.layers.Layer):
 
     @classmethod
     def from_release(cls, variant, /, **kwargs):
+        if "variant" in inspect.signature(cls).parameters and "variant" not in kwargs:
+            kwargs["variant"] = variant
         return cls(**kwargs)
 
     @classmethod

@@ -34,7 +34,7 @@ DINOV3_VIT_CONFIG = {
     },
 }
 
-DINOV3_VIT_WEIGHTS = {
+DINOV3_VIT_WEIGHTS_URLS = {
     "dinov3_vits16": {
         "hf_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
         "gated": True,
@@ -68,7 +68,7 @@ DINOV3_CONVNEXT_CONFIG = {
     },
 }
 
-DINOV3_CONVNEXT_WEIGHTS = {
+DINOV3_CONVNEXT_WEIGHTS_URLS = {
     "dinov3_convnext_tiny": {
         "hf_id": "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
         "gated": True,

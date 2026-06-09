@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHT_CONFIG
+from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHTS_URLS
 
 # Per-variant block configs. Each entry is a list of dicts; each dict configures
 # one ``xception_module`` (or ``pre_xception_module`` when ``preact=True``).
@@ -491,9 +491,9 @@ class XceptionModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: XCEPTION_MODEL_CONFIG[meta["model"]]
-        for variant, meta in XCEPTION_WEIGHT_CONFIG.items()
+        for variant, meta in XCEPTION_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -652,9 +652,9 @@ class XceptionImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: XCEPTION_MODEL_CONFIG[meta["model"]]
-        for variant, meta in XCEPTION_WEIGHT_CONFIG.items()
+        for variant, meta in XCEPTION_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = XCEPTION_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inceptionv4 import InceptionV4ImageClassify
-from kerasformers.models.inceptionv4.config import INCEPTIONV4_WEIGHT_CONFIG
+from kerasformers.models.inceptionv4.config import INCEPTIONV4_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "features_": "features.",
@@ -86,7 +86,7 @@ def transfer_inceptionv4_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in INCEPTIONV4_WEIGHT_CONFIG.items():
+    for variant, meta in INCEPTIONV4_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

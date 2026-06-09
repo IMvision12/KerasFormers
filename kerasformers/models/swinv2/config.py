@@ -121,7 +121,7 @@ SWINV2_MODEL_CONFIG = {
     },
 }
 
-SWINV2_WEIGHT_CONFIG = {
+SWINV2_WEIGHTS_URLS = {
     "swinv2_tiny_window8_256_ms_in1k": {
         "model": "swinv2_tiny_window8_256",
         "timm_id": "swinv2_tiny_window8_256.ms_in1k",

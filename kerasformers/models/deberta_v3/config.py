@@ -69,7 +69,7 @@ DEBERTA_V3_MODEL_CONFIG = {
     },
 }
 
-DEBERTA_V3_WEIGHT_CONFIG = {
+DEBERTA_V3_WEIGHTS_URLS = {
     "deberta_v3_xsmall": {
         "model": "deberta_v3_xsmall",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_xsmall.weights.h5",
@@ -88,4 +88,17 @@ DEBERTA_V3_WEIGHT_CONFIG = {
     },
 }
 
-DEBERTA_V3_VOCAB_URL = "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_spm.model"
+DEBERTA_V3_TOKENIZER_URLS = {
+    "deberta_v3_xsmall": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_xsmall_tokenizer.json"
+    },
+    "deberta_v3_small": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_small_tokenizer.json"
+    },
+    "deberta_v3_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_base_tokenizer.json"
+    },
+    "deberta_v3_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_large_tokenizer.json"
+    },
+}

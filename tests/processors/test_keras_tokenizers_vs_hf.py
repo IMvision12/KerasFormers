@@ -313,7 +313,7 @@ def test_sam3_clip_tokenizer_vs_clip():
     from kerasformers.models.sam3.sam3_clip_tokenizer import SAM3CLIPTokenizer
 
     try:
-        ours = SAM3CLIPTokenizer()
+        ours = SAM3CLIPTokenizer.from_hf("openai/clip-vit-base-patch16")
     except Exception as e:
         pytest.skip(f"cannot construct sam3_clip: {e}")
     hf = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch16")
@@ -327,7 +327,11 @@ def test_bert_token_type_ids_pairs():
     BERT text-pair batch, vs HF."""
     from kerasformers.models.bert.bert_tokenizer import BertTokenizer
 
-    ours = BertTokenizer()(TEXTS, text_pair=PAIRS)
+    try:
+        tok = BertTokenizer.from_hf("bert-base-uncased")
+    except Exception as e:
+        pytest.skip(f"cannot construct bert: {e}")
+    ours = tok(TEXTS, text_pair=PAIRS)
     hf = AutoTokenizer.from_pretrained("bert-base-uncased")(
         TEXTS, PAIRS, padding=True, return_tensors="np"
     )

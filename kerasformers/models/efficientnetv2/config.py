@@ -109,7 +109,7 @@ EFFICIENTNETV2_MODEL_CONFIG = {
     },
 }
 
-EFFICIENTNETV2_WEIGHT_CONFIG = {
+EFFICIENTNETV2_WEIGHTS_URLS = {
     "tf_efficientnetv2_s_in1k": {
         "model": "efficientnetv2_s",
         "timm_id": "tf_efficientnetv2_s.in1k",

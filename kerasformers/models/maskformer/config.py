@@ -76,7 +76,7 @@ MASKFORMER_CONFIG = {
     },
 }
 
-MASKFORMER_WEIGHTS = {
+MASKFORMER_WEIGHTS_URLS = {
     "maskformer-swin-tiny-ade": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/maskformer/maskformer-swin-tiny-ade.weights.h5",
     },

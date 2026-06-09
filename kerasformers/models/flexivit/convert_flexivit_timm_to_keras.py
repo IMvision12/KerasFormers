@@ -5,7 +5,7 @@ import keras
 from kerasformers.conversion import verify_cls_model_equivalence
 from kerasformers.conversion.hf_download_utils import download_hf_state_dict
 from kerasformers.models.flexivit import FlexiViTImageClassify
-from kerasformers.models.flexivit.config import FLEXIVIT_WEIGHT_CONFIG
+from kerasformers.models.flexivit.config import FLEXIVIT_WEIGHTS_URLS
 from kerasformers.models.vit.convert_vit_timm_to_keras import (
     transfer_vit_weights as transfer_flexivit_weights,
 )
@@ -16,7 +16,7 @@ __all__ = ["transfer_flexivit_weights"]
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in FLEXIVIT_WEIGHT_CONFIG.items():
+    for variant, meta in FLEXIVIT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

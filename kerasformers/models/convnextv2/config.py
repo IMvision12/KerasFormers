@@ -118,7 +118,7 @@ CONVNEXTV2_MODEL_CONFIG = {
     },
 }
 
-CONVNEXTV2_WEIGHT_CONFIG = {
+CONVNEXTV2_WEIGHTS_URLS = {
     "convnextv2_atto_fcmae_ft_in1k": {
         "model": "convnextv2_atto",
         "timm_id": "convnextv2_atto.fcmae_ft_in1k",

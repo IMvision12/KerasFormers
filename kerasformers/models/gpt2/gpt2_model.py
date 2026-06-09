@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GPT2_CONFIG, GPT2_WEIGHTS
+from .config import GPT2_CONFIG, GPT2_WEIGHTS_URLS
 from .gpt2_layers import GPT2Block
 
 MASK_NEG = -1e9
@@ -31,7 +31,7 @@ class GPT2Model(SubclassedBaseModel):
 
     HF_MODEL_TYPE = "gpt2"
     BASE_MODEL_CONFIG = GPT2_CONFIG
-    BASE_WEIGHT_CONFIG = GPT2_WEIGHTS
+    BASE_WEIGHT_CONFIG = GPT2_WEIGHTS_URLS
 
     def __init__(
         self,

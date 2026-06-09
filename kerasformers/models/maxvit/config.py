@@ -154,7 +154,7 @@ MAXVIT_MODEL_CONFIG = {
     },
 }
 
-MAXVIT_WEIGHT_CONFIG = {
+MAXVIT_WEIGHTS_URLS = {
     "maxvit_tiny_tf_224_in1k": {
         "model": "maxvit_tiny_224",
         "timm_id": "maxvit_tiny_tf_224.in1k",

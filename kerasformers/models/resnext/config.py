@@ -31,7 +31,7 @@ RESNEXT_MODEL_CONFIG = {
     },
 }
 
-RESNEXT_WEIGHT_CONFIG = {
+RESNEXT_WEIGHTS_URLS = {
     "resnext50_32x4d_a1_in1k": {
         "model": "resnext50_32x4d",
         "timm_id": "resnext50_32x4d.a1_in1k",
