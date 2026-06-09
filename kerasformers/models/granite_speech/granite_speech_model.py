@@ -48,6 +48,7 @@ class GraniteSpeechTextModel(layers.Layer):
         norm_eps,
         attention_multiplier,
         residual_multiplier,
+        tie_embeddings=True,
         lora_rank=0,
         lora_alpha=1,
         **kwargs,
@@ -63,6 +64,7 @@ class GraniteSpeechTextModel(layers.Layer):
         self.norm_eps = norm_eps
         self.attention_multiplier = attention_multiplier
         self.residual_multiplier = residual_multiplier
+        self.tie_embeddings = tie_embeddings
         self.lora_rank = lora_rank
         self.lora_alpha = lora_alpha
 
@@ -86,6 +88,19 @@ class GraniteSpeechTextModel(layers.Layer):
             for i in range(num_layers)
         ]
         self.final_norm = GraniteSpeechRMSNorm(eps=norm_eps, name="final_norm")
+        self.lm_head = (
+            None
+            if tie_embeddings
+            else layers.Dense(vocab_size, use_bias=False, name="lm_head")
+        )
+
+    def build(self, input_shape):
+        # lm_head is applied from the generate model's project(); build it here so
+        # its weight is pathed under language_model (matching the HF
+        # language_model.lm_head.weight key) rather than hoisted to the root model.
+        if self.lm_head is not None and not self.lm_head.built:
+            self.lm_head.build((None, self.embed_dim))
+        self.built = True
 
     def call(
         self,
@@ -132,6 +147,7 @@ class GraniteSpeechTextModel(layers.Layer):
                 "norm_eps": self.norm_eps,
                 "attention_multiplier": self.attention_multiplier,
                 "residual_multiplier": self.residual_multiplier,
+                "tie_embeddings": self.tie_embeddings,
                 "lora_rank": self.lora_rank,
                 "lora_alpha": self.lora_alpha,
             }
@@ -196,6 +212,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
         attention_multiplier=0.015625,
         logits_scaling=8.0,
         tie_embeddings=True,
+        eos_token_id=0,
         audio_token_id=49159,
         downsample_rate=5,
         window_size=15,
@@ -237,6 +254,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
         self.attention_multiplier = attention_multiplier
         self.logits_scaling = logits_scaling
         self.tie_embeddings = tie_embeddings
+        self.eos_token_id = eos_token_id
         self.audio_token_id = audio_token_id
         self.downsample_rate = downsample_rate
         self.window_size = window_size
@@ -304,6 +322,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
             norm_eps=norm_eps,
             attention_multiplier=attention_multiplier,
             residual_multiplier=residual_multiplier,
+            tie_embeddings=tie_embeddings,
             lora_rank=self.lora_rank,
             lora_alpha=lora_alpha,
             name="language_model",
@@ -407,7 +426,10 @@ class GraniteSpeechModel(SubclassedBaseModel):
             "residual_multiplier": text.get("residual_multiplier", 1.0),
             "attention_multiplier": text.get("attention_multiplier", 1.0),
             "logits_scaling": text.get("logits_scaling", 1.0),
-            "tie_embeddings": text.get("tie_word_embeddings", True),
+            "tie_embeddings": text.get(
+                "tie_word_embeddings", hf_config.get("tie_word_embeddings", True)
+            ),
+            "eos_token_id": text.get("eos_token_id", hf_config.get("eos_token_id", 0)),
             "audio_token_id": hf_config.get("audio_token_index", 49159),
             "downsample_rate": hf_config.get("downsample_rate", 5),
             "window_size": hf_config.get("window_size", 15),
@@ -489,6 +511,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
                 "attention_multiplier": self.attention_multiplier,
                 "logits_scaling": self.logits_scaling,
                 "tie_embeddings": self.tie_embeddings,
+                "eos_token_id": self.eos_token_id,
                 "audio_token_id": self.audio_token_id,
                 "downsample_rate": self.downsample_rate,
                 "window_size": self.window_size,
@@ -533,12 +556,12 @@ class GraniteSpeechGenerate(GraniteSpeechModel, BaseGeneration):
     ``gen.generate(input_ids, input_features=..., input_features_mask=...)``.
     """
 
-    eos_token_id = (0,)
-
     def project(self, hidden):
-        logits = ops.matmul(
-            hidden, ops.transpose(self.language_model.token_embedding.embeddings)
-        )
+        lm = self.language_model
+        if lm.lm_head is not None:
+            logits = lm.lm_head(hidden)
+        else:
+            logits = ops.matmul(hidden, ops.transpose(lm.token_embedding.embeddings))
         return logits / self.logits_scaling
 
     def call(self, inputs):

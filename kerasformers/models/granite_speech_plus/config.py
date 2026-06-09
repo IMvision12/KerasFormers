@@ -13,6 +13,7 @@ GRANITE_SPEECH_PLUS_CONFIG = {
         "attention_multiplier": 0.0078125,
         "logits_scaling": 8.0,
         "tie_embeddings": True,
+        "eos_token_id": 100257,
         "audio_token_id": 100352,
         "downsample_rate": 5,
         "window_size": 15,
@@ -43,13 +44,13 @@ GRANITE_SPEECH_PLUS_CONFIG = {
 
 GRANITE_SPEECH_PLUS_WEIGHTS_URLS = {
     "granite_speech_4_1_2b_plus": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite_speech/granite_speech_4_1_2b_plus.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_4_1_2b_plus.weights.json",
     },
 }
 
 
 GRANITE_SPEECH_PLUS_TOKENIZER_URLS = {
     "granite_speech_4_1_2b_plus": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/granite_speech/granite_speech_4_1_2b_plus_tokenizer.json"
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_4_1_2b_plus_tokenizer.json"
     },
 }
