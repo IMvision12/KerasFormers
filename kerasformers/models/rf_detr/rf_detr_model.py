@@ -8,9 +8,9 @@ from kerasformers.utils import standardize_input_shape
 
 from .config import (
     RF_DETR_DETECT_CONFIG,
-    RF_DETR_DETECT_WEIGHTS,
+    RF_DETR_DETECT_WEIGHTS_URLS,
     RF_DETR_SEGMENT_CONFIG,
-    RF_DETR_SEGMENT_WEIGHTS,
+    RF_DETR_SEGMENT_WEIGHTS_URLS,
 )
 from .rf_detr_layers import (
     RFDETRChannelLayerNorm,
@@ -1528,7 +1528,7 @@ class RFDETRDetect(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = RF_DETR_DETECT_CONFIG
-    BASE_WEIGHT_CONFIG = RF_DETR_DETECT_WEIGHTS
+    BASE_WEIGHT_CONFIG = RF_DETR_DETECT_WEIGHTS_URLS
     HF_MODEL_TYPE = "rf_detr"
 
     @classmethod
@@ -1832,7 +1832,7 @@ class RFDETRInstanceSegment(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = RF_DETR_SEGMENT_CONFIG
-    BASE_WEIGHT_CONFIG = RF_DETR_SEGMENT_WEIGHTS
+    BASE_WEIGHT_CONFIG = RF_DETR_SEGMENT_WEIGHTS_URLS
     HF_MODEL_TYPE = "rf_detr"
 
     @classmethod

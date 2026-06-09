@@ -11,7 +11,7 @@ DEEPLABV3_CONFIG = {
     },
 }
 
-DEEPLABV3_WEIGHTS = {
+DEEPLABV3_WEIGHTS_URLS = {
     "deeplabv3_resnet50_coco_voc": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/deeplabv3/deeplabv3_resnet50_coco_voc.weights.h5",
     },

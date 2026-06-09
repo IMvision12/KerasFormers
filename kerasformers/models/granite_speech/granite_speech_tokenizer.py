@@ -1,66 +1,37 @@
-import os
-
 import keras
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
 
-from .config import (
-    GRANITE_SPEECH_MERGES_URL,
-    GRANITE_SPEECH_SPECIAL_TOKENS,
-    GRANITE_SPEECH_VOCAB_URL,
-)
+from .config import GRANITE_SPEECH_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GraniteSpeechTokenizer(BaseTokenizer):
     """Granite byte-level BPE tokenizer (``tokenizers`` backend) with ``<|audio|>``.
 
-    Built from ``vocab.json`` + ``merges.txt`` (ByteLevel BPE pipeline) with the
-    Granite special tokens registered on top, so ``<|audio|>`` / ``<|end_of_text|>``
-    resolve to their checkpoint ids. The files are pulled from the
-    ``granite_speech`` release tag on ``github.com/IMvision12/KerasFormers`` unless
-    explicit paths are given.
+    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
+    ``granite_speech`` release tag (or an explicit ``tokenizer_file``); the audio /
+    eos ids are read from the loaded vocab.
 
     Args:
-        vocab_file / merges_file: Optional explicit paths. When ``None``, the
-            bundled kerasformers-release files are downloaded.
+        variant: Granite Speech variant key (default ``"granite_speech_3_3_2b"``).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         audio_token: The audio placeholder token string.
     """
 
-    VOCAB_URL = GRANITE_SPEECH_VOCAB_URL
-    MERGES_URL = GRANITE_SPEECH_MERGES_URL
-    SPECIAL_TOKENS = GRANITE_SPEECH_SPECIAL_TOKENS
+    TOKENIZER_URLS = GRANITE_SPEECH_TOKENIZER_URLS
+    DEFAULT_VARIANT = "granite_speech_3_3_2b"
 
     def __init__(
-        self,
-        vocab_file=None,
-        merges_file=None,
-        audio_token="<|audio|>",
-        **kwargs,
+        self, variant=None, tokenizer_file=None, audio_token="<|audio|>", **kwargs
     ):
         super().__init__(**kwargs)
-        from tokenizers import AddedToken, Tokenizer
-        from tokenizers.decoders import ByteLevel as ByteLevelDecoder
-        from tokenizers.models import BPE
-        from tokenizers.pre_tokenizers import ByteLevel
+        from tokenizers import Tokenizer
 
-        if vocab_file is None or not os.path.exists(vocab_file):
-            vocab_file = download_file(self.VOCAB_URL)
-        if merges_file is None or not os.path.exists(merges_file):
-            merges_file = download_file(self.MERGES_URL)
-        self.vocab_file = vocab_file
-        self.merges_file = merges_file
-
-        tok = Tokenizer(BPE(vocab=vocab_file, merges=merges_file, fuse_unk=False))
-        tok.pre_tokenizer = ByteLevel(
-            add_prefix_space=False, trim_offsets=True, use_regex=True
-        )
-        tok.decoder = ByteLevelDecoder()
-        tok.add_special_tokens(
-            [AddedToken(t, special=True, normalized=False) for t in self.SPECIAL_TOKENS]
-        )
-        self._tok = tok
+        self.variant = variant or self.DEFAULT_VARIANT
+        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.tokenizer_file = tokenizer_file
+        self._tok = Tokenizer.from_file(tokenizer_file)
         self.register_special_ids(audio_token)
 
     def register_special_ids(self, audio_token):
@@ -80,11 +51,7 @@ class GraniteSpeechTokenizer(BaseTokenizer):
     def from_hf(cls, repo, **kwargs):
         from huggingface_hub import hf_hub_download
 
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            merges_file=hf_hub_download(repo, "merges.txt"),
-            **kwargs,
-        )
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     @property
     def vocab_size(self):
@@ -106,8 +73,8 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         config = super().get_config()
         config.update(
             {
-                "vocab_file": self.vocab_file,
-                "merges_file": self.merges_file,
+                "variant": self.variant,
+                "tokenizer_file": self.tokenizer_file,
                 "audio_token": self.audio_token,
             }
         )

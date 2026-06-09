@@ -7,7 +7,7 @@ from kerasformers.models.convnext.convnext_model import (
     ConvNeXtModel,
 )
 
-from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHT_CONFIG
+from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -43,9 +43,9 @@ class ConvNeXtV2Model(ConvNeXtModel):
 
     BASE_MODEL_CONFIG = {
         variant: CONVNEXTV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in CONVNEXTV2_WEIGHT_CONFIG.items()
+        for variant, meta in CONVNEXTV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = CONVNEXTV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = CONVNEXTV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -132,9 +132,9 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
 
     BASE_MODEL_CONFIG = {
         variant: CONVNEXTV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in CONVNEXTV2_WEIGHT_CONFIG.items()
+        for variant, meta in CONVNEXTV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = CONVNEXTV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = CONVNEXTV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -18,7 +18,7 @@ DETR_SEGMENT_CONFIG = {
     },
 }
 
-DETR_WEIGHTS = {
+DETR_WEIGHTS_URLS = {
     "detr-resnet-50": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/detr/detr_resnet50.weights.h5",
     },
@@ -27,7 +27,7 @@ DETR_WEIGHTS = {
     },
 }
 
-DETR_SEGMENT_WEIGHTS = {
+DETR_SEGMENT_WEIGHTS_URLS = {
     "detr-resnet-50-panoptic": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/detr/detr_resnet50_panoptic.weights.h5",
     },

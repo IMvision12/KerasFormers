@@ -111,7 +111,7 @@ if __name__ == "__main__":
     from kerasformers.models.roberta import RobertaMaskedLM, RobertaModel
     from kerasformers.models.roberta.config import (
         ROBERTA_MODEL_CONFIG,
-        ROBERTA_WEIGHT_CONFIG,
+        ROBERTA_WEIGHTS_URLS,
     )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in ROBERTA_WEIGHT_CONFIG.items():
+    for variant, meta in ROBERTA_WEIGHTS_URLS.items():
         arch = ROBERTA_MODEL_CONFIG[meta["model"]]
         hf_id = HF_SOURCES[variant]
         pad = arch["pad_token_id"]

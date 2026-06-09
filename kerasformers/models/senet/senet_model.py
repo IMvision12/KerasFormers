@@ -9,7 +9,7 @@ from kerasformers.models.resnet.resnet_model import (
 )
 from kerasformers.models.resnext.resnext_model import resnext_block
 
-from .config import SENET_MODEL_CONFIG, SENET_WEIGHT_CONFIG
+from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_URLS
 
 _BLOCK_FN_LOOKUP = {
     "bottleneck_block": bottleneck_block,
@@ -73,9 +73,9 @@ class SENetModel(ResNetModel):
 
     BASE_MODEL_CONFIG = {
         variant: SENET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in SENET_WEIGHT_CONFIG.items()
+        for variant, meta in SENET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = SENET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = SENET_WEIGHTS_URLS
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
@@ -157,9 +157,9 @@ class SENetImageClassify(ResNetImageClassify):
 
     BASE_MODEL_CONFIG = {
         variant: SENET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in SENET_WEIGHT_CONFIG.items()
+        for variant, meta in SENET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = SENET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = SENET_WEIGHTS_URLS
 
     def __init__(
         self,

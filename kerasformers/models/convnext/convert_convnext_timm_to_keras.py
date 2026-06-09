@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.convnext import ConvNeXtImageClassify
-from kerasformers.models.convnext.config import CONVNEXT_WEIGHT_CONFIG
+from kerasformers.models.convnext.config import CONVNEXT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "stem_conv_": "stem.0.",
@@ -75,7 +75,7 @@ def transfer_convnext_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in CONVNEXT_WEIGHT_CONFIG.items():
+    for variant, meta in CONVNEXT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

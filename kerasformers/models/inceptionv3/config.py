@@ -5,7 +5,7 @@ INCEPTIONV3_MODEL_CONFIG = {
     },
 }
 
-INCEPTIONV3_WEIGHT_CONFIG = {
+INCEPTIONV3_WEIGHTS_URLS = {
     "inception_v3_tf_in1k": {
         "model": "inception_v3",
         "timm_id": "inception_v3.tf_in1k",

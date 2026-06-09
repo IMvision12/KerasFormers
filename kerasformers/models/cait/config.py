@@ -81,7 +81,7 @@ CAIT_MODEL_CONFIG = {
     },
 }
 
-CAIT_WEIGHT_CONFIG = {
+CAIT_WEIGHTS_URLS = {
     "cait_xxs24_224_fb_dist_in1k": {
         "model": "cait_xxs24_224",
         "timm_id": "cait_xxs24_224.fb_dist_in1k",

@@ -25,7 +25,7 @@ SAM_CONFIG = {
     },
 }
 
-SAM_WEIGHTS = {
+SAM_WEIGHTS_URLS = {
     "sam_vit_base": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam/sam_vit_base.weights.h5",
     },

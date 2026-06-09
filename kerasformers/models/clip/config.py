@@ -91,23 +91,45 @@ CLIP_CONFIG = {
     },
 }
 
-CLIP_WEIGHTS = {
+CLIP_WEIGHTS_URLS = {
     "clip_vit_base_16": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_16.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_16.weights.h5"
     },
     "clip_vit_base_32": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_32.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_32.weights.h5"
     },
     "clip_vit_large_14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14.weights.h5"
     },
     "clip_vit_large_14_336": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14_336.weights.h5",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14_336.weights.h5"
     },
     "clip_vit_g_14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_g_14.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_g_14.weights.json"
     },
     "clip_vit_bigg_14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_bigg_14.weights.json",
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_bigg_14.weights.json"
+    },
+}
+
+
+CLIP_TOKENIZER_URLS = {
+    "clip_vit_base_16": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_16_tokenizer.json"
+    },
+    "clip_vit_base_32": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_32_tokenizer.json"
+    },
+    "clip_vit_large_14": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14_tokenizer.json"
+    },
+    "clip_vit_large_14_336": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_large_14_336_tokenizer.json"
+    },
+    "clip_vit_g_14": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_g_14_tokenizer.json"
+    },
+    "clip_vit_bigg_14": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_bigg_14_tokenizer.json"
     },
 }

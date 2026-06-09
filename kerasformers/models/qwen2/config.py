@@ -89,7 +89,7 @@ QWEN2_CONFIG = {
     },
 }
 
-QWEN2_WEIGHTS = {
+QWEN2_WEIGHTS_URLS = {
     "qwen2-0.5b": {"hf_id": "Qwen/Qwen2-0.5B", "gated": False, "safetensors": True},
     "qwen2-0.5b-instruct": {
         "hf_id": "Qwen/Qwen2-0.5B-Instruct",

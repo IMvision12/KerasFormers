@@ -16,8 +16,8 @@ from kerasformers.utils import standardize_input_shape
 from .config import (
     DETR_CONFIG,
     DETR_SEGMENT_CONFIG,
-    DETR_SEGMENT_WEIGHTS,
-    DETR_WEIGHTS,
+    DETR_SEGMENT_WEIGHTS_URLS,
+    DETR_WEIGHTS_URLS,
 )
 
 
@@ -566,7 +566,7 @@ class DETRDetect(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = DETR_CONFIG
-    BASE_WEIGHT_CONFIG = DETR_WEIGHTS
+    BASE_WEIGHT_CONFIG = DETR_WEIGHTS_URLS
     HF_MODEL_TYPE = "detr"
 
     def __init__(
@@ -734,7 +734,7 @@ class DETRPanopticSegment(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = DETR_SEGMENT_CONFIG
-    BASE_WEIGHT_CONFIG = DETR_SEGMENT_WEIGHTS
+    BASE_WEIGHT_CONFIG = DETR_SEGMENT_WEIGHTS_URLS
     HF_MODEL_TYPE = "detr"
 
     def __init__(

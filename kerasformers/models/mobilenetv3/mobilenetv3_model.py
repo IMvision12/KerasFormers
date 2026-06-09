@@ -8,7 +8,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHT_CONFIG
+from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHTS_URLS
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -465,9 +465,9 @@ class MobileNetV3Model(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILENETV3_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -666,9 +666,9 @@ class MobileNetV3ImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILENETV3_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

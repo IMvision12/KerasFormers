@@ -5,7 +5,7 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
 from kerasformers.utils import standardize_input_shape
 
-from .config import DFINE_CONFIG, DFINE_WEIGHTS
+from .config import DFINE_CONFIG, DFINE_WEIGHTS_URLS
 from .dfine_layers import (
     DFineDecoderLayer,
     DFineDecoderParams,
@@ -1788,7 +1788,7 @@ class DFineDetect(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = DFINE_CONFIG
-    BASE_WEIGHT_CONFIG = DFINE_WEIGHTS
+    BASE_WEIGHT_CONFIG = DFINE_WEIGHTS_URLS
     HF_MODEL_TYPE = ("d_fine", "dfine")
 
     def __init__(

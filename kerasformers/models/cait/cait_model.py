@@ -14,7 +14,7 @@ from kerasformers.models.cait.cait_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHT_CONFIG
+from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHTS_URLS
 
 
 def mlp_block(x, hidden_dim, out_dim, drop_rate=0.0, block_prefix=None):
@@ -302,9 +302,9 @@ class CaiTModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: CAIT_MODEL_CONFIG[m["model"]] for v, m in CAIT_WEIGHT_CONFIG.items()
+        v: CAIT_MODEL_CONFIG[m["model"]] for v, m in CAIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = CAIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = CAIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -460,9 +460,9 @@ class CaiTImageClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: CAIT_MODEL_CONFIG[m["model"]] for v, m in CAIT_WEIGHT_CONFIG.items()
+        v: CAIT_MODEL_CONFIG[m["model"]] for v, m in CAIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = CAIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = CAIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

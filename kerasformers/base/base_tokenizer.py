@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from keras import ops
 
@@ -24,6 +26,10 @@ class BaseTokenizer(PreprocessorMixin):
     * :meth:`encode_batch_to_inputs` — for ``tokenizers``-padded backends, encode
       a batch (optionally as text pairs) straight to an ``input_ids`` (+ optional
       ``attention_mask`` / ``token_type_ids``) tensor dict.
+    * :meth:`resolve_tokenizer_json` — resolve a ``variant`` to a local
+      ``tokenizer.json`` path (an explicit ``tokenizer_file`` if given, else the
+      per-variant release file from the tokenizer's ``TOKENIZER_URLS`` dict) for
+      ``Tokenizer.from_file``.
 
     Concrete tokenizers add their own state (vocab path, merges, special-token
     ids, BPE / SentencePiece backend) and ``get_config`` payload — the base
@@ -78,6 +84,30 @@ class BaseTokenizer(PreprocessorMixin):
                 [e.type_ids for e in encs], dtype="int32"
             )
         return out
+
+    def resolve_tokenizer_json(self, variant, tokenizer_file=None):
+        if tokenizer_file is not None and os.path.exists(tokenizer_file):
+            return tokenizer_file
+        from kerasformers.conversion import download_file
+
+        cfg = getattr(self, "TOKENIZER_URLS", None)
+        if not cfg:
+            raise AttributeError(
+                f"{type(self).__name__} must set a TOKENIZER_URLS class attr "
+                f"(variant -> {{'tokenizer_json': url}}) to use resolve_tokenizer_json."
+            )
+        if variant not in cfg:
+            raise ValueError(
+                f"Unknown variant {variant!r} for {type(self).__name__}; "
+                f"available: {list(cfg)}"
+            )
+        url = cfg[variant].get("tokenizer_json")
+        if url is None:
+            raise ValueError(
+                f"Variant {variant!r} has no 'tokenizer_json' URL in "
+                f"{type(self).__name__}.TOKENIZER_URLS."
+            )
+        return download_file(url)
 
     def call(self, inputs):
         raise NotImplementedError(

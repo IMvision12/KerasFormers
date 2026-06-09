@@ -30,7 +30,7 @@ SENET_MODEL_CONFIG = {
     },
 }
 
-SENET_WEIGHT_CONFIG = {
+SENET_WEIGHTS_URLS = {
     "seresnet50_a1_in1k": {
         "model": "seresnet50",
         "timm_id": "seresnet50.a1_in1k",

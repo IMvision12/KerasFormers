@@ -11,7 +11,7 @@ from kerasformers.models.resnet.resnet_model import (
     squeeze_excitation_block,
 )
 
-from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHT_CONFIG
+from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHTS_URLS
 
 
 def resnext_block(
@@ -153,9 +153,9 @@ class ResNeXtModel(ResNetModel):
 
     BASE_MODEL_CONFIG = {
         variant: RESNEXT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNEXT_WEIGHT_CONFIG.items()
+        for variant, meta in RESNEXT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESNEXT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNEXT_WEIGHTS_URLS
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
@@ -252,9 +252,9 @@ class ResNeXtImageClassify(ResNetImageClassify):
 
     BASE_MODEL_CONFIG = {
         variant: RESNEXT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNEXT_WEIGHT_CONFIG.items()
+        for variant, meta in RESNEXT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESNEXT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNEXT_WEIGHTS_URLS
 
     def __init__(
         self,

@@ -260,7 +260,52 @@ METACLIP2_CONFIG = {
     },
 }
 
-METACLIP2_WEIGHTS = {
+# Worldwide (XLM-R) variants only. The mt5 variants use the MetaClip2Mt5Tokenizer,
+# which keeps its SentencePiece path (its SigLIP-style canonicalization is not baked
+# into any HF tokenizer.json).
+METACLIP2_TOKENIZER_URLS = {
+    "metaclip2_worldwide_s16_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_s16_224_tokenizer.json"
+    },
+    "metaclip2_worldwide_s16_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_s16_384_tokenizer.json"
+    },
+    "metaclip2_worldwide_m16_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_m16_224_tokenizer.json"
+    },
+    "metaclip2_worldwide_m16_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_m16_384_tokenizer.json"
+    },
+    "metaclip2_worldwide_b16_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b16_224_tokenizer.json"
+    },
+    "metaclip2_worldwide_b16_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b16_384_tokenizer.json"
+    },
+    "metaclip2_worldwide_b32_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b32_224_tokenizer.json"
+    },
+    "metaclip2_worldwide_b32_384": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b32_384_tokenizer.json"
+    },
+    "metaclip2_worldwide_l14_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_l14_224_tokenizer.json"
+    },
+    "metaclip2_worldwide_huge_quickgelu": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_huge_quickgelu_tokenizer.json"
+    },
+    "metaclip2_worldwide_huge_378": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_huge_378_tokenizer.json"
+    },
+    "metaclip2_worldwide_giant_224": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_giant_224_tokenizer.json"
+    },
+    "metaclip2_worldwide_giant_378": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_giant_378_tokenizer.json"
+    },
+}
+
+METACLIP2_WEIGHTS_URLS = {
     "metaclip2_worldwide_s16_224": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_s16_224.weights.h5",
     },

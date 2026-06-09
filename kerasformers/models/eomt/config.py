@@ -51,7 +51,7 @@ EOMT_CONFIG = {
     },
 }
 
-EOMT_WEIGHTS = {
+EOMT_WEIGHTS_URLS = {
     "eomt_small_coco_panoptic_640": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_small_coco_panoptic_640.weights.h5",
     },

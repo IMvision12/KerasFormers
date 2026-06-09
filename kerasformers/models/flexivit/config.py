@@ -39,7 +39,7 @@ FLEXIVIT_MODEL_CONFIG = {
     },
 }
 
-FLEXIVIT_WEIGHT_CONFIG = {
+FLEXIVIT_WEIGHTS_URLS = {
     "flexivit_small_1200ep_in1k": {
         "model": "flexivit_small",
         "timm_id": "flexivit_small.1200ep_in1k",

@@ -10,7 +10,7 @@ from kerasformers.models.resnetv2.resnetv2_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHT_CONFIG
+from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHTS_URLS
 
 
 def make_divisible(v, divisor=8):
@@ -296,9 +296,9 @@ class ResNetV2Model(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RESNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNETV2_WEIGHT_CONFIG.items()
+        for variant, meta in RESNETV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNETV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -463,9 +463,9 @@ class ResNetV2ImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RESNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNETV2_WEIGHT_CONFIG.items()
+        for variant, meta in RESNETV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RESNETV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

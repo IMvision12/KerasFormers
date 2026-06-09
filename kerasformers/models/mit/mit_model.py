@@ -10,7 +10,7 @@ from kerasformers.models.mit.mit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import MIT_MODEL_CONFIG, MIT_WEIGHT_CONFIG
+from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_URLS
 
 
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
@@ -318,9 +318,9 @@ class MiTModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHT_CONFIG.items()
+        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MIT_WEIGHTS_URLS
     HF_MODEL_TYPE = "segformer"
 
     @classmethod
@@ -474,9 +474,9 @@ class MiTImageClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHT_CONFIG.items()
+        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MIT_WEIGHTS_URLS
     HF_MODEL_TYPE = "segformer"
 
     @classmethod

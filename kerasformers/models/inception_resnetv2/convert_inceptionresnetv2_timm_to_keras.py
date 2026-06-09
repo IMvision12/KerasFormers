@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
 )
 from kerasformers.models.inception_resnetv2 import InceptionResNetV2ImageClassify
 from kerasformers.models.inception_resnetv2.config import (
-    INCEPTION_RESNETV2_WEIGHT_CONFIG,
+    INCEPTION_RESNETV2_WEIGHTS_URLS,
 )
 
 
@@ -116,7 +116,7 @@ def transfer_inception_resnet_v2_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in INCEPTION_RESNETV2_WEIGHT_CONFIG.items():
+    for variant, meta in INCEPTION_RESNETV2_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

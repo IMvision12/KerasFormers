@@ -4,7 +4,7 @@ from keras import layers
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
 
-from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHT_CONFIG
+from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -52,9 +52,9 @@ class FlexiViTModel(ViTModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: FLEXIVIT_MODEL_CONFIG[m["model"]] for v, m in FLEXIVIT_WEIGHT_CONFIG.items()
+        v: FLEXIVIT_MODEL_CONFIG[m["model"]] for v, m in FLEXIVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = FLEXIVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = FLEXIVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -169,9 +169,9 @@ class FlexiViTImageClassify(ViTImageClassify):
     """
 
     BASE_MODEL_CONFIG = {
-        v: FLEXIVIT_MODEL_CONFIG[m["model"]] for v, m in FLEXIVIT_WEIGHT_CONFIG.items()
+        v: FLEXIVIT_MODEL_CONFIG[m["model"]] for v, m in FLEXIVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = FLEXIVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = FLEXIVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

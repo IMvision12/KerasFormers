@@ -28,7 +28,7 @@ MOBILEVIT_MODEL_CONFIG = {
     },
 }
 
-MOBILEVIT_WEIGHT_CONFIG = {
+MOBILEVIT_WEIGHTS_URLS = {
     "mobilevit_xxs_cvnets_in1k": {
         "model": "mobilevit_xxs",
         "timm_id": "mobilevit_xxs.cvnets_in1k",
@@ -76,7 +76,7 @@ MOBILEVIT_SEGMENT_MODEL_CONFIG = {
     },
 }
 
-MOBILEVIT_SEGMENT_WEIGHT_CONFIG = {
+MOBILEVIT_SEGMENT_WEIGHTS_URLS = {
     "mobilevit_xxs_deeplabv3": {
         "model": "mobilevit_xxs_deeplabv3",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_xxs_deeplabv3.weights.h5",

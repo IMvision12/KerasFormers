@@ -19,7 +19,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.deit import DeiTImageClassify
-from kerasformers.models.deit.config import DEIT_WEIGHT_CONFIG
+from kerasformers.models.deit.config import DEIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -98,7 +98,7 @@ def transfer_deit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> Non
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in DEIT_WEIGHT_CONFIG.items():
+    for variant, meta in DEIT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

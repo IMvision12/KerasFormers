@@ -114,7 +114,7 @@ if __name__ == "__main__":
     from kerasformers.models.deberta_v2 import DebertaV2MaskedLM, DebertaV2Model
     from kerasformers.models.deberta_v2.config import (
         DEBERTA_V2_MODEL_CONFIG,
-        DEBERTA_V2_WEIGHT_CONFIG,
+        DEBERTA_V2_WEIGHTS_URLS,
     )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in DEBERTA_V2_WEIGHT_CONFIG.items():
+    for variant, meta in DEBERTA_V2_WEIGHTS_URLS.items():
         arch = DEBERTA_V2_MODEL_CONFIG[meta["model"]]
         hf_id = HF_SOURCES[variant]
         eps = arch["layer_norm_eps"]

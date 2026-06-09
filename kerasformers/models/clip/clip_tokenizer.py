@@ -1,50 +1,38 @@
-import json
 from typing import Dict, List, Union
 
 import keras
-from tokenizers import AddedToken, Regex, Tokenizer
-from tokenizers.decoders import ByteLevel as ByteLevelDecoder
-from tokenizers.models import BPE
-from tokenizers.normalizers import NFC, Lowercase, Replace
-from tokenizers.normalizers import Sequence as NormSeq
-from tokenizers.pre_tokenizers import ByteLevel, Split
-from tokenizers.pre_tokenizers import Sequence as PreSeq
-from tokenizers.processors import RobertaProcessing
+from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
 
-DEFAULT_VOCAB_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/clip/vocab.json"
-)
-DEFAULT_MERGES_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/clip/merges.txt"
-)
+from .config import CLIP_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPTokenizer(BaseTokenizer):
-    """CLIP BPE tokenizer, built on the `tokenizers` library (Rust).
+    """CLIP byte-level BPE tokenizer (``tokenizers`` Rust backend).
 
-    Wraps a programmatically-assembled `tokenizers.Tokenizer` that matches
-    OpenAI CLIP exactly: NFC + whitespace collapse + lowercase, CLIP's
-    regex split, byte-level BPE over ``vocab.json`` + ``merges.txt``, and
-    ``[BOS] ... [EOS]`` RoBERTa-style post-processing with EOS padding.
+    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
+    ``clip`` release tag (or an explicit ``tokenizer_file``) and re-enables CLIP's
+    truncation + ``<|endoftext|>`` padding to ``max_seq_len`` (77). ``variant``
+    selects which checkpoint's ``tokenizer.json`` to pull (see ``CLIP_WEIGHTS_URLS``); the
+    openai / open_clip CLIP variants tokenize identically.
 
     Args:
-        vocab_file: Path to ``vocab.json``. When ``None`` (and ``merges_file`` is
-            also ``None``), downloads the default CLIP release files on first use.
-        merges_file: Path to ``merges.txt``. See ``vocab_file``.
-        max_seq_len: Max sequence length (default 77).
+        variant: CLIP variant key (default ``"clip_vit_base_16"``).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        max_seq_len: Padded / truncated length (default 77).
         unk_token / bos_token / eos_token / pad_token: Special token strings.
     """
 
+    TOKENIZER_URLS = CLIP_TOKENIZER_URLS
+    DEFAULT_VARIANT = "clip_vit_base_16"
+
     def __init__(
         self,
-        vocab_file: str = None,
-        merges_file: str = None,
+        variant: str = None,
+        tokenizer_file: str = None,
         max_seq_len: int = 77,
-        errors: str = "replace",
         unk_token: str = "<|endoftext|>",
         bos_token: str = "<|startoftext|>",
         eos_token: str = "<|endoftext|>",
@@ -52,69 +40,23 @@ class CLIPTokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if vocab_file is None and merges_file is None:
-            vocab_file = download_file(DEFAULT_VOCAB_URL)
-            merges_file = download_file(DEFAULT_MERGES_URL)
-        self.vocab_file = vocab_file
-        self.merges_file = merges_file
+        self.variant = variant or self.DEFAULT_VARIANT
+        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
-        self.errors = errors
         self.unk_token = unk_token
         self.bos_token = bos_token
         self.eos_token = eos_token
         self.pad_token = pad_token
 
-        with open(vocab_file, "r", encoding="utf-8") as f:
-            self.encoder = json.load(f)
-        self.decoder = {v: k for k, v in self.encoder.items()}
-
-        self.bos_token_id = self.encoder.get(bos_token, 49406)
-        self.eos_token_id = self.encoder.get(eos_token, 49407)
-        self.pad_token_id = self.encoder.get(pad_token, 49407)
-        self.unk_token_id = self.encoder.get(unk_token, 49407)
-
-        tok = Tokenizer(
-            BPE(
-                vocab=vocab_file,
-                merges=merges_file,
-                unk_token=unk_token,
-                end_of_word_suffix="</w>",
-                fuse_unk=False,
-            )
-        )
-        tok.normalizer = NormSeq([NFC(), Replace(Regex(r"\s+"), " "), Lowercase()])
-        tok.pre_tokenizer = PreSeq(
-            [
-                Split(
-                    pattern=Regex(
-                        r"<\|startoftext\|>|<\|endoftext\|>"
-                        r"|'s|'t|'re|'ve|'m|'ll|'d"
-                        r"|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+"
-                    ),
-                    behavior="removed",
-                    invert=True,
-                ),
-                ByteLevel(add_prefix_space=False, trim_offsets=True, use_regex=False),
-            ]
-        )
-        tok.post_processor = RobertaProcessing(
-            sep=(eos_token, self.eos_token_id),
-            cls=(bos_token, self.bos_token_id),
-            trim_offsets=False,
-            add_prefix_space=False,
-        )
-        tok.decoder = ByteLevelDecoder()
-        tok.add_special_tokens(
-            [
-                AddedToken(bos_token, special=True, normalized=False),
-                AddedToken(eos_token, special=True, normalized=False),
-            ]
-        )
+        tok = Tokenizer.from_file(tokenizer_file)
+        self.bos_token_id = tok.token_to_id(bos_token)
+        self.eos_token_id = tok.token_to_id(eos_token)
+        self.pad_token_id = tok.token_to_id(pad_token)
+        self.unk_token_id = tok.token_to_id(unk_token)
         tok.enable_truncation(max_length=max_seq_len)
         tok.enable_padding(
-            pad_id=self.pad_token_id,
-            pad_token=pad_token,
-            length=max_seq_len,
+            pad_id=self.pad_token_id, pad_token=pad_token, length=max_seq_len
         )
         self._tok = tok
 
@@ -122,32 +64,24 @@ class CLIPTokenizer(BaseTokenizer):
     def from_hf(cls, repo, **kwargs):
         from huggingface_hub import hf_hub_download
 
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            merges_file=hf_hub_download(repo, "merges.txt"),
-            **kwargs,
-        )
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     @property
     def vocab_size(self) -> int:
-        return len(self.encoder)
+        return self._tok.get_vocab_size()
 
     def tokenize(
         self, text: Union[str, List[str]]
     ) -> Union[List[int], List[List[int]]]:
         if isinstance(text, str):
-            enc = self._tok.encode(text, add_special_tokens=False)
-            return enc.ids
+            return self._tok.encode(text, add_special_tokens=False).ids
         encs = self._tok.encode_batch(text, add_special_tokens=False)
         return [e.ids for e in encs]
 
     def detokenize(self, token_ids) -> str:
-        if hasattr(token_ids, "tolist"):
-            token_ids = token_ids.tolist()
-        if isinstance(token_ids, int):
-            token_ids = [token_ids]
+        ids = self.to_id_list(token_ids)
         skip = {self.bos_token_id, self.eos_token_id, self.pad_token_id}
-        keep = [int(i) for i in token_ids if int(i) not in skip]
+        keep = [i for i in ids if i not in skip]
         text = self._tok.decode(keep, skip_special_tokens=False)
         return text.replace("</w>", " ").strip()
 
@@ -164,10 +98,9 @@ class CLIPTokenizer(BaseTokenizer):
         config = super().get_config()
         config.update(
             {
-                "vocab_file": self.vocab_file,
-                "merges_file": self.merges_file,
+                "variant": self.variant,
+                "tokenizer_file": self.tokenizer_file,
                 "max_seq_len": self.max_seq_len,
-                "errors": self.errors,
                 "unk_token": self.unk_token,
                 "bos_token": self.bos_token,
                 "eos_token": self.eos_token,

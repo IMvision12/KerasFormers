@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .config import SPEECH2TEXT_CONFIG, SPEECH2TEXT_WEIGHTS
+from .config import SPEECH2TEXT_CONFIG, SPEECH2TEXT_WEIGHTS_URLS
 from .speech2text_layers import (
     Speech2TextAttention,
     Speech2TextSinusoidalPositionEmbedding,
@@ -297,7 +297,7 @@ class Speech2TextModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SPEECH2TEXT_CONFIG
-    BASE_WEIGHT_CONFIG = SPEECH2TEXT_WEIGHTS
+    BASE_WEIGHT_CONFIG = SPEECH2TEXT_WEIGHTS_URLS
     HF_MODEL_TYPE = "speech_to_text"
 
     @classmethod

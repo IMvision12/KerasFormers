@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mit import MiTImageClassify
-from kerasformers.models.mit.config import MIT_WEIGHT_CONFIG
+from kerasformers.models.mit.config import MIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -88,7 +88,7 @@ def transfer_mit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
 if __name__ == "__main__":
     import transformers
 
-    for variant, meta in MIT_WEIGHT_CONFIG.items():
+    for variant, meta in MIT_WEIGHTS_URLS.items():
         hf_id = meta["hf_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")

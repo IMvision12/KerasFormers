@@ -38,7 +38,7 @@ SAM2_CONFIG = {
     },
 }
 
-SAM2_WEIGHTS = {
+SAM2_WEIGHTS_URLS = {
     "sam2_hiera_tiny": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam2/sam2_hiera_tiny.weights.h5",
     },

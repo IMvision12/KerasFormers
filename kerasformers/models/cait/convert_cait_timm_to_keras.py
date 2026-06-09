@@ -19,7 +19,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.cait import CaiTImageClassify
-from kerasformers.models.cait.config import CAIT_WEIGHT_CONFIG
+from kerasformers.models.cait.config import CAIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -90,7 +90,7 @@ def transfer_cait_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> Non
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in CAIT_WEIGHT_CONFIG.items():
+    for variant, meta in CAIT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

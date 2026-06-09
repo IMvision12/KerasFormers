@@ -172,7 +172,7 @@ QWEN3_5_CONFIG = {
     },
 }
 
-QWEN3_5_WEIGHTS = {
+QWEN3_5_WEIGHTS_URLS = {
     "qwen3.5-0.8b": {"hf_id": "Qwen/Qwen3.5-0.8B", "gated": False, "safetensors": True},
     "qwen3.5-0.8b-base": {
         "hf_id": "Qwen/Qwen3.5-0.8B-Base",

@@ -61,7 +61,7 @@ SPEECH2TEXT_CONFIG = {
 }
 
 
-SPEECH2TEXT_WEIGHTS = {
+SPEECH2TEXT_WEIGHTS_URLS = {
     "s2t-small-librispeech-asr": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_small_librispeech_asr.weights.h5",
     },

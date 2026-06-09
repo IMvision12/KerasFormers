@@ -28,7 +28,7 @@ CONVMIXER_MODEL_CONFIG = {
     },
 }
 
-CONVMIXER_WEIGHT_CONFIG = {
+CONVMIXER_WEIGHTS_URLS = {
     "convmixer_1536_20_in1k": {
         "model": "convmixer_1536_20",
         "timm_id": "convmixer_1536_20.in1k",

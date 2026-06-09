@@ -12,9 +12,9 @@ from kerasformers.utils.image_util import normalize_image_for_classify_models
 
 from .config import (
     DINO_RESNET_CONFIG,
-    DINO_RESNET_WEIGHTS,
+    DINO_RESNET_WEIGHTS_URLS,
     DINO_VIT_CONFIG,
-    DINO_VIT_WEIGHTS,
+    DINO_VIT_WEIGHTS_URLS,
 )
 
 
@@ -64,7 +64,7 @@ class DinoViTModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = DINO_VIT_CONFIG
-    BASE_WEIGHT_CONFIG = DINO_VIT_WEIGHTS
+    BASE_WEIGHT_CONFIG = DINO_VIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     def __init__(
@@ -207,7 +207,7 @@ class DinoResNetModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = DINO_RESNET_CONFIG
-    BASE_WEIGHT_CONFIG = DINO_RESNET_WEIGHTS
+    BASE_WEIGHT_CONFIG = DINO_RESNET_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     def __init__(

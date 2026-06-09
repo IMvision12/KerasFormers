@@ -41,7 +41,7 @@ RF_DETR_DETECT_CONFIG = {
     },
 }
 
-RF_DETR_DETECT_WEIGHTS = {
+RF_DETR_DETECT_WEIGHTS_URLS = {
     "rfdetr-nano": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_nano.weights.h5",
     },
@@ -125,7 +125,7 @@ RF_DETR_SEGMENT_CONFIG = {
     },
 }
 
-RF_DETR_SEGMENT_WEIGHTS = {
+RF_DETR_SEGMENT_WEIGHTS_URLS = {
     "rfdetr-seg-preview": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_preview.weights.h5",
     },

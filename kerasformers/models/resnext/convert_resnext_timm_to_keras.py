@@ -8,12 +8,12 @@ from kerasformers.models.resnet.convert_resnet_timm_to_keras import (
     transfer_resnet_weights as transfer_resnext_weights,
 )
 from kerasformers.models.resnext import ResNeXtImageClassify
-from kerasformers.models.resnext.config import RESNEXT_WEIGHT_CONFIG
+from kerasformers.models.resnext.config import RESNEXT_WEIGHTS_URLS
 
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in RESNEXT_WEIGHT_CONFIG.items():
+    for variant, meta in RESNEXT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

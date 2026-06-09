@@ -122,7 +122,7 @@ QWEN2_VL_TOKENS = {
     "vision_end_token_id": 151653,
 }
 
-QWEN2_VL_WEIGHTS = {
+QWEN2_VL_WEIGHTS_URLS = {
     "qwen2-vl-2b": {"hf_id": "Qwen/Qwen2-VL-2B", "gated": False, "safetensors": True},
     "qwen2-vl-2b-instruct": {
         "hf_id": "Qwen/Qwen2-VL-2B-Instruct",

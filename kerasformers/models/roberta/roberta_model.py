@@ -6,7 +6,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 
-from .config import ROBERTA_MODEL_CONFIG, ROBERTA_WEIGHT_CONFIG
+from .config import ROBERTA_MODEL_CONFIG, ROBERTA_WEIGHTS_URLS
 from .roberta_layers import (
     RobertaEmbeddings,
     RobertaFlattenChoices,
@@ -17,10 +17,10 @@ from .roberta_layers import (
 MASK_NEG = -1e9
 
 BASE_MODEL_CONFIG = {
-    v: ROBERTA_MODEL_CONFIG[m["model"]] for v, m in ROBERTA_WEIGHT_CONFIG.items()
+    v: ROBERTA_MODEL_CONFIG[m["model"]] for v, m in ROBERTA_WEIGHTS_URLS.items()
 }
-MLM_WEIGHT_CONFIG = {
-    v: {**m, "url": m["mlm_url"]} for v, m in ROBERTA_WEIGHT_CONFIG.items()
+MLM_WEIGHTS_URLS = {
+    v: {**m, "url": m["mlm_url"]} for v, m in ROBERTA_WEIGHTS_URLS.items()
 }
 
 
@@ -194,7 +194,7 @@ class RobertaModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "roberta"
 
     @classmethod
@@ -337,7 +337,7 @@ class RobertaMaskedLM(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MLM_WEIGHTS_URLS
     HF_MODEL_TYPE = "roberta"
 
     @classmethod
@@ -465,7 +465,7 @@ class RobertaSequenceClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "roberta"
 
     @classmethod
@@ -620,7 +620,7 @@ class RobertaTokenClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "roberta"
 
     @classmethod
@@ -771,7 +771,7 @@ class RobertaQnA(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "roberta"
 
     @classmethod
@@ -907,7 +907,7 @@ class RobertaMultipleChoice(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = ROBERTA_WEIGHTS_URLS
     HF_MODEL_TYPE = "roberta"
 
     @classmethod

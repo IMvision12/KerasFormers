@@ -22,7 +22,7 @@ EFFICIENTFORMER_MODEL_CONFIG = {
     },
 }
 
-EFFICIENTFORMER_WEIGHT_CONFIG = {
+EFFICIENTFORMER_WEIGHTS_URLS = {
     "efficientformer_l1_snap_dist_in1k": {
         "model": "efficientformer_l1",
         "timm_id": "efficientformer_l1.snap_dist_in1k",

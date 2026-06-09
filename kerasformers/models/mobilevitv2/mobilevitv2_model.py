@@ -14,8 +14,8 @@ from kerasformers.utils.image_util import normalize_image_for_classify_models
 from .config import (
     MOBILEVITV2_MODEL_CONFIG,
     MOBILEVITV2_SEGMENT_MODEL_CONFIG,
-    MOBILEVITV2_SEGMENT_WEIGHT_CONFIG,
-    MOBILEVITV2_WEIGHT_CONFIG,
+    MOBILEVITV2_SEGMENT_WEIGHTS_URLS,
+    MOBILEVITV2_WEIGHTS_URLS,
 )
 
 
@@ -482,9 +482,9 @@ class MobileViTV2Model(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILEVITV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHTS_URLS
     HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod
@@ -633,9 +633,9 @@ class MobileViTV2ImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVITV2_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILEVITV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHTS_URLS
     HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod
@@ -738,9 +738,9 @@ class MobileViTV2SemanticSegment(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MOBILEVITV2_SEGMENT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVITV2_SEGMENT_WEIGHT_CONFIG.items()
+        for variant, meta in MOBILEVITV2_SEGMENT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MOBILEVITV2_SEGMENT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MOBILEVITV2_SEGMENT_WEIGHTS_URLS
     HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod

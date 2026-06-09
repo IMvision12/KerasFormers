@@ -28,15 +28,13 @@ class WhisperProcessor(BaseProcessor):
 
     def __init__(
         self,
-        variant: str = "v1",
+        variant: str = "whisper_tiny",
         n_mels: int = 80,
         sampling_rate: int = 16000,
         n_fft: int = 400,
         hop_length: int = 160,
         chunk_length: int = 30,
-        vocab_file: Optional[str] = None,
-        merges_file: Optional[str] = None,
-        added_tokens_file: Optional[str] = None,
+        tokenizer_file: Optional[str] = None,
         bos_token_id: int = 50257,
         eos_token_id: int = 50257,
         pad_token_id: int = 50257,
@@ -54,9 +52,7 @@ class WhisperProcessor(BaseProcessor):
         )
         self.tokenizer = tokenizer or WhisperTokenizer(
             variant=variant,
-            vocab_file=vocab_file,
-            merges_file=merges_file,
-            added_tokens_file=added_tokens_file,
+            tokenizer_file=tokenizer_file,
             bos_token_id=bos_token_id,
             eos_token_id=eos_token_id,
             pad_token_id=pad_token_id,

@@ -94,7 +94,7 @@ DEPTHANYTHINGV2_CONFIG = {
     },
 }
 
-DEPTHANYTHINGV2_WEIGHTS = {
+DEPTHANYTHINGV2_WEIGHTS_URLS = {
     "depth_anything_v2_small": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth_anything/depth_anything_v2_small.weights.h5",
     },

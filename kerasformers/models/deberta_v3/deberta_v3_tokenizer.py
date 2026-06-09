@@ -1,21 +1,17 @@
 import keras
 
-from kerasformers.conversion import download_file
 from kerasformers.models.deberta_v2.deberta_v2_tokenizer import DebertaV2Tokenizer
 
-from .config import DEBERTA_V3_VOCAB_URL
+from .config import DEBERTA_V3_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV3Tokenizer(DebertaV2Tokenizer):
     """DeBERTa-v3 SentencePiece tokenizer.
 
-    Identical machinery to :class:`DebertaV2Tokenizer` (SentencePiece, no fairseq
-    offset, ``[CLS] A [SEP]`` post-processing); only the default ``spm.model``
-    differs.
+    Identical machinery to :class:`DebertaV2Tokenizer`; only the per-variant
+    ``tokenizer.json`` (a different SentencePiece vocab) differs.
     """
 
-    def __init__(self, vocab_file=None, **kwargs):
-        if vocab_file is None:
-            vocab_file = download_file(DEBERTA_V3_VOCAB_URL)
-        super().__init__(vocab_file=vocab_file, **kwargs)
+    TOKENIZER_URLS = DEBERTA_V3_TOKENIZER_URLS
+    DEFAULT_VARIANT = "deberta_v3_base"

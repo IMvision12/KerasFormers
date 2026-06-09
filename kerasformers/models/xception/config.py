@@ -37,7 +37,7 @@ XCEPTION_MODEL_CONFIG = {
 }
 
 
-XCEPTION_WEIGHT_CONFIG = {
+XCEPTION_WEIGHTS_URLS = {
     "xception41_tf_in1k": {
         "model": "xception41",
         "timm_id": "xception41.tf_in1k",

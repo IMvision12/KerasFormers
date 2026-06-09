@@ -33,7 +33,7 @@ MLP_MIXER_MODEL_CONFIG = {
     },
 }
 
-MLP_MIXER_WEIGHT_CONFIG = {
+MLP_MIXER_WEIGHTS_URLS = {
     "mixer_b16_224_goog_in21k": {
         "model": "mixer_b16_224_in21k",
         "timm_id": "mixer_b16_224.goog_in21k",

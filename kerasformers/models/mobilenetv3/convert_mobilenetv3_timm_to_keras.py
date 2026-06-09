@@ -21,7 +21,7 @@ from kerasformers.conversion.weight_transfer_util import (
 from kerasformers.models.mobilenetv3 import MobileNetV3ImageClassify
 from kerasformers.models.mobilenetv3.config import (
     MOBILENETV3_MODEL_CONFIG,
-    MOBILENETV3_WEIGHT_CONFIG,
+    MOBILENETV3_WEIGHTS_URLS,
 )
 
 _BASE_LARGE_STAGES = [1, 2, 3, 4, 2, 3]
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     sys.setrecursionlimit(10000)
 
-    for variant, meta in MOBILENETV3_WEIGHT_CONFIG.items():
+    for variant, meta in MOBILENETV3_WEIGHTS_URLS.items():
         model_cfg = dict(MOBILENETV3_MODEL_CONFIG[meta["model"]])
         model_cfg.pop("num_classes", None)
         block_count_multiplier = model_cfg.get("block_count_multiplier", 1.0)

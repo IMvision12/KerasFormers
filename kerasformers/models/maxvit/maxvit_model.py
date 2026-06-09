@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHT_CONFIG
+from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHTS_URLS
 from .maxvit_layers import (
     MaxViTAttention,
     MaxViTGridPartition,
@@ -440,9 +440,9 @@ class MaxViTModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MAXVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MAXVIT_WEIGHT_CONFIG.items()
+        for variant, meta in MAXVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MAXVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MAXVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -618,9 +618,9 @@ class MaxViTImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MAXVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MAXVIT_WEIGHT_CONFIG.items()
+        for variant, meta in MAXVIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MAXVIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MAXVIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

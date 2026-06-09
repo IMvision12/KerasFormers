@@ -25,7 +25,7 @@ DINO_VIT_CONFIG = {
     },
 }
 
-DINO_VIT_WEIGHTS = {
+DINO_VIT_WEIGHTS_URLS = {
     "dino_vits16": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dino_vits16.weights.h5",
     },
@@ -47,7 +47,7 @@ DINO_RESNET_CONFIG = {
     },
 }
 
-DINO_RESNET_WEIGHTS = {
+DINO_RESNET_WEIGHTS_URLS = {
     "dino_resnet50": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dino_resnet50.weights.h5",
     },

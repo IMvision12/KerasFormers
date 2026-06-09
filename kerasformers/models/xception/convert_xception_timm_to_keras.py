@@ -20,7 +20,7 @@ from kerasformers.conversion.weight_transfer_util import (
 from kerasformers.models.xception import XceptionImageClassify
 from kerasformers.models.xception.config import (
     XCEPTION_MODEL_CONFIG,
-    XCEPTION_WEIGHT_CONFIG,
+    XCEPTION_WEIGHTS_URLS,
 )
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     sys.setrecursionlimit(10000)
 
-    for variant, meta in XCEPTION_WEIGHT_CONFIG.items():
+    for variant, meta in XCEPTION_WEIGHTS_URLS.items():
         model_cfg = dict(XCEPTION_MODEL_CONFIG[meta["model"]])
         model_cfg.pop("num_classes", None)
         preact = model_cfg["preact"]

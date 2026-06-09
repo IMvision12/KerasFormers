@@ -11,7 +11,7 @@ from kerasformers.models.vit.vit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import PIT_MODEL_CONFIG, PIT_WEIGHT_CONFIG
+from .config import PIT_MODEL_CONFIG, PIT_WEIGHTS_URLS
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix=None):
@@ -312,9 +312,9 @@ class PiTModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHT_CONFIG.items()
+        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = PIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = PIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -492,9 +492,9 @@ class PiTImageClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = {
-        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHT_CONFIG.items()
+        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = PIT_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = PIT_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

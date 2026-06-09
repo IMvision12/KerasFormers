@@ -37,7 +37,7 @@ RESMLP_MODEL_CONFIG = {
     },
 }
 
-RESMLP_WEIGHT_CONFIG = {
+RESMLP_WEIGHTS_URLS = {
     "resmlp_12_224_fb_in1k": {
         "model": "resmlp_12",
         "timm_id": "resmlp_12_224.fb_in1k",

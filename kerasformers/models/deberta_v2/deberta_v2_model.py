@@ -6,7 +6,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 
-from .config import DEBERTA_V2_MODEL_CONFIG, DEBERTA_V2_WEIGHT_CONFIG
+from .config import DEBERTA_V2_MODEL_CONFIG, DEBERTA_V2_WEIGHTS_URLS
 from .deberta_v2_layers import (
     DebertaV2ConvLayer,
     DebertaV2DisentangledSelfAttention,
@@ -18,10 +18,10 @@ from .deberta_v2_layers import (
 )
 
 BASE_MODEL_CONFIG = {
-    v: DEBERTA_V2_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_V2_WEIGHT_CONFIG.items()
+    v: DEBERTA_V2_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_V2_WEIGHTS_URLS.items()
 }
-MLM_WEIGHT_CONFIG = {
-    v: {**m, "url": m["mlm_url"]} for v, m in DEBERTA_V2_WEIGHT_CONFIG.items()
+MLM_WEIGHTS_URLS = {
+    v: {**m, "url": m["mlm_url"]} for v, m in DEBERTA_V2_WEIGHTS_URLS.items()
 }
 
 
@@ -201,7 +201,7 @@ class DebertaV2Model(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -379,7 +379,7 @@ class DebertaV2MaskedLM(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = MLM_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MLM_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -466,7 +466,7 @@ class DebertaV2SequenceClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -594,7 +594,7 @@ class DebertaV2TokenClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -714,7 +714,7 @@ class DebertaV2QnA(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod
@@ -811,7 +811,7 @@ class DebertaV2MultipleChoice(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = DEBERTA_V2_WEIGHTS_URLS
     HF_MODEL_TYPE = "deberta-v2"
 
     @classmethod

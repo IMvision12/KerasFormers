@@ -73,7 +73,7 @@ OWLV2_CONFIG = {
     },
 }
 
-OWLV2_WEIGHTS = {
+OWLV2_WEIGHTS_URLS = {
     "owlv2-base-patch16": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlv2/owlv2_base_patch16.weights.h5",
     },

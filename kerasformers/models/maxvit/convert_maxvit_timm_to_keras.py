@@ -16,7 +16,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.maxvit import MaxViTImageClassify as MaxViT
-from kerasformers.models.maxvit.config import MAXVIT_WEIGHT_CONFIG
+from kerasformers.models.maxvit.config import MAXVIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "relative_position_bias_table": "RPBT",
@@ -101,7 +101,7 @@ def transfer_maxvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in MAXVIT_WEIGHT_CONFIG.items():
+    for variant, meta in MAXVIT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

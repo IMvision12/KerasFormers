@@ -17,7 +17,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.densenet import DenseNetImageClassify
-from kerasformers.models.densenet.config import DENSENET_WEIGHT_CONFIG
+from kerasformers.models.densenet.config import DENSENET_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "batchnorm_1": "norm1",
@@ -71,7 +71,7 @@ def transfer_densenet_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in DENSENET_WEIGHT_CONFIG.items():
+    for variant, meta in DENSENET_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

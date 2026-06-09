@@ -115,7 +115,7 @@ CONVNEXT_MODEL_CONFIG = {
     },
 }
 
-CONVNEXT_WEIGHT_CONFIG = {
+CONVNEXT_WEIGHTS_URLS = {
     "convnext_atto_d2_in1k": {
         "model": "convnext_atto",
         "timm_id": "convnext_atto.d2_in1k",

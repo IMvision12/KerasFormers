@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .config import MOONSHINE_CONFIG, MOONSHINE_WEIGHTS
+from .config import MOONSHINE_CONFIG, MOONSHINE_WEIGHTS_URLS
 from .moonshine_layers import (
     MoonshineAttention,
     MoonshineRotaryEmbedding,
@@ -319,7 +319,7 @@ class MoonshineModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = MOONSHINE_CONFIG
-    BASE_WEIGHT_CONFIG = MOONSHINE_WEIGHTS
+    BASE_WEIGHT_CONFIG = MOONSHINE_WEIGHTS_URLS
     HF_MODEL_TYPE = "moonshine"
 
     @classmethod

@@ -47,7 +47,14 @@ SAM3_CONFIG = {
     "sam3_saco": _SAM3,
 }
 
-SAM3_WEIGHTS = {
+SAM3_TOKENIZER_URLS = {
+    # SAM3's text encoder uses the OpenAI CLIP tokenizer; reuse the clip release file.
+    "sam3_saco": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_16_tokenizer.json"
+    },
+}
+
+SAM3_WEIGHTS_URLS = {
     "sam3_saco": {
         "hf_id": "facebook/sam3",
         "gated": True,

@@ -24,6 +24,7 @@ class MoonshineProcessor(BaseProcessor):
 
     def __init__(
         self,
+        variant=None,
         tokenizer_file=None,
         sampling_rate=16000,
         decoder_start_token_id=1,
@@ -39,6 +40,7 @@ class MoonshineProcessor(BaseProcessor):
             sampling_rate=sampling_rate
         )
         self.tokenizer = tokenizer or MoonshineTokenizer(
+            variant=variant,
             tokenizer_file=tokenizer_file,
             bos_token_id=bos_token_id,
             eos_token_id=eos_token_id,

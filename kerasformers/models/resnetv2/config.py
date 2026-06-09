@@ -73,7 +73,7 @@ RESNETV2_MODEL_CONFIG = {
     },
 }
 
-RESNETV2_WEIGHT_CONFIG = {
+RESNETV2_WEIGHTS_URLS = {
     "resnetv2_50x1_bit_goog_in21k": {
         "model": "resnetv2_50x1_in21k",
         "timm_id": "resnetv2_50x1_bit.goog_in21k",

@@ -1,152 +1,83 @@
-import string
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 import keras
 import numpy as np
-import sentencepiece as spm
 from keras import ops
-from tokenizers import Regex, Tokenizer
-from tokenizers.decoders import Metaspace as MetaspaceDecoder
-from tokenizers.models import Unigram
-from tokenizers.normalizers import Lowercase, Replace, Strip
-from tokenizers.normalizers import Sequence as NormSeq
-from tokenizers.pre_tokenizers import Metaspace
-from tokenizers.processors import TemplateProcessing
+from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
 
-DEFAULT_VOCAB_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/"
-    "siglip_vocab.model"
-)
-DEFAULT_MULTILINGUAL_VOCAB_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/siglip/"
-    "siglip_multilingual_vocab.model"
-)
-
-_PUNCT_CHARS = "".join(
-    f"\\{c}" if c in r"\^$.|?*+()[]{}" else c for c in string.punctuation
-)
-_PUNCT_REGEX = f"[{_PUNCT_CHARS}]"
+from .config import SIGLIP_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIPTokenizer(BaseTokenizer):
-    """SigLIP SentencePiece Unigram tokenizer, built on the `tokenizers` library.
+    """SigLIP SentencePiece Unigram tokenizer (``tokenizers`` Rust backend).
 
-    Matches the reference ``SiglipTokenizer`` exactly: when ``do_lower_case=True``
-    (the default) it canonicalizes text (strip ASCII punctuation, collapse
-    whitespace, strip), then SP-encodes, then appends EOS. The SP model
-    itself case-folds (nmt_nfkc_cf).
+    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
+    ``siglip`` release tag (or an explicit ``tokenizer_file``). The reference
+    canonicalization (lowercase + ASCII-punctuation strip + whitespace collapse) and
+    the trailing ``</s>`` are baked into the file's normalizer / post-processor.
+    ``call`` returns fixed-length (``max_seq_len``) ``input_ids`` padded with ``</s>``
+    (SigLIP's pad == eos), with no attention mask.
 
     Args:
-        vocab_file: Path to the SentencePiece ``.model`` file. When ``None``,
-            downloads the default SigLIP release file (base or multilingual, per
-            ``multilingual``) on first use.
-        max_seq_len: Maximum sequence length (default 64).
-        do_lower_case: When True, apply the reference ``canonicalize_text``.
+        variant: SigLIP variant key (default ``"siglip_base_p16_224"``); the
+            multilingual checkpoint carries its own tokenizer.json.
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        max_seq_len: Fixed sequence length (default 64).
         unk_token / pad_token / eos_token: Special token strings.
-        multilingual: When ``vocab_file`` is ``None``, download the multilingual
-            vocab instead of the base one. Defaults to ``False``.
     """
 
-    @classmethod
-    def from_hf(cls, repo, **kwargs):
-        from huggingface_hub import hf_hub_download
-
-        return cls(vocab_file=hf_hub_download(repo, "spiece.model"), **kwargs)
+    TOKENIZER_URLS = SIGLIP_TOKENIZER_URLS
+    DEFAULT_VARIANT = "siglip_base_p16_224"
 
     def __init__(
         self,
-        vocab_file: str = None,
+        variant: str = None,
+        tokenizer_file: str = None,
         max_seq_len: int = 64,
-        do_lower_case: bool = True,
         unk_token: str = "<unk>",
         pad_token: str = "</s>",
         eos_token: str = "</s>",
-        multilingual: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if vocab_file is None:
-            url = DEFAULT_MULTILINGUAL_VOCAB_URL if multilingual else DEFAULT_VOCAB_URL
-            vocab_file = download_file(url)
-        self.vocab_file = vocab_file
-        self.multilingual = multilingual
+        self.variant = variant or self.DEFAULT_VARIANT
+        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
-        self.do_lower_case = do_lower_case
         self.unk_token = unk_token
         self.pad_token = pad_token
         self.eos_token = eos_token
 
-        self.sp_model = spm.SentencePieceProcessor()
-        self.sp_model.load(vocab_file)
-
-        vocab = [
-            (self.sp_model.id_to_piece(i), self.sp_model.get_score(i))
-            for i in range(self.sp_model.get_piece_size())
-        ]
-        self.encoder = {piece: i for i, (piece, _) in enumerate(vocab)}
-        self.decoder = {i: piece for i, (piece, _) in enumerate(vocab)}
-
-        self.unk_token_id = self.sp_model.piece_to_id(unk_token)
-        self.pad_token_id = self.sp_model.piece_to_id(pad_token)
-        self.eos_token_id = self.sp_model.piece_to_id(eos_token)
-
-        tok = Tokenizer(Unigram(vocab, unk_id=self.unk_token_id, byte_fallback=True))
-        if do_lower_case:
-            normalizer_steps = [
-                Lowercase(),
-                Replace(Regex(_PUNCT_REGEX), ""),
-                Replace(Regex(r"\s+"), " "),
-                Strip(left=True, right=True),
-            ]
-        else:
-            normalizer_steps = [
-                Replace(Regex(r"\s+"), " "),
-                Strip(left=True, right=True),
-            ]
-        tok.normalizer = NormSeq(normalizer_steps)
-        tok.pre_tokenizer = Metaspace(replacement="▁", prepend_scheme="always")
-        tok.post_processor = TemplateProcessing(
-            single="$A </s>",
-            special_tokens=[("</s>", self.eos_token_id)],
-        )
-        tok.decoder = MetaspaceDecoder(replacement="▁", prepend_scheme="always")
+        tok = Tokenizer.from_file(tokenizer_file)
+        self.unk_token_id = tok.token_to_id(unk_token)
+        self.pad_token_id = tok.token_to_id(pad_token)
+        self.eos_token_id = tok.token_to_id(eos_token)
         tok.enable_truncation(max_length=max_seq_len)
         tok.enable_padding(
             pad_id=self.pad_token_id, pad_token=pad_token, length=max_seq_len
         )
         self._tok = tok
 
-    def remove_punctuation(self, text: str) -> str:
-        return text.translate(str.maketrans("", "", string.punctuation))
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
 
-    def canonicalize_text(
-        self, text: str, keep_punctuation_exact_string: Optional[str] = None
-    ) -> str:
-        import re
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
-        if keep_punctuation_exact_string:
-            text = keep_punctuation_exact_string.join(
-                self.remove_punctuation(part)
-                for part in text.split(keep_punctuation_exact_string)
-            )
-        else:
-            text = self.remove_punctuation(text)
-        text = re.sub(r"\s+", " ", text)
-        text = text.strip()
-        return text
+    @property
+    def vocab_size(self) -> int:
+        return self._tok.get_vocab_size()
 
     def tokenize(
         self, text: Union[str, List[str]]
     ) -> Union[List[int], List[List[int]]]:
         if isinstance(text, str):
-            enc = self._tok.encode(text, add_special_tokens=False)
-            return enc.ids + [self.eos_token_id]
-        encs = self._tok.encode_batch(text, add_special_tokens=False)
-        return [e.ids + [self.eos_token_id] for e in encs]
+            return self._tok.encode(text, add_special_tokens=True).ids
+        encs = self._tok.encode_batch(text, add_special_tokens=True)
+        return [e.ids for e in encs]
 
     def detokenize(
         self, token_ids, skip_special_tokens: bool = True
@@ -157,10 +88,11 @@ class SigLIPTokenizer(BaseTokenizer):
             token_ids = token_ids.tolist()
 
         def _one(ids):
+            ids = [int(i) for i in ids]
             if skip_special_tokens:
                 skip = {self.pad_token_id, self.eos_token_id, self.unk_token_id}
-                ids = [int(i) for i in ids if int(i) not in skip]
-            return self.sp_model.decode_ids([int(i) for i in ids]).strip()
+                ids = [i for i in ids if i not in skip]
+            return self._tok.decode(ids, skip_special_tokens=False).strip()
 
         if isinstance(token_ids, list) and token_ids and isinstance(token_ids[0], list):
             return [_one(r) for r in token_ids]
@@ -168,6 +100,14 @@ class SigLIPTokenizer(BaseTokenizer):
 
     def build_inputs_with_special_tokens(self, token_ids: List[int]) -> List[int]:
         return list(token_ids) + [self.eos_token_id]
+
+    def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
+        token_ids = self.tokenize(text) if isinstance(text, str) else list(text)
+        token_ids = token_ids[: self.max_seq_len]
+        pad_len = self.max_seq_len - len(token_ids)
+        if pad_len > 0:
+            token_ids = token_ids + [self.pad_token_id] * pad_len
+        return {"input_ids": token_ids}
 
     def prepare_for_model_tensor(
         self, token_ids_list: List[List[int]]
@@ -182,24 +122,12 @@ class SigLIPTokenizer(BaseTokenizer):
         ids = np.array(padded, dtype=np.int32)
         return {"input_ids": ops.convert_to_tensor(ids, dtype="int32")}
 
-    def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
-        token_ids = self.tokenize(text) if isinstance(text, str) else list(text)
-        token_ids = token_ids[: self.max_seq_len]
-        pad_len = self.max_seq_len - len(token_ids)
-        if pad_len > 0:
-            token_ids = token_ids + [self.pad_token_id] * pad_len
-        return {"input_ids": token_ids}
-
-    @property
-    def vocab_size(self) -> int:
-        return self.sp_model.get_piece_size()
-
     def call(self, inputs):
         return self.encode_batch_to_inputs(
             inputs, token_type_ids=False, mask_dtype=None
         )
 
-    def batch_detokenize(
+    def batch_decode(
         self, token_ids_batch, skip_special_tokens: bool = True
     ) -> List[str]:
         if hasattr(token_ids_batch, "numpy"):
@@ -207,15 +135,8 @@ class SigLIPTokenizer(BaseTokenizer):
         out = []
         for row in token_ids_batch:
             row = row.tolist() if hasattr(row, "tolist") else list(row)
-            if skip_special_tokens:
-                row = [int(i) for i in row if int(i) != self.pad_token_id]
-            out.append(self.detokenize(row))
+            out.append(self.detokenize(row, skip_special_tokens))
         return out
-
-    def batch_decode(
-        self, token_ids_batch, skip_special_tokens: bool = True
-    ) -> List[str]:
-        return self.batch_detokenize(token_ids_batch, skip_special_tokens)
 
     def get_sequence_length(self, input_ids: keras.KerasTensor) -> keras.KerasTensor:
         pad = ops.convert_to_tensor(self.pad_token_id, dtype="int32")
@@ -233,13 +154,12 @@ class SigLIPTokenizer(BaseTokenizer):
         config = super().get_config()
         config.update(
             {
-                "vocab_file": self.vocab_file,
+                "variant": self.variant,
+                "tokenizer_file": self.tokenizer_file,
                 "max_seq_len": self.max_seq_len,
-                "do_lower_case": self.do_lower_case,
                 "unk_token": self.unk_token,
                 "pad_token": self.pad_token,
                 "eos_token": self.eos_token,
-                "multilingual": self.multilingual,
             }
         )
         return config

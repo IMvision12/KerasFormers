@@ -9,7 +9,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import EFFICIENTNETV2_MODEL_CONFIG, EFFICIENTNETV2_WEIGHT_CONFIG
+from .config import EFFICIENTNETV2_MODEL_CONFIG, EFFICIENTNETV2_WEIGHTS_URLS
 
 EFFICIENTNETV2_BLOCK_CONFIG = {
     "EfficientNetV2S": [
@@ -850,9 +850,9 @@ class EfficientNetV2Model(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: EFFICIENTNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in EFFICIENTNETV2_WEIGHT_CONFIG.items()
+        for variant, meta in EFFICIENTNETV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = EFFICIENTNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = EFFICIENTNETV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -1018,9 +1018,9 @@ class EfficientNetV2ImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: EFFICIENTNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in EFFICIENTNETV2_WEIGHT_CONFIG.items()
+        for variant, meta in EFFICIENTNETV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = EFFICIENTNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = EFFICIENTNETV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

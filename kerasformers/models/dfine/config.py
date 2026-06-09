@@ -76,7 +76,7 @@ DFINE_CONFIG = {
     },
 }
 
-DFINE_WEIGHTS = {
+DFINE_WEIGHTS_URLS = {
     "dfine-nano": {
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_nano.weights.h5",
     },

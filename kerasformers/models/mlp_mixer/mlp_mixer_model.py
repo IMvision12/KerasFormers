@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import MLP_MIXER_MODEL_CONFIG, MLP_MIXER_WEIGHT_CONFIG
+from .config import MLP_MIXER_MODEL_CONFIG, MLP_MIXER_WEIGHTS_URLS
 
 
 def mixer_block(
@@ -217,9 +217,9 @@ class MLPMixerModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MLP_MIXER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MLP_MIXER_WEIGHT_CONFIG.items()
+        for variant, meta in MLP_MIXER_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MLP_MIXER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MLP_MIXER_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -386,9 +386,9 @@ class MLPMixerImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: MLP_MIXER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MLP_MIXER_WEIGHT_CONFIG.items()
+        for variant, meta in MLP_MIXER_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = MLP_MIXER_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = MLP_MIXER_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

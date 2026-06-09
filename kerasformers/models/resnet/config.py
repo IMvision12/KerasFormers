@@ -13,7 +13,7 @@ RESNET_MODEL_CONFIG = {
     },
 }
 
-RESNET_WEIGHT_CONFIG = {
+RESNET_WEIGHTS_URLS = {
     "resnet50_tv_in1k": {
         "model": "resnet50",
         "timm_id": "resnet50.tv_in1k",

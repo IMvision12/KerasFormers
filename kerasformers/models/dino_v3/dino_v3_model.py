@@ -8,9 +8,9 @@ from kerasformers.utils.image_util import normalize_image_for_classify_models
 
 from .config import (
     DINOV3_CONVNEXT_CONFIG,
-    DINOV3_CONVNEXT_WEIGHTS,
+    DINOV3_CONVNEXT_WEIGHTS_URLS,
     DINOV3_VIT_CONFIG,
-    DINOV3_VIT_WEIGHTS,
+    DINOV3_VIT_WEIGHTS_URLS,
 )
 from .dino_v3_layers import (
     DinoV3Attention,
@@ -252,7 +252,7 @@ class DinoV3ViTModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = DINOV3_VIT_CONFIG
-    BASE_WEIGHT_CONFIG = DINOV3_VIT_WEIGHTS
+    BASE_WEIGHT_CONFIG = DINOV3_VIT_WEIGHTS_URLS
     HF_MODEL_TYPE = "dinov3_vit"
 
     @classmethod
@@ -480,7 +480,7 @@ class DinoV3ConvNeXtModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = DINOV3_CONVNEXT_CONFIG
-    BASE_WEIGHT_CONFIG = DINOV3_CONVNEXT_WEIGHTS
+    BASE_WEIGHT_CONFIG = DINOV3_CONVNEXT_WEIGHTS_URLS
     HF_MODEL_TYPE = "dinov3_convnext"
 
     @classmethod

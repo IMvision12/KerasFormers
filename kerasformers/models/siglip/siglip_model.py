@@ -5,7 +5,7 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .config import SIGLIP_CONFIG, SIGLIP_WEIGHTS
+from .config import SIGLIP_CONFIG, SIGLIP_WEIGHTS_URLS
 from .siglip_layers import (
     SigLIPAttention,
     SigLIPLogitScaleBias,
@@ -549,7 +549,7 @@ class SigLIPVisionModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -709,7 +709,7 @@ class SigLIPTextModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -878,7 +878,7 @@ class SigLIPModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -1055,7 +1055,7 @@ class SigLIPZeroShotClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -1202,7 +1202,7 @@ class SigLIPImageClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS
+    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod

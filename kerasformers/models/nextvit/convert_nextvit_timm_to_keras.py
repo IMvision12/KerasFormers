@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.nextvit import NextViTImageClassify as NextViT
-from kerasformers.models.nextvit.config import NEXTVIT_WEIGHT_CONFIG
+from kerasformers.models.nextvit.config import NEXTVIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -76,7 +76,7 @@ def transfer_nextvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in NEXTVIT_WEIGHT_CONFIG.items():
+    for variant, meta in NEXTVIT_WEIGHTS_URLS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")

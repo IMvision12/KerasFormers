@@ -7,7 +7,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import INCEPTION_RESNETV2_MODEL_CONFIG, INCEPTION_RESNETV2_WEIGHT_CONFIG
+from .config import INCEPTION_RESNETV2_MODEL_CONFIG, INCEPTION_RESNETV2_WEIGHTS_URLS
 
 
 def conv_block(
@@ -451,9 +451,9 @@ class InceptionResNetV2Model(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: INCEPTION_RESNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in INCEPTION_RESNETV2_WEIGHT_CONFIG.items()
+        for variant, meta in INCEPTION_RESNETV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -582,9 +582,9 @@ class InceptionResNetV2ImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: INCEPTION_RESNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in INCEPTION_RESNETV2_WEIGHT_CONFIG.items()
+        for variant, meta in INCEPTION_RESNETV2_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

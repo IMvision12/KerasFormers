@@ -11,7 +11,7 @@ from kerasformers.models.clip.clip_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .config import METACLIP2_CONFIG, METACLIP2_WEIGHTS
+from .config import METACLIP2_CONFIG, METACLIP2_WEIGHTS_URLS
 from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
 
 
@@ -288,7 +288,7 @@ class MetaClip2VisionModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -450,7 +450,7 @@ class MetaClip2TextModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -595,7 +595,7 @@ class MetaClip2Model(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -784,7 +784,7 @@ class MetaClip2ZeroShotClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -914,7 +914,7 @@ class MetaClip2ImageClassify(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS
+    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod

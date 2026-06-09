@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import MASKFORMER_CONFIG, MASKFORMER_WEIGHTS
+from .config import MASKFORMER_CONFIG, MASKFORMER_WEIGHTS_URLS
 from .maskformer_layers import (
     MaskFormerDetrAttention,
     MaskFormerExpandQueryEmbedding,
@@ -573,7 +573,7 @@ class MaskFormerUniversalSegment(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = MASKFORMER_CONFIG
-    BASE_WEIGHT_CONFIG = MASKFORMER_WEIGHTS
+    BASE_WEIGHT_CONFIG = MASKFORMER_WEIGHTS_URLS
     HF_MODEL_TYPE = "maskformer"
 
     def __init__(

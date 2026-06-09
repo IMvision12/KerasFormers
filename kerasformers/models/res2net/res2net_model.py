@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHT_CONFIG
+from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHTS_URLS
 
 
 def conv_block(
@@ -329,9 +329,9 @@ class Res2NetModel(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RES2NET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RES2NET_WEIGHT_CONFIG.items()
+        for variant, meta in RES2NET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RES2NET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RES2NET_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod
@@ -486,9 +486,9 @@ class Res2NetImageClassify(FunctionalBaseModel):
 
     BASE_MODEL_CONFIG = {
         variant: RES2NET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RES2NET_WEIGHT_CONFIG.items()
+        for variant, meta in RES2NET_WEIGHTS_URLS.items()
     }
-    BASE_WEIGHT_CONFIG = RES2NET_WEIGHT_CONFIG
+    BASE_WEIGHT_CONFIG = RES2NET_WEIGHTS_URLS
     HF_MODEL_TYPE = None
 
     @classmethod

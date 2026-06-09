@@ -43,7 +43,7 @@ RES2NET_MODEL_CONFIG = {
     },
 }
 
-RES2NET_WEIGHT_CONFIG = {
+RES2NET_WEIGHTS_URLS = {
     "res2net50_26w_4s_in1k": {
         "model": "res2net50_26w_4s",
         "timm_id": "res2net50_26w_4s.in1k",

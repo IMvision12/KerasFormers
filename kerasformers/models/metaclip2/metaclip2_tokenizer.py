@@ -1,11 +1,13 @@
-import os
 from typing import List, Union
 
 import keras
 import numpy as np
+from keras import ops
+from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
+
+from .config import METACLIP2_TOKENIZER_URLS
 
 METACLIP2_EOS_TOKEN_ID = 2
 METACLIP2_BOS_TOKEN_ID = 0
@@ -13,60 +15,32 @@ METACLIP2_PAD_TOKEN_ID = 1
 METACLIP2_UNK_TOKEN_ID = 3
 METACLIP2_MASK_TOKEN_ID = 901628
 
-DEFAULT_SENTENCEPIECE_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/"
-    "sentencepiece.bpe.model"
-)
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MetaClip2Tokenizer(BaseTokenizer):
-    """XLM-RoBERTa SentencePiece tokenizer for MetaCLIP 2 worldwide variants.
+    """XLM-RoBERTa tokenizer for MetaCLIP 2 worldwide variants (``tokenizers`` backend).
 
-    Wraps :class:`sentencepiece.SentencePieceProcessor` to match the reference's
-    ``XLMRobertaTokenizer`` bit-close on the multilingual MetaCLIP 2
-    checkpoints (901 629-token vocab covering ~300 languages).
-
-    Tokenization pipeline:
-
-    1. SentencePiece encode the raw text to integer pieces.
-    2. **Apply the fairseq offset of +1** to every piece id — XLM-R
-       reserves token ids ``0..3`` for ``<s> / <pad> / </s> / <unk>``
-       and shifts the SP vocabulary by one to make room. Without this
-       offset the model would see the wrong embeddings.
-    3. Prepend ``bos_token_id`` and append ``eos_token_id``.
-    4. Truncate (replacing the last token with EOS) or pad with
-       ``pad_token_id`` to ``max_seq_len``.
-    5. Build an attention mask: ``1`` for real tokens, ``0`` for
-       padding.
-
-    Special-token ids match XLM-R exactly: BOS=0, PAD=1, EOS=2, UNK=3,
-    MASK=901628. The MASK id is larger than EOS, which is why
-    :func:`metaclip2_text_backbone` pools by explicit ``token == EOS``
-    match rather than ``argmax``.
+    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
+    ``metaclip2`` release tag (or an explicit ``tokenizer_file``) — the Unigram
+    model, the fairseq id offset and the ``<s> A </s>`` post-processing are baked
+    into the file (901629-token multilingual vocab). ``call`` returns fixed-length
+    (``max_seq_len`` = 77) ``token_ids`` + ``padding_mask``. The text backbone pools
+    by an explicit ``token == eos_token_id`` (=2) match (MASK id 901628 > EOS).
 
     Args:
-        sentencepiece_model_file: Path to ``sentencepiece.bpe.model``.
-            When ``None``, downloads it from the default MetaCLIP 2
-            release URL on first use.
-        max_seq_len: Maximum sequence length. Defaults to ``77``
-            (the value used by every MetaCLIP 2 checkpoint).
-        bos_token_id: BOS token id. Defaults to ``0``.
-        eos_token_id: EOS token id. Defaults to ``2``.
-        pad_token_id: PAD token id. Defaults to ``1``.
-        unk_token_id: UNK token id. Defaults to ``3``.
-
-    Example:
-        >>> from kerasformers.models.metaclip2 import MetaClip2Tokenizer
-        >>> tok = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_s16_224")
-        >>> out = tok(["un chat", "a cat"])
-        >>> out["token_ids"].shape       # (2, 77)
-        >>> out["padding_mask"].shape    # (2, 77) — 1 for real tokens
+        variant: MetaCLIP 2 worldwide variant key.
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        max_seq_len: Fixed sequence length (default 77).
+        bos_token_id / eos_token_id / pad_token_id / unk_token_id: XLM-R special ids.
     """
+
+    TOKENIZER_URLS = METACLIP2_TOKENIZER_URLS
+    DEFAULT_VARIANT = "metaclip2_worldwide_b16_224"
 
     def __init__(
         self,
-        sentencepiece_model_file: str = None,
+        variant: str = None,
+        tokenizer_file: str = None,
         max_seq_len: int = 77,
         bos_token_id: int = METACLIP2_BOS_TOKEN_ID,
         eos_token_id: int = METACLIP2_EOS_TOKEN_ID,
@@ -75,63 +49,38 @@ class MetaClip2Tokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        try:
-            import sentencepiece as spm
-        except ImportError as exc:
-            raise ImportError(
-                "MetaClip2Tokenizer requires the `sentencepiece` package. "
-                "Install with `pip install sentencepiece`."
-            ) from exc
-
-        if sentencepiece_model_file is None:
-            sentencepiece_model_file = download_file(DEFAULT_SENTENCEPIECE_URL)
-        if not os.path.exists(sentencepiece_model_file):
-            raise FileNotFoundError(sentencepiece_model_file)
-
-        self.sentencepiece_model_file = sentencepiece_model_file
+        self.variant = variant or self.DEFAULT_VARIANT
+        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.unk_token_id = unk_token_id
 
-        self._sp = spm.SentencePieceProcessor()
-        self._sp.Load(sentencepiece_model_file)
-
-        self.fairseq_offset = 1
+        tok = Tokenizer.from_file(tokenizer_file)
+        tok.enable_truncation(max_length=max_seq_len)
+        tok.enable_padding(pad_id=pad_token_id, pad_token="<pad>", length=max_seq_len)
+        self._tok = tok
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
         from huggingface_hub import hf_hub_download
 
-        return cls(
-            sentencepiece_model_file=hf_hub_download(repo, "sentencepiece.bpe.model"),
-            **kwargs,
-        )
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
-    def _encode_one(self, text: str) -> List[int]:
-        pieces = self._sp.encode(text, out_type=int)
-        ids = [p + self.fairseq_offset for p in pieces]
-        ids = [self.bos_token_id] + ids + [self.eos_token_id]
-        if len(ids) > self.max_seq_len:
-            ids = ids[: self.max_seq_len - 1] + [self.eos_token_id]
-        pad_len = self.max_seq_len - len(ids)
-        attention_mask = [1] * len(ids) + [0] * pad_len
-        ids = ids + [self.pad_token_id] * pad_len
-        return ids, attention_mask
+    @property
+    def vocab_size(self) -> int:
+        return self._tok.get_vocab_size()
 
     def call(self, inputs: Union[str, List[str]]):
         texts = self.normalize_texts(inputs)
-        ids = np.zeros((len(texts), self.max_seq_len), dtype=np.int32)
-        mask = np.zeros((len(texts), self.max_seq_len), dtype=np.int32)
-        for i, t in enumerate(texts):
-            row_ids, row_mask = self._encode_one(t)
-            ids[i] = row_ids
-            mask[i] = row_mask
+        encs = self._tok.encode_batch(texts)
+        token_ids = [e.ids for e in encs]
+        mask = [e.attention_mask for e in encs]
         return {
-            "token_ids": keras.ops.convert_to_tensor(ids, dtype="int32"),
-            "padding_mask": keras.ops.convert_to_tensor(mask, dtype="int32"),
+            "token_ids": ops.convert_to_tensor(token_ids, dtype="int32"),
+            "padding_mask": ops.convert_to_tensor(mask, dtype="int32"),
         }
 
     def decode(self, ids) -> List[str]:
@@ -140,27 +89,19 @@ class MetaClip2Tokenizer(BaseTokenizer):
         ids = np.asarray(ids)
         if ids.ndim == 1:
             ids = ids[None, :]
+        skip = {self.bos_token_id, self.eos_token_id, self.pad_token_id}
         out = []
         for row in ids:
-            keep = [
-                int(i) - self.fairseq_offset
-                for i in row
-                if int(i)
-                not in (
-                    self.bos_token_id,
-                    self.eos_token_id,
-                    self.pad_token_id,
-                )
-                and int(i) >= self.fairseq_offset
-            ]
-            out.append(self._sp.decode(keep))
+            keep = [int(i) for i in row if int(i) not in skip]
+            out.append(self._tok.decode(keep, skip_special_tokens=False))
         return out
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
-                "sentencepiece_model_file": self.sentencepiece_model_file,
+                "variant": self.variant,
+                "tokenizer_file": self.tokenizer_file,
                 "max_seq_len": self.max_seq_len,
                 "bos_token_id": self.bos_token_id,
                 "eos_token_id": self.eos_token_id,

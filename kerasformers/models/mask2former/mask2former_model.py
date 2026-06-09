@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import MASK2FORMER_CONFIG, MASK2FORMER_WEIGHTS
+from .config import MASK2FORMER_CONFIG, MASK2FORMER_WEIGHTS_URLS
 from .mask2former_layers import (
     Mask2FormerCrossAttention,
     Mask2FormerDeformableAttention,
@@ -625,7 +625,7 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
     API symmetry with the other segmentation classes in kerasformers.
     """
 
-    BASE_WEIGHT_CONFIG = MASK2FORMER_WEIGHTS
+    BASE_WEIGHT_CONFIG = MASK2FORMER_WEIGHTS_URLS
     HF_MODEL_TYPE = "mask2former"
 
     def __init__(self, name="Mask2FormerUniversalSegment", **kwargs):

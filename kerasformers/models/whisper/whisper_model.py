@@ -10,7 +10,7 @@ from .config import (
     WHISPER_BEGIN_SUPPRESS_TOKENS,
     WHISPER_CONFIG,
     WHISPER_SUPPRESS_TOKENS,
-    WHISPER_WEIGHTS,
+    WHISPER_WEIGHTS_URLS,
 )
 from .whisper_layers import (
     WhisperAttention,
@@ -303,7 +303,7 @@ class WhisperModel(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = WHISPER_CONFIG
-    BASE_WEIGHT_CONFIG = WHISPER_WEIGHTS
+    BASE_WEIGHT_CONFIG = WHISPER_WEIGHTS_URLS
     HF_MODEL_TYPE = "whisper"
 
     @classmethod

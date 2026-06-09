@@ -1,83 +1,45 @@
 import keras
+from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
 
-from .config import GPT2_MERGES_URL, GPT2_VOCAB_URL
+from .config import GPT2_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GPT2Tokenizer(BaseTokenizer):
     """GPT-2 byte-level BPE tokenizer (``tokenizers`` backend).
 
-    Builds a ``tokenizers.Tokenizer`` matching Hugging Face GPT-2: byte-level
-    pre-tokenization and BPE over ``vocab.json`` + ``merges.txt`` (no
-    normalization), with ``<|endoftext|>`` as the single special token. Exposes
-    ``encode`` / ``decode`` and a ``call`` that tokenizes text(s) into padded
-    ``{"input_ids", "attention_mask"}`` ready for ``model.generate``. GPT-2 is a
+    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
+    ``gpt`` release tag (or an explicit ``tokenizer_file``). ``<|endoftext|>`` is the
+    single special token; ``call`` pads batches to the longest sequence. GPT-2 is a
     base LM with no chat template.
 
     Args:
-        vocab_file: Path to ``vocab.json``. When ``None`` (and ``merges_file`` is
-            also ``None``), downloads the default kerasformers-release files on
-            first use.
-        merges_file: Path to ``merges.txt``. See ``vocab_file``.
+        variant: GPT-2 variant key (default ``"gpt2"``).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         eos_token: End-of-text token string (default ``"<|endoftext|>"``).
     """
 
+    TOKENIZER_URLS = GPT2_TOKENIZER_URLS
+    DEFAULT_VARIANT = "gpt2"
+
     def __init__(
-        self, vocab_file=None, merges_file=None, eos_token="<|endoftext|>", **kwargs
+        self, variant=None, tokenizer_file=None, eos_token="<|endoftext|>", **kwargs
     ):
         super().__init__(**kwargs)
-        from tokenizers import AddedToken, Tokenizer
-        from tokenizers.decoders import ByteLevel as ByteLevelDecoder
-        from tokenizers.models import BPE
-        from tokenizers.pre_tokenizers import ByteLevel
-        from tokenizers.processors import ByteLevel as ByteLevelProcessor
-
-        if vocab_file is None and merges_file is None:
-            vocab_file = download_file(GPT2_VOCAB_URL)
-            merges_file = download_file(GPT2_MERGES_URL)
-        elif (vocab_file is None) != (merges_file is None):
-            missing = "merges_file" if merges_file is None else "vocab_file"
-            provided = "vocab_file" if merges_file is None else "merges_file"
-            raise ValueError(
-                f"GPT2Tokenizer requires both vocab_file (vocab.json) and "
-                f"merges_file (merges.txt), but only {provided} was provided. "
-                f"Either supply {missing} as well, or omit both to download the "
-                f"default kerasformers-release files automatically."
-            )
-        self.vocab_file = vocab_file
-        self.merges_file = merges_file
+        self.variant = variant or self.DEFAULT_VARIANT
+        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.tokenizer_file = tokenizer_file
         self.eos_token = eos_token
-
-        tok = Tokenizer(
-            BPE(
-                vocab=vocab_file,
-                merges=merges_file,
-                continuing_subword_prefix="",
-                end_of_word_suffix="",
-                fuse_unk=False,
-            )
-        )
-        tok.pre_tokenizer = ByteLevel(add_prefix_space=False)
-        tok.decoder = ByteLevelDecoder()
-        tok.post_processor = ByteLevelProcessor(trim_offsets=False)
-        tok.add_special_tokens([AddedToken(eos_token, special=True, normalized=False)])
-        self._tok = tok
+        self._tok = Tokenizer.from_file(tokenizer_file)
         self.eos_token_id = self._tok.token_to_id(eos_token)
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
-        """Load a GPT-2 finetune's ``vocab.json`` + ``merges.txt`` from the HF
-        ``repo`` instead of the bundled kerasformers-release default."""
         from huggingface_hub import hf_hub_download
 
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            merges_file=hf_hub_download(repo, "merges.txt"),
-            **kwargs,
-        )
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     @property
     def vocab_size(self):
@@ -100,8 +62,8 @@ class GPT2Tokenizer(BaseTokenizer):
         config = super().get_config()
         config.update(
             {
-                "vocab_file": self.vocab_file,
-                "merges_file": self.merges_file,
+                "variant": self.variant,
+                "tokenizer_file": self.tokenizer_file,
                 "eos_token": self.eos_token,
             }
         )

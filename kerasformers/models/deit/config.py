@@ -151,7 +151,7 @@ DEIT_MODEL_CONFIG = {
     },
 }
 
-DEIT_WEIGHT_CONFIG = {
+DEIT_WEIGHTS_URLS = {
     "deit_tiny_patch16_224_fb_in1k": {
         "model": "deit_tiny_patch16_224",
         "timm_id": "deit_tiny_patch16_224.fb_in1k",

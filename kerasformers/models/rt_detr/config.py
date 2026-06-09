@@ -33,7 +33,7 @@ RT_DETR_MODEL_CONFIG = {
     },
 }
 
-RT_DETR_WEIGHT_CONFIG = {
+RT_DETR_WEIGHTS_URLS = {
     "rtdetr-r18vd": {
         "model": "rtdetrv1_r18",
         "url": "https://github.com/IMvision12/KerasFormers/releases/download/rt-detr/rt_detr_r18vd.weights.h5",

@@ -5,7 +5,7 @@ INCEPTION_RESNETV2_MODEL_CONFIG = {
     },
 }
 
-INCEPTION_RESNETV2_WEIGHT_CONFIG = {
+INCEPTION_RESNETV2_WEIGHTS_URLS = {
     "inception_resnet_v2_tf_in1k": {
         "model": "inception_resnet_v2",
         "timm_id": "inception_resnet_v2.tf_in1k",

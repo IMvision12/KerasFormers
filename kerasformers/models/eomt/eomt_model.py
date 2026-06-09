@@ -5,7 +5,7 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
 from kerasformers.utils import standardize_input_shape
 
-from .config import EOMT_CONFIG, EOMT_WEIGHTS
+from .config import EOMT_CONFIG, EOMT_WEIGHTS_URLS
 from .eomt_layers import (
     EoMTAttention,
     EoMTEmbeddings,
@@ -515,7 +515,7 @@ class EoMTUniversalSegment(FunctionalBaseModel):
     """
 
     BASE_MODEL_CONFIG = EOMT_CONFIG
-    BASE_WEIGHT_CONFIG = EOMT_WEIGHTS
+    BASE_WEIGHT_CONFIG = EOMT_WEIGHTS_URLS
     HF_MODEL_TYPE = "eomt"
 
     @classmethod
