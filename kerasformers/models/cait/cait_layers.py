@@ -116,6 +116,7 @@ class CaiTAddPositionEmbs(layers.Layer):
         grid_w,
         no_embed_class=False,
         use_distillation=False,
+        resize_mode="bilinear",
         name=None,
         **kwargs,
     ):
@@ -124,7 +125,7 @@ class CaiTAddPositionEmbs(layers.Layer):
         self.grid_w = int(grid_w)
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
-        self.resize_mode = "bilinear"
+        self.resize_mode = resize_mode
 
     def build(self, input_shape):
         if len(input_shape) != 3:
