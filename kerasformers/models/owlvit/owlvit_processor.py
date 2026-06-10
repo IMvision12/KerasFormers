@@ -3,7 +3,6 @@ from typing import List, Optional, Sequence, Union
 import keras
 
 from kerasformers.base import BaseProcessor
-from kerasformers.conversion import download_file
 from kerasformers.models.clip.clip_tokenizer import CLIPTokenizer
 from kerasformers.models.owlvit.owlvit_image_processor import OwlViTImageProcessor
 
@@ -27,10 +26,8 @@ class OwlViTProcessor(BaseProcessor):
         image_std: Per-channel normalization std.
         return_tensor: If True, return Keras tensors.
         data_format: Image data format string.
-        vocab_file: Path to the CLIP vocabulary file. If both this and
-            ``merges_file`` are ``None``, the default CLIP vocabulary
-            and merges files are downloaded.
-        merges_file: Path to the CLIP merges file.
+        tokenizer_file: Optional explicit CLIP ``tokenizer.json`` path; ``None``
+            uses the CLIP release default (OwlViT shares CLIP's BPE vocab).
         max_seq_len: Maximum tokenized text length. Defaults to ``16``
             to match the reference.
         unk_token: Unknown token. Defaults to ``"<|endoftext|>"``.
@@ -54,8 +51,7 @@ class OwlViTProcessor(BaseProcessor):
         image_std: Sequence[float] = (0.26862954, 0.26130258, 0.27577711),
         return_tensor: bool = True,
         data_format: Optional[str] = None,
-        vocab_file: Optional[str] = None,
-        merges_file: Optional[str] = None,
+        tokenizer_file: Optional[str] = None,
         max_seq_len: int = 16,
         unk_token: str = "<|endoftext|>",
         bos_token: str = "<|startoftext|>",
@@ -78,38 +74,31 @@ class OwlViTProcessor(BaseProcessor):
             return_tensor=return_tensor,
             data_format=data_format,
         )
-
-        if tokenizer is not None:
-            self.tokenizer = tokenizer
-        else:
-            if vocab_file is None or merges_file is None:
-                vocab_file = download_file(
-                    "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_vocab.json"
-                )
-                merges_file = download_file(
-                    "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_merges.txt"
-                )
-            self.tokenizer = CLIPTokenizer(
-                vocab_file=vocab_file,
-                merges_file=merges_file,
-                max_seq_len=max_seq_len,
-                unk_token=unk_token,
-                bos_token=bos_token,
-                eos_token=eos_token,
-                pad_token=pad_token,
-            )
+        self.tokenizer = tokenizer or CLIPTokenizer(
+            tokenizer_file=tokenizer_file,
+            max_seq_len=max_seq_len,
+            unk_token=unk_token,
+            bos_token=bos_token,
+            eos_token=eos_token,
+            pad_token=pad_token,
+        )
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
-        """Load a finetune's tokenizer (``vocab.json`` + ``merges.txt``) from the
-        HF ``repo`` instead of the bundled kerasformers-release default."""
+        """Load the image processor (``preprocessor_config.json``) and, when the
+        ``repo`` publishes one, its ``tokenizer.json``. The canonical OWL repos
+        ship slow tokenizer files only, and their BPE is byte-identical to
+        CLIP's — so absent a ``tokenizer.json`` the CLIP release default is the
+        faithful fallback."""
         from huggingface_hub import hf_hub_download
 
-        return cls(
-            vocab_file=hf_hub_download(repo, "vocab.json"),
-            merges_file=hf_hub_download(repo, "merges.txt"),
-            **kwargs,
-        )
+        kwargs.setdefault("image_processor", cls.IMAGE_PROCESSOR_CLS.from_hf(repo))
+        if "tokenizer_file" not in kwargs:
+            try:
+                kwargs["tokenizer_file"] = hf_hub_download(repo, "tokenizer.json")
+            except Exception:
+                pass
+        return cls(**kwargs)
 
     def call(
         self,
