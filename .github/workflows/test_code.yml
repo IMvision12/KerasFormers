@@ -59,7 +59,6 @@ jobs:
                  tests/integration/test_serialization.py \
                  tests/integration/test_model_saving.py \
                  tests/integration/test_data_formats.py \
-                 tests/processors/test_keras_processors_vs_hf.py \
                  -v --durations=20 --cov=kerasformers --cov-append \
                  -m "not slow and not gpu"
       - name: Generate coverage
@@ -99,4 +98,78 @@ jobs:
       - name: Run tokenizer parity tests
         run: |
           pytest tests/processors/test_keras_tokenizers_vs_hf.py \
+                 -v --durations=20
+
+  test-image-processors:
+    name: Test image processors (vs HF, ${{ matrix.backend }})
+    needs: lint-and-format
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [torch, tensorflow, jax]
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-${{ matrix.backend }}-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -U keras>=3.11.0 pytest
+          pip install --index-url https://download.pytorch.org/whl/cpu \
+              torch>=2.5.0 torchvision
+          pip install jax[cpu] tensorflow-cpu>=2.19.0
+          pip install sentencepiece matplotlib>=3.8.0 pillow
+          pip install huggingface_hub safetensors
+          pip install "transformers>=5.0.0"
+          pip install -e .
+      - name: Run image processor parity tests
+        run: |
+          pytest tests/processors/test_keras_image_processors_vs_hf.py \
+                 -v --durations=20
+
+  test-processors:
+    name: Test processors (vs HF, ${{ matrix.backend }})
+    needs: lint-and-format
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [torch, tensorflow, jax]
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-${{ matrix.backend }}-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -U keras>=3.11.0 pytest
+          pip install --index-url https://download.pytorch.org/whl/cpu \
+              torch>=2.5.0 torchvision
+          pip install jax[cpu] tensorflow-cpu>=2.19.0
+          pip install sentencepiece matplotlib>=3.8.0 pillow
+          pip install huggingface_hub safetensors
+          pip install "transformers>=5.0.0"
+          pip install -e .
+      - name: Run processor parity tests
+        run: |
+          pytest tests/processors/test_keras_processors_vs_hf.py \
                  -v --durations=20

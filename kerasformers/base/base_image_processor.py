@@ -4,17 +4,38 @@ from keras import ops
 from kerasformers.base.base_mixin import PreprocessorMixin
 from kerasformers.utils.image_util import get_data_format, load_image
 
+PIL_RESAMPLE_TO_INTERPOLATION = {0: "nearest", 2: "bilinear", 3: "bicubic"}
+
+HF_PREPROCESSOR_DIRECT_PARAMS = (
+    "do_resize",
+    "do_center_crop",
+    "do_rescale",
+    "do_normalize",
+    "do_pad",
+    "do_convert_rgb",
+    "do_flip_channel_order",
+    "rescale_factor",
+)
+
 
 class BaseImageProcessor(PreprocessorMixin):
     """Abstract base for kerasformers image preprocessors.
 
     Subclasses implement ``call(images)`` returning the model-ready pixel tensor
     (or a dict that includes one). The loading API (``from_weights`` /
-    ``from_release`` / ``from_hf``) and the ``__call__`` -> ``call`` forwarder are
-    inherited from :class:`PreprocessorMixin`. Concrete subclasses define
-    their own constructor kwargs (resolution, normalization stats, interpolation
-    mode, patch size, …) and ``get_config`` payload — the base bakes in no
-    defaults.
+    ``from_release``) and the ``__call__`` -> ``call`` forwarder are inherited
+    from :class:`PreprocessorMixin`; ``from_hf`` is overridden here to map the
+    repo's ``preprocessor_config.json`` onto whatever constructor params the
+    subclass exposes — ``image_mean`` / ``image_std`` (also as ``mean`` / ``std``),
+    ``size`` / ``crop_size`` (any HF form — int, ``[h, w]``, ``height``/``width``,
+    ``shortest_edge``/``longest_edge`` — reshaped to the form the subclass's own
+    default uses, or reduced to a scalar for ``image_resolution`` /
+    ``target_size`` / ``target_length``), ``resample`` (PIL code -> keras
+    interpolation name) and the ``do_*`` / ``rescale_factor`` passthroughs.
+    Explicit caller kwargs always win; a missing config falls back to the
+    subclass defaults. Concrete subclasses define their own constructor kwargs
+    (resolution, normalization stats, interpolation mode, patch size, …) and
+    ``get_config`` payload — the base bakes in no defaults.
 
     Provides backend-agnostic (``keras.ops``) building blocks shared by the pixel
     pipelines so processors don't re-derive them: the dtype/channel atoms
@@ -45,13 +66,25 @@ class BaseImageProcessor(PreprocessorMixin):
     @classmethod
     def from_hf(cls, repo, **kwargs):
         import inspect
+        import json
 
         params = set(inspect.signature(cls).parameters)
-        if not (params & {"image_resolution", "mean", "std"}):
+        mappable = params & {
+            "mean",
+            "std",
+            "image_mean",
+            "image_std",
+            "image_resolution",
+            "target_size",
+            "target_length",
+            "size",
+            "crop_size",
+            "resample",
+            *HF_PREPROCESSOR_DIRECT_PARAMS,
+        }
+        if not mappable:
             return cls(**kwargs)
         try:
-            import json
-
             from huggingface_hub import hf_hub_download
 
             with open(
@@ -60,20 +93,124 @@ class BaseImageProcessor(PreprocessorMixin):
                 hf = json.load(f)
         except Exception:
             return cls(**kwargs)
-        if "mean" in params and "image_mean" in hf:
-            kwargs.setdefault("mean", hf["image_mean"])
-        if "std" in params and "image_std" in hf:
-            kwargs.setdefault("std", hf["image_std"])
-        if "image_resolution" in params and "size" in hf:
-            size = hf["size"]
-            res = (
-                size
-                if isinstance(size, int)
-                else size.get("shortest_edge") or size.get("height")
+
+        for param, key in (
+            ("mean", "image_mean"),
+            ("std", "image_std"),
+            ("image_mean", "image_mean"),
+            ("image_std", "image_std"),
+        ):
+            if param in params and hf.get(key) is not None:
+                kwargs.setdefault(param, hf[key])
+
+        size = cls.normalize_hf_size(hf.get("size"))
+        crop_size = cls.normalize_hf_size(hf.get("crop_size"))
+        # When the HF pipeline center-crops, ``size`` is only the pre-crop
+        # resize and ``crop_size`` is what actually reaches the model — so a
+        # class with a single size knob must take the crop, not the resize.
+        # Classes exposing both ``size`` and ``crop_size`` mirror HF directly.
+        if crop_size is not None and hf.get("do_center_crop", True):
+            final_size = crop_size
+        else:
+            final_size = size
+        if final_size is not None:
+            if "image_resolution" in params:
+                kwargs.setdefault("image_resolution", final_size["shortest_edge"])
+            if "target_size" in params:
+                kwargs.setdefault("target_size", final_size["shortest_edge"])
+            if "target_length" in params:
+                kwargs.setdefault("target_length", final_size["longest_edge"])
+        size_for_param = size if "crop_size" in params else final_size
+        if ("size" in params and size_for_param is not None) or (
+            "crop_size" in params and crop_size is not None
+        ):
+            try:
+                probe = cls()
+            except Exception:
+                probe = None
+            if probe is not None:
+                if "size" in params and size_for_param is not None:
+                    shaped = cls.shape_hf_size_like(
+                        size_for_param, getattr(probe, "size", None)
+                    )
+                    if shaped is not None:
+                        kwargs.setdefault("size", shaped)
+                if "crop_size" in params and crop_size is not None:
+                    shaped = cls.shape_hf_size_like(
+                        crop_size, getattr(probe, "crop_size", None)
+                    )
+                    if shaped is not None:
+                        kwargs.setdefault("crop_size", shaped)
+
+        if "resample" in params and hf.get("resample") is not None:
+            resample = hf["resample"]
+            interpolation = (
+                resample
+                if isinstance(resample, str)
+                else PIL_RESAMPLE_TO_INTERPOLATION.get(resample)
             )
-            if res is not None:
-                kwargs.setdefault("image_resolution", res)
+            if interpolation is not None:
+                kwargs.setdefault("resample", interpolation)
+
+        for param in HF_PREPROCESSOR_DIRECT_PARAMS:
+            if param in params and hf.get(param) is not None:
+                kwargs.setdefault(param, hf[param])
+
         return cls(**kwargs)
+
+    @staticmethod
+    def normalize_hf_size(value):
+        if value is None or isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            edge = int(value)
+            return {
+                "height": edge,
+                "width": edge,
+                "shortest_edge": edge,
+                "longest_edge": edge,
+            }
+        if isinstance(value, (list, tuple)) and len(value) == 2:
+            height, width = int(value[0]), int(value[1])
+            return {
+                "height": height,
+                "width": width,
+                "shortest_edge": min(height, width),
+                "longest_edge": max(height, width),
+            }
+        if isinstance(value, dict):
+            out = {
+                k: int(v)
+                for k, v in value.items()
+                if isinstance(v, (int, float)) and not isinstance(v, bool)
+            }
+            height, width = out.get("height"), out.get("width")
+            shortest, longest = out.get("shortest_edge"), out.get("longest_edge")
+            if height is not None and width is not None:
+                out.setdefault("shortest_edge", min(height, width))
+                out.setdefault("longest_edge", max(height, width))
+            elif shortest is not None:
+                out.setdefault("height", shortest)
+                out.setdefault("width", shortest)
+                out.setdefault("longest_edge", shortest)
+            elif longest is not None:
+                out.setdefault("height", longest)
+                out.setdefault("width", longest)
+                out.setdefault("shortest_edge", longest)
+            else:
+                return None
+            return out
+        return None
+
+    @staticmethod
+    def shape_hf_size_like(canonical, template):
+        if isinstance(template, dict):
+            if all(k in canonical for k in template):
+                return {k: canonical[k] for k in template}
+            return None
+        if isinstance(template, (int, float)) and not isinstance(template, bool):
+            return canonical["shortest_edge"]
+        return None
 
     @staticmethod
     def to_3_channels(image):

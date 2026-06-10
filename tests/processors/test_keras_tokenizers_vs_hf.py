@@ -9,11 +9,6 @@ transformers = pytest.importorskip("transformers")
 
 from transformers import AutoTokenizer
 
-# Tokenization is backend-independent: the text -> id mapping is done by the Rust
-# ``tokenizers`` library / ``sentencepiece``, and the only Keras touchpoint is the
-# final ``ops.convert_to_tensor``, whose integer values are identical on
-# torch / tensorflow / jax. So these run on a single backend and compare numpy.
-
 TEXTS = [
     "a quick brown fox jumps over the lazy dog",
     "Hello, World!",
@@ -84,17 +79,26 @@ def _assert_rows(name, ours_rows, hf_rows):
         )
 
 
-def _build(module, cls_name, repo):
-    """Construct the kerasformers tokenizer directly (validates the shipped
-    release vocab); fall back to ``from_hf(repo)`` if the release isn't
-    available so the parity check still runs."""
+def _build_legs(module, cls_name, repo):
+    """Both kerasformers construction paths, compared against HF independently:
+    ``native`` = ``cls()`` (the shipped release tokenizer.json / class
+    defaults, i.e. what ``from_weights(variant)`` uses) and ``from_hf`` =
+    ``cls.from_hf(repo)`` (files pulled from the HF repo). A leg that fails to
+    BUILD is recorded (a release asset or repo file may legitimately be
+    absent — e.g. deberta repos publish no tokenizer.json); only a built leg
+    with mismatched ids fails the test."""
     cls = getattr(importlib.import_module(module), cls_name)
+    legs = []
     try:
-        return cls()
-    except Exception:
-        if repo and hasattr(cls, "from_hf"):
-            return cls.from_hf(repo)
-        raise
+        legs.append(("native", cls()))
+    except Exception as e:
+        legs.append(("native", e))
+    if repo and hasattr(cls, "from_hf"):
+        try:
+            legs.append(("from_hf", cls.from_hf(repo)))
+        except Exception as e:
+            legs.append(("from_hf", e))
+    return legs
 
 
 # name -> (submodule, class, hf_repo | None=use ours.hf_id, add_special, pad_attr)
@@ -268,12 +272,13 @@ def test_tokenizer_hf_parity(name):
     if name == "metaclip2_mt5":
         pytest.skip("MetaCLIP2 mT5 text tokenizer: HF source repo not pinned")
     module, cls_name, repo, add_special, pad_attr = SPECS[name]
-    try:
-        ours_tok = _build(module, cls_name, repo)
-    except Exception as e:  # release not uploaded and no HF fallback
-        pytest.skip(f"cannot construct {name}: {type(e).__name__}: {e}")
+    legs = _build_legs(module, cls_name, repo)
+    built = [(leg, tok) for leg, tok in legs if not isinstance(tok, Exception)]
+    if not built:
+        notes = "; ".join(f"{leg}: {type(e).__name__}: {e}" for leg, e in legs)
+        pytest.skip(f"cannot construct {name} on any path ({notes})")
 
-    hf_repo = repo or getattr(ours_tok, "hf_id", None)
+    hf_repo = repo or getattr(built[0][1], "hf_id", None)
     if hf_repo is None:
         pytest.skip(f"{name}: no HF repo to compare against")
     try:
@@ -281,29 +286,30 @@ def test_tokenizer_hf_parity(name):
     except Exception as e:
         pytest.skip(f"{name}: HF tokenizer for {hf_repo!r} unavailable: {e}")
 
-    if name == "siglip":
-        # SigLIP's pad id == eos id and there's no attention mask, so stripping
-        # pads by value would drop the real trailing eos. Compare full padded
-        # arrays instead (HF padded to the same length).
-        ours_ids = _np(ours_tok(TEXTS)["input_ids"])
-        hf_ids = _np(
-            hf(
-                TEXTS,
-                padding="max_length",
-                max_length=ours_ids.shape[1],
-                add_special_tokens=add_special,
-                return_tensors="np",
-            )["input_ids"]
-        )
-        assert ours_ids.shape == hf_ids.shape and np.array_equal(ours_ids, hf_ids), (
-            "siglip: padded input_ids differ from HF"
-        )
-        return
+    for leg, ours_tok in built:
+        if name == "siglip":
+            # SigLIP's pad id == eos id and there's no attention mask, so
+            # stripping pads by value would drop the real trailing eos. Compare
+            # full padded arrays instead (HF padded to the same length).
+            ours_ids = _np(ours_tok(TEXTS)["input_ids"])
+            hf_ids = _np(
+                hf(
+                    TEXTS,
+                    padding="max_length",
+                    max_length=ours_ids.shape[1],
+                    add_special_tokens=add_special,
+                    return_tensors="np",
+                )["input_ids"]
+            )
+            assert ours_ids.shape == hf_ids.shape and np.array_equal(
+                ours_ids, hf_ids
+            ), f"{name}[{leg}]: padded input_ids differ from HF"
+            continue
 
-    pad_id = getattr(ours_tok, pad_attr) if pad_attr else None
-    ours_rows = _to_rows(ours_tok(TEXTS), pad_id)
-    hf_rows = _hf_rows(hf, add_special)
-    _assert_rows(name, ours_rows, hf_rows)
+        pad_id = getattr(ours_tok, pad_attr) if pad_attr else None
+        ours_rows = _to_rows(ours_tok(TEXTS), pad_id)
+        hf_rows = _hf_rows(hf, add_special)
+        _assert_rows(f"{name}[{leg}]", ours_rows, hf_rows)
 
 
 def test_sam3_clip_tokenizer_vs_clip():
