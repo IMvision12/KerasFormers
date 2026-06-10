@@ -34,9 +34,6 @@ classifiers = [
         'Intended Audience :: Education',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Topic :: Scientific/Engineering',
@@ -46,7 +43,16 @@ classifiers = [
         'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 dynamic = ["version"]
-dependencies = ["keras", "huggingface_hub", "safetensors"]
+dependencies = [
+    "keras>=3.11.0",
+    "huggingface_hub",
+    "safetensors",
+    "numpy",
+    "pillow",
+    "matplotlib>=3.8.0",
+    "tokenizers",
+    "sentencepiece",
+]
 
 [project.optional-dependencies]
 test = [
