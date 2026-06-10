@@ -21,6 +21,7 @@ def _get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, 
     return int(orig_h * scale), int(orig_w * scale)
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class EoMTImageProcessor(BaseImageProcessor):
     """Preprocess images for EoMT inference.
 

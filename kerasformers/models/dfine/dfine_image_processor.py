@@ -18,6 +18,7 @@ _PIL_RESAMPLE = {
 }
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class DFineImageProcessor(BaseImageProcessor):
     """Preprocess images for D-FINE inference.
 

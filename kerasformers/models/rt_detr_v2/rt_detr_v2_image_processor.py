@@ -8,6 +8,7 @@ from kerasformers.base import BaseImageProcessor
 from kerasformers.utils.labels_util import COCO_80_CLASSES
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class RTDETRV2ImageProcessor(BaseImageProcessor):
     """Preprocess images for RT-DETRv2 inference.
 

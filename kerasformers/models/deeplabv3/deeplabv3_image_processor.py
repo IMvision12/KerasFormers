@@ -9,6 +9,7 @@ from kerasformers.utils.image_util import get_data_format
 from kerasformers.utils.labels_util import PASCAL_VOC_CLASSES
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class DeepLabV3ImageProcessor(BaseImageProcessor):
     """Preprocess images for DeepLabV3 inference.
 

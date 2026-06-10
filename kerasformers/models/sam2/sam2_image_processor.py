@@ -17,6 +17,7 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class SAM2ImageProcessor(BaseImageProcessor):
     """Preprocess images for Sam2 inference.
 
@@ -110,6 +111,7 @@ class SAM2ImageProcessor(BaseImageProcessor):
         )
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class SAM2ImageProcessorWithPrompts(SAM2ImageProcessor):
     """Preprocess an image plus optional point prompts for Sam2 inference.
 

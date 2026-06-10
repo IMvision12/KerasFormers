@@ -23,6 +23,7 @@ def _get_preprocess_shape(
     return new_h, new_w
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class SAMImageProcessor(BaseImageProcessor):
     """Preprocess images for SAM inference.
 
@@ -118,6 +119,7 @@ class SAMImageProcessor(BaseImageProcessor):
         )
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class SAMImageProcessorWithPrompts(SAMImageProcessor):
     """Preprocess an image plus optional prompts for SAM inference.
 

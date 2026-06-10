@@ -1,3 +1,4 @@
+import keras
 import numpy as np
 from tokenizers import Tokenizer
 
@@ -12,6 +13,7 @@ SAM3_EOS_TOKEN_ID = 49407
 SAM3_PAD_TOKEN_ID = 49407
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class SAM3CLIPTokenizer(BaseTokenizer):
     """BPE tokenizer for SAM3's CLIP text encoder (max_seq_len=32).
 

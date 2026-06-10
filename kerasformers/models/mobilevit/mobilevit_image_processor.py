@@ -9,6 +9,7 @@ from kerasformers.utils.image_util import get_data_format, load_image
 from kerasformers.utils.labels_util import PASCAL_VOC_CLASSES
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class MobileViTImageProcessor(BaseImageProcessor):
     """Preprocess images for MobileViT (V1 / V2) inference.
 

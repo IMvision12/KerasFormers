@@ -1,8 +1,11 @@
+import keras
+
 from kerasformers.models.mobilevit.mobilevit_image_processor import (
     MobileViTImageProcessor,
 )
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class MobileViTV2ImageProcessor(MobileViTImageProcessor):
     """Preprocess images for MobileViTV2 inference.
 

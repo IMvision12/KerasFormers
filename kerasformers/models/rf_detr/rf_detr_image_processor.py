@@ -8,6 +8,7 @@ from kerasformers.base import BaseImageProcessor
 from kerasformers.utils.labels_util import COCO_91_CLASSES
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class RFDETRImageProcessor(BaseImageProcessor):
     """Preprocess images for RF-DETR inference.
 
