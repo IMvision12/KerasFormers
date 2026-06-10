@@ -48,7 +48,7 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | Qwen2 | [Qwen2 Technical Report](https://arxiv.org/abs/2407.10671) | `transformers` |
     | Qwen3 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | `transformers` |
     | Qwen3.5 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | `transformers` |
-    | GPT-OSS | [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) | on-the-fly `hf:` |
+    | GPT-OSS | [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) | `transformers` |
     | GPT | [Improving Language Understanding by Generative Pre-Training](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf) | `transformers` |
     | GPT-2 | [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | `transformers` |
 
