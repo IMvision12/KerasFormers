@@ -30,6 +30,8 @@ Example:
 from __future__ import annotations
 
 import contextlib
+import re
+from collections import Counter
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
@@ -555,10 +557,10 @@ def copy_weights_by_path_suffix(src, dst):
         shape mismatch) — e.g. a task head absent from the source checkpoint.
     """
 
-    from collections import Counter
-
     def suffix(w):
-        return "/".join(w.path.split("/")[-2:])
+        parts = w.path.split("/")[-2:]
+        parts[-1] = re.sub(r"_\d+$", "", parts[-1])
+        return "/".join(parts)
 
     src_counts = Counter(suffix(w) for w in src.weights)
 

@@ -995,6 +995,53 @@ class SAM3Model(FunctionalBaseModel):
     HF_MODEL_TYPE = "sam3"
 
     @classmethod
+    def config_from_hf(cls, hf_config):
+        vision = hf_config["vision_config"]
+        bb = vision["backbone_config"]
+        text = hf_config["text_config"]
+        geometry = hf_config["geometry_encoder_config"]
+        encoder = hf_config["detr_encoder_config"]
+        decoder = hf_config["detr_decoder_config"]
+        mask_decoder = hf_config["mask_decoder_config"]
+        return {
+            "vit_hidden_size": bb["hidden_size"],
+            "vit_intermediate_size": bb["intermediate_size"],
+            "vit_num_hidden_layers": bb["num_hidden_layers"],
+            "vit_num_attention_heads": bb["num_attention_heads"],
+            "vit_image_size": bb["image_size"],
+            "vit_patch_size": bb["patch_size"],
+            "vit_window_size": bb["window_size"],
+            "vit_global_attn_indexes": list(bb["global_attn_indexes"]),
+            "vit_rope_theta": bb.get("rope_theta", 10000.0),
+            "vit_pretrain_image_size": bb.get("pretrain_image_size", 336),
+            "fpn_hidden_size": vision["fpn_hidden_size"],
+            "fpn_scale_factors": list(vision["scale_factors"]),
+            "geometry_hidden_size": geometry["hidden_size"],
+            "geometry_num_layers": geometry["num_layers"],
+            "geometry_num_attention_heads": geometry["num_attention_heads"],
+            "geometry_intermediate_size": geometry["intermediate_size"],
+            "geometry_dropout": geometry.get("dropout", 0.1),
+            "geometry_roi_size": geometry.get("roi_size", 7),
+            "detr_encoder_hidden_size": encoder["hidden_size"],
+            "detr_encoder_num_layers": encoder["num_layers"],
+            "detr_encoder_num_attention_heads": encoder["num_attention_heads"],
+            "detr_encoder_intermediate_size": encoder["intermediate_size"],
+            "detr_encoder_dropout": encoder.get("dropout", 0.1),
+            "detr_decoder_hidden_size": decoder["hidden_size"],
+            "detr_decoder_num_layers": decoder["num_layers"],
+            "detr_decoder_num_queries": decoder["num_queries"],
+            "detr_decoder_num_attention_heads": decoder["num_attention_heads"],
+            "detr_decoder_intermediate_size": decoder["intermediate_size"],
+            "detr_decoder_dropout": decoder.get("dropout", 0.1),
+            "mask_decoder_hidden_size": mask_decoder["hidden_size"],
+            "mask_decoder_num_upsampling_stages": mask_decoder["num_upsampling_stages"],
+            "mask_decoder_num_attention_heads": mask_decoder["num_attention_heads"],
+            "text_hidden_size": text["hidden_size"],
+            "text_projection_dim": text["projection_dim"],
+            "image_size": bb["image_size"],
+        }
+
+    @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
         from .convert_sam3_hf_to_keras import transfer_sam3_weights
 

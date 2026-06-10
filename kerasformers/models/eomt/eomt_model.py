@@ -3,6 +3,7 @@ from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
 from .config import EOMT_CONFIG, EOMT_WEIGHTS_URLS
@@ -395,6 +396,37 @@ class EoMTModel(FunctionalBaseModel):
     BASE_MODEL_CONFIG = EOMT_CONFIG
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "eomt"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "hidden_dim": hf_config["hidden_size"],
+            "num_hidden_layers": hf_config["num_hidden_layers"],
+            "num_heads": hf_config["num_attention_heads"],
+            "depths": hf_config["num_blocks"],
+            "num_queries": hf_config["num_queries"],
+            "layerscale_value": hf_config.get("layerscale_value", 1.0),
+            "patch_size": hf_config.get("patch_size", 16),
+            "num_register_tokens": hf_config.get("num_register_tokens", 4),
+            "mlp_ratio": hf_config.get("mlp_ratio", 4),
+            "use_swiglu_ffn": hf_config.get("use_swiglu_ffn", False),
+            "image_size": hf_config.get("image_size", 640),
+        }
+
+    @classmethod
+    def from_hf(cls, hf_id, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_hf(hf_id, load_weights=False, **kwargs)
+        if load_weights:
+            src = EoMTUniversalSegment.from_hf(hf_id, skip_mismatch=skip_mismatch)
+            unmatched = copy_weights_by_path_suffix(src, model)
+            if unmatched and not skip_mismatch:
+                raise ValueError(
+                    f"{cls.__name__}.from_hf: {len(unmatched)} weight(s) not "
+                    f"matched from the {type(src).__name__} checkpoint: "
+                    f"{unmatched[:5]}"
+                )
+            del src
+        return model
 
     def __init__(
         self,

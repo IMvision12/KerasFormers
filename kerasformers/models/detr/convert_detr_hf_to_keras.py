@@ -31,6 +31,10 @@ backbone_weight_name_mapping: Dict[str, str] = {
 
 
 def transfer_detr_weights(keras_model, state_dict):
+    state_dict = {
+        k.replace("model.backbone.conv_encoder.model.", "model.backbone.model."): v
+        for k, v in state_dict.items()
+    }
     backbone_layers = [
         layer for layer in keras_model.layers if layer.name.startswith("backbone_")
     ]

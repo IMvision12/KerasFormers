@@ -3,6 +3,7 @@ from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
 from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHTS_URLS
@@ -1249,6 +1250,21 @@ class RTDetrModel(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return RTDETRDetect.config_from_hf(hf_config)
 
+    @classmethod
+    def from_hf(cls, hf_id, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_hf(hf_id, load_weights=False, **kwargs)
+        if load_weights:
+            src = RTDETRDetect.from_hf(hf_id, skip_mismatch=skip_mismatch)
+            unmatched = copy_weights_by_path_suffix(src, model)
+            if unmatched and not skip_mismatch:
+                raise ValueError(
+                    f"{cls.__name__}.from_hf: {len(unmatched)} weight(s) not "
+                    f"matched from the {type(src).__name__} checkpoint: "
+                    f"{unmatched[:5]}"
+                )
+            del src
+        return model
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class RTDETRDetect(FunctionalBaseModel):
@@ -1442,30 +1458,40 @@ class RTDETRDetect(FunctionalBaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
+        # Hub config.json files omit defaulted keys (e.g. rtdetr_r18vd ships
+        # without num_attention_heads); fall back to the RTDetrConfig defaults.
         bb = hf_config["backbone_config"]
         return {
-            "backbone_hidden_sizes": tuple(bb["hidden_sizes"]),
-            "backbone_block_repeats": tuple(bb["depths"]),
-            "backbone_embedding_size": bb["embedding_size"],
-            "backbone_layer_type": bb["layer_type"],
-            "encoder_in_channels": tuple(hf_config["encoder_in_channels"]),
-            "encoder_hidden_dim": hf_config["encoder_hidden_dim"],
-            "encoder_num_layers": hf_config["encoder_layers"],
-            "encoder_ffn_dim": hf_config["encoder_ffn_dim"],
-            "encoder_num_heads": hf_config["num_attention_heads"],
-            "encode_proj_layers": tuple(hf_config["encode_proj_layers"]),
-            "encoder_activation_function": hf_config["encoder_activation_function"],
-            "activation_function": hf_config["activation_function"],
-            "hidden_expansion": hf_config["hidden_expansion"],
-            "hidden_dim": hf_config["d_model"],
-            "decoder_num_layers": hf_config["decoder_layers"],
-            "decoder_ffn_dim": hf_config["decoder_ffn_dim"],
-            "decoder_num_heads": hf_config["decoder_attention_heads"],
-            "decoder_n_points": hf_config["decoder_n_points"],
-            "decoder_activation_function": hf_config["decoder_activation_function"],
-            "num_feature_levels": hf_config["num_feature_levels"],
-            "feat_strides": tuple(hf_config["feat_strides"]),
-            "num_queries": hf_config["num_queries"],
+            "backbone_hidden_sizes": tuple(
+                bb.get("hidden_sizes", (256, 512, 1024, 2048))
+            ),
+            "backbone_block_repeats": tuple(bb.get("depths", (3, 4, 6, 3))),
+            "backbone_embedding_size": bb.get("embedding_size", 64),
+            "backbone_layer_type": bb.get("layer_type", "bottleneck"),
+            "encoder_in_channels": tuple(
+                hf_config.get("encoder_in_channels", (512, 1024, 2048))
+            ),
+            "encoder_hidden_dim": hf_config.get("encoder_hidden_dim", 256),
+            "encoder_num_layers": hf_config.get("encoder_layers", 1),
+            "encoder_ffn_dim": hf_config.get("encoder_ffn_dim", 1024),
+            "encoder_num_heads": hf_config.get("num_attention_heads", 8),
+            "encode_proj_layers": tuple(hf_config.get("encode_proj_layers", (2,))),
+            "encoder_activation_function": hf_config.get(
+                "encoder_activation_function", "gelu"
+            ),
+            "activation_function": hf_config.get("activation_function", "silu"),
+            "hidden_expansion": hf_config.get("hidden_expansion", 1.0),
+            "hidden_dim": hf_config.get("d_model", 256),
+            "decoder_num_layers": hf_config.get("decoder_layers", 6),
+            "decoder_ffn_dim": hf_config.get("decoder_ffn_dim", 1024),
+            "decoder_num_heads": hf_config.get("decoder_attention_heads", 8),
+            "decoder_n_points": hf_config.get("decoder_n_points", 4),
+            "decoder_activation_function": hf_config.get(
+                "decoder_activation_function", "relu"
+            ),
+            "num_feature_levels": hf_config.get("num_feature_levels", 3),
+            "feat_strides": tuple(hf_config.get("feat_strides", (8, 16, 32))),
+            "num_queries": hf_config.get("num_queries", 300),
             "num_classes": hf_num_classes(hf_config),
         }
 
