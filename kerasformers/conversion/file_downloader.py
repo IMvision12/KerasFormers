@@ -58,6 +58,7 @@ def download_file(
             cache_dir=str(cache_dir),
             cache_subdir="",
             extract=False,
+            force_download=force_download,
         )
         return file_path
     except Exception as e:
