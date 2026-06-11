@@ -7,13 +7,13 @@ from kerasformers.base import BaseAudioFeatureExtractor
 _EPSILON = float(np.finfo(np.float32).eps)
 
 
-def _povey_window(frame_length: int) -> np.ndarray:
+def povey_window(frame_length: int) -> np.ndarray:
     n = np.arange(frame_length)
     hann = 0.5 - 0.5 * np.cos(2.0 * np.pi * n / (frame_length - 1))
     return np.power(hann, 0.85).astype(np.float32)
 
 
-def _kaldi_mel_banks(
+def kaldi_mel_banks(
     num_bins: int,
     n_fft: int,
     sample_freq: int,
@@ -92,8 +92,8 @@ class Speech2TextFeatureExtractor(BaseAudioFeatureExtractor):
         while self.n_fft < self.frame_length:
             self.n_fft *= 2
 
-        self.window = _povey_window(self.frame_length)
-        self.mel_banks = _kaldi_mel_banks(num_mel_bins, self.n_fft, sampling_rate)
+        self.window = povey_window(self.frame_length)
+        self.mel_banks = kaldi_mel_banks(num_mel_bins, self.n_fft, sampling_rate)
 
     def _fbank(self, wave: np.ndarray):
         wave = np.asarray(wave, dtype=np.float32) * (2.0**15)

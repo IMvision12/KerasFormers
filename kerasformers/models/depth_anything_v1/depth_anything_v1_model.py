@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.vit.vit_layers import (
     ViTAddPositionEmbs,
     ViTClassDistToken,
@@ -665,6 +666,37 @@ class DepthAnythingV1Model(FunctionalBaseModel):
     BASE_MODEL_CONFIG = DEPTHANYTHINGV1_CONFIG
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "depth_anything"
+
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        bb = hf_config["backbone_config"]
+        out_indices = list(bb["out_indices"])
+        return {
+            "backbone_dim": bb["hidden_size"],
+            "backbone_depth": bb.get("num_hidden_layers", max(out_indices)),
+            "backbone_num_heads": bb["num_attention_heads"],
+            "out_indices": out_indices,
+            "neck_hidden_sizes": list(hf_config["neck_hidden_sizes"]),
+            "fusion_hidden_size": hf_config["fusion_hidden_size"],
+            "reassemble_factors": list(hf_config["reassemble_factors"]),
+        }
+
+    @classmethod
+    def from_hf(cls, hf_id, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_hf(hf_id, load_weights=False, **kwargs)
+        if load_weights:
+            src = DepthAnythingV1DepthEstimation.from_hf(
+                hf_id, skip_mismatch=skip_mismatch
+            )
+            unmatched = copy_weights_by_path_suffix(src, model)
+            if unmatched and not skip_mismatch:
+                raise ValueError(
+                    f"{cls.__name__}.from_hf: {len(unmatched)} weight(s) not "
+                    f"matched from the {type(src).__name__} checkpoint: "
+                    f"{unmatched[:5]}"
+                )
+            del src
+        return model
 
     def __init__(
         self,

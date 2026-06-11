@@ -49,7 +49,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 }
 
 
-def _build_block_index_remap(last_stage_depth: int, num_vit: int) -> Dict[str, str]:
+def build_block_index_remap(last_stage_depth: int, num_vit: int) -> Dict[str, str]:
     if num_vit == 0:
         return {}
     first_vit_keras = max(0, last_stage_depth - num_vit)
@@ -63,7 +63,7 @@ def transfer_efficientformer_weights(
     keras_model,
     state_dict: Dict[str, np.ndarray],
 ) -> None:
-    block_remap = _build_block_index_remap(
+    block_remap = build_block_index_remap(
         last_stage_depth=keras_model.depths[-1],
         num_vit=keras_model.num_vit,
     )

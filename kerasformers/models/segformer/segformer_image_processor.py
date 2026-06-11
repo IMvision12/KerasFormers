@@ -9,6 +9,7 @@ from kerasformers.utils.image_util import get_data_format
 from kerasformers.utils.labels_util import ADE20K_150_CLASSES
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class SegFormerImageProcessor(BaseImageProcessor):
     """Image preprocessing for SegFormer using Keras ops.
 

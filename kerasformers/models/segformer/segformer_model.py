@@ -3,6 +3,7 @@ from keras import layers
 
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.mit.mit_model import MiTModel
 from kerasformers.utils import standardize_input_shape
 
@@ -128,6 +129,28 @@ class SegFormerModel(FunctionalBaseModel):
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "segformer"
 
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return {
+            "embed_dim": list(hf_config["hidden_sizes"]),
+            "depths": list(hf_config["depths"]),
+        }
+
+    @classmethod
+    def from_hf(cls, hf_id, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_hf(hf_id, load_weights=False, **kwargs)
+        if load_weights:
+            src = SegFormerSemanticSegment.from_hf(hf_id, skip_mismatch=skip_mismatch)
+            unmatched = copy_weights_by_path_suffix(src, model)
+            if unmatched and not skip_mismatch:
+                raise ValueError(
+                    f"{cls.__name__}.from_hf: {len(unmatched)} weight(s) not "
+                    f"matched from the {type(src).__name__} checkpoint: "
+                    f"{unmatched[:5]}"
+                )
+            del src
+        return model
+
     def __init__(
         self,
         embed_dim=None,
@@ -222,13 +245,14 @@ class SegFormerSemanticSegment(FunctionalBaseModel):
 
     @classmethod
     def config_from_hf(cls, hf_config):
-        image_size = hf_config.get("image_size", 512)
+        # SegformerConfig.image_size is a vestigial 224 default unrelated to the
+        # checkpoint's training resolution — keep the class default (override
+        # with an explicit image_size kwarg if needed).
         return {
             "embed_dim": list(hf_config["hidden_sizes"]),
             "depths": list(hf_config["depths"]),
             "decode_head_dim": hf_config["decoder_hidden_size"],
             "num_classes": hf_num_classes(hf_config),
-            "image_size": image_size,
         }
 
     @classmethod

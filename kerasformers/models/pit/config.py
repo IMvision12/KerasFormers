@@ -1,5 +1,3 @@
-"""PiT variant registry (timm-ported)."""
-
 PIT_MODEL_CONFIG = {
     "pit_xs": {
         "patch_size": 16,

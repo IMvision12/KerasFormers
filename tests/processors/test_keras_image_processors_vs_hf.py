@@ -299,9 +299,6 @@ PROCESSORS = {
 @pytest.mark.parametrize("data_format", DATA_FORMATS)
 @pytest.mark.parametrize("name", list(PROCESSORS.keys()))
 def test_image_processor_photo_parity(name, data_format):
-    """Real-photo run with hand-matched HF configs: exercises the full pixel
-    pipeline including resize, with loose per-family tolerances because the
-    PIL and keras resampling kernels differ."""
     skip_if_tf_cpu_channels_first(data_format)
     runner, threshold = PROCESSORS[name]
     ours, hf = runner(data_format)

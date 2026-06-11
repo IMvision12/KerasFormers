@@ -54,7 +54,7 @@ ATTN_NAME_REPLACE = {
 }
 
 
-def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+def strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
     if not any(k.startswith("model.") for k in state_dict):
         return state_dict
     out = {}
@@ -67,7 +67,7 @@ def _strip_model_prefix(state_dict: Dict[str, np.ndarray]) -> Dict[str, np.ndarr
 
 
 def transfer_clip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> None:
-    state = _strip_model_prefix(hf_state_dict)
+    state = strip_model_prefix(hf_state_dict)
     trainable, non_trainable = split_model_weights(keras_model)
 
     for keras_weight, keras_weight_name in tqdm(
@@ -123,7 +123,7 @@ def transfer_clip_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
 def transfer_clip_image_classify_weights(
     keras_model, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    state = _strip_model_prefix(hf_state_dict)
+    state = strip_model_prefix(hf_state_dict)
     has_classifier = "classifier.weight" in state and "classifier.bias" in state
     trainable, non_trainable = split_model_weights(keras_model)
 

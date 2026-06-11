@@ -1,5 +1,3 @@
-"""Preprocessing and postprocessing for D-FINE object detection."""
-
 from typing import Dict, List, Optional, Tuple, Union
 
 import keras
@@ -18,6 +16,7 @@ _PIL_RESAMPLE = {
 }
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class DFineImageProcessor(BaseImageProcessor):
     """Preprocess images for D-FINE inference.
 

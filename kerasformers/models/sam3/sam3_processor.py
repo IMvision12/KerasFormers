@@ -1,9 +1,3 @@
-"""SAM3 Processor: end-to-end preprocessing, inference, and post-processing.
-
-Reproduces the Sam3 processor functionality using pure Keras 3 ops.
-Supports text prompts and box prompts for detection + segmentation.
-"""
-
 import numpy as np
 from keras import ops
 from PIL import Image

@@ -22,7 +22,7 @@ from kerasformers.models.inception_resnetv2.config import (
 )
 
 
-def _base_mappings() -> Dict[str, str]:
+def base_mappings() -> Dict[str, str]:
     return {
         "_conv": ".conv",
         "_batchnorm": ".bn",
@@ -51,7 +51,7 @@ def _base_mappings() -> Dict[str, str]:
     }
 
 
-def _generate_repeat_mappings() -> Dict[str, str]:
+def generate_repeat_mappings() -> Dict[str, str]:
     mappings: Dict[str, str] = {}
 
     for i in range(10):
@@ -80,8 +80,8 @@ def _generate_repeat_mappings() -> Dict[str, str]:
 
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
-    **_base_mappings(),
-    **_generate_repeat_mappings(),
+    **base_mappings(),
+    **generate_repeat_mappings(),
 }
 
 

@@ -9,6 +9,7 @@ from kerasformers.utils.image_util import get_data_format
 from kerasformers.utils.labels_util import PASCAL_VOC_CLASSES
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class DeepLabV3ImageProcessor(BaseImageProcessor):
     """Preprocess images for DeepLabV3 inference.
 
@@ -36,13 +37,13 @@ class DeepLabV3ImageProcessor(BaseImageProcessor):
     Example:
         ```python
         from kerasformers.models.deeplabv3 import (
-            DeepLabV3ImageProcessor, DeepLabV3ResNet50,
+            DeepLabV3ImageProcessor, DeepLabV3SemanticSegment,
         )
 
-        model = DeepLabV3ResNet50(weights="voc")
+        model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
         processor = DeepLabV3ImageProcessor()
-        img = processor("photo.jpg")
-        output = model(img, training=False)
+        pixels = processor("photo.jpg")["pixel_values"]
+        output = model(pixels, training=False)
         ```
     """
 
@@ -147,13 +148,19 @@ def deeplabv3_post_process_semantic_segmentation(
     Example:
         ```python
         from kerasformers.models.deeplabv3 import (
-            DeepLabV3ResNet50, DeepLabV3ImageProcessor, deeplabv3_post_process_semantic_segmentation,
+            DeepLabV3ImageProcessor,
+            DeepLabV3SemanticSegment,
+        )
+        from kerasformers.models.deeplabv3.deeplabv3_image_processor import (
+            deeplabv3_post_process_semantic_segmentation,
         )
 
-        model = DeepLabV3ResNet50(weights="voc")
-        img = DeepLabV3ImageProcessor("photo.jpg")
-        output = model(img, training=False)
-        result = deeplabv3_post_process_semantic_segmentation(output, target_size=(orig_h, orig_w))
+        model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
+        pixels = DeepLabV3ImageProcessor()("photo.jpg")["pixel_values"]
+        output = model(pixels, training=False)
+        result = deeplabv3_post_process_semantic_segmentation(
+            output, target_size=(orig_h, orig_w)
+        )
         print(result["class_names"])
         ```
     """

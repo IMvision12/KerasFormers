@@ -49,7 +49,7 @@ RESNET_NAME_MAPPING: Dict[str, str] = {
 }
 
 
-def _transfer_weights(keras_model, torch_state_dict, name_mapping, is_vit):
+def transfer_dino_weights(keras_model, torch_state_dict, name_mapping, is_vit):
     trainable, non_trainable = split_model_weights(keras_model)
     for keras_weight, keras_weight_name in tqdm(
         trainable + non_trainable, desc="Transferring DINO weights"
@@ -97,13 +97,15 @@ def _transfer_weights(keras_model, torch_state_dict, name_mapping, is_vit):
 def transfer_dino_vit_weights(
     keras_model: keras.Model, torch_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    _transfer_weights(keras_model, torch_state_dict, VIT_NAME_MAPPING, is_vit=True)
+    transfer_dino_weights(keras_model, torch_state_dict, VIT_NAME_MAPPING, is_vit=True)
 
 
 def transfer_dino_resnet_weights(
     keras_model: keras.Model, torch_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    _transfer_weights(keras_model, torch_state_dict, RESNET_NAME_MAPPING, is_vit=False)
+    transfer_dino_weights(
+        keras_model, torch_state_dict, RESNET_NAME_MAPPING, is_vit=False
+    )
 
 
 DINO_VIT_CONVERSION_CONFIG: List[Tuple[str, str]] = [

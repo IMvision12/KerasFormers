@@ -1,10 +1,3 @@
-"""SAM3 variant registry.
-
-Weights are gated on the model Hub (``facebook/sam3``). Loading requires
-accepting the license at https://huggingface.co/facebook/sam3 and
-authenticating with ``huggingface-cli login`` or ``HF_TOKEN``.
-"""
-
 _SAM3 = {
     "vit_hidden_size": 1024,
     "vit_intermediate_size": 4736,
@@ -45,13 +38,6 @@ _SAM3 = {
 
 SAM3_CONFIG = {
     "sam3_saco": _SAM3,
-}
-
-SAM3_TOKENIZER_URLS = {
-    # SAM3's text encoder uses the OpenAI CLIP tokenizer; reuse the clip release file.
-    "sam3_saco": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/clip/clip_vit_base_16_tokenizer.json"
-    },
 }
 
 SAM3_WEIGHTS_URLS = {

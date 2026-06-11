@@ -167,7 +167,7 @@ def load_video(
         not isinstance(video, (str, bytes, bytearray, os.PathLike))
         and hasattr(video, "__len__")
     ):
-        return _passthrough_frames(video)
+        return passthrough_frames(video)
 
     if isinstance(video, os.PathLike):
         video = os.fspath(video)
@@ -181,7 +181,7 @@ def load_video(
         file_obj: Any = io.BytesIO(bytes(video))
     elif isinstance(video, str):
         if os.path.isdir(video):
-            return _load_frame_directory(video, sample_indices_fn, **kwargs)
+            return load_frame_directory(video, sample_indices_fn, **kwargs)
         parsed = urlparse(video)
         if parsed.scheme in ("http", "https"):
             if backend == "opencv":
@@ -190,7 +190,7 @@ def load_video(
                     "backend='pyav' or backend='decord', or download the "
                     "file to disk first."
                 )
-            file_obj = _download_url(video)
+            file_obj = download_url(video)
         elif os.path.isfile(video):
             file_obj = video
         else:
@@ -209,7 +209,7 @@ def load_video(
     return decoder(file_obj, sample_indices_fn, **kwargs)
 
 
-def _passthrough_frames(video) -> Tuple[np.ndarray, VideoMetadata]:
+def passthrough_frames(video) -> Tuple[np.ndarray, VideoMetadata]:
     frames = np.asarray(video)
     if frames.ndim != 4 or frames.shape[-1] not in (1, 3, 4):
         raise ValueError(
@@ -226,14 +226,14 @@ def _passthrough_frames(video) -> Tuple[np.ndarray, VideoMetadata]:
     return frames, metadata
 
 
-def _download_url(url: str) -> io.BytesIO:
+def download_url(url: str) -> io.BytesIO:
     import urllib.request
 
     with urllib.request.urlopen(url) as response:
         return io.BytesIO(response.read())
 
 
-def _load_frame_directory(
+def load_frame_directory(
     path: str, sample_indices_fn: Callable, **kwargs
 ) -> Tuple[np.ndarray, VideoMetadata]:
     files: List[str] = []
@@ -262,7 +262,7 @@ def _load_frame_directory(
     return np.stack(frames), metadata
 
 
-def _read_video_opencv(
+def read_video_opencv(
     video_path, sample_indices_fn: Callable, **kwargs
 ) -> Tuple[np.ndarray, VideoMetadata]:
     try:
@@ -316,7 +316,7 @@ def _read_video_opencv(
     return np.stack(frames), metadata
 
 
-def _read_video_pyav(
+def read_video_pyav(
     file_obj, sample_indices_fn: Callable, **kwargs
 ) -> Tuple[np.ndarray, VideoMetadata]:
     try:
@@ -358,7 +358,7 @@ def _read_video_pyav(
     return np.stack(frames), metadata
 
 
-def _read_video_decord(
+def read_video_decord(
     file_obj, sample_indices_fn: Callable, **kwargs
 ) -> Tuple[np.ndarray, VideoMetadata]:
     try:
@@ -391,9 +391,9 @@ def _read_video_decord(
 
 
 VIDEO_DECODERS = {
-    "opencv": _read_video_opencv,
-    "pyav": _read_video_pyav,
-    "decord": _read_video_decord,
+    "opencv": read_video_opencv,
+    "pyav": read_video_pyav,
+    "decord": read_video_decord,
 }
 
 

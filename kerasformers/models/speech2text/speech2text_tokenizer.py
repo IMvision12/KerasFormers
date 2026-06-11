@@ -13,7 +13,7 @@ from .config import SPEECH2TEXT_TOKENIZER_FILES
 SPIECE_UNDERLINE = "▁"
 
 
-def _resolve_tokenizer_files(vocab_file, spm_file):
+def resolve_tokenizer_files(vocab_file, spm_file):
     if vocab_file is None and spm_file is None:
         vocab_file = download_file(SPEECH2TEXT_TOKENIZER_FILES["vocab"])
         spm_file = download_file(SPEECH2TEXT_TOKENIZER_FILES["spm"])
@@ -67,7 +67,7 @@ class Speech2TextTokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        vocab_file, spm_file = _resolve_tokenizer_files(vocab_file, spm_file)
+        vocab_file, spm_file = resolve_tokenizer_files(vocab_file, spm_file)
         self.vocab_file = vocab_file
         self.spm_file = spm_file
         self.do_upper_case = do_upper_case

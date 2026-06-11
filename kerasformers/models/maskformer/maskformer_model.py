@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import FunctionalBaseModel
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
 from .config import MASKFORMER_CONFIG, MASKFORMER_WEIGHTS_URLS
@@ -458,6 +459,25 @@ class MaskFormerModel(FunctionalBaseModel):
     BASE_MODEL_CONFIG = MASKFORMER_CONFIG
     HF_MODEL_TYPE = "maskformer"
 
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        return MaskFormerUniversalSegment.config_from_hf(hf_config)
+
+    @classmethod
+    def from_hf(cls, hf_id, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_hf(hf_id, load_weights=False, **kwargs)
+        if load_weights:
+            src = MaskFormerUniversalSegment.from_hf(hf_id, skip_mismatch=skip_mismatch)
+            unmatched = copy_weights_by_path_suffix(src, model)
+            if unmatched and not skip_mismatch:
+                raise ValueError(
+                    f"{cls.__name__}.from_hf: {len(unmatched)} weight(s) not "
+                    f"matched from the {type(src).__name__} checkpoint: "
+                    f"{unmatched[:5]}"
+                )
+            del src
+        return model
+
     def __init__(
         self,
         backbone_embed_dim=96,
@@ -681,7 +701,8 @@ class MaskFormerUniversalSegment(FunctionalBaseModel):
             "decoder_ffn_dim": decoder.get("decoder_ffn_dim", 2048),
             "num_queries": decoder.get("num_queries", 100),
             "num_classes": hf_num_classes(hf_config),
-            "image_size": backbone.get("image_size", 384),
+            # The Swin sub-config's image_size is its 224 pretrain resolution,
+            # not the segmentation size — keep the class default.
         }
 
     @classmethod

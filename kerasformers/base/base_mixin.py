@@ -15,7 +15,7 @@ from kerasformers.conversion.weight_transfer_util import (
 _HF_PREFIX = "hf:"
 
 
-def _warn_skipped(skipped):
+def warn_skipped(skipped):
     """Print a note about weights left at init due to ``skip_mismatch``."""
     if skipped:
         print(
@@ -215,7 +215,7 @@ class WeightLoadingMixin:
                 state_dict = download_hf_state_dict(hf_id)
                 with skip_mismatched_weights(skip_mismatch) as skipped:
                     cls.transfer_from_hf(model, state_dict)
-                _warn_skipped(skipped)
+                warn_skipped(skipped)
             elif hf_id:
                 from kerasformers.conversion.hf_download_utils import (
                     load_and_convert_from_hf,
@@ -229,7 +229,7 @@ class WeightLoadingMixin:
                         transfer_fn=cls.transfer_from_hf,
                         is_gated=gated,
                     )
-                _warn_skipped(skipped)
+                warn_skipped(skipped)
             elif url:
                 cls.load_weights_from_url(model, url, skip_mismatch)
             else:
@@ -293,7 +293,7 @@ class WeightLoadingMixin:
                 state_dict = download_hf_state_dict(hf_id)
                 with skip_mismatched_weights(skip_mismatch) as skipped:
                     cls.transfer_from_timm(model, state_dict)
-                _warn_skipped(skipped)
+                warn_skipped(skipped)
             return model
 
         with open(hf_hub_download(hf_id, "config.json"), "r") as f:
@@ -306,7 +306,7 @@ class WeightLoadingMixin:
             state_dict = download_hf_state_dict(hf_id)
             with skip_mismatched_weights(skip_mismatch) as skipped:
                 cls.transfer_from_hf(model, state_dict)
-            _warn_skipped(skipped)
+            warn_skipped(skipped)
         return model
 
     @classmethod

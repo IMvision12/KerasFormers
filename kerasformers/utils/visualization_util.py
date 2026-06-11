@@ -15,14 +15,14 @@ __all__ = [
 ]
 
 
-def _get_axes(ax, figsize=(8, 8)):
+def get_axes(ax, figsize=(8, 8)):
     if ax is not None:
         return ax
     _, ax = plt.subplots(figsize=figsize)
     return ax
 
 
-def _to_numpy(x):
+def to_numpy(x):
     """Convert any backend tensor or array-like input to a numpy array.
 
     Lets callers pass torch / tf / jax tensors from model outputs directly
@@ -35,7 +35,7 @@ def _to_numpy(x):
     return keras.ops.convert_to_numpy(x)
 
 
-def _plot_image(image, ax=None, title: Optional[str] = None, figsize=(8, 8)):
+def plot_image(image, ax=None, title: Optional[str] = None, figsize=(8, 8)):
     """Display an image on an axis with the axes hidden.
 
     Args:
@@ -45,15 +45,15 @@ def _plot_image(image, ax=None, title: Optional[str] = None, figsize=(8, 8)):
         title: Optional title shown above the axis.
         figsize: Used only when a new figure is created.
     """
-    ax = _get_axes(ax, figsize=figsize)
-    ax.imshow(_to_numpy(image))
+    ax = get_axes(ax, figsize=figsize)
+    ax.imshow(to_numpy(image))
     if title:
         ax.set_title(title)
     ax.axis("off")
     return ax
 
 
-def _plot_boxes(
+def plot_boxes(
     boxes,
     labels: Optional[Sequence] = None,
     scores: Optional[Sequence[float]] = None,
@@ -73,10 +73,10 @@ def _plot_boxes(
         linewidth: Rectangle edge width.
         fontsize: Font size for label text.
     """
-    ax = _get_axes(ax)
-    boxes = _to_numpy(boxes).reshape(-1, 4)
+    ax = get_axes(ax)
+    boxes = to_numpy(boxes).reshape(-1, 4)
     if scores is not None:
-        scores = _to_numpy(scores).reshape(-1)
+        scores = to_numpy(scores).reshape(-1)
 
     for i, (x0, y0, x1, y1) in enumerate(boxes):
         rect = patches.Rectangle(
@@ -107,7 +107,7 @@ def _plot_boxes(
     return ax
 
 
-def _plot_masks(
+def plot_masks(
     masks,
     ax=None,
     colors=None,
@@ -123,8 +123,8 @@ def _plot_masks(
             ``tab20`` colormap cycled across masks.
         alpha: Fill transparency for non-background pixels.
     """
-    ax = _get_axes(ax)
-    masks = _to_numpy(masks)
+    ax = get_axes(ax)
+    masks = to_numpy(masks)
     if masks.ndim == 2:
         masks = masks[None, ...]
     if masks.ndim != 3:
@@ -148,7 +148,7 @@ def _plot_masks(
     return ax
 
 
-def _plot_points(
+def plot_points(
     points,
     labels=None,
     ax=None,
@@ -168,12 +168,12 @@ def _plot_points(
         neg_color: Marker color for negative points.
         marker_size: Scatter marker size.
     """
-    ax = _get_axes(ax)
-    points = _to_numpy(points).reshape(-1, 2)
+    ax = get_axes(ax)
+    points = to_numpy(points).reshape(-1, 2)
     if labels is None:
         labels = np.ones(len(points), dtype=int)
     else:
-        labels = _to_numpy(labels).reshape(-1)
+        labels = to_numpy(labels).reshape(-1)
 
     pos = points[labels == 1]
     neg = points[labels == 0]
@@ -201,7 +201,7 @@ def _plot_points(
     return ax
 
 
-def _overlay_depth(
+def overlay_depth(
     depth,
     cmap: str = "inferno",
     ax=None,
@@ -217,8 +217,8 @@ def _overlay_depth(
         title: Optional title.
         figsize: Used only when a new figure is created.
     """
-    ax = _get_axes(ax, figsize=figsize)
-    depth = _to_numpy(depth).astype(np.float32)
+    ax = get_axes(ax, figsize=figsize)
+    depth = to_numpy(depth).astype(np.float32)
     dmin, dmax = float(depth.min()), float(depth.max())
     if dmax > dmin:
         depth = (depth - dmin) / (dmax - dmin)
@@ -273,9 +273,9 @@ def plot_detections(
         )
         ```
     """
-    ax = _get_axes(ax, figsize=figsize)
-    _plot_image(image, ax=ax, title=title)
-    _plot_boxes(
+    ax = get_axes(ax, figsize=figsize)
+    plot_image(image, ax=ax, title=title)
+    plot_boxes(
         boxes,
         labels=labels,
         scores=scores,
@@ -333,9 +333,9 @@ def plot_segmentation(
         plot_segmentation(image, result["segmentation"], result["class_names"])
         ```
     """
-    ax = _get_axes(ax, figsize=figsize)
-    image = _to_numpy(image).astype(np.uint8)
-    segmentation = _to_numpy(segmentation).astype(np.int64)
+    ax = get_axes(ax, figsize=figsize)
+    image = to_numpy(image).astype(np.uint8)
+    segmentation = to_numpy(segmentation).astype(np.int64)
 
     unique = np.unique(segmentation)
     n_unique = int(unique.max()) + 1 if unique.size else 0
@@ -428,8 +428,8 @@ def plot_depth(
         plot_depth(image, depth)
         ```
     """
-    image_np = _to_numpy(image).astype(np.uint8)
-    depth_np = _to_numpy(depth).astype(np.float32)
+    image_np = to_numpy(image).astype(np.uint8)
+    depth_np = to_numpy(depth).astype(np.float32)
     if depth_np.ndim == 3 and depth_np.shape[0] == 1:
         depth_np = depth_np[0]
     if depth_np.ndim == 3 and depth_np.shape[-1] == 1:
@@ -439,14 +439,14 @@ def plot_depth(
 
     if side_by_side:
         fig, axes = plt.subplots(1, 2, figsize=figsize)
-        _plot_image(image_np, ax=axes[0], title="Input")
-        _overlay_depth(depth_np, cmap=cmap, ax=axes[1], title="Depth")
+        plot_image(image_np, ax=axes[0], title="Input")
+        overlay_depth(depth_np, cmap=cmap, ax=axes[1], title="Depth")
         if title:
             fig.suptitle(title)
         fig.tight_layout()
         return fig, axes
 
-    ax = _get_axes(ax, figsize=figsize)
+    ax = get_axes(ax, figsize=figsize)
     dmin, dmax = float(depth_np.min()), float(depth_np.max())
     if dmax > dmin:
         depth_norm = (depth_np - dmin) / (dmax - dmin)
@@ -518,16 +518,16 @@ def plot_sam_masks(
         plot_sam_masks(image, binary, points=[[x, y]], point_labels=[1])
         ```
     """
-    ax = _get_axes(ax, figsize=figsize)
-    _plot_image(image, ax=ax, title=title)
-    _plot_masks(masks, ax=ax, colors=colors, alpha=alpha)
+    ax = get_axes(ax, figsize=figsize)
+    plot_image(image, ax=ax, title=title)
+    plot_masks(masks, ax=ax, colors=colors, alpha=alpha)
     if boxes is not None:
-        _plot_boxes(boxes, ax=ax, color="yellow", linewidth=2.0)
+        plot_boxes(boxes, ax=ax, color="yellow", linewidth=2.0)
     if points is not None:
-        _plot_points(points, labels=point_labels, ax=ax)
+        plot_points(points, labels=point_labels, ax=ax)
 
     if title is None and scores is not None:
-        scores_np = _to_numpy(scores).reshape(-1)
+        scores_np = to_numpy(scores).reshape(-1)
         if scores_np.size == 1:
             ax.set_title(f"score: {float(scores_np[0]):.2f}")
 

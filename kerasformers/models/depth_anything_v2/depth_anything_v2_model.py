@@ -1,5 +1,6 @@
 import keras
 
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.depth_anything_v1.depth_anything_v1_model import (
     DepthAnythingV1DepthEstimation,
     DepthAnythingV1Model,
@@ -24,6 +25,23 @@ class DepthAnythingV2Model(DepthAnythingV1Model):
     BASE_MODEL_CONFIG = DEPTHANYTHINGV2_CONFIG
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "depth_anything"
+
+    @classmethod
+    def from_hf(cls, hf_id, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_hf(hf_id, load_weights=False, **kwargs)
+        if load_weights:
+            src = DepthAnythingV2DepthEstimation.from_hf(
+                hf_id, skip_mismatch=skip_mismatch
+            )
+            unmatched = copy_weights_by_path_suffix(src, model)
+            if unmatched and not skip_mismatch:
+                raise ValueError(
+                    f"{cls.__name__}.from_hf: {len(unmatched)} weight(s) not "
+                    f"matched from the {type(src).__name__} checkpoint: "
+                    f"{unmatched[:5]}"
+                )
+            del src
+        return model
 
     def __init__(self, name="DepthAnythingV2Model", **kwargs):
         super().__init__(name=name, **kwargs)

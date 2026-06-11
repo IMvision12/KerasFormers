@@ -1,6 +1,3 @@
-"""SAM3 utility functions: math ops, box conversions, positional encodings,
-post-processing helpers, mask resizing, and visualization."""
-
 import math
 
 import numpy as np

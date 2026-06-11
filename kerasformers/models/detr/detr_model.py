@@ -3,6 +3,7 @@ from keras import layers, ops, utils
 
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.base.base_model import hf_num_classes
+from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
     DETRFlattenFeatures,
@@ -552,6 +553,21 @@ class DetrModel(FunctionalBaseModel):
             "dropout_rate": hf_config["dropout"],
             "num_queries": hf_config["num_queries"],
         }
+
+    @classmethod
+    def from_hf(cls, hf_id, load_weights=True, skip_mismatch=False, **kwargs):
+        model = super().from_hf(hf_id, load_weights=False, **kwargs)
+        if load_weights:
+            src = DETRDetect.from_hf(hf_id, skip_mismatch=skip_mismatch)
+            unmatched = copy_weights_by_path_suffix(src, model)
+            if unmatched and not skip_mismatch:
+                raise ValueError(
+                    f"{cls.__name__}.from_hf: {len(unmatched)} weight(s) not "
+                    f"matched from the {type(src).__name__} checkpoint: "
+                    f"{unmatched[:5]}"
+                )
+            del src
+        return model
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

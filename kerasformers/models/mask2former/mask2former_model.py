@@ -528,6 +528,54 @@ class Mask2FormerModel(FunctionalBaseModel):
     BASE_MODEL_CONFIG = MASK2FORMER_CONFIG
     HF_MODEL_TYPE = "mask2former"
 
+    @classmethod
+    def config_from_hf(cls, hf_config):
+        """Map a Mask2Former config.json to constructor kwargs.
+
+        Reads the Swin backbone sub-config and the top-level transformer /
+        MSDeformAttn settings and returns the keyword arguments for building
+        the equivalent Keras model.
+
+        Args:
+            hf_config: The ``Mask2FormerConfig`` as a dict.
+
+        Returns:
+            Dict of constructor keyword arguments for this model class.
+        """
+        backbone = hf_config.get("backbone_config", {})
+        depths = backbone.get("depths", [2, 2, 6, 2])
+        num_heads = backbone.get("num_heads", [3, 6, 12, 24])
+
+        from kerasformers.base.base_model import hf_num_classes
+
+        return {
+            "backbone_embed_dim": backbone.get("embed_dim", 96),
+            "backbone_depths": tuple(depths),
+            "backbone_num_heads": tuple(num_heads),
+            "backbone_window_size": backbone.get("window_size", 12),
+            "hidden_dim": hf_config.get("hidden_dim", 256),
+            "mask_feature_size": hf_config.get("mask_feature_size", 256),
+            "encoder_num_layers": hf_config.get("encoder_layers", 6),
+            "encoder_ffn_dim": hf_config.get("encoder_feedforward_dim", 1024),
+            "decoder_num_layers": hf_config.get("decoder_layers", 10) - 1,
+            "decoder_ffn_dim": hf_config.get("dim_feedforward", 2048),
+            "num_heads": hf_config.get("num_attention_heads", 8),
+            "num_queries": hf_config.get("num_queries", 100),
+            "num_classes": hf_num_classes(hf_config),
+        }
+
+    @classmethod
+    def transfer_from_hf(cls, keras_model, hf_state_dict):
+        """Copy weights from a Mask2Former checkpoint into the model.
+
+        Args:
+            keras_model: The freshly-built Keras model to populate.
+            hf_state_dict: The source model ``state_dict`` (numpy arrays).
+        """
+        from .convert_mask2former_hf_to_keras import transfer_mask2former_weights
+
+        transfer_mask2former_weights(keras_model, hf_state_dict)
+
     def __init__(
         self,
         backbone_embed_dim=96,
@@ -630,52 +678,3 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
 
     def __init__(self, name="Mask2FormerUniversalSegment", **kwargs):
         super().__init__(name=name, **kwargs)
-
-    @classmethod
-    def config_from_hf(cls, hf_config):
-        """Map a Mask2Former config.json to constructor kwargs.
-
-        Reads the Swin backbone sub-config and the top-level transformer /
-        MSDeformAttn settings and returns the keyword arguments for building
-        the equivalent Keras model.
-
-        Args:
-            hf_config: The ``Mask2FormerConfig`` as a dict.
-
-        Returns:
-            Dict of constructor keyword arguments for this model class.
-        """
-        backbone = hf_config.get("backbone_config", {})
-        depths = backbone.get("depths", [2, 2, 6, 2])
-        num_heads = backbone.get("num_heads", [3, 6, 12, 24])
-
-        from kerasformers.base.base_model import hf_num_classes
-
-        return {
-            "backbone_embed_dim": backbone.get("embed_dim", 96),
-            "backbone_depths": tuple(depths),
-            "backbone_num_heads": tuple(num_heads),
-            "backbone_window_size": backbone.get("window_size", 12),
-            "hidden_dim": hf_config.get("hidden_dim", 256),
-            "mask_feature_size": hf_config.get("mask_feature_size", 256),
-            "encoder_num_layers": hf_config.get("encoder_layers", 6),
-            "encoder_ffn_dim": hf_config.get("encoder_feedforward_dim", 1024),
-            "decoder_num_layers": hf_config.get("decoder_layers", 10) - 1,
-            "decoder_ffn_dim": hf_config.get("dim_feedforward", 2048),
-            "num_heads": hf_config.get("num_attention_heads", 8),
-            "num_queries": hf_config.get("num_queries", 100),
-            "num_classes": hf_num_classes(hf_config),
-            "image_size": backbone.get("image_size", 384),
-        }
-
-    @classmethod
-    def transfer_from_hf(cls, keras_model, hf_state_dict):
-        """Copy weights from a Mask2Former checkpoint into the model.
-
-        Args:
-            keras_model: The freshly-built Keras model to populate.
-            hf_state_dict: The source model ``state_dict`` (numpy arrays).
-        """
-        from .convert_mask2former_hf_to_keras import transfer_mask2former_weights
-
-        transfer_mask2former_weights(keras_model, hf_state_dict)
