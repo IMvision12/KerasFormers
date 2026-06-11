@@ -90,6 +90,7 @@ def vit_backbone_feature(
     layer_scale_init,
     image_size,
     data_format,
+    resize_mode="bilinear",
     return_intermediates=False,
     return_stages=False,
 ):
@@ -120,6 +121,7 @@ def vit_backbone_feature(
         use_distillation=use_distillation,
         grid_h=grid_h,
         grid_w=grid_w,
+        resize_mode=resize_mode,
     )(x)
     intermediates = [x]
     x = layers.Dropout(drop_rate)(x)
@@ -202,6 +204,11 @@ class ViTModel(FunctionalBaseModel):
         layer_scale_init: Optional float, initial gamma value for ViTLayerScale
             applied on both residual branches. If `None`, ViTLayerScale is
             disabled. Defaults to `None`.
+        resize_mode: String, interpolation method used to resize the position
+            embeddings when the input resolution differs from the pretrained
+            grid. One of `"bilinear"` (default) or `"bicubic"`; use
+            `"bicubic"` to match timm at non-native resolutions. Defaults to
+            `"bilinear"`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -261,6 +268,7 @@ class ViTModel(FunctionalBaseModel):
         no_embed_class=False,
         use_distillation=False,
         layer_scale_init=None,
+        resize_mode="bilinear",
         image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
@@ -304,6 +312,7 @@ class ViTModel(FunctionalBaseModel):
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
             layer_scale_init=layer_scale_init,
+            resize_mode=resize_mode,
             image_size=image_size,
             data_format=data_format,
             return_stages=as_backbone,
@@ -324,6 +333,7 @@ class ViTModel(FunctionalBaseModel):
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
         self.layer_scale_init = layer_scale_init
+        self.resize_mode = resize_mode
         self.image_size = image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -346,6 +356,7 @@ class ViTModel(FunctionalBaseModel):
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
                 "layer_scale_init": self.layer_scale_init,
+                "resize_mode": self.resize_mode,
                 "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
@@ -406,6 +417,11 @@ class ViTImageClassify(FunctionalBaseModel):
         layer_scale_init: Optional float, initial gamma value for ViTLayerScale
             applied on both residual branches. If `None`, ViTLayerScale is
             disabled. Defaults to `None`.
+        resize_mode: String, interpolation method used to resize the position
+            embeddings when the input resolution differs from the pretrained
+            grid. One of `"bilinear"` (default) or `"bicubic"`; use
+            `"bicubic"` to match timm at non-native resolutions. Defaults to
+            `"bilinear"`.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
@@ -462,6 +478,7 @@ class ViTImageClassify(FunctionalBaseModel):
         no_embed_class=False,
         use_distillation=False,
         layer_scale_init=None,
+        resize_mode="bilinear",
         image_size=224,
         include_normalization=True,
         normalization_mode="imagenet",
@@ -486,6 +503,7 @@ class ViTImageClassify(FunctionalBaseModel):
             no_embed_class=no_embed_class,
             use_distillation=use_distillation,
             layer_scale_init=layer_scale_init,
+            resize_mode=resize_mode,
             image_size=image_size,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
@@ -529,6 +547,7 @@ class ViTImageClassify(FunctionalBaseModel):
         self.no_embed_class = no_embed_class
         self.use_distillation = use_distillation
         self.layer_scale_init = layer_scale_init
+        self.resize_mode = resize_mode
         self.image_size = backbone.image_size
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
@@ -552,6 +571,7 @@ class ViTImageClassify(FunctionalBaseModel):
                 "no_embed_class": self.no_embed_class,
                 "use_distillation": self.use_distillation,
                 "layer_scale_init": self.layer_scale_init,
+                "resize_mode": self.resize_mode,
                 "image_size": self.image_size,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
