@@ -13,7 +13,7 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def _get_preprocess_shape(
+def get_preprocess_shape(
     old_h: int, old_w: int, long_side_length: int
 ) -> Tuple[int, int]:
     """Compute resized (h, w) that scales the longest side to ``long_side_length``."""
@@ -67,7 +67,7 @@ class SAMImageProcessor(BaseImageProcessor):
         image = load_image(image).astype(np.float32)
 
         orig_h, orig_w = image.shape[:2]
-        new_h, new_w = _get_preprocess_shape(orig_h, orig_w, self.target_length)
+        new_h, new_w = get_preprocess_shape(orig_h, orig_w, self.target_length)
 
         image = keras.ops.convert_to_tensor(image, dtype="float32")
         image = keras.ops.expand_dims(image, axis=0)
@@ -258,7 +258,7 @@ def sam_post_process_masks(
     return masks_final
 
 
-def _build_point_grid(n_per_side: int):
+def build_point_grid(n_per_side: int):
     """Regular ``n_per_side × n_per_side`` point grid in ``[0, 1] × [0, 1]``."""
     offset = 1.0 / (2 * n_per_side)
     points_one_side = keras.ops.linspace(offset, 1.0 - offset, n_per_side)
@@ -273,7 +273,7 @@ def _build_point_grid(n_per_side: int):
     return keras.ops.reshape(points, (-1, 2))
 
 
-def _generate_per_layer_crops(
+def generate_per_layer_crops(
     crop_n_layers: int, overlap_ratio: float, original_size: Tuple[int, int]
 ) -> Tuple[List[List[int]], List[int]]:
     """Hierarchical crop boxes in XYXY, plus each crop's layer index.
@@ -318,7 +318,7 @@ def _generate_per_layer_crops(
     return crop_boxes, layer_idxs
 
 
-def _normalize_coordinates(
+def normalize_coordinates(
     target_size: int,
     coords,
     original_size: Tuple[int, int],
@@ -347,7 +347,7 @@ def _normalize_coordinates(
     return coords
 
 
-def _generate_crop_images(
+def generate_crop_images(
     crop_boxes: List[List[int]],
     image,
     points_grid: List,
@@ -368,7 +368,7 @@ def _generate_crop_images(
         points_scale = keras.ops.convert_to_tensor([[crop_w, crop_h]], dtype="float32")
 
         points = points_grid[layer_idxs[i]] * points_scale
-        normalized_points = _normalize_coordinates(target_size, points, original_size)
+        normalized_points = normalize_coordinates(target_size, points, original_size)
         total_points_per_crop.append(normalized_points)
 
     return cropped_images, total_points_per_crop
@@ -427,13 +427,13 @@ def generate_crop_boxes(
     points_grid: List = []
     for i in range(crop_n_layers + 1):
         n_points = int(points_per_crop / (crop_n_points_downscale_factor**i))
-        points_grid.append(_build_point_grid(n_points))
+        points_grid.append(build_point_grid(n_points))
 
-    crop_boxes, layer_idxs = _generate_per_layer_crops(
+    crop_boxes, layer_idxs = generate_per_layer_crops(
         crop_n_layers, overlap_ratio, original_size
     )
 
-    cropped_images, point_grid_per_crop = _generate_crop_images(
+    cropped_images, point_grid_per_crop = generate_crop_images(
         crop_boxes, image, points_grid, layer_idxs, target_size, original_size
     )
 
@@ -454,7 +454,7 @@ def generate_crop_boxes(
     }
 
 
-def _compute_stability_score(
+def compute_stability_score(
     masks, mask_threshold: float, stability_score_offset: float
 ):
     """Ratio of mask areas at two thresholds — higher means more stable.
@@ -471,7 +471,7 @@ def _compute_stability_score(
     return keras.ops.cast(intersections, "float32") / keras.ops.cast(unions, "float32")
 
 
-def _batched_mask_to_box(masks):
+def batched_mask_to_box(masks):
     """Compute XYXY boxes for binary masks.
 
     Args:
@@ -516,7 +516,7 @@ def _batched_mask_to_box(masks):
     return out
 
 
-def _is_box_near_crop_edge(
+def is_box_near_crop_edge(
     boxes,
     crop_box: List[int],
     orig_box: List[int],
@@ -546,7 +546,7 @@ def _is_box_near_crop_edge(
     return keras.ops.any(near_crop, axis=-1)
 
 
-def _pad_masks(
+def pad_masks(
     masks,
     crop_box: List[int],
     orig_height: int,
@@ -616,7 +616,7 @@ def filter_masks(
         keep_mask = keras.ops.logical_and(keep_mask, iou_scores > pred_iou_thresh)
 
     if stability_score_thresh > 0.0:
-        stability_scores = _compute_stability_score(
+        stability_scores = compute_stability_score(
             masks, mask_threshold, stability_score_offset
         )
         keep_mask = keras.ops.logical_and(
@@ -631,9 +631,9 @@ def filter_masks(
         return [], scores, keras.ops.zeros((0, 4), dtype="float32")
 
     masks_bool = masks > mask_threshold
-    converted_boxes = _batched_mask_to_box(masks_bool)
+    converted_boxes = batched_mask_to_box(masks_bool)
 
-    near_edge = _is_box_near_crop_edge(
+    near_edge = is_box_near_crop_edge(
         converted_boxes,
         cropped_box_image,
         [0, 0, original_width, original_height],
@@ -643,15 +643,15 @@ def filter_masks(
     masks_bool = keras.ops.take(masks_bool, keep_edge_idx, axis=0)
     converted_boxes = keras.ops.take(converted_boxes, keep_edge_idx, axis=0)
 
-    masks_padded = _pad_masks(
+    masks_padded = pad_masks(
         masks_bool, cropped_box_image, original_height, original_width
     )
-    rle_masks = _mask_to_rle(masks_padded)
+    rle_masks = mask_to_rle(masks_padded)
 
     return rle_masks, scores, converted_boxes
 
 
-def _mask_to_rle(input_mask) -> List[Dict[str, Any]]:
+def mask_to_rle(input_mask) -> List[Dict[str, Any]]:
     """Encode a batch of binary masks as uncompressed COCO-style RLE.
 
     Args:
@@ -710,7 +710,7 @@ def _mask_to_rle(input_mask) -> List[Dict[str, Any]]:
     return out
 
 
-def _rle_to_mask(rle: Dict[str, Any]):
+def rle_to_mask(rle: Dict[str, Any]):
     """Decode an uncompressed RLE dict into a bool ``(H, W)`` keras tensor.
 
     The per-count Python loop is inherently sequential; the final
@@ -730,7 +730,7 @@ def _rle_to_mask(rle: Dict[str, Any]):
     return mask
 
 
-def _box_iou_matrix(boxes_a, boxes_b):
+def box_iou_matrix(boxes_a, boxes_b):
     """Pairwise IoU between two sets of XYXY boxes."""
     area_a = keras.ops.maximum(boxes_a[:, 2] - boxes_a[:, 0], 0) * keras.ops.maximum(
         boxes_a[:, 3] - boxes_a[:, 1], 0
@@ -753,7 +753,7 @@ def _box_iou_matrix(boxes_a, boxes_b):
     return inter / keras.ops.maximum(union, 1e-10)
 
 
-def _batched_nms(boxes, scores, iou_threshold: float):
+def batched_nms(boxes, scores, iou_threshold: float):
     """Single-class greedy NMS. Returns kept indices sorted by score desc.
 
     The outer greedy loop is inherently sequential — IoU computation
@@ -776,7 +776,7 @@ def _batched_nms(boxes, scores, iou_threshold: float):
         if not remaining:
             break
         remaining_t = keras.ops.convert_to_tensor(remaining, dtype="int32")
-        ious = _box_iou_matrix(
+        ious = box_iou_matrix(
             keras.ops.take(boxes, [int(i)], axis=0),
             keras.ops.take(boxes, remaining_t, axis=0),
         )[0]
@@ -811,18 +811,18 @@ def post_process_for_mask_generation(
     all_scores = keras.ops.cast(all_scores, "float32")
     all_boxes = keras.ops.cast(all_boxes, "float32")
 
-    keep = _batched_nms(all_boxes, all_scores, iou_threshold=crops_nms_thresh)
+    keep = batched_nms(all_boxes, all_scores, iou_threshold=crops_nms_thresh)
 
     kept_scores = keras.ops.take(all_scores, keep, axis=0)
     kept_boxes = keras.ops.take(all_boxes, keep, axis=0)
     keep_list = keras.ops.convert_to_numpy(keep).tolist()
     kept_rles = [all_rle_masks[int(i)] for i in keep_list]
-    masks = [_rle_to_mask(rle) for rle in kept_rles]
+    masks = [rle_to_mask(rle) for rle in kept_rles]
 
     return masks, kept_scores, kept_rles, kept_boxes
 
 
-def _preprocess_image_for_sam(
+def preprocess_image_for_sam(
     image,
     target_length: int,
     image_mean: Tuple[float, ...],
@@ -836,7 +836,7 @@ def _preprocess_image_for_sam(
     image = keras.ops.cast(image, "float32")
     shape = keras.ops.shape(image)
     orig_h, orig_w = int(shape[0]), int(shape[1])
-    new_h, new_w = _get_preprocess_shape(orig_h, orig_w, target_length)
+    new_h, new_w = get_preprocess_shape(orig_h, orig_w, target_length)
 
     tensor = keras.ops.expand_dims(image, axis=0)
     resized = keras.ops.image.resize(tensor, (new_h, new_w), interpolation="bilinear")
@@ -974,7 +974,7 @@ def SAMGenerateMasks(
         crop_box_list = [left, top, right, bottom]
 
         cropped_image = cropped_images[crop_idx]
-        padded, _orig_size, _reshaped_size = _preprocess_image_for_sam(
+        padded, _orig_size, _reshaped_size = preprocess_image_for_sam(
             cropped_image,
             target_length,
             image_mean,

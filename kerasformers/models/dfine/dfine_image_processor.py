@@ -1,5 +1,3 @@
-"""Preprocessing and postprocessing for D-FINE object detection."""
-
 from typing import Dict, List, Optional, Tuple, Union
 
 import keras

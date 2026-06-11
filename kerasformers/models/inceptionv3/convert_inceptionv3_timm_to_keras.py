@@ -31,7 +31,7 @@ WEIGHT_NAME_MAPPING: Dict[str, str] = {
 }
 
 
-def _convert_mixed_block_names(name: str) -> str:
+def convert_mixed_block_names(name: str) -> str:
     pattern = r"(Mixed_[0-9][a-e])_(.+)"
     match = re.match(pattern, name)
     if match:
@@ -50,7 +50,7 @@ def transfer_inceptionv3_weights(
         torch_weight_name = keras_weight_name
         for old, new in WEIGHT_NAME_MAPPING.items():
             torch_weight_name = torch_weight_name.replace(old, new)
-        torch_weight_name = _convert_mixed_block_names(torch_weight_name)
+        torch_weight_name = convert_mixed_block_names(torch_weight_name)
 
         if torch_weight_name not in state_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)

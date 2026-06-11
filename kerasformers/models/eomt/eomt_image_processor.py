@@ -15,7 +15,7 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def _get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, int]:
+def get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, int]:
     """Compute the resized (h, w) that fits inside target_size square."""
     scale = target_size / max(orig_h, orig_w)
     return int(orig_h * scale), int(orig_w * scale)
@@ -76,7 +76,7 @@ class EoMTImageProcessor(BaseImageProcessor):
         image = load_image(image).astype(np.float32)
 
         h, w = image.shape[:2]
-        new_h, new_w = _get_resized_size(h, w, self.target_size)
+        new_h, new_w = get_resized_size(h, w, self.target_size)
 
         image = keras.ops.convert_to_tensor(image, dtype="float32")
         image = keras.ops.expand_dims(image, axis=0)
@@ -155,7 +155,7 @@ class EoMTImageProcessor(BaseImageProcessor):
         )
 
 
-def _unpad_and_resize_masks(
+def unpad_and_resize_masks(
     mask_logits,
     model_size: int,
     target_h: int,
@@ -176,7 +176,7 @@ def _unpad_and_resize_masks(
     Returns:
         Mask logits numpy array of shape ``(1, Q, target_h, target_w)``.
     """
-    resized_h, resized_w = _get_resized_size(target_h, target_w, model_size)
+    resized_h, resized_w = get_resized_size(target_h, target_w, model_size)
 
     mask_logits = keras.ops.convert_to_tensor(mask_logits, dtype="float32")
 
@@ -253,7 +253,7 @@ def eomt_post_process_panoptic(
     num_classes = class_logits.shape[-1] - 1
     target_h, target_w = target_size
 
-    mask_logits_resized = _unpad_and_resize_masks(
+    mask_logits_resized = unpad_and_resize_masks(
         mask_logits, model_size, target_h, target_w
     )
 
@@ -356,7 +356,7 @@ def eomt_post_process_semantic(
 
     target_h, target_w = target_size
 
-    mask_resized = _unpad_and_resize_masks(mask_logits, model_size, target_h, target_w)
+    mask_resized = unpad_and_resize_masks(mask_logits, model_size, target_h, target_w)
 
     masks_classes = keras.ops.softmax(class_logits[0], axis=-1)[:, :-1]
     masks_probs = keras.ops.sigmoid(
@@ -406,7 +406,7 @@ def eomt_post_process_instance(
 
     target_h, target_w = target_size
 
-    mask_resized = _unpad_and_resize_masks(mask_logits, model_size, target_h, target_w)
+    mask_resized = unpad_and_resize_masks(mask_logits, model_size, target_h, target_w)
 
     class_probs = keras.ops.convert_to_numpy(
         keras.ops.softmax(class_logits[0], axis=-1)

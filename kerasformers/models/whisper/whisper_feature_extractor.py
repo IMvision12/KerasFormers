@@ -7,7 +7,7 @@ from keras import ops
 from kerasformers.base import BaseAudioFeatureExtractor
 
 
-def _build_mel_filter_bank(
+def build_mel_filter_bank(
     n_fft: int,
     n_mels: int,
     sample_rate: int = 16000,
@@ -85,7 +85,7 @@ class WhisperFeatureExtractor(BaseAudioFeatureExtractor):
         self.chunk_length = chunk_length
         self.n_samples = sampling_rate * chunk_length
         self.nb_max_frames = self.n_samples // hop_length
-        self.mel_filters = _build_mel_filter_bank(n_fft, n_mels, sampling_rate)
+        self.mel_filters = build_mel_filter_bank(n_fft, n_mels, sampling_rate)
 
     def _normalize_waves(self, raw_speech) -> np.ndarray:
         if isinstance(raw_speech, np.ndarray):

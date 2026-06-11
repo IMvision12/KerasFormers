@@ -6,9 +6,9 @@ from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
 from kerasformers.models.sam.sam_image_processor import (
-    _build_point_grid,
-    _generate_per_layer_crops,
+    build_point_grid,
     filter_masks,
+    generate_per_layer_crops,
     post_process_for_mask_generation,
 )
 from kerasformers.utils.image_util import get_data_format, load_image
@@ -225,7 +225,7 @@ def sam2_post_process_masks(
     return masks_final
 
 
-def _load_image_to_numpy(image: Union[str, np.ndarray, "Image.Image"]) -> np.ndarray:
+def load_image_to_numpy(image: Union[str, np.ndarray, "Image.Image"]) -> np.ndarray:
     """Decode various image inputs into a NumPy ``(H, W, 3)`` float32 array.
 
     Thin wrapper around :func:`kerasformers.utils.image_util.load_image` that strips an
@@ -237,7 +237,7 @@ def _load_image_to_numpy(image: Union[str, np.ndarray, "Image.Image"]) -> np.nda
     return load_image(image).astype(np.float32, copy=False)
 
 
-def _stretch_preprocess_crop(
+def stretch_preprocess_crop(
     crop: np.ndarray,
     target_length: int,
     image_mean: Tuple[float, ...],
@@ -375,16 +375,16 @@ def SAM2GenerateMasks(
             "box or mask inputs."
         )
 
-    image_np = _load_image_to_numpy(image)
+    image_np = load_image_to_numpy(image)
     original_size = (image_np.shape[0], image_np.shape[1])
 
     # Build the layer-0..N point grids in [0, 1] x [0, 1] space.
     points_grid: List = []
     for i in range(crop_n_layers + 1):
         n_points = int(points_per_side / (crop_n_points_downscale_factor**i))
-        points_grid.append(_build_point_grid(n_points))
+        points_grid.append(build_point_grid(n_points))
 
-    crop_boxes, layer_idxs = _generate_per_layer_crops(
+    crop_boxes, layer_idxs = generate_per_layer_crops(
         crop_n_layers, crop_overlap_ratio, original_size
     )
 
@@ -400,7 +400,7 @@ def SAM2GenerateMasks(
             continue
         cropped_image = image_np[top:bottom, left:right, :]
 
-        pixel_values = _stretch_preprocess_crop(
+        pixel_values = stretch_preprocess_crop(
             cropped_image,
             target_length,
             image_mean,

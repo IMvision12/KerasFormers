@@ -21,21 +21,21 @@ _ACTIVATION_ALIASES = {
 }
 
 
-def _relu(x):
+def relu(x):
     return keras.activations.relu(x)
 
 
-def _resolve_activation(name):
+def resolve_activation(name):
     if callable(name):
         return name
     if name == "relu":
-        return _relu
+        return relu
     if name in _ACTIVATION_ALIASES:
         return _ACTIVATION_ALIASES[name]
     return keras.activations.get(name)
 
 
-def _glu(x):
+def glu(x):
     a, b = ops.split(x, 2, axis=-1)
     return a * ops.sigmoid(b)
 
@@ -60,7 +60,7 @@ def speech2text_conv_subsampler(
             padding="valid",
             name=f"{name}_conv_layers_{i}",
         )(x)
-        x = layers.Lambda(_glu, name=f"{name}_conv_layers_{i}_glu")(x)
+        x = layers.Lambda(glu, name=f"{name}_conv_layers_{i}_glu")(x)
     return x
 
 
@@ -352,7 +352,7 @@ class Speech2TextModel(FunctionalBaseModel):
         **kwargs,
     ):
         conv_kernel_sizes = tuple(conv_kernel_sizes)
-        activation_fn = _resolve_activation(activation_function)
+        activation_fn = resolve_activation(activation_function)
         embed_scale = float(hidden_dim) ** 0.5 if scale_embedding else 1.0
 
         encoder = speech2text_encoder(
@@ -520,7 +520,7 @@ class Speech2TextSpeechToText(Speech2TextModel, BaseSeq2SeqGeneration):
         self._dec_embed_scale = (
             float(self.hidden_dim) ** 0.5 if self.scale_embedding else 1.0
         )
-        self._dec_act = _resolve_activation(self.activation_function)
+        self._dec_act = resolve_activation(self.activation_function)
         attn = {
             layer.name_prefix: layer
             for layer in d.layers

@@ -4,48 +4,50 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .config import SAM3_TOKENIZER_URLS
-
 SAM3_CONTEXT_LENGTH = 32
 SAM3_VOCAB_SIZE = 49408
 SAM3_BOS_TOKEN_ID = 49406
 SAM3_EOS_TOKEN_ID = 49407
 SAM3_PAD_TOKEN_ID = 49407
+SAM3_HF_REPO = "facebook/sam3"
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SAM3CLIPTokenizer(BaseTokenizer):
     """BPE tokenizer for SAM3's CLIP text encoder (max_seq_len=32).
 
-    Loads the OpenAI CLIP fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``clip`` release tag (or an explicit ``tokenizer_file``) and re-enables CLIP's
-    truncation + ``<|endoftext|>`` padding to ``max_seq_len`` (32 for SAM3). SAM3
-    reuses the OpenAI CLIP tokenizer.
+    SAM3's text encoder reuses the OpenAI CLIP tokenizer. The ``tokenizer.json``
+    is pulled on the fly from the gated ``facebook/sam3`` repo — the same source
+    as the weights, so accept the license at https://huggingface.co/facebook/sam3
+    and authenticate (``huggingface-cli login`` / ``HF_TOKEN``). Pass an explicit
+    ``hf_id`` (e.g. ``"openai/clip-vit-base-patch16"``) or ``tokenizer_file`` to
+    avoid the gate. CLIP truncation + ``<|endoftext|>`` padding to ``max_seq_len``
+    (32) is re-enabled on load.
 
     Args:
-        variant: SAM3 variant key (default ``"sam3_saco"``).
-        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        hf_id: HF repo to pull ``tokenizer.json`` from (default ``"facebook/sam3"``).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides hf_id).
         max_seq_len: Max sequence length (default 32 for SAM3).
 
     Usage:
-        tokenizer = SAM3CLIPTokenizer.from_weights("sam3_saco")
+        tokenizer = SAM3CLIPTokenizer()                 # pulls facebook/sam3
         input_ids, attention_mask = tokenizer.encode("a cat")
         # input_ids: (1, 32) int32, attention_mask: (1, 32) float32
     """
 
-    TOKENIZER_URLS = SAM3_TOKENIZER_URLS
-    DEFAULT_VARIANT = "sam3_saco"
-
     def __init__(
         self,
-        variant=None,
+        hf_id=SAM3_HF_REPO,
         tokenizer_file=None,
         max_seq_len=SAM3_CONTEXT_LENGTH,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        if tokenizer_file is None:
+            from huggingface_hub import hf_hub_download
+
+            tokenizer_file = hf_hub_download(hf_id, "tokenizer.json")
+        self.hf_id = hf_id
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.bos_token_id = SAM3_BOS_TOKEN_ID
@@ -61,9 +63,7 @@ class SAM3CLIPTokenizer(BaseTokenizer):
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
-        from huggingface_hub import hf_hub_download
-
-        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
+        return cls(hf_id=repo, **kwargs)
 
     def encode(self, text):
         texts = self.normalize_texts(text)
@@ -77,3 +77,14 @@ class SAM3CLIPTokenizer(BaseTokenizer):
         keep = [i for i in self.to_id_list(token_ids) if i not in skip]
         text = self._tok.decode(keep, skip_special_tokens=False)
         return text.replace("</w>", " ").strip()
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "hf_id": self.hf_id,
+                "tokenizer_file": self.tokenizer_file,
+                "max_seq_len": self.max_seq_len,
+            }
+        )
+        return config

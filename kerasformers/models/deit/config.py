@@ -1,5 +1,3 @@
-"""DeiT / DeiT3 variant registry (timm-ported)."""
-
 DEIT_MODEL_CONFIG = {
     "deit_tiny_patch16_224": {
         "patch_size": 16,

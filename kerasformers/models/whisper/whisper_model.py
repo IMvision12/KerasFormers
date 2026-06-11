@@ -28,11 +28,11 @@ _ACTIVATION_ALIASES = {
 }
 
 
-def _gelu(x):
+def gelu(x):
     return keras.activations.gelu(x, approximate=False)
 
 
-def _resolve_activation(name):
+def resolve_activation(name):
     if callable(name):
         return name
     if name in _ACTIVATION_ALIASES:
@@ -46,7 +46,7 @@ def whisper_encoder_block(
     num_heads,
     mlp_dim,
     layer_idx,
-    activation=_gelu,
+    activation=gelu,
     layer_norm_eps=1e-5,
 ):
     prefix = f"encoder_layers_{layer_idx}"
@@ -79,7 +79,7 @@ def whisper_decoder_block(
     num_heads,
     mlp_dim,
     layer_idx,
-    activation=_gelu,
+    activation=gelu,
     layer_norm_eps=1e-5,
 ):
     prefix = f"decoder_layers_{layer_idx}"
@@ -121,7 +121,7 @@ def whisper_encoder(
     encoder_num_layers,
     encoder_attention_heads,
     encoder_ffn_dim,
-    activation=_gelu,
+    activation=gelu,
     layer_norm_eps=1e-5,
     output_all_hidden_states=False,
     name="encoder",
@@ -190,7 +190,7 @@ def whisper_decoder(
     decoder_num_layers,
     decoder_attention_heads,
     decoder_ffn_dim,
-    activation=_gelu,
+    activation=gelu,
     layer_norm_eps=1e-5,
     scale_embedding=False,
     name="decoder",
@@ -351,7 +351,7 @@ class WhisperModel(FunctionalBaseModel):
         name="WhisperModel",
         **kwargs,
     ):
-        activation_fn = _resolve_activation(activation_function)
+        activation_fn = resolve_activation(activation_function)
 
         encoder = whisper_encoder(
             hidden_dim=hidden_dim,
@@ -541,7 +541,7 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
         self._dec_embed_scale = (
             float(self.hidden_dim) ** 0.5 if self.scale_embedding else 1.0
         )
-        self._dec_act = _gelu
+        self._dec_act = gelu
         attn = {
             layer.name_prefix: layer
             for layer in d.layers
@@ -700,7 +700,7 @@ class WhisperAudioClassify(FunctionalBaseModel):
         name="WhisperAudioClassify",
         **kwargs,
     ):
-        activation_fn = _resolve_activation(activation_function)
+        activation_fn = resolve_activation(activation_function)
 
         encoder = whisper_encoder(
             hidden_dim=hidden_dim,

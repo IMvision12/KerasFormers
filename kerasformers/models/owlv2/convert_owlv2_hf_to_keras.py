@@ -26,7 +26,7 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 
-def _has_layer(keras_model, name):
+def has_layer(keras_model, name):
     try:
         keras_model.get_layer(name)
         return True
@@ -42,8 +42,8 @@ def transfer_owlv2_encoder_weights(keras_model, state_dict, prefix=None):
             else ""
         )
 
-    has_vision = _has_layer(keras_model, "vision_model_embeddings")
-    has_text = _has_layer(keras_model, "text_model_embeddings")
+    has_vision = has_layer(keras_model, "vision_model_embeddings")
+    has_text = has_layer(keras_model, "text_model_embeddings")
 
     if has_vision:
         vision_num_layers = getattr(keras_model, "vision_num_layers", None)
@@ -159,7 +159,7 @@ def transfer_owlv2_encoder_weights(keras_model, state_dict, prefix=None):
                     name_mapping=weight_name_mapping,
                 )
 
-    if _has_layer(keras_model, "text_projection"):
+    if has_layer(keras_model, "text_projection"):
         transfer_nested_layer_weights(
             keras_layer=keras_model.get_layer("text_projection"),
             torch_weights_dict=state_dict,

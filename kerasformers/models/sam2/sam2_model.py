@@ -16,7 +16,7 @@ from .sam2_layers import (
 )
 
 
-def _dynamic_multimask_via_stability(
+def dynamic_multimask_via_stability(
     all_mask_logits,
     all_iou_scores,
     stability_delta,
@@ -754,7 +754,7 @@ class SAM2PromptableSegment(FunctionalBaseModel):
 
             def _select_best_mask(tensors):
                 masks, iou = tensors
-                return _dynamic_multimask_via_stability(
+                return dynamic_multimask_via_stability(
                     masks,
                     iou,
                     self.DYNAMIC_MULTIMASK_STABILITY_DELTA,
@@ -894,7 +894,7 @@ class SAM2PromptableSegment(FunctionalBaseModel):
 
             def _select_best_mask_sub(tensors):
                 masks, iou = tensors
-                return _dynamic_multimask_via_stability(
+                return dynamic_multimask_via_stability(
                     masks, iou, stab_delta, stab_thresh
                 )
 

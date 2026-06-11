@@ -1,8 +1,3 @@
-"""ViT variant registry (timm-ported).
-
-Variant ids follow timm: ``vit_<size>_patch<N>_<resolution>_<recipe>_<dataset>``.
-"""
-
 VIT_MODEL_CONFIG = {
     "vit_tiny_patch16_224": {
         "patch_size": 16,

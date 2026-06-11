@@ -1,5 +1,3 @@
-"""FlexiViT variant registry (timm-ported)."""
-
 FLEXIVIT_MODEL_CONFIG = {
     "flexivit_small": {
         "patch_size": 16,

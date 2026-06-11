@@ -110,14 +110,14 @@ def build_rope_2d_cache(grid_h, grid_w, head_dim, theta=100.0):
     return ops.cos(angles), ops.sin(angles)
 
 
-def _rotate_half(x):
+def rotate_half(x):
     x1 = x[..., : x.shape[-1] // 2]
     x2 = x[..., x.shape[-1] // 2 :]
     return ops.concatenate([-x2, x1], axis=-1)
 
 
-def _apply_rope(x, cos, sin):
-    return x * cos + _rotate_half(x) * sin
+def apply_rope(x, cos, sin):
+    return x * cos + rotate_half(x) * sin
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -224,11 +224,11 @@ class DinoV3Attention(layers.Layer):
             sin = ops.expand_dims(ops.expand_dims(self._rope_sin, 0), 0)
 
             q_prefix = q[:, :, :n_prefix, :]
-            q_patches = _apply_rope(q[:, :, n_prefix:, :], cos, sin)
+            q_patches = apply_rope(q[:, :, n_prefix:, :], cos, sin)
             q = ops.concatenate([q_prefix, q_patches], axis=2)
 
             k_prefix = k[:, :, :n_prefix, :]
-            k_patches = _apply_rope(k[:, :, n_prefix:, :], cos, sin)
+            k_patches = apply_rope(k[:, :, n_prefix:, :], cos, sin)
             k = ops.concatenate([k_prefix, k_patches], axis=2)
 
         q = q * self.scale

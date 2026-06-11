@@ -66,7 +66,7 @@ def skip_mismatched_weights(enabled: bool = True):
         _skip_state["active"], _skip_state["skipped"] = prev_active, prev_skipped
 
 
-def _shape_count_mismatch(keras_weight: Any, torch_weight: Any) -> bool:
+def shape_count_mismatch(keras_weight: Any, torch_weight: Any) -> bool:
     """True if element counts differ (beyond the benign scalar/size-1 cases)."""
     keras_size = int(np.prod(keras_weight.shape))
     torch_shape = getattr(torch_weight, "shape", None) or np.shape(torch_weight)
@@ -240,7 +240,7 @@ def transfer_weights(
     Raises:
         ValueError: If the layer type or weight shapes are unsupported.
     """
-    if _skip_state["active"] and _shape_count_mismatch(keras_weight, torch_weight):
+    if _skip_state["active"] and shape_count_mismatch(keras_weight, torch_weight):
         _skip_state["skipped"].append(keras_name)
         return
 
