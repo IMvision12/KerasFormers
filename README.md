@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text, Moonshine), speech-aware language modeling (Granite Speech, Granite Speech Plus), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (GPT, GPT-2, Qwen2, Qwen3, Qwen3.5, GPT-OSS), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, OneFormer, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text, Moonshine), speech-aware language modeling (Granite Speech, Granite Speech Plus), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (GPT, GPT-2, Qwen2, Qwen3, Qwen3.5, GPT-OSS, Llama 2, Llama 3, Llama 4, Mistral, Mixtral, Mistral Large 3, Gemma, Gemma 2, Gemma 4, MiniMax-Text-01, MiniMax-M2), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL, InternVL3, Gemma 3, Mistral 3, DeepSeek-VL, Janus-Pro, MiniMax-M3-VL), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -51,6 +51,17 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | GPT-OSS | [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) | `transformers` |
     | GPT | [Improving Language Understanding by Generative Pre-Training](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf) | `transformers` |
     | GPT-2 | [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | `transformers` |
+    | Llama 2 | [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://arxiv.org/abs/2307.09288) | `transformers` (gated) |
+    | Llama 3 | [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783) | `transformers` (gated) |
+    | Llama 4 | [meta-llama/Llama-4-Scout-17B-16E](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E) | `transformers` (gated) |
+    | Mistral | [Mistral 7B](https://arxiv.org/abs/2310.06825) | `transformers` (gated) |
+    | Mixtral | [Mixtral of Experts](https://arxiv.org/abs/2401.04088) | `transformers` (gated) |
+    | Mistral Large 3 | [mistralai/Mistral-Large-3-675B-Instruct-2512](https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512) | architecture only |
+    | Gemma | [Gemma: Open Models Based on Gemini Research and Technology](https://arxiv.org/abs/2403.08295) | `transformers` (gated) |
+    | Gemma 2 | [Gemma 2: Improving Open Language Models at a Practical Size](https://arxiv.org/abs/2408.00118) | `transformers` (gated) |
+    | Gemma 4 | [google/gemma-4-12B](https://huggingface.co/google/gemma-4-12B) | `transformers` |
+    | MiniMax-Text-01 | [MiniMax-01: Scaling Foundation Models with Lightning Attention](https://arxiv.org/abs/2501.08313) | `transformers` |
+    | MiniMax-M2 | [MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2) | `transformers` |
 
 <br>
 
@@ -66,6 +77,7 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | ConvNeXt V2 | [ConvNeXt V2: Co-designing and Scaling ConvNets with Masked Autoencoders](https://arxiv.org/abs/2301.00808) | `timm` |
     | DeiT | [Training data-efficient image transformers & distillation through attention](https://arxiv.org/abs/2012.12877) | `timm` |
     | DenseNet | [Densely Connected Convolutional Networks](https://arxiv.org/abs/1608.06993) | `timm` |
+    | EfficientFormer | [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191) | `timm` |
     | EfficientNet | [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946) | `timm` |
     | EfficientNet-Lite | [EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks](https://arxiv.org/abs/1905.11946) | `timm` |
     | EfficientNetV2 | [EfficientNetV2: Smaller Models and Faster Training](https://arxiv.org/abs/2104.00298) | `timm` |
@@ -122,6 +134,7 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | Mask2Former | [Masked-attention Mask Transformer for Universal Image Segmentation](https://arxiv.org/abs/2112.01527) | `transformers` |
     | MobileViT | [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178) | `transformers` |
     | MobileViTV2 | [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680) | `transformers` |
+    | OneFormer | [OneFormer: One Transformer to Rule Universal Image Segmentation](https://arxiv.org/abs/2211.06220) | `transformers` |
     | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
     | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
@@ -169,6 +182,12 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | Qwen2-VL | [Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution](https://arxiv.org/abs/2409.12191) | on-the-fly `hf:` |
     | Qwen2.5-VL | [Qwen2.5-VL Technical Report](https://arxiv.org/abs/2502.13923) | on-the-fly `hf:` |
     | Qwen3-VL | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
+    | InternVL3 | [InternVL3: Exploring Advanced Training and Test-Time Recipes for Open-Source Multimodal Models](https://arxiv.org/abs/2504.10479) | on-the-fly `hf:` |
+    | Gemma 3 | [Gemma 3 Technical Report](https://arxiv.org/abs/2503.19786) | on-the-fly `hf:` (gated) |
+    | Mistral 3 | [mistralai/Mistral-Small-3.1-24B-Instruct-2503](https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503) | on-the-fly `hf:` |
+    | DeepSeek-VL | [DeepSeek-VL: Towards Real-World Vision-Language Understanding](https://arxiv.org/abs/2403.05525) | on-the-fly `hf:` |
+    | Janus-Pro | [Janus-Pro: Unified Multimodal Understanding and Generation with Data and Model Scaling](https://arxiv.org/abs/2501.17811) | on-the-fly `hf:` |
+    | MiniMax-M3-VL | [MiniMaxAI/MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) | on-the-fly `hf:` |
 
 <br>
 
