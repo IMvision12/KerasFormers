@@ -33,6 +33,7 @@ from kerasformers.models import (
     inception_resnetv2,
     inceptionv3,
     inceptionv4,
+    internvl,
     llama,
     llama2,
     llama4,
