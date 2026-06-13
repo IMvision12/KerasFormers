@@ -20,6 +20,30 @@ class Cohere2MoeModel(SubclassedBaseModel):
     ``first_k_dense_replace`` layers are dense (and force rope). Norm is
     RMSNorm when ``rms_norm_eps`` is set, else Cohere LayerNorm. Returns raw
     features; use :class:`Cohere2MoeGenerate` for logits.
+
+    Args:
+        vocab_size / embed_dim / num_layers / num_heads / num_kv_heads /
+        head_dim / mlp_dim: Geometry (``mlp_dim`` is the dense-layer hidden width).
+        num_experts / num_experts_per_tok: Routed-expert count and top-k.
+        moe_mlp_dim: Per-expert hidden width; defaults to ``mlp_dim``.
+        expert_selection_fn: ``"softmax"`` (over the top-k) or ``"sigmoid"``.
+        norm_topk_prob: Renormalize the selected weights (sigmoid only).
+        num_shared_experts: Always-on shared experts (0 disables).
+        shared_combine: ``"sum"`` or ``"average"`` for the shared-expert merge.
+        first_k_dense_replace: Number of leading dense (non-MoE) layers.
+        prefix_dense_intermediate_size: Hidden width of those dense layers;
+            defaults to ``mlp_dim``.
+        prefix_dense_sliding_window_pattern: Attention pattern within the dense
+            prefix; ``1`` makes every prefix layer sliding + force-rope.
+        sliding_window: Window size for the sliding layers.
+        sliding_window_pattern: Every Nth non-prefix layer is full attention (NoPE).
+        rms_norm_eps: When set, use RMSNorm with this epsilon; otherwise use
+            mean-centered Cohere LayerNorm with ``norm_eps``.
+        norm_eps: LayerNorm epsilon (used when ``rms_norm_eps`` is ``None``).
+        rope_theta: Rotary base frequency.
+        attention_bias: Attention projection bias.
+        logit_scale: Output-logit multiplier.
+        tie_embeddings: Whether the head ties to the token embedding.
     """
 
     HF_MODEL_TYPE = "cohere2_moe"
@@ -263,7 +287,29 @@ class Cohere2MoeModel(SubclassedBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Cohere2MoeGenerate(Cohere2MoeModel, BaseGeneration):
-    """Cohere2-MoE with a ``logit_scale``-scaled LM head + fast ``.generate()``."""
+    """Cohere2-MoE (North-Mini / Command-MoE) with a language-model head + fast ``.generate()``.
+
+    Adds a vocabulary projection on top of :class:`Cohere2MoeModel`: a bias-free
+    ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the tied token
+    embedding; either way logits are scaled by ``logit_scale``. ``call`` returns
+    both ``logits`` and the final ``last_hidden_state``.
+
+    Fast generation uses :class:`~kerasformers.base.BaseGeneration`'s fixed-cache
+    compiled loop: :meth:`build_cache` prefills the prompt into a full-length
+    per-layer KV cache, then :meth:`call_with_cache` decodes one token at a time.
+    The cache is full-length for **every** layer; the sliding-window layers
+    enforce their window through the decode key-mask (keys older than
+    ``sliding_window`` are masked) and the full/NoPE layers see all keys, so the
+    loop stays constant-shape. The dense-vs-MoE feed-forward split is unchanged
+    from :class:`Cohere2MoeModel`. ``eos_token_id`` defaults to Cohere's
+    ``<|END_OF_TURN_TOKEN|>`` (255001); pass ``eos_token_id`` to :meth:`generate`
+    to override.
+
+    Construction mirrors :class:`Cohere2MoeModel`::
+
+        gen = Cohere2MoeGenerate.from_weights("hf:CohereLabs/North-Mini-Code-1.0")
+        out = gen.generate(input_ids, max_new_tokens=64)
+    """
 
     eos_token_id = (255001,)
 
