@@ -166,3 +166,10 @@ def granite_speech_input(
             np.ones((batch_size, n_audio), dtype=bool)
         ),
     }
+
+
+def oneformer_input(batch_size=2, image_size=224, task_seq_len=7):
+    return {
+        "pixel_values": ops.ones((batch_size, image_size, image_size, 3)),
+        "task_inputs": ops.ones((batch_size, task_seq_len)),
+    }
