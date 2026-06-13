@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, OneFormer, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text, Moonshine), speech-aware language modeling (Granite Speech, Granite Speech Plus), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (GPT, GPT-2, Qwen2, Qwen2-MoE, Qwen3, Qwen3-MoE, Qwen3.5, Qwen3.5-MoE, GPT-OSS, Llama 2, Llama 3, Llama 4, Mistral, Mixtral, Mistral Large 3, Gemma, Gemma 2, Gemma 4, MiniMax-Text-01, MiniMax-M2, DeepSeek-V2, DeepSeek-V3, DeepSeek-V4, Cohere/Command-R, Cohere2, Cohere2-MoE), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL, InternVL3, Gemma 3, Mistral 3, DeepSeek-VL, Janus-Pro, MiniMax-M3-VL, Cohere2-Vision), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, OneFormer, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text, Moonshine), speech-aware language modeling (Granite Speech, Granite Speech Plus), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (GPT, GPT-2, Qwen2, Qwen2-MoE, Qwen3, Qwen3-MoE, Qwen3.5, Qwen3.5-MoE, GPT-OSS, Llama 2, Llama 3, Llama 4, Mistral, Mixtral, Mistral Large 3, Gemma, Gemma 2, Gemma 4, MiniMax-Text-01, MiniMax-M2, DeepSeek-V2, DeepSeek-V3, DeepSeek-V4, Cohere/Command-R, Cohere2, Cohere2-MoE, GLM-4, GLM-4-0414, GLM-4.5/GLM-4.6), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL, InternVL3, Gemma 3, Mistral 3, DeepSeek-VL, Janus-Pro, MiniMax-M3-VL, Cohere2-Vision, GLM-4V, GLM-4.5V), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -71,6 +71,9 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | Gemma 4 | [google/gemma-4-12B](https://huggingface.co/google/gemma-4-12B) | `transformers` |
     | MiniMax-Text-01 | [MiniMax-01: Scaling Foundation Models with Lightning Attention](https://arxiv.org/abs/2501.08313) | `transformers` |
     | MiniMax-M2 | [MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2) | `transformers` |
+    | GLM-4 (GLM-4-9B) | [THUDM/glm-4-9b-chat-hf](https://huggingface.co/THUDM/glm-4-9b-chat-hf) | `transformers` |
+    | GLM-4-0414 | [THUDM/GLM-4-9B-0414](https://huggingface.co/THUDM/GLM-4-9B-0414) | `transformers` |
+    | GLM-4.5 / GLM-4.6 (MoE) | [zai-org/GLM-4.5](https://huggingface.co/zai-org/GLM-4.5) | `transformers` |
 
 <br>
 
@@ -198,6 +201,8 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | DeepSeek-VL | [DeepSeek-VL: Towards Real-World Vision-Language Understanding](https://arxiv.org/abs/2403.05525) | on-the-fly `hf:` |
     | Janus-Pro | [Janus-Pro: Unified Multimodal Understanding and Generation with Data and Model Scaling](https://arxiv.org/abs/2501.17811) | on-the-fly `hf:` |
     | MiniMax-M3-VL | [MiniMaxAI/MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) | on-the-fly `hf:` |
+    | GLM-4V (GLM-4.1V) | [zai-org/GLM-4.1V-9B-Thinking](https://huggingface.co/zai-org/GLM-4.1V-9B-Thinking) | on-the-fly `hf:` |
+    | GLM-4.5V (MoE) | [zai-org/GLM-4.5V](https://huggingface.co/zai-org/GLM-4.5V) | on-the-fly `hf:` |
 
 <br>
 
