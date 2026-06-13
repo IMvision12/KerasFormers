@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .grounding_dino_image_processor import GroundingDinoImageProcessor
-from .grounding_dino_tokenizer import DEFAULT_TOKENIZER_REPO, GroundingDinoTokenizer
+from .grounding_dino_tokenizer import GroundingDinoTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -28,7 +28,7 @@ class GroundingDinoProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         shortest_edge=800,
         longest_edge=1333,
         tokenizer=None,

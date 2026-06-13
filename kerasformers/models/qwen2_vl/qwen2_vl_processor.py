@@ -6,7 +6,7 @@ from kerasformers.base import BaseProcessor
 from kerasformers.utils.video_util import load_video
 
 from .qwen2_vl_image_processor import Qwen2VLImageProcessor
-from .qwen2_vl_tokenizer import DEFAULT_TOKENIZER_REPO, Qwen2VLTokenizer
+from .qwen2_vl_tokenizer import Qwen2VLTokenizer
 from .qwen2_vl_video_processor import Qwen2VLVideoProcessor
 
 DEFAULT_SYSTEM = "You are a helpful assistant."
@@ -31,7 +31,7 @@ class Qwen2VLProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         patch_size=14,
         spatial_merge_size=2,
         temporal_patch_size=2,

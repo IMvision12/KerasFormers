@@ -2,8 +2,6 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-DEFAULT_TOKENIZER_REPO = "CohereForAI/c4ai-command-r-v01"
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CohereTokenizer(BaseTokenizer):
@@ -14,18 +12,19 @@ class CohereTokenizer(BaseTokenizer):
     Cohere chat template / specials are applied by the caller.
 
     Args:
-        hf_id: Hub repo to pull ``tokenizer.json`` from (gated).
-        tokenizer_file: Explicit path to a ``tokenizer.json``.
+        hf_id: Hub repo to pull ``tokenizer.json`` from — **required** (there is
+            no default), mirroring ``AutoTokenizer.from_pretrained`` (e.g.
+            ``"CohereLabs/c4ai-command-r-v01"``). Optional only when
+            ``tokenizer_file`` is supplied.
+        tokenizer_file: Explicit path to a local ``tokenizer.json``; when given,
+            nothing is downloaded.
     """
 
-    def __init__(self, hf_id=DEFAULT_TOKENIZER_REPO, tokenizer_file=None, **kwargs):
+    def __init__(self, hf_id=None, tokenizer_file=None, **kwargs):
         super().__init__(**kwargs)
         from tokenizers import Tokenizer
 
-        if tokenizer_file is None:
-            from huggingface_hub import hf_hub_download
-
-            tokenizer_file = hf_hub_download(hf_id, "tokenizer.json")
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
         self.hf_id = hf_id
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)

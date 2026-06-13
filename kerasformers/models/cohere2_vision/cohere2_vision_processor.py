@@ -4,7 +4,6 @@ from keras import ops
 
 from kerasformers.base import BaseProcessor
 from kerasformers.models.cohere2.cohere2_tokenizer import (
-    DEFAULT_TOKENIZER_REPO,
     Cohere2Tokenizer,
 )
 
@@ -50,7 +49,7 @@ class Cohere2VisionProcessor(BaseProcessor):
         self.image_token = image_token
         self.tokens_per_tile = (size // patch_size // downsample_factor) ** 2
         self.image_processor = image_processor or Cohere2VisionImageProcessor(size=size)
-        self.tokenizer = tokenizer or Cohere2Tokenizer(hf_id=DEFAULT_TOKENIZER_REPO)
+        self.tokenizer = tokenizer or Cohere2Tokenizer(hf_id=hf_id)
 
     @classmethod
     def from_hf(cls, repo, **kwargs):

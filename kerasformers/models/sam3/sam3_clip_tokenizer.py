@@ -43,10 +43,7 @@ class SAM3CLIPTokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if tokenizer_file is None:
-            from huggingface_hub import hf_hub_download
-
-            tokenizer_file = hf_hub_download(hf_id, "tokenizer.json")
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
         self.hf_id = hf_id
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len

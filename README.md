@@ -192,18 +192,18 @@ Per-model guides - with architecture notes, usage examples, and available pretra
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
-    | Qwen2-VL | [Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution](https://arxiv.org/abs/2409.12191) | on-the-fly `hf:` |
-    | Qwen2.5-VL | [Qwen2.5-VL Technical Report](https://arxiv.org/abs/2502.13923) | on-the-fly `hf:` |
-    | Qwen3-VL | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | on-the-fly `hf:` |
-    | InternVL3 | [InternVL3: Exploring Advanced Training and Test-Time Recipes for Open-Source Multimodal Models](https://arxiv.org/abs/2504.10479) | on-the-fly `hf:` |
-    | Gemma 3 | [Gemma 3 Technical Report](https://arxiv.org/abs/2503.19786) | on-the-fly `hf:` (gated) |
-    | Mistral 3 | [mistralai/Mistral-Small-3.1-24B-Instruct-2503](https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503) | on-the-fly `hf:` |
-    | Cohere2-Vision (Command-A Vision) | [CohereLabs/command-a-vision-07-2025](https://huggingface.co/CohereLabs/command-a-vision-07-2025) | on-the-fly `hf:` (gated) |
-    | DeepSeek-VL | [DeepSeek-VL: Towards Real-World Vision-Language Understanding](https://arxiv.org/abs/2403.05525) | on-the-fly `hf:` |
-    | Janus-Pro | [Janus-Pro: Unified Multimodal Understanding and Generation with Data and Model Scaling](https://arxiv.org/abs/2501.17811) | on-the-fly `hf:` |
-    | MiniMax-M3-VL | [MiniMaxAI/MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) | on-the-fly `hf:` |
-    | GLM-4V (GLM-4.1V) | [zai-org/GLM-4.1V-9B-Thinking](https://huggingface.co/zai-org/GLM-4.1V-9B-Thinking) | on-the-fly `hf:` |
-    | GLM-4.5V (MoE) | [zai-org/GLM-4.5V](https://huggingface.co/zai-org/GLM-4.5V) | on-the-fly `hf:` |
+    | Qwen2-VL | [Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution](https://arxiv.org/abs/2409.12191) | `transformers` |
+    | Qwen2.5-VL | [Qwen2.5-VL Technical Report](https://arxiv.org/abs/2502.13923) | `transformers` |
+    | Qwen3-VL | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | `transformers` |
+    | InternVL3 | [InternVL3: Exploring Advanced Training and Test-Time Recipes for Open-Source Multimodal Models](https://arxiv.org/abs/2504.10479) | `transformers` |
+    | Gemma 3 | [Gemma 3 Technical Report](https://arxiv.org/abs/2503.19786) | `transformers` (gated) |
+    | Mistral 3 | [mistralai/Mistral-Small-3.1-24B-Instruct-2503](https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503) | `transformers` |
+    | Cohere2-Vision (Command-A Vision) | [CohereLabs/command-a-vision-07-2025](https://huggingface.co/CohereLabs/command-a-vision-07-2025) | `transformers` (gated) |
+    | DeepSeek-VL | [DeepSeek-VL: Towards Real-World Vision-Language Understanding](https://arxiv.org/abs/2403.05525) | `transformers` |
+    | Janus-Pro | [Janus-Pro: Unified Multimodal Understanding and Generation with Data and Model Scaling](https://arxiv.org/abs/2501.17811) | `transformers` |
+    | MiniMax-M3-VL | [MiniMaxAI/MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) | `transformers` |
+    | GLM-4V (GLM-4.1V) | [zai-org/GLM-4.1V-9B-Thinking](https://huggingface.co/zai-org/GLM-4.1V-9B-Thinking) | `transformers` |
+    | GLM-4.5V (MoE) | [zai-org/GLM-4.5V](https://huggingface.co/zai-org/GLM-4.5V) | `transformers` |
 
 <br>
 

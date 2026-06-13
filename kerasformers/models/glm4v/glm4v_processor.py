@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .glm4v_image_processor import Glm4vImageProcessor
-from .glm4v_tokenizer import DEFAULT_TOKENIZER_REPO, Glm4vTokenizer
+from .glm4v_tokenizer import Glm4vTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -24,7 +24,7 @@ class Glm4vProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         patch_size=14,
         spatial_merge_size=2,
         temporal_patch_size=2,
