@@ -203,7 +203,6 @@ class MixtralGenerate(MixtralModel, BaseGeneration):
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
-    # Mistral </s> stop id. Explicit generate() args override this.
     eos_token_id = (2,)
 
     def __init__(self, *args, **kwargs):
@@ -224,8 +223,6 @@ class MixtralGenerate(MixtralModel, BaseGeneration):
         return {"logits": self.project(hidden), "last_hidden_state": hidden}
 
     def build_cache(self, token_ids, padding_mask, max_len):
-        # Parallel prefill into a fixed (B, num_layers, 2, num_kv_heads,
-        # max_len, head_dim) cache. Returns (cache, last-token logits).
         batch = int(token_ids.shape[0])
         prompt_len = int(token_ids.shape[1])
         hd, nkv = self.head_dim, self.num_kv_heads
@@ -254,8 +251,6 @@ class MixtralGenerate(MixtralModel, BaseGeneration):
         return cache, logits
 
     def call_with_cache(self, token_ids, cache, cache_update_index):
-        # One decode step: every layer reads/writes its cache slice at
-        # ``cache_update_index``; sliding window respected when set.
         batch = int(token_ids.shape[0])
         max_len = int(cache.shape[4])
         pos = cache_update_index

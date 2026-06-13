@@ -1,8 +1,3 @@
-# Architecture configs from the official params.json (HF-schema equivalents).
-# The official mistralai/Mistral-Large-3-* repos ship mistral-native
-# consolidated shards (no HF-format config.json / model safetensors), so no
-# weight entries are registered: build with load_weights=False, or load an
-# HF-format export via from_weights("hf:<repo>").
 MISTRAL4_CONFIG = {
     "mistral-large-3-675b-base": {
         "vocab_size": 131072,
