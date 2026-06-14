@@ -33,8 +33,6 @@ WEIGHT_NAME_MAPPING = {
 
 
 def dequantize_fp8(hf_state_dict):
-    """Dequantize DeepSeek block-FP8 tensors (``*.weight_scale_inv``, 128x128
-    blocks) and drop the scale keys; bf16 checkpoints pass through."""
     scales = {k for k in hf_state_dict if k.endswith(".weight_scale_inv")}
     if not scales:
         return hf_state_dict
@@ -58,9 +56,6 @@ def dequantize_fp8(hf_state_dict):
 
 
 def drop_mtp_keys(hf_state_dict, num_layers):
-    """Drop the multi-token-prediction layer (layer index ``num_layers``) and
-    its private leaves (eh_proj / enorm / hnorm / shared_head /
-    per-layer embed_tokens)."""
     out = {}
     for key, value in hf_state_dict.items():
         match = re.match(r"^model\.layers\.(\d+)\.", key)
@@ -75,10 +70,6 @@ def drop_mtp_keys(hf_state_dict, num_layers):
 
 
 def fuse_expert_weights(hf_state_dict):
-    """Fuse per-expert ``mlp.experts.N.gate_proj/up_proj/down_proj`` (the hub
-    layout) into ``mlp.experts.gate_up_proj`` (E, 2I, H) / ``down_proj``
-    (E, H, I); in-memory state dicts from current transformers already ship
-    the fused tensors."""
     pat = re.compile(
         r"^(model\.layers\.\d+)\.mlp\.experts\.(\d+)\.(gate_proj|up_proj|down_proj)\.weight$"
     )

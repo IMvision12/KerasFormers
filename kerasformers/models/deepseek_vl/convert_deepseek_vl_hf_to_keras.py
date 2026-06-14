@@ -81,7 +81,6 @@ def transfer_deepseek_vl_weights(keras_model, hf_state_dict):
         if name not in state:
             raise WeightMappingError(weight.path, name)
         if name.endswith("patch_embedding.weight"):
-            # Conv2D patch embed: HF (out, in, kh, kw) -> Keras (kh, kw, in, out).
             weight.assign(np.transpose(np.asarray(state[name]), (2, 3, 1, 0)))
         else:
             transfer_weights(weight.path, weight, state[name])

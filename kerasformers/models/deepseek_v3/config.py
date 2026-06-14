@@ -1,14 +1,4 @@
-YARN_V3 = {
-    "type": "yarn",
-    "factor": 40,
-    "beta_fast": 32,
-    "beta_slow": 1,
-    "mscale": 1.0,
-    "mscale_all_dim": 1.0,
-    "original_max_position_embeddings": 4096,
-}
-
-V3_BASE = {
+DEEPSEEK_COMMON = {
     "vocab_size": 129280,
     "embed_dim": 7168,
     "num_layers": 61,
@@ -29,17 +19,25 @@ V3_BASE = {
     "qk_rope_head_dim": 64,
     "v_head_dim": 128,
     "rope_theta": 10000.0,
-    "rope_scaling": dict(YARN_V3),
+    "rope_scaling": {
+        "type": "yarn",
+        "factor": 40,
+        "beta_fast": 32,
+        "beta_slow": 1,
+        "mscale": 1.0,
+        "mscale_all_dim": 1.0,
+        "original_max_position_embeddings": 4096,
+    },
     "norm_eps": 1e-6,
     "max_position_embeddings": 163840,
     "tie_embeddings": False,
 }
 
 DEEPSEEK_V3_CONFIG = {
-    "deepseek-v3": dict(V3_BASE),
-    "deepseek-v3-0324": dict(V3_BASE),
-    "deepseek-v3.1": dict(V3_BASE),
-    "deepseek-r1": dict(V3_BASE),
+    "deepseek-v3": dict(DEEPSEEK_COMMON),
+    "deepseek-v3-0324": dict(DEEPSEEK_COMMON),
+    "deepseek-v3.1": dict(DEEPSEEK_COMMON),
+    "deepseek-r1": dict(DEEPSEEK_COMMON),
 }
 
 DEEPSEEK_V3_WEIGHTS_URLS = {

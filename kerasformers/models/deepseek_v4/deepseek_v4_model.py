@@ -37,6 +37,18 @@ def yarn_inv_freq(dim, base, factor, original_max, beta_fast=32, beta_slow=1):
     return (1.0 / (factor * pos_freqs)) * ramp + (1.0 / pos_freqs) * (1 - ramp)
 
 
+# Both DeepSeek-V4 families (Flash and Pro) share this yarn rope scaling for the
+# compress rope, so it is the DeepseekV4Model default and the per-variant configs
+# need not repeat it. ``config_from_hf`` still passes the checkpoint's own value.
+DEFAULT_ROPE_SCALING = {
+    "type": "yarn",
+    "factor": 16,
+    "beta_fast": 32,
+    "beta_slow": 1,
+    "original_max_position_embeddings": 65536,
+}
+
+
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DeepseekV4Model(SubclassedBaseModel):
     """DeepSeek-V4 decoder (V4-Flash / V4-Pro).
@@ -104,7 +116,7 @@ class DeepseekV4Model(SubclassedBaseModel):
         hc_eps=1e-6,
         rope_theta=10000.0,
         compress_rope_theta=160000.0,
-        rope_scaling=None,
+        rope_scaling=DEFAULT_ROPE_SCALING,
         norm_eps=1e-6,
         tie_embeddings=False,
         **kwargs,
