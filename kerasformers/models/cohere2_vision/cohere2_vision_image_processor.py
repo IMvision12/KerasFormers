@@ -7,39 +7,6 @@ SIGLIP_MEAN = (0.5, 0.5, 0.5)
 SIGLIP_STD = (0.5, 0.5, 0.5)
 
 
-def supported_aspect_ratios(min_patches, max_patches):
-    # Enumeration order matters for tie-breaking — mirror HF's
-    # get_all_supported_aspect_ratios (width-major loops).
-    ratios = []
-    for width in range(1, max_patches + 1):
-        for height in range(1, max_patches + 1):
-            if min_patches <= width * height <= max_patches:
-                ratios.append((width, height))
-    return ratios
-
-
-def optimal_tiled_canvas(orig_height, orig_width, tile_size, min_patches, max_patches):
-    """Pick the ``(num_columns, num_rows)`` tile grid whose aspect ratio is
-    closest to the image's (HF ``get_optimal_tiled_canvas`` port, including the
-    favor-more-tiles tie-break while the image area exceeds half the canvas).
-    """
-    aspect_ratio = orig_width / orig_height
-    area = orig_width * orig_height
-    best_diff = float("inf")
-    best_grid = (1, 1)
-    for grid in supported_aspect_ratios(min_patches, max_patches):
-        grid_ratio = grid[0] / grid[1]
-        diff = abs(aspect_ratio - grid_ratio)
-        if diff < best_diff:
-            best_diff = diff
-            best_grid = grid
-        elif (
-            diff == best_diff and area > 0.5 * tile_size * tile_size * grid[0] * grid[1]
-        ):
-            best_grid = grid
-    return best_grid
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Cohere2VisionImageProcessor(BaseImageProcessor):
     """InternVL dynamic-tiling image processor (HF GotOcr2 recipe).
@@ -101,6 +68,33 @@ class Cohere2VisionImageProcessor(BaseImageProcessor):
             )
         return Image.fromarray(arr).convert("RGB")
 
+    def supported_aspect_ratios(self):
+        ratios = []
+        for width in range(1, self.max_patches + 1):
+            for height in range(1, self.max_patches + 1):
+                if self.min_patches <= width * height <= self.max_patches:
+                    ratios.append((width, height))
+        return ratios
+
+    def optimal_tiled_canvas(self, orig_height, orig_width):
+        aspect_ratio = orig_width / orig_height
+        area = orig_width * orig_height
+        tile_size = self.size
+        best_diff = float("inf")
+        best_grid = (1, 1)
+        for grid in self.supported_aspect_ratios():
+            grid_ratio = grid[0] / grid[1]
+            diff = abs(aspect_ratio - grid_ratio)
+            if diff < best_diff:
+                best_diff = diff
+                best_grid = grid
+            elif (
+                diff == best_diff
+                and area > 0.5 * tile_size * tile_size * grid[0] * grid[1]
+            ):
+                best_grid = grid
+        return best_grid
+
     def tile_image(self, image):
         from PIL import Image
 
@@ -108,9 +102,7 @@ class Cohere2VisionImageProcessor(BaseImageProcessor):
         if not self.crop_to_patches:
             tile = image.resize((s, s), Image.Resampling.BICUBIC)
             return [tile]
-        cols, rows = optimal_tiled_canvas(
-            image.height, image.width, s, self.min_patches, self.max_patches
-        )
+        cols, rows = self.optimal_tiled_canvas(image.height, image.width)
         resized = image.resize((cols * s, rows * s), Image.Resampling.BICUBIC)
         tiles = []
         for i in range(cols * rows):

@@ -4,7 +4,6 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-# Text decoder (Cohere2) + lm_head.
 TEXT_MAPPING = {
     "token_embedding.embeddings": "language_model.embed_tokens.weight",
     "final_norm.weight": "language_model.norm.weight",
@@ -20,7 +19,6 @@ TEXT_MAPPING = {
     "kernel": "weight",
 }
 
-# SigLIP vision tower (keras paths "vision_tower.*").
 VISION_MAPPING = {
     "vision_tower.patch_embed": "vision_tower.embeddings.patch_embedding",
     "vision_tower.position_embedding.embeddings": (
