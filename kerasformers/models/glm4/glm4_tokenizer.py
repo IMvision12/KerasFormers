@@ -2,8 +2,6 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-DEFAULT_TOKENIZER_REPO = "THUDM/GLM-4-9B-0414"
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Glm4Tokenizer(BaseTokenizer):
@@ -18,14 +16,11 @@ class Glm4Tokenizer(BaseTokenizer):
         tokenizer_file: Explicit path to a ``tokenizer.json``.
     """
 
-    def __init__(self, hf_id=DEFAULT_TOKENIZER_REPO, tokenizer_file=None, **kwargs):
+    def __init__(self, hf_id=None, tokenizer_file=None, **kwargs):
         super().__init__(**kwargs)
         from tokenizers import Tokenizer
 
-        if tokenizer_file is None:
-            from huggingface_hub import hf_hub_download
-
-            tokenizer_file = hf_hub_download(hf_id, "tokenizer.json")
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
         self.hf_id = hf_id
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)

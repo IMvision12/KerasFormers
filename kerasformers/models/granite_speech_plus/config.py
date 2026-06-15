@@ -31,7 +31,7 @@ GRANITE_SPEECH_PLUS_CONFIG = {
         "encoder_max_pos_emb": 512,
         "encoder_conv_kernel_size": 15,
         "encoder_conv_expansion_factor": 2,
-        "projector_hidden_size": 1024,
+        "projector_dim": 1024,
         "projector_num_layers": 2,
         "projector_num_heads": 16,
         "projector_intermediate_size": 4096,

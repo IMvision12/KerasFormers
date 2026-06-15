@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .internvl_image_processor import InternVLImageProcessor
-from .internvl_tokenizer import DEFAULT_TOKENIZER_REPO, InternVLTokenizer
+from .internvl_tokenizer import InternVLTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -33,7 +33,7 @@ class InternVLProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         image_seq_length=256,
         tokenizer=None,
         image_processor=None,

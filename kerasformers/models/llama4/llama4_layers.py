@@ -418,14 +418,14 @@ class Llama4DecoderLayer(layers.Layer):
     Computes ``h = x + attention(attention_norm(x))`` followed by
     ``h = h + feed_forward(mlp_norm(h))``, where ``feed_forward`` is a
     :class:`Llama4MoE` on MoE layers (all layers on Scout; the odd layers on
-    Maverick) and a dense :class:`Llama4MLP` of width ``mlp_dim_dense``
+    Maverick) and a dense :class:`Llama4MLP` of width ``dense_mlp_dim``
     otherwise. Rotary tables, temperature scales, mask, and KV cache pass
     straight through to the attention.
 
     Args:
         embed_dim: Model / residual-stream width.
         mlp_dim: Per-expert / shared-expert hidden width (MoE layers).
-        mlp_dim_dense: Dense feed-forward hidden width (non-MoE layers).
+        dense_mlp_dim: Dense feed-forward hidden width (non-MoE layers).
         num_heads: Number of query heads.
         num_kv_heads: Number of key/value heads (GQA).
         head_dim: Per-head dim.
@@ -449,7 +449,7 @@ class Llama4DecoderLayer(layers.Layer):
         self,
         embed_dim,
         mlp_dim,
-        mlp_dim_dense,
+        dense_mlp_dim,
         num_heads,
         num_kv_heads,
         head_dim,
@@ -464,7 +464,7 @@ class Llama4DecoderLayer(layers.Layer):
         super().__init__(**kwargs)
         self.embed_dim = embed_dim
         self.mlp_dim = mlp_dim
-        self.mlp_dim_dense = mlp_dim_dense
+        self.dense_mlp_dim = dense_mlp_dim
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
@@ -495,7 +495,7 @@ class Llama4DecoderLayer(layers.Layer):
                 name="feed_forward",
             )
             if is_moe
-            else Llama4MLP(embed_dim, mlp_dim_dense, name="feed_forward")
+            else Llama4MLP(embed_dim, dense_mlp_dim, name="feed_forward")
         )
 
     def call(
@@ -556,7 +556,7 @@ class Llama4DecoderLayer(layers.Layer):
             {
                 "embed_dim": self.embed_dim,
                 "mlp_dim": self.mlp_dim,
-                "mlp_dim_dense": self.mlp_dim_dense,
+                "dense_mlp_dim": self.dense_mlp_dim,
                 "num_heads": self.num_heads,
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,

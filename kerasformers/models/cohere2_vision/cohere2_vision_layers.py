@@ -4,7 +4,25 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Cohere2VisionAttention(layers.Layer):
-    """SigLIP full (bidirectional) self-attention — all projections biased."""
+    """SigLIP multi-head self-attention (full, bidirectional, biased).
+
+    Standard scaled dot-product attention over all patch tokens with no causal
+    or padding mask — every patch attends to every patch. Unlike the text
+    decoder's attention, all four projections (``query`` / ``key`` / ``value`` /
+    ``output_proj``) carry biases, and there is no rotary embedding or grouped
+    KV: ``num_heads`` query heads each of width ``embed_dim // num_heads``,
+    softmaxed in float32.
+
+    Args:
+        embed_dim: Patch embedding width.
+        num_heads: Attention heads (``head_dim = embed_dim // num_heads``).
+
+    Call args:
+        x: ``(num_tiles, num_patches, embed_dim)`` patch features.
+
+    Returns:
+        ``(num_tiles, num_patches, embed_dim)``.
+    """
 
     def __init__(self, embed_dim, num_heads, **kwargs):
         super().__init__(**kwargs)
@@ -41,7 +59,25 @@ class Cohere2VisionAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Cohere2VisionLayer(layers.Layer):
-    """One SigLIP encoder block: pre-LN attention + pre-LN gelu-tanh MLP."""
+    """One SigLIP encoder block: pre-LN attention + pre-LN gelu-tanh MLP.
+
+    Two residual sub-blocks: ``x = x + attn(LN1(x))`` then
+    ``x = x + fc2(gelu_tanh(fc1(LN2(x))))``. Both LayerNorms and the ``fc1`` /
+    ``fc2`` MLP are biased, and the MLP uses the tanh ``gelu`` approximation,
+    matching SigLIP.
+
+    Args:
+        embed_dim: Patch embedding width.
+        mlp_dim: Hidden width of the ``fc1`` / ``fc2`` MLP.
+        num_heads: Attention head count.
+        norm_eps: LayerNorm epsilon. Defaults to ``1e-6``.
+
+    Call args:
+        x: ``(num_tiles, num_patches, embed_dim)`` patch features.
+
+    Returns:
+        ``(num_tiles, num_patches, embed_dim)``.
+    """
 
     def __init__(self, embed_dim, mlp_dim, num_heads, norm_eps=1e-6, **kwargs):
         super().__init__(**kwargs)
@@ -179,6 +215,13 @@ class Cohere2VisionProjector(layers.Layer):
         text_dim: Text-model hidden width.
         downsample_factor: Spatial downsample factor (2).
         intermediate_size: Projector hidden width (``alignment_intermediate_size``).
+
+    Call args:
+        image_features: ``(num_tiles, num_patches, vision_dim)`` tower output.
+
+    Returns:
+        ``(num_tiles * num_patches_downsampled, text_dim)`` flattened projected
+        tokens, ready to scatter into the text decoder's ``image_token_id`` slots.
     """
 
     def __init__(

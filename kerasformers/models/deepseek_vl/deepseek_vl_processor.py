@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .deepseek_vl_image_processor import DeepseekVLImageProcessor
-from .deepseek_vl_tokenizer import DEFAULT_TOKENIZER_REPO, DeepseekVLTokenizer
+from .deepseek_vl_tokenizer import DeepseekVLTokenizer
 
 SYSTEM_PROMPT = (
     "You are a helpful language and vision assistant. "
@@ -37,7 +37,7 @@ class DeepseekVLProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         num_image_tokens=576,
         tokenizer=None,
         image_processor=None,

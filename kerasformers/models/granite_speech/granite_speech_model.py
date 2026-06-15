@@ -230,7 +230,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
         encoder_max_pos_emb=512,
         encoder_conv_kernel_size=15,
         encoder_conv_expansion_factor=2,
-        projector_hidden_size=1024,
+        projector_dim=1024,
         projector_num_layers=2,
         projector_num_heads=16,
         projector_intermediate_size=4096,
@@ -272,7 +272,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
         self.encoder_max_pos_emb = encoder_max_pos_emb
         self.encoder_conv_kernel_size = encoder_conv_kernel_size
         self.encoder_conv_expansion_factor = encoder_conv_expansion_factor
-        self.projector_hidden_size = projector_hidden_size
+        self.projector_dim = projector_dim
         self.projector_num_layers = projector_num_layers
         self.projector_num_heads = projector_num_heads
         self.projector_intermediate_size = projector_intermediate_size
@@ -299,7 +299,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
             name="encoder",
         )
         self.projector = GraniteSpeechEncoderProjector(
-            hidden_size=projector_hidden_size,
+            hidden_size=projector_dim,
             text_hidden_size=embed_dim,
             encoder_hidden_size=self.projector_encoder_hidden_size,
             num_layers=projector_num_layers,
@@ -446,7 +446,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
             "encoder_max_pos_emb": enc.get("max_pos_emb", 512),
             "encoder_conv_kernel_size": enc.get("conv_kernel_size", 15),
             "encoder_conv_expansion_factor": enc.get("conv_expansion_factor", 2),
-            "projector_hidden_size": proj["hidden_size"],
+            "projector_dim": proj["hidden_size"],
             "projector_num_layers": proj["num_hidden_layers"],
             "projector_num_heads": proj["num_attention_heads"],
             "projector_intermediate_size": proj["intermediate_size"],
@@ -529,7 +529,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
                 "encoder_max_pos_emb": self.encoder_max_pos_emb,
                 "encoder_conv_kernel_size": self.encoder_conv_kernel_size,
                 "encoder_conv_expansion_factor": self.encoder_conv_expansion_factor,
-                "projector_hidden_size": self.projector_hidden_size,
+                "projector_dim": self.projector_dim,
                 "projector_num_layers": self.projector_num_layers,
                 "projector_num_heads": self.projector_num_heads,
                 "projector_intermediate_size": self.projector_intermediate_size,

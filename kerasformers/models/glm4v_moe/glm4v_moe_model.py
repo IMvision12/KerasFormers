@@ -10,7 +10,7 @@ from kerasformers.models.glm4_moe.glm4_moe_layers import (
 )
 from kerasformers.models.glm4v.glm4v_vision_layers import Glm4vVisionModel
 
-from .config import GLM4V_MOE_CONFIG, GLM4V_MOE_TOKENS, GLM4V_MOE_WEIGHTS_URLS
+from .config import GLM4V_MOE_COMMON, GLM4V_MOE_CONFIG, GLM4V_MOE_WEIGHTS_URLS
 
 MASK_NEG = -1e9
 
@@ -199,20 +199,20 @@ class Glm4vMoeModel(SubclassedBaseModel):
         vision_depth=24,
         vision_embed_dim=1536,
         vision_num_heads=12,
-        vision_intermediate_size=13696,
-        vision_out_hidden_size=4096,
+        vision_mlp_dim=13696,
+        vision_out_dim=4096,
         image_size=336,
         patch_size=14,
         spatial_merge_size=2,
         temporal_patch_size=2,
         in_channels=3,
         vision_norm_eps=1e-5,
-        image_token_id=GLM4V_MOE_TOKENS["image_token_id"],
-        video_token_id=GLM4V_MOE_TOKENS["video_token_id"],
-        image_start_token_id=GLM4V_MOE_TOKENS["image_start_token_id"],
-        image_end_token_id=GLM4V_MOE_TOKENS["image_end_token_id"],
-        video_start_token_id=GLM4V_MOE_TOKENS["video_start_token_id"],
-        video_end_token_id=GLM4V_MOE_TOKENS["video_end_token_id"],
+        image_token_id=GLM4V_MOE_COMMON["image_token_id"],
+        video_token_id=GLM4V_MOE_COMMON["video_token_id"],
+        image_start_token_id=GLM4V_MOE_COMMON["image_start_token_id"],
+        image_end_token_id=GLM4V_MOE_COMMON["image_end_token_id"],
+        video_start_token_id=GLM4V_MOE_COMMON["video_start_token_id"],
+        video_end_token_id=GLM4V_MOE_COMMON["video_end_token_id"],
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -241,8 +241,8 @@ class Glm4vMoeModel(SubclassedBaseModel):
         self.vision_depth = vision_depth
         self.vision_embed_dim = vision_embed_dim
         self.vision_num_heads = vision_num_heads
-        self.vision_intermediate_size = vision_intermediate_size
-        self.vision_out_hidden_size = vision_out_hidden_size
+        self.vision_mlp_dim = vision_mlp_dim
+        self.vision_out_dim = vision_out_dim
         self.image_size = image_size
         self.patch_size = patch_size
         self.spatial_merge_size = spatial_merge_size
@@ -260,8 +260,8 @@ class Glm4vMoeModel(SubclassedBaseModel):
             embed_dim=vision_embed_dim,
             depth=vision_depth,
             num_heads=vision_num_heads,
-            out_hidden_size=vision_out_hidden_size,
-            intermediate_size=vision_intermediate_size,
+            out_hidden_size=vision_out_dim,
+            intermediate_size=vision_mlp_dim,
             image_size=image_size,
             patch_size=patch_size,
             spatial_merge_size=spatial_merge_size,
@@ -454,8 +454,8 @@ class Glm4vMoeModel(SubclassedBaseModel):
             "vision_depth": vc.get("depth", 24),
             "vision_embed_dim": vc.get("hidden_size", 1536),
             "vision_num_heads": vc.get("num_heads", 12),
-            "vision_intermediate_size": vc.get("intermediate_size", 13696),
-            "vision_out_hidden_size": vc.get("out_hidden_size", tc["hidden_size"]),
+            "vision_mlp_dim": vc.get("intermediate_size", 13696),
+            "vision_out_dim": vc.get("out_hidden_size", tc["hidden_size"]),
             "image_size": vc.get("image_size", 336),
             "patch_size": vc.get("patch_size", 14),
             "spatial_merge_size": vc.get("spatial_merge_size", 2),
@@ -504,8 +504,8 @@ class Glm4vMoeModel(SubclassedBaseModel):
                 "vision_depth": self.vision_depth,
                 "vision_embed_dim": self.vision_embed_dim,
                 "vision_num_heads": self.vision_num_heads,
-                "vision_intermediate_size": self.vision_intermediate_size,
-                "vision_out_hidden_size": self.vision_out_hidden_size,
+                "vision_mlp_dim": self.vision_mlp_dim,
+                "vision_out_dim": self.vision_out_dim,
                 "image_size": self.image_size,
                 "patch_size": self.patch_size,
                 "spatial_merge_size": self.spatial_merge_size,

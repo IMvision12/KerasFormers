@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .mistral3_image_processor import Mistral3ImageProcessor
-from .mistral3_tokenizer import DEFAULT_TOKENIZER_REPO, Mistral3Tokenizer
+from .mistral3_tokenizer import Mistral3Tokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -35,7 +35,7 @@ class Mistral3Processor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         patch_size=14,
         spatial_merge_size=2,
         tokenizer=None,

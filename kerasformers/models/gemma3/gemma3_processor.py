@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .gemma3_image_processor import Gemma3ImageProcessor
-from .gemma3_tokenizer import DEFAULT_TOKENIZER_REPO, Gemma3Tokenizer
+from .gemma3_tokenizer import Gemma3Tokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -33,7 +33,7 @@ class Gemma3Processor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         mm_tokens_per_image=256,
         tokenizer=None,
         image_processor=None,

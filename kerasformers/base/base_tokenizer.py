@@ -30,6 +30,9 @@ class BaseTokenizer(PreprocessorMixin):
       ``tokenizer.json`` path (an explicit ``tokenizer_file`` if given, else the
       per-variant release file from the tokenizer's ``TOKENIZER_URLS`` dict) for
       ``Tokenizer.from_file``.
+    * :meth:`resolve_tokenizer_json_from_hf` — resolve a local ``tokenizer.json``
+      path from a Hub ``hf_id`` (or an explicit ``tokenizer_file``), raising when
+      neither is given (no default repo, like ``AutoTokenizer.from_pretrained``).
 
     Concrete tokenizers add their own state (vocab path, merges, special-token
     ids, BPE / SentencePiece backend) and ``get_config`` payload — the base
@@ -108,6 +111,27 @@ class BaseTokenizer(PreprocessorMixin):
                 f"{type(self).__name__}.TOKENIZER_URLS."
             )
         return download_file(url)
+
+    def resolve_tokenizer_json_from_hf(
+        self, hf_id, tokenizer_file=None, filename="tokenizer.json"
+    ):
+        """Resolve a local ``tokenizer.json`` path from a Hub repo id.
+
+        Returns ``tokenizer_file`` when given; otherwise downloads ``filename``
+        from the ``hf_id`` Hub repo. There is no default repo — exactly one of
+        ``hf_id`` / ``tokenizer_file`` must be supplied (mirroring
+        ``AutoTokenizer.from_pretrained``), else a ``ValueError`` is raised.
+        """
+        if tokenizer_file is not None:
+            return tokenizer_file
+        if not hf_id:
+            raise ValueError(
+                f"{type(self).__name__} requires `hf_id` (a Hub repo containing a "
+                f"{filename}) or an explicit `tokenizer_file`."
+            )
+        from huggingface_hub import hf_hub_download
+
+        return hf_hub_download(hf_id, filename)
 
     def call(self, inputs):
         raise NotImplementedError(

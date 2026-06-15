@@ -2,11 +2,6 @@ import keras
 from keras import layers, ops
 
 
-def rotate_half(x):
-    half = ops.shape(x)[-1] // 2
-    return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
-
-
 def apply_rope(x, cos, sin):
     # Full-width half-rotation rope on (B, L, H, D); partial ("proportional")
     # rotary is realized upstream by zero-padding the inverse frequencies to
@@ -14,7 +9,9 @@ def apply_rope(x, cos, sin):
     # exactly like HF.
     cos = ops.expand_dims(cos, axis=2)
     sin = ops.expand_dims(sin, axis=2)
-    return x * cos + rotate_half(x) * sin
+    half = ops.shape(x)[-1] // 2
+    rot = ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
+    return x * cos + rot * sin
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -61,7 +58,16 @@ class Gemma4RMSNorm(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Gemma4MLP(layers.Layer):
-    """GeGLU feed-forward block: ``down(gelu_tanh(gate(x)) * up(x))``, bias-free."""
+    """Gemma 4 GeGLU feed-forward block: ``down(gelu_tanh(gate(x)) * up(x))``.
+
+    Bias-free GeGLU: the ``gate`` branch uses the tanh ``gelu`` approximation,
+    is multiplied elementwise by the ``up`` projection, and ``down`` projects
+    the result back to ``embed_dim``.
+
+    Args:
+        embed_dim: Model width (input and output dimension).
+        mlp_dim: Hidden width of the ``gate`` / ``up`` projections.
+    """
 
     def __init__(self, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
@@ -370,7 +376,7 @@ class Gemma4DecoderLayer(layers.Layer):
         head_dim: Per-head dim for this layer.
         k_eq_v: Whether the attention is the global K=V kind.
         is_moe: Whether this layer carries the parallel expert branch.
-        num_experts / top_k_experts / moe_mlp_dim: MoE parameters.
+        num_experts / num_experts_per_tok / moe_mlp_dim: MoE parameters.
         norm_eps: Epsilon of all norms.
     """
 
@@ -384,7 +390,7 @@ class Gemma4DecoderLayer(layers.Layer):
         k_eq_v=False,
         is_moe=False,
         num_experts=0,
-        top_k_experts=0,
+        num_experts_per_tok=0,
         moe_mlp_dim=0,
         norm_eps=1e-6,
         **kwargs,
@@ -398,7 +404,7 @@ class Gemma4DecoderLayer(layers.Layer):
         self.k_eq_v = k_eq_v
         self.is_moe = is_moe
         self.num_experts = num_experts
-        self.top_k_experts = top_k_experts
+        self.num_experts_per_tok = num_experts_per_tok
         self.moe_mlp_dim = moe_mlp_dim
         self.norm_eps = norm_eps
         self.attention_norm = Gemma4RMSNorm(eps=norm_eps, name="attention_norm")
@@ -423,7 +429,7 @@ class Gemma4DecoderLayer(layers.Layer):
         )
         if is_moe:
             self.router = Gemma4Router(
-                num_experts, top_k_experts, embed_dim, norm_eps, name="router"
+                num_experts, num_experts_per_tok, embed_dim, norm_eps, name="router"
             )
             self.experts = Gemma4Experts(
                 num_experts, embed_dim, moe_mlp_dim, name="experts"
@@ -511,7 +517,7 @@ class Gemma4DecoderLayer(layers.Layer):
                 "k_eq_v": self.k_eq_v,
                 "is_moe": self.is_moe,
                 "num_experts": self.num_experts,
-                "top_k_experts": self.top_k_experts,
+                "num_experts_per_tok": self.num_experts_per_tok,
                 "moe_mlp_dim": self.moe_mlp_dim,
                 "norm_eps": self.norm_eps,
             }

@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 
 from .janus_image_processor import JanusImageProcessor
-from .janus_tokenizer import DEFAULT_TOKENIZER_REPO, JanusTokenizer
+from .janus_tokenizer import JanusTokenizer
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a helpful language and vision assistant. "
@@ -39,7 +39,7 @@ class JanusProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         num_image_tokens=576,
         use_default_system_prompt=True,
         tokenizer=None,

@@ -32,10 +32,6 @@ WEIGHT_NAME_MAPPING = {
 
 
 def fuse_expert_weights(hf_state_dict):
-    """Fuse per-expert ``mlp.experts.N.gate_proj/up_proj/down_proj`` (the hub
-    layout) into ``mlp.experts.gate_up_proj`` (E, 2I, H) / ``down_proj``
-    (E, H, I); in-memory state dicts from current transformers already ship
-    the fused tensors."""
     pat = re.compile(
         r"^(model\.layers\.\d+)\.mlp\.experts\.(\d+)\.(gate_proj|up_proj|down_proj)\.weight$"
     )

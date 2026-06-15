@@ -2,8 +2,6 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-DEFAULT_TOKENIZER_REPO = "MiniMaxAI/MiniMax-Text-01-hf"
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MiniMaxTokenizer(BaseTokenizer):
@@ -20,9 +18,7 @@ class MiniMaxTokenizer(BaseTokenizer):
         vocab_file / merges_file: Explicit paths (override the download).
     """
 
-    def __init__(
-        self, hf_id=DEFAULT_TOKENIZER_REPO, vocab_file=None, merges_file=None, **kwargs
-    ):
+    def __init__(self, hf_id=None, vocab_file=None, merges_file=None, **kwargs):
         super().__init__(**kwargs)
         from tokenizers import Tokenizer, decoders, models, pre_tokenizers
 

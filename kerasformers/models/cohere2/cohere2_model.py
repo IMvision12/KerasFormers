@@ -29,6 +29,9 @@ class Cohere2Model(SubclassedBaseModel):
         attention_bias: Attention projection bias.
         logit_scale: Output-logit multiplier.
         tie_embeddings: Whether the head ties to the token embedding.
+        layer_types: Optional explicit per-layer
+            ``"sliding_attention"`` / ``"full_attention"`` list; by default every
+            ``sliding_window_pattern``-th layer is full attention, the rest sliding.
     """
 
     HF_MODEL_TYPE = "cohere2"
@@ -196,11 +199,27 @@ class Cohere2Model(SubclassedBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Cohere2Generate(Cohere2Model, BaseGeneration):
-    """Cohere2 with a ``logit_scale``-scaled LM head + fast ``.generate()``.
+    """Cohere2 (Command-R7B / Command-A) with a language-model head + fast ``.generate()``.
 
-    The KV cache is full-length per layer; the sliding layers enforce their
-    window through the decode key-mask (keys older than ``sliding_window`` are
-    masked), so the loop stays constant-shape.
+    Adds a vocabulary projection on top of :class:`Cohere2Model`: a bias-free
+    ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the tied token
+    embedding; either way logits are scaled by ``logit_scale``. ``call`` returns
+    both ``logits`` and the final ``last_hidden_state``.
+
+    Fast generation uses :class:`~kerasformers.base.BaseGeneration`'s fixed-cache
+    compiled loop: :meth:`build_cache` prefills the prompt into a full-length
+    per-layer KV cache, then :meth:`call_with_cache` decodes one token at a time.
+    The cache is full-length for **every** layer; the sliding-window layers
+    enforce their window through the decode key-mask (keys older than
+    ``sliding_window`` are masked) and the full/NoPE layers see all keys, so the
+    loop stays constant-shape. ``eos_token_id`` defaults to Cohere's
+    ``<|END_OF_TURN_TOKEN|>`` (255001); pass ``eos_token_id`` to :meth:`generate`
+    to override.
+
+    Construction mirrors :class:`Cohere2Model`::
+
+        gen = Cohere2Generate.from_weights("hf:CohereLabs/c4ai-command-r7b-12-2024")
+        out = gen.generate(input_ids, max_new_tokens=64)
     """
 
     eos_token_id = (255001,)

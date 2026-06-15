@@ -32,7 +32,6 @@ def transfer_cohere_weights(keras_model, hf_state_dict):
         if name not in hf_state_dict:
             raise WeightMappingError(weight.path, name)
         if name.endswith("q_norm.weight") or name.endswith("k_norm.weight"):
-            # Per-head LayerNorm weight (num_heads, head_dim): direct copy.
             weight.assign(np.asarray(hf_state_dict[name]))
         else:
             transfer_weights(weight.path, weight, hf_state_dict[name])

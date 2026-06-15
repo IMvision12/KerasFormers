@@ -278,11 +278,29 @@ class Cohere2VisionModel(SubclassedBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Cohere2VisionGenerate(Cohere2VisionModel, BaseGeneration):
-    """Cohere2-Vision with an LM head + fast ``.generate()`` (image+text -> text).
+    """Cohere2-Vision (Command-A Vision) with an LM head + fast ``.generate()`` (image+text -> text).
 
-    ``build_cache`` runs the vision tower + projector + fused prefill once
-    (consuming ``pixel_values``); decode is text-only over the Cohere2 hybrid
-    KV cache (sliding layers windowed via the decode mask).
+    Adds a vocabulary projection on top of :class:`Cohere2VisionModel`: a
+    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
+    tied token embedding. **Unlike** the text-only
+    :class:`~kerasformers.models.cohere2.cohere2_model.Cohere2Generate`, the
+    logits are *not* multiplied by ``logit_scale`` — the HF VLM forward omits
+    that scaling. ``call`` returns both ``logits`` and ``last_hidden_state``.
+
+    Fast generation uses :class:`~kerasformers.base.BaseGeneration`'s fixed-cache
+    compiled loop. :meth:`build_cache` runs the vision tower + projector + fused
+    multimodal prefill once — scattering the projected patches into the
+    ``image_token_id`` slots, consuming ``pixel_values`` — then
+    :meth:`call_with_cache` decodes text-only over the full-length per-layer KV
+    cache: the sliding-window layers enforce their window through the decode
+    key-mask and the full/NoPE layers see all keys, so the loop stays
+    constant-shape. ``eos_token_id`` defaults to Cohere's
+    ``<|END_OF_TURN_TOKEN|>`` (255001).
+
+    Construction mirrors :class:`Cohere2VisionModel`::
+
+        gen = Cohere2VisionGenerate.from_weights("hf:CohereLabs/command-a-vision-07-2025")
+        out = gen.generate(input_ids, pixel_values=pixels, max_new_tokens=64)
     """
 
     eos_token_id = (255001,)

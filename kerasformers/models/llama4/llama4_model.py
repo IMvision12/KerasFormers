@@ -69,7 +69,7 @@ class Llama4Model(SubclassedBaseModel):
         vocab_size: Token vocabulary size.
         embed_dim: Model / residual-stream width.
         mlp_dim: Per-expert and shared-expert hidden width.
-        mlp_dim_dense: Dense (non-MoE) layers' feed-forward hidden width.
+        dense_mlp_dim: Dense (non-MoE) layers' feed-forward hidden width.
         num_layers: Number of decoder blocks.
         num_heads: Query heads per layer.
         num_kv_heads: Key/value heads per layer (GQA).
@@ -102,7 +102,7 @@ class Llama4Model(SubclassedBaseModel):
         vocab_size=202048,
         embed_dim=5120,
         mlp_dim=8192,
-        mlp_dim_dense=16384,
+        dense_mlp_dim=16384,
         num_layers=48,
         num_heads=40,
         num_kv_heads=8,
@@ -129,7 +129,7 @@ class Llama4Model(SubclassedBaseModel):
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
         self.mlp_dim = mlp_dim
-        self.mlp_dim_dense = mlp_dim_dense
+        self.dense_mlp_dim = dense_mlp_dim
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
@@ -161,7 +161,7 @@ class Llama4Model(SubclassedBaseModel):
             Llama4DecoderLayer(
                 embed_dim,
                 mlp_dim,
-                mlp_dim_dense,
+                dense_mlp_dim,
                 num_heads,
                 num_kv_heads,
                 self.head_dim,
@@ -271,7 +271,7 @@ class Llama4Model(SubclassedBaseModel):
             "vocab_size": text["vocab_size"],
             "embed_dim": text["hidden_size"],
             "mlp_dim": text["intermediate_size"],
-            "mlp_dim_dense": text["intermediate_size_mlp"],
+            "dense_mlp_dim": text["intermediate_size_mlp"],
             "num_layers": text["num_hidden_layers"],
             "num_heads": text["num_attention_heads"],
             "num_kv_heads": text["num_key_value_heads"],
@@ -309,7 +309,7 @@ class Llama4Model(SubclassedBaseModel):
                 "vocab_size": self.vocab_size,
                 "embed_dim": self.embed_dim,
                 "mlp_dim": self.mlp_dim,
-                "mlp_dim_dense": self.mlp_dim_dense,
+                "dense_mlp_dim": self.dense_mlp_dim,
                 "num_layers": self.num_layers,
                 "num_heads": self.num_heads,
                 "num_kv_heads": self.num_kv_heads,

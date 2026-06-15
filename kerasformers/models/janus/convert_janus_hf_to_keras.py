@@ -4,8 +4,6 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-# The Llama text decoder + lm_head (keras paths "decoder_layer_*", the bare
-# "token_embedding" and "final_norm", and "lm_head").
 TEXT_MAPPING = {
     "token_embedding.embeddings": "language_model.embed_tokens.weight",
     "final_norm.weight": "language_model.norm.weight",
@@ -22,8 +20,6 @@ TEXT_MAPPING = {
     "kernel": "weight",
 }
 
-# The SigLIP-style tower (keras paths "vision_model.*"); the attention output
-# projection is named "projection_layer" in HF Janus.
 VISION_MAPPING = {
     "vision_model.patch_embed": "vision_model.embeddings.patch_embedding",
     "vision_model.position_embedding.embeddings": (
@@ -50,10 +46,6 @@ ALIGNER_MAPPING = {
 
 
 def normalize_keys(hf_state_dict):
-    # JanusForConditionalGeneration prefixes everything except lm_head with
-    # "model."; strip it. The VQ-VAE image-generation stack (vqmodel,
-    # generation_embeddings / generation_aligner / generation_head) is not
-    # ported — those keys simply stay unused.
     out = {}
     for key, value in hf_state_dict.items():
         if key.startswith("model."):

@@ -1,4 +1,5 @@
 COHERE2_MOE_CONFIG = {
+    # Synthetic reference config (no released checkpoint).
     "command-moe": {
         "vocab_size": 256000,
         "embed_dim": 8192,
@@ -11,9 +12,9 @@ COHERE2_MOE_CONFIG = {
         "num_experts_per_tok": 2,
         "expert_selection_fn": "softmax",
         "norm_topk_prob": True,
-        "num_shared_experts": 0,
+        "n_shared_experts": 0,
         "shared_combine": "average",
-        "first_k_dense_replace": 0,
+        "first_k_dense": 0,
         "sliding_window": 4096,
         "sliding_window_pattern": 4,
         "rms_norm_eps": None,
@@ -22,6 +23,39 @@ COHERE2_MOE_CONFIG = {
         "logit_scale": 0.0625,
         "tie_embeddings": True,
     },
+    # CohereLabs/North-Mini-Code-1.0 — official Cohere2-MoE checkpoint.
+    "north-mini-code-1.0": {
+        "vocab_size": 262144,
+        "embed_dim": 2048,
+        "num_layers": 49,
+        "num_heads": 32,
+        "num_kv_heads": 4,
+        "head_dim": 128,
+        "mlp_dim": 768,
+        "moe_mlp_dim": 768,
+        "num_experts": 128,
+        "num_experts_per_tok": 8,
+        "expert_selection_fn": "sigmoid",
+        "norm_topk_prob": False,
+        "n_shared_experts": 0,
+        "shared_combine": "average",
+        "first_k_dense": 1,
+        "prefix_dense_intermediate_size": 3072,
+        "prefix_dense_sliding_window_pattern": 1,
+        "sliding_window": 4096,
+        "sliding_window_pattern": 4,
+        "rms_norm_eps": 1e-6,
+        "norm_eps": 1e-5,
+        "rope_theta": 50000.0,
+        "logit_scale": 1.0,
+        "tie_embeddings": True,
+    },
 }
 
-COHERE2_MOE_WEIGHTS_URLS = {}
+COHERE2_MOE_WEIGHTS_URLS = {
+    "north-mini-code-1.0": {
+        "hf_id": "CohereLabs/North-Mini-Code-1.0",
+        "gated": False,
+        "safetensors": True,
+    },
+}

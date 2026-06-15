@@ -39,7 +39,7 @@ class Gemma4Model(SubclassedBaseModel):
         global_head_dim: Global-layer per-head dim (512).
         k_eq_v: Global layers reuse the key projection as the value.
         enable_moe: Whether layers carry the parallel expert branch.
-        num_experts / top_k_experts / moe_mlp_dim: MoE parameters.
+        num_experts / num_experts_per_tok / moe_mlp_dim: MoE parameters.
         sliding_window: Window of the sliding layers.
         sliding_window_pattern: Every ``pattern``-th layer is global (6).
         partial_rotary_factor: Fraction of the global head that is rotated.
@@ -68,7 +68,7 @@ class Gemma4Model(SubclassedBaseModel):
         k_eq_v=True,
         enable_moe=False,
         num_experts=0,
-        top_k_experts=0,
+        num_experts_per_tok=0,
         moe_mlp_dim=0,
         sliding_window=1024,
         sliding_window_pattern=6,
@@ -93,7 +93,7 @@ class Gemma4Model(SubclassedBaseModel):
         self.k_eq_v = k_eq_v
         self.enable_moe = enable_moe
         self.num_experts = num_experts
-        self.top_k_experts = top_k_experts
+        self.num_experts_per_tok = num_experts_per_tok
         self.moe_mlp_dim = moe_mlp_dim
         self.sliding_window = sliding_window
         self.sliding_window_pattern = sliding_window_pattern
@@ -121,7 +121,7 @@ class Gemma4Model(SubclassedBaseModel):
                     k_eq_v=(not sliding) and k_eq_v,
                     is_moe=enable_moe,
                     num_experts=num_experts,
-                    top_k_experts=top_k_experts,
+                    num_experts_per_tok=num_experts_per_tok,
                     moe_mlp_dim=moe_mlp_dim,
                     norm_eps=norm_eps,
                     name=f"decoder_layer_{i}",
@@ -226,7 +226,7 @@ class Gemma4Model(SubclassedBaseModel):
             "k_eq_v": bool(text.get("attention_k_eq_v", False)),
             "enable_moe": bool(text.get("enable_moe_block", False)),
             "num_experts": text.get("num_experts") or 0,
-            "top_k_experts": text.get("top_k_experts") or 0,
+            "num_experts_per_tok": text.get("top_k_experts") or 0,
             "moe_mlp_dim": text.get("moe_intermediate_size") or 0,
             "sliding_window": text.get("sliding_window", 1024),
             "sliding_window_pattern": text.get("sliding_window_pattern", 6),
@@ -264,7 +264,7 @@ class Gemma4Model(SubclassedBaseModel):
                 "k_eq_v": self.k_eq_v,
                 "enable_moe": self.enable_moe,
                 "num_experts": self.num_experts,
-                "top_k_experts": self.top_k_experts,
+                "num_experts_per_tok": self.num_experts_per_tok,
                 "moe_mlp_dim": self.moe_mlp_dim,
                 "sliding_window": self.sliding_window,
                 "sliding_window_pattern": self.sliding_window_pattern,

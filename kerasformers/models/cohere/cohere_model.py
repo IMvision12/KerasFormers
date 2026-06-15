@@ -86,7 +86,6 @@ class CohereModel(SubclassedBaseModel):
         self.final_norm = CohereLayerNorm(eps=norm_eps, name="final_norm")
 
     def rope_tables(self, position_ids):
-        # Cohere interleaved rope: repeat_interleave the per-pair angles.
         hd = self.head_dim
         inv_freq = 1.0 / ops.power(
             self.rope_theta, ops.arange(0, hd, 2, dtype="float32") / hd
@@ -174,7 +173,26 @@ class CohereModel(SubclassedBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CohereGenerate(CohereModel, BaseGeneration):
-    """Cohere with an LM head (``logit_scale``-scaled) + fast ``.generate()``."""
+    """Cohere Command-R with a language-model head + fast ``.generate()``.
+
+    Adds a vocabulary projection on top of :class:`CohereModel`: a bias-free
+    ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the tied token
+    embedding. Either way the logits are scaled by ``logit_scale`` (Cohere's
+    output-temperature factor). ``call`` returns both ``logits`` and the final
+    ``last_hidden_state``.
+
+    Fast generation comes from :class:`~kerasformers.base.BaseGeneration`'s
+    fixed-cache compiled decode loop: :meth:`build_cache` runs the prompt prefill
+    once into a stacked per-layer KV cache, then :meth:`call_with_cache` performs
+    the incremental single-token decode steps with a windowed key mask.
+    ``eos_token_id`` defaults to Cohere's ``<|END_OF_TURN_TOKEN|>`` (255001);
+    pass an explicit ``eos_token_id`` to :meth:`generate` to override.
+
+    Construction mirrors :class:`CohereModel`::
+
+        gen = CohereGenerate.from_weights("hf:CohereLabs/aya-expanse-8b")
+        out = gen.generate(input_ids, max_new_tokens=64)
+    """
 
     eos_token_id = (255001,)
 

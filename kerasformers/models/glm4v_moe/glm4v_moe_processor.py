@@ -5,7 +5,7 @@ from keras import ops
 from kerasformers.base import BaseProcessor
 from kerasformers.models.glm4v.glm4v_image_processor import Glm4vImageProcessor
 
-from .glm4v_moe_tokenizer import DEFAULT_TOKENIZER_REPO, Glm4vMoeTokenizer
+from .glm4v_moe_tokenizer import Glm4vMoeTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -23,7 +23,7 @@ class Glm4vMoeProcessor(BaseProcessor):
 
     def __init__(
         self,
-        hf_id=DEFAULT_TOKENIZER_REPO,
+        hf_id=None,
         patch_size=14,
         spatial_merge_size=2,
         temporal_patch_size=2,
