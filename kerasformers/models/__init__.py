@@ -65,7 +65,6 @@ from kerasformers.models import (
     minimax_m3_vl,
     mistral,
     mistral3,
-    mistral4,
     mit,
     mixtral,
     mlp_mixer,

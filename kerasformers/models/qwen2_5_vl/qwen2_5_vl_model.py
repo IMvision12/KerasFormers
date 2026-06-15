@@ -403,10 +403,10 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         tie_embeddings: Whether :class:`Qwen2_5_VLGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         vision_depth: Number of vision-transformer blocks.
-        vision_hidden_size: Vision hidden width.
-        vision_intermediate_size: Vision SwiGLU hidden width.
+        vision_embed_dim: Vision hidden width.
+        vision_mlp_dim: Vision SwiGLU hidden width.
         vision_num_heads: Vision attention heads.
-        vision_out_hidden_size: Output width of the vision merger; defaults to
+        vision_out_dim: Output width of the vision merger; defaults to
             ``embed_dim`` (the LLM hidden size).
         window_size: Windowed-attention window size, in pixels.
         fullatt_block_indexes: Vision block indices that use full (non-windowed)
@@ -439,10 +439,10 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         mrope_section=(16, 24, 24),
         tie_embeddings=True,
         vision_depth=32,
-        vision_hidden_size=1280,
-        vision_intermediate_size=3420,
+        vision_embed_dim=1280,
+        vision_mlp_dim=3420,
         vision_num_heads=16,
-        vision_out_hidden_size=None,
+        vision_out_dim=None,
         window_size=112,
         fullatt_block_indexes=(7, 15, 23, 31),
         tokens_per_second=2,
@@ -475,10 +475,10 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         self.mrope_section = tuple(mrope_section)
         self.tie_embeddings = tie_embeddings
         self.vision_depth = vision_depth
-        self.vision_hidden_size = vision_hidden_size
-        self.vision_intermediate_size = vision_intermediate_size
+        self.vision_embed_dim = vision_embed_dim
+        self.vision_mlp_dim = vision_mlp_dim
         self.vision_num_heads = vision_num_heads
-        self.vision_out_hidden_size = vision_out_hidden_size or embed_dim
+        self.vision_out_dim = vision_out_dim or embed_dim
         self.window_size = window_size
         self.fullatt_block_indexes = tuple(fullatt_block_indexes)
         self.tokens_per_second = tokens_per_second
@@ -493,11 +493,11 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
 
         self.visual = Qwen2_5_VLVisionModel(
-            embed_dim=vision_hidden_size,
+            embed_dim=vision_embed_dim,
             depth=vision_depth,
             num_heads=vision_num_heads,
-            intermediate_size=vision_intermediate_size,
-            out_hidden_size=self.vision_out_hidden_size,
+            intermediate_size=vision_mlp_dim,
+            out_hidden_size=self.vision_out_dim,
             window_size=window_size,
             fullatt_block_indexes=fullatt_block_indexes,
             patch_size=patch_size,
@@ -533,12 +533,10 @@ class Qwen2_5_VLModel(Qwen2VLModel):
             "mrope_section": tuple(mrope),
             "tie_embeddings": hf_config.get("tie_word_embeddings", False),
             "vision_depth": vc.get("depth", 32),
-            "vision_hidden_size": vc.get("hidden_size", 1280),
-            "vision_intermediate_size": vc.get("intermediate_size", 3420),
+            "vision_embed_dim": vc.get("hidden_size", 1280),
+            "vision_mlp_dim": vc.get("intermediate_size", 3420),
             "vision_num_heads": vc.get("num_heads", 16),
-            "vision_out_hidden_size": vc.get(
-                "out_hidden_size", hf_config["hidden_size"]
-            ),
+            "vision_out_dim": vc.get("out_hidden_size", hf_config["hidden_size"]),
             "window_size": vc.get("window_size", 112),
             "fullatt_block_indexes": tuple(
                 vc.get("fullatt_block_indexes", (7, 15, 23, 31))
@@ -575,10 +573,10 @@ class Qwen2_5_VLModel(Qwen2VLModel):
                 "mrope_section": self.mrope_section,
                 "tie_embeddings": self.tie_embeddings,
                 "vision_depth": self.vision_depth,
-                "vision_hidden_size": self.vision_hidden_size,
-                "vision_intermediate_size": self.vision_intermediate_size,
+                "vision_embed_dim": self.vision_embed_dim,
+                "vision_mlp_dim": self.vision_mlp_dim,
                 "vision_num_heads": self.vision_num_heads,
-                "vision_out_hidden_size": self.vision_out_hidden_size,
+                "vision_out_dim": self.vision_out_dim,
                 "window_size": self.window_size,
                 "fullatt_block_indexes": self.fullatt_block_indexes,
                 "tokens_per_second": self.tokens_per_second,

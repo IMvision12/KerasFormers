@@ -123,7 +123,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
         vision_embed_dim / vision_mlp_dim / vision_num_layers /
         vision_num_heads / patch_size / temporal_patch_size /
         spatial_merge_size / vision_rope_theta / vision_norm_eps: Tower dims.
-        projector_hidden_size: Projector MLP hidden width.
+        projector_dim: Projector MLP hidden width.
         image_token_id / video_token_id: Placeholder ids (200025 / 200026).
         tie_embeddings: Whether :class:`MiniMaxM3VLGenerate` ties the LM head.
     """
@@ -167,7 +167,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
         spatial_merge_size=2,
         vision_rope_theta=10000.0,
         vision_norm_eps=1e-5,
-        projector_hidden_size=6144,
+        projector_dim=6144,
         image_token_id=200025,
         video_token_id=200026,
         tie_embeddings=False,
@@ -211,7 +211,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
         self.spatial_merge_size = spatial_merge_size
         self.vision_rope_theta = vision_rope_theta
         self.vision_norm_eps = vision_norm_eps
-        self.projector_hidden_size = projector_hidden_size
+        self.projector_dim = projector_dim
         self.image_token_id = image_token_id
         self.video_token_id = video_token_id
         self.tie_embeddings = tie_embeddings
@@ -229,12 +229,10 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
             vision_norm_eps,
             name="vision_tower",
         )
-        self.projector_linear_1 = layers.Dense(
-            projector_hidden_size, name="projector_linear_1"
-        )
+        self.projector_linear_1 = layers.Dense(projector_dim, name="projector_linear_1")
         self.projector_linear_2 = layers.Dense(embed_dim, name="projector_linear_2")
         self.projector_merge_linear_1 = layers.Dense(
-            projector_hidden_size, name="projector_merge_linear_1"
+            projector_dim, name="projector_merge_linear_1"
         )
         self.projector_merge_linear_2 = layers.Dense(
             embed_dim, name="projector_merge_linear_2"
@@ -429,7 +427,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
                 "rope_theta", vision.get("rope_theta", 10000.0)
             ),
             "vision_norm_eps": vision.get("layer_norm_eps", 1e-5),
-            "projector_hidden_size": hf_config.get("projector_hidden_size", 6144),
+            "projector_dim": hf_config.get("projector_hidden_size", 6144),
             "image_token_id": hf_config.get(
                 "image_token_id", hf_config.get("image_token_index", 200025)
             ),
@@ -482,7 +480,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
                 "spatial_merge_size": self.spatial_merge_size,
                 "vision_rope_theta": self.vision_rope_theta,
                 "vision_norm_eps": self.vision_norm_eps,
-                "projector_hidden_size": self.projector_hidden_size,
+                "projector_dim": self.projector_dim,
                 "image_token_id": self.image_token_id,
                 "video_token_id": self.video_token_id,
                 "tie_embeddings": self.tie_embeddings,

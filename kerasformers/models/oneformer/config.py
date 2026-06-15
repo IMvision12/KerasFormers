@@ -1,8 +1,3 @@
-# Only the per-variant differences live here; everything common to all OneFormer
-# checkpoints (hidden_dim, mask_feature_size, encoder/decoder depths and ffn
-# dims, query_dec_layers, num_heads, task_seq_len, num_queries) is baked into the
-# OneFormerModel.__init__ defaults. The per-variant Swin backbone shape, number
-# of classes and input size are kept here.
 ONEFORMER_CONFIG = {
     "oneformer_ade20k_swin_tiny": {
         "backbone_embed_dim": 96,

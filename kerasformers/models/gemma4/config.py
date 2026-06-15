@@ -35,7 +35,7 @@ GEMMA4_CONFIG = {
         "num_global_kv_heads": 2,
         "enable_moe": True,
         "num_experts": 128,
-        "top_k_experts": 8,
+        "num_experts_per_tok": 8,
         "moe_mlp_dim": 704,
     },
 }

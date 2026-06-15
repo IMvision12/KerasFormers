@@ -167,7 +167,7 @@ class Cohere2MoeSparseBlock(layers.Layer):
         embed_dim / moe_mlp_dim: Expert dims.
         expert_selection_fn: ``"softmax"`` or ``"sigmoid"``.
         norm_topk_prob: Renormalize the selected weights (sigmoid only).
-        num_shared_experts: Shared-expert count (0 disables).
+        n_shared_experts: Shared-expert count (0 disables).
         shared_mlp_dim: Shared-expert hidden width.
         shared_combine: ``"sum"`` or ``"average"``.
     """
@@ -180,7 +180,7 @@ class Cohere2MoeSparseBlock(layers.Layer):
         moe_mlp_dim,
         expert_selection_fn="softmax",
         norm_topk_prob=True,
-        num_shared_experts=0,
+        n_shared_experts=0,
         shared_mlp_dim=0,
         shared_combine="average",
         **kwargs,
@@ -192,13 +192,13 @@ class Cohere2MoeSparseBlock(layers.Layer):
         self.moe_mlp_dim = moe_mlp_dim
         self.expert_selection_fn = expert_selection_fn
         self.norm_topk_prob = norm_topk_prob
-        self.num_shared_experts = num_shared_experts
+        self.n_shared_experts = n_shared_experts
         self.shared_mlp_dim = shared_mlp_dim
         self.shared_combine = shared_combine
         self.experts = Cohere2MoeExperts(
             num_experts, embed_dim, moe_mlp_dim, name="experts"
         )
-        if num_shared_experts > 0:
+        if n_shared_experts > 0:
             self.shared_experts = Cohere2MoeMLP(
                 embed_dim, shared_mlp_dim, name="shared_experts"
             )
@@ -228,7 +228,7 @@ class Cohere2MoeSparseBlock(layers.Layer):
         one_hot = ops.one_hot(top_idx, self.num_experts, dtype=x.dtype)
         routing = ops.sum(one_hot * top_w[..., None], axis=1)
         out = self.experts(x, routing)
-        if self.num_shared_experts > 0:
+        if self.n_shared_experts > 0:
             shared = self.shared_experts(x)
             out = out + shared if self.shared_combine == "sum" else (out + shared) / 2
         return ops.reshape(out, (b, s, self.embed_dim))
@@ -243,7 +243,7 @@ class Cohere2MoeSparseBlock(layers.Layer):
                 "moe_mlp_dim": self.moe_mlp_dim,
                 "expert_selection_fn": self.expert_selection_fn,
                 "norm_topk_prob": self.norm_topk_prob,
-                "num_shared_experts": self.num_shared_experts,
+                "n_shared_experts": self.n_shared_experts,
                 "shared_mlp_dim": self.shared_mlp_dim,
                 "shared_combine": self.shared_combine,
             }
@@ -273,7 +273,7 @@ class Cohere2MoeDecoderLayer(layers.Layer):
         num_experts / num_experts_per_tok / moe_mlp_dim: Routed-expert shape.
         expert_selection_fn / norm_topk_prob: Router knobs (see
             :class:`Cohere2MoeSparseBlock`).
-        num_shared_experts / shared_mlp_dim / shared_combine: Shared-expert config.
+        n_shared_experts / shared_mlp_dim / shared_combine: Shared-expert config.
         use_rms_norm: Pick RMSNorm vs Cohere LayerNorm for the input norm.
         norm_eps: Norm epsilon.
         attention_bias: Attention projection bias.
@@ -304,7 +304,7 @@ class Cohere2MoeDecoderLayer(layers.Layer):
         moe_mlp_dim,
         expert_selection_fn,
         norm_topk_prob,
-        num_shared_experts,
+        n_shared_experts,
         shared_mlp_dim,
         shared_combine,
         use_rms_norm=False,
@@ -326,7 +326,7 @@ class Cohere2MoeDecoderLayer(layers.Layer):
         self.moe_mlp_dim = moe_mlp_dim
         self.expert_selection_fn = expert_selection_fn
         self.norm_topk_prob = norm_topk_prob
-        self.num_shared_experts = num_shared_experts
+        self.n_shared_experts = n_shared_experts
         self.shared_mlp_dim = shared_mlp_dim
         self.shared_combine = shared_combine
         self.use_rms_norm = use_rms_norm
@@ -350,7 +350,7 @@ class Cohere2MoeDecoderLayer(layers.Layer):
                 moe_mlp_dim,
                 expert_selection_fn,
                 norm_topk_prob,
-                num_shared_experts,
+                n_shared_experts,
                 shared_mlp_dim,
                 shared_combine,
                 name="mlp",
@@ -398,7 +398,7 @@ class Cohere2MoeDecoderLayer(layers.Layer):
                 "moe_mlp_dim": self.moe_mlp_dim,
                 "expert_selection_fn": self.expert_selection_fn,
                 "norm_topk_prob": self.norm_topk_prob,
-                "num_shared_experts": self.num_shared_experts,
+                "n_shared_experts": self.n_shared_experts,
                 "shared_mlp_dim": self.shared_mlp_dim,
                 "shared_combine": self.shared_combine,
                 "use_rms_norm": self.use_rms_norm,

@@ -407,12 +407,12 @@ class Qwen3VLModel(Qwen2VLModel):
         tie_embeddings: Whether :class:`Qwen3VLGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         vision_depth: Number of vision-transformer blocks.
-        vision_hidden_size: Vision hidden width.
-        vision_intermediate_size: Vision MLP hidden width.
+        vision_embed_dim: Vision hidden width.
+        vision_mlp_dim: Vision MLP hidden width.
         vision_num_heads: Vision attention heads.
-        vision_out_hidden_size: Output width of the vision merger; defaults to
+        vision_out_dim: Output width of the vision merger; defaults to
             ``embed_dim`` (the LLM hidden size).
-        vision_hidden_act: Vision MLP activation (e.g. ``"gelu_pytorch_tanh"``).
+        vision_act: Vision MLP activation (e.g. ``"gelu_pytorch_tanh"``).
         num_position_embeddings: Size of the learned vision position-embedding grid
             (bilinearly interpolated per image).
         deepstack_visual_indexes: Vision block indices whose features are injected
@@ -445,11 +445,11 @@ class Qwen3VLModel(Qwen2VLModel):
         mrope_section=(24, 20, 20),
         tie_embeddings=True,
         vision_depth=24,
-        vision_hidden_size=1024,
-        vision_intermediate_size=4096,
+        vision_embed_dim=1024,
+        vision_mlp_dim=4096,
         vision_num_heads=16,
-        vision_out_hidden_size=None,
-        vision_hidden_act="gelu_pytorch_tanh",
+        vision_out_dim=None,
+        vision_act="gelu_pytorch_tanh",
         num_position_embeddings=2304,
         deepstack_visual_indexes=(5, 11, 17),
         patch_size=16,
@@ -479,11 +479,11 @@ class Qwen3VLModel(Qwen2VLModel):
         self.mrope_section = tuple(mrope_section)
         self.tie_embeddings = tie_embeddings
         self.vision_depth = vision_depth
-        self.vision_hidden_size = vision_hidden_size
-        self.vision_intermediate_size = vision_intermediate_size
+        self.vision_embed_dim = vision_embed_dim
+        self.vision_mlp_dim = vision_mlp_dim
         self.vision_num_heads = vision_num_heads
-        self.vision_out_hidden_size = vision_out_hidden_size or embed_dim
-        self.vision_hidden_act = vision_hidden_act
+        self.vision_out_dim = vision_out_dim or embed_dim
+        self.vision_act = vision_act
         self.num_position_embeddings = num_position_embeddings
         self.deepstack_visual_indexes = tuple(deepstack_visual_indexes)
         self.patch_size = patch_size
@@ -498,14 +498,14 @@ class Qwen3VLModel(Qwen2VLModel):
         self.tokens_per_second = 1
 
         self.visual = Qwen3VLVisionModel(
-            embed_dim=vision_hidden_size,
+            embed_dim=vision_embed_dim,
             depth=vision_depth,
             num_heads=vision_num_heads,
-            intermediate_size=vision_intermediate_size,
-            out_hidden_size=self.vision_out_hidden_size,
+            intermediate_size=vision_mlp_dim,
+            out_hidden_size=self.vision_out_dim,
             num_position_embeddings=num_position_embeddings,
             deepstack_visual_indexes=deepstack_visual_indexes,
-            hidden_act=vision_hidden_act,
+            hidden_act=vision_act,
             patch_size=patch_size,
             spatial_merge_size=spatial_merge_size,
             name="visual",
@@ -628,11 +628,11 @@ class Qwen3VLModel(Qwen2VLModel):
                 "tie_word_embeddings", tc.get("tie_word_embeddings", False)
             ),
             "vision_depth": vc.get("depth", 24),
-            "vision_hidden_size": vc.get("hidden_size", 1024),
-            "vision_intermediate_size": vc.get("intermediate_size", 4096),
+            "vision_embed_dim": vc.get("hidden_size", 1024),
+            "vision_mlp_dim": vc.get("intermediate_size", 4096),
             "vision_num_heads": vc.get("num_heads", 16),
-            "vision_out_hidden_size": vc.get("out_hidden_size", hidden),
-            "vision_hidden_act": vc.get("hidden_act", "gelu_pytorch_tanh"),
+            "vision_out_dim": vc.get("out_hidden_size", hidden),
+            "vision_act": vc.get("hidden_act", "gelu_pytorch_tanh"),
             "num_position_embeddings": vc.get("num_position_embeddings", 2304),
             "deepstack_visual_indexes": tuple(
                 vc.get("deepstack_visual_indexes", (5, 11, 17))
@@ -668,11 +668,11 @@ class Qwen3VLModel(Qwen2VLModel):
             "mrope_section",
             "tie_embeddings",
             "vision_depth",
-            "vision_hidden_size",
-            "vision_intermediate_size",
+            "vision_embed_dim",
+            "vision_mlp_dim",
             "vision_num_heads",
-            "vision_out_hidden_size",
-            "vision_hidden_act",
+            "vision_out_dim",
+            "vision_act",
             "num_position_embeddings",
             "deepstack_visual_indexes",
             "patch_size",

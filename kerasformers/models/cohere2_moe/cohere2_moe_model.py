@@ -17,7 +17,7 @@ class Cohere2MoeModel(SubclassedBaseModel):
     layers, ``logit_scale``) with a Cohere MoE block on the sparse layers: a
     **top-k-first** router (softmax over the k, or sigmoid + optional norm)
     plus optional shared expert(s) combined by sum/average. The first
-    ``first_k_dense_replace`` layers are dense (and force rope). Norm is
+    ``first_k_dense`` layers are dense (and force rope). Norm is
     RMSNorm when ``rms_norm_eps`` is set, else Cohere LayerNorm. Returns raw
     features; use :class:`Cohere2MoeGenerate` for logits.
 
@@ -28,9 +28,9 @@ class Cohere2MoeModel(SubclassedBaseModel):
         moe_mlp_dim: Per-expert hidden width; defaults to ``mlp_dim``.
         expert_selection_fn: ``"softmax"`` (over the top-k) or ``"sigmoid"``.
         norm_topk_prob: Renormalize the selected weights (sigmoid only).
-        num_shared_experts: Always-on shared experts (0 disables).
+        n_shared_experts: Always-on shared experts (0 disables).
         shared_combine: ``"sum"`` or ``"average"`` for the shared-expert merge.
-        first_k_dense_replace: Number of leading dense (non-MoE) layers.
+        first_k_dense: Number of leading dense (non-MoE) layers.
         prefix_dense_intermediate_size: Hidden width of those dense layers;
             defaults to ``mlp_dim``.
         prefix_dense_sliding_window_pattern: Attention pattern within the dense
@@ -64,9 +64,9 @@ class Cohere2MoeModel(SubclassedBaseModel):
         moe_mlp_dim=None,
         expert_selection_fn="softmax",
         norm_topk_prob=True,
-        num_shared_experts=0,
+        n_shared_experts=0,
         shared_combine="average",
-        first_k_dense_replace=0,
+        first_k_dense=0,
         prefix_dense_intermediate_size=None,
         prefix_dense_sliding_window_pattern=1,
         sliding_window=4096,
@@ -92,9 +92,9 @@ class Cohere2MoeModel(SubclassedBaseModel):
         self.moe_mlp_dim = moe_mlp_dim or mlp_dim
         self.expert_selection_fn = expert_selection_fn
         self.norm_topk_prob = norm_topk_prob
-        self.num_shared_experts = num_shared_experts
+        self.n_shared_experts = n_shared_experts
         self.shared_combine = shared_combine
-        self.first_k_dense_replace = first_k_dense_replace
+        self.first_k_dense = first_k_dense
         self.prefix_dense_intermediate_size = prefix_dense_intermediate_size or mlp_dim
         self.prefix_dense_sliding_window_pattern = prefix_dense_sliding_window_pattern
         self.sliding_window = sliding_window
@@ -112,18 +112,17 @@ class Cohere2MoeModel(SubclassedBaseModel):
             "sliding_attention"
             if ((i + 1) % prefix_dense_sliding_window_pattern) != 0
             else "full_attention"
-            for i in range(first_k_dense_replace)
+            for i in range(first_k_dense)
         ]
         rest = [
             "sliding_attention"
             if ((i + 1) % sliding_window_pattern) != 0
             else "full_attention"
-            for i in range(num_layers - first_k_dense_replace)
+            for i in range(num_layers - first_k_dense)
         ]
         self.layer_types = tuple(prefix + rest)
         self.mlp_layer_types = tuple(
-            "dense" if i < first_k_dense_replace else "sparse"
-            for i in range(num_layers)
+            "dense" if i < first_k_dense else "sparse" for i in range(num_layers)
         )
 
         self.token_embedding = layers.Embedding(
@@ -151,8 +150,8 @@ class Cohere2MoeModel(SubclassedBaseModel):
             moe_mlp_dim=self.moe_mlp_dim,
             expert_selection_fn=self.expert_selection_fn,
             norm_topk_prob=self.norm_topk_prob,
-            num_shared_experts=self.num_shared_experts,
-            shared_mlp_dim=self.mlp_dim * max(self.num_shared_experts, 1),
+            n_shared_experts=self.n_shared_experts,
+            shared_mlp_dim=self.mlp_dim * max(self.n_shared_experts, 1),
             shared_combine=self.shared_combine,
             use_rms_norm=self.use_rms_norm,
             norm_eps=self.eps,
@@ -222,11 +221,11 @@ class Cohere2MoeModel(SubclassedBaseModel):
             "moe_mlp_dim": hf_config.get("intermediate_size"),
             "expert_selection_fn": hf_config.get("expert_selection_fn", "softmax"),
             "norm_topk_prob": bool(hf_config.get("norm_topk_prob", True)),
-            "num_shared_experts": hf_config.get("num_shared_experts", 0),
+            "n_shared_experts": hf_config.get("num_shared_experts", 0),
             "shared_combine": hf_config.get(
                 "shared_expert_combination_strategy", "average"
             ),
-            "first_k_dense_replace": hf_config.get("first_k_dense_replace", 0),
+            "first_k_dense": hf_config.get("first_k_dense_replace", 0),
             "prefix_dense_intermediate_size": hf_config.get(
                 "prefix_dense_intermediate_size"
             ),
@@ -265,9 +264,9 @@ class Cohere2MoeModel(SubclassedBaseModel):
                 "moe_mlp_dim": self.moe_mlp_dim,
                 "expert_selection_fn": self.expert_selection_fn,
                 "norm_topk_prob": self.norm_topk_prob,
-                "num_shared_experts": self.num_shared_experts,
+                "n_shared_experts": self.n_shared_experts,
                 "shared_combine": self.shared_combine,
-                "first_k_dense_replace": self.first_k_dense_replace,
+                "first_k_dense": self.first_k_dense,
                 "prefix_dense_intermediate_size": self.prefix_dense_intermediate_size,
                 "prefix_dense_sliding_window_pattern": (
                     self.prefix_dense_sliding_window_pattern

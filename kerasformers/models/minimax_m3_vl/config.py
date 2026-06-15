@@ -35,7 +35,7 @@ MINIMAX_M3_VL_CONFIG = {
         "spatial_merge_size": 2,
         "vision_rope_theta": 10000.0,
         "vision_norm_eps": 1e-5,
-        "projector_hidden_size": 6144,
+        "projector_dim": 6144,
         "image_token_id": 200025,
         "video_token_id": 200026,
         "tie_embeddings": False,
