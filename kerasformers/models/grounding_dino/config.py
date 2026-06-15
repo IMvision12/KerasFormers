@@ -17,13 +17,11 @@ GROUNDING_DINO_CONFIG = {
         "positional_embedding_temperature": 20.0,
         "layer_norm_eps": 1e-5,
         "activation_function": "relu",
-        # Swin-Tiny backbone (out_indices [2, 3, 4]).
         "backbone_embed_dim": 96,
         "backbone_depths": (2, 2, 6, 2),
         "backbone_num_heads": (3, 6, 12, 24),
         "backbone_window_size": 7,
         "backbone_out_indices": (2, 3, 4),
-        # BERT text encoder.
         "text_vocab_size": 30522,
         "text_hidden_size": 768,
         "text_num_layers": 12,
@@ -50,7 +48,6 @@ GROUNDING_DINO_CONFIG = {
         "positional_embedding_temperature": 20.0,
         "layer_norm_eps": 1e-5,
         "activation_function": "relu",
-        # Swin-Base backbone (out_indices [2, 3, 4]).
         "backbone_embed_dim": 128,
         "backbone_depths": (2, 2, 18, 2),
         "backbone_num_heads": (4, 8, 16, 32),

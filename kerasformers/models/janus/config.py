@@ -1,6 +1,3 @@
-# Only the per-variant differences live here; everything common to both Janus-Pro
-# checkpoints (vocab_size, head_dim, norm_eps, rope_theta, tie_embeddings and the
-# shared SigLIP vision tower) is baked into the JanusModel.__init__ defaults.
 JANUS_CONFIG = {
     "janus-pro-1b": {
         "embed_dim": 2048,
