@@ -2,11 +2,6 @@ import keras
 from keras import layers, ops
 
 
-def rotate_half(x):
-    half = ops.shape(x)[-1] // 2
-    return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
-
-
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GemmaRMSNorm(layers.Layer):
     """Gemma root-mean-square layer norm with the ``(1 + weight)`` scale.
@@ -45,7 +40,16 @@ class GemmaRMSNorm(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GemmaMLP(layers.Layer):
-    """GeGLU feed-forward block: ``down(gelu_tanh(gate(x)) * up(x))``, bias-free."""
+    """Gemma GeGLU feed-forward block: ``down(gelu_tanh(gate(x)) * up(x))``.
+
+    Bias-free GeGLU: the ``gate`` branch uses the tanh ``gelu`` approximation,
+    is multiplied elementwise by the ``up`` projection, and ``down`` projects
+    the result back to ``embed_dim``.
+
+    Args:
+        embed_dim: Model width (input and output dimension).
+        mlp_dim: Hidden width of the ``gate`` / ``up`` projections.
+    """
 
     def __init__(self, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
@@ -132,8 +136,9 @@ class GemmaAttention(layers.Layer):
 
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        q = q * cos + rotate_half(q) * sin
-        k = k * cos + rotate_half(k) * sin
+        half = self.head_dim // 2
+        q = q * cos + ops.concatenate([-q[..., half:], q[..., :half]], axis=-1) * sin
+        k = k * cos + ops.concatenate([-k[..., half:], k[..., :half]], axis=-1) * sin
 
         if past_key_value is not None:
             past_k, past_v = past_key_value
@@ -176,8 +181,9 @@ class GemmaAttention(layers.Layer):
         v = ops.transpose(v, (0, 2, 1, 3))
         cos = ops.expand_dims(cos, axis=1)
         sin = ops.expand_dims(sin, axis=1)
-        q = q * cos + rotate_half(q) * sin
-        k = k * cos + rotate_half(k) * sin
+        half = self.head_dim // 2
+        q = q * cos + ops.concatenate([-q[..., half:], q[..., :half]], axis=-1) * sin
+        k = k * cos + ops.concatenate([-k[..., half:], k[..., :half]], axis=-1) * sin
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         kk, vv = cache_k, cache_v

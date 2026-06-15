@@ -2,11 +2,6 @@ import keras
 from keras import layers, ops
 
 
-def rotate_half(x):
-    half = ops.shape(x)[-1] // 2
-    return ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
-
-
 def apply_rope(x, cos, sin):
     # Full-width half-rotation rope on (B, L, H, D); partial ("proportional")
     # rotary is realized upstream by zero-padding the inverse frequencies to
@@ -14,7 +9,9 @@ def apply_rope(x, cos, sin):
     # exactly like HF.
     cos = ops.expand_dims(cos, axis=2)
     sin = ops.expand_dims(sin, axis=2)
-    return x * cos + rotate_half(x) * sin
+    half = ops.shape(x)[-1] // 2
+    rot = ops.concatenate([-x[..., half:], x[..., :half]], axis=-1)
+    return x * cos + rot * sin
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -61,7 +58,16 @@ class Gemma4RMSNorm(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Gemma4MLP(layers.Layer):
-    """GeGLU feed-forward block: ``down(gelu_tanh(gate(x)) * up(x))``, bias-free."""
+    """Gemma 4 GeGLU feed-forward block: ``down(gelu_tanh(gate(x)) * up(x))``.
+
+    Bias-free GeGLU: the ``gate`` branch uses the tanh ``gelu`` approximation,
+    is multiplied elementwise by the ``up`` projection, and ``down`` projects
+    the result back to ``embed_dim``.
+
+    Args:
+        embed_dim: Model width (input and output dimension).
+        mlp_dim: Hidden width of the ``gate`` / ``up`` projections.
+    """
 
     def __init__(self, embed_dim, mlp_dim, **kwargs):
         super().__init__(**kwargs)
