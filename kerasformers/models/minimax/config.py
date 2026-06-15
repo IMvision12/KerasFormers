@@ -1,7 +1,3 @@
-TEXT_01_LAYER_TYPES = tuple(
-    "full_attention" if (i + 1) % 8 == 0 else "linear_attention" for i in range(80)
-)
-
 MINIMAX_CONFIG = {
     "minimax-text-01": {
         "vocab_size": 200064,
@@ -13,7 +9,10 @@ MINIMAX_CONFIG = {
         "head_dim": 128,
         "num_experts": 32,
         "num_experts_per_tok": 2,
-        "layer_types": TEXT_01_LAYER_TYPES,
+        "layer_types": tuple(
+            "full_attention" if (i + 1) % 8 == 0 else "linear_attention"
+            for i in range(80)
+        ),
         "block_size": 256,
         "full_attn_alpha": 3.5565588200778455,
         "full_attn_beta": 1.0,
