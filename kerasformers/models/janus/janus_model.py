@@ -281,6 +281,36 @@ class JanusModel(SubclassedBaseModel):
         return {"last_hidden_state": self.forward_features(inputs)}
 
     @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        # Subclassed model: weights are created on the first call, so build the
+        # graph with a dummy forward (one image's worth of patch tokens scattered
+        # into image-placeholder slots) before loading the released sharded
+        # .weights.json -- Janus exceeds the 2 GB single-asset cap in float32.
+        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
+        url = entry.get("url") if isinstance(entry, dict) else entry
+        if not (load_weights and url):
+            return super().from_release(
+                variant,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                **kwargs,
+            )
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        num_patches = (model.image_size // model.patch_size) ** 2
+        model(
+            {
+                "input_ids": ops.full(
+                    (1, num_patches), model.image_token_id, dtype="int32"
+                ),
+                "pixel_values": ops.zeros(
+                    (1, model.image_size, model.image_size, 3), dtype="float32"
+                ),
+            }
+        )
+        cls.load_weights_from_url(model, url, skip_mismatch)
+        return model
+
+    @classmethod
     def config_from_hf(cls, hf_config):
         text = hf_config["text_config"]
         vision = hf_config["vision_config"]

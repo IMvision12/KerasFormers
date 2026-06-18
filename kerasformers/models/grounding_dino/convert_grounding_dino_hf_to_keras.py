@@ -182,3 +182,82 @@ def transfer_grounding_dino_weights(keras_model, hf_state_dict):
             weight.assign(np.asarray(value))
         else:
             transfer_weights(weight.path, weight, value)
+
+
+if __name__ == "__main__":
+    # Release-weights driver: convert every variant, check HF-vs-Keras parity,
+    # and save .weights.h5 (or a sharded .weights.json when >2 GB). Run with
+    # KERAS_BACKEND=torch. Verify the HF class / output attr for your transformers.
+    import gc
+    import os
+
+    import keras
+    import torch
+    import transformers
+    from PIL import Image
+
+    from kerasformers.models.grounding_dino import (
+        GroundingDinoModel,
+        GroundingDinoProcessor,
+    )
+    from kerasformers.models.grounding_dino.config import GROUNDING_DINO_WEIGHTS_URLS
+
+    HF_SOURCES = {
+        "grounding-dino-tiny": "IDEA-Research/grounding-dino-tiny",
+        "grounding-dino-base": "IDEA-Research/grounding-dino-base",
+    }
+    MAX_SHARD_GB = 1.7
+    rng = np.random.default_rng(0)
+
+    def cosine(a, b):
+        a, b = a.astype("float64").ravel(), b.astype("float64").ravel()
+        return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
+
+    for variant, meta in GROUNDING_DINO_WEIGHTS_URLS.items():
+        hf_id = HF_SOURCES[variant]
+        out_path = os.path.basename(meta["url"])
+        print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
+
+        model = GroundingDinoModel.from_weights("hf:" + hf_id)
+
+        img = Image.fromarray(rng.integers(0, 255, (480, 480, 3), dtype="uint8"))
+        proc = GroundingDinoProcessor.from_weights("hf:" + hf_id)
+        kin = proc(images=img, text="a cat. a remote control.")
+        k_h = np.asarray(keras.ops.convert_to_numpy(model(kin)["last_hidden_state"]))
+
+        hf_model = transformers.GroundingDinoForObjectDetection.from_pretrained(
+            hf_id
+        ).eval()
+        pv = np.transpose(
+            np.asarray(keras.ops.convert_to_numpy(kin["pixel_values"])), (0, 3, 1, 2)
+        )
+        ids = np.asarray(keras.ops.convert_to_numpy(kin["input_ids"])).astype("int64")
+        am = np.asarray(keras.ops.convert_to_numpy(kin["attention_mask"])).astype(
+            "int64"
+        )
+        with torch.no_grad():
+            hf_out = hf_model(
+                pixel_values=torch.from_numpy(pv),
+                input_ids=torch.from_numpy(ids),
+                attention_mask=torch.from_numpy(am),
+            )
+        cos = cosine(k_h, hf_out.last_hidden_state.numpy())
+        print(f"  last_hidden_state cosine: {cos:.6f}")
+        if cos < 0.99:
+            raise ValueError(f"{variant}: Grounding DINO parity failed (cos={cos:.4f})")
+
+        n_bytes = sum(int(np.prod(w.shape)) * 4 for w in model.weights)
+        if out_path.endswith(".json"):
+            model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
+        elif n_bytes > 2 * 1024**3:
+            raise ValueError(
+                f"{variant} is {n_bytes / 1024**3:.2f} GB (> 2 GB); set its config "
+                f"URL extension to .weights.json so it shards."
+            )
+        else:
+            model.save_weights(out_path)
+        print(f"  Saved -> {out_path}  ({n_bytes / 1024**3:.2f} GB)")
+
+        del hf_model, model
+        keras.backend.clear_session()
+        gc.collect()

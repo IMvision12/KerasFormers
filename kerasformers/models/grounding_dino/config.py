@@ -65,13 +65,9 @@ GROUNDING_DINO_CONFIG = {
 
 GROUNDING_DINO_WEIGHTS_URLS = {
     "grounding-dino-tiny": {
-        "hf_id": "IDEA-Research/grounding-dino-tiny",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/grounding_dino/grounding-dino-tiny.weights.h5"
     },
     "grounding-dino-base": {
-        "hf_id": "IDEA-Research/grounding-dino-base",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/grounding_dino/grounding-dino-base.weights.h5"
     },
 }

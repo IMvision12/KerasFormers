@@ -19,13 +19,9 @@ JANUS_CONFIG = {
 
 JANUS_WEIGHTS_URLS = {
     "janus-pro-1b": {
-        "hf_id": "deepseek-community/Janus-Pro-1B",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/janus/janus-pro-1b.weights.json"
     },
     "janus-pro-7b": {
-        "hf_id": "deepseek-community/Janus-Pro-7B",
-        "gated": False,
-        "safetensors": True,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/janus/janus-pro-7b.weights.json"
     },
 }
