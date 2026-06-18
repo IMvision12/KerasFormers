@@ -381,9 +381,7 @@ class Gemma3VisionAttention(layers.Layer):
             ),
             (0, 2, 1, 3),
         )
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scaling)
         out = ops.reshape(ops.transpose(out, (0, 2, 1, 3)), (b, seq, self.embed_dim))
         return self.output_proj(out)
 

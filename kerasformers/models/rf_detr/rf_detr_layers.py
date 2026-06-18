@@ -3,6 +3,8 @@ import math
 import keras
 from keras import initializers, layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class RFDETRChannelLayerNorm(layers.Layer):
@@ -694,10 +696,7 @@ class RFDETRDecoderLayer(layers.Layer):
         v = ops.transpose(v, [0, 2, 1, 3])
 
         scale = ops.cast(head_dim, q.dtype) ** -0.5
-        attn = ops.matmul(q, ops.transpose(k, [0, 1, 3, 2])) * scale
-        attn = ops.softmax(attn, axis=-1)
-
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, scale)
         out = ops.transpose(out, [0, 2, 1, 3])
         out = ops.reshape(out, [batch, seq_len, self.hidden_dim])
         return self.self_attn_out(out)

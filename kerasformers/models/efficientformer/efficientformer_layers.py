@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class EfficientFormerAttention4D(layers.Layer):
@@ -121,12 +123,8 @@ class EfficientFormerAttention4D(layers.Layer):
         k = qkv[:, :, :, self.key_dim : 2 * self.key_dim]
         v = qkv[:, :, :, 2 * self.key_dim :]
 
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
         bias = ops.take(self.attention_biases, self.attention_bias_idxs, axis=1)
-        attn = attn + bias
-
-        attn = ops.softmax(attn, axis=-1)
-        x = ops.matmul(attn, v)
+        x = fused_attention(q, k, v, self.scale, bias)
         x = ops.transpose(x, (0, 2, 1, 3))
         x = ops.reshape(x, (B, N, self.val_attn_dim))
         x = ops.matmul(x, self.proj_kernel) + self.proj_bias

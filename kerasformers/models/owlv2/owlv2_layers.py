@@ -4,6 +4,8 @@ import keras
 import numpy as np
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 def quick_gelu(x):
     return x * ops.sigmoid(1.702 * x)
@@ -250,12 +252,7 @@ class Owlv2Attention(layers.Layer):
         k = self.split_heads(self.k_proj(hidden_states))
         v = self.split_heads(self.v_proj(hidden_states))
 
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
-        if attention_mask is not None:
-            attn = attn + attention_mask
-        attn = ops.softmax(attn, axis=-1)
-
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scale, attention_mask)
         out = ops.transpose(out, (0, 2, 1, 3))
         b = ops.shape(out)[0]
         s = ops.shape(out)[1]

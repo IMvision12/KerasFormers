@@ -4,6 +4,8 @@ import keras
 import numpy as np
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SAM2NoMemoryEmbedding(layers.Layer):
@@ -254,9 +256,7 @@ class SAM2MultiScaleAttention(layers.Layer):
         k = ops.transpose(k, (0, 2, 1, 3))
         v = ops.transpose(v, (0, 2, 1, 3))
 
-        attn_weights = ops.matmul(q * self.scale, ops.transpose(k, (0, 1, 3, 2)))
-        attn_weights = ops.softmax(attn_weights, axis=-1)
-        attn_output = ops.matmul(attn_weights, v)
+        attn_output = fused_attention(q, k, v, self.scale)
 
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
         attn_output = ops.reshape(attn_output, (batch_size, new_h, new_w, self.dim_out))
@@ -941,13 +941,7 @@ class SAM2TwoWayAttention(layers.Layer):
         v = ops.transpose(v, (0, 2, 1, 3))
 
         scale = self.head_dim**-0.5
-        attn_weights = ops.matmul(q * scale, ops.transpose(k, (0, 1, 3, 2)))
-
-        if attention_similarity is not None:
-            attn_weights = attn_weights + attention_similarity
-
-        attn_weights = ops.softmax(attn_weights, axis=-1)
-        attn_output = ops.matmul(attn_weights, v)
+        attn_output = fused_attention(q, k, v, scale, attention_similarity)
 
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
         attn_output = ops.reshape(
