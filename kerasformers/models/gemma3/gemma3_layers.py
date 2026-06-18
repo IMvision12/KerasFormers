@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Gemma3RMSNorm(layers.Layer):
@@ -166,11 +168,7 @@ class Gemma3Attention(layers.Layer):
             k = ops.repeat(k, self.num_kv_groups, axis=1)
             v = ops.repeat(v, self.num_kv_groups, axis=1)
 
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
-        if attention_mask is not None:
-            attn = attn + attention_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scaling, attention_mask)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)), (b, q_len, self.num_heads * self.head_dim)
         )
@@ -210,10 +208,7 @@ class Gemma3Attention(layers.Layer):
         if self.num_kv_groups > 1:
             kk = ops.repeat(kk, self.num_kv_groups, axis=1)
             vv = ops.repeat(vv, self.num_kv_groups, axis=1)
-        attn = ops.matmul(q, ops.transpose(kk, (0, 1, 3, 2))) * self.scaling
-        attn = attn + key_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, vv)
+        out = fused_attention(q, kk, vv, self.scaling, key_mask)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.head_dim)
         )
@@ -386,9 +381,7 @@ class Gemma3VisionAttention(layers.Layer):
             ),
             (0, 2, 1, 3),
         )
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scaling)
         out = ops.reshape(ops.transpose(out, (0, 2, 1, 3)), (b, seq, self.embed_dim))
         return self.output_proj(out)
 

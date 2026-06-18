@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class NextViTEfficientAttention(layers.Layer):
@@ -94,12 +96,9 @@ class NextViTEfficientAttention(layers.Layer):
         v = ops.reshape(v, [B, N_kv, self.num_heads, self.head_dim])
         v = ops.transpose(v, [0, 2, 1, 3])
 
-        q = q * self.scale
-        attn = ops.matmul(q, ops.transpose(k, [0, 1, 3, 2]))
-        attn = ops.softmax(attn, axis=-1)
-        attn = self.attn_drop(attn, training=training)
-
-        out = ops.matmul(attn, v)
+        out = fused_attention(
+            q, k, v, self.scale, dropout=self.attn_drop, training=training
+        )
         out = ops.transpose(out, [0, 2, 1, 3])
         out = ops.reshape(out, input_shape)
 

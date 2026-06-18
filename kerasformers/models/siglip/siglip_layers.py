@@ -1,6 +1,8 @@
 import keras
 from keras import initializers, layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIPAttention(keras.Layer):
@@ -138,13 +140,9 @@ class SigLIPAttention(keras.Layer):
         k = ops.transpose(k, axes=[0, 2, 1, 3])
         v = ops.transpose(v, axes=[0, 2, 1, 3])
 
-        attn_scores = ops.matmul(q, ops.transpose(k, axes=[0, 1, 3, 2])) * self.scale
-        attn_weights = ops.softmax(attn_scores, axis=-1)
-
-        if self.dropout is not None:
-            attn_weights = self.dropout(attn_weights, training=training)
-
-        attn_output = ops.matmul(attn_weights, v)
+        attn_output = fused_attention(
+            q, k, v, self.scale, dropout=self.dropout, training=training
+        )
         attn_output = ops.transpose(attn_output, axes=[0, 2, 1, 3])
         attn_output = ops.reshape(attn_output, (batch_size, -1, self.dim))
         output = self.out_proj(attn_output)

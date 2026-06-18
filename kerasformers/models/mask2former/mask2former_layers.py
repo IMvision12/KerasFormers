@@ -3,6 +3,8 @@ import math
 import keras
 from keras import layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Mask2FormerSinePositionEmbedding(layers.Layer):
@@ -409,12 +411,7 @@ class Mask2FormerCrossAttention(layers.Layer):
         k = ops.transpose(k, (0, 2, 1, 3))
         v = ops.transpose(v, (0, 2, 1, 3))
 
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
-        if attn_mask is not None:
-            attn = attn + attn_mask
-
-        attn = ops.softmax(attn, axis=-1)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scale, attn_mask)
         out = ops.transpose(out, (0, 2, 1, 3))
         out = ops.reshape(out, (b, n_q, self.hidden_dim))
         return self.out_proj(out)
@@ -469,9 +466,7 @@ class Mask2FormerSelfAttention(layers.Layer):
         q = ops.transpose(q, (0, 2, 1, 3))
         k = ops.transpose(k, (0, 2, 1, 3))
         v = ops.transpose(v, (0, 2, 1, 3))
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
-        attn = ops.softmax(attn, axis=-1)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scale)
         out = ops.transpose(out, (0, 2, 1, 3))
         out = ops.reshape(out, (b, n_q, self.hidden_dim))
         return self.out_proj(out)

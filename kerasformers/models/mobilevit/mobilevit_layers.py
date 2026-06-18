@@ -1,6 +1,8 @@
 import keras
 from keras import InputSpec, layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MobileViTImageToPatchesLayer(layers.Layer):
@@ -371,10 +373,7 @@ class MobileViTMultiHeadSelfAttention(layers.Layer):
             k = ops.transpose(k, [0, 2, 1, 3])
             v = ops.transpose(v, [0, 2, 1, 3])
 
-            attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
-            attn = ops.softmax(attn)
-            attn = self.attn_drop(attn, training=training)
-            x = ops.matmul(attn, v)
+            x = fused_attention(q, k, v, 1.0, dropout=self.attn_drop, training=training)
 
             x = ops.transpose(x, [0, 2, 1, 3])
             x = ops.reshape(x, input_shape)
@@ -418,10 +417,7 @@ class MobileViTMultiHeadSelfAttention(layers.Layer):
             k = ops.reshape(k, [-1, self.num_heads, input_shape[2], self.head_dim])
             v = ops.reshape(v, [-1, self.num_heads, input_shape[2], self.head_dim])
 
-            attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
-            attn = ops.softmax(attn)
-            attn = self.attn_drop(attn, training=training)
-            x = ops.matmul(attn, v)
+            x = fused_attention(q, k, v, 1.0, dropout=self.attn_drop, training=training)
 
             x = ops.reshape(
                 x,

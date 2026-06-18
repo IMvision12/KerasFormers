@@ -4,6 +4,7 @@ import json
 import keras
 from huggingface_hub import hf_hub_download
 
+from kerasformers.base import base_attention
 from kerasformers.conversion import download_file
 from kerasformers.conversion.hf_download_utils import (
     download_hf_state_dict,
@@ -77,7 +78,14 @@ class WeightLoadingMixin:
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_weights(cls, identifier, load_weights=True, skip_mismatch=False, **kwargs):
+    def from_weights(
+        cls,
+        identifier,
+        load_weights=True,
+        skip_mismatch=False,
+        attn_implementation=None,
+        **kwargs,
+    ):
         """Build a model and (optionally) load pretrained weights.
 
         Args:
@@ -103,12 +111,24 @@ class WeightLoadingMixin:
                 backbone. Applied on both the kerasformers-release path
                 (``.h5`` / ``.json`` ``load_weights``) and the ``hf:`` /
                 converter transfer path (mismatched targets left at init).
+            attn_implementation: ``"sdpa"`` (portable manual math, the default)
+                or ``"flash"`` (``keras.ops.dot_product_attention`` with the
+                flash kernel; needs a flash-capable GPU/TPU and fp16/bf16). Set
+                before the model is built, so it applies to both functional and
+                subclassed models.
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` when applicable).
 
         Returns:
             An initialized model instance.
         """
+        if attn_implementation is not None:
+            if attn_implementation not in base_attention.VALID_ATTN_IMPL:
+                raise ValueError(
+                    f"attn_implementation must be one of "
+                    f"{base_attention.VALID_ATTN_IMPL}, got {attn_implementation!r}"
+                )
+            base_attention.ATTN_IMPLEMENTATION = attn_implementation
         if identifier.startswith(_HF_PREFIX):
             hf_id = identifier[len(_HF_PREFIX) :]
             return cls.from_hf(

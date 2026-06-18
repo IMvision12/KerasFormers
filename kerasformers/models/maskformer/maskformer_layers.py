@@ -3,6 +3,8 @@ import math
 import keras
 from keras import layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MaskFormerSinePositionEmbedding(layers.Layer):
@@ -174,11 +176,9 @@ class MaskFormerDetrAttention(layers.Layer):
         k = ops.transpose(k, [0, 2, 1, 3])
         v = ops.transpose(v, [0, 2, 1, 3])
 
-        attn = ops.matmul(q, ops.transpose(k, [0, 1, 3, 2])) * self.scale
-        attn = ops.softmax(attn, axis=-1)
-        attn = self.attn_dropout(attn, training=training)
-
-        out = ops.matmul(attn, v)
+        out = fused_attention(
+            q, k, v, self.scale, dropout=self.attn_dropout, training=training
+        )
         out = ops.transpose(out, [0, 2, 1, 3])
         out = ops.reshape(out, [b, q_len, self.hidden_dim])
         return self.o_proj(out)

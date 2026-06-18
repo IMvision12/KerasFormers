@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLRMSNorm(layers.Layer):
@@ -130,11 +132,7 @@ class Qwen3VLTextAttention(layers.Layer):
             k = ops.repeat(k, self.num_kv_groups, axis=1)
             v = ops.repeat(v, self.num_kv_groups, axis=1)
 
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
-        if attention_mask is not None:
-            attn = attn + attention_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scaling, attention_mask)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)),
             (b, q_len, self.num_heads * self.head_dim),
@@ -175,10 +173,7 @@ class Qwen3VLTextAttention(layers.Layer):
         if self.num_kv_groups > 1:
             kk = ops.repeat(kk, self.num_kv_groups, axis=1)
             vv = ops.repeat(vv, self.num_kv_groups, axis=1)
-        attn = ops.matmul(q, ops.transpose(kk, (0, 1, 3, 2))) * self.scaling
-        attn = attn + key_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, vv)
+        out = fused_attention(q, kk, vv, self.scaling, key_mask)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.head_dim)
         )
@@ -341,11 +336,7 @@ class Qwen3VLVisionAttention(layers.Layer):
         key = ops.expand_dims(ops.transpose(key, (1, 0, 2)), axis=0)
         value = ops.expand_dims(ops.transpose(value, (1, 0, 2)), axis=0)
 
-        attn = ops.matmul(query, ops.transpose(key, (0, 1, 3, 2))) * self.scaling
-        if attention_mask is not None:
-            attn = attn + attention_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
-        out = ops.matmul(attn, value)
+        out = fused_attention(query, key, value, self.scaling, attention_mask)
         out = ops.transpose(out[0], (1, 0, 2))
         out = ops.reshape(out, (seq, self.embed_dim))
         return self.proj(out)

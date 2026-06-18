@@ -1,6 +1,8 @@
 import keras
 from keras import InputSpec, layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MiTEfficientMultiheadSelfAttention(layers.Layer):
@@ -198,11 +200,9 @@ class MiTEfficientMultiheadSelfAttention(layers.Layer):
         k = ops.transpose(k, (0, 2, 1, 3))
         v = ops.transpose(v, (0, 2, 1, 3))
 
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
-        attn = ops.softmax(attn, axis=-1)
-        attn = self.attn_drop(attn, training=training)
-
-        x = ops.matmul(attn, v)
+        x = fused_attention(
+            q, k, v, self.scale, dropout=self.attn_drop, training=training
+        )
         x = ops.transpose(x, (0, 2, 1, 3))
         x = ops.reshape(x, (B, N, C))
 

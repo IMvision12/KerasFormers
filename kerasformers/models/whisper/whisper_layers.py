@@ -2,6 +2,8 @@ import keras
 import numpy as np
 from keras import ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class WhisperAttention(keras.layers.Layer):
@@ -88,11 +90,7 @@ class WhisperAttention(keras.layers.Layer):
         return self._split_heads(self.k_proj(kv)), self._split_heads(self.v_proj(kv))
 
     def attend(self, q, k, v, attention_mask=None):
-        scores = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2)))
-        if attention_mask is not None:
-            scores = scores + ops.cast(attention_mask, scores.dtype)
-        attn = ops.softmax(scores, axis=-1)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, 1.0, attention_mask)
         out = ops.transpose(out, (0, 2, 1, 3))
         out = ops.reshape(out, (ops.shape(out)[0], -1, self.proj_dim))
         return self.out_proj(out)

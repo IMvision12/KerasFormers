@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 def rotate_half_interleaved(x):
     # GLM interleaved rotate over channel pairs: [-x1, x0, -x3, x2, ...].
@@ -147,11 +149,7 @@ class GlmAttention(layers.Layer):
         if self.num_kv_groups > 1:
             k = ops.repeat(k, self.num_kv_groups, axis=1)
             v = ops.repeat(v, self.num_kv_groups, axis=1)
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
-        if attention_mask is not None:
-            attn = attn + ops.cast(attention_mask, attn.dtype)
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        return ops.matmul(attn, v)
+        return fused_attention(q, k, v, self.scaling, attention_mask)
 
     def call(self, hidden_states, cos, sin, attention_mask=None, use_cache=False):
         b = ops.shape(hidden_states)[0]

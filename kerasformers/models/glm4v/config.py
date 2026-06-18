@@ -1,6 +1,3 @@
-# Both GLM-4.1V checkpoints (Thinking / Base) share one architecture, differing
-# only in trained weights; GLM4V_COMMON holds that shared config (decoder +
-# vision tower + multimodal token ids) and each variant reuses a copy of it.
 GLM4V_COMMON = {
     "vocab_size": 151552,
     "embed_dim": 4096,

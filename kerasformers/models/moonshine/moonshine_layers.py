@@ -2,6 +2,8 @@ import keras
 import numpy as np
 from keras import ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 def moonshine_rope_tables(rotary_dim, max_positions, base):
     half = rotary_dim // 2
@@ -211,11 +213,7 @@ class MoonshineAttention(keras.layers.Layer):
     def attend(self, q, k, v, attention_mask=None):
         k = self.repeat_kv(k)
         v = self.repeat_kv(v)
-        scores = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
-        if attention_mask is not None:
-            scores = scores + ops.cast(attention_mask, scores.dtype)
-        attn = ops.softmax(scores, axis=-1)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scale, attention_mask)
         out = ops.transpose(out, (0, 2, 1, 3))
         out = ops.reshape(out, (ops.shape(out)[0], -1, self.num_heads * self.head_dim))
         return self.o_proj(out)

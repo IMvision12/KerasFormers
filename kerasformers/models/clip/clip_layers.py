@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.base_attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPAddPositionEmbs(layers.Layer):
@@ -322,14 +324,7 @@ class CLIPAttention(keras.layers.Layer):
         x_k = self.transpose_for_scores(x_k)
         x_v = self.transpose_for_scores(x_v)
 
-        x = ops.matmul(x_q, ops.transpose(x_k, (0, 1, 3, 2)))
-        x = x * self.scale
-
-        if attention_mask is not None:
-            x = x + attention_mask
-
-        x = ops.softmax(x, axis=-1)
-        x = ops.matmul(x, x_v)
+        x = fused_attention(x_q, x_k, x_v, self.scale, attention_mask)
         x = ops.transpose(x, (0, 2, 1, 3))
         x = ops.reshape(x, (batch_size, -1, self.proj_dim))
         x = self.out_proj(x)
