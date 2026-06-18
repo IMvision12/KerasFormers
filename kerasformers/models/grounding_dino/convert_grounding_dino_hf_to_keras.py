@@ -1,4 +1,5 @@
 import re
+from typing import Dict
 
 import numpy as np
 from tqdm import tqdm
@@ -6,13 +7,27 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-SWIN_PREFIX = "model.backbone.conv_encoder.model.swin"
+SWIN_PREFIX = "model.backbone.conv_encoder.model"
 BB_PREFIX = "model.backbone.conv_encoder.model"
+
+WEIGHT_NAME_MAPPING: Dict[str, str] = {
+    "attention.relative_position_bias_table": (
+        "attention.self.relative_position_bias_table"
+    ),
+    "attention.q_proj": "attention.self.query",
+    "attention.k_proj": "attention.self.key",
+    "attention.v_proj": "attention.self.value",
+    "attention.o_proj": "attention.output.dense",
+    "mlp_fc1": "intermediate.dense",
+    "mlp_fc2": "output.dense",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+}
 
 
 def keras_to_hf(name):
     """Map a Keras weight path (dots) to its HF Grounding DINO key."""
-    # --- Swin backbone ---
     if name.startswith("backbone."):
         n = name[len("backbone.") :]
         if n.startswith("patch_embeddings_projection"):
@@ -32,23 +47,14 @@ def keras_to_hf(name):
         if m:
             stage, rest = m.group(1), m.group(2)
             rest = rest.replace("blocks_", "blocks.")
-            rest = rest.replace(
-                "attention.relative_position_bias_table",
-                "attention.relative_position_bias.relative_position_bias_table",
-            )
-            rest = rest.replace("mlp_fc1", "mlp.fc1").replace("mlp_fc2", "mlp.fc2")
-            rest = (
-                rest.replace("kernel", "weight")
-                .replace("gamma", "weight")
-                .replace("beta", "bias")
-            )
+            for old, new in WEIGHT_NAME_MAPPING.items():
+                rest = rest.replace(old, new)
             return f"{SWIN_PREFIX}.encoder.layers.{stage}.{rest}"
-    # --- text backbone (BERT) ---
     if name.startswith("text_backbone."):
         n = name[len("text_backbone.") :]
         if n.startswith("embeddings."):
             tail = n[len("embeddings.") :]
-            if tail.endswith(".embeddings"):  # keras Embedding weight
+            if tail.endswith(".embeddings"):
                 return f"model.text_backbone.embeddings.{tail[: -len('.embeddings')]}.weight"
             tail = tail.replace("gamma", "weight").replace("beta", "bias")
             return f"model.text_backbone.embeddings.{tail}"
@@ -79,7 +85,6 @@ def keras_to_hf(name):
         return "model.text_projection." + (
             "weight" if name.endswith("kernel") else "bias"
         )
-    # --- input projections ---
     m = re.match(r"input_proj_(\d+)_conv\.(kernel|bias)", name)
     if m:
         return f"model.input_proj_vision.{m.group(1)}.0." + (
@@ -92,12 +97,10 @@ def keras_to_hf(name):
         )
     if name == "level_embed":
         return "model.level_embed"
-    # --- encoder layers ---
     m = re.match(r"encoder_layer_(\d+)\.(.*)", name)
     if m:
         rest = _common(m.group(2))
         return f"model.encoder.layers.{m.group(1)}.{rest}"
-    # --- two-stage ---
     if name.startswith("enc_output_norm."):
         return "model.enc_output_norm." + (
             "weight" if name.endswith("gamma") else "bias"
@@ -111,7 +114,6 @@ def keras_to_hf(name):
         )
     if name.startswith("query_position_embeddings.embeddings"):
         return "model.query_position_embeddings.weight"
-    # --- decoder ---
     if name.startswith("decoder_norm."):
         return "model.decoder.layer_norm." + (
             "weight" if name.endswith("gamma") else "bias"
@@ -125,7 +127,6 @@ def keras_to_hf(name):
     if m:
         rest = _common(m.group(2))
         return f"model.decoder.layers.{m.group(1)}.{rest}"
-    # --- detection heads ---
     m = re.match(r"bbox_embed_(\d+)\.layers_(\d+)\.(kernel|bias)", name)
     if m:
         return f"bbox_embed.{m.group(1)}.layers.{m.group(2)}." + (
@@ -161,10 +162,8 @@ def transfer_grounding_dino_weights(keras_model, hf_state_dict):
         kname = weight.path.split("/", 1)[1].replace("/", ".")
         hf = keras_to_hf(kname)
         if hf not in state and re.match(r"bbox_embed\.\d+\.", hf):
-            # decoder_bbox_embed_share=True -> all share bbox_embed.0
             hf = re.sub(r"bbox_embed\.\d+\.", "bbox_embed.0.", hf)
         if hf not in state and hf.startswith("model.") and hf[len("model.") :] in state:
-            # base GroundingDinoModel state dicts omit the `model.` prefix.
             hf = hf[len("model.") :]
         if hf not in state:
             raise WeightMappingError(weight.path, hf)
@@ -185,9 +184,6 @@ def transfer_grounding_dino_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
-    # Release-weights driver: convert every variant, check HF-vs-Keras parity,
-    # and save .weights.h5 (or a sharded .weights.json when >2 GB). Run with
-    # KERAS_BACKEND=torch. Verify the HF class / output attr for your transformers.
     import gc
     import os
 

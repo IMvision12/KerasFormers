@@ -328,7 +328,10 @@ class JanusModel(SubclassedBaseModel):
             "rope_theta": text.get("rope_theta", 10000.0),
             "tie_embeddings": bool(text.get("tie_word_embeddings") or False),
             "vision_embed_dim": vision["hidden_size"],
-            "vision_mlp_dim": vision["intermediate_size"],
+            "vision_mlp_dim": vision.get(
+                "intermediate_size",
+                int(vision["hidden_size"] * vision.get("mlp_ratio", 4.0)),
+            ),
             "vision_num_layers": vision["num_hidden_layers"],
             "vision_num_heads": vision["num_attention_heads"],
             "image_size": vision.get("image_size", 384),

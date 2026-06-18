@@ -4,7 +4,6 @@ from kerasformers.conversion.weight_transfer_util import transfer_weights
 
 
 def transfer_fused_attention(keras_attn, sd, prefix):
-    # torch nn.MultiheadAttention: fused in_proj + out_proj.
     keras_attn.in_proj_weight.assign(sd[f"{prefix}.in_proj_weight"])
     keras_attn.in_proj_bias.assign(sd[f"{prefix}.in_proj_bias"])
     transfer_weights(
@@ -26,13 +25,6 @@ def transfer_layernorm(keras_layer, sd, prefix):
 
 
 def transfer_oneformer_weights(keras_model, hf_state_dict):
-    """Transfer a OneFormer state dict into the Keras OneFormer model.
-
-    Walks the Swin backbone, the MSDeformAttn pixel decoder, the task MLP,
-    the query transformer, the masked-attention decoder, and the class / mask
-    heads. The training-only ``text_mapper`` (absent from the released
-    ``is_training: false`` checkpoints) is ignored.
-    """
     sd = hf_state_dict
     backbone = keras_model.get_layer("backbone")
 
@@ -265,10 +257,6 @@ def transfer_oneformer_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
-    # Release-weights driver: convert every variant from its HF checkpoint,
-    # check HF-vs-Keras parity, and save .weights.h5 (or a sharded .weights.json
-    # when >2 GB). Run with KERAS_BACKEND=torch. Verify the HF class name and the
-    # output key (`class_queries_logits`) against your transformers version.
     import gc
     import os
 
@@ -303,24 +291,28 @@ if __name__ == "__main__":
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         model = OneFormerUniversalSegment.from_weights("hf:" + hf_id)
-
-        # HF-vs-Keras parity on identical inputs from the kerasformers processor.
-        img = Image.fromarray(rng.integers(0, 255, (512, 512, 3), dtype="uint8"))
         proc = OneFormerProcessor.from_weights("hf:" + hf_id)
-        kin = proc(images=img, task="semantic")
+        task_inputs = proc(images=Image.new("RGB", (64, 64)), task="semantic")[
+            "task_inputs"
+        ]
+        ti = np.asarray(keras.ops.convert_to_numpy(task_inputs)).astype("int64")
+        pv_spec = next(t for t in model.inputs if len(t.shape) == 4)
+        h, w = int(pv_spec.shape[1]), int(pv_spec.shape[2])
+        pv = rng.standard_normal((1, h, w, 3)).astype("float32")
         k_logits = np.asarray(
-            keras.ops.convert_to_numpy(model(kin)["class_queries_logits"])
+            keras.ops.convert_to_numpy(
+                model({"pixel_values": pv, "task_inputs": task_inputs})[
+                    "class_queries_logits"
+                ]
+            )
         )
         hf_model = transformers.OneFormerForUniversalSegmentation.from_pretrained(
             hf_id
         ).eval()
-        pv = np.transpose(
-            np.asarray(keras.ops.convert_to_numpy(kin["pixel_values"])), (0, 3, 1, 2)
-        )
-        ti = np.asarray(keras.ops.convert_to_numpy(kin["task_inputs"])).astype("int64")
         with torch.no_grad():
             hf_out = hf_model(
-                pixel_values=torch.from_numpy(pv), task_inputs=torch.from_numpy(ti)
+                pixel_values=torch.from_numpy(np.transpose(pv, (0, 3, 1, 2))),
+                task_inputs=torch.from_numpy(ti),
             )
         cos = cosine(k_logits, hf_out.class_queries_logits.numpy())
         print(f"  class_queries_logits cosine: {cos:.6f}")
