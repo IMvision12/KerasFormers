@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base.attention import fused_attention
+from kerasformers.base.base_attention import fused_attention
 
 
 def apply_interleaved_rope(x, cos, sin):

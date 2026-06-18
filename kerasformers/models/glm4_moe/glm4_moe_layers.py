@@ -2,7 +2,7 @@ import keras
 import numpy as np
 from keras import layers, ops
 
-from kerasformers.base.attention import fused_attention
+from kerasformers.base.base_attention import fused_attention
 
 
 def rotate_half(x):

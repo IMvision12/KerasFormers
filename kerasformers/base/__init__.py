@@ -1,4 +1,4 @@
-from kerasformers.base.attention import fused_attention
+from kerasformers.base.base_attention import fused_attention
 from kerasformers.base.base_audio_feature_extractor import BaseAudioFeatureExtractor
 from kerasformers.base.base_generation import BaseGeneration
 from kerasformers.base.base_image_processor import BaseImageProcessor

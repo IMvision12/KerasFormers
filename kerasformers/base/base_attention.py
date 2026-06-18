@@ -1,14 +1,11 @@
 import keras
 from keras import ops
 
-USE_FUSED_ATTENTION = True
+VALID_ATTN_IMPL = ("sdpa", "flash")
+ATTN_IMPLEMENTATION = "sdpa"
 
 
 def _fused_op_available():
-    # keras.ops.dot_product_attention only dispatches to a real flash / efficient
-    # kernel on the JAX and PyTorch backends (matching KerasHub). On TensorFlow it
-    # lowers to a manual einsum/softmax, so fusing there only adds transpose
-    # overhead around the same math -> use the manual path instead.
     backend = keras.config.backend()
     if backend == "jax":
         try:
@@ -27,17 +24,6 @@ def _fused_op_available():
     return False
 
 
-def _softcap_fuses():
-    if keras.config.backend() != "jax":
-        return False
-    try:
-        import jax
-
-        return any(getattr(d, "platform", "") == "tpu" for d in jax.devices())
-    except Exception:
-        return False
-
-
 def fused_attention(
     query,
     key,
@@ -47,21 +33,25 @@ def fused_attention(
     soft_cap=None,
     dropout=None,
     training=None,
+    attn_implementation=None,
 ):
-    """Scaled dot-product attention with an optional fused (flash) backend.
+    """Scaled dot-product attention with a selectable implementation.
 
-    Computes ``softmax(soft_cap(QKᵀ · scale) + mask) V`` — identical math to the
-    manual path the models used before, but routed through
-    :func:`keras.ops.dot_product_attention` (which can dispatch to flash /
-    cuDNN / XLA-fused kernels) when possible. Falls back to the manual
-    implementation when fusion is disabled or unsupported: the TensorFlow
-    backend (no fused kernel there), logit soft-capping off JAX/TPU, or
-    training-time attention dropout (the fused op has no dropout argument).
+    Computes ``softmax(soft_cap(QKᵀ · scale) + mask) V``. The implementation is
+    chosen by ``attn_implementation`` (falling back to the module-level
+    ``ATTN_IMPLEMENTATION`` default, which ``Model.from_weights`` sets):
 
-    All tensors are in ``(batch, num_heads, seq, head_dim)`` layout, with the
-    key/value heads already repeated to ``num_heads`` (GQA expansion is the
-    caller's responsibility, matching the existing code). The result is returned
-    in the same layout.
+    * ``"sdpa"`` -- hand-written matmul/softmax math. Portable across every
+      backend, dtype and device. This is the default.
+    * ``"flash"`` -- :func:`keras.ops.dot_product_attention` with
+      ``flash_attention=True`` (the real flash kernel). Used only when the
+      backend supports it and there is no attention dropout or logit soft-cap;
+      otherwise it transparently falls back to the ``"sdpa"`` math (and the
+      flash op itself raises if the GPU/dtype cannot support flash).
+
+    All tensors are ``(batch, num_heads, seq, head_dim)`` with the key/value
+    heads already repeated to ``num_heads`` (GQA expansion is the caller's
+    responsibility). The result is returned in the same layout.
 
     Args:
         query: ``(batch, num_heads, q_len, head_dim)``.
@@ -71,27 +61,33 @@ def fused_attention(
         attention_mask: Additive mask broadcastable to
             ``(batch, num_heads, q_len, kv_len)``, or ``None``.
         soft_cap: Optional tanh logit soft-cap value (e.g. Gemma's ``50.0``);
-            ``None`` disables it.
+            ``None`` disables it. Forces the ``"sdpa"`` path.
         dropout: Optional ``keras.layers.Dropout`` applied to the attention
-            probabilities. Only used during training (and only when its rate is
-            positive); at inference it is a no-op so the fused path is taken.
-        training: Whether the call is in training mode. When ``True`` and
-            ``dropout`` has a positive rate, the manual path is used so the
-            dropout can be applied to the probabilities.
+            probabilities. Only active during training with a positive rate, in
+            which case the ``"sdpa"`` path is used so it can be applied.
+        training: Whether the call is in training mode.
+        attn_implementation: ``"sdpa"`` / ``"flash"`` / ``None`` (use the global
+            default).
 
     Returns:
         ``(batch, num_heads, q_len, head_dim)``.
     """
+    impl = attn_implementation or ATTN_IMPLEMENTATION
+    if impl not in VALID_ATTN_IMPL:
+        raise ValueError(
+            f"attn_implementation must be one of {VALID_ATTN_IMPL}, got {impl!r}"
+        )
+
     use_dropout = (
         bool(training) and dropout is not None and getattr(dropout, "rate", 0.0) > 0.0
     )
-    fuse = (
-        USE_FUSED_ATTENTION
+    use_flash = (
+        impl == "flash"
         and _fused_op_available()
         and not use_dropout
-        and (soft_cap is None or _softcap_fuses())
+        and soft_cap is None
     )
-    if fuse:
+    if use_flash:
         q = ops.transpose(query, (0, 2, 1, 3))
         k = ops.transpose(key, (0, 2, 1, 3))
         v = ops.transpose(value, (0, 2, 1, 3))
@@ -101,7 +97,7 @@ def fused_attention(
             v,
             bias=attention_mask,
             scale=scale,
-            attn_logits_soft_cap=soft_cap,
+            flash_attention=True,
         )
         return ops.transpose(out, (0, 2, 1, 3))
 

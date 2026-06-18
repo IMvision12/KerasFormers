@@ -1,7 +1,7 @@
 import keras
 from keras import initializers, layers, ops
 
-from kerasformers.base.attention import fused_attention
+from kerasformers.base.base_attention import fused_attention
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

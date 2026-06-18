@@ -2,7 +2,7 @@ import keras
 import numpy as np
 from keras import ops
 
-from kerasformers.base.attention import fused_attention
+from kerasformers.base.base_attention import fused_attention
 
 
 def moonshine_rope_tables(rotary_dim, max_positions, base):
