@@ -2,6 +2,8 @@ import keras
 import numpy as np
 from keras import ops
 
+from kerasformers.base.attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Speech2TextAttention(keras.layers.Layer):
@@ -92,11 +94,7 @@ class Speech2TextAttention(keras.layers.Layer):
 
     def attend(self, q, k, v, attention_mask=None):
         """Scaled-dot-product attention over already-projected q/k/v + output proj."""
-        scores = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2)))
-        if attention_mask is not None:
-            scores = scores + ops.cast(attention_mask, scores.dtype)
-        attn = ops.softmax(scores, axis=-1)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, 1.0, attention_mask)
         out = ops.transpose(out, (0, 2, 1, 3))
         out = ops.reshape(out, (ops.shape(out)[0], -1, self.proj_dim))
         return self.out_proj(out)
