@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 def rotate_half(x):
     half = ops.shape(x)[-1] // 2
@@ -258,11 +260,7 @@ class Qwen2MoeAttention(layers.Layer):
         if self.num_kv_groups > 1:
             key = ops.repeat(key, self.num_kv_groups, axis=1)
             value = ops.repeat(value, self.num_kv_groups, axis=1)
-        attn = ops.matmul(query, ops.transpose(key, (0, 1, 3, 2))) * self.scaling
-        if attention_mask is not None:
-            attn = attn + attention_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
-        out = ops.matmul(attn, value)
+        out = fused_attention(query, key, value, self.scaling, attention_mask)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)), (b, q_len, self.num_heads * self.head_dim)
         )
@@ -286,10 +284,7 @@ class Qwen2MoeAttention(layers.Layer):
         if self.num_kv_groups > 1:
             kk = ops.repeat(kk, self.num_kv_groups, axis=1)
             vv = ops.repeat(vv, self.num_kv_groups, axis=1)
-        attn = ops.matmul(query, ops.transpose(kk, (0, 1, 3, 2))) * self.scaling
-        attn = attn + key_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), query.dtype)
-        out = ops.matmul(attn, vv)
+        out = fused_attention(query, kk, vv, self.scaling, key_mask)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.head_dim)
         )

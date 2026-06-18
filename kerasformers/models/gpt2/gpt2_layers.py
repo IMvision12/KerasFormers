@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GPT2Attention(layers.Layer):
@@ -43,11 +45,7 @@ class GPT2Attention(layers.Layer):
             v = ops.concatenate([past_v, v], axis=2)
         new_kv = (k, v) if use_cache else None
 
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
-        if attention_mask is not None:
-            attn = attn + attention_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.scaling, attention_mask)
         out = ops.reshape(ops.transpose(out, (0, 2, 1, 3)), (b, q_len, self.embed_dim))
         out = self.c_proj(out)
         return (out, new_kv) if use_cache else out
@@ -63,10 +61,7 @@ class GPT2Attention(layers.Layer):
         v = ops.transpose(ops.reshape(v, shape), (0, 2, 1, 3))
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
-        attn = ops.matmul(q, ops.transpose(cache_k, (0, 1, 3, 2))) * self.scaling
-        attn = attn + key_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, cache_v)
+        out = fused_attention(q, cache_k, cache_v, self.scaling, key_mask)
         out = ops.reshape(ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.embed_dim))
         return self.c_proj(out), cache_k, cache_v
 

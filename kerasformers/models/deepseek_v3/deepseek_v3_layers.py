@@ -4,6 +4,8 @@ import keras
 import numpy as np
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 def yarn_inv_freq(
     dim, base, factor, original_max_position_embeddings, beta_fast=32, beta_slow=1
@@ -371,11 +373,7 @@ class DeepseekV3Attention(layers.Layer):
     def attend(self, q, k, v, attention_mask):
         b = ops.shape(q)[0]
         s = ops.shape(q)[2]
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.softmax_scale
-        if attention_mask is not None:
-            attn = attn + ops.cast(attention_mask, attn.dtype)
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, v)
+        out = fused_attention(q, k, v, self.softmax_scale, attention_mask)
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)), (b, s, self.num_heads * self.v_head_dim)
         )
@@ -392,10 +390,7 @@ class DeepseekV3Attention(layers.Layer):
         q, k, v = self.project_qkv(hidden_states, cos, sin)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
-        attn = ops.matmul(q, ops.transpose(cache_k, (0, 1, 3, 2))) * self.softmax_scale
-        attn = attn + key_mask
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        out = ops.matmul(attn, cache_v)
+        out = fused_attention(q, cache_k, cache_v, self.softmax_scale, key_mask)
         b = ops.shape(q)[0]
         out = ops.reshape(
             ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.v_head_dim)

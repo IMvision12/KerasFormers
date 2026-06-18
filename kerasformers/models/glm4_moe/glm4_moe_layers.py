@@ -2,6 +2,8 @@ import keras
 import numpy as np
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 def rotate_half(x):
     # NeoX (non-interleaved) rotate: split into halves and swap with a sign.
@@ -321,11 +323,7 @@ class Glm4MoeAttention(layers.Layer):
         if self.num_kv_groups > 1:
             k = ops.repeat(k, self.num_kv_groups, axis=1)
             v = ops.repeat(v, self.num_kv_groups, axis=1)
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scaling
-        if attention_mask is not None:
-            attn = attn + ops.cast(attention_mask, attn.dtype)
-        attn = ops.cast(ops.softmax(ops.cast(attn, "float32"), axis=-1), q.dtype)
-        return ops.matmul(attn, v)
+        return fused_attention(q, k, v, self.scaling, attention_mask)
 
     def call(self, hidden_states, cos, sin, attention_mask=None, use_cache=False):
         b = ops.shape(hidden_states)[0]
