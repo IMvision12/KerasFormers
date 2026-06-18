@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class BertEmbeddings(layers.Layer):
@@ -144,13 +146,15 @@ class BertSelfAttention(layers.Layer):
         key = self.transpose_for_scores(self.key(hidden_states))
         value = self.transpose_for_scores(self.value(hidden_states))
 
-        scores = ops.matmul(query, ops.transpose(key, (0, 1, 3, 2))) * self.scale
-        if attention_mask is not None:
-            scores = scores + attention_mask
-        probs = ops.softmax(scores, axis=-1)
-        probs = self.dropout(probs, training=training)
-
-        context = ops.matmul(probs, value)
+        context = fused_attention(
+            query,
+            key,
+            value,
+            self.scale,
+            attention_mask,
+            dropout=self.dropout,
+            training=training,
+        )
         context = ops.transpose(context, (0, 2, 1, 3))
         batch_size = ops.shape(context)[0]
         return ops.reshape(context, (batch_size, -1, self.embed_dim))

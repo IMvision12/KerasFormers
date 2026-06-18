@@ -1,6 +1,8 @@
 import keras
 from keras import layers, ops
 
+from kerasformers.base.attention import fused_attention
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class EoMTLayerScale(layers.Layer):
@@ -298,6 +300,7 @@ class EoMTAttention(layers.Layer):
         self.head_dim = hidden_dim // num_heads
         self.scale = self.head_dim**-0.5
         self.attention_dropout = attention_dropout
+        self.attn_drop = layers.Dropout(attention_dropout)
 
         self.q_proj = layers.Dense(hidden_dim, name="q_proj")
         self.k_proj = layers.Dense(hidden_dim, name="k_proj")
@@ -327,16 +330,14 @@ class EoMTAttention(layers.Layer):
         )
         values = ops.transpose(values, (0, 2, 1, 3))
 
-        attn_weights = ops.matmul(queries, ops.transpose(keys, (0, 1, 3, 2)))
-        attn_weights = attn_weights * self.scale
-        attn_weights = ops.softmax(attn_weights, axis=-1)
-
-        if training and self.attention_dropout > 0:
-            attn_weights = layers.Dropout(self.attention_dropout)(
-                attn_weights, training=training
-            )
-
-        attn_output = ops.matmul(attn_weights, values)
+        attn_output = fused_attention(
+            queries,
+            keys,
+            values,
+            self.scale,
+            dropout=self.attn_drop,
+            training=training,
+        )
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
         attn_output = ops.reshape(
             attn_output, (batch_size, seq_length, self.hidden_dim)
