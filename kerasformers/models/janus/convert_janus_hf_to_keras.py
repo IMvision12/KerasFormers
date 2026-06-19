@@ -142,7 +142,8 @@ if __name__ == "__main__":
                 pixel_values=torch.from_numpy(pv),
                 output_hidden_states=True,
             )
-        hf_h = hf_out.hidden_states[-1].numpy()  # FLAG: final LM hidden state
+        # final LM hidden state; .float() since the ckpt is bf16 (numpy has no bf16)
+        hf_h = hf_out.hidden_states[-1].float().numpy()
         cos = cosine(k_h, hf_h)
         print(f"  last_hidden_state cosine: {cos:.6f}")
         if cos < 0.99:
