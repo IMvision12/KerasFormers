@@ -81,18 +81,12 @@ def transfer_janus_weights(keras_model, hf_state_dict):
         if name not in state:
             raise WeightMappingError(weight.path, name)
         if name.endswith("patch_embedding.weight"):
-            # Conv2D patch embed: HF (out, in, kh, kw) -> Keras (kh, kw, in, out).
             weight.assign(np.transpose(np.asarray(state[name]), (2, 3, 1, 0)))
         else:
             transfer_weights(weight.path, weight, state[name])
 
 
 if __name__ == "__main__":
-    # Release-weights driver: convert every variant, check HF-vs-Keras parity,
-    # and save a sharded .weights.json (Janus exceeds the 2 GB single-asset cap in
-    # float32). Run with KERAS_BACKEND=torch. The HF Janus class, the pixel_values
-    # layout, and the hidden-state output attr are transformers-version-sensitive
-    # -- verify/adjust the three flagged lines below on the first run.
     import gc
     import os
 
@@ -105,8 +99,8 @@ if __name__ == "__main__":
     from kerasformers.models.janus.config import JANUS_WEIGHTS_URLS
 
     HF_SOURCES = {
-        "janus-pro-1b": "deepseek-community/Janus-Pro-1B",
-        "janus-pro-7b": "deepseek-community/Janus-Pro-7B",
+        "janus_pro_1b": "deepseek-community/Janus-Pro-1B",
+        "janus_pro_7b": "deepseek-community/Janus-Pro-7B",
     }
     MAX_SHARD_GB = 1.7
     rng = np.random.default_rng(0)
@@ -142,7 +136,6 @@ if __name__ == "__main__":
                 pixel_values=torch.from_numpy(pv),
                 output_hidden_states=True,
             )
-        # final LM hidden state; .float() since the ckpt is bf16 (numpy has no bf16)
         hf_h = hf_out.hidden_states[-1].float().numpy()
         cos = cosine(k_h, hf_h)
         print(f"  last_hidden_state cosine: {cos:.6f}")
