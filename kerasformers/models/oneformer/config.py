@@ -47,3 +47,18 @@ ONEFORMER_WEIGHTS_URLS = {
         "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_cityscapes_swin_large.weights.h5"
     },
 }
+
+ONEFORMER_TOKENIZER_URLS = {
+    "oneformer_ade20k_swin_tiny": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_tiny_tokenizer.json"
+    },
+    "oneformer_ade20k_swin_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_large_tokenizer.json"
+    },
+    "oneformer_coco_swin_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_coco_swin_large_tokenizer.json"
+    },
+    "oneformer_cityscapes_swin_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_cityscapes_swin_large_tokenizer.json"
+    },
+}
