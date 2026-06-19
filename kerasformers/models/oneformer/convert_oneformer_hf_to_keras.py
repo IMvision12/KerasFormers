@@ -266,10 +266,7 @@ if __name__ == "__main__":
     import transformers
     from PIL import Image
 
-    from kerasformers.models.oneformer import (
-        OneFormerProcessor,
-        OneFormerUniversalSegment,
-    )
+    from kerasformers.models.oneformer import OneFormerUniversalSegment
     from kerasformers.models.oneformer.config import ONEFORMER_WEIGHTS_URLS
 
     HF_SOURCES = {
@@ -291,19 +288,31 @@ if __name__ == "__main__":
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         model = OneFormerUniversalSegment.from_weights("hf:" + hf_id)
-        proc = OneFormerProcessor.from_weights("hf:" + hf_id)
-        task_inputs = proc(images=Image.new("RGB", (64, 64)), task="semantic")[
-            "task_inputs"
-        ]
-        ti = np.asarray(keras.ops.convert_to_numpy(task_inputs)).astype("int64")
+        # Task tokens from the HF processor (the kerasformers per-variant
+        # tokenizer isn't uploaded yet, and the shi-labs repos ship no
+        # tokenizer.json); both backends are fed the same ids.
+        hf_proc = transformers.OneFormerProcessor.from_pretrained(hf_id)
+        ti = (
+            hf_proc(
+                images=Image.new("RGB", (64, 64)),
+                task_inputs=["semantic"],
+                return_tensors="pt",
+            )["task_inputs"]
+            .numpy()
+            .astype("int64")
+        )
+        task_inputs = keras.ops.convert_to_tensor(ti.astype("float32"))
         pv_spec = next(t for t in model.inputs if len(t.shape) == 4)
         h, w = int(pv_spec.shape[1]), int(pv_spec.shape[2])
         pv = rng.standard_normal((1, h, w, 3)).astype("float32")
         k_logits = np.asarray(
             keras.ops.convert_to_numpy(
-                model({"pixel_values": pv, "task_inputs": task_inputs})[
-                    "class_queries_logits"
-                ]
+                model(
+                    {
+                        "pixel_values": keras.ops.convert_to_tensor(pv),
+                        "task_inputs": task_inputs,
+                    }
+                )["class_queries_logits"]
             )
         )
         hf_model = transformers.OneFormerForUniversalSegmentation.from_pretrained(
