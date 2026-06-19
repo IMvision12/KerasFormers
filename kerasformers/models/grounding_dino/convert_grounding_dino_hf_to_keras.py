@@ -154,8 +154,6 @@ def transfer_grounding_dino_weights(keras_model, hf_state_dict):
                     [[101, 102, 1012, 1029, 102, 102]], dtype="int64"
                 ),
                 "attention_mask": np.ones((1, 6), dtype="int64"),
-                # 384 (not 224) so Swin-B's window-12 last stage is 12x12, not
-                # 7x7 < window (the backbone doesn't clamp window to feature map).
                 "pixel_values": np.zeros((1, 384, 384, 3), dtype="float32"),
             }
         )
@@ -228,17 +226,9 @@ if __name__ == "__main__":
         am = np.asarray(keras.ops.convert_to_numpy(kin["attention_mask"])).astype(
             "int64"
         )
-        # Compare the cross-modality encoder text output (pre query-selection):
-        # the two-stage top-900 proposal selection is ill-conditioned on a random
-        # image (near-tied scores -> keras/HF pick different proposals -> the
-        # decoder last_hidden_state diverges), but the encoder output is stable.
-        # The decoder + heads are validated separately (boxes maxdiff 0.0).
         k_h = np.asarray(
             keras.ops.convert_to_numpy(model(kin)["encoder_last_hidden_state_text"])
         )
-
-        # Save, then free the keras model before loading the HF reference so only
-        # one backbone is resident at a time (the larger variants otherwise OOM).
         n_bytes = sum(int(np.prod(w.shape)) * 4 for w in model.weights)
         if out_path.endswith(".json"):
             model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
