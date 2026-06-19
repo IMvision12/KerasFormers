@@ -1,3 +1,4 @@
+import keras
 import numpy as np
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -30,11 +31,13 @@ class GroundingDinoImageProcessor:
         longest_edge=1333,
         image_mean=IMAGENET_MEAN,
         image_std=IMAGENET_STD,
+        data_format=None,
     ):
         self.shortest_edge = shortest_edge
         self.longest_edge = longest_edge
         self.image_mean = np.array(image_mean, dtype="float32")
         self.image_std = np.array(image_std, dtype="float32")
+        self.data_format = data_format
 
     def _to_rgb(self, image):
         from PIL import Image
@@ -67,4 +70,7 @@ class GroundingDinoImageProcessor:
         for i, x in enumerate(processed):
             pixel_values[i, : x.shape[0], : x.shape[1]] = x
             pixel_mask[i, : x.shape[0], : x.shape[1]] = 1
+        data_format = self.data_format or keras.config.image_data_format()
+        if data_format == "channels_first":
+            pixel_values = np.transpose(pixel_values, (0, 3, 1, 2))
         return {"pixel_values": pixel_values, "pixel_mask": pixel_mask}
