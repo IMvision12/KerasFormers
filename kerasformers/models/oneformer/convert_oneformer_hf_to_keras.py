@@ -4,7 +4,6 @@ from kerasformers.conversion.weight_transfer_util import transfer_weights
 
 
 def transfer_fused_attention(keras_attn, sd, prefix):
-    # torch nn.MultiheadAttention: fused in_proj + out_proj.
     keras_attn.in_proj_weight.assign(sd[f"{prefix}.in_proj_weight"])
     keras_attn.in_proj_bias.assign(sd[f"{prefix}.in_proj_bias"])
     transfer_weights(
@@ -26,13 +25,6 @@ def transfer_layernorm(keras_layer, sd, prefix):
 
 
 def transfer_oneformer_weights(keras_model, hf_state_dict):
-    """Transfer a OneFormer state dict into the Keras OneFormer model.
-
-    Walks the Swin backbone, the MSDeformAttn pixel decoder, the task MLP,
-    the query transformer, the masked-attention decoder, and the class / mask
-    heads. The training-only ``text_mapper`` (absent from the released
-    ``is_training: false`` checkpoints) is ignored.
-    """
     sd = hf_state_dict
     backbone = keras_model.get_layer("backbone")
 
@@ -262,3 +254,92 @@ def transfer_oneformer_weights(keras_model, hf_state_dict):
             sd,
             f"{decoder_prefix}.mask_embed.layers.{i}.0",
         )
+
+
+if __name__ == "__main__":
+    import gc
+    import os
+
+    import keras
+    import numpy as np
+    import torch
+    import transformers
+    from PIL import Image
+
+    from kerasformers.models.oneformer import OneFormerUniversalSegment
+    from kerasformers.models.oneformer.config import ONEFORMER_WEIGHTS_URLS
+
+    HF_SOURCES = {
+        "oneformer_ade20k_swin_tiny": "shi-labs/oneformer_ade20k_swin_tiny",
+        "oneformer_ade20k_swin_large": "shi-labs/oneformer_ade20k_swin_large",
+        "oneformer_coco_swin_large": "shi-labs/oneformer_coco_swin_large",
+        "oneformer_cityscapes_swin_large": "shi-labs/oneformer_cityscapes_swin_large",
+    }
+    MAX_SHARD_GB = 1.7  # GitHub caps a single release asset at 2 GB
+    rng = np.random.default_rng(0)
+
+    def cosine(a, b):
+        a, b = a.astype("float64").ravel(), b.astype("float64").ravel()
+        return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
+
+    for variant, meta in ONEFORMER_WEIGHTS_URLS.items():
+        hf_id = HF_SOURCES[variant]
+        out_path = os.path.basename(meta["url"])
+        print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
+
+        model = OneFormerUniversalSegment.from_weights("hf:" + hf_id)
+        # Task tokens from the HF processor (the kerasformers per-variant
+        # tokenizer isn't uploaded yet, and the shi-labs repos ship no
+        # tokenizer.json); both backends are fed the same ids.
+        hf_proc = transformers.OneFormerProcessor.from_pretrained(hf_id)
+        ti = (
+            hf_proc(
+                images=Image.new("RGB", (64, 64)),
+                task_inputs=["semantic"],
+                return_tensors="pt",
+            )["task_inputs"]
+            .numpy()
+            .astype("int64")
+        )
+        task_inputs = keras.ops.convert_to_tensor(ti.astype("float32"))
+        pv_spec = next(t for t in model.inputs if len(t.shape) == 4)
+        h, w = int(pv_spec.shape[1]), int(pv_spec.shape[2])
+        pv = rng.standard_normal((1, h, w, 3)).astype("float32")
+        k_logits = np.asarray(
+            keras.ops.convert_to_numpy(
+                model(
+                    {
+                        "pixel_values": keras.ops.convert_to_tensor(pv),
+                        "task_inputs": task_inputs,
+                    }
+                )["class_queries_logits"]
+            )
+        )
+        hf_model = transformers.OneFormerForUniversalSegmentation.from_pretrained(
+            hf_id
+        ).eval()
+        with torch.no_grad():
+            hf_out = hf_model(
+                pixel_values=torch.from_numpy(np.transpose(pv, (0, 3, 1, 2))),
+                task_inputs=torch.from_numpy(ti),
+            )
+        cos = cosine(k_logits, hf_out.class_queries_logits.numpy())
+        print(f"  class_queries_logits cosine: {cos:.6f}")
+        if cos < 0.99:
+            raise ValueError(f"{variant}: OneFormer parity failed (cos={cos:.4f})")
+
+        n_bytes = sum(int(np.prod(w.shape)) * 4 for w in model.weights)
+        if out_path.endswith(".json"):
+            model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
+        elif n_bytes > 2 * 1024**3:
+            raise ValueError(
+                f"{variant} is {n_bytes / 1024**3:.2f} GB (> 2 GB); set its config "
+                f"URL extension to .weights.json so it shards."
+            )
+        else:
+            model.save_weights(out_path)
+        print(f"  Saved -> {out_path}  ({n_bytes / 1024**3:.2f} GB)")
+
+        del hf_model, model
+        keras.backend.clear_session()
+        gc.collect()

@@ -4,12 +4,11 @@ import numpy as np
 from kerasformers.base import BaseImageProcessor, BaseProcessor
 from kerasformers.utils.image_util import get_data_format, load_image
 
+from .config import ONEFORMER_CONFIG
+from .oneformer_tokenizer import OneFormerTokenizer
+
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
-CLIP_TOKENIZER_JSON_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/clip/"
-    "clip_vit_base_16_tokenizer.json"
-)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -90,66 +89,76 @@ class OneFormerImageProcessor(BaseImageProcessor):
 class OneFormerProcessor(BaseProcessor):
     """Image + task -> model inputs for OneFormer.
 
-    Combines the image processor with the CLIP-BPE task tokenizer: the chosen
-    ``task`` (``"semantic"`` / ``"instance"`` / ``"panoptic"``) is rendered as
-    ``"the task is {task}"``, tokenized, and padded to ``task_seq_len`` — the
-    float id vector the model's task MLP consumes.
+    Combines the image processor with :class:`OneFormerTokenizer`: the chosen
+    ``task`` (``"semantic"`` / ``"instance"`` / ``"panoptic"``) is tokenized to
+    the ``task_inputs`` float-id vector the model's task MLP consumes, alongside
+    the preprocessed ``pixel_values``.
 
     Args:
-        target_size: Image canvas size (matches the model's ``image_size``).
+        variant: Release variant key (e.g. ``"oneformer_ade20k_swin_tiny"``);
+            selects the per-variant tokenizer and the default ``target_size``.
+        target_size: Image canvas size (defaults to the variant's
+            ``image_size``, else 512).
         task_seq_len: Task prompt length in tokens (77).
-        tokenizer_file: Explicit ``tokenizer.json``; downloaded from the CLIP
-            release when omitted.
+        tokenizer: Optional pre-built :class:`OneFormerTokenizer`.
+        hf_id: Hub repo to build the tokenizer from (on-the-fly path).
+        tokenizer_file: Explicit ``tokenizer.json`` for the tokenizer.
         image_processor: Optional pre-built image processor.
     """
 
+    TOKENIZER_CLS = OneFormerTokenizer
     IMAGE_PROCESSOR_CLS = OneFormerImageProcessor
-    COMPONENTS = ()
+    COMPONENTS = ("tokenizer",)
 
     def __init__(
         self,
-        target_size=512,
+        variant=None,
+        target_size=None,
         task_seq_len=77,
+        tokenizer=None,
+        hf_id=None,
         tokenizer_file=None,
         image_processor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        from tokenizers import Tokenizer
-
-        from kerasformers.conversion import download_file
-
+        self.variant = variant
+        self.hf_id = hf_id
+        if target_size is None:
+            target_size = ONEFORMER_CONFIG.get(variant or "", {}).get("image_size", 512)
         self.target_size = target_size
         self.task_seq_len = task_seq_len
         self.image_processor = image_processor or OneFormerImageProcessor(
             target_size=target_size
         )
-        if tokenizer_file is None:
-            tokenizer_file = download_file(CLIP_TOKENIZER_JSON_URL)
-        self.tokenizer_file = tokenizer_file
-        self._tok = Tokenizer.from_file(tokenizer_file)
-        self.eot_token_id = self._tok.token_to_id("<|endoftext|>")
+        self.tokenizer = tokenizer or OneFormerTokenizer(
+            variant=variant,
+            task_seq_len=task_seq_len,
+            hf_id=hf_id,
+            tokenizer_file=tokenizer_file,
+        )
 
-    def tokenize_task(self, task):
-        ids = self._tok.encode(f"the task is {task}").ids
-        ids = ids[: self.task_seq_len]
-        ids = ids + [self.eot_token_id] * (self.task_seq_len - len(ids))
-        return np.asarray(ids, dtype="float32")
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        return cls(hf_id=repo, **kwargs)
 
     def call(self, images=None, task="panoptic"):
         if images is None:
             raise ValueError("Provide `images`.")
         out = self.image_processor(images)
-        out["task_inputs"] = keras.ops.convert_to_tensor(self.tokenize_task(task)[None])
+        out["task_inputs"] = keras.ops.convert_to_tensor(
+            self.tokenizer.tokenize_task(task)[None]
+        )
         return out
 
     def get_config(self):
         config = super().get_config()
         config.update(
             {
+                "variant": self.variant,
+                "hf_id": self.hf_id,
                 "target_size": self.target_size,
                 "task_seq_len": self.task_seq_len,
-                "tokenizer_file": self.tokenizer_file,
             }
         )
         return config

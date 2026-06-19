@@ -5,6 +5,7 @@ import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
+from kerasformers.utils import standardize_input_shape
 
 from .config import GROUNDING_DINO_CONFIG, GROUNDING_DINO_WEIGHTS_URLS
 from .grounding_dino_layers import (
@@ -129,6 +130,7 @@ class GroundingDinoModel(SubclassedBaseModel):
         self.text_intermediate_size = text_intermediate_size
         self.text_max_position_embeddings = text_max_position_embeddings
         self.text_layer_norm_eps = text_layer_norm_eps
+        self.data_format = keras.config.image_data_format()
 
         self.backbone = GroundingDinoSwinBackbone(
             embed_dim=backbone_embed_dim,
@@ -136,6 +138,7 @@ class GroundingDinoModel(SubclassedBaseModel):
             num_heads=backbone_num_heads,
             window_size=backbone_window_size,
             out_indices=backbone_out_indices,
+            data_format=self.data_format,
             name="backbone",
         )
         self.text_backbone = GroundingDinoTextModel(
@@ -153,17 +156,28 @@ class GroundingDinoModel(SubclassedBaseModel):
         n_backbone = len(backbone_out_indices)
         self.input_proj_conv = []
         self.input_proj_norm = []
+        gn_axis = 1 if self.data_format == "channels_first" else -1
         for i in range(num_feature_levels):
             if i < n_backbone:
-                conv = layers.Conv2D(d_model, 1, name=f"input_proj_{i}_conv")
+                conv = layers.Conv2D(
+                    d_model,
+                    1,
+                    data_format=self.data_format,
+                    name=f"input_proj_{i}_conv",
+                )
             else:
                 conv = layers.Conv2D(
-                    d_model, 3, strides=2, padding="same", name=f"input_proj_{i}_conv"
+                    d_model,
+                    3,
+                    strides=2,
+                    padding="same",
+                    data_format=self.data_format,
+                    name=f"input_proj_{i}_conv",
                 )
             self.input_proj_conv.append(conv)
             self.input_proj_norm.append(
                 layers.GroupNormalization(
-                    groups=32, axis=-1, epsilon=1e-5, name=f"input_proj_{i}_norm"
+                    groups=32, axis=gn_axis, epsilon=1e-5, name=f"input_proj_{i}_norm"
                 )
             )
 
@@ -297,6 +311,10 @@ class GroundingDinoModel(SubclassedBaseModel):
         return sources
 
     def run_encoder(self, sources, text_features, text_additive):
+        # The deformable encoder works on channels-last (B, H*W, C) sequences;
+        # normalize channels-first projections back before flattening.
+        if self.data_format == "channels_first":
+            sources = [ops.transpose(s, (0, 2, 3, 1)) for s in sources]
         spatial_shapes_list = [(int(s.shape[1]), int(s.shape[2])) for s in sources]
         flat_sources = []
         flat_pos = []
@@ -465,6 +483,33 @@ class GroundingDinoModel(SubclassedBaseModel):
             "intermediate_hidden_states": intermediate,
             "encoder_last_hidden_state_text": enc["text"],
         }
+
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
+        url = entry.get("url") if isinstance(entry, dict) else entry
+        if not (load_weights and url):
+            return super().from_release(
+                variant,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                **kwargs,
+            )
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        # 384 (not 224) keeps Swin-B's window-12 last stage >= window; build in
+        # the active data format so backbone_features sees the expected layout.
+        shape = standardize_input_shape(384, keras.config.image_data_format())
+        model(
+            {
+                "pixel_values": ops.zeros((1, *shape), dtype="float32"),
+                "input_ids": ops.convert_to_tensor(
+                    np.array([[101, 3000, 102]], dtype="int32")
+                ),
+                "attention_mask": ops.ones((1, 3), dtype="int32"),
+            }
+        )
+        cls.load_weights_from_url(model, url, skip_mismatch)
+        return model
 
     @classmethod
     def config_from_hf(cls, hf_config):

@@ -301,8 +301,8 @@ class GroundingDinoSwinBackbone(layers.Layer):
 
     Patch-embed (4x4 conv) -> LayerNorm -> 4 stages with patch merging; the
     pre-downsampling outputs of stages 1, 2, 3 (channels ``2/4/8 * embed_dim``)
-    are LayerNorm'd (``hidden_states_norms``) and returned as channels-last
-    feature maps ``(B, H, W, C)``.
+    are LayerNorm'd (``hidden_states_norms``) and returned as multi-scale
+    feature maps in the configured ``data_format``.
     """
 
     def __init__(
@@ -313,6 +313,7 @@ class GroundingDinoSwinBackbone(layers.Layer):
         window_size=7,
         out_indices=(2, 3, 4),
         patch_size=4,
+        data_format=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -322,12 +323,14 @@ class GroundingDinoSwinBackbone(layers.Layer):
         self.window_size = window_size
         self.out_indices = tuple(out_indices)
         self.patch_size = patch_size
+        self.data_format = data_format or keras.config.image_data_format()
         self.num_stages = len(depths)
 
         self.patch_embed = layers.Conv2D(
             embed_dim,
             kernel_size=patch_size,
             strides=patch_size,
+            data_format=self.data_format,
             name="patch_embeddings_projection",
         )
         self.embed_norm = layers.LayerNormalization(epsilon=1e-5, name="embed_norm")
@@ -355,6 +358,10 @@ class GroundingDinoSwinBackbone(layers.Layer):
 
     def call(self, pixel_values):
         x = self.patch_embed(pixel_values)
+        # Window attention runs channels-last; normalize a channels-first
+        # patch-embed output before the sequence reshape.
+        if self.data_format == "channels_first":
+            x = ops.transpose(x, (0, 2, 3, 1))
         h = int(x.shape[1])
         w = int(x.shape[2])
         c = int(x.shape[3])
@@ -366,7 +373,10 @@ class GroundingDinoSwinBackbone(layers.Layer):
             if i in self.out_stage_idx:
                 normed = self.out_norms[i](before)
                 dim = self.embed_dim * (2**i)
-                feature_maps.append(ops.reshape(normed, (-1, h, w, dim)))
+                fm = ops.reshape(normed, (-1, h, w, dim))
+                if self.data_format == "channels_first":
+                    fm = ops.transpose(fm, (0, 3, 1, 2))
+                feature_maps.append(fm)
             h, w = out_h, out_w
         return feature_maps
 
@@ -380,6 +390,7 @@ class GroundingDinoSwinBackbone(layers.Layer):
                 "window_size": self.window_size,
                 "out_indices": self.out_indices,
                 "patch_size": self.patch_size,
+                "data_format": self.data_format,
             }
         )
         return config

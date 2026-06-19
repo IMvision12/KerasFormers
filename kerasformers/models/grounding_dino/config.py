@@ -1,5 +1,5 @@
 GROUNDING_DINO_CONFIG = {
-    "grounding-dino-tiny": {
+    "grounding_dino_tiny": {
         "d_model": 256,
         "encoder_layers": 6,
         "encoder_ffn_dim": 2048,
@@ -30,7 +30,7 @@ GROUNDING_DINO_CONFIG = {
         "text_max_position_embeddings": 512,
         "text_layer_norm_eps": 1e-12,
     },
-    "grounding-dino-base": {
+    "grounding_dino_base": {
         "d_model": 256,
         "encoder_layers": 6,
         "encoder_ffn_dim": 2048,
@@ -64,14 +64,19 @@ GROUNDING_DINO_CONFIG = {
 }
 
 GROUNDING_DINO_WEIGHTS_URLS = {
-    "grounding-dino-tiny": {
-        "hf_id": "IDEA-Research/grounding-dino-tiny",
-        "gated": False,
-        "safetensors": True,
+    "grounding_dino_tiny": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/grounding_dino/grounding_dino_tiny.weights.h5"
     },
-    "grounding-dino-base": {
-        "hf_id": "IDEA-Research/grounding-dino-base",
-        "gated": False,
-        "safetensors": True,
+    "grounding_dino_base": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/grounding_dino/grounding_dino_base.weights.h5"
+    },
+}
+
+GROUNDING_DINO_TOKENIZER_URLS = {
+    "grounding_dino_tiny": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/grounding_dino/grounding_dino_tiny_tokenizer.json"
+    },
+    "grounding_dino_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/grounding_dino/grounding_dino_base_tokenizer.json"
     },
 }

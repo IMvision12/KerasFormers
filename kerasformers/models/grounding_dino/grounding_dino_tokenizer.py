@@ -2,26 +2,38 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
+from .config import GROUNDING_DINO_TOKENIZER_URLS
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GroundingDinoTokenizer(BaseTokenizer):
     """BERT WordPiece tokenizer for Grounding DINO text prompts.
 
-    Loads the model's ``tokenizer.json`` (downloaded on the fly from ``hf_id``
-    when no explicit file is given). ``call`` returns ``input_ids`` plus the
-    ``attention_mask`` and ``token_type_ids`` the detector consumes.
+    Loads ``tokenizer.json`` for ``variant`` from the ``grounding_dino`` release
+    tag, or on the fly from ``hf_id``, or from an explicit ``tokenizer_file``.
+    ``call`` returns ``input_ids`` plus the ``attention_mask`` and
+    ``token_type_ids`` the detector consumes.
 
     Args:
-        hf_id: Hub repo to pull ``tokenizer.json`` from.
-        tokenizer_file: Explicit path to a ``tokenizer.json``.
+        variant: Release variant key (default ``"grounding_dino_tiny"``); both
+            variants share the same bert-base-uncased tokenizer.
+        hf_id: Hub repo to pull ``tokenizer.json`` from (on-the-fly path).
+        tokenizer_file: Explicit path to a ``tokenizer.json`` (overrides both).
     """
 
-    def __init__(self, hf_id=None, tokenizer_file=None, **kwargs):
+    TOKENIZER_URLS = GROUNDING_DINO_TOKENIZER_URLS
+    DEFAULT_VARIANT = "grounding_dino_tiny"
+
+    def __init__(self, variant=None, hf_id=None, tokenizer_file=None, **kwargs):
         super().__init__(**kwargs)
         from tokenizers import Tokenizer
 
-        tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
+        self.variant = variant or self.DEFAULT_VARIANT
         self.hf_id = hf_id
+        if hf_id is not None and tokenizer_file is None:
+            tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
+        else:
+            tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
         self.cls_token_id = self._tok.token_to_id("[CLS]")
@@ -55,5 +67,11 @@ class GroundingDinoTokenizer(BaseTokenizer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({"hf_id": self.hf_id, "tokenizer_file": self.tokenizer_file})
+        config.update(
+            {
+                "variant": self.variant,
+                "hf_id": self.hf_id,
+                "tokenizer_file": self.tokenizer_file,
+            }
+        )
         return config

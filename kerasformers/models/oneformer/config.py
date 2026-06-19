@@ -35,19 +35,30 @@ ONEFORMER_CONFIG = {
 
 ONEFORMER_WEIGHTS_URLS = {
     "oneformer_ade20k_swin_tiny": {
-        "hf_id": "shi-labs/oneformer_ade20k_swin_tiny",
-        "gated": False,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_ade20k_swin_tiny.weights.h5"
     },
     "oneformer_ade20k_swin_large": {
-        "hf_id": "shi-labs/oneformer_ade20k_swin_large",
-        "gated": False,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_ade20k_swin_large.weights.h5"
     },
     "oneformer_coco_swin_large": {
-        "hf_id": "shi-labs/oneformer_coco_swin_large",
-        "gated": False,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_coco_swin_large.weights.h5"
     },
     "oneformer_cityscapes_swin_large": {
-        "hf_id": "shi-labs/oneformer_cityscapes_swin_large",
-        "gated": False,
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_cityscapes_swin_large.weights.h5"
+    },
+}
+
+ONEFORMER_TOKENIZER_URLS = {
+    "oneformer_ade20k_swin_tiny": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_tiny_tokenizer.json"
+    },
+    "oneformer_ade20k_swin_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_large_tokenizer.json"
+    },
+    "oneformer_coco_swin_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_coco_swin_large_tokenizer.json"
+    },
+    "oneformer_cityscapes_swin_large": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_cityscapes_swin_large_tokenizer.json"
     },
 }

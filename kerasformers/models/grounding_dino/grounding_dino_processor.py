@@ -33,16 +33,20 @@ class GroundingDinoProcessor(BaseProcessor):
         longest_edge=1333,
         tokenizer=None,
         image_processor=None,
+        variant=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.hf_id = hf_id
+        self.variant = variant
         self.shortest_edge = shortest_edge
         self.longest_edge = longest_edge
         self.image_processor = image_processor or GroundingDinoImageProcessor(
             shortest_edge=shortest_edge, longest_edge=longest_edge
         )
-        self.tokenizer = tokenizer or GroundingDinoTokenizer(hf_id=hf_id)
+        self.tokenizer = tokenizer or GroundingDinoTokenizer(
+            variant=variant, hf_id=hf_id
+        )
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
@@ -129,6 +133,7 @@ class GroundingDinoProcessor(BaseProcessor):
         config.update(
             {
                 "hf_id": self.hf_id,
+                "variant": self.variant,
                 "shortest_edge": self.shortest_edge,
                 "longest_edge": self.longest_edge,
             }

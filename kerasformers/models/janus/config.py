@@ -1,5 +1,5 @@
 JANUS_CONFIG = {
-    "janus-pro-1b": {
+    "janus_pro_1b": {
         "embed_dim": 2048,
         "mlp_dim": 5632,
         "num_layers": 24,
@@ -7,7 +7,7 @@ JANUS_CONFIG = {
         "num_kv_heads": 16,
         "image_token_id": 100581,
     },
-    "janus-pro-7b": {
+    "janus_pro_7b": {
         "embed_dim": 4096,
         "mlp_dim": 11008,
         "num_layers": 30,
@@ -18,14 +18,10 @@ JANUS_CONFIG = {
 }
 
 JANUS_WEIGHTS_URLS = {
-    "janus-pro-1b": {
-        "hf_id": "deepseek-community/Janus-Pro-1B",
-        "gated": False,
-        "safetensors": True,
+    "janus_pro_1b": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/janus/janus_pro_1b.weights.json"
     },
-    "janus-pro-7b": {
-        "hf_id": "deepseek-community/Janus-Pro-7B",
-        "gated": False,
-        "safetensors": True,
+    "janus_pro_7b": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/janus/janus_pro_7b.weights.json"
     },
 }

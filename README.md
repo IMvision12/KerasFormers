@@ -132,7 +132,7 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `transformers` |
     | OWL-ViT | [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230) | `transformers` |
     | OWLv2 | [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683) | `transformers` |
-    | Grounding DINO | [Marrying DINO with Grounded Pre-Training for Open-Set Object Detection](https://arxiv.org/abs/2303.05499) | on-the-fly `hf:` |
+    | Grounding DINO | [Marrying DINO with Grounded Pre-Training for Open-Set Object Detection](https://arxiv.org/abs/2303.05499) | `transformers` |
 
 <br>
 

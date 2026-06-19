@@ -83,8 +83,6 @@ def transfer_minimax_weights(keras_model, hf_state_dict):
         for old, new in WEIGHT_NAME_MAPPING.items():
             name = name.replace(old, new)
         if is_linear:
-            # The lightning attention names its output projection `out_proj`
-            # (the full attention uses `o_proj`).
             name = name.replace("self_attn.o_proj", "self_attn.out_proj")
         if name not in state:
             raise WeightMappingError(weight.path, name)
