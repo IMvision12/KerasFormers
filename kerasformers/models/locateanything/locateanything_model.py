@@ -146,20 +146,33 @@ class LocateAnythingModel(SubclassedBaseModel):
             mask = mask + (1.0 - am)[:, None, None, :] * MASK_NEG
         return mask
 
-    def magi_prefill_mask(self, seq):
-        """Dense additive form of MoonViT-LLM's magi prefill (q_len == kv_len):
-        the first ``seq - block_size`` tokens are causal; the last ``block_size``
-        window tokens attend bidirectionally to everything except the single
-        ``blocked_k`` column just before the window."""
+    def magi_mask(self, q_len, kv_len):
+        """General magi block mask, additive ``(1, 1, q_len, kv_len)``. The first
+        ``q_len - block_size`` query rows are causal; the last ``block_size``
+        (window) rows attend everywhere except the single ``blocked_k`` column.
+        Reduces to the prefill mask when ``q_len == kv_len`` and serves the cached
+        MTP decode when ``q_len < kv_len``."""
         b = self.block_size
-        prefix_len = seq - b
-        blocked_k = prefix_len - 1
-        qi = ops.arange(seq)[:, None]
-        ki = ops.arange(seq)[None, :]
-        causal = ki <= qi
+        q_start = kv_len - q_len
+        r = q_len - b
+        blocked_k = kv_len - b - 1
+        qi = ops.arange(q_len)[:, None]
+        ki = ops.arange(kv_len)[None, :]
+        causal = ki <= (q_start + qi)
         window = ops.not_equal(ki, blocked_k)
-        attend = ops.where(qi < prefix_len, causal, window)
+        attend = ops.where(qi < r, causal, window)
         return ops.cast(ops.where(attend, 0.0, MASK_NEG), "float32")[None, None]
+
+    def causal_mask_cached(self, q_len, kv_len):
+        """Plain causal mask for cached AR decode (``q_len <= kv_len``)."""
+        q_start = kv_len - q_len
+        qi = ops.arange(q_len)[:, None]
+        ki = ops.arange(kv_len)[None, :]
+        attend = ki <= (q_start + qi)
+        return ops.cast(ops.where(attend, 0.0, MASK_NEG), "float32")[None, None]
+
+    def magi_prefill_mask(self, seq):
+        return self.magi_mask(seq, seq)
 
     def forward_features(self, inputs):
         input_ids = ops.cast(ops.convert_to_tensor(inputs["input_ids"]), "int32")
@@ -181,6 +194,44 @@ class LocateAnythingModel(SubclassedBaseModel):
         for layer in self.decoder_layers:
             hidden = layer(hidden, cos, sin, attention_mask=mask)
         return self.final_norm(hidden)
+
+    def forward_features_cached(
+        self,
+        input_ids,
+        position_ids,
+        vision_embeds=None,
+        past_caches=None,
+        causal=False,
+    ):
+        """Cached forward over only the new tokens. ``past_caches`` is a list of
+        per-layer ``(key, value)`` (or ``None`` on prefill); returns the hidden
+        states for the new tokens plus the updated per-layer caches."""
+        input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
+        batch, q_len = int(input_ids.shape[0]), int(input_ids.shape[1])
+        hidden = self.token_embedding(input_ids)
+        if vision_embeds is not None:
+            hidden = self.merge_vision(hidden, input_ids, vision_embeds)
+        cos, sin = self.rope_tables(q_len, batch, position_ids)
+        past_len = int(past_caches[0][0].shape[2]) if past_caches is not None else 0
+        kv_len = past_len + q_len
+        mask = (
+            self.causal_mask_cached(q_len, kv_len)
+            if causal
+            else self.magi_mask(q_len, kv_len)
+        )
+        new_caches = []
+        for i, layer in enumerate(self.decoder_layers):
+            past = past_caches[i] if past_caches is not None else None
+            hidden, kv = layer(
+                hidden,
+                cos,
+                sin,
+                attention_mask=mask,
+                past_key_value=past,
+                use_cache=True,
+            )
+            new_caches.append(kv)
+        return self.final_norm(hidden), new_caches
 
     def call(self, inputs):
         return {"last_hidden_state": self.forward_features(inputs)}
@@ -277,6 +328,19 @@ class LocateAnythingGenerate(LocateAnythingModel):
     def forward_logits(self, inputs):
         return ops.cast(self.project(self.forward_features(inputs)), "float32")
 
+    def forward_logits_cached(
+        self,
+        input_ids,
+        position_ids,
+        vision_embeds=None,
+        past_caches=None,
+        causal=False,
+    ):
+        hidden, caches = self.forward_features_cached(
+            input_ids, position_ids, vision_embeds, past_caches, causal
+        )
+        return ops.cast(self.project(hidden), "float32"), caches
+
     def generate(
         self,
         input_ids,
@@ -287,16 +351,20 @@ class LocateAnythingGenerate(LocateAnythingModel):
         max_new_tokens=512,
         generation_mode="hybrid",
         n_future=None,
+        use_cache=True,
         **kwargs,
     ):
         """Parallel Box Decoding. ``generation_mode``: 'fast' (MTP only), 'slow'
-        (pure autoregressive), or 'hybrid' (MTP + AR fallback, default). The
-        vision encoder runs once; returns the generated token ids (decode +
+        (pure autoregressive), or 'hybrid' (MTP + AR fallback, default). With
+        ``use_cache`` (default) only the new tokens are forwarded against a KV
+        cache; ``use_cache=False`` uses the slower full-recompute loop. The vision
+        encoder runs once; returns the generated token ids (decode +
         ``tokenizer.parse_boxes`` to recover boxes)."""
-        from .locateanything_generation import generate_loop
+        from .locateanything_generation import generate_loop, generate_loop_cached
 
+        loop = generate_loop_cached if use_cache else generate_loop
         # Inference only: avoid building a torch autograd graph across the
-        # recompute loop (activations would accumulate -> CUDA OOM). No-op on
+        # decode loop (activations would accumulate -> CUDA OOM). No-op on
         # jax/tf, which don't track gradients eagerly.
         if keras.backend.backend() == "torch":
             import torch
@@ -309,7 +377,7 @@ class LocateAnythingGenerate(LocateAnythingModel):
         with grad_ctx:
             if vision_embeds is None and pixel_values is not None:
                 vision_embeds = self.get_image_features(pixel_values, image_grid_hws)
-            return generate_loop(
+            return loop(
                 self,
                 input_ids,
                 vision_embeds,

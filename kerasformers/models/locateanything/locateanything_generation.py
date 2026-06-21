@@ -286,3 +286,88 @@ def generate_loop(
                 use_mtp = True
 
     return generated[:, prompt_len:]
+
+
+def generate_loop_cached(
+    model,
+    input_ids,
+    vision_embeds,
+    tokenizer,
+    n_future=6,
+    generation_mode="hybrid",
+    max_new_tokens=512,
+    **kw,
+):
+    """KV-cached variant of generate_loop. Each step forwards only the new tokens
+    (the last accepted box re-run causally + dup + mask window) against the cache,
+    instead of recomputing the whole sequence. Numerically identical to
+    generate_loop; the magi block mask is the same formula for q_len < kv_len."""
+    tid = get_token_ids(tokenizer)
+    generated = np.asarray(ops.convert_to_numpy(input_ids), dtype="int64")
+    if generated.ndim == 1:
+        generated = generated[None]
+    prompt_len = generated.shape[1]
+    total = prompt_len + max_new_tokens
+    use_mtp = generation_mode in ("fast", "hybrid")
+    default_mask = tid["default_mask_token_id"]
+    caches = None
+    cache_len = 0
+
+    while generated.shape[1] < total:
+        length = generated.shape[1]
+        vis = vision_embeds if caches is None else None  # merge vision on prefill only
+        tail = generated[
+            :, cache_len:
+        ]  # uncached tokens (prompt, or last accepted box)
+        if use_mtp:
+            dup = generated[:, -1:]
+            masks = np.full((1, n_future - 1), default_mask, dtype="int64")
+            new_ids = np.concatenate([tail, dup, masks], axis=1)
+            pos = np.arange(cache_len, length + n_future, dtype="int32")[None].copy()
+            pos[0, -n_future:] -= 1
+            logits, new_caches = model.forward_logits_cached(
+                new_ids, pos, vision_embeds=vis, past_caches=caches, causal=False
+            )
+            logits = np.asarray(ops.convert_to_numpy(logits))[:, -n_future:, :]
+            x0, box = sample_tokens(
+                logits, generated, tid, keep_k=5, mode=generation_mode, **kw
+            )
+            new = x0[0] if bool((box[0] == 0).all()) else box[0]
+            pat = handle_pattern(new, tid, generation_mode)
+            out_type, out_token = pat["type"], np.asarray(pat["tokens"], dtype="int64")
+        else:
+            pos = np.arange(cache_len, length, dtype="int32")[None]
+            logits, new_caches = model.forward_logits_cached(
+                tail, pos, vision_embeds=vis, past_caches=caches, causal=True
+            )
+            logits = np.asarray(ops.convert_to_numpy(logits))[:, -1:, :]
+            x0, _ = sample_tokens(logits, generated, tid, mode=generation_mode, **kw)
+            out_token = x0[0]
+            tv = int(out_token[0])
+            out_type = "continue_ar"
+            if generation_mode == "hybrid":
+                if tv == tid["box_end_token_id"]:
+                    out_type = "box_end_ar"
+                elif (
+                    tid["coord_start_token_id"] <= tv <= tid["coord_end_token_id"]
+                    or tv == tid["none_token_id"]
+                ):
+                    out_type = "coord_ar"
+                else:
+                    out_type = "im_end"
+            elif tv == tid["im_end_token_id"]:
+                out_type = "im_end"
+
+        # keep prefix + the re-run uncached tokens in the cache; drop dup/mask K/V
+        caches = [(k[:, :, :length, :], v[:, :, :length, :]) for (k, v) in new_caches]
+        cache_len = length
+        generated = np.concatenate([generated, out_token[None]], axis=1)
+        if out_type == "im_end":
+            break
+        if generation_mode == "hybrid":
+            if out_type == "error_box":
+                use_mtp = False
+            elif out_type == "box_end_ar":
+                use_mtp = True
+
+    return generated[:, prompt_len:]
