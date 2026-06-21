@@ -217,7 +217,9 @@ def generate_loop(
     **kw,
 ):
     tid = get_token_ids(tokenizer)
-    generated = np.asarray(input_ids, dtype="int64")
+    generated = np.asarray(
+        ops.convert_to_numpy(input_ids), dtype="int64"
+    )  # accept GPU/keras tensors
     if generated.ndim == 1:
         generated = generated[None]
     prompt_len = generated.shape[1]
