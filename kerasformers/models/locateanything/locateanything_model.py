@@ -295,15 +295,27 @@ class LocateAnythingGenerate(LocateAnythingModel):
         ``tokenizer.parse_boxes`` to recover boxes)."""
         from .locateanything_generation import generate_loop
 
-        if vision_embeds is None and pixel_values is not None:
-            vision_embeds = self.get_image_features(pixel_values, image_grid_hws)
-        return generate_loop(
-            self,
-            input_ids,
-            vision_embeds,
-            tokenizer,
-            n_future=n_future or self.block_size,
-            generation_mode=generation_mode,
-            max_new_tokens=max_new_tokens,
-            **kwargs,
-        )
+        # Inference only: avoid building a torch autograd graph across the
+        # recompute loop (activations would accumulate -> CUDA OOM). No-op on
+        # jax/tf, which don't track gradients eagerly.
+        if keras.backend.backend() == "torch":
+            import torch
+
+            grad_ctx = torch.no_grad()
+        else:
+            from contextlib import nullcontext
+
+            grad_ctx = nullcontext()
+        with grad_ctx:
+            if vision_embeds is None and pixel_values is not None:
+                vision_embeds = self.get_image_features(pixel_values, image_grid_hws)
+            return generate_loop(
+                self,
+                input_ids,
+                vision_embeds,
+                tokenizer,
+                n_future=n_future or self.block_size,
+                generation_mode=generation_mode,
+                max_new_tokens=max_new_tokens,
+                **kwargs,
+            )
