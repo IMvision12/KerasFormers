@@ -158,7 +158,7 @@ def sample_tokens(logits, generated, tid, keep_k=5, mode="hybrid", **kw):
         x0 = np.argmax(probs, -1)
     if logits.shape[1] == 1:
         return x0, None
-    box = decode_bbox_avg(probs[0], tid, keep_k=keep_k, mode=mode)
+    box = decode_bbox_avg(probs[0], tid, keep_k=kw.get("keep_k_avg", 4), mode=mode)
     if box is None:
         box = decode_ref(probs[0], tid)
     if box is None:
