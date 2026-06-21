@@ -275,9 +275,7 @@ class LocateAnythingGenerate(LocateAnythingModel):
         return {"logits": self.project(hidden), "last_hidden_state": hidden}
 
     def forward_logits(self, inputs):
-        # Direct forward (bypasses keras __call__) so generation can pass
-        # non-tensor controls (use_magi flag, host position_ids) in the dict.
-        return self.project(self.forward_features(inputs))
+        return ops.cast(self.project(self.forward_features(inputs)), "float32")
 
     def generate(
         self,
