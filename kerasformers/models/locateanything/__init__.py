@@ -10,7 +10,9 @@ from kerasformers.models.locateanything.locateanything_model import (
     LocateAnythingModel,
 )
 from kerasformers.models.locateanything.locateanything_processor import (
+    TASK_PROMPTS,
     LocateAnythingProcessor,
+    locate_prompt,
 )
 from kerasformers.models.locateanything.locateanything_tokenizer import (
     LocateAnythingTokenizer,
@@ -26,6 +28,8 @@ __all__ = [
     "LocateAnythingTokenizer",
     "LocateAnythingImageProcessor",
     "LocateAnythingProcessor",
+    "locate_prompt",
+    "TASK_PROMPTS",
     "LOCATEANYTHING_CONFIG",
     "LOCATEANYTHING_WEIGHTS_URLS",
 ]

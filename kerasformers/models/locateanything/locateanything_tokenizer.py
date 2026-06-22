@@ -10,9 +10,11 @@ class LocateAnythingTokenizer(BaseTokenizer):
     """Qwen2.5 BPE tokenizer extended with LocateAnything's grounding tokens.
 
     Same ``tokenizers`` backend as :class:`Qwen2Tokenizer`, plus the box / ref /
-    coordinate special-token ids and a ``parse_boxes`` helper that turns a
-    generated id sequence into ``<box>`` quadruples (each coordinate is
-    ``coord_start_token_id + v`` for v in [0, 1000]).
+    coordinate special-token ids and parsers that turn a generated id sequence
+    into structured grounding results: ``parse_boxes`` (``<box>`` quadruples),
+    ``parse_points`` (two-coordinate ``<box>`` points), and ``parse_grounding``
+    (each ``<ref>`` label paired with the boxes/points that follow it). Each
+    coordinate is ``coord_start_token_id + v`` for v in [0, 1000].
     """
 
     def __init__(self, hf_id=None, tokenizer_file=None, **kwargs):
@@ -85,6 +87,66 @@ class LocateAnythingTokenizer(BaseTokenizer):
             elif inside and self.coord_start_token_id <= tid <= self.coord_end_token_id:
                 coords.append(tid - self.coord_start_token_id)
         return boxes
+
+    def parse_points(self, ids):
+        """Extract pointing results from a generated id sequence. Returns a list
+        of ``[x, y]`` in the [0, 1000] grid; a point is a ``<box>`` carrying two
+        coordinates rather than four. Use this for the pointing task."""
+        ids = self.to_id_list(ids)
+        points, coords, inside = [], [], False
+        for tid in ids:
+            if tid == self.box_start_token_id:
+                inside, coords = True, []
+            elif tid == self.box_end_token_id:
+                if len(coords) == 2:
+                    points.append(coords)
+                inside, coords = False, []
+            elif inside and self.coord_start_token_id <= tid <= self.coord_end_token_id:
+                coords.append(tid - self.coord_start_token_id)
+        return points
+
+    def parse_grounding(self, ids):
+        """Parse a generated id sequence into grounding results, pairing each
+        ``<ref>`` label with the boxes/points that follow it. Returns a list of
+        dicts, each ``{"label": str | None, "box": [x1, y1, x2, y2]}`` or
+        ``{"label": str | None, "point": [x, y]}``, coordinates in the [0, 1000]
+        grid. ``label`` is ``None`` when the model emits no ``<ref>`` (e.g.
+        detection/pointing whose target is named in the prompt). Use this for
+        multi-object referring, OCR, and layout grounding."""
+        ids = self.to_id_list(ids)
+        cs, ce = self.coord_start_token_id, self.coord_end_token_id
+        bs, be, rs, ref_end = (
+            self.box_start_token_id,
+            self.box_end_token_id,
+            self.ref_start_token_id,
+            self.ref_end_token_id,
+        )
+        stops = {bs, rs, self.null_token_id, self.eos_token_id}
+        results, label, i, n = [], None, 0, len(ids)
+        while i < n:
+            tid = ids[i]
+            if tid == rs:
+                j, buf = i + 1, []
+                while j < n and ids[j] not in stops:
+                    if ids[j] != ref_end:
+                        buf.append(ids[j])
+                    j += 1
+                label = self.decode(buf, skip_special_tokens=True).strip() or None
+                i = j
+            elif tid == bs:
+                j, coords = i + 1, []
+                while j < n and ids[j] != be:
+                    if cs <= ids[j] <= ce:
+                        coords.append(ids[j] - cs)
+                    j += 1
+                if len(coords) == 4:
+                    results.append({"label": label, "box": coords})
+                elif len(coords) == 2:
+                    results.append({"label": label, "point": coords})
+                i = j + 1
+            else:
+                i += 1
+        return results
 
     def get_config(self):
         config = super().get_config()

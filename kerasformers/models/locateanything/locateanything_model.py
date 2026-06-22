@@ -358,8 +358,9 @@ class LocateAnythingGenerate(LocateAnythingModel):
         (pure autoregressive), or 'hybrid' (MTP + AR fallback, default). With
         ``use_cache`` (default) only the new tokens are forwarded against a KV
         cache; ``use_cache=False`` uses the slower full-recompute loop. The vision
-        encoder runs once; returns the generated token ids (decode +
-        ``tokenizer.parse_boxes`` to recover boxes)."""
+        encoder runs once; returns the generated token ids (recover results with
+        ``tokenizer.parse_boxes`` for boxes, ``parse_points`` for the pointing
+        task, or ``parse_grounding`` for labelled boxes/points)."""
         from .locateanything_generation import generate_loop, generate_loop_cached
 
         loop = generate_loop_cached if use_cache else generate_loop

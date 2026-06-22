@@ -9,6 +9,43 @@ from .locateanything_tokenizer import LocateAnythingTokenizer
 
 DEFAULT_SYSTEM = "You are a helpful assistant."
 
+TASK_PROMPTS = {
+    "detection": (
+        "Locate all the instances that matches the following description: {text}."
+    ),
+    "phrase_grounding": (
+        "Locate a single instance that matches the following description: {text}."
+    ),
+    "referring": (
+        "Locate all the instances that match the following description: {text}."
+    ),
+    "text_grounding": "Please locate the text referred as {text}.",
+    "ocr": "Detect all the text in box format.",
+    "layout": "Locate the region that matches the following description: {text}.",
+    "pointing": "Point to: {text}.",
+}
+
+
+def locate_prompt(task, text=""):
+    """Build a LocateAnything instruction for one of its grounding tasks.
+
+    The templates are the verbatim instruction strings used by the official
+    model-card worker (``LocateAnythingWorker``). ``task`` is one of:
+    ``detection`` (object detection / layout over a category list),
+    ``referring`` (multi-instance phrase grounding), ``phrase_grounding``
+    (a single instance), ``text_grounding`` and ``ocr`` (OCR: locate named text
+    / detect all text), ``layout`` (region / layout grounding), or ``pointing``.
+    ``text`` fills the category list or phrase and is ignored by ``ocr``; for
+    ``detection`` pass a list of categories (joined with the official ``</c>``
+    separator) or a pre-joined string. Put the returned string in the user
+    message alongside the image, then parse the answer with the tokenizer's
+    ``parse_boxes`` / ``parse_points`` / ``parse_grounding``."""
+    if task not in TASK_PROMPTS:
+        raise ValueError(f"Unknown task {task!r}; choose from {sorted(TASK_PROMPTS)}")
+    if not isinstance(text, str):
+        text = "</c>".join(text)
+    return TASK_PROMPTS[task].format(text=text)
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class LocateAnythingProcessor(BaseProcessor):
@@ -21,7 +58,9 @@ class LocateAnythingProcessor(BaseProcessor):
     ``<IMG_CONTEXT>`` x (``h*w // merge**2``) + ``</img>`` (so the count matches
     MoonViT's merged-token output), and tokenizes to padded
     ``{"input_ids", "attention_mask"}`` alongside ``pixel_values`` /
-    ``image_grid_hws``. ``parse_boxes`` decodes generated ids to boxes.
+    ``image_grid_hws``. Build per-task instructions with :func:`locate_prompt`,
+    and decode answers with ``parse_boxes`` / ``parse_points`` /
+    ``parse_grounding``.
     """
 
     TOKENIZER_CLS = LocateAnythingTokenizer
@@ -159,6 +198,12 @@ class LocateAnythingProcessor(BaseProcessor):
 
     def parse_boxes(self, ids):
         return self.tokenizer.parse_boxes(ids)
+
+    def parse_points(self, ids):
+        return self.tokenizer.parse_points(ids)
+
+    def parse_grounding(self, ids):
+        return self.tokenizer.parse_grounding(ids)
 
     def get_config(self):
         config = super().get_config()
