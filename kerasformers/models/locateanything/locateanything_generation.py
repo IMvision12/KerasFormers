@@ -98,7 +98,18 @@ def decode_bbox_avg(
         return np.array([bs, none, be, null, null, null], dtype="int64")
     if box_type == "illegal_box":
         return None
+    # A real box leads with <box>. If the frame's top token at position 0 is not
+    # box_start (e.g. a <ref> frame whose lower-ranked coord tokens would pass the
+    # frame checks once the category word is demoted by the repetition penalty),
+    # it is not a box -> defer to decode_ref instead of emitting a spurious box.
+    if int(np.argmax(probs[0])) != bs:
+        return None
     pos_probs, pos_ids = topk(probs[1:5], keep_k, -1)
+    # A 4-coord box has coords at positions 1-4. If <box_end> is the top token at
+    # any of them, the frame is a point/short box (e.g. <box><x><y></box>) -> defer
+    # so handle_pattern emits it as point_box rather than padding spurious coords.
+    if (pos_ids[:, 0] == be).any():
+        return None
     mask = (pos_ids >= cs) & (pos_ids <= ce)
     if not mask.any(-1).all():
         return None
