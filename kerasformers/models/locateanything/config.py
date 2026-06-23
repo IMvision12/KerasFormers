@@ -1,6 +1,5 @@
 LOCATEANYTHING_CONFIG = {
-    "locateanything-3b": {
-        # --- text backbone (Qwen2.5-3B-Instruct) ---
+    "locateanything_3b": {
         "vocab_size": 152681,
         "embed_dim": 2048,
         "mlp_dim": 11008,
@@ -12,7 +11,6 @@ LOCATEANYTHING_CONFIG = {
         "rope_theta": 1000000.0,
         "max_position_embeddings": 32768,
         "tie_embeddings": True,
-        # --- vision encoder (MoonViT-SO-400M) ---
         "vision_embed_dim": 1152,
         "vision_depth": 27,
         "vision_num_heads": 16,
@@ -22,26 +20,19 @@ LOCATEANYTHING_CONFIG = {
         "vision_init_pos_w": 64,
         "merge_kernel": (2, 2),
         "vision_rope_theta": 10000.0,
-        # --- multimodal / special tokens ---
         "image_token_index": 151665,
-        "box_start_token_id": 151668,
-        "box_end_token_id": 151669,
-        "ref_start_token_id": 151672,
-        "ref_end_token_id": 151673,
-        "coord_start_token_id": 151677,
-        "coord_end_token_id": 152677,
-        "none_token_id": 4064,
-        "text_mask_token_id": 151676,
-        "mlp_connector_layers": 2,
-        # --- parallel box decoding (MTP) ---
         "block_size": 6,
     },
 }
 
 LOCATEANYTHING_WEIGHTS_URLS = {
-    "locateanything-3b": {
-        "hf_id": "nvidia/LocateAnything-3B",
-        "gated": False,
-        "safetensors": True,
+    "locateanything_3b": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/locateanything/locateanything_3b.weights.json"
+    },
+}
+
+LOCATEANYTHING_TOKENIZER_URLS = {
+    "locateanything_3b": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/locateanything/locateanything_3b_tokenizer.json"
     },
 }

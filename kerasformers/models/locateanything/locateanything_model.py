@@ -271,6 +271,24 @@ class LocateAnythingModel(SubclassedBaseModel):
 
         transfer_locateanything_weights(keras_model, hf_state_dict)
 
+    @classmethod
+    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
+        url = entry.get("url") if isinstance(entry, dict) else entry
+        if not (load_weights and url):
+            return super().from_release(
+                variant,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                **kwargs,
+            )
+        from .convert_locateanything_hf_to_keras import build_for_transfer
+
+        model = super().from_release(variant, load_weights=False, **kwargs)
+        build_for_transfer(model)
+        cls.load_weights_from_url(model, url, skip_mismatch)
+        return model
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -354,21 +372,9 @@ class LocateAnythingGenerate(LocateAnythingModel):
         use_cache=True,
         **kwargs,
     ):
-        """``generation_mode``: 'hybrid' (Parallel Box Decoding / MTP with AR
-        fallback, default and fastest), 'fast' (MTP only), or 'slow' (pure
-        autoregressive). All three produce clean, correct output; 'hybrid' uses
-        the model's parallel box decoding for speed. With ``use_cache`` (default)
-        only the new tokens are forwarded against a KV cache; ``use_cache=False``
-        uses the full-recompute loop. The vision encoder runs once; returns the
-        generated token ids (recover results with ``tokenizer.parse_boxes`` for
-        boxes, ``parse_points`` for pointing, or ``parse_grounding`` for labelled
-        boxes/points)."""
         from .locateanything_generation import generate_loop, generate_loop_cached
 
         loop = generate_loop_cached if use_cache else generate_loop
-        # Inference only: avoid building a torch autograd graph across the
-        # decode loop (activations would accumulate -> CUDA OOM). No-op on
-        # jax/tf, which don't track gradients eagerly.
         if keras.backend.backend() == "torch":
             import torch
 

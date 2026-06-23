@@ -69,6 +69,7 @@ class LocateAnythingProcessor(BaseProcessor):
 
     def __init__(
         self,
+        variant=None,
         hf_id=None,
         tokenizer=None,
         image_processor=None,
@@ -76,9 +77,12 @@ class LocateAnythingProcessor(BaseProcessor):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.variant = variant
         self.hf_id = hf_id
         self.image_processor = image_processor or LocateAnythingImageProcessor()
-        self.tokenizer = tokenizer or LocateAnythingTokenizer(hf_id=hf_id)
+        self.tokenizer = tokenizer or LocateAnythingTokenizer(
+            variant=variant, hf_id=hf_id
+        )
         self.merge_kernel_size = tuple(merge_kernel_size)
         self.image_token = self.tokenizer.image_token
         self.image_start_token = self.tokenizer.image_start_token
@@ -208,6 +212,10 @@ class LocateAnythingProcessor(BaseProcessor):
     def get_config(self):
         config = super().get_config()
         config.update(
-            {"hf_id": self.hf_id, "merge_kernel_size": list(self.merge_kernel_size)}
+            {
+                "variant": self.variant,
+                "hf_id": self.hf_id,
+                "merge_kernel_size": list(self.merge_kernel_size),
+            }
         )
         return config
