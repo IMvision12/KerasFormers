@@ -138,8 +138,8 @@ if __name__ == "__main__":
     )
 
     HF_SOURCES = {
-        "deepseek-vl-7b-chat": "deepseek-community/deepseek-vl-7b-chat",
-        "deepseek-vl-7b-base": "deepseek-community/deepseek-vl-7b-base",
+        "deepseek_vl_7b_chat": "deepseek-community/deepseek-vl-7b-chat",
+        "deepseek_vl_7b_base": "deepseek-community/deepseek-vl-7b-base",
     }
     MAX_SHARD_GB = 1.7
 

@@ -17,4 +17,4 @@ class DeepseekVLHybridTokenizer(DeepseekVLTokenizer):
     """
 
     TOKENIZER_URLS = DEEPSEEK_VL_HYBRID_TOKENIZER_URLS
-    DEFAULT_VARIANT = "deepseek-vl-7b-chat"
+    DEFAULT_VARIANT = "deepseek_vl_7b_chat"

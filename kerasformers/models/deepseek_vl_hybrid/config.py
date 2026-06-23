@@ -5,7 +5,7 @@
 # repos (no high-res branch) live in `deepseek_vl/`; this reuses that folder's
 # SigLIP, LLaMA, and tokenizer components.
 DEEPSEEK_VL_HYBRID_CONFIG = {
-    "deepseek-vl-7b-chat": {
+    "deepseek_vl_7b_chat": {
         "vocab_size": 102400,
         "embed_dim": 4096,
         "mlp_dim": 11008,
@@ -35,7 +35,7 @@ DEEPSEEK_VL_HYBRID_CONFIG = {
         "high_res_norm_eps": 1e-6,
         "image_token_id": 100015,
     },
-    "deepseek-vl-7b-base": {
+    "deepseek_vl_7b_base": {
         "vocab_size": 102400,
         "embed_dim": 4096,
         "mlp_dim": 11008,
@@ -68,19 +68,19 @@ DEEPSEEK_VL_HYBRID_CONFIG = {
 }
 
 DEEPSEEK_VL_HYBRID_WEIGHTS_URLS = {
-    "deepseek-vl-7b-chat": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek-vl-7b-chat.weights.json"
+    "deepseek_vl_7b_chat": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_chat.weights.json"
     },
-    "deepseek-vl-7b-base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek-vl-7b-base.weights.json"
+    "deepseek_vl_7b_base": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_base.weights.json"
     },
 }
 
 DEEPSEEK_VL_HYBRID_TOKENIZER_URLS = {
-    "deepseek-vl-7b-chat": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek-vl-7b-chat_tokenizer.json"
+    "deepseek_vl_7b_chat": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_chat_tokenizer.json"
     },
-    "deepseek-vl-7b-base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek-vl-7b-base_tokenizer.json"
+    "deepseek_vl_7b_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_base_tokenizer.json"
     },
 }
