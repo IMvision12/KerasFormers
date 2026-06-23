@@ -84,3 +84,45 @@ def transfer_deepseek_vl_weights(keras_model, hf_state_dict):
             weight.assign(np.transpose(np.asarray(state[name]), (2, 3, 1, 0)))
         else:
             transfer_weights(weight.path, weight, state[name])
+
+
+if __name__ == "__main__":
+    import gc
+    import os
+
+    import keras
+
+    from kerasformers.models.deepseek_vl import DeepseekVLModel
+    from kerasformers.models.deepseek_vl.config import DEEPSEEK_VL_WEIGHTS_URLS
+
+    # Only the model_type "deepseek_vl" repos (the 1.3B chat/base) are loadable
+    # here. The 7B repos are "deepseek_vl_hybrid" (SAM branch) -- a different
+    # architecture -- and are intentionally absent from the config.
+    HF_SOURCES = {
+        "deepseek-vl-1.3b-chat": "deepseek-community/deepseek-vl-1.3b-chat",
+        "deepseek-vl-1.3b-base": "deepseek-community/deepseek-vl-1.3b-base",
+    }
+    MAX_SHARD_GB = 1.7
+
+    for variant, meta in DEEPSEEK_VL_WEIGHTS_URLS.items():
+        hf_id = HF_SOURCES[variant]
+        out_path = os.path.basename(meta["url"])
+        print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
+
+        model = DeepseekVLModel.from_weights("hf:" + hf_id)
+
+        n_bytes = sum(int(np.prod(w.shape)) * 4 for w in model.weights)
+        if out_path.endswith(".json"):
+            model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
+        elif n_bytes > 2 * 1024**3:
+            raise ValueError(
+                f"{variant} is {n_bytes / 1024**3:.2f} GB (> 2 GB); set its config "
+                f"URL extension to .weights.json so it shards."
+            )
+        else:
+            model.save_weights(out_path)
+        print(f"  Saved -> {out_path}  ({n_bytes / 1024**3:.2f} GB)")
+
+        del model
+        keras.backend.clear_session()
+        gc.collect()

@@ -2,153 +2,50 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
-
-from .config import DEEPSEEK_VL_CONFIG, DEEPSEEK_VL_WEIGHTS_URLS
-from .deepseek_vl_layers import (
+from kerasformers.models.deepseek_vl.deepseek_vl_layers import (
     DeepseekVLTextDecoderLayer,
     DeepseekVLTextRMSNorm,
-    DeepseekVLVisionLayer,
+)
+from kerasformers.models.deepseek_vl.deepseek_vl_model import DeepseekVLVisionModel
+
+from .config import DEEPSEEK_VL_HYBRID_CONFIG, DEEPSEEK_VL_HYBRID_WEIGHTS_URLS
+from .deepseek_vl_hybrid_layers import (
+    DeepseekVLHybridAligner,
+    DeepseekVLHybridSamEncoder,
+    DeepseekVLSamVisionNeck,
+    DeepseekVLSamVisionProj,
 )
 
 MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekVLVisionModel(layers.Layer):
-    """SigLIP vision tower: biased conv patch embed + learned position
-    embeddings -> pre-LN encoder blocks (exact gelu) -> final LayerNorm.
+class DeepseekVLHybridModel(SubclassedBaseModel):
+    """DeepSeek-VL Hybrid (7B) backbone: dual vision (SigLIP @384 + SAM @1024)
+    + 3-way aligner + Llama-7B decoder.
 
-    Args:
-        embed_dim: Vision hidden width.
-        mlp_dim: Vision MLP hidden width.
-        num_layers: Number of encoder blocks.
-        num_heads: Attention heads.
-        image_size: Square input size in pixels (384).
-        patch_size: Patch size in pixels (16).
-        norm_eps: LayerNorm epsilon.
-
-    Call args:
-        pixel_values: ``(num_images, H, W, 3)`` (or channels-first).
-
-    Returns:
-        ``(num_images, num_patches, embed_dim)``.
-    """
-
-    def __init__(
-        self,
-        embed_dim,
-        mlp_dim,
-        num_layers,
-        num_heads,
-        image_size=384,
-        patch_size=16,
-        norm_eps=1e-6,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.embed_dim = embed_dim
-        self.mlp_dim = mlp_dim
-        self.num_layers = num_layers
-        self.num_heads = num_heads
-        self.image_size = image_size
-        self.patch_size = patch_size
-        self.norm_eps = norm_eps
-        self.num_positions = (image_size // patch_size) ** 2
-
-        self.patch_embed = layers.Conv2D(
-            embed_dim,
-            kernel_size=patch_size,
-            strides=patch_size,
-            data_format="channels_last",
-            name="patch_embed",
-        )
-        self.position_embedding = layers.Embedding(
-            self.num_positions, embed_dim, name="position_embedding"
-        )
-        self.blocks = [
-            DeepseekVLVisionLayer(
-                embed_dim, mlp_dim, num_heads, norm_eps, name=f"blocks_{i}"
-            )
-            for i in range(num_layers)
-        ]
-        self.post_layernorm = layers.LayerNormalization(
-            epsilon=norm_eps, name="post_layernorm"
-        )
-
-    def call(self, pixel_values):
-        if (
-            pixel_values.shape[1] is not None
-            and int(pixel_values.shape[1]) == 3
-            and (pixel_values.shape[-1] is None or int(pixel_values.shape[-1]) != 3)
-        ):
-            pixel_values = ops.transpose(pixel_values, (0, 2, 3, 1))
-        x = self.patch_embed(pixel_values)
-        b = ops.shape(x)[0]
-        x = ops.reshape(x, (b, -1, self.embed_dim))
-        x = x + self.position_embedding(ops.arange(self.num_positions))[None]
-        for block in self.blocks:
-            x = block(x)
-        return self.post_layernorm(x)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "embed_dim": self.embed_dim,
-                "mlp_dim": self.mlp_dim,
-                "num_layers": self.num_layers,
-                "num_heads": self.num_heads,
-                "image_size": self.image_size,
-                "patch_size": self.patch_size,
-                "norm_eps": self.norm_eps,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekVLModel(SubclassedBaseModel):
-    """DeepSeek-VL multimodal backbone: SigLIP tower + 2-linear GELU aligner
-    + Llama decoder.
-
-    The 384px image becomes 576 patch tokens, aligned to the text width by
-    ``linear2(gelu(linear1(x)))`` and scattered into the
-    ``image_token_id`` (``<image_placeholder>``) slots of the decoder input.
-    Covers the HF-native ``model_type: "deepseek_vl"`` checkpoints (the 7B
-    "hybrid" variant adds a SAM high-res branch and is a different model
-    type, not ported). Returns raw features; use :class:`DeepseekVLGenerate`
+    The low-res SigLIP tower and the high-res SAM/ViTDet tower each produce 576
+    tokens; the SAM stream blends its final neck output with a necked
+    intermediate global-attention state (scaled by a learned ``alpha``), and the
+    :class:`DeepseekVLHybridAligner` concatenates the two streams into the text
+    width and scatters them into the ``image_token_id`` slots of the decoder.
+    Covers the HF ``model_type: "deepseek_vl_hybrid"`` checkpoints (the 7B
+    chat/base repos). Returns raw features; use :class:`DeepseekVLHybridGenerate`
     for logits / text.
-
-    Args:
-        vocab_size: Token vocabulary size.
-        embed_dim: Text / residual-stream width.
-        mlp_dim: SwiGLU hidden width per text layer.
-        num_layers: Number of text decoder blocks.
-        num_heads: Query heads per text layer.
-        num_kv_heads: Key/value heads per text layer.
-        head_dim: Text per-head dim.
-        norm_eps: Text RMSNorm epsilon.
-        rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`DeepseekVLGenerate` ties the LM head.
-        vision_embed_dim / vision_mlp_dim / vision_num_layers /
-        vision_num_heads: SigLIP tower dims.
-        image_size / patch_size: Vision input geometry (384 / 16).
-        vision_norm_eps: Vision LayerNorm epsilon.
-        image_token_id: ``<image_placeholder>`` id (100015).
     """
 
-    HF_MODEL_TYPE = "deepseek_vl"
-    BASE_MODEL_CONFIG = DEEPSEEK_VL_CONFIG
-    BASE_WEIGHT_CONFIG = DEEPSEEK_VL_WEIGHTS_URLS
+    HF_MODEL_TYPE = "deepseek_vl_hybrid"
+    BASE_MODEL_CONFIG = DEEPSEEK_VL_HYBRID_CONFIG
+    BASE_WEIGHT_CONFIG = DEEPSEEK_VL_HYBRID_WEIGHTS_URLS
 
     def __init__(
         self,
         vocab_size=102400,
-        embed_dim=2048,
-        mlp_dim=5632,
-        num_layers=24,
-        num_heads=16,
-        num_kv_heads=16,
+        embed_dim=4096,
+        mlp_dim=11008,
+        num_layers=30,
+        num_heads=32,
+        num_kv_heads=32,
         head_dim=128,
         norm_eps=1e-6,
         rope_theta=10000.0,
@@ -160,6 +57,16 @@ class DeepseekVLModel(SubclassedBaseModel):
         image_size=384,
         patch_size=16,
         vision_norm_eps=1e-6,
+        high_res_embed_dim=768,
+        high_res_mlp_dim=3072,
+        high_res_num_layers=12,
+        high_res_num_heads=12,
+        high_res_image_size=1024,
+        high_res_patch_size=16,
+        high_res_output_channels=256,
+        high_res_window_size=14,
+        high_res_global_attn_indexes=(2, 5, 8, 11),
+        high_res_norm_eps=1e-6,
         image_token_id=100015,
         **kwargs,
     ):
@@ -181,6 +88,16 @@ class DeepseekVLModel(SubclassedBaseModel):
         self.image_size = image_size
         self.patch_size = patch_size
         self.vision_norm_eps = vision_norm_eps
+        self.high_res_embed_dim = high_res_embed_dim
+        self.high_res_mlp_dim = high_res_mlp_dim
+        self.high_res_num_layers = high_res_num_layers
+        self.high_res_num_heads = high_res_num_heads
+        self.high_res_image_size = high_res_image_size
+        self.high_res_patch_size = high_res_patch_size
+        self.high_res_output_channels = high_res_output_channels
+        self.high_res_window_size = high_res_window_size
+        self.high_res_global_attn_indexes = tuple(high_res_global_attn_indexes)
+        self.high_res_norm_eps = high_res_norm_eps
         self.image_token_id = image_token_id
 
         self.vision_model = DeepseekVLVisionModel(
@@ -193,8 +110,34 @@ class DeepseekVLModel(SubclassedBaseModel):
             vision_norm_eps,
             name="vision_model",
         )
-        self.aligner_linear1 = layers.Dense(embed_dim, name="aligner_linear1")
-        self.aligner_linear2 = layers.Dense(embed_dim, name="aligner_linear2")
+        self.high_res_vision_model = DeepseekVLHybridSamEncoder(
+            high_res_embed_dim,
+            high_res_num_layers,
+            high_res_num_heads,
+            high_res_mlp_dim,
+            high_res_image_size,
+            high_res_patch_size,
+            high_res_output_channels,
+            high_res_window_size,
+            self.high_res_global_attn_indexes,
+            high_res_norm_eps,
+            name="high_res_vision_model",
+        )
+        self.high_res_vision_neck = DeepseekVLSamVisionNeck(
+            high_res_output_channels, high_res_norm_eps, name="high_res_vision_neck"
+        )
+        self.high_res_vision_proj = DeepseekVLSamVisionProj(
+            high_res_output_channels,
+            image_size // patch_size,
+            name="high_res_vision_proj",
+        )
+        self.high_res_vision_alpha = self.add_weight(
+            shape=(1,),
+            initializer="zeros",
+            trainable=True,
+            name="high_res_vision_alpha",
+        )
+        self.aligner = DeepseekVLHybridAligner(embed_dim, name="aligner")
         self.token_embedding = layers.Embedding(
             vocab_size, embed_dim, name="token_embedding"
         )
@@ -212,11 +155,19 @@ class DeepseekVLModel(SubclassedBaseModel):
         ]
         self.final_norm = DeepseekVLTextRMSNorm(eps=norm_eps, name="final_norm")
 
-    def get_image_features(self, pixel_values):
-        features = self.vision_model(pixel_values)
-        return self.aligner_linear2(
-            ops.gelu(self.aligner_linear1(features), approximate=False)
-        )
+    def get_high_res_features(self, high_res_pixel_values):
+        last, global_state = self.high_res_vision_model(high_res_pixel_values)
+        last = self.high_res_vision_proj(last)
+        glob = self.high_res_vision_neck(global_state)
+        glob = self.high_res_vision_proj(glob)
+        out = last + glob * self.high_res_vision_alpha
+        b = ops.shape(out)[0]
+        return ops.reshape(out, (b, -1, ops.shape(out)[-1]))
+
+    def get_image_features(self, pixel_values, high_res_pixel_values):
+        low = self.vision_model(pixel_values)
+        high = self.get_high_res_features(high_res_pixel_values)
+        return self.aligner(low, high)
 
     def rope_tables(self, position_ids):
         hd = self.head_dim
@@ -239,13 +190,16 @@ class DeepseekVLModel(SubclassedBaseModel):
             mask = mask + (1.0 - am)[:, None, None, :] * MASK_NEG
         return mask
 
-    def prepare_inputs(self, input_ids, pixel_values, attention_mask):
+    def prepare_inputs(
+        self, input_ids, pixel_values, high_res_pixel_values, attention_mask
+    ):
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         inputs_embeds = self.token_embedding(input_ids)
         if pixel_values is not None:
             image_embeds = ops.reshape(
-                self.get_image_features(pixel_values), (-1, self.embed_dim)
+                self.get_image_features(pixel_values, high_res_pixel_values),
+                (-1, self.embed_dim),
             )
             ids_flat = ops.convert_to_numpy(ops.reshape(input_ids, (-1,))).tolist()
             idx = [j for j, v in enumerate(ids_flat) if v == self.image_token_id]
@@ -269,7 +223,10 @@ class DeepseekVLModel(SubclassedBaseModel):
         input_ids = ops.cast(ops.convert_to_tensor(inputs["input_ids"]), "int32")
         seq = int(input_ids.shape[1])
         hidden, position_ids = self.prepare_inputs(
-            input_ids, inputs.get("pixel_values"), inputs.get("attention_mask")
+            input_ids,
+            inputs.get("pixel_values"),
+            inputs.get("high_res_pixel_values"),
+            inputs.get("attention_mask"),
         )
         cos, sin = self.rope_tables(position_ids)
         attn_mask = self.causal_mask(seq, inputs.get("attention_mask"))
@@ -282,10 +239,9 @@ class DeepseekVLModel(SubclassedBaseModel):
 
     @classmethod
     def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        # Subclassed model: weights are created on the first call, so build the
-        # graph with a dummy forward (one image's worth of patch tokens scattered
-        # into the image-placeholder slots) before loading the released sharded
-        # .weights.json -- the float32 checkpoint exceeds the 2 GB single-asset cap.
+        # Subclassed model: build the graph with a dummy dual-resolution forward
+        # (image-placeholder tokens + 384 low-res + 1024 high-res zeros) before
+        # loading the released sharded .weights.json (7B float32 > 2 GB).
         entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
         url = entry.get("url") if isinstance(entry, dict) else entry
         if not (load_weights and url):
@@ -305,6 +261,10 @@ class DeepseekVLModel(SubclassedBaseModel):
                 "pixel_values": ops.zeros(
                     (1, model.image_size, model.image_size, 3), dtype="float32"
                 ),
+                "high_res_pixel_values": ops.zeros(
+                    (1, model.high_res_image_size, model.high_res_image_size, 3),
+                    dtype="float32",
+                ),
             }
         )
         cls.load_weights_from_url(model, url, skip_mismatch)
@@ -314,6 +274,7 @@ class DeepseekVLModel(SubclassedBaseModel):
     def config_from_hf(cls, hf_config):
         text = hf_config["text_config"]
         vision = hf_config["vision_config"]
+        high = hf_config["high_res_vision_config"]
         return {
             "vocab_size": text["vocab_size"],
             "embed_dim": text["hidden_size"],
@@ -334,14 +295,28 @@ class DeepseekVLModel(SubclassedBaseModel):
             "image_size": vision.get("image_size", 384),
             "patch_size": vision.get("patch_size", 16),
             "vision_norm_eps": vision.get("layer_norm_eps", 1e-6),
+            "high_res_embed_dim": high["hidden_size"],
+            "high_res_mlp_dim": high.get("mlp_dim", high.get("intermediate_size")),
+            "high_res_num_layers": high["num_hidden_layers"],
+            "high_res_num_heads": high["num_attention_heads"],
+            "high_res_image_size": high.get("image_size", 1024),
+            "high_res_patch_size": high.get("patch_size", 16),
+            "high_res_output_channels": high.get("output_channels", 256),
+            "high_res_window_size": high.get("window_size", 14),
+            "high_res_global_attn_indexes": tuple(
+                high.get("global_attn_indexes", (2, 5, 8, 11))
+            ),
+            "high_res_norm_eps": high.get("layer_norm_eps", 1e-6),
             "image_token_id": hf_config.get("image_token_id", 100015),
         }
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_deepseek_vl_hf_to_keras import transfer_deepseek_vl_weights
+        from .convert_deepseek_vl_hybrid_hf_to_keras import (
+            transfer_deepseek_vl_hybrid_weights,
+        )
 
-        transfer_deepseek_vl_weights(keras_model, hf_state_dict)
+        transfer_deepseek_vl_hybrid_weights(keras_model, hf_state_dict)
 
     def get_config(self):
         config = super().get_config()
@@ -364,6 +339,16 @@ class DeepseekVLModel(SubclassedBaseModel):
                 "image_size": self.image_size,
                 "patch_size": self.patch_size,
                 "vision_norm_eps": self.vision_norm_eps,
+                "high_res_embed_dim": self.high_res_embed_dim,
+                "high_res_mlp_dim": self.high_res_mlp_dim,
+                "high_res_num_layers": self.high_res_num_layers,
+                "high_res_num_heads": self.high_res_num_heads,
+                "high_res_image_size": self.high_res_image_size,
+                "high_res_patch_size": self.high_res_patch_size,
+                "high_res_output_channels": self.high_res_output_channels,
+                "high_res_window_size": self.high_res_window_size,
+                "high_res_global_attn_indexes": self.high_res_global_attn_indexes,
+                "high_res_norm_eps": self.high_res_norm_eps,
                 "image_token_id": self.image_token_id,
             }
         )
@@ -371,20 +356,17 @@ class DeepseekVLModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekVLGenerate(DeepseekVLModel, BaseGeneration):
-    """DeepSeek-VL with an LM head + fast ``.generate()`` (image+text -> text).
+class DeepseekVLHybridGenerate(DeepseekVLHybridModel, BaseGeneration):
+    """DeepSeek-VL Hybrid with an LM head + fast ``.generate()``.
 
-    Adds a bias-free ``lm_head`` on top of :class:`DeepseekVLModel`. ``call``
-    returns both ``logits`` and ``last_hidden_state``. Fast generation comes
-    from :class:`~kerasformers.base.BaseGeneration`'s multimodal path:
-    ``build_cache`` runs the vision tower + aligner + fused prefill ONCE
-    (consuming ``pixel_values``), then ``call_with_cache`` does text-only
-    decode:
+    Adds a bias-free ``lm_head`` on top of :class:`DeepseekVLHybridModel`.
+    ``build_cache`` runs both vision towers + aligner + fused prefill ONCE
+    (consuming ``pixel_values`` and ``high_res_pixel_values``), then
+    ``call_with_cache`` does text-only decode:
 
-        gen.generate(input_ids, pixel_values=...)
+        gen.generate(input_ids, pixel_values=..., high_res_pixel_values=...)
     """
 
-    # DeepSeek <｜end▁of▁sentence｜> stop id. Explicit generate() args override.
     eos_token_id = (100001,)
 
     def __init__(self, *args, **kwargs):
@@ -404,14 +386,19 @@ class DeepseekVLGenerate(DeepseekVLModel, BaseGeneration):
         hidden = self.forward_features(inputs)
         return {"logits": self.project(hidden), "last_hidden_state": hidden}
 
-    def build_cache(self, token_ids, padding_mask, max_len, pixel_values=None):
-        # Multimodal prefill into a fixed (B, num_layers, 2, nkv, max_len, hd)
-        # cache. Returns (cache, last-token logits).
+    def build_cache(
+        self,
+        token_ids,
+        padding_mask,
+        max_len,
+        pixel_values=None,
+        high_res_pixel_values=None,
+    ):
         batch = int(token_ids.shape[0])
         prompt_len = int(token_ids.shape[1])
         hd, nkv = self.head_dim, self.num_kv_heads
         hidden, position_ids = self.prepare_inputs(
-            token_ids, pixel_values, padding_mask
+            token_ids, pixel_values, high_res_pixel_values, padding_mask
         )
         cos, sin = self.rope_tables(position_ids)
         causal = self.causal_mask(prompt_len, padding_mask)
@@ -432,7 +419,6 @@ class DeepseekVLGenerate(DeepseekVLModel, BaseGeneration):
         return cache, logits
 
     def call_with_cache(self, token_ids, cache, cache_update_index):
-        # Text-only decode step at position ``cache_update_index``.
         batch = int(token_ids.shape[0])
         max_len = int(cache.shape[4])
         pos = cache_update_index

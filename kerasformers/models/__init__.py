@@ -17,6 +17,7 @@ from kerasformers.models import (
     deepseek_v3,
     deepseek_v4,
     deepseek_vl,
+    deepseek_vl_hybrid,
     deit,
     densenet,
     depth_anything_v1,
