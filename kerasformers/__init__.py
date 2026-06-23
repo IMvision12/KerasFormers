@@ -1,7 +1,7 @@
 from kerasformers import conversion, models, samplers, utils
 from kerasformers.version import version
 
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 
 __all__ = [
     "models",
