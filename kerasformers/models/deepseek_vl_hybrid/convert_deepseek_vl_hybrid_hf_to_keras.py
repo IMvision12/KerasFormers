@@ -2,10 +2,7 @@ import numpy as np
 from tqdm import tqdm
 
 from kerasformers.conversion.exceptions import WeightMappingError
-from kerasformers.conversion.weight_transfer_util import (
-    transfer_nested_layer_weights,
-    transfer_weights,
-)
+from kerasformers.conversion.weight_transfer_util import transfer_weights
 from kerasformers.models.deepseek_vl.convert_deepseek_vl_hf_to_keras import (
     TEXT_MAPPING,
     VISION_MAPPING,
@@ -71,16 +68,15 @@ def transfer_deepseek_vl_hybrid_weights(keras_model, hf_state_dict):
     enc.patch_embed.bias.assign(state[f"{p}.patch_embed.projection.bias"])
     enc.pos_embed.pos_embed.assign(state[f"{p}.pos_embed"])
     for i, block in enumerate(tqdm(enc.blocks, desc="Transferring SAM encoder layers")):
-        skipped = transfer_nested_layer_weights(
-            block,
-            state,
-            f"{p}.layers.{i}",
-            name_mapping=SAM_LAYER_MAPPING,
-            skip_paths=["rel_pos"],
-        )
-        for kw, _ in skipped:
-            wn = kw.path.split("/")[-1]
-            kw.assign(state[f"{p}.layers.{i}.attn.{wn}"])
+        for w in block.weights:
+            # Suffix relative to the (nested) block, e.g. "attn/qkv/kernel".
+            suffix = w.path.split(f"/{block.name}/", 1)[-1].replace("/", ".")
+            if "rel_pos" in suffix:
+                w.assign(state[f"{p}.layers.{i}.{suffix}"])
+                continue
+            for old, new in SAM_LAYER_MAPPING.items():
+                suffix = suffix.replace(old, new)
+            transfer_weights(w.path, w, state[f"{p}.layers.{i}.{suffix}"])
     transfer_weights(
         "conv_kernel", enc.neck_conv1.kernel, state[f"{p}.neck.conv1.weight"]
     )
