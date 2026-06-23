@@ -2,6 +2,8 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
+from .config import DEEPSEEK_VL_TOKENIZER_URLS
+
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DeepseekVLTokenizer(BaseTokenizer):
@@ -20,11 +22,20 @@ class DeepseekVLTokenizer(BaseTokenizer):
             download).
     """
 
-    def __init__(self, hf_id=None, tokenizer_file=None, **kwargs):
+    TOKENIZER_URLS = DEEPSEEK_VL_TOKENIZER_URLS
+    DEFAULT_VARIANT = "deepseek_vl_1.3b_chat"
+
+    def __init__(self, variant=None, hf_id=None, tokenizer_file=None, **kwargs):
         super().__init__(**kwargs)
         from tokenizers import Tokenizer
 
-        tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
+        if tokenizer_file is None and hf_id is not None:
+            tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
+        else:
+            tokenizer_file = self.resolve_tokenizer_json(
+                variant or self.DEFAULT_VARIANT, tokenizer_file
+            )
+        self.variant = variant
         self.hf_id = hf_id
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
@@ -54,5 +65,11 @@ class DeepseekVLTokenizer(BaseTokenizer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({"hf_id": self.hf_id, "tokenizer_file": self.tokenizer_file})
+        config.update(
+            {
+                "variant": self.variant,
+                "hf_id": self.hf_id,
+                "tokenizer_file": self.tokenizer_file,
+            }
+        )
         return config

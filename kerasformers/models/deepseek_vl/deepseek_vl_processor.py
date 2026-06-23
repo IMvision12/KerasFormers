@@ -37,6 +37,7 @@ class DeepseekVLProcessor(BaseProcessor):
 
     def __init__(
         self,
+        variant=None,
         hf_id=None,
         num_image_tokens=576,
         tokenizer=None,
@@ -44,10 +45,11 @@ class DeepseekVLProcessor(BaseProcessor):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.variant = variant
         self.hf_id = hf_id
         self.num_image_tokens = num_image_tokens
         self.image_processor = image_processor or DeepseekVLImageProcessor()
-        self.tokenizer = tokenizer or DeepseekVLTokenizer(hf_id=hf_id)
+        self.tokenizer = tokenizer or DeepseekVLTokenizer(variant=variant, hf_id=hf_id)
         self.image_token = self.tokenizer.image_token
 
     @classmethod
@@ -142,5 +144,11 @@ class DeepseekVLProcessor(BaseProcessor):
 
     def get_config(self):
         config = super().get_config()
-        config.update({"hf_id": self.hf_id, "num_image_tokens": self.num_image_tokens})
+        config.update(
+            {
+                "variant": self.variant,
+                "hf_id": self.hf_id,
+                "num_image_tokens": self.num_image_tokens,
+            }
+        )
         return config
