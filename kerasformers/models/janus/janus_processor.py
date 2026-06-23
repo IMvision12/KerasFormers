@@ -39,6 +39,7 @@ class JanusProcessor(BaseProcessor):
 
     def __init__(
         self,
+        variant=None,
         hf_id=None,
         num_image_tokens=576,
         use_default_system_prompt=True,
@@ -47,11 +48,12 @@ class JanusProcessor(BaseProcessor):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.variant = variant
         self.hf_id = hf_id
         self.num_image_tokens = num_image_tokens
         self.use_default_system_prompt = use_default_system_prompt
         self.image_processor = image_processor or JanusImageProcessor()
-        self.tokenizer = tokenizer or JanusTokenizer(hf_id=hf_id)
+        self.tokenizer = tokenizer or JanusTokenizer(variant=variant, hf_id=hf_id)
         self.image_token = self.tokenizer.image_token
         self.boi_token = self.tokenizer.boi_token
         self.eoi_token = self.tokenizer.eoi_token
@@ -151,6 +153,7 @@ class JanusProcessor(BaseProcessor):
         config = super().get_config()
         config.update(
             {
+                "variant": self.variant,
                 "hf_id": self.hf_id,
                 "num_image_tokens": self.num_image_tokens,
                 "use_default_system_prompt": self.use_default_system_prompt,

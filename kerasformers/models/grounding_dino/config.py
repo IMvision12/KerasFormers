@@ -65,10 +65,10 @@ GROUNDING_DINO_CONFIG = {
 
 GROUNDING_DINO_WEIGHTS_URLS = {
     "grounding_dino_tiny": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/grounding_dino/grounding_dino_tiny.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/grounding_dino/grounding_dino_tiny.weights.h5"
     },
     "grounding_dino_base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/grounding_dino/grounding_dino_base.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/grounding_dino/grounding_dino_base.weights.h5"
     },
 }
 
