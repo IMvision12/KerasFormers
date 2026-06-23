@@ -99,8 +99,8 @@ if __name__ == "__main__":
     # here. The 7B repos are "deepseek_vl_hybrid" (SAM branch) -- a different
     # architecture -- and are intentionally absent from the config.
     HF_SOURCES = {
-        "deepseek-vl-1.3b-chat": "deepseek-community/deepseek-vl-1.3b-chat",
-        "deepseek-vl-1.3b-base": "deepseek-community/deepseek-vl-1.3b-base",
+        "deepseek_vl_1.3b_chat": "deepseek-community/deepseek-vl-1.3b-chat",
+        "deepseek_vl_1.3b_base": "deepseek-community/deepseek-vl-1.3b-base",
     }
     MAX_SHARD_GB = 1.7
 

@@ -23,7 +23,7 @@ class DeepseekVLTokenizer(BaseTokenizer):
     """
 
     TOKENIZER_URLS = DEEPSEEK_VL_TOKENIZER_URLS
-    DEFAULT_VARIANT = "deepseek-vl-1.3b-chat"
+    DEFAULT_VARIANT = "deepseek_vl_1.3b_chat"
 
     def __init__(self, variant=None, hf_id=None, tokenizer_file=None, **kwargs):
         super().__init__(**kwargs)

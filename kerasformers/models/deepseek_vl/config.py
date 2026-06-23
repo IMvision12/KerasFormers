@@ -1,5 +1,5 @@
 DEEPSEEK_VL_CONFIG = {
-    "deepseek-vl-1.3b-chat": {
+    "deepseek_vl_1.3b_chat": {
         "vocab_size": 102400,
         "embed_dim": 2048,
         "mlp_dim": 5632,
@@ -19,7 +19,7 @@ DEEPSEEK_VL_CONFIG = {
         "vision_norm_eps": 1e-6,
         "image_token_id": 100015,
     },
-    "deepseek-vl-1.3b-base": {
+    "deepseek_vl_1.3b_base": {
         "vocab_size": 102400,
         "embed_dim": 2048,
         "mlp_dim": 5632,
@@ -42,19 +42,19 @@ DEEPSEEK_VL_CONFIG = {
 }
 
 DEEPSEEK_VL_WEIGHTS_URLS = {
-    "deepseek-vl-1.3b-chat": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek-vl-1.3b-chat.weights.json"
+    "deepseek_vl_1.3b_chat": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_1.3b_chat.weights.json"
     },
-    "deepseek-vl-1.3b-base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek-vl-1.3b-base.weights.json"
+    "deepseek_vl_1.3b_base": {
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_1.3b_base.weights.json"
     },
 }
 
 DEEPSEEK_VL_TOKENIZER_URLS = {
-    "deepseek-vl-1.3b-chat": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek-vl-1.3b-chat_tokenizer.json"
+    "deepseek_vl_1.3b_chat": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_1.3b_chat_tokenizer.json"
     },
-    "deepseek-vl-1.3b-base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek-vl-1.3b-base_tokenizer.json"
+    "deepseek_vl_1.3b_base": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_1.3b_base_tokenizer.json"
     },
 }

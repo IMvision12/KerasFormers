@@ -1,9 +1,3 @@
-# DeepSeek-VL Hybrid (7B), model_type "deepseek_vl_hybrid": a SigLIP-L/16 @384
-# low-res tower PLUS a SAM/ViTDet-B @1024 high-res tower, fused by a learned
-# `alpha` + a 3-way aligner, on a LLaMA-7B decoder. 7B chat and base share the
-# architecture (only the trained weights differ). The plain "deepseek_vl" 1.3B
-# repos (no high-res branch) live in `deepseek_vl/`; this reuses that folder's
-# SigLIP, LLaMA, and tokenizer components.
 DEEPSEEK_VL_HYBRID_CONFIG = {
     "deepseek_vl_7b_chat": {
         "vocab_size": 102400,
