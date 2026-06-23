@@ -35,16 +35,16 @@ ONEFORMER_CONFIG = {
 
 ONEFORMER_WEIGHTS_URLS = {
     "oneformer_ade20k_swin_tiny": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_ade20k_swin_tiny.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_tiny.weights.h5"
     },
     "oneformer_ade20k_swin_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_ade20k_swin_large.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_large.weights.h5"
     },
     "oneformer_coco_swin_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_coco_swin_large.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_coco_swin_large.weights.h5"
     },
     "oneformer_cityscapes_swin_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/oneformer/oneformer_cityscapes_swin_large.weights.h5"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_cityscapes_swin_large.weights.h5"
     },
 }
 

@@ -19,9 +19,18 @@ JANUS_CONFIG = {
 
 JANUS_WEIGHTS_URLS = {
     "janus_pro_1b": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/janus/janus_pro_1b.weights.json"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/janus/janus_pro_1b.weights.json"
     },
     "janus_pro_7b": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/tag/janus/janus_pro_7b.weights.json"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/janus/janus_pro_7b.weights.json"
+    },
+}
+
+JANUS_TOKENIZER_URLS = {
+    "janus_pro_1b": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/janus/janus_pro_1b_tokenizer.json"
+    },
+    "janus_pro_7b": {
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/janus/janus_pro_7b_tokenizer.json"
     },
 }
