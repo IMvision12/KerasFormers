@@ -12,7 +12,6 @@ from kerasformers.models.deepseek_vl.convert_deepseek_vl_hf_to_keras import (
     normalize_keys,
 )
 
-# SAMVisionLayer internal keras names -> HF (same as the sam/ converter).
 SAM_LAYER_MAPPING = {
     "mlp_lin1": "mlp.lin1",
     "mlp_lin2": "mlp.lin2",
@@ -21,8 +20,6 @@ SAM_LAYER_MAPPING = {
     "beta": "bias",
 }
 
-# Weights handled by the dedicated high-res / aligner blocks below (skipped by
-# the path-string text+SigLIP loop).
 HIGH_RES_PREFIXES = (
     "high_res_vision_model",
     "high_res_vision_neck",
@@ -49,7 +46,6 @@ def transfer_deepseek_vl_hybrid_weights(keras_model, hf_state_dict):
             }
         )
 
-    # --- text (Llama) + SigLIP low-res tower: reuse the deepseek_vl mappings ---
     for weight in tqdm(keras_model.weights, desc="Transferring text + SigLIP"):
         name = weight.path.split("/", 1)[1].replace("/", ".")
         if name.startswith(HIGH_RES_PREFIXES):
@@ -65,7 +61,6 @@ def transfer_deepseek_vl_hybrid_weights(keras_model, hf_state_dict):
         else:
             transfer_weights(weight.path, weight, state[hf_name])
 
-    # --- high-res SAM/ViTDet encoder ---
     enc = keras_model.get_layer("high_res_vision_model")
     p = "high_res_vision_model.vision_encoder"
     transfer_weights(
@@ -97,7 +92,6 @@ def transfer_deepseek_vl_hybrid_weights(keras_model, hf_state_dict):
     enc.neck_ln2.gamma.assign(state[f"{p}.neck.layer_norm2.weight"])
     enc.neck_ln2.beta.assign(state[f"{p}.neck.layer_norm2.bias"])
 
-    # --- separate high-res neck (on the intermediate global-attention state) ---
     neck = keras_model.get_layer("high_res_vision_neck")
     transfer_weights(
         "conv_kernel", neck.conv1.kernel, state["high_res_vision_neck.conv1.weight"]
@@ -110,7 +104,6 @@ def transfer_deepseek_vl_hybrid_weights(keras_model, hf_state_dict):
     neck.layer_norm2.gamma.assign(state["high_res_vision_neck.layer_norm2.weight"])
     neck.layer_norm2.beta.assign(state["high_res_vision_neck.layer_norm2.bias"])
 
-    # --- high-res projection (shared, applied to both states) ---
     proj = keras_model.get_layer("high_res_vision_proj")
     transfer_weights(
         "conv_kernel", proj.conv1.kernel, state["high_res_vision_proj.conv1.weight"]
@@ -119,12 +112,10 @@ def transfer_deepseek_vl_hybrid_weights(keras_model, hf_state_dict):
         "conv_kernel", proj.conv2.kernel, state["high_res_vision_proj.conv2.weight"]
     )
 
-    # --- learned blend scalar ---
     keras_model.high_res_vision_alpha.assign(
         np.asarray(state["high_res_vision_alpha"]).reshape(-1)
     )
 
-    # --- 3-way aligner ---
     al = keras_model.get_layer("aligner")
     for attr, hf in [
         (al.vision_proj, "aligner.vision_proj"),
