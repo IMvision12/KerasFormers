@@ -40,6 +40,155 @@ def test_config_roundtrip(model_name):
 
 
 @pytest.mark.serialization
+def test_quantized_layer_serialization():
+    """Config + keras (de)serialization round-trip for the quantized layers.
+
+    int8 / int4 only so it is backend-portable (fp8 is torch/jax-only).
+    """
+    from kerasformers.quantization import (
+        QuantizedDense,
+        QuantizedEinsumDense,
+        QuantizedEmbedding,
+        QuantizedExperts,
+    )
+
+    quant_layers = [
+        QuantizedDense(8, mode="int8"),
+        QuantizedDense(8, mode="int4", group_size=64),
+        QuantizedEmbedding(16, 8),
+        QuantizedExperts(4, 8, 16, mode="int4"),
+        QuantizedEinsumDense(
+            "abc,cde->abde",
+            (None, 4, 8),
+            (16, 4, 8),
+            mode="int8",
+            bias_axes="de",
+            bias_shape=(4, 8),
+        ),
+    ]
+    for layer in quant_layers:
+        name = type(layer).__name__
+        revived = layer.__class__.from_config(layer.get_config())
+        assert isinstance(revived, layer.__class__), name
+        assert revived.get_config() == layer.get_config(), f"{name}: config mismatch"
+
+        blob = json.dumps(keras.saving.serialize_keras_object(layer), default=str)
+        deserialized = keras.saving.deserialize_keras_object(json.loads(blob))
+        assert isinstance(deserialized, layer.__class__), f"{name}: keras deserialize"
+
+
+def _toy_quantizable_model(name="toy"):
+    import numpy as np
+    from keras import layers
+
+    class Blk(layers.Layer):
+        def __init__(self, dim, **kw):
+            super().__init__(**kw)
+            self.q = layers.Dense(dim, name="q")
+            self.o = layers.Dense(dim, name="o")
+
+        def call(self, x):
+            return self.o(self.q(x))
+
+    class Toy(keras.Model):
+        def __init__(self, n=64, dim=32, depth=2, **kw):
+            super().__init__(**kw)
+            self.emb = layers.Embedding(n, dim, name="token_embedding")
+            self.blocks = [Blk(dim, name=f"block_{i}") for i in range(depth)]
+            self.lm_head = layers.Dense(n, use_bias=False, name="lm_head")
+
+        def call(self, x):
+            h = self.emb(x)
+            for b in self.blocks:
+                h = b(h)
+            return self.lm_head(h)
+
+    m = Toy(name=name)
+    m(np.array([[1, 2, 3, 4]]))
+    return m
+
+
+def test_quantization_memory_estimate_is_exact():
+    """estimate_memory predicts the post-quantization footprint to the byte."""
+    from kerasformers.quantization import (
+        estimate_memory,
+        memory_footprint,
+        quantize_model,
+    )
+
+    for mode in ("int8", "int4"):
+        model = _toy_quantizable_model()
+        estimate = estimate_memory(model, mode)
+        quantize_model(model, mode)
+        assert memory_footprint(model) == estimate.quantized_bytes, mode
+        assert estimate.compression > 1.0
+
+
+def test_quantize_in_place_paths_have_no_collisions():
+    """In-place swap keeps full layer paths (no `block_*/q` -> bare `q` collapse),
+    so the sharded `.weights.json` format round-trips."""
+    from kerasformers.quantization import quantize_model
+
+    model = _toy_quantizable_model()
+    quantize_model(model, "int4")
+    paths = [w.path for w in model.weights]
+    assert len(paths) == len(set(paths)), f"path collision: {paths}"
+
+
+def test_no_float_load_matches_load_then_quantize():
+    """quantize_and_load streams a float checkpoint into int storage and lands
+    byte-identical to building float then quantizing (int8 / int4, all backends)."""
+    import numpy as np
+    from keras import ops
+
+    from kerasformers.conversion.weight_transfer_util import transfer_weights
+    from kerasformers.quantization import quantize_and_load, quantize_model
+
+    def transfer(model, sd):
+        if not model.built or not model.weights:
+            model(np.array([[0, 1, 2, 3]]))
+        name_map = {"token_embedding.embeddings": "emb", "kernel": "weight"}
+        for w in model.weights:
+            key = w.path.split("/", 1)[1].replace("/", ".")
+            for old, new in name_map.items():
+                key = key.replace(old, new)
+            transfer_weights(w.path, w, sd[key])
+
+    rng = np.random.default_rng(0)
+
+    def make_sd(model):
+        sd = {}
+        for w in model.weights:
+            key = w.path.split("/", 1)[1].replace("/", ".")
+            key = key.replace("token_embedding.embeddings", "emb")
+            key = key.replace("kernel", "weight")
+            shape = tuple(w.shape)
+            if (
+                key.endswith(".weight")
+                and "block" in key
+                or key.endswith("head.weight")
+            ):
+                shape = (shape[1], shape[0])  # HF stores Dense weight transposed
+            sd[key] = rng.standard_normal(shape).astype("float32")
+        return sd
+
+    x = np.array([[3, 9, 40, 60]])
+    for mode in ("int8", "int4"):
+        ref = _toy_quantizable_model()
+        sd = make_sd(ref)
+        transfer(ref, sd)
+        quantize_model(ref, mode)
+        y_ref = ops.convert_to_numpy(ref(x))
+
+        # a fresh UNBUILT instance of the same class for the no-float path
+        model = type(ref)(name="toy")
+        quantize_and_load(model, mode, transfer, sd)
+        y = ops.convert_to_numpy(model(x))
+        assert float(np.max(np.abs(y - y_ref))) == 0.0, mode
+        assert model._quantization_config.mode == mode
+
+
+@pytest.mark.serialization
 @pytest.mark.parametrize("model_name", MODEL_IDS)
 def test_keras_serialization_roundtrip(model_name):
     if BACKEND == "tensorflow" and model_name in SKIP_SERIALIZATION_TF:
