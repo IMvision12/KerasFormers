@@ -84,6 +84,8 @@ class WeightLoadingMixin:
         load_weights=True,
         skip_mismatch=False,
         attn_implementation=None,
+        quantization=None,
+        low_memory=False,
         **kwargs,
     ):
         """Build a model and (optionally) load pretrained weights.
@@ -116,6 +118,21 @@ class WeightLoadingMixin:
                 flash kernel; needs a flash-capable GPU/TPU and fp16/bf16). Set
                 before the model is built, so it applies to both functional and
                 subclassed models.
+            quantization: ``None`` (default), ``"int8"``, ``"int4"`` or
+                ``"fp8"`` (or a :class:`~kerasformers.quantization.\
+QuantizationConfig` / scheme). When set, the model is quantized weight-only via
+                :func:`kerasformers.quantization.quantize_model`: Dense/Embedding
+                weights become int8 / float8-e4m3 (~4x) or block-wise packed
+                int4 (~8x), and the float weights are freed. fp8 is torch/jax
+                only.
+            low_memory: If ``True`` **and** ``quantization`` is set, load weights
+                straight into int storage without ever building the full float
+                model (the no-float skeleton path,
+                :func:`~kerasformers.quantization.quantize_and_load`) — so a
+                checkpoint larger than device memory can be loaded quantized.
+                Only applies to subclassed models whose converter assigns through
+                ``model.weights`` (the standard LLM pattern); it falls back to the
+                load-then-quantize path automatically for anything else.
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` when applicable).
 
@@ -131,18 +148,58 @@ class WeightLoadingMixin:
             base_attention.ATTN_IMPLEMENTATION = attn_implementation
         if identifier.startswith(_HF_PREFIX):
             hf_id = identifier[len(_HF_PREFIX) :]
-            return cls.from_hf(
+            model = cls.from_hf(
                 hf_id,
                 load_weights=load_weights,
                 skip_mismatch=skip_mismatch,
+                quantization=quantization,
+                low_memory=low_memory,
                 **kwargs,
             )
-        return cls.from_release(
-            identifier,
-            load_weights=load_weights,
-            skip_mismatch=skip_mismatch,
-            **kwargs,
-        )
+        else:
+            model = cls.from_release(
+                identifier,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                quantization=quantization,
+                low_memory=low_memory,
+                **kwargs,
+            )
+        # A no-float load already quantized in place (and recorded the config);
+        # only quantize here when that path didn't run (functional models, the
+        # release-`.h5` / timm paths, or low_memory=False).
+        if (
+            quantization is not None
+            and getattr(model, "_quantization_config", None) is None
+        ):
+            from kerasformers.quantization import quantize_model
+
+            model = quantize_model(model, quantization)
+        return model
+
+    @classmethod
+    def _quantized_transfer(cls, model, state_dict, quantization, low_memory):
+        """Apply ``cls.transfer_from_hf``; stream into int storage when asked.
+
+        With ``low_memory`` + ``quantization`` on an unbuilt subclassed model,
+        weights are quantized as they transfer (no full float model is ever
+        built). Otherwise a plain float transfer runs and the caller quantizes
+        afterwards. Returns ``True`` if the no-float path quantized in place.
+        """
+        from kerasformers.base import SubclassedBaseModel
+
+        if (
+            quantization is not None
+            and low_memory
+            and isinstance(model, SubclassedBaseModel)
+            and not model.built
+        ):
+            from kerasformers.quantization import quantize_and_load
+
+            quantize_and_load(model, quantization, cls.transfer_from_hf, state_dict)
+            return True
+        cls.transfer_from_hf(model, state_dict)
+        return False
 
     @classmethod
     def transfer_from_timm(cls, keras_model, state_dict):
@@ -192,7 +249,15 @@ class WeightLoadingMixin:
             model.load_weights(download_file(url), skip_mismatch=skip_mismatch)
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
+    def from_release(
+        cls,
+        variant,
+        load_weights=True,
+        skip_mismatch=False,
+        quantization=None,
+        low_memory=False,
+        **kwargs,
+    ):
         if cls.BASE_MODEL_CONFIG is None:
             raise NotImplementedError(
                 f"{cls.__name__} must set BASE_MODEL_CONFIG to use from_weights()."
@@ -234,7 +299,7 @@ class WeightLoadingMixin:
                 # families, whose converters key off raw checkpoint tensors.
                 state_dict = download_hf_state_dict(hf_id)
                 with skip_mismatched_weights(skip_mismatch) as skipped:
-                    cls.transfer_from_hf(model, state_dict)
+                    cls._quantized_transfer(model, state_dict, quantization, low_memory)
                 warn_skipped(skipped)
             elif hf_id:
                 from kerasformers.conversion.hf_download_utils import (
@@ -262,7 +327,14 @@ class WeightLoadingMixin:
 
     @classmethod
     def from_hf(
-        cls, hf_id, load_weights=True, variant=None, skip_mismatch=False, **kwargs
+        cls,
+        hf_id,
+        load_weights=True,
+        variant=None,
+        skip_mismatch=False,
+        quantization=None,
+        low_memory=False,
+        **kwargs,
     ):
         """Load a model from a model-hub repo.
 
@@ -325,7 +397,7 @@ class WeightLoadingMixin:
         if load_weights:
             state_dict = download_hf_state_dict(hf_id)
             with skip_mismatched_weights(skip_mismatch) as skipped:
-                cls.transfer_from_hf(model, state_dict)
+                cls._quantized_transfer(model, state_dict, quantization, low_memory)
             warn_skipped(skipped)
         return model
 

@@ -526,7 +526,9 @@ class SwinV2Attention(layers.Layer):
         k_bias = ops.zeros(ops.shape(self.q_bias), dtype=self.q_bias.dtype)
         qkv_bias = ops.concatenate([self.q_bias, k_bias, self.v_bias])
 
-        qkv = ops.matmul(x, self.qkv.kernel)
+        # Call the (bias-free) Dense rather than reading `.kernel` directly, so a
+        # quantized qkv still works (its `call` dequantizes on the fly).
+        qkv = self.qkv(x)
         qkv = qkv + qkv_bias
 
         if cf:
