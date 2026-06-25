@@ -108,22 +108,6 @@ def _toy_quantizable_model(name="toy"):
     return m
 
 
-def test_quantization_memory_estimate_is_exact():
-    """estimate_memory predicts the post-quantization footprint to the byte."""
-    from kerasformers.quantization import (
-        estimate_memory,
-        memory_footprint,
-        quantize_model,
-    )
-
-    for mode in ("int8", "int4"):
-        model = _toy_quantizable_model()
-        estimate = estimate_memory(model, mode)
-        quantize_model(model, mode)
-        assert memory_footprint(model) == estimate.quantized_bytes, mode
-        assert estimate.compression > 1.0
-
-
 def test_quantize_in_place_paths_have_no_collisions():
     """In-place swap keeps full layer paths (no `block_*/q` -> bare `q` collapse),
     so the sharded `.weights.json` format round-trips."""

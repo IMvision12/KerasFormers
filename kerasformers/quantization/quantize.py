@@ -6,8 +6,12 @@ import keras
 from keras import layers, ops
 
 from .config import resolve_config
-from .experts import QuantizedExperts
-from .layers import QuantizedDense, QuantizedEinsumDense, QuantizedEmbedding
+from .quantized_layers import (
+    QuantizedDense,
+    QuantizedEinsumDense,
+    QuantizedEmbedding,
+    QuantizedExperts,
+)
 
 
 def quantize_model(model, config="int8", group_size=32):
@@ -27,27 +31,17 @@ def quantize_model(model, config="int8", group_size=32):
         group_size: int4 block size when ``config`` is a bare mode string.
 
     Returns:
-        The same model, quantized in place. The resolved
-        :class:`QuantizationConfig` is stored as ``model._quantization_config``.
-
-    Runs the method orchestrator (:class:`~kerasformers.quantization.quantizer.\
-BaseQuantizer`): ``validate_environment`` -> auto-detect output heads to keep in
-    float -> swap layers -> record the config.
+        The model, quantized. Subclassed models are quantized in place;
+        functional models return a NEW cloned model (use the return value). The
+        resolved :class:`QuantizationConfig` is stored as
+        ``model._quantization_config``.
     """
-    from .quantizer import AutoQuantizer
-
-    return AutoQuantizer.from_config(config, group_size).quantize(model)
-
-
-def _apply_quantization(model, config):
-    """Swap layers in place (subclassed) or via clone (functional).
-
-    The mechanical step the method orchestrator wraps — no environment check, no
-    auto-skip, no config recording (those live in ``quantizer.BaseQuantizer``).
-    """
+    config = resolve_config(config, group_size)
     if _is_functional(model):
-        return quantize_functional(model, config)
-    _quantize_layer(model, config, "")
+        model = quantize_functional(model, config)
+    else:
+        _quantize_layer(model, config, "")
+    model._quantization_config = config
     return model
 
 

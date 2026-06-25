@@ -7,16 +7,9 @@ from kerasformers.quantization.config import (
     QuantizationConfig,
     resolve_config,
 )
-from kerasformers.quantization.experts import QuantizedExperts
 from kerasformers.quantization.fp8_quantize import Fp8Quantizer
 from kerasformers.quantization.int4_quantize import Int4Quantizer
 from kerasformers.quantization.int8_quantize import Int8Quantizer
-from kerasformers.quantization.layers import (
-    QuantizedDense,
-    QuantizedEinsumDense,
-    QuantizedEmbedding,
-    get_quantizer,
-)
 from kerasformers.quantization.quantize import (
     dequantize_model,
     load_quantized,
@@ -26,20 +19,12 @@ from kerasformers.quantization.quantize import (
     quantize_skeleton,
     save_quantized,
 )
-from kerasformers.quantization.quantizer import (
-    AutoQuantizer,
-    BaseQuantizer,
-    Fp8Quantization,
-    Int4Quantization,
-    Int8Quantization,
-    detect_modules_to_not_convert,
-)
-from kerasformers.quantization.report import (
-    MemoryEstimate,
-    estimate_memory,
-    human_bytes,
-    memory_footprint,
-    quantization_report,
+from kerasformers.quantization.quantized_layers import (
+    QuantizedDense,
+    QuantizedEinsumDense,
+    QuantizedEmbedding,
+    QuantizedExperts,
+    get_quantizer,
 )
 
 __all__ = [
@@ -50,19 +35,6 @@ __all__ = [
     "dequantize_model",
     "save_quantized",
     "load_quantized",
-    # memory sizing ("will it fit?")
-    "estimate_memory",
-    "memory_footprint",
-    "quantization_report",
-    "MemoryEstimate",
-    "human_bytes",
-    # method orchestrators (transformers HfQuantizer-style lifecycle)
-    "AutoQuantizer",
-    "BaseQuantizer",
-    "Int8Quantization",
-    "Int4Quantization",
-    "Fp8Quantization",
-    "detect_modules_to_not_convert",
     # configs
     "QuantizationConfig",
     "Int8Config",

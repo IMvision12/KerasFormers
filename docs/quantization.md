@@ -117,11 +117,12 @@ exact-zero test (handles zero and denormal channels), and `dequantize` takes the
 compute `dtype`, so `mixed_bfloat16` graphs don't upcast through float32.
 
 `quantize_model` walks the layer tree and **swaps** every built `Dense` →
-[`QuantizedDense`](../kerasformers/quantization/layers.py), `EinsumDense` →
-`QuantizedEinsumDense`, `Embedding` → `QuantizedEmbedding`, and fused experts →
-`QuantizedExperts`, freeing the float weights. The swap unlocks the keras layer
-tracker, untracks the float layer, and registers the quantized one — enumerating
-both `__dict__` and (on the torch backend, where keras `Layer` is an `nn.Module`)
+[`QuantizedDense`](../kerasformers/quantization/quantized_layers.py), `EinsumDense`
+→ `QuantizedEinsumDense`, `Embedding` → `QuantizedEmbedding`, and fused experts →
+`QuantizedExperts`, freeing the float weights, then records the resolved
+`QuantizationConfig` on the model. The swap unlocks the keras layer tracker,
+untracks the float layer, and registers the quantized one — enumerating both
+`__dict__` and (on the torch backend, where keras `Layer` is an `nn.Module`)
 `_modules`, so it finds sub-layers on every backend.
 
 ## Components
@@ -135,10 +136,10 @@ class plus one file per scheme:
 | `Int8Quantizer` | `int8_quantize.py` | per-channel int8 quantizer (quantize / dequantize methods) |
 | `Int4Quantizer` | `int4_quantize.py` | block-wise packed int4 quantizer (any axis via moveaxis; module `effective_group_size`) |
 | `Fp8Quantizer` | `fp8_quantize.py` | per-channel float8-e4m3 quantizer (module `fp8_supported`; torch / jax) |
-| `QuantizedDense` / `QuantizedEinsumDense` / `QuantizedEmbedding` | `layers.py` | weight-only drop-in layers (hold a quantizer) |
-| `QuantizedExperts` | `experts.py` | fused MoE expert bank, contracting-axis quantized |
-| `QuantizationConfig` / `SCHEMES` | `config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + named presets |
+| `QuantizedDense` / `QuantizedEinsumDense` / `QuantizedEmbedding` / `QuantizedExperts` | `quantized_layers.py` | weight-only drop-in layers (each holds a quantizer); `QuantizedExperts` = fused MoE expert bank, contracting-axis quantized |
+| `QuantizationConfig` / `Int8Config` / `Int4Config` / `Fp8Config` / `SCHEMES` | `config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + per-method configs + named presets |
 | `quantize_model` / `quantize_functional` | `quantize.py` | in-place (subclassed) / clone (functional) model surgery |
+| `quantize_skeleton` / `quantize_and_load` | `quantize.py` | no-float int skeleton / stream a float checkpoint into int storage |
 | `save_quantized` / `load_quantized` / `dequantize_model` | `quantize.py` | persist (+ `.quant.json`) / reload / revert |
 
 A `QuantizedDense` holds an `Int8Quantizer` / `Int4Quantizer` / `Fp8Quantizer`
@@ -159,21 +160,6 @@ int4's ratio depends on `group_size` (bigger blocks → fewer scales → smaller
 slightly less accurate).
 
 ## Will it fit? (memory sizing)
-
-Check before you load — `estimate_memory` predicts the post-quantization
-footprint **to the byte** (it sizes each quantizer's int storage, packed int4 and
-per-group scales included) without mutating the model:
-
-```python
-from kerasformers.quantization import estimate_memory, quantization_report
-
-est = estimate_memory(model, "int4-g128")
-print(est.summary())          # float vs quantized vs saved, and the ratio
-est.fits_in(80)               # -> True/False for an 80 GB GPU
-est.compression               # e.g. 5.8
-
-quantization_report(model, "int8")   # prints the estimate; None -> actual footprint
-```
 
 Weight-only quantization is about **fitting** a model, so the practical question
 is bytes-per-parameter:
