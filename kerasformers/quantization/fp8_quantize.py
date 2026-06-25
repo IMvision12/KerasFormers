@@ -29,11 +29,6 @@ class Fp8Quantizer(Quantizer):
     mode = "fp8"
 
     def quantize(self, weight, axis=0):
-        """Quantize ``weight`` along ``axis`` -> ``(fp8 weight, float32 scale)``.
-
-        The per-channel scale maps each channel into the e4m3 range (|x| <= 448)
-        before casting; ``scale`` keeps reduced axes as size 1 for broadcasting.
-        """
         weight = ops.convert_to_tensor(weight)
         amax = ops.max(ops.abs(weight), axis=axis, keepdims=True)
         scale = ops.maximum(amax / FP8_MAX, keras.config.epsilon())
@@ -41,7 +36,6 @@ class Fp8Quantizer(Quantizer):
         return ops.cast(q, FP8_DTYPE), ops.cast(scale, "float32")
 
     def dequantize(self, packed, scale, axis=0, dtype=None):
-        """Reconstruct the float weight, in ``dtype`` (defaults to ``scale``'s)."""
         dtype = dtype or scale.dtype
         return ops.cast(packed, dtype) * ops.cast(scale, dtype)
 

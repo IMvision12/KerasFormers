@@ -64,22 +64,13 @@ class QuantizationConfig:
 
     @property
     def quant_method(self):
-        """The quantization method name (``"int8"`` / ``"int4"`` / ``"fp8"``).
-
-        Mirrors ``transformers`` ``QuantizationConfigMixin.quant_method`` so a
-        config is self-describing and dispatchable.
-        """
         return self.mode
 
     def to_dict(self):
-        """Serializable dict including ``quant_method`` (for the sidecar / config)."""
         return {"quant_method": self.quant_method, **self.get_config()}
 
     @classmethod
     def from_dict(cls, data):
-        # Keep only kwargs this config's __init__ accepts. Map quant_method -> mode
-        # when the target accepts `mode`, so a per-method dict (no "mode" key)
-        # rebuilds the base config with the correct scheme.
         data = dict(data)
         method = data.pop("quant_method", None)
         params = set(inspect.signature(cls.__init__).parameters) - {"self"}
@@ -96,7 +87,6 @@ class QuantizationConfig:
         )
 
 
-# Named presets, usable as the ``quantization=`` / ``quantize_model`` argument.
 SCHEMES = {
     "int8": QuantizationConfig("int8"),
     "int4": QuantizationConfig("int4", group_size=32),

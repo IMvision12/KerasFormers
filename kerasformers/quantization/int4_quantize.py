@@ -35,11 +35,6 @@ class Int4Quantizer(Quantizer):
         self.group_size = group_size
 
     def quantize(self, weight, axis=0):
-        """Quantize ``weight`` along ``axis``.
-
-        Returns ``(packed uint8, scale float32)`` with the contracting axis
-        halved (packed) / replaced by the block count (scale).
-        """
         weight = ops.convert_to_tensor(weight)
         axis = single_axis(axis, len(weight.shape))
         w = ops.moveaxis(weight, axis, -1)
@@ -47,7 +42,6 @@ class Int4Quantizer(Quantizer):
         return ops.moveaxis(packed, -1, axis), ops.moveaxis(scale, -1, axis)
 
     def dequantize(self, packed, scale, axis=0, dtype=None):
-        """Reconstruct the float weight, in ``dtype`` (defaults to ``scale``'s)."""
         dtype = dtype or scale.dtype
         axis = single_axis(axis, len(packed.shape))
         p = ops.moveaxis(packed, axis, -1)
@@ -97,8 +91,6 @@ class Int4Quantizer(Quantizer):
 
     @staticmethod
     def _pack_last(q, leading, k):
-        """Pack signed int4 ``(..., K)`` -> ``uint8 (..., K//2)`` (two nibbles per
-        byte). Arithmetic (mod / multiply-add), not bitwise, for portability."""
         qu = ops.mod(ops.cast(q, "int32"), 16)
         r = ops.reshape(qu, (*leading, k // 2, 2))
         low = ops.take(r, 0, axis=-1)
@@ -107,7 +99,6 @@ class Int4Quantizer(Quantizer):
 
     @staticmethod
     def _unpack_last(packed, leading, k):
-        """Inverse of :meth:`_pack_last` -> signed int32 ``(..., K)`` in [-7, 7]."""
         p = ops.cast(packed, "int32")
         low = ops.mod(p, 16)
         high = ops.floor_divide(p, 16)

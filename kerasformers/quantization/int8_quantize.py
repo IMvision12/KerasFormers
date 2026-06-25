@@ -22,11 +22,6 @@ class Int8Quantizer(Quantizer):
     mode = "int8"
 
     def quantize(self, weight, axis=0):
-        """Quantize ``weight`` along ``axis`` -> ``(int8 weight, float32 scale)``.
-
-        ``scale`` keeps the reduced axes as size 1 so it broadcasts back over any
-        weight rank with no reshape.
-        """
         weight = ops.convert_to_tensor(weight)
         amax = ops.max(ops.abs(weight), axis=axis, keepdims=True)
         scale = ops.maximum(amax / INT8_MAX, keras.config.epsilon())
@@ -34,7 +29,6 @@ class Int8Quantizer(Quantizer):
         return ops.cast(q, "int8"), ops.cast(scale, "float32")
 
     def dequantize(self, packed, scale, axis=0, dtype=None):
-        """Reconstruct the float weight, in ``dtype`` (defaults to ``scale``'s)."""
         dtype = dtype or scale.dtype
         return ops.cast(packed, dtype) * ops.cast(scale, dtype)
 

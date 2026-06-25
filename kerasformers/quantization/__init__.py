@@ -1,5 +1,8 @@
 from kerasformers.base import Quantizer
-from kerasformers.quantization.config import (
+from kerasformers.quantization.fp8_quantize import Fp8Quantizer
+from kerasformers.quantization.int4_quantize import Int4Quantizer
+from kerasformers.quantization.int8_quantize import Int8Quantizer
+from kerasformers.quantization.quant_config import (
     SCHEMES,
     Fp8Config,
     Int4Config,
@@ -7,9 +10,6 @@ from kerasformers.quantization.config import (
     QuantizationConfig,
     resolve_config,
 )
-from kerasformers.quantization.fp8_quantize import Fp8Quantizer
-from kerasformers.quantization.int4_quantize import Int4Quantizer
-from kerasformers.quantization.int8_quantize import Int8Quantizer
 from kerasformers.quantization.quantize import (
     dequantize_model,
     load_quantized,

@@ -5,7 +5,7 @@ import warnings
 import keras
 from keras import layers, ops
 
-from .config import resolve_config
+from .quant_config import resolve_config
 from .quantized_layers import (
     QuantizedDense,
     QuantizedEinsumDense,
@@ -119,9 +119,6 @@ def _walk_layers(layer):
 
 @contextlib.contextmanager
 def _floats_loading(model):
-    # Put every quantized Dense / Embedding into "loading" mode so its `weights`
-    # surfaces a float proxy a converter can fill (quantizing into int storage on
-    # assign). Restored on exit so the model is a normal quantized model after.
     touched = [
         layer
         for layer in _walk_layers(model)
@@ -225,7 +222,7 @@ def load_quantized(model, filepath, dummy_inputs=None):
     - **Float** (built model, or no ``dummy_inputs``): quantize the built float
       model in place (materializing float once), then load.
     """
-    from .config import QuantizationConfig
+    from .quant_config import QuantizationConfig
 
     with open(filepath + ".quant.json") as f:
         config = QuantizationConfig.from_dict(json.load(f))
@@ -239,9 +236,6 @@ def load_quantized(model, filepath, dummy_inputs=None):
 
 
 def _named_children(layer):
-    # Backend-agnostic name->attribute map. On the torch backend a keras Layer is
-    # an nn.Module, so sub-layers live in `_modules` (not `__dict__`); on jax/tf
-    # everything is in `__dict__`. Merge both (lists live in `__dict__`).
     items = dict(vars(layer))
     modules = getattr(layer, "_modules", None)
     if modules:

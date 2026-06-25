@@ -137,7 +137,7 @@ class plus one file per scheme:
 | `Int4Quantizer` | `int4_quantize.py` | block-wise packed int4 quantizer (any axis via moveaxis; module `effective_group_size`) |
 | `Fp8Quantizer` | `fp8_quantize.py` | per-channel float8-e4m3 quantizer (module `fp8_supported`; torch / jax) |
 | `QuantizedDense` / `QuantizedEinsumDense` / `QuantizedEmbedding` / `QuantizedExperts` | `quantized_layers.py` | weight-only drop-in layers (each holds a quantizer); `QuantizedExperts` = fused MoE expert bank, contracting-axis quantized |
-| `QuantizationConfig` / `Int8Config` / `Int4Config` / `Fp8Config` / `SCHEMES` | `config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + per-method configs + named presets |
+| `QuantizationConfig` / `Int8Config` / `Int4Config` / `Fp8Config` / `SCHEMES` | `quant_config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + per-method configs + named presets |
 | `quantize_model` / `quantize_functional` | `quantize.py` | in-place (subclassed) / clone (functional) model surgery |
 | `quantize_skeleton` / `quantize_and_load` | `quantize.py` | no-float int skeleton / stream a float checkpoint into int storage |
 | `save_quantized` / `load_quantized` / `dequantize_model` | `quantize.py` | persist (+ `.quant.json`) / reload / revert |
