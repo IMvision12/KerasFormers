@@ -489,9 +489,40 @@ class PreprocessorMixin(keras.layers.Layer):
 
     @classmethod
     def from_release(cls, variant, /, **kwargs):
-        if "variant" in inspect.signature(cls).parameters and "variant" not in kwargs:
+        params = inspect.signature(cls).parameters
+        if "variant" in params and "variant" not in kwargs:
             kwargs["variant"] = variant
+        elif (
+            "hf_id" in params
+            and "hf_id" not in kwargs
+            and "tokenizer_file" not in kwargs
+        ):
+            # Gated preprocessors take `hf_id`, not `variant`; map the release
+            # variant to its gated Hub repo so `from_weights(variant)` works like
+            # the model's own `from_weights(variant)`.
+            hf_id = cls.release_variant_hf_id(variant)
+            if hf_id is not None:
+                kwargs["hf_id"] = hf_id
         return cls(**kwargs)
+
+    @classmethod
+    def release_variant_hf_id(cls, variant):
+        # Look up the gated Hub repo for `variant` from the model's sibling
+        # `config` module: scan for any `*_WEIGHTS_URLS` dict and return the
+        # variant's `hf_id` (None -> the constructor raises "needs hf_id" as usual).
+        import importlib
+
+        package = cls.__module__.rsplit(".", 1)[0]
+        try:
+            config = importlib.import_module(f"{package}.config")
+        except ModuleNotFoundError:
+            return None
+        for name in dir(config):
+            if name.endswith("_WEIGHTS_URLS"):
+                entry = getattr(config, name).get(variant)
+                if isinstance(entry, dict) and entry.get("hf_id"):
+                    return entry["hf_id"]
+        return None
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
