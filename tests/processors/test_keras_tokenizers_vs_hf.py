@@ -22,6 +22,8 @@ PAIRS = [
 
 
 def _np(x):
+    if hasattr(x, "cpu"):  # a torch tensor may live on GPU; move it to host first
+        x = x.cpu()
     if hasattr(x, "numpy"):
         x = x.numpy()
     return np.asarray(x)
