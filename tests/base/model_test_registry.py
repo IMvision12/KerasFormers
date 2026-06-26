@@ -2553,10 +2553,9 @@ for _base in ("Qwen2VLModel", "Qwen2_5_VLModel", "Qwen3VLModel"):
     MODEL_TEST_CONFIGS[_gen] = _entry
 
 
-# Same for the text generate classes (Qwen2 / Qwen3 / Qwen3.5 / GPT-OSS / GPT / GPT-2).
-# Most are `<base-without-Model>Generate`; Qwen3's generate class was renamed
-# `Qwen3Generate` -> `Qwen3CausalLM` (the CausalLM fast-path refactor), so map it.
-_TEXT_GENERATE_CLS = {"Qwen3Model": "Qwen3CausalLM"}
+# Same for the text generate classes (Qwen2 / Qwen3 / Qwen3.5 / GPT-OSS / GPT / GPT-2):
+# each is `<base-without-Model>Generate`, adding an LM head (logits output) on top of
+# the backbone's config + input.
 for _base in (
     "Qwen2Model",
     "Qwen3Model",
@@ -2565,7 +2564,7 @@ for _base in (
     "GptModel",
     "GPT2Model",
 ):
-    _gen = _TEXT_GENERATE_CLS.get(_base, _base.replace("Model", "Generate"))
+    _gen = _base.replace("Model", "Generate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])
     _entry["model_cls"] = _gen
     _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
