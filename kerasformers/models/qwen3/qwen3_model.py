@@ -18,7 +18,7 @@ class Qwen3Model(SubclassedBaseModel):
     before rotary), bias-free qkv projections, and 1D rotary positions. This is a
     subclassed (imperative) :class:`FunctionalBaseModel`: the sequence length and decode-step
     count are data dependent, so the forward pass runs eagerly with ``keras.ops``
-    rather than as a static graph. Returns raw features; use :class:`Qwen3CausalLM`
+    rather than as a static graph. Returns raw features; use :class:`Qwen3Generate`
     for logits / text.
 
         model = Qwen3Model.from_weights("qwen3-0.6b")
@@ -34,7 +34,7 @@ class Qwen3Model(SubclassedBaseModel):
         head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
         norm_eps: RMSNorm epsilon (shared by the per-head QK-norms too).
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`Qwen3CausalLM` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen3Generate` ties the LM head to the
             token embedding instead of a separate projection.
     """
 
@@ -156,7 +156,7 @@ class Qwen3Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3CausalLM(Qwen3Model, BaseGeneration):
+class Qwen3Generate(Qwen3Model, BaseGeneration):
     """Qwen3 backbone + a language-model head and greedy ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`Qwen3Model`: a separate
@@ -167,7 +167,7 @@ class Qwen3CausalLM(Qwen3Model, BaseGeneration):
     (parallel prefill into a fixed KV cache) and ``call_with_cache`` (one compiled
     decode step). Constructor ``Args`` are inherited from :class:`Qwen3Model`.
 
-        gen = Qwen3CausalLM.from_weights("qwen3-0.6b")
+        gen = Qwen3Generate.from_weights("qwen3-0.6b")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
