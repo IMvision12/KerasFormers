@@ -15,16 +15,24 @@ class _LoadProxy:
     ``assign`` quantizes the incoming float straight into the layer's
     pre-allocated int kernel + scale — so the full float weight is never
     materialized on the device.
+
+    ``assign_fn`` targets a specific bank when a layer has more than one (a fused
+    MoE expert layer surfaces one proxy per bank); it defaults to the single-bank
+    ``layer.assign_float_weight``.
     """
 
-    def __init__(self, layer, shape, name, path):
+    def __init__(self, layer, shape, name, path, assign_fn=None):
         self._layer = layer
         self.shape = tuple(shape)
         self.name = name
         self.path = path
+        self._assign_fn = assign_fn
 
     def assign(self, value):
-        self._layer.assign_float_weight(value)
+        if self._assign_fn is not None:
+            self._assign_fn(value)
+        else:
+            self._layer.assign_float_weight(value)
 
 
 def get_quantizer(mode, group_size=32):
@@ -413,6 +421,10 @@ class QuantizedExperts(layers.Layer):
         self.group_size = group_size
         self.activation = activation
         self.quantizer = get_quantizer(mode, group_size)
+        self._loading = False
+        self._loaded = False
+        self._gate_up_loaded = False
+        self._down_loaded = False
 
     def build(self, input_shape=None):
         e, i, h = self.num_experts, self.mlp_dim, self.embed_dim
@@ -461,6 +473,43 @@ class QuantizedExperts(layers.Layer):
         )
         expert_out = ops.einsum("tei,ehi->teh", act(gate) * up, down_w)
         return ops.einsum("te,teh->th", routing_weights, expert_out)
+
+    def assign_gate_up(self, value):
+        """Quantize the fused ``gate_up_proj`` bank into int storage (no-float)."""
+        q, scale = self.quantizer.quantize(ops.convert_to_tensor(value), axis=-1)
+        self.gate_up_q.assign(q)
+        self.gate_up_scale.assign(scale)
+        self._gate_up_loaded = True
+        self._loaded = self._gate_up_loaded and self._down_loaded
+
+    def assign_down(self, value):
+        """Quantize the fused ``down_proj`` bank into int storage (no-float)."""
+        q, scale = self.quantizer.quantize(ops.convert_to_tensor(value), axis=-1)
+        self.down_q.assign(q)
+        self.down_scale.assign(scale)
+        self._down_loaded = True
+        self._loaded = self._gate_up_loaded and self._down_loaded
+
+    @property
+    def weights(self):
+        # During a no-float load, surface one float-shaped proxy per fused bank
+        # (the converter assigns into each -> quantize). The int storage stays
+        # hidden so the converter never sees it.
+        if self._loading and self.built:
+            e, i, h = self.num_experts, self.mlp_dim, self.embed_dim
+            return [
+                _LoadProxy(
+                    self,
+                    (e, 2 * i, h),
+                    "gate_up_proj",
+                    self.gate_up_q.path,
+                    self.assign_gate_up,
+                ),
+                _LoadProxy(
+                    self, (e, h, i), "down_proj", self.down_q.path, self.assign_down
+                ),
+            ]
+        return super().weights
 
     @classmethod
     def from_experts(cls, experts, mode, group_size=32, activation="silu"):

@@ -30,6 +30,7 @@ Example:
 from __future__ import annotations
 
 import contextlib
+import inspect
 import re
 from collections import Counter
 from enum import Enum
@@ -64,6 +65,43 @@ def skip_mismatched_weights(enabled: bool = True):
         yield _skip_state["skipped"]
     finally:
         _skip_state["active"], _skip_state["skipped"] = prev_active, prev_skipped
+
+
+@contextlib.contextmanager
+def zeros_init():
+    """Force **trainable** weights to a zeros initializer for the scope.
+
+    A strict pretrained load overwrites every trainable weight, so the default
+    glorot / normal initializer is wasted RNG (nontrivial for a multi-billion-
+    parameter model). This monkeypatches ``keras.layers.Layer.add_weight`` at the
+    class level to swap ``initializer="zeros"`` for ``trainable=True`` weights
+    only, and restores it in ``finally``. Non-trainable buffers (rope inv_freq,
+    causal masks, batch-norm stats) keep their real initializer so computed
+    constants are never clobbered.
+
+    Use ONLY on a strict load (``skip_mismatch=False``): a trainable weight
+    missing from the checkpoint would otherwise stay silently zeroed, so the
+    transfer must raise on a missing weight instead. Already-built models issue
+    no ``add_weight`` calls in transfer, so this is a harmless no-op for them.
+    """
+    original = keras.layers.Layer.add_weight
+    sig = inspect.signature(original)
+
+    def add_weight(self, *args, **kwargs):
+        try:
+            bound = sig.bind(self, *args, **kwargs)
+        except TypeError:
+            return original(self, *args, **kwargs)
+        if bound.arguments.get("trainable", True):
+            bound.arguments["initializer"] = "zeros"
+            return original(*bound.args, **bound.kwargs)
+        return original(self, *args, **kwargs)
+
+    keras.layers.Layer.add_weight = add_weight
+    try:
+        yield
+    finally:
+        keras.layers.Layer.add_weight = original
 
 
 def shape_count_mismatch(keras_weight: Any, torch_weight: Any) -> bool:

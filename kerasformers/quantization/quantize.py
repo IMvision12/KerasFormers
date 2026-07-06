@@ -1,4 +1,5 @@
 import contextlib
+import inspect
 import json
 import warnings
 
@@ -96,6 +97,23 @@ def _skeleton_layer(layer, config, path):
                         value.input_dim, value.output_dim, name=value.name
                     ),
                 )
+        elif _is_experts_skeleton(value) and not value.built:
+            mode = config.mode_for(child_path)
+            if mode is not None:
+                _swap(
+                    layer,
+                    name,
+                    value,
+                    QuantizedExperts(
+                        value.num_experts,
+                        value.embed_dim,
+                        value.mlp_dim,
+                        mode=mode,
+                        group_size=config.group_size,
+                        activation=_expert_activation(value),
+                        name=value.name,
+                    ),
+                )
         elif isinstance(value, layers.Layer):
             _skeleton_layer(value, config, child_path)
         elif isinstance(value, (list, tuple)):
@@ -122,7 +140,7 @@ def _floats_loading(model):
     touched = [
         layer
         for layer in _walk_layers(model)
-        if isinstance(layer, (QuantizedDense, QuantizedEmbedding))
+        if isinstance(layer, (QuantizedDense, QuantizedEmbedding, QuantizedExperts))
     ]
     for layer in touched:
         layer._loading = True
@@ -163,7 +181,7 @@ def quantize_and_load(model, config, transfer_fn, state_dict, group_size=32):
     unfilled = [
         layer.name
         for layer in _walk_layers(model)
-        if isinstance(layer, (QuantizedDense, QuantizedEmbedding))
+        if isinstance(layer, (QuantizedDense, QuantizedEmbedding, QuantizedExperts))
         and layer.built
         and not getattr(layer, "_loaded", False)
     ]
@@ -258,17 +276,36 @@ def _is_fused_experts(layer):
     )
 
 
+def _is_experts_skeleton(layer):
+    # An *unbuilt* fused-experts bank: gate_up_proj / down_proj don't exist yet,
+    # so detect by the routed-experts call signature. Excludes the MoE wrapper
+    # (its call is ``call(hidden_states)``, no ``routing_weights``) and an
+    # already-quantized bank.
+    return (
+        not isinstance(layer, QuantizedExperts)
+        and hasattr(layer, "num_experts")
+        and hasattr(layer, "embed_dim")
+        and hasattr(layer, "mlp_dim")
+        and "routing_weights" in inspect.signature(layer.call).parameters
+    )
+
+
 def _expert_activation(layer):
     return "gelu" if "gemma" in type(layer).__name__.lower() else "silu"
 
 
 def _swap(parent, name, old, new):
     # Tracker locks state after build; unlock to drop the old layer and register
-    # the new one, then re-lock (same infra keras uses to mutate a built layer).
+    # the new one, then restore the PRIOR lock state. Preserving it matters for
+    # the skeleton path: an unbuilt parent (e.g. an MoE block that adds its own
+    # router weight in build()) is still unlocked, and re-locking here would break
+    # its later build(). A built parent is re-locked, as keras expects.
+    locked = parent._tracker.locked
     parent._tracker.unlock()
     parent._tracker.untrack(old)
     setattr(parent, name, new)
-    parent._tracker.lock()
+    if locked:
+        parent._tracker.lock()
 
 
 @contextlib.contextmanager
