@@ -42,3 +42,16 @@ class SubclassedBaseModel(WeightLoadingMixin, keras.Model):
     'outputs'`` on construction, or ``'<Model>' object has no attribute
     '_inputs'`` on call. A separate base keeps subclassed models unaffected.
     """
+
+    def build_for_transfer(self):
+        """Build every sublayer with a dummy forward, ready for a weight stream.
+
+        Subclassed models build lazily on first call, so nothing has weights
+        until they run once. The converted-weight cache reloads a model from a
+        serialized *config* (an unbuilt skeleton) and then streams cached tensors
+        onto ``self.weights`` — which requires the weights to exist first. This
+        runs the minimal forward that materializes them: a length-4 ``input_ids``
+        batch, the text-LLM signature. Non-text subclassed models (VLMs, ASR)
+        override with a signature-matching dummy input.
+        """
+        self({"input_ids": keras.ops.zeros((1, 4), dtype="int32")})
