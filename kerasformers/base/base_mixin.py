@@ -1,3 +1,4 @@
+import contextlib
 import inspect
 import json
 
@@ -24,6 +25,30 @@ def warn_skipped(skipped):
             f"initialized values due to shape mismatch (e.g. a resized head): "
             f"{skipped}"
         )
+
+
+@contextlib.contextmanager
+def build_dtype_scope(dtype):
+    """Build the model under a global dtype policy (e.g. ``"bfloat16"``).
+
+    A layer's own dtype policy does **not** propagate to sublayers it creates in
+    ``__init__`` — a nested ``Dense`` / ``Embedding`` reads the *global* policy at
+    construction time, so passing ``dtype=`` to a model constructor still leaves
+    its weights float32. Setting the global policy here makes the whole model —
+    including the lazy build the converter triggers — allocate its variables in
+    ``dtype``; a streamed fp32 / bf16 checkpoint is then cast to it on assign, so
+    a bf16 model lands at its native ~2 bytes/param instead of an fp32 upcast.
+    ``None`` restores the default (fp32) behaviour as a no-op.
+    """
+    if dtype is None:
+        yield
+        return
+    previous = keras.config.dtype_policy()
+    keras.config.set_dtype_policy(dtype)
+    try:
+        yield
+    finally:
+        keras.config.set_dtype_policy(previous)
 
 
 class WeightLoadingMixin:
@@ -86,6 +111,7 @@ class WeightLoadingMixin:
         attn_implementation=None,
         quantization=None,
         low_memory=False,
+        load_dtype=None,
         **kwargs,
     ):
         """Build a model and (optionally) load pretrained weights.
@@ -133,6 +159,13 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 Only applies to subclassed models whose converter assigns through
                 ``model.weights`` (the standard LLM pattern); it falls back to the
                 load-then-quantize path automatically for anything else.
+            load_dtype: ``None`` (default, fp32) or a dtype string such as
+                ``"bfloat16"`` / ``"float16"``. Builds the device model under
+                that global dtype policy, so a bf16 checkpoint loads at its
+                native ~2 bytes/param instead of being upcast to fp32 (≈half the
+                device memory, cosine ~0.9998 vs fp32). The streamed checkpoint
+                is cast to it on assign. Independent of ``quantization``, which
+                runs after the build.
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` when applicable).
 
@@ -146,25 +179,28 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     f"{base_attention.VALID_ATTN_IMPL}, got {attn_implementation!r}"
                 )
             base_attention.ATTN_IMPLEMENTATION = attn_implementation
-        if identifier.startswith(_HF_PREFIX):
-            hf_id = identifier[len(_HF_PREFIX) :]
-            model = cls.from_hf(
-                hf_id,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                quantization=quantization,
-                low_memory=low_memory,
-                **kwargs,
-            )
-        else:
-            model = cls.from_release(
-                identifier,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                quantization=quantization,
-                low_memory=low_memory,
-                **kwargs,
-            )
+        # Build (and transfer) under the requested dtype policy so the device
+        # model is allocated in e.g. bf16; post-hoc quantize runs outside it.
+        with build_dtype_scope(load_dtype):
+            if identifier.startswith(_HF_PREFIX):
+                hf_id = identifier[len(_HF_PREFIX) :]
+                model = cls.from_hf(
+                    hf_id,
+                    load_weights=load_weights,
+                    skip_mismatch=skip_mismatch,
+                    quantization=quantization,
+                    low_memory=low_memory,
+                    **kwargs,
+                )
+            else:
+                model = cls.from_release(
+                    identifier,
+                    load_weights=load_weights,
+                    skip_mismatch=skip_mismatch,
+                    quantization=quantization,
+                    low_memory=low_memory,
+                    **kwargs,
+                )
         # A no-float load already quantized in place (and recorded the config);
         # only quantize here when that path didn't run (functional models, the
         # release-`.h5` / timm paths, or low_memory=False).
