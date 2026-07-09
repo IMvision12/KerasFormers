@@ -105,15 +105,37 @@ class InternVLVisionEmbeddings(layers.Layer):
         cls_pos = self.position_embeddings[:, :1]
         patch_pos = self.position_embeddings[:, 1:]
         stored = int(round((self.num_positions - 1) ** 0.5))
-        patch_pos = ops.reshape(patch_pos, (1, stored, stored, self.embed_dim))
-        patch_pos = ops.image.resize(
-            patch_pos,
-            (grid_h, grid_w),
-            interpolation="bicubic",
-            data_format="channels_last",
-        )
+        patch_pos = ops.reshape(patch_pos, (stored, stored, self.embed_dim))
+        # Bicubic resample of the learned grid: Keys cubic (a = -0.75),
+        # half-pixel centers, replicated borders -- exactly
+        # F.interpolate(mode="bicubic", align_corners=False). Spelled out
+        # because ops.image.resize is backend divergent (jax/tf use a = -0.5
+        # and disagree with torch/the reference by ~0.3).
+        mats = []
+        for out_size, in_size in ((grid_h, stored), (grid_w, stored)):
+            scale = in_size / out_size
+            center = (ops.arange(out_size, dtype="float32") + 0.5) * scale - 0.5
+            start = ops.floor(center)
+            frac = center - start
+            a = -0.75
+            d0, d1, d2, d3 = frac + 1.0, frac, 1.0 - frac, 2.0 - frac
+            taps = (
+                ((a * d0 - 5.0 * a) * d0 + 8.0 * a) * d0 - 4.0 * a,
+                ((a + 2.0) * d1 - (a + 3.0)) * d1 * d1 + 1.0,
+                ((a + 2.0) * d2 - (a + 3.0)) * d2 * d2 + 1.0,
+                ((a * d3 - 5.0 * a) * d3 + 8.0 * a) * d3 - 4.0 * a,
+            )
+            matrix = ops.zeros((out_size, in_size), dtype="float32")
+            for offset, tap in zip((-1, 0, 1, 2), taps):
+                index = ops.clip(ops.cast(start, "int32") + offset, 0, in_size - 1)
+                # one_hot + add so clamped duplicate border taps accumulate
+                onehot = ops.one_hot(index, in_size, dtype="float32")
+                matrix = matrix + onehot * tap[:, None]
+            mats.append(matrix)
+        patch_pos = ops.einsum("hi,ijc->hjc", mats[0], ops.cast(patch_pos, "float32"))
+        patch_pos = ops.einsum("wj,hjc->hwc", mats[1], patch_pos)
         patch_pos = ops.reshape(patch_pos, (1, grid_h * grid_w, self.embed_dim))
-        return ops.concatenate([cls_pos, patch_pos], axis=1)
+        return ops.concatenate([cls_pos, ops.cast(patch_pos, cls_pos.dtype)], axis=1)
 
     def call(self, pixel_values):
         shape = ops.shape(pixel_values)

@@ -25,47 +25,6 @@ def vision_rope_angles(height, width, head_dim, theta_base=10000.0):
     return ops.concatenate([angles, angles], axis=-1)  # (L, head_dim)
 
 
-def cubic_weights(out_size, in_size, coefficient=-0.75):
-    """Keys cubic-convolution resample weights, ``(out_size, in_size)``.
-
-    Half-pixel centers, replicate borders and ``a = -0.75`` — i.e. exactly
-    ``torch.nn.functional.interpolate(mode="bicubic", align_corners=False)``,
-    which is what the source uses to interpolate the position embedding.
-    ``keras.ops.image.resize(..., "bicubic")`` cannot be used: it is backend
-    divergent (jax/tf use a different cubic kernel and disagree with the source
-    by ~0.3), so the resample is expressed as an explicit weight matrix instead.
-    """
-    scale = in_size / out_size
-    dst = ops.arange(out_size, dtype="float32")
-    src = (dst + 0.5) * scale - 0.5
-    base = ops.floor(src)
-    frac = src - base
-    a = coefficient
-
-    def near(x):  # |x| <= 1
-        return ((a + 2.0) * x - (a + 3.0)) * x * x + 1.0
-
-    def far(x):  # 1 < |x| < 2
-        return ((a * x - 5.0 * a) * x + 8.0 * a) * x - 4.0 * a
-
-    taps = [far(frac + 1.0), near(frac), near(1.0 - frac), far(2.0 - frac)]
-    matrix = ops.zeros((out_size, in_size), dtype="float32")
-    for offset, weight in zip((-1, 0, 1, 2), taps):
-        index = ops.clip(ops.cast(base, "int32") + offset, 0, in_size - 1)
-        # one_hot + add so clamped duplicate taps at the borders accumulate
-        matrix = matrix + ops.one_hot(index, in_size, dtype="float32") * weight[:, None]
-    return matrix
-
-
-def bicubic_resize(image, out_height, out_width):
-    """Separable bicubic resample of an ``(H, W, C)`` image, in float32."""
-    x = ops.cast(image, "float32")
-    rows = cubic_weights(out_height, int(image.shape[0]))
-    cols = cubic_weights(out_width, int(image.shape[1]))
-    x = ops.einsum("hi,ijc->hjc", rows, x)
-    return ops.einsum("wj,hjc->hwc", cols, x)
-
-
 def time_position_embeddings(num_frames, dim):
     """Additive sinusoidal table over the temporal axis, ``(num_frames, dim)``."""
     pos = ops.arange(num_frames, dtype="float32")
@@ -237,7 +196,37 @@ class KimiK25VisionModel(layers.Layer):
         pe = ops.convert_to_tensor(self.pos_emb)
         if height == self.pos_emb_height and width == self.pos_emb_width:
             return ops.reshape(pe, (height * width, self.embed_dim))
-        resized = bicubic_resize(pe, height, width)
+        # Bicubic resample of the learned grid: Keys cubic (a = -0.75),
+        # half-pixel centers, replicated borders -- exactly
+        # F.interpolate(mode="bicubic", align_corners=False). Spelled out
+        # because ops.image.resize is backend divergent (jax/tf use a = -0.5
+        # and disagree with torch/the reference by ~0.3).
+        mats = []
+        for out_size, in_size in (
+            (height, self.pos_emb_height),
+            (width, self.pos_emb_width),
+        ):
+            scale = in_size / out_size
+            center = (ops.arange(out_size, dtype="float32") + 0.5) * scale - 0.5
+            start = ops.floor(center)
+            frac = center - start
+            a = -0.75
+            d0, d1, d2, d3 = frac + 1.0, frac, 1.0 - frac, 2.0 - frac
+            taps = (
+                ((a * d0 - 5.0 * a) * d0 + 8.0 * a) * d0 - 4.0 * a,
+                ((a + 2.0) * d1 - (a + 3.0)) * d1 * d1 + 1.0,
+                ((a + 2.0) * d2 - (a + 3.0)) * d2 * d2 + 1.0,
+                ((a * d3 - 5.0 * a) * d3 + 8.0 * a) * d3 - 4.0 * a,
+            )
+            matrix = ops.zeros((out_size, in_size), dtype="float32")
+            for offset, tap in zip((-1, 0, 1, 2), taps):
+                index = ops.clip(ops.cast(start, "int32") + offset, 0, in_size - 1)
+                # one_hot + add so clamped duplicate border taps accumulate
+                onehot = ops.one_hot(index, in_size, dtype="float32")
+                matrix = matrix + onehot * tap[:, None]
+            mats.append(matrix)
+        resized = ops.einsum("hi,ijc->hjc", mats[0], ops.cast(pe, "float32"))
+        resized = ops.einsum("wj,hjc->hwc", mats[1], resized)
         return ops.reshape(resized, (height * width, self.embed_dim))
 
     def clip_pos_emb(self, frames, height, width):

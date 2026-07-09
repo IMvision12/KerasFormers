@@ -100,14 +100,68 @@ class MoonVitEncoderLayer(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
+class MoonVitPatchEmbed(layers.Layer):
+    """Patch embedding: a stride-P, PxP convolution expressed as a matmul.
+
+    Over a PxP patch that convolution *is* a dense projection of the flattened
+    patch, and keras' torch-backend ``Conv2D`` computes it at only ~3e-4 relative
+    precision (vs ~1e-7 for a matmul), which compounds across the 27 blocks. The
+    kernel keeps the ``(patch, patch, in_channels, embed_dim)`` conv layout so the
+    released weights and the converter stay unchanged; it is transposed to
+    channels-first and flattened at call time to match the source's ``(D, C, P, P)``
+    flatten order.
+
+    Args:
+        embed_dim / patch_size / in_channels: Patch geometry.
+    """
+
+    def __init__(self, embed_dim, patch_size, in_channels=3, **kwargs):
+        super().__init__(**kwargs)
+        self.embed_dim = embed_dim
+        self.patch_size = patch_size
+        self.in_channels = in_channels
+
+    def build(self, _):
+        self.kernel = self.add_weight(
+            name="kernel",
+            shape=(self.patch_size, self.patch_size, self.in_channels, self.embed_dim),
+            initializer="glorot_uniform",
+            trainable=True,
+        )
+        self.bias = self.add_weight(
+            name="bias", shape=(self.embed_dim,), initializer="zeros", trainable=True
+        )
+        self.built = True
+
+    def call(self, patches):
+        # patches: (L, C, P, P), channels-first to match the source flatten order
+        kernel = ops.reshape(
+            ops.transpose(self.kernel, (2, 0, 1, 3)), (-1, self.embed_dim)
+        )
+        x = ops.reshape(patches, (int(patches.shape[0]), -1))
+        return ops.matmul(x, ops.cast(kernel, x.dtype)) + ops.cast(self.bias, x.dtype)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "embed_dim": self.embed_dim,
+                "patch_size": self.patch_size,
+                "in_channels": self.in_channels,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
 class LocateAnythingVisionModel(layers.Layer):
     """MoonViT-SO-400M: native-resolution packed ViT.
 
-    Conv2d patch embedding + bicubic-interpolated learnable 2D position
-    embedding, 27 pre-norm blocks with 2D rotary attention (each image attended
-    independently — equivalent to the source's block-diagonal packed attention),
-    a final LayerNorm, then a ``merge_kernel`` (2x2) patch merge that
-    concatenates neighborhoods into ``hidden*4`` tokens for the projector.
+    Patch embedding + bicubic-interpolated learnable 2D position embedding, 27
+    pre-norm blocks with 2D rotary attention (each image attended independently —
+    equivalent to the source's block-diagonal packed attention), a final
+    LayerNorm, then a ``merge_kernel`` (2x2) patch merge that concatenates
+    neighborhoods into ``hidden*4`` tokens for the projector.
     """
 
     def __init__(
@@ -137,8 +191,8 @@ class LocateAnythingVisionModel(layers.Layer):
         self.rope_theta = rope_theta
         self.head_dim = embed_dim // num_heads
 
-        self.patch_proj = layers.Conv2D(
-            embed_dim, patch_size, strides=patch_size, use_bias=True, name="patch_proj"
+        self.patch_proj = MoonVitPatchEmbed(
+            embed_dim, patch_size, in_channels, name="patch_proj"
         )
         self.blocks = [
             MoonVitEncoderLayer(embed_dim, num_heads, mlp_dim, name=f"block_{i}")
@@ -153,26 +207,51 @@ class LocateAnythingVisionModel(layers.Layer):
             initializer="zeros",
             trainable=True,
         )
-        self.patch_proj.build(
-            (None, self.patch_size, self.patch_size, self.in_channels)
-        )
+        self.patch_proj.build(None)
         self.built = True
 
     def interp_pos_emb(self, height, width):
-        pe = ops.convert_to_tensor(
-            self.pos_emb
-        )  # materialize (jax resize rejects a Variable)
+        pe = ops.convert_to_tensor(self.pos_emb)
         if height == self.init_pos_h and width == self.init_pos_w:
             return ops.reshape(pe, (height * width, self.embed_dim))
-        resized = ops.image.resize(pe, (height, width), interpolation="bicubic")
+        # Bicubic resample of the learned grid: Keys cubic (a = -0.75),
+        # half-pixel centers, replicated borders -- exactly
+        # F.interpolate(mode="bicubic", align_corners=False). Spelled out
+        # because ops.image.resize is backend divergent (jax/tf use a = -0.5
+        # and disagree with torch/the reference by ~0.3).
+        mats = []
+        for out_size, in_size in (
+            (height, self.init_pos_h),
+            (width, self.init_pos_w),
+        ):
+            scale = in_size / out_size
+            center = (ops.arange(out_size, dtype="float32") + 0.5) * scale - 0.5
+            start = ops.floor(center)
+            frac = center - start
+            a = -0.75
+            d0, d1, d2, d3 = frac + 1.0, frac, 1.0 - frac, 2.0 - frac
+            taps = (
+                ((a * d0 - 5.0 * a) * d0 + 8.0 * a) * d0 - 4.0 * a,
+                ((a + 2.0) * d1 - (a + 3.0)) * d1 * d1 + 1.0,
+                ((a + 2.0) * d2 - (a + 3.0)) * d2 * d2 + 1.0,
+                ((a * d3 - 5.0 * a) * d3 + 8.0 * a) * d3 - 4.0 * a,
+            )
+            matrix = ops.zeros((out_size, in_size), dtype="float32")
+            for offset, tap in zip((-1, 0, 1, 2), taps):
+                index = ops.clip(ops.cast(start, "int32") + offset, 0, in_size - 1)
+                # one_hot + add so clamped duplicate border taps accumulate
+                onehot = ops.one_hot(index, in_size, dtype="float32")
+                matrix = matrix + onehot * tap[:, None]
+            mats.append(matrix)
+        resized = ops.einsum("hi,ijc->hjc", mats[0], ops.cast(pe, "float32"))
+        resized = ops.einsum("wj,hjc->hwc", mats[1], resized)
         return ops.reshape(resized, (height * width, self.embed_dim))
 
     def embed_patches(self, patches):
         # patches: (L, C, P, P) or (L, P, P, C) -> (L, embed_dim)
-        if int(patches.shape[1]) == self.in_channels:
-            patches = ops.transpose(patches, (0, 2, 3, 1))
-        x = self.patch_proj(ops.cast(patches, self.compute_dtype))
-        return ops.reshape(x, (int(patches.shape[0]), self.embed_dim))
+        if int(patches.shape[1]) != self.in_channels:
+            patches = ops.transpose(patches, (0, 3, 1, 2))
+        return self.patch_proj(ops.cast(patches, self.compute_dtype))
 
     def merge(self, x, height, width):
         kh, kw = self.merge_kernel
