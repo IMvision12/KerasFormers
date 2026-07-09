@@ -54,6 +54,7 @@ from kerasformers.models import (
     inceptionv4,
     internvl,
     janus,
+    kimi_k25,
     llama,
     llama2,
     llama4,

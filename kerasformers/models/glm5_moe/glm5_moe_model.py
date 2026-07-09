@@ -119,7 +119,8 @@ class Glm5MoeModel(SubclassedBaseModel):
         self.final_norm = Glm5MoeRMSNorm(eps=norm_eps, name="final_norm")
 
     def rope_tables(self, position_ids):
-        # NeoX rope over qk_rope_head_dim: cos/sin over cat((freqs, freqs)).
+        # Interleaved rope over qk_rope_head_dim. cos/sin keep the cat((freqs,
+        # freqs)) layout the reference builds; apply_rope reads the first half.
         rd = self.qk_rope_head_dim
         inv_freq = 1.0 / ops.power(
             self.rope_theta, ops.arange(0, rd, 2, dtype="float32") / rd
