@@ -288,7 +288,10 @@ class DeepseekV3Attention(layers.Layer):
         kv_lora_rank: KV latent width (512).
         qk_nope_head_dim / qk_rope_head_dim / v_head_dim: Per-head splits.
         softmax_scale: Attention score scale.
-        norm_eps: RMSNorm epsilon.
+        norm_eps: Epsilon of the two MLA bottleneck norms. The reference builds
+            them with the RMSNorm class default and never with the model's
+            ``rms_norm_eps``, so this stays 1e-6 even for checkpoints whose other
+            norms use 1e-5 (Kimi K2.5, GLM-5).
     """
 
     def __init__(
@@ -474,6 +477,8 @@ class DeepseekV3DecoderLayer(layers.Layer):
         self.norm_eps = norm_eps
 
         self.attention_norm = DeepseekV3RMSNorm(eps=norm_eps, name="attention_norm")
+        # norm_eps is deliberately not forwarded: the MLA bottleneck norms keep
+        # the 1e-6 default (see DeepseekV3Attention), unlike the block norms.
         self.attention = DeepseekV3Attention(
             embed_dim,
             num_heads,
@@ -483,7 +488,6 @@ class DeepseekV3DecoderLayer(layers.Layer):
             qk_rope_head_dim,
             v_head_dim,
             softmax_scale,
-            norm_eps,
             name="attention",
         )
         self.mlp_norm = DeepseekV3RMSNorm(eps=norm_eps, name="mlp_norm")

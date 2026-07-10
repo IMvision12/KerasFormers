@@ -7,18 +7,23 @@ from kerasformers.base.base_attention import fused_attention
 MASK_NEG = -1e9
 
 
-def rotate_half(x):
-    """NeoX/Llama split-half rotate: ``cat(-x[d/2:], x[:d/2])``."""
-    x1, x2 = ops.split(x, 2, axis=-1)
-    return ops.concatenate([-x2, x1], axis=-1)
-
-
 def apply_rope(x, cos, sin, unsqueeze_axis):
-    """NeoX rope on ``x``; ``cos``/``sin`` are ``(B, S, D)`` unsqueezed at
-    ``unsqueeze_axis`` (1 for ``[B, H, S, D]``, 2 for ``[B, S, H, D]``)."""
-    cos = ops.expand_dims(cos, unsqueeze_axis)
-    sin = ops.expand_dims(sin, unsqueeze_axis)
-    return x * cos + rotate_half(x) * sin
+    """Interleaved rope: pairs ``(x[2i], x[2i+1])`` rotate by one angle.
+
+    Inherited from DeepSeek, and used by both the MLA attention and the DSA
+    indexer -- *not* the NeoX split-half rotation the rest of the GLM family
+    uses. ``cos`` / ``sin`` are ``(B, S, D)`` (``cat(freqs, freqs)``), so only
+    the first half carries the per-pair angle; they are unsqueezed at
+    ``unsqueeze_axis`` (1 for ``[B, H, S, D]``, 2 for ``[B, S, H, D]``). The
+    output is laid out de-interleaved (evens then odds) -- attention is
+    unchanged since q and k transform consistently.
+    """
+    half = int(cos.shape[-1]) // 2
+    cos = ops.expand_dims(cos[..., :half], unsqueeze_axis)
+    sin = ops.expand_dims(sin[..., :half], unsqueeze_axis)
+    x1 = x[..., 0::2]
+    x2 = x[..., 1::2]
+    return ops.concatenate([x1 * cos - x2 * sin, x2 * cos + x1 * sin], axis=-1)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -303,8 +308,13 @@ class Glm5MoeAttention(layers.Layer):
     Query: ``x -> q_a_proj -> RMSNorm -> q_b_proj -> split(nope, pe) -> rope(pe)``.
     KV:    ``x -> kv_a_proj -> split(latent, k_pe) -> RMSNorm(latent) -> kv_b_proj
             -> split(k_nope, v)``; ``rope(k_pe)`` is shared across heads. RoPE is
-    NeoX (``rotate_half``). The DSA indexer selects top-k keys, applied as an
-    additive ``-inf`` mask combined with the causal mask before attention.
+    interleaved (DeepSeek style), not the NeoX split-half rotation. The DSA
+    indexer selects top-k keys, applied as an additive ``-inf`` mask combined
+    with the causal mask before attention.
+
+    ``norm_eps`` is the epsilon of the two MLA bottleneck norms only. The
+    reference builds them with the RMSNorm class default, never with the model's
+    ``rms_norm_eps`` (1e-5 for GLM-5), so it stays 1e-6 here.
     """
 
     def __init__(
@@ -320,7 +330,7 @@ class Glm5MoeAttention(layers.Layer):
         index_head_dim,
         index_topk,
         attention_bias=False,
-        norm_eps=1e-5,
+        norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -512,6 +522,8 @@ class Glm5MoeDecoderLayer(layers.Layer):
         self.norm_eps = norm_eps
 
         self.attention_norm = Glm5MoeRMSNorm(eps=norm_eps, name="attention_norm")
+        # norm_eps is deliberately not forwarded: the MLA bottleneck norms keep
+        # the 1e-6 default (see Glm5MoeAttention), unlike the block norms.
         self.attention = Glm5MoeAttention(
             embed_dim,
             num_heads,
@@ -524,7 +536,6 @@ class Glm5MoeDecoderLayer(layers.Layer):
             index_head_dim,
             index_topk,
             attention_bias,
-            norm_eps,
             name="attention",
         )
         self.mlp_norm = Glm5MoeRMSNorm(eps=norm_eps, name="mlp_norm")

@@ -119,7 +119,8 @@ class Glm5MoeModel(SubclassedBaseModel):
         self.final_norm = Glm5MoeRMSNorm(eps=norm_eps, name="final_norm")
 
     def rope_tables(self, position_ids):
-        # NeoX rope over qk_rope_head_dim: cos/sin over cat((freqs, freqs)).
+        # Interleaved rope over qk_rope_head_dim. cos/sin keep the cat((freqs,
+        # freqs)) layout the reference builds; apply_rope reads the first half.
         rd = self.qk_rope_head_dim
         inv_freq = 1.0 / ops.power(
             self.rope_theta, ops.arange(0, rd, 2, dtype="float32") / rd
@@ -243,7 +244,12 @@ class Glm5MoeGenerate(Glm5MoeModel, BaseGeneration):
     Decode uses MLA k/v caching; the DSA indexer is skipped at decode time (it is
     a no-op while the cached length stays <= ``index_topk``, so generation is
     exact in that regime; beyond it the cached path is denser than the reference
-    -- DSA-pruned decode is a future optimization)."""
+    -- DSA-pruned decode is a future optimization).
+
+    The cache is a per-layer ``(k, v)`` tuple rather than one stacked buffer: the
+    key head dim is ``qk_nope + qk_rope`` while the value head dim is
+    ``v_head_dim``, and nothing requires those to agree (they happen to both be
+    256 on the released GLM-5 configs)."""
 
     eos_token_id = (154820, 154827, 154829)
 
@@ -267,31 +273,34 @@ class Glm5MoeGenerate(Glm5MoeModel, BaseGeneration):
     def build_cache(self, token_ids, padding_mask, max_len):
         batch = int(token_ids.shape[0])
         prompt_len = int(token_ids.shape[1])
-        hd = self.qk_nope_head_dim + self.qk_rope_head_dim
+        qk_head_dim = self.qk_nope_head_dim + self.qk_rope_head_dim
         nh = self.num_heads
         position_ids = ops.broadcast_to(ops.arange(prompt_len), (batch, prompt_len))
         cos_p, sin_p = self.rope_tables(position_ids)
         causal = self.causal_mask(prompt_len, padding_mask)
         hidden = self.token_embedding(ops.cast(token_ids, "int32"))
-        layer_caches = []
+        caches = []
         for layer in self.decoder_layers:
             hidden, (k, v) = layer(
                 hidden, cos_p, sin_p, attention_mask=causal, use_cache=True
             )
             ck = ops.slice_update(
-                ops.zeros((batch, nh, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
+                ops.zeros((batch, nh, max_len, qk_head_dim), dtype=k.dtype),
+                (0, 0, 0, 0),
+                k,
             )
             cv = ops.slice_update(
-                ops.zeros((batch, nh, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
+                ops.zeros((batch, nh, max_len, self.v_head_dim), dtype=v.dtype),
+                (0, 0, 0, 0),
+                v,
             )
-            layer_caches.append(ops.stack([ck, cv], axis=1))
-        cache = ops.stack(layer_caches, axis=1)
+            caches.append((ck, cv))
         logits = self.project(self.final_norm(hidden)[:, -1, :])
-        return cache, logits
+        return tuple(caches), logits
 
     def call_with_cache(self, token_ids, cache, cache_update_index):
         batch = int(token_ids.shape[0])
-        max_len = int(cache.shape[4])
+        max_len = int(cache[0][0].shape[2])
         pos = cache_update_index
         positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
         cos_t, sin_t = self.rope_tables(positions)
@@ -299,12 +308,11 @@ class Glm5MoeGenerate(Glm5MoeModel, BaseGeneration):
             ops.where(ops.arange(max_len) <= pos, 0.0, MASK_NEG), "float32"
         )[None, None, None, :]
         h = self.token_embedding(token_ids)
-        layer_caches = []
+        new_cache = []
         for i, layer in enumerate(self.decoder_layers):
             h, ck, cv = layer.decode_step(
-                h, cos_t, sin_t, cache[:, i, 0], cache[:, i, 1], pos, key_mask
+                h, cos_t, sin_t, cache[i][0], cache[i][1], pos, key_mask
             )
-            layer_caches.append(ops.stack([ck, cv], axis=1))
-        cache = ops.stack(layer_caches, axis=1)
+            new_cache.append((ck, cv))
         logits = self.project(self.final_norm(h))[:, 0, :]
-        return logits, cache
+        return logits, tuple(new_cache)

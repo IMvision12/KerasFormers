@@ -137,14 +137,37 @@ class Glm4vVisionEmbeddings(layers.Layer):
     def call(self, embeddings, grid_thw):
         spatial_merge_size = self.spatial_merge_size
         weight = ops.cast(self.position_embedding.embeddings, "float32")
-        pos_2d = ops.reshape(
-            weight, (1, self.orig_size, self.orig_size, self.embed_dim)
-        )
+        pos_2d = ops.reshape(weight, (self.orig_size, self.orig_size, self.embed_dim))
         adapted = []
         for t, h, w in vision_grid_rows(grid_thw):
-            resized = ops.image.resize(
-                pos_2d, (h, w), interpolation="bicubic", antialias=False
-            )
+            # Bicubic resample of the learned grid: Keys cubic (a = -0.75),
+            # half-pixel centers, replicated borders -- exactly
+            # F.interpolate(mode="bicubic", align_corners=False). Spelled out
+            # because ops.image.resize is backend divergent (jax/tf use a = -0.5
+            # and disagree with torch/the reference by ~0.3).
+            mats = []
+            for out_size, in_size in ((h, self.orig_size), (w, self.orig_size)):
+                scale = in_size / out_size
+                center = (ops.arange(out_size, dtype="float32") + 0.5) * scale - 0.5
+                start = ops.floor(center)
+                frac = center - start
+                a = -0.75
+                d0, d1, d2, d3 = frac + 1.0, frac, 1.0 - frac, 2.0 - frac
+                taps = (
+                    ((a * d0 - 5.0 * a) * d0 + 8.0 * a) * d0 - 4.0 * a,
+                    ((a + 2.0) * d1 - (a + 3.0)) * d1 * d1 + 1.0,
+                    ((a + 2.0) * d2 - (a + 3.0)) * d2 * d2 + 1.0,
+                    ((a * d3 - 5.0 * a) * d3 + 8.0 * a) * d3 - 4.0 * a,
+                )
+                matrix = ops.zeros((out_size, in_size), dtype="float32")
+                for offset, tap in zip((-1, 0, 1, 2), taps):
+                    index = ops.clip(ops.cast(start, "int32") + offset, 0, in_size - 1)
+                    # one_hot + add so clamped duplicate border taps accumulate
+                    onehot = ops.one_hot(index, in_size, dtype="float32")
+                    matrix = matrix + onehot * tap[:, None]
+                mats.append(matrix)
+            resized = ops.einsum("hi,ijc->hjc", mats[0], ops.cast(pos_2d, "float32"))
+            resized = ops.einsum("wj,hjc->hwc", mats[1], resized)
             flat = ops.reshape(resized, (h * w, self.embed_dim))
             coords = vision_position_coords([[t, h, w]], spatial_merge_size)
             gather_idx = coords[:, 0] * w + coords[:, 1]
