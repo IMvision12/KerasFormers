@@ -1,11 +1,13 @@
 import math
 
+import keras
 import numpy as np
 from PIL import Image
 
 from kerasformers.base import BaseImageProcessor
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class LocateAnythingImageProcessor(BaseImageProcessor):
     """Native-resolution patch preprocessor for LocateAnything / MoonViT.
 
