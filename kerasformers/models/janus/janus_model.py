@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import JANUS_CONFIG, JANUS_WEIGHTS_URLS
+from .janus_config import JANUS_CONFIG, JANUS_WEIGHTS_URLS
 from .janus_layers import (
     JanusTextDecoderLayer,
     JanusTextRMSNorm,

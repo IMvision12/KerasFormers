@@ -5,7 +5,7 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .config import MASKFORMER_CONFIG, MASKFORMER_WEIGHTS_URLS
+from .maskformer_config import MASKFORMER_CONFIG, MASKFORMER_WEIGHTS_URLS
 from .maskformer_layers import (
     MaskFormerDetrAttention,
     MaskFormerExpandQueryEmbedding,

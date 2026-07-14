@@ -3,8 +3,8 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
+from .cohere2_config import COHERE2_CONFIG, COHERE2_WEIGHTS_URLS
 from .cohere2_layers import Cohere2DecoderLayer, Cohere2LayerNorm
-from .config import COHERE2_CONFIG, COHERE2_WEIGHTS_URLS
 
 MASK_NEG = -1e9
 

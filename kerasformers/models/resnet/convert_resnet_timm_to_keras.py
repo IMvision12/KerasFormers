@@ -17,7 +17,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.resnet import ResNetImageClassify
-from kerasformers.models.resnet.config import RESNET_WEIGHTS_URLS
+from kerasformers.models.resnet.resnet_config import RESNET_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "resnet_layer": "layer",

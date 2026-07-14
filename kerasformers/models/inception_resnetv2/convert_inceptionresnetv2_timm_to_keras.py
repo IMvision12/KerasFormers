@@ -17,7 +17,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inception_resnetv2 import InceptionResNetV2ImageClassify
-from kerasformers.models.inception_resnetv2.config import (
+from kerasformers.models.inception_resnetv2.inception_resnetv2_config import (
     INCEPTION_RESNETV2_WEIGHTS_URLS,
 )
 

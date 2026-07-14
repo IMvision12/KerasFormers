@@ -11,7 +11,10 @@ from kerasformers.models.efficientformer.efficientformer_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import EFFICIENTFORMER_MODEL_CONFIG, EFFICIENTFORMER_WEIGHTS_URLS
+from .efficientformer_config import (
+    EFFICIENTFORMER_MODEL_CONFIG,
+    EFFICIENTFORMER_WEIGHTS_URLS,
+)
 
 
 def conv_mlp_block(

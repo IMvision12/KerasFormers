@@ -282,7 +282,7 @@ if __name__ == "__main__":
     from kerasformers.conversion.hf_download_utils import (
         download_hf_state_dict,
     )
-    from kerasformers.models.rf_detr.config import RF_DETR_DETECT_CONFIG
+    from kerasformers.models.rf_detr.rf_detr_config import RF_DETR_DETECT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRDetect
 
     def cosine(a, b):
@@ -354,7 +354,7 @@ if __name__ == "__main__":
         del keras_model, hf_model, state_dict
         keras.backend.clear_session()
 
-    from kerasformers.models.rf_detr.config import RF_DETR_SEGMENT_CONFIG
+    from kerasformers.models.rf_detr.rf_detr_config import RF_DETR_SEGMENT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRInstanceSegment
 
     print(f"\n\n{'=' * 60}\nSegmentation variants\n{'=' * 60}")

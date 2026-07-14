@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilevit import MobileViTImageClassify
-from kerasformers.models.mobilevit.config import MOBILEVIT_WEIGHTS_URLS
+from kerasformers.models.mobilevit.mobilevit_config import MOBILEVIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

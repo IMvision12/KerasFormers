@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.resmlp import ResMLPImageClassify
-from kerasformers.models.resmlp.config import RESMLP_WEIGHTS_URLS
+from kerasformers.models.resmlp.resmlp_config import RESMLP_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

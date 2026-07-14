@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inceptionv4 import InceptionV4ImageClassify
-from kerasformers.models.inceptionv4.config import INCEPTIONV4_WEIGHTS_URLS
+from kerasformers.models.inceptionv4.inceptionv4_config import INCEPTIONV4_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "features_": "features.",

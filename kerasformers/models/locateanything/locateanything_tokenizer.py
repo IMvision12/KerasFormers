@@ -2,7 +2,7 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-from .config import LOCATEANYTHING_TOKENIZER_URLS
+from .locateanything_config import LOCATEANYTHING_TOKENIZER_URLS
 
 DEFAULT_SYSTEM = "You are a helpful assistant."
 

@@ -3,7 +3,7 @@ import numpy as np
 
 from kerasformers.base import BaseTokenizer
 
-from .config import ONEFORMER_TOKENIZER_URLS
+from .oneformer_config import ONEFORMER_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

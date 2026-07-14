@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GLM4_CONFIG, GLM4_WEIGHTS_URLS
+from .glm4_config import GLM4_CONFIG, GLM4_WEIGHTS_URLS
 from .glm4_layers import Glm4DecoderLayer, Glm4RMSNorm
 
 MASK_NEG = -1e9

@@ -14,7 +14,7 @@ from kerasformers.models.detr.detr_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .config import (
+from .detr_config import (
     DETR_CONFIG,
     DETR_SEGMENT_CONFIG,
     DETR_SEGMENT_WEIGHTS_URLS,

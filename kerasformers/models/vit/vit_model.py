@@ -12,7 +12,7 @@ from kerasformers.models.vit.vit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import VIT_MODEL_CONFIG, VIT_WEIGHTS_URLS
+from .vit_config import VIT_MODEL_CONFIG, VIT_WEIGHTS_URLS
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0):

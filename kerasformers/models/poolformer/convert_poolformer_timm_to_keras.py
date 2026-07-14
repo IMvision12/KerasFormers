@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.poolformer import PoolFormerImageClassify
-from kerasformers.models.poolformer.config import POOLFORMER_WEIGHTS_URLS
+from kerasformers.models.poolformer.poolformer_config import POOLFORMER_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

@@ -129,7 +129,7 @@ if __name__ == "__main__":
     import keras
 
     from kerasformers.models.deepseek_vl_hybrid import DeepseekVLHybridModel
-    from kerasformers.models.deepseek_vl_hybrid.config import (
+    from kerasformers.models.deepseek_vl_hybrid.deepseek_vl_hybrid_config import (
         DEEPSEEK_VL_HYBRID_WEIGHTS_URLS,
     )
 

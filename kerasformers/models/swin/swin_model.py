@@ -12,7 +12,7 @@ from kerasformers.models.swin.swin_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHTS_URLS
+from .swin_config import SWIN_MODEL_CONFIG, SWIN_WEIGHTS_URLS
 
 
 def spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):

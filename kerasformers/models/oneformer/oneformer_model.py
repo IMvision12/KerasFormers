@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import ONEFORMER_CONFIG, ONEFORMER_WEIGHTS_URLS
+from .oneformer_config import ONEFORMER_CONFIG, ONEFORMER_WEIGHTS_URLS
 from .oneformer_layers import (
     OneFormerCrossAttention,
     OneFormerDeformableAttention,

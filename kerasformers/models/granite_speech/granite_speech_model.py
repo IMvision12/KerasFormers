@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GRANITE_SPEECH_CONFIG, GRANITE_SPEECH_WEIGHTS_URLS
+from .granite_speech_config import GRANITE_SPEECH_CONFIG, GRANITE_SPEECH_WEIGHTS_URLS
 from .granite_speech_layers import (
     GraniteSpeechCTCEncoder,
     GraniteSpeechDecoderLayer,

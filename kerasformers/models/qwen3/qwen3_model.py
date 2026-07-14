@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import QWEN3_CONFIG, QWEN3_WEIGHTS_URLS
+from .qwen3_config import QWEN3_CONFIG, QWEN3_WEIGHTS_URLS
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
 
 MASK_NEG = -1e9

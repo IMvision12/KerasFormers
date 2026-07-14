@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import OWLV2_CONFIG, OWLV2_WEIGHTS_URLS
+from .owlv2_config import OWLV2_CONFIG, OWLV2_WEIGHTS_URLS
 from .owlv2_layers import (
     Owlv2Attention,
     Owlv2SplitBatchQueries,

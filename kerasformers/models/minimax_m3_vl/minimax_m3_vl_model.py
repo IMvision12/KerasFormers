@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import MINIMAX_M3_VL_CONFIG, MINIMAX_M3_VL_WEIGHTS_URLS
+from .minimax_m3_vl_config import MINIMAX_M3_VL_CONFIG, MINIMAX_M3_VL_WEIGHTS_URLS
 from .minimax_m3_vl_layers import (
     MASK_NEG,
     MiniMaxM3VLDecoderLayer,

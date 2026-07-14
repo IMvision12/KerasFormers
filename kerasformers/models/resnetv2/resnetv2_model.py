@@ -10,7 +10,7 @@ from kerasformers.models.resnetv2.resnetv2_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHTS_URLS
+from .resnetv2_config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHTS_URLS
 
 
 def make_divisible(v, divisor=8):

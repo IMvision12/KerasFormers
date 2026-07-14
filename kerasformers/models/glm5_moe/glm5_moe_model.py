@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GLM5_MOE_CONFIG, GLM5_MOE_WEIGHTS_URLS
+from .glm5_moe_config import GLM5_MOE_CONFIG, GLM5_MOE_WEIGHTS_URLS
 from .glm5_moe_layers import Glm5MoeDecoderLayer, Glm5MoeRMSNorm
 
 MASK_NEG = -1e9

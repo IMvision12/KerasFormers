@@ -8,7 +8,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHTS_URLS
+from .resnet_config import RESNET_MODEL_CONFIG, RESNET_WEIGHTS_URLS
 
 
 def conv_block(

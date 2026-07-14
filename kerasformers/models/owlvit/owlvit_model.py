@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import OWLVIT_CONFIG, OWLVIT_WEIGHTS_URLS
+from .owlvit_config import OWLVIT_CONFIG, OWLVIT_WEIGHTS_URLS
 from .owlvit_layers import (
     OwlViTAttention,
     OwlViTSplitBatchQueries,

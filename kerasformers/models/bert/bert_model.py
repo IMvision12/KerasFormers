@@ -6,13 +6,13 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 
+from .bert_config import BERT_MODEL_CONFIG, BERT_WEIGHTS_URLS
 from .bert_layers import (
     BertEmbeddings,
     BertFlattenChoices,
     BertSelfAttention,
     BertUnflattenChoices,
 )
-from .config import BERT_MODEL_CONFIG, BERT_WEIGHTS_URLS
 
 MASK_NEG = -1e9
 

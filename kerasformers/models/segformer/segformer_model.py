@@ -7,7 +7,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.mit.mit_model import MiTModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS_URLS
+from .segformer_config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS_URLS
 
 
 def segformer_head(

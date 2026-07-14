@@ -17,7 +17,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mlp_mixer import MLPMixerImageClassify
-from kerasformers.models.mlp_mixer.config import MLP_MIXER_WEIGHTS_URLS
+from kerasformers.models.mlp_mixer.mlp_mixer_config import MLP_MIXER_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

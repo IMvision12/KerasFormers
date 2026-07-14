@@ -17,7 +17,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.densenet import DenseNetImageClassify
-from kerasformers.models.densenet.config import DENSENET_WEIGHTS_URLS
+from kerasformers.models.densenet.densenet_config import DENSENET_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "batchnorm_1": "norm1",

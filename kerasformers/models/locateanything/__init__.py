@@ -1,4 +1,4 @@
-from kerasformers.models.locateanything.config import (
+from kerasformers.models.locateanything.locateanything_config import (
     LOCATEANYTHING_CONFIG,
     LOCATEANYTHING_TOKENIZER_URLS,
     LOCATEANYTHING_WEIGHTS_URLS,

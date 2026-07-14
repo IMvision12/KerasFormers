@@ -19,7 +19,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.pit import PiTImageClassify
-from kerasformers.models.pit.config import PIT_WEIGHTS_URLS
+from kerasformers.models.pit.pit_config import PIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

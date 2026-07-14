@@ -9,7 +9,7 @@ from kerasformers.models.resnet.resnet_model import (
 )
 from kerasformers.models.resnext.resnext_model import resnext_block
 
-from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_URLS
+from .senet_config import SENET_MODEL_CONFIG, SENET_WEIGHTS_URLS
 
 _BLOCK_FN_LOOKUP = {
     "bottleneck_block": bottleneck_block,

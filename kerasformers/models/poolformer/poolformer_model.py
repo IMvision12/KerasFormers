@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_URLS
+from .poolformer_config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_URLS
 
 
 def mlp_block(x, hidden_dim, embed_dim, drop_rate, data_format, name):

@@ -9,7 +9,7 @@ from kerasformers.models.siglip.siglip_model import (
     siglip_head,
 )
 
-from .config import SIGLIP2_CONFIG, SIGLIP2_WEIGHTS_URLS
+from .siglip2_config import SIGLIP2_CONFIG, SIGLIP2_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

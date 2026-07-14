@@ -8,7 +8,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHTS_URLS
+from .mobilenetv3_config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHTS_URLS
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):

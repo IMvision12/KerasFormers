@@ -2,7 +2,7 @@ import keras
 
 from kerasformers.models.deberta_v2.deberta_v2_tokenizer import DebertaV2Tokenizer
 
-from .config import DEBERTA_V3_TOKENIZER_URLS
+from .deberta_v3_config import DEBERTA_V3_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

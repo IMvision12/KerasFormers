@@ -11,7 +11,7 @@ from kerasformers.models.convnext.convnext_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_URLS
+from .convnext_config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_URLS
 
 
 def spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):

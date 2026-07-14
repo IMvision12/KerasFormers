@@ -23,7 +23,7 @@ if __name__ == "__main__":
     from transformers import XLMRobertaModel as HFXLMRobertaModel
 
     from kerasformers.models.xlm_roberta import XLMRobertaMaskedLM, XLMRobertaModel
-    from kerasformers.models.xlm_roberta.config import (
+    from kerasformers.models.xlm_roberta.xlm_roberta_config import (
         XLM_ROBERTA_MODEL_CONFIG,
         XLM_ROBERTA_WEIGHTS_URLS,
     )

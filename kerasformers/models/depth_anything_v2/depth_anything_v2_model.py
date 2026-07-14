@@ -6,7 +6,10 @@ from kerasformers.models.depth_anything_v1.depth_anything_v1_model import (
     DepthAnythingV1Model,
 )
 
-from .config import DEPTHANYTHINGV2_CONFIG, DEPTHANYTHINGV2_WEIGHTS_URLS
+from .depth_anything_v2_config import (
+    DEPTHANYTHINGV2_CONFIG,
+    DEPTHANYTHINGV2_WEIGHTS_URLS,
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

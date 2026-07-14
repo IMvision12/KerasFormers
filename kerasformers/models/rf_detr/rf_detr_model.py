@@ -6,7 +6,7 @@ from keras import layers, ops, utils
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import (
+from .rf_detr_config import (
     RF_DETR_DETECT_CONFIG,
     RF_DETR_DETECT_WEIGHTS_URLS,
     RF_DETR_SEGMENT_CONFIG,

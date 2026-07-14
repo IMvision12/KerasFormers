@@ -93,7 +93,9 @@ if __name__ == "__main__":
     import keras
 
     from kerasformers.models.deepseek_vl import DeepseekVLModel
-    from kerasformers.models.deepseek_vl.config import DEEPSEEK_VL_WEIGHTS_URLS
+    from kerasformers.models.deepseek_vl.deepseek_vl_config import (
+        DEEPSEEK_VL_WEIGHTS_URLS,
+    )
 
     # Only the model_type "deepseek_vl" repos (the 1.3B chat/base) are loadable
     # here. The 7B repos are "deepseek_vl_hybrid" (SAM branch) -- a different

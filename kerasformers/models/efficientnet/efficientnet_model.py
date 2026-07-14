@@ -10,7 +10,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import EFFICIENTNET_MODEL_CONFIG, EFFICIENTNET_WEIGHTS_URLS
+from .efficientnet_config import EFFICIENTNET_MODEL_CONFIG, EFFICIENTNET_WEIGHTS_URLS
 
 DEFAULT_BLOCKS_ARGS = [
     {

@@ -5,13 +5,13 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
+from .clip_config import CLIP_CONFIG, CLIP_WEIGHTS_URLS
 from .clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
     CLIPTextModelEmbedding,
     CLIPVisionModelEmbedding,
 )
-from .config import CLIP_CONFIG, CLIP_WEIGHTS_URLS
 
 
 def quick_gelu(x):

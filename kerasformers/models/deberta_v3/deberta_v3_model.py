@@ -14,7 +14,7 @@ from kerasformers.models.deberta_v2.deberta_v2_model import (
     deberta_v2_backbone,
 )
 
-from .config import DEBERTA_V3_MODEL_CONFIG, DEBERTA_V3_WEIGHTS_URLS
+from .deberta_v3_config import DEBERTA_V3_MODEL_CONFIG, DEBERTA_V3_WEIGHTS_URLS
 
 BASE_MODEL_CONFIG = {
     v: DEBERTA_V3_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_V3_WEIGHTS_URLS.items()

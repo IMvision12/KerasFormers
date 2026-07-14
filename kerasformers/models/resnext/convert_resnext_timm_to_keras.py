@@ -8,7 +8,7 @@ from kerasformers.models.resnet.convert_resnet_timm_to_keras import (
     transfer_resnet_weights as transfer_resnext_weights,
 )
 from kerasformers.models.resnext import ResNeXtImageClassify
-from kerasformers.models.resnext.config import RESNEXT_WEIGHTS_URLS
+from kerasformers.models.resnext.resnext_config import RESNEXT_WEIGHTS_URLS
 
 if __name__ == "__main__":
     import timm

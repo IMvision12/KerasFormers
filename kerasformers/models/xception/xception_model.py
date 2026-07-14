@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHTS_URLS
+from .xception_config import XCEPTION_MODEL_CONFIG, XCEPTION_WEIGHTS_URLS
 
 # Per-variant block configs. Each entry is a list of dicts; each dict configures
 # one ``xception_module`` (or ``pre_xception_module`` when ``preact=True``).

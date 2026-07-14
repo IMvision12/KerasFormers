@@ -7,7 +7,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import INCEPTIONV4_MODEL_CONFIG, INCEPTIONV4_WEIGHTS_URLS
+from .inceptionv4_config import INCEPTIONV4_MODEL_CONFIG, INCEPTIONV4_WEIGHTS_URLS
 
 
 def conv_block(

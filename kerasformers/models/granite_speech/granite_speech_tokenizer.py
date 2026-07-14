@@ -2,7 +2,7 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-from .config import GRANITE_SPEECH_TOKENIZER_URLS
+from .granite_speech_config import GRANITE_SPEECH_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

@@ -18,7 +18,9 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientformer import EfficientFormerImageClassify
-from kerasformers.models.efficientformer.config import EFFICIENTFORMER_WEIGHTS_URLS
+from kerasformers.models.efficientformer.efficientformer_config import (
+    EFFICIENTFORMER_WEIGHTS_URLS,
+)
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

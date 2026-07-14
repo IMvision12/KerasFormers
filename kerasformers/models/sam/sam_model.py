@@ -4,7 +4,7 @@ from keras import layers, utils
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import SAM_CONFIG, SAM_WEIGHTS_URLS
+from .sam_config import SAM_CONFIG, SAM_WEIGHTS_URLS
 from .sam_layers import (
     SAMAbsolutePositionEmbedding,
     SAMImagePositionalEmbeddings,

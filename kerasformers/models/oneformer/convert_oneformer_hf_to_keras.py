@@ -267,7 +267,7 @@ if __name__ == "__main__":
     from PIL import Image
 
     from kerasformers.models.oneformer import OneFormerUniversalSegment
-    from kerasformers.models.oneformer.config import ONEFORMER_WEIGHTS_URLS
+    from kerasformers.models.oneformer.oneformer_config import ONEFORMER_WEIGHTS_URLS
 
     HF_SOURCES = {
         "oneformer_ade20k_swin_tiny": "shi-labs/oneformer_ade20k_swin_tiny",

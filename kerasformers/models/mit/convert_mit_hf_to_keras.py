@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mit import MiTImageClassify
-from kerasformers.models.mit.config import MIT_WEIGHTS_URLS
+from kerasformers.models.mit.mit_config import MIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

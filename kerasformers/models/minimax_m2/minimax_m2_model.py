@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import MINIMAX_M2_CONFIG, MINIMAX_M2_WEIGHTS_URLS
+from .minimax_m2_config import MINIMAX_M2_CONFIG, MINIMAX_M2_WEIGHTS_URLS
 from .minimax_m2_layers import MiniMaxM2DecoderLayer, MiniMaxM2RMSNorm
 
 MASK_NEG = -1e9

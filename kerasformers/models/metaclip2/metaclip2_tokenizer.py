@@ -7,7 +7,7 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .config import METACLIP2_TOKENIZER_URLS
+from .metaclip2_config import METACLIP2_TOKENIZER_URLS
 
 METACLIP2_EOS_TOKEN_ID = 2
 METACLIP2_BOS_TOKEN_ID = 0

@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import DEEPSEEK_VL_CONFIG, DEEPSEEK_VL_WEIGHTS_URLS
+from .deepseek_vl_config import DEEPSEEK_VL_CONFIG, DEEPSEEK_VL_WEIGHTS_URLS
 from .deepseek_vl_layers import (
     DeepseekVLTextDecoderLayer,
     DeepseekVLTextRMSNorm,

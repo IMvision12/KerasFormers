@@ -6,7 +6,7 @@ from keras import layers, ops
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 from kerasformers.models.glm4.glm4_layers import Glm4DecoderLayer, Glm4RMSNorm
 
-from .config import GLM4V_COMMON, GLM4V_CONFIG, GLM4V_WEIGHTS_URLS
+from .glm4v_config import GLM4V_COMMON, GLM4V_CONFIG, GLM4V_WEIGHTS_URLS
 from .glm4v_vision_layers import Glm4vVisionModel
 
 MASK_NEG = -1e9

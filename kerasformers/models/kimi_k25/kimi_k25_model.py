@@ -9,7 +9,7 @@ from kerasformers.models.deepseek_v3.deepseek_v3_layers import (
 )
 from kerasformers.models.deepseek_v3.deepseek_v3_model import DeepseekV3Model
 
-from .config import KIMI_K25_CONFIG, KIMI_K25_WEIGHTS_URLS
+from .kimi_k25_config import KIMI_K25_CONFIG, KIMI_K25_WEIGHTS_URLS
 from .kimi_k25_layers import KimiK25MultimodalProjection
 from .kimi_k25_vision import KimiK25VisionModel
 

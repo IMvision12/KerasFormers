@@ -7,7 +7,11 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     vision_rotary_cos_sin,
 )
 
-from .config import QWEN2_5_VL_CONFIG, QWEN2_5_VL_TOKENS, QWEN2_5_VL_WEIGHTS_URLS
+from .qwen2_5_vl_config import (
+    QWEN2_5_VL_CONFIG,
+    QWEN2_5_VL_TOKENS,
+    QWEN2_5_VL_WEIGHTS_URLS,
+)
 from .qwen2_5_vl_layers import (
     Qwen2_5_VisionPatchEmbed,
     Qwen2_5_VLDecoderLayer,

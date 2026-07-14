@@ -9,7 +9,7 @@ from kerasformers.models.convnext.convert_convnext_timm_to_keras import (
     transfer_convnext_weights as transfer_convnextv2_weights,
 )
 from kerasformers.models.convnextv2 import ConvNeXtV2ImageClassify
-from kerasformers.models.convnextv2.config import CONVNEXTV2_WEIGHTS_URLS
+from kerasformers.models.convnextv2.convnextv2_config import CONVNEXTV2_WEIGHTS_URLS
 
 __all__ = ["transfer_convnextv2_weights"]
 

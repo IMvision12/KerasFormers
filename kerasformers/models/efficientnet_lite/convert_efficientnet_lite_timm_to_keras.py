@@ -17,7 +17,9 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientnet_lite import EfficientNetLiteImageClassify
-from kerasformers.models.efficientnet_lite.config import EFFICIENTNET_LITE_WEIGHTS_URLS
+from kerasformers.models.efficientnet_lite.efficientnet_lite_config import (
+    EFFICIENTNET_LITE_WEIGHTS_URLS,
+)
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

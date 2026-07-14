@@ -22,7 +22,7 @@ if __name__ == "__main__":
     from transformers import DebertaV2Model as HFDebertaV2Model
 
     from kerasformers.models.deberta_v3 import DebertaV3Model
-    from kerasformers.models.deberta_v3.config import (
+    from kerasformers.models.deberta_v3.deberta_v3_config import (
         DEBERTA_V3_MODEL_CONFIG,
         DEBERTA_V3_WEIGHTS_URLS,
     )

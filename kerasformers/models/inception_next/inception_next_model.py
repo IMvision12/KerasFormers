@@ -6,7 +6,10 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import INCEPTION_NEXT_MODEL_CONFIG, INCEPTION_NEXT_WEIGHTS_URLS
+from .inception_next_config import (
+    INCEPTION_NEXT_MODEL_CONFIG,
+    INCEPTION_NEXT_WEIGHTS_URLS,
+)
 
 
 def inception_dwconv2d(

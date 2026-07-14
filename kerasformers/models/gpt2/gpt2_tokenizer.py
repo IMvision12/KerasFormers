@@ -3,7 +3,7 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .config import GPT2_TOKENIZER_URLS
+from .gpt2_config import GPT2_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
