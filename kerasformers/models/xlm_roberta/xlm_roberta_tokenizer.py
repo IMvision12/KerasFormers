@@ -5,7 +5,7 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .config import XLM_ROBERTA_TOKENIZER_URLS
+from .xlm_roberta_config import XLM_ROBERTA_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

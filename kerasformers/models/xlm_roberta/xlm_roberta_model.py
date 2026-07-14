@@ -11,7 +11,7 @@ from kerasformers.models.roberta.roberta_layers import (
 )
 from kerasformers.models.roberta.roberta_model import roberta_backbone
 
-from .config import XLM_ROBERTA_MODEL_CONFIG, XLM_ROBERTA_WEIGHTS_URLS
+from .xlm_roberta_config import XLM_ROBERTA_MODEL_CONFIG, XLM_ROBERTA_WEIGHTS_URLS
 
 BASE_MODEL_CONFIG = {
     v: XLM_ROBERTA_MODEL_CONFIG[m["model"]] for v, m in XLM_ROBERTA_WEIGHTS_URLS.items()

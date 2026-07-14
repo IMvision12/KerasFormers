@@ -19,7 +19,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilenetv3 import MobileNetV3ImageClassify
-from kerasformers.models.mobilenetv3.config import (
+from kerasformers.models.mobilenetv3.mobilenetv3_config import (
     MOBILENETV3_MODEL_CONFIG,
     MOBILENETV3_WEIGHTS_URLS,
 )

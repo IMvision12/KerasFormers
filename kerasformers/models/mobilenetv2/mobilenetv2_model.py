@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import MOBILENETV2_MODEL_CONFIG, MOBILENETV2_WEIGHTS_URLS
+from .mobilenetv2_config import MOBILENETV2_MODEL_CONFIG, MOBILENETV2_WEIGHTS_URLS
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):

@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import MASK2FORMER_CONFIG, MASK2FORMER_WEIGHTS_URLS
+from .mask2former_config import MASK2FORMER_CONFIG, MASK2FORMER_WEIGHTS_URLS
 from .mask2former_layers import (
     Mask2FormerCrossAttention,
     Mask2FormerDeformableAttention,

@@ -6,7 +6,7 @@ from kerasformers.base.base_model import hf_num_classes
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .config import DFINE_CONFIG, DFINE_WEIGHTS_URLS
+from .dfine_config import DFINE_CONFIG, DFINE_WEIGHTS_URLS
 from .dfine_layers import (
     DFineDecoderLayer,
     DFineDecoderParams,

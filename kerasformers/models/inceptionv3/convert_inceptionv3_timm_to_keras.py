@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inceptionv3 import InceptionV3ImageClassify
-from kerasformers.models.inceptionv3.config import INCEPTIONV3_WEIGHTS_URLS
+from kerasformers.models.inceptionv3.inceptionv3_config import INCEPTIONV3_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_conv2d_kernel": ".conv.weight",

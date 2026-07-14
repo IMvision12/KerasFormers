@@ -6,7 +6,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 
-from .config import ROBERTA_MODEL_CONFIG, ROBERTA_WEIGHTS_URLS
+from .roberta_config import ROBERTA_MODEL_CONFIG, ROBERTA_WEIGHTS_URLS
 from .roberta_layers import (
     RobertaEmbeddings,
     RobertaFlattenChoices,

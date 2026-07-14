@@ -5,7 +5,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GPT_OSS_CONFIG, GPT_OSS_WEIGHTS_URLS
+from .gpt_oss_config import GPT_OSS_CONFIG, GPT_OSS_WEIGHTS_URLS
 from .gpt_oss_layers import GptOssDecoderLayer, GptOssRMSNorm
 
 MASK_NEG = -1e9

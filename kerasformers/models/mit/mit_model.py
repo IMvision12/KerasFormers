@@ -10,7 +10,7 @@ from kerasformers.models.mit.mit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_URLS
+from .mit_config import MIT_MODEL_CONFIG, MIT_WEIGHTS_URLS
 
 
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):

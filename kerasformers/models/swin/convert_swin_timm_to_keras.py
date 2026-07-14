@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.swin import SwinImageClassify
-from kerasformers.models.swin.config import SWIN_WEIGHTS_URLS
+from kerasformers.models.swin.swin_config import SWIN_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

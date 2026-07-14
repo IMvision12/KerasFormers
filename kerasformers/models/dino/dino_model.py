@@ -10,7 +10,7 @@ from kerasformers.models.vit.vit_model import vit_backbone_feature
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import (
+from .dino_config import (
     DINO_RESNET_CONFIG,
     DINO_RESNET_WEIGHTS_URLS,
     DINO_VIT_CONFIG,

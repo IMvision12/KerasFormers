@@ -109,7 +109,7 @@ if __name__ == "__main__":
     from transformers import RobertaModel as HFRobertaModel
 
     from kerasformers.models.roberta import RobertaMaskedLM, RobertaModel
-    from kerasformers.models.roberta.config import (
+    from kerasformers.models.roberta.roberta_config import (
         ROBERTA_MODEL_CONFIG,
         ROBERTA_WEIGHTS_URLS,
     )

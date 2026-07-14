@@ -7,8 +7,8 @@ from kerasformers.models.cohere2.cohere2_layers import (
     Cohere2LayerNorm,
 )
 
+from .cohere2_vision_config import COHERE2_VISION_CONFIG, COHERE2_VISION_WEIGHTS_URLS
 from .cohere2_vision_layers import Cohere2VisionProjector, Cohere2VisionTower
-from .config import COHERE2_VISION_CONFIG, COHERE2_VISION_WEIGHTS_URLS
 
 MASK_NEG = -1e9
 

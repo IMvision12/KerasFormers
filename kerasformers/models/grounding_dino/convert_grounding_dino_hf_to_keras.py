@@ -196,7 +196,9 @@ if __name__ == "__main__":
         GroundingDinoModel,
         GroundingDinoProcessor,
     )
-    from kerasformers.models.grounding_dino.config import GROUNDING_DINO_WEIGHTS_URLS
+    from kerasformers.models.grounding_dino.grounding_dino_config import (
+        GROUNDING_DINO_WEIGHTS_URLS,
+    )
 
     HF_SOURCES = {
         "grounding_dino_tiny": "IDEA-Research/grounding-dino-tiny",

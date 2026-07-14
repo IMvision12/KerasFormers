@@ -4,7 +4,7 @@ from keras import layers
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.vit.vit_model import ViTImageClassify, ViTModel
 
-from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_URLS
+from .flexivit_config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

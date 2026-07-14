@@ -4,7 +4,7 @@ from kerasformers.models.granite_speech.granite_speech_tokenizer import (
     GraniteSpeechTokenizer,
 )
 
-from .config import GRANITE_SPEECH_PLUS_TOKENIZER_URLS
+from .granite_speech_plus_config import GRANITE_SPEECH_PLUS_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

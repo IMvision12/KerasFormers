@@ -18,7 +18,9 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientnet import EfficientNetImageClassify
-from kerasformers.models.efficientnet.config import EFFICIENTNET_WEIGHTS_URLS
+from kerasformers.models.efficientnet.efficientnet_config import (
+    EFFICIENTNET_WEIGHTS_URLS,
+)
 
 _BLOCK_MAPPINGS = {}
 for i in range(6):

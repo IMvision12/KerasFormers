@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .config import SPEECH2TEXT_CONFIG, SPEECH2TEXT_WEIGHTS_URLS
+from .speech2text_config import SPEECH2TEXT_CONFIG, SPEECH2TEXT_WEIGHTS_URLS
 from .speech2text_layers import (
     Speech2TextAttention,
     Speech2TextSinusoidalPositionEmbedding,

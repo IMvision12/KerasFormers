@@ -15,7 +15,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
-from kerasformers.models.metaclip2.config import METACLIP2_WEIGHTS_URLS
+from kerasformers.models.metaclip2.metaclip2_config import METACLIP2_WEIGHTS_URLS
 
 weight_name_mapping = {
     "_": ".",

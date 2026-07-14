@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .config import (
+from .whisper_config import (
     WHISPER_BEGIN_SUPPRESS_TOKENS,
     WHISPER_CONFIG,
     WHISPER_SUPPRESS_TOKENS,

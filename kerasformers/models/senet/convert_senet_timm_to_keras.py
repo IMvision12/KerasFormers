@@ -8,7 +8,7 @@ from kerasformers.models.resnet.convert_resnet_timm_to_keras import (
     transfer_resnet_weights as transfer_senet_weights,
 )
 from kerasformers.models.senet import SENetImageClassify
-from kerasformers.models.senet.config import SENET_WEIGHTS_URLS
+from kerasformers.models.senet.senet_config import SENET_WEIGHTS_URLS
 
 if __name__ == "__main__":
     import timm

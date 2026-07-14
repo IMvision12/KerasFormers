@@ -96,7 +96,7 @@ if __name__ == "__main__":
     from PIL import Image
 
     from kerasformers.models.janus import JanusModel, JanusProcessor
-    from kerasformers.models.janus.config import JANUS_WEIGHTS_URLS
+    from kerasformers.models.janus.janus_config import JANUS_WEIGHTS_URLS
 
     HF_SOURCES = {
         "janus_pro_1b": "deepseek-community/Janus-Pro-1B",

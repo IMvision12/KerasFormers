@@ -8,7 +8,10 @@ from kerasformers.models.deepseek_vl.deepseek_vl_layers import (
 )
 from kerasformers.models.deepseek_vl.deepseek_vl_model import DeepseekVLVisionModel
 
-from .config import DEEPSEEK_VL_HYBRID_CONFIG, DEEPSEEK_VL_HYBRID_WEIGHTS_URLS
+from .deepseek_vl_hybrid_config import (
+    DEEPSEEK_VL_HYBRID_CONFIG,
+    DEEPSEEK_VL_HYBRID_WEIGHTS_URLS,
+)
 from .deepseek_vl_hybrid_layers import (
     DeepseekVLHybridAligner,
     DeepseekVLHybridSamEncoder,

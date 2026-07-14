@@ -429,7 +429,7 @@ processors:
   Defaults to `[220, 50257]` (space + `<|endoftext|>`).
 
 ```python
-from kerasformers.models.whisper.config import WHISPER_SUPPRESS_TOKENS
+from kerasformers.models.whisper.whisper_config import WHISPER_SUPPRESS_TOKENS
 
 text = model.generate(
     wave, processor,

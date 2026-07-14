@@ -19,7 +19,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.deit import DeiTImageClassify
-from kerasformers.models.deit.config import DEIT_WEIGHTS_URLS
+from kerasformers.models.deit.deit_config import DEIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

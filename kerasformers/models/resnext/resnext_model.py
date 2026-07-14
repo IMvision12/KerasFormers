@@ -11,7 +11,7 @@ from kerasformers.models.resnet.resnet_model import (
     squeeze_excitation_block,
 )
 
-from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHTS_URLS
+from .resnext_config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHTS_URLS
 
 
 def resnext_block(

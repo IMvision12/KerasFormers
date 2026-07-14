@@ -14,7 +14,7 @@ from kerasformers.models.cait.cait_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHTS_URLS
+from .cait_config import CAIT_MODEL_CONFIG, CAIT_WEIGHTS_URLS
 
 
 def mlp_block(x, hidden_dim, out_dim, drop_rate=0.0, block_prefix=None):

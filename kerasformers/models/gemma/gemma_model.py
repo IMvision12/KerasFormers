@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GEMMA_CONFIG, GEMMA_WEIGHTS_URLS
+from .gemma_config import GEMMA_CONFIG, GEMMA_WEIGHTS_URLS
 from .gemma_layers import GemmaDecoderLayer, GemmaRMSNorm
 
 MASK_NEG = -1e9

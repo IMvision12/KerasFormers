@@ -100,7 +100,7 @@ if __name__ == "__main__":
     from transformers import DebertaModel as HFDebertaModel
 
     from kerasformers.models.deberta import DebertaMaskedLM, DebertaModel
-    from kerasformers.models.deberta.config import (
+    from kerasformers.models.deberta.deberta_config import (
         DEBERTA_MODEL_CONFIG,
         DEBERTA_WEIGHTS_URLS,
     )

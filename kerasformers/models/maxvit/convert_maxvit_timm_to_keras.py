@@ -16,7 +16,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.maxvit import MaxViTImageClassify as MaxViT
-from kerasformers.models.maxvit.config import MAXVIT_WEIGHTS_URLS
+from kerasformers.models.maxvit.maxvit_config import MAXVIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "relative_position_bias_table": "RPBT",

@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import INTERNVL_CONFIG, INTERNVL_WEIGHTS_URLS
+from .internvl_config import INTERNVL_CONFIG, INTERNVL_WEIGHTS_URLS
 from .internvl_layers import (
     InternVLDecoderLayer,
     InternVLMultiModalProjector,

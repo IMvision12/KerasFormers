@@ -5,7 +5,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import LLAMA4_CONFIG, LLAMA4_WEIGHTS_URLS
+from .llama4_config import LLAMA4_CONFIG, LLAMA4_WEIGHTS_URLS
 from .llama4_layers import Llama4DecoderLayer, Llama4RMSNorm
 
 MASK_NEG = -1e9

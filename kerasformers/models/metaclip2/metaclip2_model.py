@@ -11,7 +11,7 @@ from kerasformers.models.clip.clip_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .config import METACLIP2_CONFIG, METACLIP2_WEIGHTS_URLS
+from .metaclip2_config import METACLIP2_CONFIG, METACLIP2_WEIGHTS_URLS
 from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
 
 

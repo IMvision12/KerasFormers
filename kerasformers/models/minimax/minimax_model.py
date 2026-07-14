@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import MINIMAX_CONFIG, MINIMAX_WEIGHTS_URLS
+from .minimax_config import MINIMAX_CONFIG, MINIMAX_WEIGHTS_URLS
 from .minimax_layers import MiniMaxDecoderLayer, MiniMaxRMSNorm
 
 MASK_NEG = -1e9

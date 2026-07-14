@@ -11,7 +11,7 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import (
+from .mobilevit_config import (
     MOBILEVIT_MODEL_CONFIG,
     MOBILEVIT_SEGMENT_MODEL_CONFIG,
     MOBILEVIT_SEGMENT_WEIGHTS_URLS,

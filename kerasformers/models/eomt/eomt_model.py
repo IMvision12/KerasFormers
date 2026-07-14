@@ -6,7 +6,7 @@ from kerasformers.base.base_model import hf_num_classes
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .config import EOMT_CONFIG, EOMT_WEIGHTS_URLS
+from .eomt_config import EOMT_CONFIG, EOMT_WEIGHTS_URLS
 from .eomt_layers import (
     EoMTAttention,
     EoMTEmbeddings,

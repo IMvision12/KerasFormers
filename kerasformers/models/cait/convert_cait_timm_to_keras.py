@@ -19,7 +19,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.cait import CaiTImageClassify
-from kerasformers.models.cait.config import CAIT_WEIGHTS_URLS
+from kerasformers.models.cait.cait_config import CAIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

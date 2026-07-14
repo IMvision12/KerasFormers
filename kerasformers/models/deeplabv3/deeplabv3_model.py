@@ -4,7 +4,7 @@ from keras import layers, ops, utils
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import DEEPLABV3_CONFIG, DEEPLABV3_WEIGHTS_URLS
+from .deeplabv3_config import DEEPLABV3_CONFIG, DEEPLABV3_WEIGHTS_URLS
 
 
 def deeplabv3_dilated_resnet_backbone(

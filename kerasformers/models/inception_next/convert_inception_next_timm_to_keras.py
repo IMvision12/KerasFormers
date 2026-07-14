@@ -18,7 +18,9 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inception_next import InceptionNextImageClassify
-from kerasformers.models.inception_next.config import INCEPTION_NEXT_WEIGHTS_URLS
+from kerasformers.models.inception_next.inception_next_config import (
+    INCEPTION_NEXT_WEIGHTS_URLS,
+)
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

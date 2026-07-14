@@ -48,7 +48,7 @@ if __name__ == "__main__":
     from transformers import OpenAIGPTLMHeadModel
 
     from kerasformers.models.gpt import GptGenerate
-    from kerasformers.models.gpt.config import GPT_CONFIG, GPT_WEIGHTS_URLS
+    from kerasformers.models.gpt.gpt_config import GPT_CONFIG, GPT_WEIGHTS_URLS
 
     HF_SOURCES = {"gpt": "openai-community/openai-gpt"}
     rng = np.random.default_rng(0)

@@ -1,4 +1,4 @@
-from kerasformers.models.kimi_k25.config import (
+from kerasformers.models.kimi_k25.kimi_k25_config import (
     KIMI_K25_CONFIG,
     KIMI_K25_WEIGHTS_URLS,
 )

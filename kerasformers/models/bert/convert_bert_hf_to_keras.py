@@ -107,7 +107,10 @@ if __name__ == "__main__":
     from transformers import BertModel as HFBertModel
 
     from kerasformers.models.bert import BertMaskedLM, BertModel
-    from kerasformers.models.bert.config import BERT_MODEL_CONFIG, BERT_WEIGHTS_URLS
+    from kerasformers.models.bert.bert_config import (
+        BERT_MODEL_CONFIG,
+        BERT_WEIGHTS_URLS,
+    )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 

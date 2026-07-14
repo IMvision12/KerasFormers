@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import GPT_CONFIG, GPT_WEIGHTS_URLS
+from .gpt_config import GPT_CONFIG, GPT_WEIGHTS_URLS
 from .gpt_layers import GptBlock
 
 MASK_NEG = -1e9

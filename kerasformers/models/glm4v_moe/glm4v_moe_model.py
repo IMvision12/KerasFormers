@@ -10,7 +10,7 @@ from kerasformers.models.glm4_moe.glm4_moe_layers import (
 )
 from kerasformers.models.glm4v.glm4v_vision_layers import Glm4vVisionModel
 
-from .config import GLM4V_MOE_COMMON, GLM4V_MOE_CONFIG, GLM4V_MOE_WEIGHTS_URLS
+from .glm4v_moe_config import GLM4V_MOE_COMMON, GLM4V_MOE_CONFIG, GLM4V_MOE_WEIGHTS_URLS
 
 MASK_NEG = -1e9
 

@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.convnext import ConvNeXtImageClassify
-from kerasformers.models.convnext.config import CONVNEXT_WEIGHTS_URLS
+from kerasformers.models.convnext.convnext_config import CONVNEXT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "stem_conv_": "stem.0.",

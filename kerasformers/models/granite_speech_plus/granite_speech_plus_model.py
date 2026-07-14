@@ -5,7 +5,10 @@ from kerasformers.models.granite_speech.granite_speech_model import (
     GraniteSpeechModel,
 )
 
-from .config import GRANITE_SPEECH_PLUS_CONFIG, GRANITE_SPEECH_PLUS_WEIGHTS_URLS
+from .granite_speech_plus_config import (
+    GRANITE_SPEECH_PLUS_CONFIG,
+    GRANITE_SPEECH_PLUS_WEIGHTS_URLS,
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

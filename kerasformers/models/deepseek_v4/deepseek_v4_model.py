@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import DEEPSEEK_V4_CONFIG, DEEPSEEK_V4_WEIGHTS_URLS
+from .deepseek_v4_config import DEEPSEEK_V4_CONFIG, DEEPSEEK_V4_WEIGHTS_URLS
 from .deepseek_v4_layers import (
     MASK_NEG,
     DeepseekV4DecoderLayer,

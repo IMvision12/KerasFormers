@@ -10,7 +10,10 @@ from kerasformers.models.vit.vit_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .config import DEPTHANYTHINGV1_CONFIG, DEPTHANYTHINGV1_WEIGHTS_URLS
+from .depth_anything_v1_config import (
+    DEPTHANYTHINGV1_CONFIG,
+    DEPTHANYTHINGV1_WEIGHTS_URLS,
+)
 
 
 def depth_anything_v1_aligned_bilinear_resize(x, target_h, target_w, data_format):

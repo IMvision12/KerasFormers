@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import MISTRAL3_CONFIG, MISTRAL3_WEIGHTS_URLS
+from .mistral3_config import MISTRAL3_CONFIG, MISTRAL3_WEIGHTS_URLS
 from .mistral3_layers import (
     Mistral3DecoderLayer,
     Mistral3MultiModalProjector,

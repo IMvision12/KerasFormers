@@ -6,7 +6,7 @@ from kerasformers.models.convnext.convnext_model import convnext_backbone_featur
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import (
+from .dino_v3_config import (
     DINOV3_CONVNEXT_CONFIG,
     DINOV3_CONVNEXT_WEIGHTS_URLS,
     DINOV3_VIT_CONFIG,

@@ -7,7 +7,7 @@ from kerasformers.models.resmlp.resmlp_layers import ResMLPAffine, ResMLPLayerSc
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHTS_URLS
+from .resmlp_config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHTS_URLS
 
 
 def resmlp_block(

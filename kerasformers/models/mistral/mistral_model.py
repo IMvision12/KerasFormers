@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import MISTRAL_CONFIG, MISTRAL_WEIGHTS_URLS
+from .mistral_config import MISTRAL_CONFIG, MISTRAL_WEIGHTS_URLS
 from .mistral_layers import MistralDecoderLayer, MistralRMSNorm
 
 MASK_NEG = -1e9

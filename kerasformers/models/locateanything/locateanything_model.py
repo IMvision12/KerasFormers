@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import SubclassedBaseModel
 from kerasformers.models.qwen2.qwen2_layers import Qwen2DecoderLayer, Qwen2RMSNorm
 
-from .config import LOCATEANYTHING_CONFIG, LOCATEANYTHING_WEIGHTS_URLS
+from .locateanything_config import LOCATEANYTHING_CONFIG, LOCATEANYTHING_WEIGHTS_URLS
 from .locateanything_vision import LocateAnythingVisionModel
 
 MASK_NEG = -1e9

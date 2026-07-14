@@ -8,7 +8,7 @@ from keras import ops
 from kerasformers.base import BaseTokenizer
 from kerasformers.conversion import download_file
 
-from .config import SPEECH2TEXT_TOKENIZER_FILES
+from .speech2text_config import SPEECH2TEXT_TOKENIZER_FILES
 
 SPIECE_UNDERLINE = "▁"
 

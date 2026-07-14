@@ -5,7 +5,7 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .config import DEBERTA_TOKENIZER_URLS
+from .deberta_config import DEBERTA_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

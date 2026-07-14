@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import MIXTRAL_CONFIG, MIXTRAL_WEIGHTS_URLS
+from .mixtral_config import MIXTRAL_CONFIG, MIXTRAL_WEIGHTS_URLS
 from .mixtral_layers import MixtralDecoderLayer, MixtralRMSNorm
 
 MASK_NEG = -1e9

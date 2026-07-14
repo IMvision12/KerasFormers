@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.xception import XceptionImageClassify
-from kerasformers.models.xception.config import (
+from kerasformers.models.xception.xception_config import (
     XCEPTION_MODEL_CONFIG,
     XCEPTION_WEIGHTS_URLS,
 )

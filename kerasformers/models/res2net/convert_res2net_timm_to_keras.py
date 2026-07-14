@@ -17,7 +17,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.res2net import Res2NetImageClassify
-from kerasformers.models.res2net.config import RES2NET_WEIGHTS_URLS
+from kerasformers.models.res2net.res2net_config import RES2NET_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

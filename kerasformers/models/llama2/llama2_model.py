@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import LLAMA2_CONFIG, LLAMA2_WEIGHTS_URLS
+from .llama2_config import LLAMA2_CONFIG, LLAMA2_WEIGHTS_URLS
 from .llama2_layers import Llama2DecoderLayer, Llama2RMSNorm
 
 MASK_NEG = -1e9

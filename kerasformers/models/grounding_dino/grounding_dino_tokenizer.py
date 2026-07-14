@@ -2,7 +2,7 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-from .config import GROUNDING_DINO_TOKENIZER_URLS
+from .grounding_dino_config import GROUNDING_DINO_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

@@ -17,7 +17,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.vgg import VGGImageClassify
-from kerasformers.models.vgg.config import VGG_WEIGHTS_URLS
+from kerasformers.models.vgg.vgg_config import VGG_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

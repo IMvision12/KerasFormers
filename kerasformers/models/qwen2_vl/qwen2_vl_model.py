@@ -5,7 +5,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS_URLS
+from .qwen2_vl_config import QWEN2_VL_CONFIG, QWEN2_VL_TOKENS, QWEN2_VL_WEIGHTS_URLS
 from .qwen2_vl_layers import (
     Qwen2VLDecoderLayer,
     Qwen2VLPatchEmbed,

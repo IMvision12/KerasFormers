@@ -7,7 +7,7 @@ from kerasformers.models.convnext.convnext_model import (
     ConvNeXtModel,
 )
 
-from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHTS_URLS
+from .convnextv2_config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHTS_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

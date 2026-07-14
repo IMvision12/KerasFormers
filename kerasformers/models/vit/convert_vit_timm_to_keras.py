@@ -19,7 +19,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.vit import ViTImageClassify
-from kerasformers.models.vit.config import VIT_WEIGHTS_URLS
+from kerasformers.models.vit.vit_config import VIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

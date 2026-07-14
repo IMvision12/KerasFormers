@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .config import MOONSHINE_CONFIG, MOONSHINE_WEIGHTS_URLS
+from .moonshine_config import MOONSHINE_CONFIG, MOONSHINE_WEIGHTS_URLS
 from .moonshine_layers import (
     MoonshineAttention,
     MoonshineRotaryEmbedding,

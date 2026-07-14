@@ -6,7 +6,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 
-from .config import DEBERTA_MODEL_CONFIG, DEBERTA_WEIGHTS_URLS
+from .deberta_config import DEBERTA_MODEL_CONFIG, DEBERTA_WEIGHTS_URLS
 from .deberta_layers import (
     DebertaDisentangledSelfAttention,
     DebertaEmbeddings,

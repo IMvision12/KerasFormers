@@ -2,7 +2,7 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-from .config import JANUS_TOKENIZER_URLS
+from .janus_config import JANUS_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

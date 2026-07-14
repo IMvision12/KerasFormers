@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilenetv2 import MobileNetV2ImageClassify
-from kerasformers.models.mobilenetv2.config import MOBILENETV2_WEIGHTS_URLS
+from kerasformers.models.mobilenetv2.mobilenetv2_config import MOBILENETV2_WEIGHTS_URLS
 
 _BLOCK_00 = {
     "blocks.0.0.batchnorm.2": "blocks.0.0.bn1",

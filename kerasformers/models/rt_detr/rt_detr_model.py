@@ -6,7 +6,7 @@ from kerasformers.base.base_model import hf_num_classes
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHTS_URLS
+from .rt_detr_config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHTS_URLS
 from .rt_detr_layers import RTDETRDecoderLayer, RTDETRMultiHeadAttention
 
 

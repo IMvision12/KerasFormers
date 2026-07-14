@@ -5,7 +5,7 @@ import keras
 from kerasformers.conversion import verify_cls_model_equivalence
 from kerasformers.conversion.hf_download_utils import download_hf_state_dict
 from kerasformers.models.flexivit import FlexiViTImageClassify
-from kerasformers.models.flexivit.config import FLEXIVIT_WEIGHTS_URLS
+from kerasformers.models.flexivit.flexivit_config import FLEXIVIT_WEIGHTS_URLS
 from kerasformers.models.vit.convert_vit_timm_to_keras import (
     transfer_vit_weights as transfer_flexivit_weights,
 )

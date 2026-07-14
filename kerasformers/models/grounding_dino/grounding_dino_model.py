@@ -7,7 +7,7 @@ from keras import layers, ops
 from kerasformers.base import SubclassedBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .config import GROUNDING_DINO_CONFIG, GROUNDING_DINO_WEIGHTS_URLS
+from .grounding_dino_config import GROUNDING_DINO_CONFIG, GROUNDING_DINO_WEIGHTS_URLS
 from .grounding_dino_layers import (
     GroundingDinoContrastiveEmbedding,
     GroundingDinoDecoderLayer,

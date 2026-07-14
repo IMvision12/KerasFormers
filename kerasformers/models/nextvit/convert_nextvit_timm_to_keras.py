@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.nextvit import NextViTImageClassify as NextViT
-from kerasformers.models.nextvit.config import NEXTVIT_WEIGHTS_URLS
+from kerasformers.models.nextvit.nextvit_config import NEXTVIT_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",

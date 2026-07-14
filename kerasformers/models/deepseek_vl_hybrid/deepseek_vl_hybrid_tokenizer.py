@@ -2,7 +2,7 @@ import keras
 
 from kerasformers.models.deepseek_vl.deepseek_vl_tokenizer import DeepseekVLTokenizer
 
-from .config import DEEPSEEK_VL_HYBRID_TOKENIZER_URLS
+from .deepseek_vl_hybrid_config import DEEPSEEK_VL_HYBRID_TOKENIZER_URLS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

@@ -49,7 +49,7 @@ if __name__ == "__main__":
     from transformers import GPT2LMHeadModel
 
     from kerasformers.models.gpt2 import GPT2Generate
-    from kerasformers.models.gpt2.config import GPT2_CONFIG, GPT2_WEIGHTS_URLS
+    from kerasformers.models.gpt2.gpt2_config import GPT2_CONFIG, GPT2_WEIGHTS_URLS
 
     HF_SOURCES = {
         "gpt2": "openai-community/gpt2",

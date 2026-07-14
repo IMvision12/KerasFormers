@@ -18,7 +18,7 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.swinv2 import SwinV2ImageClassify
-from kerasformers.models.swinv2.config import SWINV2_WEIGHTS_URLS
+from kerasformers.models.swinv2.swinv2_config import SWINV2_WEIGHTS_URLS
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "moving_variance": "MOVVAR",

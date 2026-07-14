@@ -4,7 +4,7 @@ import numpy as np
 from kerasformers.base import BaseImageProcessor, BaseProcessor
 from kerasformers.utils.image_util import get_data_format, load_image
 
-from .config import ONEFORMER_CONFIG
+from .oneformer_config import ONEFORMER_CONFIG
 from .oneformer_tokenizer import OneFormerTokenizer
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)

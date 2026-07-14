@@ -6,7 +6,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_URLS
+from .convmixer_config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_URLS
 
 
 def convmixer_block(

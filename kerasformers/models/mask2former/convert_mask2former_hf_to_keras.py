@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 from kerasformers.models.mask2former import Mask2FormerUniversalSegment
-from kerasformers.models.mask2former.config import MASK2FORMER_WEIGHTS_URLS
+from kerasformers.models.mask2former.mask2former_config import MASK2FORMER_WEIGHTS_URLS
 
 
 def transfer_mask2former_weights(keras_model, hf_state_dict):

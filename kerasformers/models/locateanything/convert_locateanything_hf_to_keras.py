@@ -92,7 +92,9 @@ if __name__ == "__main__":
     from huggingface_hub import snapshot_download
 
     from kerasformers.models.locateanything import LocateAnythingGenerate
-    from kerasformers.models.locateanything.config import LOCATEANYTHING_WEIGHTS_URLS
+    from kerasformers.models.locateanything.locateanything_config import (
+        LOCATEANYTHING_WEIGHTS_URLS,
+    )
 
     DTYPE = "bfloat16"
     MAX_SHARD_GB = 1.7
