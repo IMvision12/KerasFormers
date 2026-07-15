@@ -5,7 +5,7 @@ from kerasformers.base.base_attention import fused_attention
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLRMSNorm(layers.Layer):
+class Qwen2_5VLRMSNorm(layers.Layer):
     """Root-mean-square layer norm (Llama / Qwen style).
 
     Normalizes the last axis by its RMS in float32 (for numerical stability),
@@ -42,7 +42,7 @@ class Qwen2_5_VLRMSNorm(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLMLP(layers.Layer):
+class Qwen2_5VLMLP(layers.Layer):
     """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
 
     Two parallel projections to ``mlp_dim`` — a SiLU-gated ``gate`` and a linear
@@ -81,7 +81,7 @@ class Qwen2_5_VLMLP(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLAttention(layers.Layer):
+class Qwen2_5VLAttention(layers.Layer):
     """Grouped-query causal self-attention with multimodal rotary positions.
 
     The Qwen2.5 text decoder's attention: ``query`` / ``key`` / ``value`` carry a
@@ -226,7 +226,7 @@ class Qwen2_5_VLAttention(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLDecoderLayer(layers.Layer):
+class Qwen2_5VLDecoderLayer(layers.Layer):
     """One Qwen2.5 decoder block: pre-norm GQA attention, then pre-norm SwiGLU.
 
     Computes ``h = x + attention(attention_norm(x))`` followed by
@@ -243,7 +243,7 @@ class Qwen2_5_VLDecoderLayer(layers.Layer):
 
     Call args:
         hidden_states, cos, sin, attention_mask, past_key_value, use_cache: as in
-            :class:`Qwen2_5_VLAttention`.
+            :class:`Qwen2_5VLAttention`.
 
     Returns:
         The block output, or ``(output, (key, value))`` when ``use_cache`` is set.
@@ -266,16 +266,16 @@ class Qwen2_5_VLDecoderLayer(layers.Layer):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim or embed_dim // num_heads
         self.norm_eps = norm_eps
-        self.attention_norm = Qwen2_5_VLRMSNorm(eps=norm_eps, name="attention_norm")
-        self.attention = Qwen2_5_VLAttention(
+        self.attention_norm = Qwen2_5VLRMSNorm(eps=norm_eps, name="attention_norm")
+        self.attention = Qwen2_5VLAttention(
             embed_dim,
             num_heads,
             num_kv_heads,
             head_dim=self.head_dim,
             name="attention",
         )
-        self.mlp_norm = Qwen2_5_VLRMSNorm(eps=norm_eps, name="mlp_norm")
-        self.mlp = Qwen2_5_VLMLP(embed_dim, mlp_dim, name="mlp")
+        self.mlp_norm = Qwen2_5VLRMSNorm(eps=norm_eps, name="mlp_norm")
+        self.mlp = Qwen2_5VLMLP(embed_dim, mlp_dim, name="mlp")
 
     def call(
         self,
@@ -366,7 +366,7 @@ class Qwen2_5_VisionPatchEmbed(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLVisionAttention(layers.Layer):
+class Qwen2_5VLVisionAttention(layers.Layer):
     """Full (non-causal) vision attention with 2D rotary positions.
 
     Operates on the flattened patch sequence of (possibly) several images. A fused
@@ -428,7 +428,7 @@ class Qwen2_5_VLVisionAttention(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLVisionBlock(layers.Layer):
+class Qwen2_5VLVisionBlock(layers.Layer):
     """Pre-norm Qwen2.5-VL vision block: ``h += attn(norm1(h)); h += mlp(norm2(h))``.
 
     Unlike Qwen2-VL (LayerNorm + quick-gelu MLP), Qwen2.5-VL normalizes with
@@ -451,12 +451,10 @@ class Qwen2_5_VLVisionBlock(layers.Layer):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.intermediate_size = intermediate_size
-        self.norm1 = Qwen2_5_VLRMSNorm(eps=1e-6, name="norm1")
-        self.norm2 = Qwen2_5_VLRMSNorm(eps=1e-6, name="norm2")
-        self.attn = Qwen2_5_VLVisionAttention(embed_dim, num_heads, name="attn")
-        self.mlp = Qwen2_5_VLMLP(
-            embed_dim, intermediate_size, use_bias=True, name="mlp"
-        )
+        self.norm1 = Qwen2_5VLRMSNorm(eps=1e-6, name="norm1")
+        self.norm2 = Qwen2_5VLRMSNorm(eps=1e-6, name="norm2")
+        self.attn = Qwen2_5VLVisionAttention(embed_dim, num_heads, name="attn")
+        self.mlp = Qwen2_5VLMLP(embed_dim, intermediate_size, use_bias=True, name="mlp")
 
     def call(self, hidden_states, cos, sin, attention_mask=None):
         hidden_states = hidden_states + self.attn(
@@ -478,7 +476,7 @@ class Qwen2_5_VLVisionBlock(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLPatchMerger(layers.Layer):
+class Qwen2_5VLPatchMerger(layers.Layer):
     """Merge each 2x2 (``spatial_merge_size``) patch group and project to the LLM
     hidden size.
 
@@ -499,7 +497,7 @@ class Qwen2_5_VLPatchMerger(layers.Layer):
         self.context_dim = context_dim
         self.spatial_merge_size = spatial_merge_size
         self.hidden_size = context_dim * (spatial_merge_size**2)
-        self.ln_q = Qwen2_5_VLRMSNorm(eps=1e-6, name="ln_q")
+        self.ln_q = Qwen2_5VLRMSNorm(eps=1e-6, name="ln_q")
         self.mlp_fc1 = layers.Dense(self.hidden_size, use_bias=True, name="mlp_fc1")
         self.mlp_fc2 = layers.Dense(dim, use_bias=True, name="mlp_fc2")
 

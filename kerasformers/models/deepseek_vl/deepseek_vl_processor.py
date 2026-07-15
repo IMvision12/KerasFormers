@@ -33,7 +33,7 @@ class DeepseekVLProcessor(BaseProcessor):
 
     TOKENIZER_CLS = DeepseekVLTokenizer
     IMAGE_PROCESSOR_CLS = DeepseekVLImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

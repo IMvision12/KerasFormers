@@ -29,7 +29,7 @@ class InternVLProcessor(BaseProcessor):
 
     TOKENIZER_CLS = InternVLTokenizer
     IMAGE_PROCESSOR_CLS = InternVLImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

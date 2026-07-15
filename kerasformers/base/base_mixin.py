@@ -615,8 +615,9 @@ class PreprocessorMixin(keras.layers.Layer):
         import importlib
 
         package = cls.__module__.rsplit(".", 1)[0]
+        family = package.rsplit(".", 1)[-1]
         try:
-            config = importlib.import_module(f"{package}.config")
+            config = importlib.import_module(f"{package}.{family}_config")
         except ModuleNotFoundError:
             return None
         for name in dir(config):

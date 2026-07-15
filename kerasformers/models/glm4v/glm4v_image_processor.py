@@ -1,6 +1,9 @@
 import math
 
+import keras
 import numpy as np
+
+from kerasformers.base import BaseImageProcessor
 
 OPENAI_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
 OPENAI_CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
@@ -23,7 +26,8 @@ def smart_resize(height, width, factor, min_pixels, max_pixels):
     return h_bar, w_bar
 
 
-class Glm4vImageProcessor:
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Glm4vImageProcessor(BaseImageProcessor):
     """Turn PIL/array images into ``{"pixel_values", "image_grid_thw"}``.
 
     GLM-4V uses the same patch flattening as Qwen-VL (block order, per-patch
@@ -39,7 +43,9 @@ class Glm4vImageProcessor:
         max_pixels=14 * 14 * 2 * 2 * 2 * 6144,
         image_mean=OPENAI_CLIP_MEAN,
         image_std=OPENAI_CLIP_STD,
+        **kwargs,
     ):
+        super().__init__(**kwargs)
         self.patch_size = patch_size
         self.spatial_merge_size = spatial_merge_size
         self.temporal_patch_size = temporal_patch_size
@@ -79,7 +85,7 @@ class Glm4vImageProcessor:
         flat = patches.reshape(grid_t * grid_h * grid_w, 3 * t * p * p)
         return flat.astype("float32"), [grid_t, grid_h, grid_w]
 
-    def __call__(self, images):
+    def call(self, images):
         if not isinstance(images, (list, tuple)):
             images = [images]
         all_patches, grids = [], []

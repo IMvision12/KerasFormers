@@ -16,10 +16,10 @@ MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 # parity path instead.
 SKIP_SAVING = {
     "Qwen2VLModel",
-    "Qwen2_5_VLModel",
+    "Qwen2_5VLModel",
     "Qwen3VLModel",
     "Qwen2VLGenerate",
-    "Qwen2_5_VLGenerate",
+    "Qwen2_5VLGenerate",
     "Qwen3VLGenerate",
     "Qwen2Model",
     "Qwen3Model",

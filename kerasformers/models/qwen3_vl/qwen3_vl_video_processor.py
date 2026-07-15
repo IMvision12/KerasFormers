@@ -1,5 +1,7 @@
 import math
 
+import keras
+
 from kerasformers.models.qwen2_vl.qwen2_vl_video_processor import Qwen2VLVideoProcessor
 
 
@@ -30,6 +32,7 @@ def qwen3_smart_resize(
     return h_bar, w_bar
 
 
+@keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen3VLVideoProcessor(Qwen2VLVideoProcessor):
     """Qwen3-VL video processor: like :class:`Qwen2VLVideoProcessor` but with a
     16px patch, ``[0.5, 0.5, 0.5]`` mean/std, and a clip-level (frame-count-aware)
@@ -51,6 +54,7 @@ class Qwen3VLVideoProcessor(Qwen2VLVideoProcessor):
         num_frames=None,
         min_frames=4,
         max_frames=768,
+        **kwargs,
     ):
         super().__init__(
             patch_size=patch_size,
@@ -65,6 +69,7 @@ class Qwen3VLVideoProcessor(Qwen2VLVideoProcessor):
             num_frames=num_frames,
             min_frames=min_frames,
             max_frames=max_frames,
+            **kwargs,
         )
 
     def _resized_hw(self, num_frames, h, w):

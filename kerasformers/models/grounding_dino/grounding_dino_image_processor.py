@@ -1,6 +1,8 @@
 import keras
 import numpy as np
 
+from kerasformers.base import BaseImageProcessor
+
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -17,7 +19,8 @@ def size_with_aspect_ratio(height, width, shortest_edge, longest_edge):
     return new_h, new_w
 
 
-class GroundingDinoImageProcessor:
+@keras.saving.register_keras_serializable(package="kerasformers")
+class GroundingDinoImageProcessor(BaseImageProcessor):
     """DETR-style preprocessing -> ``{"pixel_values", "pixel_mask"}`` (channels-last).
 
     Resizes the shortest edge to ``shortest_edge`` (capped by ``longest_edge``),
@@ -32,7 +35,9 @@ class GroundingDinoImageProcessor:
         image_mean=IMAGENET_MEAN,
         image_std=IMAGENET_STD,
         data_format=None,
+        **kwargs,
     ):
+        super().__init__(**kwargs)
         self.shortest_edge = shortest_edge
         self.longest_edge = longest_edge
         self.image_mean = np.array(image_mean, dtype="float32")
@@ -59,7 +64,7 @@ class GroundingDinoImageProcessor:
         x = (x - self.image_mean) / self.image_std
         return x  # (H, W, 3) channels-last
 
-    def __call__(self, images):
+    def call(self, images):
         if not isinstance(images, (list, tuple)):
             images = [images]
         processed = [self._preprocess_one(im) for im in images]

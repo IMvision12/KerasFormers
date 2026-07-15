@@ -108,7 +108,7 @@ class OneFormerProcessor(BaseProcessor):
 
     TOKENIZER_CLS = OneFormerTokenizer
     IMAGE_PROCESSOR_CLS = OneFormerImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

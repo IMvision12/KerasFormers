@@ -24,8 +24,8 @@ class SigLIP2Processor(BaseProcessor):
     def __init__(
         self,
         image_resolution: int = 224,
-        mean: List[float] = [0.5, 0.5, 0.5],
-        std: List[float] = [0.5, 0.5, 0.5],
+        mean: tuple = (0.5, 0.5, 0.5),
+        std: tuple = (0.5, 0.5, 0.5),
         do_center_crop: bool = True,
         do_normalize: bool = True,
         do_resize: bool = True,
