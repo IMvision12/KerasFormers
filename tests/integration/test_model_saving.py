@@ -10,7 +10,12 @@ from tests.base.model_test_registry import (
 
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
-SKIP_SAVING = set()
+# Models whose registry input builds only part of the model: the h5 roundtrip
+# needs every sublayer built, and DeepseekVLHybrid's high-res SAM tower only
+# builds when image inputs are passed (the registry entry is text-only).
+SKIP_SAVING = {
+    "DeepseekVLHybridGenerate",
+}
 
 
 def _to_numpy(tensor):
