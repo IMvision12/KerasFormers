@@ -175,17 +175,20 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 download **and** the re-conversion (and re-quantization). The
                 cache stores weights-only + a rebuild recipe, so it round-trips
                 every precision (unlike a full ``.keras`` save, which can't
-                reconstruct a quantized graph). Applies to subclassed models in
-                any precision and to functional models when float; a cache
-                miss / failure silently falls back to the source path. Best on a
-                persistent disk — set ``KERASFORMERS_HOME`` on ephemeral boxes.
+                reconstruct a quantized graph). Cache keys include the Hub commit
+                SHA, converter/cache layout, backend/dtype and quantization recipe.
+                Applies to subclassed models in any precision and to functional
+                models when float; a cache miss / failure silently falls back to
+                the source path. Best on a persistent disk — set
+                ``KERASFORMERS_HOME`` on ephemeral boxes.
             low_disk: If ``True``, stream a **sharded** ``hf:`` safetensors
                 checkpoint shard-by-shard — download one shard, convert it, evict
                 it before fetching the next — so peak local disk is ~one shard
                 and a checkpoint larger than the disk can be loaded. Composes with
                 ``low_memory`` / ``quantization`` / ``load_dtype`` (the full "too
-                big for the box" stack). No effect on single-file or ``.bin``
-                checkpoints.
+                big for the box" stack). A successful conversion records its source
+                tensor access order and reuses that order on future low-disk loads.
+                No effect on single-file or ``.bin`` checkpoints.
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` when applicable).
 
@@ -258,7 +261,9 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         if cache_directory is not None:
             from kerasformers.conversion import converted_cache
 
-            converted_cache.try_save_converted(model, cache_directory, quantization)
+            converted_cache.try_save_converted(
+                model, cache_directory, quantization, load_dtype
+            )
         return model
 
     @classmethod
@@ -395,10 +400,17 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 # expects, and handles bf16 -> float32. Used by the Qwen
                 # families, whose converters key off raw checkpoint tensors.
                 state_dict = download_hf_state_dict(hf_id, low_disk=low_disk)
-                with skip_mismatched_weights(skip_mismatch) as skipped:
-                    cls._quantized_transfer(
-                        model, state_dict, quantization, low_memory, skip_mismatch
-                    )
+                completed = False
+                try:
+                    with skip_mismatched_weights(skip_mismatch) as skipped:
+                        cls._quantized_transfer(
+                            model, state_dict, quantization, low_memory, skip_mismatch
+                        )
+                    completed = True
+                finally:
+                    close = getattr(state_dict, "close", None)
+                    if callable(close):
+                        close(completed=completed)
                 warn_skipped(skipped)
             elif hf_id:
                 from kerasformers.conversion.hf_download_utils import (
@@ -483,8 +495,15 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
             model = cls.from_release(variant, load_weights=False, **kwargs)
             if load_weights:
                 state_dict = download_hf_state_dict(hf_id, low_disk=low_disk)
-                with skip_mismatched_weights(skip_mismatch) as skipped:
-                    cls.transfer_from_timm(model, state_dict)
+                completed = False
+                try:
+                    with skip_mismatched_weights(skip_mismatch) as skipped:
+                        cls.transfer_from_timm(model, state_dict)
+                    completed = True
+                finally:
+                    close = getattr(state_dict, "close", None)
+                    if callable(close):
+                        close(completed=completed)
                 warn_skipped(skipped)
             return model
 
@@ -496,10 +515,17 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         model = cls(**kerasformers_kwargs)
         if load_weights:
             state_dict = download_hf_state_dict(hf_id, low_disk=low_disk)
-            with skip_mismatched_weights(skip_mismatch) as skipped:
-                cls._quantized_transfer(
-                    model, state_dict, quantization, low_memory, skip_mismatch
-                )
+            completed = False
+            try:
+                with skip_mismatched_weights(skip_mismatch) as skipped:
+                    cls._quantized_transfer(
+                        model, state_dict, quantization, low_memory, skip_mismatch
+                    )
+                completed = True
+            finally:
+                close = getattr(state_dict, "close", None)
+                if callable(close):
+                    close(completed=completed)
             warn_skipped(skipped)
         return model
 

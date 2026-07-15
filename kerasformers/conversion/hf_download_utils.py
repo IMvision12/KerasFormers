@@ -1,4 +1,5 @@
 import collections.abc
+import hashlib
 import json
 import os
 import tempfile
@@ -28,20 +29,24 @@ class LazyStateDict(collections.abc.Mapping):
     disk up front — each is downloaded to a private temp dir on first access and
     an earlier shard is evicted (deleted) before the next is fetched, so peak
     disk is ~one shard (plus a pinned shard 0). Lets a checkpoint larger than the
-    local disk be loaded, since converters walk weights in shard order.
+    local disk be loaded. After the first successful conversion, the observed
+    tensor-access order is persisted and reused to order shards on later loads.
     """
 
-    def __init__(self, tensor_to_path):
+    def __init__(self, tensor_to_path, shard_of=None, access_plan_path=None):
         self._paths = dict(tensor_to_path)
         self._handles = {}
         # streaming mode (all unset in the default, eager mode)
-        self._shard_of = None
+        self._shard_of = dict(shard_of) if shard_of is not None else None
         self._downloader = None
         self._shard_order = None
+        self._shard_index = None
         self._resident = {}
         self._pinned = set()
         self._frontier = -1
         self._tmpdir = None
+        self._access_plan_path = access_plan_path
+        self._accessed = []
 
     @classmethod
     def from_files(cls, paths):
@@ -55,7 +60,15 @@ class LazyStateDict(collections.abc.Mapping):
         return cls(tensor_to_path)
 
     @classmethod
-    def streaming(cls, weight_map, downloader, shard_order, pin=(), tmpdir=None):
+    def streaming(
+        cls,
+        weight_map,
+        downloader,
+        shard_order,
+        pin=(),
+        tmpdir=None,
+        access_plan_path=None,
+    ):
         """Build a download-on-access, evict-behind view over remote shards.
 
         Args:
@@ -67,10 +80,10 @@ class LazyStateDict(collections.abc.Mapping):
             tmpdir: a :class:`tempfile.TemporaryDirectory` to keep alive for the
                 lifetime of this view (cleaned up in :meth:`close`).
         """
-        self = cls({})
-        self._shard_of = dict(weight_map)
+        self = cls({}, shard_of=weight_map, access_plan_path=access_plan_path)
         self._downloader = downloader
         self._shard_order = list(shard_order)
+        self._shard_index = {name: i for i, name in enumerate(self._shard_order)}
         self._pinned = set(pin)
         self._tmpdir = tmpdir
         return self
@@ -88,17 +101,14 @@ class LazyStateDict(collections.abc.Mapping):
         """Ensure ``shard_key`` is on disk (streaming), evicting shards behind it."""
         if shard_key in self._resident:
             return self._resident[shard_key]
-        index = self._shard_order.index(shard_key)
+        index = self._shard_index[shard_key]
         if index > self._frontier:
             self._frontier = index
         # Evict BEFORE downloading so peak disk stays ~one shard (download-then-
         # evict would briefly hold two). A shard re-accessed after eviction is
         # simply re-downloaded, so this stays correct regardless of access order.
         for key in list(self._resident):
-            if (
-                key not in self._pinned
-                and self._shard_order.index(key) < self._frontier
-            ):
+            if key not in self._pinned and self._shard_index[key] < self._frontier:
                 self.evict(key)
         path = self._downloader(shard_key)
         self._resident[shard_key] = path
@@ -116,7 +126,7 @@ class LazyStateDict(collections.abc.Mapping):
             pass
 
     def __getitem__(self, key):
-        if self._shard_of is not None:
+        if self._shard_of is not None and self._downloader is not None:
             try:
                 shard_key = self._shard_of[key]
             except KeyError:
@@ -127,6 +137,7 @@ class LazyStateDict(collections.abc.Mapping):
                 path = self._paths[key]
             except KeyError:
                 raise KeyError(key) from None
+        self._accessed.append(key)
         return self.handle(path).get_tensor(key)
 
     def _keys(self):
@@ -142,13 +153,63 @@ class LazyStateDict(collections.abc.Mapping):
     def __len__(self):
         return len(self._keys())
 
-    def close(self):
+    def close(self, completed=True):
         self._handles.clear()
         for shard_key in list(self._resident):
             self.evict(shard_key)
         if self._tmpdir is not None:
             self._tmpdir.cleanup()
             self._tmpdir = None
+        if completed:
+            self._save_access_plan()
+
+    def _save_access_plan(self):
+        if not self._access_plan_path or not self._accessed:
+            return
+        try:
+            os.makedirs(os.path.dirname(self._access_plan_path), exist_ok=True)
+            tmp = f"{self._access_plan_path}.tmp"
+            with open(tmp, "w") as f:
+                json.dump({"version": 1, "tensors": self._accessed}, f)
+            os.replace(tmp, self._access_plan_path)
+        except OSError:
+            # This is strictly a performance hint. A failed write must not make
+            # a successful model conversion fail.
+            pass
+
+
+def _transfer_plan_path(hf_id):
+    home = os.environ.get(
+        "KERASFORMERS_HOME",
+        os.path.join(os.path.expanduser("~"), ".cache", "kerasformers"),
+    )
+    digest = hashlib.sha256(hf_id.encode()).hexdigest()[:16]
+    return os.path.join(home, "transfer-plans", f"{digest}.json")
+
+
+def _load_transfer_plan(path):
+    try:
+        with open(path) as f:
+            plan = json.load(f)
+        if plan.get("version") == 1 and isinstance(plan.get("tensors"), list):
+            return plan["tensors"]
+    except (OSError, ValueError, TypeError):
+        pass
+    return ()
+
+
+def _shard_order_for_plan(weight_map, tensor_plan):
+    """Put shards in the order a converter actually requested their tensors."""
+    order, seen = [], set()
+    for tensor_name in tensor_plan:
+        shard = weight_map.get(tensor_name)
+        if shard is not None and shard not in seen:
+            order.append(shard)
+            seen.add(shard)
+    for shard in sorted(set(weight_map.values())):
+        if shard not in seen:
+            order.append(shard)
+    return order
 
 
 def load_bin_state_dict(paths):
@@ -211,7 +272,8 @@ def download_hf_state_dict(hf_id, token=None, low_disk=False):
     if index_path is not None:
         with open(index_path, "r") as f:
             weight_map = json.load(f)["weight_map"]
-        shard_order = sorted(set(weight_map.values()))
+        plan_path = _transfer_plan_path(hf_id)
+        shard_order = _shard_order_for_plan(weight_map, _load_transfer_plan(plan_path))
         if low_disk:
             tmpdir = tempfile.TemporaryDirectory(prefix="kf_lowdisk_")
 
@@ -224,11 +286,16 @@ def download_hf_state_dict(hf_id, token=None, low_disk=False):
                 shard_order,
                 pin=(shard_order[0],),
                 tmpdir=tmpdir,
+                access_plan_path=plan_path,
             )
         local = {
             shard: hf_hub_download(hf_id, shard, token=token) for shard in shard_order
         }
-        return LazyStateDict({name: local[shard] for name, shard in weight_map.items()})
+        return LazyStateDict(
+            {name: local[shard] for name, shard in weight_map.items()},
+            shard_of=weight_map,
+            access_plan_path=plan_path,
+        )
 
     try:
         path = hf_hub_download(hf_id, "pytorch_model.bin", token=token)
@@ -321,7 +388,14 @@ def load_and_convert_from_hf(
         raise
 
     print(f"Converting {model_name} weights to Keras...")
-    transfer_fn(model, hf_state_dict)
+    completed = False
+    try:
+        transfer_fn(model, hf_state_dict)
+        completed = True
+    finally:
+        close = getattr(hf_state_dict, "close", None)
+        if callable(close):
+            close(completed=completed)
 
     os.makedirs(cache_dir, exist_ok=True)
 
