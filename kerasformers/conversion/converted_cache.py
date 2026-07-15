@@ -9,7 +9,14 @@ import numpy as np
 
 from kerasformers.conversion.hf_download_utils import LazyStateDict
 
-SHARD_LIMIT_BYTES = 5 * 1024**3
+# Cache files are intentionally much smaller than the maximum safetensors shard
+# size.  ``save_file`` needs one complete shard in memory, so a 5 GB shard would
+# defeat the cache's low-memory load path.
+SHARD_LIMIT_BYTES = 512 * 1024**2
+CACHE_FORMAT_VERSION = 2
+CACHE_LAYOUT_VERSION = 2
+CONVERTER_VERSION = 1
+QUANTIZATION_FORMAT_VERSION = 1
 
 
 def cache_root():
@@ -37,22 +44,69 @@ def quant_id(quantization):
     return str(quantization)
 
 
+def _source_identity(identifier):
+    """Return the immutable source identity used in a converted-cache key.
+
+    A moving Hub branch such as ``main`` is resolved to its commit SHA.  A
+    transient Hub failure does not make loading impossible: the unresolved
+    identity simply cannot collide with a cache created for a known revision.
+    """
+    if not identifier.startswith("hf:"):
+        return {"kind": "release", "identifier": identifier}
+
+    repo_id = identifier[len("hf:") :]
+    try:
+        from huggingface_hub import HfApi
+
+        info = HfApi().model_info(repo_id, timeout=5, token=os.environ.get("HF_TOKEN"))
+        return {"kind": "hf", "repo": repo_id, "revision": info.sha}
+    except Exception:
+        # An offline user can still safely reuse the immutable snapshot already
+        # selected by Hugging Face's local cache.
+        try:
+            from huggingface_hub import try_to_load_from_cache
+
+            config_path = try_to_load_from_cache(repo_id, "config.json")
+            if isinstance(config_path, str):
+                parts = os.path.normpath(config_path).split(os.sep)
+                snapshot_index = parts.index("snapshots")
+                return {
+                    "kind": "hf",
+                    "repo": repo_id,
+                    "revision": parts[snapshot_index + 1],
+                }
+        except (ImportError, OSError, ValueError):
+            pass
+        # Do not reuse a known-revision cache when we could not determine the
+        # source. This keeps an unavailable source correct rather than stale.
+        return {"kind": "hf", "repo": repo_id, "revision": "unresolved"}
+
+
+def _json_hash(value):
+    blob = json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
 def cache_dir(cls, identifier, quantization, load_dtype, kwargs):
     """Deterministic per-config cache directory for one converted model.
 
-    Keyed on the model class, source identifier, quantization spec, ``load_dtype``
-    and the arch ``**kwargs`` (e.g. ``num_classes`` / ``variant``). Excludes
+    Keyed on the model class, immutable source revision, converter/cache layout,
+    quantization recipe, backend/dtype and architecture arguments. Excludes
     ``attn_implementation`` (reapplied at build) and ``low_memory`` (same result).
     """
     payload = {
+        "cache_format": CACHE_FORMAT_VERSION,
+        "cache_layout": CACHE_LAYOUT_VERSION,
+        "converter": CONVERTER_VERSION,
+        "quantizer": QUANTIZATION_FORMAT_VERSION,
         "class": f"{cls.__module__}.{cls.__qualname__}",
-        "identifier": identifier,
+        "source": _source_identity(identifier),
         "quantization": quant_id(quantization),
         "load_dtype": load_dtype,
+        "backend": keras.backend.backend(),
         "kwargs": {k: kwargs[k] for k in sorted(kwargs)},
     }
-    blob = json.dumps(payload, sort_keys=True, default=str)
-    digest = hashlib.sha256(blob.encode()).hexdigest()[:16]
+    digest = _json_hash(payload)[:16]
     safe_id = re.sub(r"[^A-Za-z0-9._-]+", "_", identifier)
     return os.path.join(cache_root(), f"{safe_id}.{digest}")
 
@@ -92,10 +146,10 @@ def weight_key(model, w):
     return w.path[len(prefix) :] if w.path.startswith(prefix) else w.path
 
 
-def save_converted(model, directory, quantization):
+def save_converted(model, directory, quantization, load_dtype=None):
     """Cache a converted model's final weights + a rebuild recipe.
 
-    Stores ``model.weights`` as index-keyed sharded safetensors (≤5 GB shards)
+    Stores ``model.weights`` as index-keyed sharded safetensors (≤512 MB shards)
     plus ``meta.json`` (serialized config, quant id, per-weight keys + shapes).
     Subclassed models key weights by structural path; functional models by
     position (their auto-numbered layer names differ across a reload). Written
@@ -107,7 +161,6 @@ def save_converted(model, directory, quantization):
 
     os.makedirs(directory, exist_ok=True)
     weights = list(model.weights)
-    arrays = [np.ascontiguousarray(keras.ops.convert_to_numpy(w)) for w in weights]
 
     keying = "path" if isinstance(model, SubclassedBaseModel) else "index"
     if keying == "path":
@@ -119,7 +172,11 @@ def save_converted(model, directory, quantization):
 
     shards = []
     current, current_bytes, shard_idx = {}, 0, 0
-    for i, arr in enumerate(arrays):
+    for i, weight in enumerate(weights):
+        # Materialize and retain only the active shard.  The old implementation
+        # constructed a NumPy copy of *every* model weight before writing the
+        # first byte, which could double host memory for a large quantized model.
+        arr = np.ascontiguousarray(keras.ops.convert_to_numpy(weight))
         if current and current_bytes + arr.nbytes > SHARD_LIMIT_BYTES:
             name = f"weights-{shard_idx:05d}.safetensors"
             save_file(current, os.path.join(directory, name))
@@ -141,7 +198,14 @@ def save_converted(model, directory, quantization):
         config.pop("build_config", None)
 
     meta = {
+        "cache_format": CACHE_FORMAT_VERSION,
+        "cache_layout": CACHE_LAYOUT_VERSION,
+        "converter": CONVERTER_VERSION,
+        "quantizer": QUANTIZATION_FORMAT_VERSION,
+        "backend": keras.backend.backend(),
+        "load_dtype": load_dtype,
         "config": config,
+        "architecture_hash": _json_hash(config),
         "quantization": quant_id(quantization),
         "keying": keying,
         "keys": keys,
@@ -165,6 +229,23 @@ def load_converted(directory, quantization, load_dtype):
 
     with open(os.path.join(directory, "meta.json")) as f:
         meta = json.load(f)
+
+    expected = {
+        "cache_format": CACHE_FORMAT_VERSION,
+        "cache_layout": CACHE_LAYOUT_VERSION,
+        "converter": CONVERTER_VERSION,
+        "quantizer": QUANTIZATION_FORMAT_VERSION,
+        "backend": keras.backend.backend(),
+        "quantization": quant_id(quantization),
+        "load_dtype": load_dtype,
+    }
+    for key, value in expected.items():
+        if meta.get(key) != value:
+            raise ValueError(
+                f"Converted cache {key}={meta.get(key)!r} does not match {value!r}."
+            )
+    if meta.get("architecture_hash") != _json_hash(meta.get("config")):
+        raise ValueError("Converted cache architecture config is corrupt.")
 
     with build_dtype_scope(load_dtype):
         model = keras.saving.deserialize_keras_object(meta["config"])
@@ -216,10 +297,10 @@ def try_load_converted(directory, quantization, load_dtype):
         return None
 
 
-def try_save_converted(model, directory, quantization):
+def try_save_converted(model, directory, quantization, load_dtype=None):
     """Best-effort cache save: warn (never raise) if it can't be written."""
     try:
-        save_converted(model, directory, quantization)
+        save_converted(model, directory, quantization, load_dtype)
     except Exception as e:
         warnings.warn(
             f"Could not cache converted model to {directory} ({e}).", stacklevel=2

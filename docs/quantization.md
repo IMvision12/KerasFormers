@@ -197,9 +197,9 @@ Worked examples (int4, ≈ 0.55 B/param):
 
 ## Caveats (honest)
 
-- **Weight-only = memory, not speed.** Weights are dequantized to float every
-  `call`, so this reduces footprint, not latency (no int8/int4 matmul kernels —
-  that would be backend-specific).
+- **Portable weight-only = memory, not speed.** The default Keras path
+  dequantizes weights to float every `call`, so it reduces footprint rather than
+  latency.
 - **Float path vs no-float path.** By default `quantization=` and `load_quantized`
   build the float architecture before swapping in the quantized layers (floats
   freed after). The **no-float** path avoids that peak: `from_weights(...,
