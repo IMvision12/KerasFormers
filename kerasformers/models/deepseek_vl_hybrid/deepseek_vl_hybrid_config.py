@@ -63,18 +63,18 @@ DEEPSEEK_VL_HYBRID_CONFIG = {
 
 DEEPSEEK_VL_HYBRID_WEIGHTS_URLS = {
     "deepseek_vl_7b_chat": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_chat.weights.json"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_7b_chat.weights.json"
     },
     "deepseek_vl_7b_base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_base.weights.json"
+        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_7b_base.weights.json"
     },
 }
 
 DEEPSEEK_VL_HYBRID_TOKENIZER_URLS = {
     "deepseek_vl_7b_chat": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_chat_tokenizer.json"
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_7b_chat_tokenizer.json"
     },
     "deepseek_vl_7b_base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl_hybrid/deepseek_vl_7b_base_tokenizer.json"
+        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deepseek_vl/deepseek_vl_7b_base_tokenizer.json"
     },
 }
