@@ -10,34 +10,7 @@ from tests.base.model_test_registry import (
 
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
-# Subclassed (non-Functional) models materialize weights on first call, so
-# `load_weights` into a freshly constructed (unbuilt) instance can't work via
-# this roundtrip. Their weight save/load is exercised by the from_weights HF
-# parity path instead.
-SKIP_SAVING = {
-    "Qwen2VLModel",
-    "Qwen2_5VLModel",
-    "Qwen3VLModel",
-    "Qwen2VLGenerate",
-    "Qwen2_5VLGenerate",
-    "Qwen3VLGenerate",
-    "Qwen2Model",
-    "Qwen3Model",
-    "Qwen3_5Model",
-    "Qwen2Generate",
-    "Qwen3Generate",
-    "Qwen3_5Generate",
-    "GptOssModel",
-    "GptOssGenerate",
-    "GptModel",
-    "GptGenerate",
-    "GPT2Model",
-    "GPT2Generate",
-    "GraniteSpeechModel",
-    "GraniteSpeechGenerate",
-    "GraniteSpeechPlusModel",
-    "GraniteSpeechPlusGenerate",
-}
+SKIP_SAVING = set()
 
 
 def _to_numpy(tensor):
@@ -89,6 +62,10 @@ def test_save_weights_h5_roundtrip(model_name, tmp_path):
     model.save_weights(weights_path)
 
     fresh_model = model_cls(**config["init_kwargs"])
+    if not fresh_model.built:
+        # Subclassed models materialize weights on first call; build the
+        # fresh instance the same way before loading into it.
+        fresh_model(input_data)
     fresh_model.load_weights(weights_path)
 
     loaded_output = fresh_model(input_data)
