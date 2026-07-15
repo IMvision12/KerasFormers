@@ -164,8 +164,8 @@ class SENetImageClassify(ResNetImageClassify):
     def __init__(
         self,
         block_fn=bottleneck_block,
-        depths=[2, 2, 2, 2],
-        filters=[64, 128, 256, 512],
+        depths=(2, 2, 2, 2),
+        filters=(64, 128, 256, 512),
         groups=32,
         senet=True,
         width_factor=2,

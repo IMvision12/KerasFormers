@@ -29,8 +29,8 @@ class CLIPProcessor(BaseProcessor):
     def __init__(
         self,
         image_resolution=224,
-        mean=[0.48145466, 0.4578275, 0.40821073],
-        std=[0.26862954, 0.26130258, 0.27577711],
+        mean=(0.48145466, 0.4578275, 0.40821073),
+        std=(0.26862954, 0.26130258, 0.27577711),
         do_center_crop=True,
         do_normalize=True,
         do_resize=True,

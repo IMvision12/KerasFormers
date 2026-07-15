@@ -8,6 +8,9 @@ from kerasformers.models.grounding_dino.grounding_dino_model import (
 from kerasformers.models.grounding_dino.grounding_dino_processor import (
     GroundingDinoProcessor,
 )
+from kerasformers.models.grounding_dino.grounding_dino_text import (
+    GroundingDinoTextModel,
+)
 from kerasformers.models.grounding_dino.grounding_dino_tokenizer import (
     GroundingDinoTokenizer,
 )
@@ -15,6 +18,7 @@ from kerasformers.models.grounding_dino.grounding_dino_tokenizer import (
 __all__ = [
     "GroundingDinoModel",
     "GroundingDinoForObjectDetection",
+    "GroundingDinoTextModel",
     "GroundingDinoTokenizer",
     "GroundingDinoImageProcessor",
     "GroundingDinoProcessor",

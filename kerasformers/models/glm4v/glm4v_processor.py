@@ -20,7 +20,7 @@ class Glm4vProcessor(BaseProcessor):
 
     TOKENIZER_CLS = Glm4vTokenizer
     IMAGE_PROCESSOR_CLS = Glm4vImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

@@ -28,7 +28,7 @@ class Cohere2VisionProcessor(BaseProcessor):
 
     TOKENIZER_CLS = Cohere2Tokenizer
     IMAGE_PROCESSOR_CLS = Cohere2VisionImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

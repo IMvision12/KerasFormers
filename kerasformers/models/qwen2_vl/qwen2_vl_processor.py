@@ -27,7 +27,7 @@ class Qwen2VLProcessor(BaseProcessor):
     TOKENIZER_CLS = Qwen2VLTokenizer
     IMAGE_PROCESSOR_CLS = Qwen2VLImageProcessor
     video_processor_cls = Qwen2VLVideoProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor", "video_processor")
 
     def __init__(
         self,

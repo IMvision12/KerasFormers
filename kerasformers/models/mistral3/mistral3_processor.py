@@ -31,7 +31,7 @@ class Mistral3Processor(BaseProcessor):
 
     TOKENIZER_CLS = Mistral3Tokenizer
     IMAGE_PROCESSOR_CLS = Mistral3ImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

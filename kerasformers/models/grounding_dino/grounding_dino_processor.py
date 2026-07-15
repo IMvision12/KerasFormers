@@ -24,7 +24,7 @@ class GroundingDinoProcessor(BaseProcessor):
 
     TOKENIZER_CLS = GroundingDinoTokenizer
     IMAGE_PROCESSOR_CLS = GroundingDinoImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

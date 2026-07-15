@@ -35,7 +35,7 @@ class JanusProcessor(BaseProcessor):
 
     TOKENIZER_CLS = JanusTokenizer
     IMAGE_PROCESSOR_CLS = JanusImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

@@ -37,10 +37,10 @@ SKIP_DATA_FORMAT = {
     "Mask2FormerUniversalSegment",
     # Qwen-VL inputs are pre-patchified (no spatial axes) -> layout-agnostic.
     "Qwen2VLModel",
-    "Qwen2_5_VLModel",
+    "Qwen2_5VLModel",
     "Qwen3VLModel",
     "Qwen2VLGenerate",
-    "Qwen2_5_VLGenerate",
+    "Qwen2_5VLGenerate",
     "Qwen3VLGenerate",
     # Text LLMs are token-id only -> no image data format.
     "Qwen2Model",

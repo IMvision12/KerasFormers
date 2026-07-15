@@ -171,8 +171,8 @@ class ResNeXtModel(ResNetModel):
     def __init__(
         self,
         block_fn=resnext_block,
-        depths=[3, 4, 6, 3],
-        filters=[64, 128, 256, 512],
+        depths=(3, 4, 6, 3),
+        filters=(64, 128, 256, 512),
         groups=32,
         width_factor=2,
         as_backbone=False,
@@ -259,8 +259,8 @@ class ResNeXtImageClassify(ResNetImageClassify):
     def __init__(
         self,
         block_fn=resnext_block,
-        depths=[3, 4, 6, 3],
-        filters=[64, 128, 256, 512],
+        depths=(3, 4, 6, 3),
+        filters=(64, 128, 256, 512),
         groups=32,
         senet=False,
         width_factor=2,

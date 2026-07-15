@@ -769,7 +769,7 @@ class MobileViTV2SemanticSegment(FunctionalBaseModel):
         multiplier=1.0,
         image_size=512,
         output_stride=16,
-        atrous_rates: list = [6, 12, 18],
+        atrous_rates: tuple = (6, 12, 18),
         aspp_out_channels=512,
         aspp_dropout_prob=0.1,
         input_tensor=None,

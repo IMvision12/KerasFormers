@@ -85,7 +85,7 @@ class MiniMaxM3VLProcessor(BaseProcessor):
 
     TOKENIZER_CLS = MiniMaxM3VLTokenizer
     IMAGE_PROCESSOR_CLS = MiniMaxM3VLImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

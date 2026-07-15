@@ -1,10 +1,14 @@
+import keras
 import numpy as np
 from keras import ops
+
+from kerasformers.base import BaseImageProcessor
 
 from .qwen2_vl_image_processor import OPENAI_CLIP_MEAN, OPENAI_CLIP_STD, smart_resize
 
 
-class Qwen2VLVideoProcessor:
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLVideoProcessor(BaseImageProcessor):
     """Turn videos into ``{"pixel_values_videos", "video_grid_thw"}`` (pure keras.ops).
 
     Mirrors HF ``Qwen2VLVideoProcessor``: optionally subsample frames to a target
@@ -38,7 +42,9 @@ class Qwen2VLVideoProcessor:
         num_frames=None,
         min_frames=4,
         max_frames=768,
+        **kwargs,
     ):
+        super().__init__(**kwargs)
         self.patch_size = patch_size
         self.spatial_merge_size = spatial_merge_size
         self.temporal_patch_size = temporal_patch_size
@@ -140,7 +146,7 @@ class Qwen2VLVideoProcessor:
         flat = ops.reshape(patches, (grid_t * grid_h * grid_w, 3 * t * p * p))
         return ops.cast(flat, "float32"), [grid_t, grid_h, grid_w]
 
-    def __call__(self, videos, video_metadata=None):
+    def call(self, videos, video_metadata=None):
         vids = self._as_video_list(videos)
         if video_metadata is None:
             metas = [None] * len(vids)

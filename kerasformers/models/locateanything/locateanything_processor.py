@@ -65,7 +65,7 @@ class LocateAnythingProcessor(BaseProcessor):
 
     TOKENIZER_CLS = LocateAnythingTokenizer
     IMAGE_PROCESSOR_CLS = LocateAnythingImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,

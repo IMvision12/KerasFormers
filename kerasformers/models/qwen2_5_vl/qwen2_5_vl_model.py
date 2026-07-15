@@ -14,10 +14,10 @@ from .qwen2_5_vl_config import (
 )
 from .qwen2_5_vl_layers import (
     Qwen2_5_VisionPatchEmbed,
-    Qwen2_5_VLDecoderLayer,
-    Qwen2_5_VLPatchMerger,
-    Qwen2_5_VLRMSNorm,
-    Qwen2_5_VLVisionBlock,
+    Qwen2_5VLDecoderLayer,
+    Qwen2_5VLPatchMerger,
+    Qwen2_5VLRMSNorm,
+    Qwen2_5VLVisionBlock,
 )
 
 MASK_NEG = -1e9
@@ -87,7 +87,7 @@ def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLVisionModel(layers.Layer):
+class Qwen2_5VLVisionModel(layers.Layer):
     """Qwen2.5-VL vision tower: patch-embed -> windowed blocks -> 2x2 merger.
 
     Differs from the Qwen2-VL tower in its blocks (RMSNorm + SwiGLU instead of
@@ -145,12 +145,12 @@ class Qwen2_5_VLVisionModel(layers.Layer):
 
         self.patch_embed = Qwen2_5_VisionPatchEmbed(embed_dim, name="patch_embed")
         self.blocks = [
-            Qwen2_5_VLVisionBlock(
+            Qwen2_5VLVisionBlock(
                 embed_dim, num_heads, intermediate_size, name=f"blocks_{i}"
             )
             for i in range(depth)
         ]
-        self.merger = Qwen2_5_VLPatchMerger(
+        self.merger = Qwen2_5VLPatchMerger(
             out_hidden_size,
             embed_dim,
             spatial_merge_size,
@@ -242,12 +242,12 @@ class Qwen2_5_VLVisionModel(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLTextModel(layers.Layer):
-    """Qwen2.5 causal decoder: ``embed -> N x Qwen2_5_VLDecoderLayer -> RMSNorm``.
+class Qwen2_5VLTextModel(layers.Layer):
+    """Qwen2.5 causal decoder: ``embed -> N x Qwen2_5VLDecoderLayer -> RMSNorm``.
 
     Architecturally the same as the Qwen2 text decoder (GQA with qkv bias, SwiGLU).
     The token embedding lives here (``token_embedding``) and is reused (tied) as the
-    LM head by :class:`Qwen2_5_VLGenerate`. ``call`` takes the pre-computed
+    LM head by :class:`Qwen2_5VLGenerate`. ``call`` takes the pre-computed
     multimodal-fused ``inputs_embeds`` and merged M-RoPE ``cos`` / ``sin``, and
     threads an optional KV cache for incremental decoding.
 
@@ -298,7 +298,7 @@ class Qwen2_5_VLTextModel(layers.Layer):
             vocab_size, embed_dim, name="token_embedding"
         )
         self.decoder_layers = [
-            Qwen2_5_VLDecoderLayer(
+            Qwen2_5VLDecoderLayer(
                 embed_dim,
                 mlp_dim,
                 num_heads,
@@ -309,7 +309,7 @@ class Qwen2_5_VLTextModel(layers.Layer):
             )
             for i in range(num_layers)
         ]
-        self.final_norm = Qwen2_5_VLRMSNorm(eps=norm_eps, name="final_norm")
+        self.final_norm = Qwen2_5VLRMSNorm(eps=norm_eps, name="final_norm")
 
     def call(
         self,
@@ -358,15 +358,15 @@ class Qwen2_5_VLTextModel(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLModel(Qwen2VLModel):
+class Qwen2_5VLModel(Qwen2VLModel):
     """Qwen2.5-VL multimodal backbone: windowed vision tower + Qwen2.5 decoder.
 
     Subclasses :class:`Qwen2VLModel`, reusing its M-RoPE multimodal fusion, 3D
     position indexing, and image/video handling, but swaps in the Qwen2.5-VL
-    **windowed** vision tower (:class:`Qwen2_5_VLVisionModel`) and adds its extra
+    **windowed** vision tower (:class:`Qwen2_5VLVisionModel`) and adds its extra
     configuration (``window_size``, ``fullatt_block_indexes``, ``tokens_per_second``
     and the ``vision_*`` dims). This base model returns raw features (no LM head);
-    use :class:`Qwen2_5_VLGenerate` for logits / text.
+    use :class:`Qwen2_5VLGenerate` for logits / text.
 
     Output dict:
 
@@ -386,8 +386,8 @@ class Qwen2_5_VLModel(Qwen2VLModel):
 
     Construction:
 
-    >>> Qwen2_5_VLModel.from_weights("qwen2.5-vl-3b-instruct")
-    >>> Qwen2_5_VLModel.from_weights("hf:Qwen/Qwen2.5-VL-7B-Instruct")
+    >>> Qwen2_5VLModel.from_weights("qwen2.5-vl-3b-instruct")
+    >>> Qwen2_5VLModel.from_weights("hf:Qwen/Qwen2.5-VL-7B-Instruct")
 
     Reference:
         - `Qwen2.5-VL Technical Report <https://arxiv.org/abs/2502.13923>`_
@@ -404,7 +404,7 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         rope_theta: Rotary base frequency.
         mrope_section: Per-axis (temporal, height, width) channel split of the
             merged M-RoPE; sums to ``head_dim // 2``.
-        tie_embeddings: Whether :class:`Qwen2_5_VLGenerate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen2_5VLGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         vision_depth: Number of vision-transformer blocks.
         vision_embed_dim: Vision hidden width.
@@ -496,7 +496,7 @@ class Qwen2_5_VLModel(Qwen2VLModel):
         self.vision_end_token_id = vision_end_token_id
         self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
 
-        self.visual = Qwen2_5_VLVisionModel(
+        self.visual = Qwen2_5VLVisionModel(
             embed_dim=vision_embed_dim,
             depth=vision_depth,
             num_heads=vision_num_heads,
@@ -508,7 +508,7 @@ class Qwen2_5_VLModel(Qwen2VLModel):
             spatial_merge_size=spatial_merge_size,
             name="visual",
         )
-        self.language_model = Qwen2_5_VLTextModel(
+        self.language_model = Qwen2_5VLTextModel(
             vocab_size=vocab_size,
             embed_dim=embed_dim,
             mlp_dim=mlp_dim,
@@ -598,7 +598,7 @@ class Qwen2_5_VLModel(Qwen2VLModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5_VLGenerate(Qwen2_5_VLModel, BaseGeneration):
+class Qwen2_5VLGenerate(Qwen2_5VLModel, BaseGeneration):
     """Qwen2.5-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
     Same fast multimodal generation as
@@ -606,7 +606,7 @@ class Qwen2_5_VLGenerate(Qwen2_5_VLModel, BaseGeneration):
     runs the vision encoder + 3-axis M-RoPE prefill into a fixed KV cache (carrying
     ``rope_deltas``), then ``call_with_cache`` does text-only decode at M-RoPE position
     ``cache_idx + rope_delta``. The Qwen2.5-VL backbone (windowed vision encoder) resolves
-    through :class:`Qwen2_5_VLModel`. Pass pixels exactly as for :class:`Qwen2_5_VLModel`:
+    through :class:`Qwen2_5VLModel`. Pass pixels exactly as for :class:`Qwen2_5VLModel`:
     ``gen.generate(input_ids, pixel_values=..., image_grid_thw=...)``.
     """
 

@@ -29,7 +29,7 @@ class Gemma3Processor(BaseProcessor):
 
     TOKENIZER_CLS = Gemma3Tokenizer
     IMAGE_PROCESSOR_CLS = Gemma3ImageProcessor
-    COMPONENTS = ("tokenizer",)
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,
