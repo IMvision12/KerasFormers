@@ -84,10 +84,12 @@ def _pil_image():
 
 
 def _as_numpy(x) -> np.ndarray:
+    # .cpu() first: a CUDA tensor has both, and its .numpy() raises, so the
+    # other order breaks this whole suite on any GPU box (CI is CPU-only).
+    if hasattr(x, "cpu"):
+        return x.detach().cpu().numpy() if hasattr(x, "detach") else x.cpu().numpy()
     if hasattr(x, "numpy"):
         return x.numpy()
-    if hasattr(x, "cpu"):
-        return x.cpu().numpy()
     return keras.ops.convert_to_numpy(x)
 
 
@@ -512,3 +514,106 @@ def test_image_processor_three_way_parity(name, data_format):
             _pixels(cls(data_format=data_format), img),
             hf_px,
         )
+
+
+# ---------------------------------------------------------------------------
+# Offline coverage: snapshots, determinism, batching, and a guard on the test
+# inputs themselves.
+#
+# The vs-HF tests above only check the cases someone thought to write, against
+# an image that is already the target size. That blind spot hid a real bug:
+# CLIP's resize was never exercised (scale == 1), so a 0.735 max|diff| against
+# the reference sat in the suite unnoticed. These need no network and run on
+# every backend.
+# ---------------------------------------------------------------------------
+
+import inspect  # noqa: E402
+
+from tests.fixtures import snapshot_util  # noqa: E402
+
+# Shapes chosen to force real work: wider than tall, taller than wide, smaller
+# and larger than every target resolution, and one odd size that lands off the
+# patch grid.
+SNAPSHOT_SHAPES = {
+    "wide_48x96": (48, 96),
+    "tall_96x48": (96, 48),
+    "large_300x500": (300, 500),
+    "odd_223x225": (223, 225),
+}
+
+
+def _all_image_processors():
+    import kerasformers.models as models
+
+    found = {}
+    for family in sorted(n for n in dir(models) if not n.startswith("_")):
+        package = getattr(models, family)
+        for name in getattr(package, "__all__", []):
+            obj = getattr(package, name, None)
+            if inspect.isclass(obj) and name.endswith("ImageProcessor"):
+                found[name] = obj
+    return found
+
+
+IMAGE_PROCESSORS = _all_image_processors()
+
+
+def _synthetic(shape, seed=0):
+    rng = np.random.default_rng(seed)
+    return Image.fromarray((rng.random((*shape, 3)) * 255).astype("uint8"))
+
+
+def _record(processor, image):
+    out = processor(image)
+    out = out if isinstance(out, dict) else {"pixel_values": out}
+    record = {}
+    for key, value in out.items():
+        try:
+            record[key] = snapshot_util.stats(_as_numpy(value))
+        except (TypeError, ValueError):
+            record[key] = {"value": str(value)[:60]}
+    return record
+
+
+@pytest.mark.parametrize("name", sorted(IMAGE_PROCESSORS))
+def test_image_processor_snapshot(name):
+    """Pin each processor's output for fixed inputs, on every backend.
+
+    Also the only cross-backend check on preprocessing: the golden file is
+    shared, so a processor whose resize disagrees between torch/jax/tf fails
+    here on whichever backend drifted.
+    """
+    processor = IMAGE_PROCESSORS[name]()
+    record = {
+        label: _record(processor, _synthetic(shape))
+        for label, shape in sorted(SNAPSHOT_SHAPES.items())
+    }
+    snapshot_util.check("image_processor", name, record)
+
+
+@pytest.mark.parametrize("name", sorted(IMAGE_PROCESSORS))
+def test_image_processor_is_deterministic(name):
+    processor = IMAGE_PROCESSORS[name]()
+    image = _synthetic((64, 48))
+    first, second = _record(processor, image), _record(processor, image)
+    assert first == second, f"{name}: two calls on one image disagree"
+
+
+@pytest.mark.parametrize("name", sorted(IMAGE_PROCESSORS))
+def test_image_processor_resize_actually_runs(name):
+    """A processor that resizes must react to the input's size.
+
+    Guards the blind spot that hid the CLIP bug: feed only an
+    already-correctly-sized image and the resize is a no-op, so a broken resize
+    still matches the reference. If two very different inputs give byte-identical
+    output the input is not reaching the resize, and the case above is vacuous.
+    """
+    processor = IMAGE_PROCESSORS[name]()
+    if not getattr(processor, "do_resize", True):
+        pytest.skip(f"{name} does not resize")
+    small = _record(processor, _synthetic((32, 40), seed=1))
+    large = _record(processor, _synthetic((400, 260), seed=2))
+    assert small != large, (
+        f"{name}: a 32x40 and a 400x260 image produced identical output, so the "
+        "input never reaches the resize"
+    )
