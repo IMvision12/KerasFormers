@@ -1,145 +1,204 @@
-# LocateAnything (vision-language visual grounding)
+# LocateAnything
 
-**Paper**: [LocateAnything: Fast and High-Quality Vision-Language Grounding with Parallel Box Decoding](https://research.nvidia.com/labs/lpr/locate-anything/) (Wang et al., NVIDIA, 2026)
+NVIDIA's LocateAnything-3B grounding model, ported to pure Keras 3. A MoonViT
+native-resolution vision tower and connector feed a Qwen2.5-3B decoder, targeting
+vision-language grounding: object detection, OCR, pointing and referring.
 
-LocateAnything-3B is a generative vision-language model for **visual grounding**: it
-takes an image + a natural-language instruction and emits structured coordinates —
-boxes, points, and `<ref>` labels — for the requested objects/regions. One model and
-one set of weights cover object detection, referring, pointing, OCR/text detection,
-and layout/region grounding, selected by the prompt.
+The learned position grid uses the same spelled-out bicubic interpolation as
+Kimi's MoonViT, for backend-consistent parity.
 
-## Architecture Highlights
 
-- **MoonViT-SO-400M vision encoder:** a NaViT-packed ViT (native-resolution,
-  variable-length block-diagonal attention) with complex 2-D RoPE and a 2×2 patch
-  merge, feeding a 2-layer MLP projector (`mlp1`).
-- **Qwen2.5-3B-Instruct decoder:** the projected vision tokens are spliced into the
-  token-embedding stream at the image-token positions, then run through the reused
-  Qwen2 decoder.
-- **Parallel Box Decoding (PBD):** a multi-token-prediction head + "magi" block
-  attention let the model emit whole boxes/points in parallel for speed.
-- **Coordinates as tokens:** boxes are `<box><x1><y1><x2><y2></box>`, points are
-  `<box><x><y></box>`, with each coordinate a special token in the `[0, 1000]` grid;
-  open-vocabulary outputs are named with `<ref>label</ref>`.
+See also [kimi_k25.md](kimi_k25.md).
 
-## Available Variants
+## Variants
 
-| Variant | Vision | LLM | HF original |
-|---|---|---|---|
-| `locateanything_3b` | MoonViT-SO-400M | Qwen2.5-3B-Instruct | `nvidia/LocateAnything-3B` |
+Load any of these with `from_weights("<variant>")`.
 
-Classes: `LocateAnythingModel` (features) · `LocateAnythingGenerate` (+ LM head +
-`.generate()`) · `LocateAnythingProcessor` / `LocateAnythingTokenizer` · the helper
-`locate_prompt` and the parsers `parse_boxes` / `parse_points` / `parse_grounding`.
+| Variant | Hub |
+|---|---|
+| `locateanything_3b` | kerasformers release |
 
-## Weights
+## API
 
-Pre-converted Keras weights + `tokenizer.json` are cached from the `locateanything`
-GitHub release on first use
-([releases/tag/locateanything](https://github.com/IMvision12/KerasFormers/releases/tag/locateanything)).
-The original checkpoint also converts on the fly with
-`from_weights("hf:nvidia/LocateAnything-3B")`.
+### `LocateAnythingModel`
 
-## Tasks
+LocateAnything-3B backbone (no LM head).
 
-`locate_prompt(task, text)` builds the verbatim instruction the model was trained on
-(the strings match NVIDIA's `LocateAnythingWorker`):
-
-| Task | `locate_prompt(...)` | Parse with |
+| Arg | Default | Meaning |
 |---|---|---|
-| Object detection | `("detection", ["cat", "car"])` | `parse_boxes` |
-| Multi-instance referring | `("referring", "people wearing hats")` | `parse_grounding` |
-| Single-instance grounding | `("phrase_grounding", "the blue mug")` | `parse_boxes` |
-| Pointing | `("pointing", "the traffic light")` | `parse_points` |
-| OCR — scene text | `("ocr")` | `parse_grounding` |
-| OCR — text grounding | `("text_grounding", "the total due")` | `parse_boxes` |
-| Layout / region | `("layout", "the title bar")` | `parse_grounding` |
+| `vocab_size` | `152681` | token vocabulary size |
+| `embed_dim` | `2048` | text model width |
+| `mlp_dim` | `11008` | MLP inner width |
+| `num_layers` | `36` | decoder blocks |
+| `num_heads` | `16` | query heads |
+| `num_kv_heads` | `2` | key/value heads (GQA) |
+| `head_dim` | `128` | per-head width |
+| `norm_eps` | `1e-06` | normalization epsilon |
+| `rope_theta` | `1000000.0` | rotary base frequency |
+| `tie_embeddings` | `True` | reuse embeddings as the LM head |
+| `vision_embed_dim` | `1152` | vision tower width |
+| `vision_depth` | `27` | vision tower depth |
+| `vision_num_heads` | `16` | vision attention heads |
+| `vision_mlp_dim` | `4304` | vision MLP width |
+| `vision_patch_size` | `14` | vision patch size |
+| `vision_init_pos_h` | `64` |  |
+| `vision_init_pos_w` | `64` |  |
+| `merge_kernel` | `(2, 2)` | patch-merge kernel |
+| `vision_rope_theta` | `10000.0` | rotary base in the vision tower |
+| `image_token_index` | `151665` |  |
+| `block_size` | `6` |  |
+| `max_position_embeddings` | `32768` | longest position index the model builds |
 
-For `detection`, pass a **list** of categories (joined with the official `</c>`
-separator) or a pre-joined string.
+### `LocateAnythingGenerate`
 
-## Basic Usage
+LocateAnything-3B with the (tied) Qwen2 LM head -> logits.
 
 ```python
-from kerasformers.models.locateanything import (
-    LocateAnythingGenerate,
-    LocateAnythingProcessor,
-)
-
-model = LocateAnythingGenerate.from_weights("locateanything_3b")
-processor = LocateAnythingProcessor.from_weights("locateanything_3b")
-
-# original checkpoint on the fly
-model = LocateAnythingGenerate.from_weights("hf:nvidia/LocateAnything-3B")
-
-# untrained
-model = LocateAnythingGenerate.from_weights("locateanything_3b", load_weights=False)
+generate(input_ids, attention_mask=None, max_new_tokens=None,
+         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
 ```
 
-## Inference Example
+Image and video tensors ride along as `**prefill_inputs`; the processor
+produces them for you.
+
+### `LocateAnythingVisionModel`
+
+MoonViT-SO-400M: native-resolution packed ViT.
+
+| Arg | Default | Meaning |
+|---|---|---|
+| `embed_dim` | `1152` | text model width |
+| `depth` | `27` | vision tower depth |
+| `num_heads` | `16` | query heads |
+| `mlp_dim` | `4304` | MLP inner width |
+| `patch_size` | `14` | patch size |
+| `init_pos_h` | `64` |  |
+| `init_pos_w` | `64` |  |
+| `merge_kernel` | `(2, 2)` | patch-merge kernel |
+| `in_channels` | `3` | input image channels |
+| `rope_theta` | `10000.0` | rotary base frequency |
+
+### `LocateAnythingTokenizer`
+
+Qwen2.5 BPE tokenizer extended with LocateAnything's grounding tokens.
+
+| Arg | Default | Meaning |
+|---|---|---|
+| `variant` | `None` | variant whose tokenizer/processor files to fetch |
+| `hf_id` | `None` | Hub repo to pull tokenizer/processor files from |
+| `tokenizer_file` | `None` | explicit path to a `tokenizer.json` |
+
+### `LocateAnythingImageProcessor`
+
+Native-resolution patch preprocessor for LocateAnything / MoonViT.
+
+| Arg | Default | Meaning |
+|---|---|---|
+| `patch_size` | `14` | patch size |
+| `image_mean` | `(0.5, 0.5, 0.5)` | per-channel normalization mean |
+| `image_std` | `(0.5, 0.5, 0.5)` | per-channel normalization std |
+| `in_token_limit` | `4096` | max patches per image |
+| `merge_kernel_size` | `(2, 2)` | patch-merge kernel |
+
+### `LocateAnythingProcessor`
+
+Image + text -> model inputs for LocateAnything-3B.
+
+| Arg | Default | Meaning |
+|---|---|---|
+| `variant` | `None` | variant whose tokenizer/processor files to fetch |
+| `hf_id` | `None` | Hub repo to pull tokenizer/processor files from |
+| `tokenizer` | `None` | override the default tokenizer |
+| `image_processor` | `None` | override the default image processor |
+| `merge_kernel_size` | `(2, 2)` | patch-merge kernel |
+
+## End-to-end example
+
+### Single input (image + text)
 
 ```python
-import keras
+import os
+os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
 from PIL import Image
-from kerasformers.models.locateanything import (
-    LocateAnythingGenerate,
-    LocateAnythingProcessor,
-    locate_prompt,
-)
+from kerasformers.models.locateanything import LocateAnythingGenerate, LocateAnythingProcessor
 
 model = LocateAnythingGenerate.from_weights("locateanything_3b")
 processor = LocateAnythingProcessor.from_weights("locateanything_3b")
 
-img = Image.open("image.jpg").convert("RGB")
-W, H = img.size
+image = Image.open("photo.jpg")
+inputs = processor(conversation=[{
+    "role": "user",
+    "content": [
+        {"type": "image", "image": image},
+        {"type": "text", "text": "Describe this image in one sentence."},
+    ],
+}])
+outputs = model.generate(**inputs, max_new_tokens=64)
 
-messages = [{"role": "user", "content": [
-    {"type": "image", "image": img},
-    {"type": "text", "text": locate_prompt("detection", ["cat", "remote"])},
-]}]
-inputs = processor(conversation=messages)
-
-ids = model.generate(
-    keras.ops.convert_to_numpy(inputs["input_ids"]),
-    pixel_values=keras.ops.convert_to_numpy(inputs["pixel_values"]),
-    image_grid_hws=keras.ops.convert_to_numpy(inputs["image_grid_hws"]),
-    tokenizer=processor.tokenizer,
-    max_new_tokens=512,
-)
-
-for item in processor.parse_grounding(ids[0]):
-    # {"label": "cat", "box": [x1, y1, x2, y2]}  — coords in the [0, 1000] grid
-    if "box" in item:
-        x1, y1, x2, y2 = [c / 1000 for c in item["box"]]
-        print(item["label"], [x1 * W, y1 * H, x2 * W, y2 * H])
-    elif "point" in item:
-        x, y = item["point"][0] / 1000 * W, item["point"][1] / 1000 * H
-        print(item["label"], (x, y))
+print(processor.decode(outputs[0]))
 ```
 
-Coordinates are returned in the normalized `[0, 1000]` grid; multiply by `W / 1000`
-and `H / 1000` for pixels. `parse_boxes` returns `[[x1, y1, x2, y2], …]`,
-`parse_points` returns `[[x, y], …]`, and `parse_grounding` pairs each `<ref>` label
-with the boxes/points that follow it.
+### Several images in one conversation
 
-## Generation Modes
+Add one image content item per image. The processor expands each marker to
+that image's own patch count:
 
-`generation_mode` selects the decode path (KV-cached in all three):
+```python
+inputs = processor(conversation=[{
+    "role": "user",
+    "content": [
+        {"type": "image", "image": Image.open("a.jpg")},
+        {"type": "image", "image": Image.open("b.jpg")},
+        {"type": "text", "text": "What differs between these two images?"},
+    ],
+}])
+outputs = model.generate(**inputs, max_new_tokens=64)
+```
 
-- `"hybrid"` (**default**) — Parallel Box Decoding with an autoregressive fallback;
-  fastest.
-- `"fast"` — MTP only.
-- `"slow"` — pure autoregressive.
+### Batch
 
-All three produce clean, correct output. The official stochastic settings are
-available too: pass `temperature=0.7, top_p=0.9, repetition_penalty=1.1` to
-`.generate()`.
+`LocateAnythingProcessor` renders one conversation per call: it walks messages, so a list
+of conversations is not a valid input. Loop over them instead:
 
-## Parity vs Reference
+```python
+questions = [
+    ("a.jpg", "What is in this image?"),
+    ("b.jpg", "Describe the colours."),
+]
+for path, question in questions:
+    inputs = processor(conversation=[{
+        "role": "user",
+        "content": [
+            {"type": "image", "image": Image.open(path)},
+            {"type": "text", "text": question},
+        ],
+    }])
+    outputs = model.generate(**inputs, max_new_tokens=64)
+    print(processor.decode(outputs[0]))
+```
 
-The MoonViT vision encoder matches NVIDIA's `modeling_vit.py` at cosine `1.0`, the
-box-decoding logic is bit-identical to the official `generate_utils`, and end-to-end
-the model reproduces the reference's documented boxes (e.g. the COCO cats image: two
-cats + two remotes with a clean stop). The full HuggingFace model itself is not used
-as a parity reference because NVIDIA's `trust_remote_code` modeling has
-transformers-version drift; the kerasformers port loads the safetensors directly.
+Text-only prompts do batch in one call, since there are no images to line
+up: pass `text=[...]` with no `images`.
+
+### Text only
+
+```python
+from kerasformers.models.locateanything import LocateAnythingTokenizer
+
+tokenizer = LocateAnythingTokenizer.from_weights("locateanything_3b")
+inputs = tokenizer([{"role": "user", "content": "Who wrote Dune?"}])
+outputs = model.generate(**inputs, max_new_tokens=32)
+print(tokenizer.decode(outputs[0]))
+```
+
+### Lower memory
+
+Larger checkpoints load in bf16 or weight-only quantized. See
+[quantization.md](quantization.md):
+
+```python
+model = LocateAnythingGenerate.from_weights(
+    "locateanything_3b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+)
+```
