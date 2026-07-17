@@ -48,7 +48,12 @@ def _to_rows(out, pad_id=None):
     ids = out["input_ids"] if "input_ids" in out else out["token_ids"]
     mask = out.get("attention_mask", out.get("padding_mask"))
 
-    if isinstance(ids, list) and ids and isinstance(ids[0], (list, tuple)):
+    if (
+        isinstance(ids, list)
+        and ids
+        and isinstance(ids[0], (list, tuple))
+        and mask is None
+    ):
         return [[int(t) for t in r] for r in ids]  # ragged, already real tokens
 
     arr = _np(ids)
@@ -349,3 +354,177 @@ def test_bert_token_type_ids_pairs():
         "bert pairs: token_type_ids differ"
     )
     assert int(o_types[o_mask].max()) == 1, "expected a second segment (type id 1)"
+
+
+# ---------------------------------------------------------------------------
+# Snapshots + semantics, over EVERY exported tokenizer.
+#
+# The parity table above is hand-maintained and covers 23 of the 60 tokenizers;
+# the other 37 (every LLM: gemma, llama, mistral, qwen-moe, deepseek, glm,
+# cohere, kimi ...) had no test at all. These enumerate the package instead, so
+# a new tokenizer is covered the day it lands rather than when someone
+# remembers to add a SPECS row.
+#
+# Most LLM tokenizers need an `hf_id`, which their own config already publishes
+# per variant, so it is resolved from there rather than duplicated here. A
+# tokenizer that cannot be built (gated repo, missing asset) skips.
+# ---------------------------------------------------------------------------
+
+import inspect  # noqa: E402
+
+from tests.fixtures import snapshot_util  # noqa: E402
+
+SNAPSHOT_TEXTS = [
+    "a quick brown fox jumps over the lazy dog",
+    "Hello, World!",
+    "tokenization 123 parity",
+    "",
+]
+
+
+def _all_tokenizers():
+    import kerasformers.models as models
+
+    found = {}
+    for family in sorted(n for n in dir(models) if not n.startswith("_")):
+        package = getattr(models, family)
+        for name in getattr(package, "__all__", []):
+            obj = getattr(package, name, None)
+            if inspect.isclass(obj) and name.endswith("Tokenizer"):
+                found[name] = (obj, family)
+    return found
+
+
+ALL_TOKENIZERS = _all_tokenizers()
+
+
+def _family_hf_id(family):
+    """First hf_id any variant of this family publishes."""
+    try:
+        config = importlib.import_module(
+            f"kerasformers.models.{family}.{family}_config"
+        )
+    except Exception:
+        return None
+    for attr in dir(config):
+        value = getattr(config, attr)
+        if not isinstance(value, dict):
+            continue
+        for entry in value.values():
+            if isinstance(entry, dict) and entry.get("hf_id"):
+                return entry["hf_id"]
+    return None
+
+
+def _any_tokenizer(name):
+    """Build ``name``, or skip with the reason it cannot be tested as text.
+
+    Not every exported ``*Tokenizer`` encodes text: OneFormer's takes a task
+    name (``call(task="panoptic")``) and returns ``task_inputs``. Those skip
+    rather than recording a failure as if it were the expected output.
+    """
+    cls, family = ALL_TOKENIZERS[name]
+    try:
+        tok = cls()
+    except Exception as default_error:
+        hf_id = _family_hf_id(family)
+        if not hf_id:
+            pytest.skip(f"{name}: no default and no hf_id in config ({default_error})")
+        try:
+            tok = cls(hf_id=hf_id)
+        except Exception as e:
+            pytest.skip(f"{name}: cannot construct via {hf_id!r} ({type(e).__name__})")
+    try:
+        _to_rows(tok(["probe text"]))
+    except Exception as e:
+        pytest.skip(f"{name}: does not encode plain text ({type(e).__name__}: {e})")
+    return tok
+
+
+@pytest.mark.parametrize("name", sorted(ALL_TOKENIZERS))
+def test_tokenizer_snapshot(name):
+    """Pin the exact ids each tokenizer produces for fixed texts.
+
+    Needs no HF reference at compare time, so it still guards the ids when a
+    repo is gated, renamed, or simply offline.
+    """
+    tok = _any_tokenizer(name)
+    record = {
+        (text or "<empty>"): {"ids": [int(i) for i in _to_rows(tok([text]))[0]]}
+        for text in SNAPSHOT_TEXTS
+    }
+    snapshot_util.check("tokenizer", name, record)
+
+
+@pytest.mark.parametrize("name", sorted(ALL_TOKENIZERS))
+def test_tokenizer_batch_matches_individual(name):
+    """A batch must encode each text the same as encoding it alone.
+
+    Padding is the only allowed difference: if batching moves the real tokens,
+    every batched inference is quietly wrong.
+    """
+    tok = _any_tokenizer(name)
+    pad_id = getattr(tok, "pad_token_id", None)
+    batch = _to_rows(tok(TEXTS), pad_id=pad_id)
+    for text, batched in zip(TEXTS, batch):
+        alone = _to_rows(tok([text]), pad_id=pad_id)[0]
+        assert list(batched) == list(alone), (
+            f"{name}: {text!r} encodes differently in a batch than alone"
+        )
+
+
+@pytest.mark.parametrize("name", sorted(ALL_TOKENIZERS))
+def test_tokenizer_mask_marks_real_tokens(name):
+    """The mask must be 1 on real tokens and 0 on padding, contiguously.
+
+    A mask that disagrees with the ids lets padding into attention, which is
+    silent: shapes still line up and outputs are merely wrong.
+    """
+    tok = _any_tokenizer(name)
+    out = tok(TEXTS)
+    if not isinstance(out, dict):
+        pytest.skip(f"{name}: no dict output")
+    mask_key = next((k for k in ("attention_mask", "padding_mask") if k in out), None)
+    if mask_key is None:
+        pytest.skip(f"{name}: emits no mask")
+    ids_key = "input_ids" if "input_ids" in out else "token_ids"
+    ids = _np(out[ids_key])
+    mask = _np(out[mask_key]).astype(int)
+    lengths = [len(_to_rows(tok([t]))[0]) for t in TEXTS]
+    for row_mask, length in zip(mask, lengths):
+        kept = int(row_mask.sum())
+        assert kept == length, (
+            f"{name}: mask keeps {kept} tokens, text encodes to {length}"
+        )
+        assert list(row_mask[:length]) == [1] * length, (
+            f"{name}: mask not 1 on real tokens"
+        )
+        assert not any(row_mask[length:]), f"{name}: mask not 0 on padding"
+    assert ids.shape == mask.shape, f"{name}: ids {ids.shape} vs mask {mask.shape}"
+
+
+@pytest.mark.parametrize("name", sorted(ALL_TOKENIZERS))
+def test_tokenizer_decode_roundtrip(name):
+    """decode(encode(x)) recovers the text, ignoring case and special tokens.
+
+    Also pins the contract `BaseTokenizer` declares: decode returns a str, and
+    batch_decode a flat list of str (metaclip2 returned lists of lists).
+    """
+    tok = _any_tokenizer(name)
+    text = "a quick brown fox jumps over the lazy dog"
+    rows = _to_rows(tok([text]))
+    try:
+        back = tok.decode(rows[0])
+    except Exception as e:
+        pytest.skip(f"{name}: decode unavailable ({type(e).__name__}: {e})")
+    assert isinstance(back, str), (
+        f"{name}: decode returned {type(back).__name__}, not str"
+    )
+    normalized = "".join(c for c in back.lower() if c.isalnum())
+    expected = "".join(c for c in text.lower() if c.isalnum())
+    assert expected in normalized, f"{name}: decode lost the text: {back!r}"
+
+    batch = tok.batch_decode([rows[0], rows[0]])
+    assert all(isinstance(b, str) for b in batch), (
+        f"{name}: batch_decode returned {[type(b).__name__ for b in batch]}, not str"
+    )

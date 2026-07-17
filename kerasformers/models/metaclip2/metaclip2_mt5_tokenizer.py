@@ -116,21 +116,13 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
             "padding_mask": keras.ops.convert_to_tensor(attention_mask, dtype="int32"),
         }
 
-    def decode(self, ids) -> List[str]:
-        if hasattr(ids, "numpy"):
-            ids = ids.numpy()
-        ids = np.asarray(ids)
-        if ids.ndim == 1:
-            ids = ids[None, :]
-        out = []
-        for row in ids:
-            keep = [
-                int(i)
-                for i in row
-                if int(i) not in (self.eos_token_id, self.pad_token_id)
-            ]
-            out.append(self._sp.decode(keep))
-        return out
+    def decode(self, ids, skip_special_tokens: bool = True) -> str:
+        # `to_id_list` rather than `.numpy()`: the latter raises on a CUDA
+        # tensor, which is what the torch backend hands back on a GPU.
+        ids = self.to_id_list(ids)
+        if skip_special_tokens:
+            ids = [i for i in ids if i not in (self.eos_token_id, self.pad_token_id)]
+        return self._sp.decode(ids)
 
     def get_config(self):
         config = super().get_config()

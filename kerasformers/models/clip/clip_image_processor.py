@@ -121,12 +121,14 @@ class CLIPImageProcessor(BaseImageProcessor):
         self.data_format = get_data_format(data_format)
 
     def preprocess(self, image: Any) -> Any:
-        image = self.to_3_channels(image)
-        image = self.to_unit_range(image)
-
+        # Resize first, on the raw uint8 image: the reference interpolates
+        # before rescaling, and bicubic on uint8 (clamped and rounded) is not
+        # the same as bicubic on floats.
+        arr = load_image(image)
         if self.do_resize:
-            image = self._resize_with_aspect_ratio(image)
+            arr = self.resize_to_target(arr)
 
+        image = self.to_unit_range(arr)
         if self.do_center_crop:
             image = self._center_crop(image)
 
@@ -137,24 +139,31 @@ class CLIPImageProcessor(BaseImageProcessor):
 
         return image
 
-    def _resize_with_aspect_ratio(self, image: Any) -> Any:
-        shape = ops.shape(image)
-        height = ops.cast(shape[0], "float32")
-        width = ops.cast(shape[1], "float32")
-        target_size = ops.cast(self.image_resolution, "float32")
+    def target_size(self, height: int, width: int) -> tuple:
+        """Resized ``(height, width)``: shortest edge to ``image_resolution``.
 
-        scale = target_size / ops.minimum(height, width)
+        Mirrors the reference's shortest-edge rule, which sets the short side
+        exactly and derives the long side, rather than scaling both by a float.
+        """
+        if width <= height:
+            return int(self.image_resolution * height / width), self.image_resolution
+        return self.image_resolution, int(self.image_resolution * width / height)
 
-        new_height = ops.cast(height * scale, "int32")
-        new_width = ops.cast(width * scale, "int32")
+    def resize_to_target(self, image: np.ndarray) -> np.ndarray:
+        """Bicubic resize through PIL, matching the reference.
 
-        image = ops.image.resize(
-            image,
-            (new_height, new_width),
-            interpolation="bicubic",
+        ``ops.image.resize``'s bicubic agrees with neither PIL nor itself
+        across backends (max|diff| vs the reference ~0.7 on torch, ~0.5 on
+        jax), so the interpolation has to go through PIL to stay correct and
+        backend-independent.
+        """
+        new_height, new_width = self.target_size(image.shape[0], image.shape[1])
+        if (new_height, new_width) == image.shape[:2]:
+            return image
+        pil = Image.fromarray(image).resize(
+            (new_width, new_height), Image.Resampling.BICUBIC
         )
-
-        return image
+        return np.asarray(pil)
 
     def _center_crop(self, image: Any) -> Any:
         shape = ops.shape(image)
@@ -198,24 +207,9 @@ class CLIPImageProcessor(BaseImageProcessor):
         return ops.where(can_crop, simple_cropped, padded_cropped)
 
     def process_path(self, image_path: str) -> Any:
-        arr = load_image(image_path)
-        if self.do_resize:
-            h, w = arr.shape[:2]
-            scale = float(self.image_resolution) / float(min(h, w))
-            new_h = int(h * scale)
-            new_w = int(w * scale)
-            if (new_h, new_w) != (h, w):
-                pil = Image.fromarray(arr.astype(np.uint8))
-                pil = pil.resize((new_w, new_h), Image.BICUBIC)
-                arr = np.array(pil)
-        image = self.to_unit_range(arr)
-        if self.do_center_crop:
-            image = self._center_crop(image)
-        if self.do_normalize:
-            image = self.normalize_image(
-                image, self.mean, self.std, data_format="channels_last"
-            )
-        return image
+        # One implementation for every input type: a second copy here is what
+        # let the array path drift away from this one in the first place.
+        return self.preprocess(image_path)
 
     def __call__(
         self,
@@ -228,25 +222,24 @@ class CLIPImageProcessor(BaseImageProcessor):
         image: Union[str, List[str], np.ndarray, Image.Image, "keras.KerasTensor"],
     ) -> Dict[str, Any]:
         if isinstance(image, str):
-            processed_image = self.process_path(image)
-            images = ops.expand_dims(processed_image, axis=0)
+            images = ops.expand_dims(self.preprocess(image), axis=0)
         elif isinstance(image, (list, tuple)):
             if len(image) == 0:
                 raise ValueError("image list cannot be empty")
             if not all(isinstance(p, str) for p in image):
                 raise ValueError("List inputs must be a list of file paths")
-            processed_images = [self.process_path(p) for p in image]
-            images = ops.stack(processed_images)
+            images = ops.stack([self.preprocess(p) for p in image])
         elif isinstance(image, Image.Image):
-            arr = np.array(image)
-            processed_image = self.preprocess(arr)
-            images = ops.expand_dims(processed_image, axis=0)
+            images = ops.expand_dims(self.preprocess(image), axis=0)
         else:
-            if len(ops.shape(image)) == 3:
-                processed_image = self.preprocess(image)
-                images = ops.expand_dims(processed_image, axis=0)
-            elif len(ops.shape(image)) == 4:
-                images = ops.vectorized_map(self.preprocess, image)
+            rank = len(ops.shape(image))
+            if rank == 3:
+                images = ops.expand_dims(self.preprocess(image), axis=0)
+            elif rank == 4:
+                # A loop, not vectorized_map: preprocessing resizes through PIL
+                # to match the reference, which cannot be traced.
+                batch = np.asarray(ops.convert_to_numpy(image))
+                images = ops.stack([self.preprocess(frame) for frame in batch])
             else:
                 raise ValueError(
                     f"Input images must have 3 dimensions (H, W, C) or 4 dimensions (B, H, W, C), "

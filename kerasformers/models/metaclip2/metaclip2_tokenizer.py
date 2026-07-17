@@ -1,7 +1,6 @@
 from typing import List, Union
 
 import keras
-import numpy as np
 from keras import ops
 from tokenizers import Tokenizer
 
@@ -83,18 +82,14 @@ class MetaClip2Tokenizer(BaseTokenizer):
             "padding_mask": ops.convert_to_tensor(mask, dtype="int32"),
         }
 
-    def decode(self, ids) -> List[str]:
-        if hasattr(ids, "numpy"):
-            ids = ids.numpy()
-        ids = np.asarray(ids)
-        if ids.ndim == 1:
-            ids = ids[None, :]
-        skip = {self.bos_token_id, self.eos_token_id, self.pad_token_id}
-        out = []
-        for row in ids:
-            keep = [int(i) for i in row if int(i) not in skip]
-            out.append(self._tok.decode(keep, skip_special_tokens=False))
-        return out
+    def decode(self, ids, skip_special_tokens: bool = True) -> str:
+        # `to_id_list` rather than `.numpy()`: the latter raises on a CUDA
+        # tensor, which is what the torch backend hands back on a GPU.
+        ids = self.to_id_list(ids)
+        if skip_special_tokens:
+            skip = {self.bos_token_id, self.eos_token_id, self.pad_token_id}
+            ids = [i for i in ids if i not in skip]
+        return self._tok.decode(ids, skip_special_tokens=False)
 
     def get_config(self):
         config = super().get_config()

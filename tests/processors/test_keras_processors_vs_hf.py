@@ -13,10 +13,12 @@ MM_TEXTS = ["a photo of a cat", "two dogs running on the beach"]
 
 
 def _as_numpy(x) -> np.ndarray:
+    # .cpu() first: a CUDA tensor has both, and its .numpy() raises, so the
+    # other order breaks this whole suite on any GPU box (CI is CPU-only).
+    if hasattr(x, "cpu"):
+        return x.detach().cpu().numpy() if hasattr(x, "detach") else x.cpu().numpy()
     if hasattr(x, "numpy"):
         return x.numpy()
-    if hasattr(x, "cpu"):
-        return x.cpu().numpy()
     return keras.ops.convert_to_numpy(x)
 
 
@@ -37,6 +39,12 @@ def _max_diff(a: np.ndarray, b: np.ndarray) -> float:
 def _rgb(side, seed=0):
     rng = np.random.default_rng(seed)
     return (rng.random((side, side, 3)) * 255).astype("uint8")
+
+
+def _rgb_shape(shape, seed=0):
+    """Non-square image: a square one at the target size skips the resize."""
+    rng = np.random.default_rng(seed)
+    return (rng.random((*shape, 3)) * 255).astype("uint8")
 
 
 def _strip_pad(ids, mask):
@@ -143,3 +151,73 @@ def test_whisper_processor_three_way():
             f"whisper[{leg}]: input_ids differ from HF"
         )
         print(f"[{leg:>7} whisper processor   ] ids ok, mel max|diff|={diff:.3e}")
+
+
+# ---------------------------------------------------------------------------
+# Snapshots + a non-square parity case.
+#
+# Every parity test above feeds a square image at exactly the target
+# resolution, which makes the resize a no-op (scale == 1). A broken resize
+# therefore matched the reference anyway: CLIP shipped a 0.735 max|diff|
+# against HF on any real photo while this suite stayed green. The cases below
+# use a non-square image so the resize actually runs.
+# ---------------------------------------------------------------------------
+
+from tests.fixtures import snapshot_util  # noqa: E402
+
+
+def _pil_processor(repo):
+    """The PIL-backed HF reference.
+
+    transformers 5.x makes the torchvision backend the default under the plain
+    name, and the two disagree by ~1.5e-2 on a resize. kerasformers implements
+    PIL semantics (what the original models shipped), so compare against PIL.
+    """
+    try:
+        return AutoProcessor.from_pretrained(repo, use_fast=False)
+    except Exception as e:
+        pytest.skip(f"HF PIL processor for {repo!r} unavailable: {e}")
+
+
+def test_clip_processor_non_square_parity():
+    from kerasformers.models.clip.clip_processor import CLIPProcessor
+
+    repo = "openai/clip-vit-base-patch16"
+    hf = _pil_processor(repo)
+    for shape in [(64, 48), (48, 96), (300, 500), (223, 225)]:
+        img = _rgb_shape(shape)
+        ref = _as_numpy(
+            hf(text=["x"], images=Image.fromarray(img), return_tensors="np")[
+                "pixel_values"
+            ]
+        )
+        ours = _as_numpy(CLIPProcessor()(text=["x"], images=img)["images"])
+        diff = _max_diff(ours, ref)
+        assert diff < 1e-4, f"clip{shape}: pixel max|diff|={diff:.3e}"
+
+
+@pytest.mark.parametrize(
+    "name,repo,cls_path",
+    [
+        ("clip", "openai/clip-vit-base-patch16", "clip.clip_processor.CLIPProcessor"),
+        (
+            "siglip",
+            "google/siglip-base-patch16-224",
+            "siglip.siglip_processor.SigLIPProcessor",
+        ),
+    ],
+)
+def test_processor_snapshot(name, repo, cls_path):
+    """Pin ids + pixel stats for a fixed text/image pair, HF not required."""
+    import importlib
+
+    module, cls_name = cls_path.rsplit(".", 1)
+    cls = getattr(importlib.import_module(f"kerasformers.models.{module}"), cls_name)
+    out = cls()(text=MM_TEXTS, images=_rgb_shape((64, 48)))
+    ids_key = "input_ids" if "input_ids" in out else "token_ids"
+    pixel_key = "images" if "images" in out else "pixel_values"
+    record = {
+        "ids": [[int(i) for i in row] for row in _as_numpy(out[ids_key])],
+        "pixels": snapshot_util.stats(_as_numpy(out[pixel_key])),
+    }
+    snapshot_util.check("processor", name, record)
