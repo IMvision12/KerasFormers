@@ -293,7 +293,7 @@ class Mistral3Model(SubclassedBaseModel):
         })
         out["last_hidden_state"]  # (B, L, embed_dim)
 
-    The vision keys are optional — text-only inputs work unchanged.
+    The vision keys are optional: text-only inputs work unchanged.
 
     Args:
         vocab_size: Token vocabulary size.

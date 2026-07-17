@@ -12,9 +12,9 @@ class DeiTModel(ViTModel):
     """Instantiates the Data-efficient Image Transformer (DeiT) backbone.
 
     DeiT is a thin :class:`ViTModel` subclass that loads DeiT and DeiT III
-    timm weights. The architecture mirrors ViT — patch embedding, learnable
+    timm weights. The architecture mirrors ViT: patch embedding, learnable
     CLS token, position embedding, and ``depth`` standard transformer
-    encoder blocks — but is paired with a data-efficient training recipe
+    encoder blocks, but is paired with a data-efficient training recipe
     that enables strong ImageNet-only training. The distilled variants
     additionally prepend a learnable distillation token alongside the CLS
     token, which is trained against a teacher's predictions; this is
@@ -84,7 +84,7 @@ class DeiTImageClassify(ViTImageClassify):
     single Dense layer on the CLS token (index 0 of the backbone's
     output) to produce ``num_classes`` class logits. When
     ``use_distillation=True``, a second Dense head is attached to the
-    distillation token (index 1) and the two head outputs are averaged —
+    distillation token (index 1) and the two head outputs are averaged:
     matching the DeiT-distilled inference recipe. All architectural
     parameters are forwarded to the underlying :class:`DeiTModel`; only
     ``num_classes`` and ``classifier_activation`` are head-specific.
@@ -119,7 +119,7 @@ class DeiTImageClassify(ViTImageClassify):
         use_distillation: Boolean, if `True`, prepend a separate
             distillation token alongside the class token and attach a
             second prediction head whose output is averaged with the CLS
-            head — the DeiT-distilled inference recipe. Defaults to
+            head: the DeiT-distilled inference recipe. Defaults to
             `False`.
         layer_scale_init: Optional float, initial gamma value for LayerScale
             applied on both residual branches (used by DeiT III). If
@@ -127,7 +127,7 @@ class DeiTImageClassify(ViTImageClassify):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

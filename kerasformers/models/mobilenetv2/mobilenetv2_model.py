@@ -249,7 +249,7 @@ class MobileNetV2Model(FunctionalBaseModel):
     inverted residual blocks with linear bottlenecks: each block expands
     the channel count via a 1x1 conv, applies a depthwise separable
     3x3 conv, projects back down with a 1x1 conv (no activation on the
-    projection — the "linear bottleneck"), and adds a residual connection
+    projection: the "linear bottleneck"), and adds a residual connection
     when the spatial / channel shapes match. The network is composed of
     a stem, seven such inverted-residual stages, and a 1x1 head conv,
     with channel widths controlled by a single width multiplier.
@@ -273,7 +273,7 @@ class MobileNetV2Model(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -422,7 +422,7 @@ class MobileNetV2ImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

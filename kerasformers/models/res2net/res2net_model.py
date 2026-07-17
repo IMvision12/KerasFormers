@@ -281,10 +281,10 @@ class Res2NetModel(FunctionalBaseModel):
     with a hierarchical multi-scale residual structure: the intermediate
     feature map is split into ``scale`` groups along the channel axis,
     each group is processed by its own 3x3 conv, and the outputs are
-    fused via residual connections to subsequent groups — increasing the
+    fused via residual connections to subsequent groups, increasing the
     effective receptive-field range at fine granularity without adding
     depth. The output tensor is the last layer output before the
-    classifier head — the final-stage feature map ``(B, H, W, C)``.
+    classifier head: the final-stage feature map ``(B, H, W, C)``.
     :class:`Res2NetImageClassify` composes this model and applies a
     GlobalAveragePooling2D + Dense head to produce logits.
 
@@ -311,7 +311,7 @@ class Res2NetModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for
@@ -465,7 +465,7 @@ class Res2NetImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for

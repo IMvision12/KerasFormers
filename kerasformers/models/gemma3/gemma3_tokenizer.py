@@ -8,7 +8,7 @@ class Gemma3Tokenizer(BaseTokenizer):
     """Gemma 3 SentencePiece-BPE tokenizer (``tokenizers`` backend).
 
     Loads the model's ``tokenizer.json`` (downloaded on the fly from ``hf_id``
-    when no explicit file is given; the official google repos are gated —
+    when no explicit file is given; the official google repos are gated:
     public mirrors like ``unsloth/gemma-3-4b-it`` work too) and exposes
     ``encode`` / ``decode`` plus the image special tokens
     (``<start_of_image>`` / ``<end_of_image>`` / ``<image_soft_token>``).

@@ -1,6 +1,6 @@
 # XLM-RoBERTa (multilingual text encoder)
 
-Facebook AI's XLM-RoBERTa in **pure Keras 3** — the multilingual variant of
+Facebook AI's XLM-RoBERTa in **pure Keras 3**: the multilingual variant of
 RoBERTa, pretrained on 2.5TB of filtered CommonCrawl across 100 languages, with
 its masked-LM, sequence-classification, token-classification,
 question-answering, and multiple-choice heads. One implementation runs
@@ -19,9 +19,9 @@ on real checkpoints (see below).
 | `XLMRobertaMultipleChoice` | `kerasformers.models.xlm_roberta` | per-choice logits `(B, num_choices)` |
 | `XLMRobertaTokenizer` | `kerasformers.models.xlm_roberta` | SentencePiece → `input_ids` / `attention_mask` / `token_type_ids` |
 
-XLM-RoBERTa is **architecturally identical to RoBERTa** — it reuses the same
+XLM-RoBERTa is **architecturally identical to RoBERTa**: it reuses the same
 encoder, padding-offset position ids, single token-type, `1e-5` LayerNorm, and
-head structures — and differs only in scale: a 250k multilingual SentencePiece
+head structures, and differs only in scale: a 250k multilingual SentencePiece
 vocabulary instead of RoBERTa's 50k byte-level BPE. All models are functional
 `FunctionalBaseModel`s; the head classes compose an `XLMRobertaModel` backbone.
 
@@ -29,9 +29,9 @@ vocabulary instead of RoBERTa's 50k byte-level BPE. All models are functional
 
 Two paths, both via `from_weights`:
 
-- **Official release variant** — `from_weights("xlm_roberta_base")` downloads the
+- **Official release variant**: `from_weights("xlm_roberta_base")` downloads the
   kerasformers-release `.weights.h5`.
-- **`hf:` community fine-tune** — `from_weights("hf:org/repo")` reads the repo's
+- **`hf:` community fine-tune**: `from_weights("hf:org/repo")` reads the repo's
   `config.json` (architecture + `num_labels`) and loads the checkpoint, including
   the fine-tuned classifier head.
 
@@ -70,19 +70,19 @@ French, and Japanese inputs were checked).
 
 ## Forward pass
 
-The models take a dict of token ids, an attention mask, and segment ids — exactly
+The models take a dict of token ids, an attention mask, and segment ids: exactly
 what `XLMRobertaTokenizer` returns (segment ids are always `0`):
 
 ```python
 inputs = {
     "input_ids":      input_ids,       # (B, L) int
-    "attention_mask": attention_mask,  # (B, L) int — 1 keep, 0 pad
-    "token_type_ids": token_type_ids,  # (B, L) int — all 0
+    "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
+    "token_type_ids": token_type_ids,  # (B, L) int: all 0
 }
 XLMRobertaModel.from_weights("xlm_roberta_base")(inputs)["last_hidden_state"]
 ```
 
-These are token-id models — **no spatial H/W axes**, so `channels_first/last`
+These are token-id models: **no spatial H/W axes**, so `channels_first/last`
 does not apply.
 
 ### Fill-mask (multilingual)
@@ -121,10 +121,10 @@ ner = XLMRobertaTokenClassify.from_weights("hf:Davlan/xlm-roberta-base-ner-hrl")
 ```python
 from kerasformers.models.xlm_roberta import XLMRobertaQnA, XLMRobertaMultipleChoice
 
-# extractive QA — start/end span logits, from a multilingual SQuAD fine-tune
+# extractive QA: start/end span logits, from a multilingual SQuAD fine-tune
 qa = XLMRobertaQnA.from_weights("hf:deepset/xlm-roberta-base-squad2")
 
-# multiple choice — inputs are (B, num_choices, seq); fix num_choices at build
+# multiple choice: inputs are (B, num_choices, seq); fix num_choices at build
 mc = XLMRobertaMultipleChoice.from_weights("hf:org/xlm-roberta-xcopa", num_choices=2)
 ```
 
@@ -146,7 +146,7 @@ consume.
 
 ## Architecture notes
 
-XLM-RoBERTa reuses RoBERTa's encoder verbatim (`roberta_backbone`) — see the
+XLM-RoBERTa reuses RoBERTa's encoder verbatim (`roberta_backbone`): see the
 [RoBERTa notes](roberta.md) for the embeddings (masked-`cumsum` position offset),
 post-LayerNorm encoder blocks (`1e-5` epsilon, exact `gelu`), `<s>` pooler, and
 head structures. The only differences are scale (`vocab_size=250002`,

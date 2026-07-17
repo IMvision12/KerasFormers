@@ -5,7 +5,7 @@ from kerasformers.base.base_attention import fused_attention
 
 
 def quick_gelu(x):
-    """``x * sigmoid(1.702 * x)`` — the GELU approximation Qwen2-VL's vision
+    """``x * sigmoid(1.702 * x)``: the GELU approximation Qwen2-VL's vision
     MLP uses (``hidden_act="quick_gelu"``)."""
     return x * ops.sigmoid(1.702 * x)
 
@@ -309,7 +309,7 @@ class Qwen2VLPatchEmbed(layers.Layer):
     """Patch embedding for Qwen2-VL's vision tower.
 
     HF uses a ``Conv3d`` whose kernel equals its stride and tiles each
-    ``(temporal_patch_size, patch_size, patch_size)`` patch exactly once — i.e.
+    ``(temporal_patch_size, patch_size, patch_size)`` patch exactly once, i.e.
     a per-patch linear projection. The processor already flattens every patch
     to a ``in_channels * temporal_patch_size * patch_size**2`` vector, so this
     is just a bias-free ``Dense`` (no spatial axes, hence layout-agnostic).

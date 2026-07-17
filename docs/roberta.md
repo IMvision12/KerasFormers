@@ -1,6 +1,6 @@
 # RoBERTa (text encoder)
 
-Facebook AI's RoBERTa in **pure Keras 3** — the robustly-optimized bidirectional
+Facebook AI's RoBERTa in **pure Keras 3**: the robustly-optimized bidirectional
 transformer text encoder with its masked-LM, sequence-classification,
 token-classification, question-answering, and multiple-choice heads. One
 implementation runs unmodified on **TensorFlow / Torch / JAX**, with bit-close
@@ -32,9 +32,9 @@ token-type, and the sentence classifier reads the `<s>` token directly through a
 
 Two paths, both via `from_weights`:
 
-- **Official release variant** — `from_weights("roberta_base")` downloads the
+- **Official release variant**: `from_weights("roberta_base")` downloads the
   kerasformers-release `.weights.h5`.
-- **`hf:` community fine-tune** — `from_weights("hf:org/repo")` reads the repo's
+- **`hf:` community fine-tune**: `from_weights("hf:org/repo")` reads the repo's
   `config.json` (architecture + `num_labels`) and loads the checkpoint, including
   the fine-tuned classifier head.
 
@@ -75,19 +75,19 @@ inputs).
 
 ## Forward pass
 
-The models take a dict of token ids, an attention mask, and segment ids — exactly
+The models take a dict of token ids, an attention mask, and segment ids: exactly
 what `RobertaTokenizer` returns (segment ids are always `0` for RoBERTa):
 
 ```python
 inputs = {
     "input_ids":      input_ids,       # (B, L) int
-    "attention_mask": attention_mask,  # (B, L) int — 1 keep, 0 pad
-    "token_type_ids": token_type_ids,  # (B, L) int — all 0
+    "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
+    "token_type_ids": token_type_ids,  # (B, L) int: all 0
 }
 RobertaModel.from_weights("roberta_base")(inputs)["last_hidden_state"]
 ```
 
-These are token-id models — **no spatial H/W axes**, so `channels_first/last`
+These are token-id models: **no spatial H/W axes**, so `channels_first/last`
 does not apply.
 
 ### Fill-mask
@@ -125,12 +125,12 @@ used for zero-shot classification.
 ```python
 from kerasformers.models.roberta import RobertaQnA, RobertaMultipleChoice
 
-# extractive QA — start/end span logits, from a SQuAD fine-tune
+# extractive QA: start/end span logits, from a SQuAD fine-tune
 qa = RobertaQnA.from_weights("hf:deepset/roberta-base-squad2")
 out = qa(tokenizer("Where is Paris?", text_pair="Paris is in France."))
 out["start_logits"]  # (B, L)   out["end_logits"]  # (B, L)
 
-# multiple choice — inputs are (B, num_choices, seq); fix num_choices at build
+# multiple choice: inputs are (B, num_choices, seq); fix num_choices at build
 mc = RobertaMultipleChoice.from_weights("hf:org/roberta-swag", num_choices=4)
 ```
 
@@ -150,18 +150,18 @@ list of strings, or a sentence pair (`text_pair=`), and returns the `input_ids` 
 
 ## Architecture notes
 
-- **Embeddings** — summed word + absolute-position + token-type embeddings, then
+- **Embeddings**: summed word + absolute-position + token-type embeddings, then
   LayerNorm + dropout. Position ids are derived from the non-padding mask
   (`cumsum(input_ids != pad) * mask + pad`) so padding tokens map to the padding
   slot and the first real token starts at `pad + 1`; this is computed with masked
   `cumsum` rather than `arange`, keeping the model shape-polymorphic across
   backends.
-- **Encoder** — `num_layers` post-LayerNorm transformer blocks
+- **Encoder**: `num_layers` post-LayerNorm transformer blocks
   (`LayerNorm(x + Sublayer(x))`): multi-head self-attention with an additive
   padding mask, then a `mlp_dim` feed-forward with `hidden_act` (exact `gelu`).
   `layer_norm_eps` is `1e-5`.
-- **Pooler** — a `tanh` dense projection of the `<s>` token (`RobertaModel`).
-- **Heads** — `RobertaMaskedLM` adds the transform (dense + `gelu` + LayerNorm)
+- **Pooler**: a `tanh` dense projection of the `<s>` token (`RobertaModel`).
+- **Heads**: `RobertaMaskedLM` adds the transform (dense + `gelu` + LayerNorm)
   and a vocabulary projection; `RobertaSequenceClassify` uses RoBERTa's
   classification head (dropout + `tanh` dense + dropout + projection) on the
   `<s>` token; the other classify models add dropout + a dense classifier.

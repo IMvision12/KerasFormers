@@ -315,8 +315,8 @@ class BertMaskedLM(FunctionalBaseModel):
     """BERT with the masked-language-modeling head.
 
     Wraps a :class:`BertModel` backbone (no pooler) and attaches BERT's MLM head
-    — a dense transform with ``hidden_act`` + LayerNorm, then a vocabulary
-    projection — producing token logits ``(B, seq, vocab_size)``. The head's
+    a dense transform with ``hidden_act`` + LayerNorm, then a vocabulary
+    projection, producing token logits ``(B, seq, vocab_size)``. The head's
     weights are part of the pretrained checkpoint, so ``from_weights`` restores
     a ready-to-use fill-mask model.
 
@@ -488,7 +488,7 @@ class BertSequenceClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -642,7 +642,7 @@ class BertTokenClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -747,7 +747,7 @@ class BertNextSentencePredict(FunctionalBaseModel):
     """BERT next-sentence-prediction head.
 
     Wraps a :class:`BertModel` backbone (with pooler) and attaches BERT's
-    next-sentence head — a dense projection of the pooled [CLS] token to two
+    next-sentence head: a dense projection of the pooled [CLS] token to two
     logits (``isNext`` / ``notNext``), ``(B, 2)``. These head weights are part
     of the pretrained checkpoint, so loading a base BERT via ``hf:`` restores a
     working NSP model.
@@ -787,7 +787,7 @@ class BertNextSentencePredict(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -920,7 +920,7 @@ class BertQnA(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -1055,7 +1055,7 @@ class BertMultipleChoice(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )

@@ -8,7 +8,7 @@ class MiniMaxTokenizer(BaseTokenizer):
     """MiniMax-Text-01 GPT-2-style byte-level BPE tokenizer (~200k vocab).
 
     Built from the checkpoint's ``vocab.json`` + ``merges.txt`` with the
-    classic GPT-2 byte-level pre-tokenizer — matching the slow
+    classic GPT-2 byte-level pre-tokenizer, matching the slow
     ``GPT2Tokenizer`` the HF checkpoint resolves to (the repo's
     ``tokenizer.json`` encodes a different pre-tokenizer and diverges from
     it). No BOS/EOS is added.

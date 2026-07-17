@@ -7,7 +7,7 @@ class Cohere2VisionAttention(layers.Layer):
     """SigLIP multi-head self-attention (full, bidirectional, biased).
 
     Standard scaled dot-product attention over all patch tokens with no causal
-    or padding mask — every patch attends to every patch. Unlike the text
+    or padding mask: every patch attends to every patch. Unlike the text
     decoder's attention, all four projections (``query`` / ``key`` / ``value`` /
     ``output_proj``) carry biases, and there is no rotary embedding or grouped
     KV: ``num_heads`` query heads each of width ``embed_dim // num_heads``,

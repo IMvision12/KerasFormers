@@ -14,7 +14,7 @@ with the LM head.
 kerasformers ships a **pure Keras 3** port of all eight official OpenAI
 checkpoints with bit-close parity to HuggingFace's reference
 implementation. The processor, encoder, decoder, and greedy `generate`
-loop run unmodified on TensorFlow / Torch / JAX backends — no
+loop run unmodified on TensorFlow / Torch / JAX backends: no
 `transformers` or `torch` runtime dependency.
 
 ## Classes
@@ -93,7 +93,7 @@ from kerasformers.models.whisper import WhisperModel
 # kerasformers release variant
 model = WhisperModel.from_weights("whisper_tiny")
 
-# Any HF Hub repo whose model_type is "whisper" — original openai checkpoints
+# Any HF Hub repo whose model_type is "whisper": original openai checkpoints
 # or any community fine-tune sharing the same architecture
 model = WhisperModel.from_weights("hf:openai/whisper-tiny")
 model = WhisperModel.from_weights("hf:aware-ai/whisper-tiny-german")
@@ -133,7 +133,7 @@ model = WhisperModel(
 ## Loading HF Fine-tunes
 
 Any HF repo whose `model_type` is `"whisper"` can be loaded directly
-via `WhisperModel.from_weights("hf:<repo>")` — the class reads d_model, depth, head count,
+via `WhisperModel.from_weights("hf:<repo>")`: the class reads d_model, depth, head count,
 activation, and `scale_embedding` straight from the HF config. The
 converter normalizes both `WhisperForConditionalGeneration`
 (`model.encoder.*` prefix) and `WhisperModel` (`encoder.*` prefix)
@@ -155,15 +155,15 @@ text = model.generate(audio, processor, language="de", task="transcribe")
   the `<|translate|>` task token.
 - **Generation in the model class**: `WhisperSpeechToText` extends
   `WhisperModel` and adds an end-to-end `.generate(audio, processor, ...)`
-  method — mirrors HF's `WhisperForConditionalGeneration` (model class +
+  method: mirrors HF's `WhisperForConditionalGeneration` (model class +
   `.generate()` method).
 - **Audio classification**: `WhisperAudioClassify` mirrors HF's
-  `WhisperForAudioClassification` — encoder + projector + linear head
+  `WhisperForAudioClassification`: encoder + projector + linear head
   for tasks like language id, keyword spotting, or music-genre
   classification. Supports `use_weighted_layer_sum` over all encoder
   hidden states.
 - **Single processor entry point**: `WhisperProcessor` bundles the
-  feature extractor, tokenizer, and `forced_decoder_ids` builder —
+  feature extractor, tokenizer, and `forced_decoder_ids` builder:
   matches the HF API surface so port code is one-liner equivalent.
 - **Pure Keras 3**: feature extractor uses `keras.ops.stft` and runs on
   any backend; tokenizer is a Rust-backed
@@ -172,7 +172,7 @@ text = model.generate(audio, processor, language="de", task="transcribe")
   works for arbitrary community fine-tunes whose `model_type` is
   `"whisper"`, including the bare `WhisperModel` (no LM head) variant.
 - **Fine-tune compatibility**: `activation_function`, `layer_norm_eps`,
-  and `scale_embedding` are read from the HF config — fine-tunes that
+  and `scale_embedding` are read from the HF config: fine-tunes that
   swap GELU for another activation or enable embedding scaling load
   correctly.
 - **Fine-tunable**: every variable in the encoder + decoder is
@@ -180,7 +180,7 @@ text = model.generate(audio, processor, language="de", task="transcribe")
 
 ## Basic Usage
 
-The shortest path is `WhisperSpeechToText` — same model graph as
+The shortest path is `WhisperSpeechToText`: same model graph as
 `WhisperModel` plus an end-to-end `.generate(audio, processor, ...)`
 method (audio in, text out).
 
@@ -230,7 +230,7 @@ processor = WhisperProcessor.from_weights("whisper_base")
 audio, sr = sf.read("assets/librispeech_sample.wav")
 assert sr == 16000
 
-# Transcribe — `.generate` runs feature extraction, encoder,
+# Transcribe: `.generate` runs feature extraction, encoder,
 # greedy decoding, and detokenization in one call.
 text = model.generate(audio, processor, language="en", task="transcribe", max_new_tokens=224)
 print(text[0])
@@ -244,12 +244,12 @@ print(text[0])
 
 Whisper's training data includes capitalization and punctuation, so the
 output reads more naturally than the LibriSpeech reference (which is
-all-caps and punctuation-stripped). Both are correct — the words match
+all-caps and punctuation-stripped). Both are correct: the words match
 once you normalize.
 
 ### Translation to English
 
-Swap `task="transcribe"` for `task="translate"` — `.generate` looks
+Swap `task="transcribe"` for `task="translate"`: `.generate` looks
 up the right token ids internally:
 
 ```python
@@ -258,7 +258,7 @@ text = model.generate(wave, processor, language="fr", task="translate", max_new_
 
 ### Auto language detection
 
-Pass `language=None` to drop the language slot from the prompt — the
+Pass `language=None` to drop the language slot from the prompt: the
 decoder picks the language from its own logits at position 1.
 
 ```python
@@ -283,7 +283,7 @@ forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
 # Encode once.
 enc_out = model.encoder(inputs["input_features"])
 
-# Then drive decoding however you like — call model.decoder per step
+# Then drive decoding however you like: call model.decoder per step
 # with {"decoder_input_ids": ids, "encoder_hidden_states": enc_out}
 # and apply your own logits processors / search strategy.
 ```
@@ -291,7 +291,7 @@ enc_out = model.encoder(inputs["input_features"])
 ### Large-v3 / large-v3-turbo
 
 `whisper_large_v3` and `whisper_large_v3_turbo` use **128 mel bins** and
-the **v3 tokenizer** (vocab 51 866 — adds Cantonese `yue`). The
+the **v3 tokenizer** (vocab 51 866: adds Cantonese `yue`). The
 processor handles both via constructor kwargs:
 
 ```python
@@ -306,13 +306,13 @@ forced = processor.get_decoder_prompt_ids(language="yue", task="transcribe")
 
 Token ids for `<|transcribe|>` / `<|translate|>` / `<|notimestamps|>`
 shift by `+1` between v1 and v3 (because of the extra Cantonese
-language id) — `get_decoder_prompt_ids` resolves them dynamically from
+language id): `get_decoder_prompt_ids` resolves them dynamically from
 each variant's `added_tokens.json`, so the same calling code works
 across all eight variants.
 
 ## Processor
 
-`WhisperProcessor` is the recommended top-level entry point — it
+`WhisperProcessor` is the recommended top-level entry point: it
 bundles the feature extractor, tokenizer, and `forced_decoder_ids`
 builder behind a single object that mirrors HuggingFace's
 `transformers.WhisperProcessor` API.
@@ -357,12 +357,12 @@ processor.tokenizer           # WhisperTokenizer
 ```
 
 The two sub-components are documented below in case you need fine
-control over them — but for normal use, `WhisperProcessor` is enough.
+control over them, but for normal use, `WhisperProcessor` is enough.
 
 ## Feature Extractor
 
 `WhisperFeatureExtractor` is a **pure Keras 3** mel-spectrogram
-extractor — every numeric op (`stft`, `matmul`, `log`, `maximum`) goes
+extractor: every numeric op (`stft`, `matmul`, `log`, `maximum`) goes
 through `keras.ops`, so the same code runs on TF / Torch / JAX. Only
 the input-list normalization is numpy plumbing.
 
@@ -481,7 +481,7 @@ model = WhisperAudioClassify(
 
 With `use_weighted_layer_sum=True`, a learnable softmax combines all
 encoder hidden states (post-embedding through final LayerNorm) before
-the projector — matches the HF config flag and weight key
+the projector: matches the HF config flag and weight key
 `layer_weights`.
 
 ## Fine-tuning

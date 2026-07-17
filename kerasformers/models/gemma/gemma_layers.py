@@ -8,8 +8,8 @@ from kerasformers.base.base_attention import fused_attention
 class GemmaRMSNorm(layers.Layer):
     """Gemma root-mean-square layer norm with the ``(1 + weight)`` scale.
 
-    Normalizes the last axis by its RMS in float32 and — unlike the Llama
-    norm — multiplies by ``(1 + weight)`` *before* casting back to the input
+    Normalizes the last axis by its RMS in float32 and: unlike the Llama
+    norm: multiplies by ``(1 + weight)`` *before* casting back to the input
     dtype (the checkpoint stores zero-initialized weights). Shape-preserving.
 
     Args:

@@ -114,7 +114,7 @@ class JanusModel(SubclassedBaseModel):
     The 384px image becomes 576 patch tokens, aligned to the text width and
     scattered into the ``image_token_id`` (``<image_placeholder>``) slots of
     the decoder input. The VQ-VAE image-generation stack of the released
-    checkpoints (``vqmodel`` + generation heads) is not ported — this is the
+    checkpoints (``vqmodel`` + generation heads) is not ported: this is the
     understanding (image+text -> text) path only. Returns raw features; use
     :class:`JanusGenerate` for logits / text.
 

@@ -702,7 +702,7 @@ class MaskFormerUniversalSegment(FunctionalBaseModel):
             "num_queries": decoder.get("num_queries", 100),
             "num_classes": hf_num_classes(hf_config),
             # The Swin sub-config's image_size is its 224 pretrain resolution,
-            # not the segmentation size — keep the class default.
+            # not the segmentation size: keep the class default.
         }
 
     @classmethod

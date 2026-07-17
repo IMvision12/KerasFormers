@@ -52,7 +52,7 @@ The number of stages and their semantics depend on the architecture:
 | DenseNet                                            | 4 (post-transition + final BN/ReLU)                             |
 | VGG                                                 | 5 (post-pool stages)                                            |
 | Xception                                            | 3 (entry / middle / exit flow)                                  |
-| ConvMixer                                           | 1 (no natural multi-scale hierarchy — singleton list)           |
+| ConvMixer                                           | 1 (no natural multi-scale hierarchy: singleton list)           |
 | Swin / SwinV2 / PoolFormer / NextViT / MaxViT       | 4 (native hierarchical pyramid)                                 |
 | InceptionV3 / InceptionV4 / InceptionNext           | 4 (at major reduction boundaries)                               |
 | InceptionResNetV2                                   | 3 (post each Inception-ResNet group; `conv2d_7b` head excluded) |
@@ -61,9 +61,9 @@ The number of stages and their semantics depend on the architecture:
 | PiT                                                 | 5 (stem + per-stage + final norm)                               |
 | MLP-Mixer / ResMLP                                  | per-block (typically ~12; final norm excluded)                  |
 
-**Head conv exclusion.** For architectures that have a 1×1 "head conv" at the end of the backbone-feature function (EfficientNet / MobileNet families, NextViT's trailing BN, InceptionResNetV2's `conv2d_7b`), the head conv is **only** applied when `as_backbone=False`. When you ask for stages, you get the last MBConv/stage output before that head conv — which is usually what you want for downstream tasks.
+**Head conv exclusion.** For architectures that have a 1×1 "head conv" at the end of the backbone-feature function (EfficientNet / MobileNet families, NextViT's trailing BN, InceptionResNetV2's `conv2d_7b`), the head conv is **only** applied when `as_backbone=False`. When you ask for stages, you get the last MBConv/stage output before that head conv, which is usually what you want for downstream tasks.
 
-## `from_weights` — variants and HF checkpoints
+## `from_weights`: variants and HF checkpoints
 
 Both classes use the same variant registry, so any string you can pass to one works on the other:
 
@@ -86,21 +86,21 @@ from kerasformers.models.convnext import ConvNeXtModel
 
 backbone = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k")
 
-# Option 1 — Sequential with a custom head
+# Option 1: Sequential with a custom head
 model = keras.Sequential([
     backbone,
     layers.GlobalAveragePooling2D(),
     layers.Dense(num_classes, name="predictions"),
 ])
 
-# Option 2 — Functional API with intermediate fan-out
+# Option 2: Functional API with intermediate fan-out
 inputs = backbone.input
 features = backbone.output                                # (B, H/32, W/32, 1024)
 pooled = layers.GlobalAveragePooling2D()(features)
 logits = layers.Dense(num_classes)(pooled)
 model = keras.Model(inputs, logits)
 
-# Option 3 — Reach into the per-stage outputs for FPN / segmentation
+# Option 3: Reach into the per-stage outputs for FPN / segmentation
 multi = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k", as_backbone=True)
 c2, c3, c4, c5 = multi.output                              # 4 stages
 # ...feed c2..c5 into an FPN
@@ -110,7 +110,7 @@ c2, c3, c4, c5 = multi.output                              # 4 stages
 
 Two equivalent paths, picked based on whether you want safety or one-liner ergonomics.
 
-### Path A — `XModel` + your own head (strict)
+### Path A: `XModel` + your own head (strict)
 
 Recommended when you want explicit control or are unsure the variant is correct. The class type (`XModel`) guarantees you can't accidentally load a wrong-shape head; everything that loads must be a real backbone weight.
 
@@ -127,7 +127,7 @@ classifier = keras.Sequential([
 ])
 ```
 
-### Path B — `XImageClassify` + `skip_mismatch=True` (convenient)
+### Path B: `XImageClassify` + `skip_mismatch=True` (convenient)
 
 One line. Loads matching backbone weights and silently re-initializes any layer whose shape doesn't match (typically just the classifier `Dense`).
 
@@ -141,7 +141,7 @@ model = ResNetImageClassify.from_weights(
 )
 ```
 
-**Trade-off:** `skip_mismatch=True` is shape-based, not name-based. If you point it at a wrong variant or a corrupt file, it will *quietly* skip more than the head and leave parts of the backbone randomly initialized. Keras emits `warnings.warn` per skipped layer, but warnings are easy to miss — especially in notebook stderr streams. For sensitive training runs, prefer **Path A**.
+**Trade-off:** `skip_mismatch=True` is shape-based, not name-based. If you point it at a wrong variant or a corrupt file, it will *quietly* skip more than the head and leave parts of the backbone randomly initialized. Keras emits `warnings.warn` per skipped layer, but warnings are easy to miss: especially in notebook stderr streams. For sensitive training runs, prefer **Path A**.
 
 **Scope:** `skip_mismatch=True` only affects the kerasformers-release weight path (the `.h5` / `.json` URLs from the GitHub release). The `hf:` prefix goes through hand-mapped `transfer_from_*` functions that ignore the flag.
 
@@ -178,11 +178,11 @@ A few architectures are thin subclasses of a parent that swap the variant regist
 | `ConvNeXtV2`        | `ConvNeXt`  | weights + GRN block enabled      |
 | `ResNeXt`, `SENet`  | `ResNet`    | block fn + arch defaults         |
 
-Both `XModel` and `XImageClassify` are subclassed so that the subclass's variants resolve correctly. The composition rule still holds — `DeiTImageClassify` composes `DeiTModel`, not `ViTModel`.
+Both `XModel` and `XImageClassify` are subclassed so that the subclass's variants resolve correctly. The composition rule still holds: `DeiTImageClassify` composes `DeiTModel`, not `ViTModel`.
 
 ## When to use which
 
 - **Inference on ImageNet-style 1000-class tasks** → `XImageClassify.from_weights(...)`.
 - **Transfer learning** (fine-tune with a new head on a new dataset) → `XModel.from_weights(...)` plus your own head.
 - **Segmentation, detection, FPN, anything multi-scale** → `XModel.from_weights(..., as_backbone=True)`.
-- **Saving to disk** — both classes are `keras.saving.register_keras_serializable` decorated, so `model.save("foo.keras")` and `keras.models.load_model("foo.keras")` round-trip cleanly.
+- **Saving to disk**: both classes are `keras.saving.register_keras_serializable` decorated, so `model.save("foo.keras")` and `keras.models.load_model("foo.keras")` round-trip cleanly.

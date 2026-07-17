@@ -1,11 +1,11 @@
 # GPT-OSS (mixture-of-experts LLM)
 
-OpenAI's GPT-OSS in **pure Keras 3** — a mixture-of-experts decoder-only language
+OpenAI's GPT-OSS in **pure Keras 3**: a mixture-of-experts decoder-only language
 model with grouped-query attention, learned per-head **attention sinks**,
 alternating sliding-window / full causal attention, **YaRN** rotary positions,
 and top-k sparse MoE feed-forwards. One implementation runs unmodified on
 **TensorFlow / Torch / JAX**. Weights are **converted on the fly** from the
-Hugging Face repos (including their MXFP4 quantization) — nothing is
+Hugging Face repos (including their MXFP4 quantization): nothing is
 re-hosted.
 
 **Paper / model card**: [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)
@@ -26,7 +26,7 @@ greedy `.generate()` with a KV cache that respects each layer's sliding window.
   whose softmax weights combine per-expert outputs. The expert activation is
   GPT-OSS's clamped gated-SiLU on the interleaved gate/up halves
   (`(up+1) * gate*sigmoid(1.702*gate)`, clamp limit 7). Experts are evaluated
-  densely (every expert, masked by the routing weights) — exact, backend-agnostic,
+  densely (every expert, masked by the routing weights): exact, backend-agnostic,
   and fine for short prompts; long sequences over all 32/128 experts are heavy.
 - **Attention sinks**: a learned per-head logit is appended to the attention
   scores before softmax and dropped afterward, letting a head attend to "nothing".

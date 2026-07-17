@@ -410,7 +410,7 @@ def detr_functional(
 class DetrModel(FunctionalBaseModel):
     """DETR backbone + transformer encoder/decoder (no detection heads).
 
-    Matches the reference ``DetrModel`` pattern — outputs the decoder
+    Matches the reference ``DetrModel`` pattern: outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, hidden_dim)``.
     Wraps the functional graph built by :func:`detr_functional`: a
     ResNet-50/101 backbone, a stack of post-norm transformer encoder
@@ -442,13 +442,13 @@ class DetrModel(FunctionalBaseModel):
             encoder / decoder layer. Defaults to ``2048``.
         dropout_rate: Dropout probability used in attention and FFN
             sub-layers. Defaults to ``0.1``.
-        num_queries: Number of learned object queries — also the
+        num_queries: Number of learned object queries, also the
             number of detections produced per image.
             Defaults to ``100``.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `800`.
         input_tensor: Optional pre-existing Keras tensor to use as the
@@ -695,11 +695,11 @@ class DETRDetect(FunctionalBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DETRPanopticSegment(FunctionalBaseModel):
-    """DETR for panoptic / instance segmentation — detection + per-query masks.
+    """DETR for panoptic / instance segmentation: detection + per-query masks.
 
     Composes the
     detection model (class + bbox heads identical to
-    :class:`DETRDetect`) and adds the segmentation head — a multi-head
+    :class:`DETRDetect`) and adds the segmentation head: a multi-head
     attention map between decoder queries and encoder features
     (:class:`DETRMHAttentionMap`) plus a small FPN-style mask CNN
     (:class:`DETRMaskHeadSmallConv`) that fuses the attention map with
@@ -711,9 +711,9 @@ class DETRPanopticSegment(FunctionalBaseModel):
     .. code-block:: python
 
         out = model(images)
-        out["logits"]      # (B, num_queries, num_classes) — class logits
-        out["pred_boxes"]  # (B, num_queries, 4) — sigmoid cxcywh in [0, 1]
-        out["pred_masks"]  # (B, num_queries, H/4, W/4) — mask logits
+        out["logits"]      # (B, num_queries, num_classes): class logits
+        out["pred_boxes"]  # (B, num_queries, 4): sigmoid cxcywh in [0, 1]
+        out["pred_masks"]  # (B, num_queries, H/4, W/4): mask logits
 
     Construction:
 

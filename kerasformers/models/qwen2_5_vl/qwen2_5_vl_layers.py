@@ -45,8 +45,8 @@ class Qwen2_5VLRMSNorm(layers.Layer):
 class Qwen2_5VLMLP(layers.Layer):
     """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
 
-    Two parallel projections to ``mlp_dim`` — a SiLU-gated ``gate`` and a linear
-    ``up`` — are multiplied elementwise, then projected back to ``embed_dim`` by
+    Two parallel projections to ``mlp_dim``: a SiLU-gated ``gate`` and a linear
+    ``up``: are multiplied elementwise, then projected back to ``embed_dim`` by
     ``down``. Shape-preserving on the last axis. The Qwen2.5 text decoder uses it
     bias-free; the Qwen2.5-VL vision blocks reuse it with ``use_bias=True``.
 
@@ -230,7 +230,7 @@ class Qwen2_5VLDecoderLayer(layers.Layer):
     """One Qwen2.5 decoder block: pre-norm GQA attention, then pre-norm SwiGLU.
 
     Computes ``h = x + attention(attention_norm(x))`` followed by
-    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual adds.
+    ``h = h + mlp(mlp_norm(h))``: RMSNorm pre-normalization with residual adds.
     The rotary tables, mask, and KV cache pass straight through to the attention.
 
     Args:
@@ -339,7 +339,7 @@ class Qwen2_5_VisionPatchEmbed(layers.Layer):
     """Patch embedding for the Qwen2.5-VL vision tower.
 
     HF uses a ``Conv3d`` whose kernel equals its stride, tiling each
-    ``(temporal_patch_size, patch_size, patch_size)`` patch exactly once — i.e. a
+    ``(temporal_patch_size, patch_size, patch_size)`` patch exactly once, i.e. a
     per-patch linear projection. The processor already flattens every patch to a
     ``in_channels * temporal_patch_size * patch_size**2`` vector, so this is just a
     bias-free ``Dense`` (no spatial axes, hence layout-agnostic).
@@ -372,8 +372,8 @@ class Qwen2_5VLVisionAttention(layers.Layer):
     Operates on the flattened patch sequence of (possibly) several images. A fused
     ``qkv`` projection and the output ``proj`` both carry a bias; 2D vision rotary
     ``cos`` / ``sin`` are applied to Q and K. The additive ``attention_mask`` makes
-    attention block-diagonal — full per image, or per spatial **window** in the
-    Qwen2.5-VL windowed layers — and is built from cumulative seqlens by the vision
+    attention block-diagonal: full per image, or per spatial **window** in the
+    Qwen2.5-VL windowed layers, and is built from cumulative seqlens by the vision
     model.
 
     Call args:

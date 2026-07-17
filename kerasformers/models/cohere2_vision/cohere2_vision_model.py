@@ -284,13 +284,13 @@ class Cohere2VisionGenerate(Cohere2VisionModel, BaseGeneration):
     bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, otherwise the
     tied token embedding. **Unlike** the text-only
     :class:`~kerasformers.models.cohere2.cohere2_model.Cohere2Generate`, the
-    logits are *not* multiplied by ``logit_scale`` — the HF VLM forward omits
+    logits are *not* multiplied by ``logit_scale``: the HF VLM forward omits
     that scaling. ``call`` returns both ``logits`` and ``last_hidden_state``.
 
     Fast generation uses :class:`~kerasformers.base.BaseGeneration`'s fixed-cache
     compiled loop. :meth:`build_cache` runs the vision tower + projector + fused
-    multimodal prefill once — scattering the projected patches into the
-    ``image_token_id`` slots, consuming ``pixel_values`` — then
+    multimodal prefill once, scattering the projected patches into the
+    ``image_token_id`` slots, consuming ``pixel_values``, then
     :meth:`call_with_cache` decodes text-only over the full-length per-layer KV
     cache: the sliding-window layers enforce their window through the decode
     key-mask and the full/NoPE layers see all keys, so the loop stays

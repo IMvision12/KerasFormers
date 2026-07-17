@@ -109,7 +109,7 @@ class SAMPromptEncoderLayer(layers.Layer):
     always padded with a learned ``not_a_point`` token to match the
     original SAM checkpoint's inference behavior. Box support and mask
     support are opt-in via the ``enable_boxes`` and ``enable_masks``
-    construction-time flags — these flags change the expected input
+    construction-time flags: these flags change the expected input
     signature and the shape of ``sparse_embeddings`` so that the
     default configuration matches the original SAM exactly.
 

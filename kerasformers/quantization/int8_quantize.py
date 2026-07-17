@@ -12,7 +12,7 @@ class Int8Quantizer(Quantizer):
 
     Absmax symmetric quantization with one float32 scale per output channel
     (``scale = max|w| / 127`` over the contracting ``axis``, no zero point). This
-    is vector-wise per-channel int8 — *not* LLM.int8(), which additionally keeps
+    is vector-wise per-channel int8, *not* LLM.int8(), which additionally keeps
     activation-outlier columns in fp16; on very large models per-channel int8 can
     degrade from weight outliers (group-wise int4, or keeping a layer in float
     via the config, is the lever). Backend-agnostic (pure ``keras.ops``); ``axis``

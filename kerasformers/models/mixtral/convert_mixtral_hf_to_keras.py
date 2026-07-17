@@ -33,7 +33,7 @@ class LazyFusedExperts(collections.abc.Mapping):
 
     A drop-in for the eager fused ``{name: array}`` dict, but each layer's fused
     ``gate_up_proj`` ``(E, 2I, H)`` / ``down_proj`` ``(E, H, I)`` bank is built
-    only when the converter looks it up — and freed as soon as it is assigned (or
+    only when the converter looks it up, and freed as soon as it is assigned (or
     quantized into int storage). So peak host memory is ~one layer's experts, not
     every layer's fused banks at once (the difference between fitting an 8x7B on
     a small box and not). Non-expert keys pass through unchanged (router ``gate``

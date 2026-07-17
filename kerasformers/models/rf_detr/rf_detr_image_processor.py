@@ -23,7 +23,7 @@ class RFDETRImageProcessor(BaseImageProcessor):
               384 (seg-small), 432 (seg-preview / seg-medium), 504 (seg-large),
               624 (seg-xlarge), 768 (seg-xxlarge).
 
-            The same processor serves both — preprocessing is identical
+            The same processor serves both: preprocessing is identical
             (rescale + ImageNet normalize + resize); only the target size
             and the post-processor differ.
         resample: Interpolation method (``"nearest"``, ``"bilinear"``,
@@ -267,7 +267,7 @@ def rf_detr_post_process_instance_segmentation(
 
     Returns:
         List of per-image dicts with keys ``"scores"``, ``"labels"``,
-        ``"label_names"``, ``"boxes"`` (xyxy), and ``"masks"`` — a boolean array of
+        ``"label_names"``, ``"boxes"`` (xyxy), and ``"masks"``: a boolean array of
         shape ``(K, H, W)`` for each image.
     """
     logits = keras.ops.convert_to_numpy(outputs["pred_logits"])

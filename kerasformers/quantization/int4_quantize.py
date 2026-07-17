@@ -24,7 +24,7 @@ class Int4Quantizer(Quantizer):
     The contracting ``axis`` is split into blocks of ``group_size``; each
     (block, ...) gets its own absmax scale (the bitsandbytes block idea) and
     values are packed two-per-byte. Works on any rank: the axis is moved to the
-    end, quantized/packed there, then moved back — so the same code serves 2-D
+    end, quantized/packed there, then moved back, so the same code serves 2-D
     ``Dense`` kernels (``axis=0``), N-D ``EinsumDense`` kernels, and fused MoE
     expert banks (``axis=-1``). Backend-agnostic (pure ``keras.ops``).
     """

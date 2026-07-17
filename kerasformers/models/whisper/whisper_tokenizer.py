@@ -14,7 +14,7 @@ class WhisperTokenizer(BaseTokenizer):
     """Whisper byte-level BPE tokenizer (``tokenizers`` Rust backend).
 
     Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``whisper`` release tag (or an explicit ``tokenizer_file``) — the byte-level BPE
+    ``whisper`` release tag (or an explicit ``tokenizer_file``): the byte-level BPE
     and Whisper's ~1600 special tokens (languages, task, timestamps) are baked into
     the file. ``added_tokens`` (content -> id) is rebuilt from it for the processor's
     prompt helpers. ``call`` tokenizes into padded ``{input_ids, attention_mask}``.

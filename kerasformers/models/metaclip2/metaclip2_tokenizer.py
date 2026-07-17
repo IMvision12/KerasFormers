@@ -20,7 +20,7 @@ class MetaClip2Tokenizer(BaseTokenizer):
     """XLM-RoBERTa tokenizer for MetaCLIP 2 worldwide variants (``tokenizers`` backend).
 
     Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``metaclip2`` release tag (or an explicit ``tokenizer_file``) — the Unigram
+    ``metaclip2`` release tag (or an explicit ``tokenizer_file``): the Unigram
     model, the fairseq id offset and the ``<s> A </s>`` post-processing are baked
     into the file (901629-token multilingual vocab). ``call`` returns fixed-length
     (``max_seq_len`` = 77) ``token_ids`` + ``padding_mask``. The text backbone pools

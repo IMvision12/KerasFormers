@@ -18,9 +18,9 @@ def apply_rope(x, cos, sin):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Gemma4RMSNorm(layers.Layer):
-    """Gemma 4 root-mean-square layer norm — unlike earlier Gemmas, a *plain*
+    """Gemma 4 root-mean-square layer norm: unlike earlier Gemmas, a *plain*
     ``* weight`` scale (ones-initialized), optionally weightless
-    (``with_scale=False`` — the value norm and the router input norm carry no
+    (``with_scale=False``: the value norm and the router input norm carry no
     checkpoint parameters).
 
     Args:
@@ -92,8 +92,8 @@ class Gemma4MLP(layers.Layer):
 class Gemma4Experts(layers.Layer):
     """Gemma 4 fused routed-expert bank (dense evaluation, GeGLU experts).
 
-    Hugging Face fused layout — ``gate_up_proj`` ``(E, 2I, H)`` (contiguous
-    halves), ``down_proj`` ``(E, H, I)``, no biases — with the
+    Hugging Face fused layout: ``gate_up_proj`` ``(E, 2I, H)`` (contiguous
+    halves), ``down_proj`` ``(E, H, I)``, no biases: with the
     ``gelu_pytorch_tanh`` activation. Given per-token per-expert routing
     weights ``(T, E)``, computes every expert and combines the outputs.
 
@@ -208,8 +208,8 @@ class Gemma4Attention(layers.Layer):
 
     Sliding layers: ``head_dim`` (256), ``num_kv_heads`` K/V heads, separate
     value projection, full-width default rope (theta 1e4). Global layers:
-    ``global_head_dim`` (512), ``num_global_kv_heads`` (MQA-ish) and — when
-    ``k_eq_v`` — *no value projection*: the value is the raw key projection,
+    ``global_head_dim`` (512), ``num_global_kv_heads`` (MQA-ish) and: when
+    ``k_eq_v`` means *no value projection*: the value is the raw key projection,
     normalized by a weightless RMS norm. Per-head q/k ``(1 + w)`` RMS norms
     are applied before rope; global layers rotate only the first
     ``partial_rotary_factor`` fraction of the head ("proportional" rope,

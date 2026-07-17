@@ -1,7 +1,7 @@
 # Qwen (text & vision-language)
 
-Alibaba's Qwen family in **pure Keras 3** — both the text LLMs and the
-image+video+text multimodal LLMs — with bit-close parity to HuggingFace
+Alibaba's Qwen family in **pure Keras 3**: both the text LLMs and the
+image+video+text multimodal LLMs: with bit-close parity to HuggingFace
 (verified on real checkpoints, see below). One implementation per family runs
 unmodified on **TensorFlow / Torch / JAX**.
 
@@ -24,11 +24,11 @@ unmodified on **TensorFlow / Torch / JAX**.
 
 Each family exposes two classes:
 
-- **`*Model`** — base model; its `call` returns features (`last_hidden_state`).
-- **`*Generate`** — adds the LM head + greedy `.generate()`; `call` returns `logits`.
+- **`*Model`**: base model; its `call` returns features (`last_hidden_state`).
+- **`*Generate`**: adds the LM head + greedy `.generate()`; `call` returns `logits`.
 
 Weights convert **on the fly** from the public Hugging Face checkpoints
-(safetensors downloaded and mapped at load time — bf16 cast to float32, tied and
+(safetensors downloaded and mapped at load time: bf16 cast to float32, tied and
 untied LM heads both handled). The canonical path is the **friendly variant
 name**; a raw `hf:` id also works for any matching `model_type`:
 
@@ -60,7 +60,7 @@ Vision-language:
 | Qwen2.5-VL | `qwen2.5-vl-{3b,7b,32b,72b}-instruct` (instruct-only series) |
 | Qwen3-VL | `qwen3-vl-{2b,4b,8b,32b}-instruct` and each `-thinking` |
 
-> **Not yet supported — Mixture-of-Experts.** The MoE checkpoints
+> **Not yet supported: Mixture-of-Experts.** The MoE checkpoints
 > (Qwen2-57B-A14B `qwen2_moe`; Qwen3 30B-A3B / 235B-A22B `qwen3_moe`; Qwen3-VL
 > 30B-A3B / 235B-A22B `qwen3_vl_moe`; Qwen3.5 35B-A3B / 122B-A10B / 397B-A17B
 > `qwen3_5_moe_text`) use sparse expert blocks the dense ports can't load. They
@@ -74,7 +74,7 @@ Vision-language:
 
 ## Verified parity
 
-Validated against the HF reference (eager attention) on a real forward pass —
+Validated against the HF reference (eager attention) on a real forward pass:
 **argmax agreement 1.0000** at every position; text generation is **token-exact**
 greedy:
 
@@ -89,7 +89,7 @@ greedy:
 
 Individual primitives (RMSNorm, GQA + M-RoPE attention, SwiGLU, vision rotary,
 KV cache) match HF to ~1e-7 in isolation. The Qwen3.5 residual is
-chunked-vs-recurrent Gated-DeltaNet fp accumulation — the kernels are
+chunked-vs-recurrent Gated-DeltaNet fp accumulation: the kernels are
 algebraically identical.
 
 ## Forward pass
@@ -101,7 +101,7 @@ VL adds pre-patchified pixels:
 # text
 gen({"input_ids": input_ids})["logits"]            # (B, L, vocab_size)
 
-# vision-language — images and/or video; placeholders sit inside input_ids
+# vision-language: images and/or video; placeholders sit inside input_ids
 inputs = {
     "input_ids":           input_ids,            # (B, L) int, image/video placeholders
     "pixel_values":        pixel_values,         # (num_patches, patch_dim) image patches
@@ -117,7 +117,7 @@ flattened layout** as images and run through the **same vision tower**; the only
 difference is `grid_t = num_frames // temporal_patch_size` (vs `1` for an image),
 and their embeddings scatter into the `<|video_pad|>` slots.
 
-These are token-id (and pre-flattened-patch) models — **no spatial H/W axes**, so
+These are token-id (and pre-flattened-patch) models: **no spatial H/W axes**, so
 `channels_first/last` does not apply (handled like the audio models). The VL
 patch-embed Conv3d (kernel == stride) is implemented as a `Dense`.
 
@@ -132,12 +132,12 @@ VL families carry incremental M-RoPE positions (each new token's position is
 The API is the same shape for both: build inputs from a chat list, then
 `model.generate(**inputs, max_new_tokens=...)`. **LLMs use the tokenizer**
 (text only); **VLMs use the processor** (tokenizer + image / video processor),
-with images or video inline in the conversation — images via `path` / `url` / a
+with images or video inline in the conversation: images via `path` / `url` / a
 PIL image, video via a `path` / `url` (decoded and frame-sampled automatically,
 like HF) or inline `frames`.
 
-Load the tokenizer / processor with `.from_weights(...)` — passing the **same**
-identifier you give the model — so its files match the checkpoint, e.g.
+Load the tokenizer / processor with `.from_weights(...)`, passing the **same**
+identifier you give the model, so its files match the checkpoint, e.g.
 `Qwen2Tokenizer.from_weights("hf:Qwen/Qwen2-7B-Instruct")` or
 `Qwen2VLProcessor.from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")`. A release variant
 like `"qwen2-7b-instruct"` uses the family's shared tokenizer, and the bare
@@ -145,7 +145,7 @@ like `"qwen2-7b-instruct"` uses the family's shared tokenizer, and the bare
 repo.
 
 ```python
-# text LLM — tokenizer takes the chat messages
+# text LLM: tokenizer takes the chat messages
 from kerasformers.models.qwen3 import Qwen3Generate, Qwen3Tokenizer
 model = Qwen3Generate.from_weights("qwen3-0.6b")
 tokenizer = Qwen3Tokenizer.from_weights("qwen3-0.6b")
@@ -158,7 +158,7 @@ inputs = tokenizer(messages)
 outputs = model.generate(**inputs, max_new_tokens=128)
 print(tokenizer.decode(outputs[0]))
 
-# vision-language — processor takes the conversation (images inline)
+# vision-language: processor takes the conversation (images inline)
 from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLProcessor
 model = Qwen2VLGenerate.from_weights("qwen2-vl-2b-instruct")
 processor = Qwen2VLProcessor.from_weights("qwen2-vl-2b-instruct")
@@ -210,7 +210,7 @@ frames = np.random.randint(0, 256, (8, 224, 224, 3), dtype="uint8")  # (T, H, W,
 feat = Qwen2VLVideoProcessor()(frames)   # {"pixel_values_videos", "video_grid_thw"}
 ```
 
-The processor wires this in automatically — like HF, you just point at the file. A
+The processor wires this in automatically: like HF, you just point at the file. A
 `{"type": "video", "path": "…"}` (or `"url"`) item is decoded by the shared
 `kerasformers.utils.video.load_video` (PyAV backend; OpenCV / decord also available)
 and **frame-sampled to the target fps** (Qwen3-VL: 2 fps, via the same
@@ -229,7 +229,7 @@ inputs = processor(conversation)
 outputs = model.generate(**inputs, max_new_tokens=128)
 ```
 
-> **Not yet ported:** Qwen3-VL's inter-frame timestamp tokens — the processor emits
+> **Not yet ported:** Qwen3-VL's inter-frame timestamp tokens: the processor emits
 > a single `<|vision_start|><|video_pad|><|vision_end|>` block per video (frame
 > decoding + fps sampling already match HF).
 
@@ -240,12 +240,12 @@ outputs = model.generate(**inputs, max_new_tokens=128)
 | | Qwen2 | Qwen3 | Qwen3.5 |
 |---|---|---|---|
 | Token mixer | GQA attention | GQA attention | **hybrid** linear / full |
-| Linear attention | — | — | **Gated-DeltaNet** (conv1d + delta rule) |
+| Linear attention |: |, | **Gated-DeltaNet** (conv1d + delta rule) |
 | QK-norm | no | **yes** | yes (full layers) |
 | QKV bias | **yes** | no | no |
 | RoPE | 1-D full | 1-D full | **partial** (factor 0.25) |
 | Norm | RMSNorm | RMSNorm | **zero-centered** `(1+w)` + gated |
-| Output gate | — | — | **sigmoid gate** (full attention) |
+| Output gate |, |, | **sigmoid gate** (full attention) |
 
 For pure text, Qwen3.5's three M-RoPE position axes coincide, so rotary reduces
 to standard 1-D partial rope.
@@ -257,7 +257,7 @@ to standard 1-D partial rope.
 | Vision norm / MLP | LayerNorm / GELU | RMSNorm / SwiGLU | LayerNorm / GELU |
 | Vision attention | full | **windowed** (+ full at some layers) | full |
 | Vision positions | 2-D rotary | 2-D rotary | 2-D rotary + **learned** (interpolated) |
-| Extra vision | — | `tokens_per_second` (video) | **DeepStack** fusion |
+| Extra vision |: | `tokens_per_second` (video) | **DeepStack** fusion |
 | Patch size | 14 | 14 | 16 |
 | Text decoder | Qwen2 (qkv bias) | Qwen2.5 (qkv bias) | **Qwen3** (QK-norm, no qkv bias) |
 | M-RoPE | sectioned | sectioned | **interleaved** |

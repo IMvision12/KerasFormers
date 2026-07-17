@@ -16,7 +16,7 @@ from .depth_anything_v2_config import (
 class DepthAnythingV2Model(DepthAnythingV1Model):
     """Depth Anything V2 backbone + DPT neck (no depth-prediction head).
 
-    V2 reuses V1's architecture end-to-end — only training data and
+    V2 reuses V1's architecture end-to-end: only training data and
     weights differ (synthetic data + larger-capacity teacher model).
     This class inherits from :class:`DepthAnythingV1Model` and just
     swaps in the V2 weights config.

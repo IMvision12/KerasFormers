@@ -11,7 +11,7 @@ from kerasformers.models.sam.sam_layers import (
 class DeepseekVLHybridSamEncoder(layers.Layer):
     """SAM / ViTDet-B high-res vision encoder (@1024).
 
-    Reuses the SAM windowed-attention blocks (``SAMVisionLayer`` — decomposed 2D
+    Reuses the SAM windowed-attention blocks (``SAMVisionLayer``: decomposed 2D
     relative position embeddings, window attention except at the global-attention
     indices) and absolute position embedding. Unlike the functional SAM builder,
     this returns BOTH the final neck output (``last_hidden_state``, 256-d) AND the

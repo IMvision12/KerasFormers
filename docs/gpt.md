@@ -1,6 +1,6 @@
 # GPT (language model)
 
-OpenAI's original GPT (Radford et al. 2018, "openai-gpt") in **pure Keras 3** — a
+OpenAI's original GPT (Radford et al. 2018, "openai-gpt") in **pure Keras 3**: a
 decoder-only language model with learned token + absolute-position embeddings and
 post-LayerNorm causal transformer blocks (no final norm). One implementation runs
 unmodified on **TensorFlow / Torch / JAX**, with bit-close parity to Hugging Face.

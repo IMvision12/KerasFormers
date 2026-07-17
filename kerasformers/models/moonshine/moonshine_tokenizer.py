@@ -13,7 +13,7 @@ class MoonshineTokenizer(BaseTokenizer):
     """Moonshine SentencePiece-BPE tokenizer, built on the ``tokenizers`` library.
 
     Loads the canonical ``tokenizer.json`` shipped with the Useful Sensors
-    checkpoints — a byte-fallback BPE with a metaspace (``▁``) normalizer and a
+    checkpoints: a byte-fallback BPE with a metaspace (``▁``) normalizer and a
     template post-processor that prepends ``<s>``. The file for ``variant`` is pulled
     from the ``moonshine`` release tag unless an explicit ``tokenizer_file`` is given
     (tiny and base share one vocab).

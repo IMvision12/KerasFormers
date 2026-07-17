@@ -12,8 +12,8 @@ class FlexiViTModel(ViTModel):
     """Instantiates the FlexiViT (Flexible Vision Transformer) backbone.
 
     FlexiViT is a thin :class:`ViTModel` subclass that loads FlexiViT timm
-    weights. The architecture is a standard ViT — patch embedding, CLS
-    token, position embedding, and ``depth`` transformer encoder blocks —
+    weights. The architecture is a standard ViT: patch embedding, CLS
+    token, position embedding, and ``depth`` transformer encoder blocks,
     but is trained with randomized patch sizes per minibatch, enabling
     flexible resampling of the patch embedding kernel and positional
     embeddings at inference for any patch size from a single set of
@@ -128,7 +128,7 @@ class FlexiViTImageClassify(ViTImageClassify):
         attn_drop_rate: Float, dropout rate applied to attention weights.
             Defaults to `0.0`.
         no_embed_class: Boolean, if `True`, position embeddings do not
-            cover the class / distillation prefix tokens — required for
+            cover the class / distillation prefix tokens: required for
             the flexible patch-size positional-embedding resampling.
             Defaults to `False` here for ``__init__`` compatibility;
             FlexiViT checkpoints set this to `True`.
@@ -141,7 +141,7 @@ class FlexiViTImageClassify(ViTImageClassify):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `240`.
         include_normalization: Boolean, whether to prepend an

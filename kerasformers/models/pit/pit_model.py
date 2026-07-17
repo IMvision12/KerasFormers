@@ -250,7 +250,7 @@ class PiTModel(FunctionalBaseModel):
 
     PiT is a hierarchical Vision Transformer that progressively shrinks
     the spatial token grid via depthwise-conv pooling layers placed
-    between transformer stages, while expanding the channel dimension —
+    between transformer stages, while expanding the channel dimension:
     analogous to the spatial-reduction / channel-expansion pattern of
     classical CNN backbones. The class (and optional distillation) tokens
     are pooled in parallel with the patch tokens via a Dense projection,
@@ -291,7 +291,7 @@ class PiTModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -464,7 +464,7 @@ class PiTImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

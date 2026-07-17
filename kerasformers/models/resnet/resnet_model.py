@@ -316,7 +316,7 @@ class ResNetModel(FunctionalBaseModel):
     halved spatial resolution and doubled channel width, with identity
     skip connections enabling very deep networks to train without
     degradation. The output tensor is the last layer output before the
-    classifier head — the final stage's 4D feature map ``(B, H, W, C)``,
+    classifier head: the final stage's 4D feature map ``(B, H, W, C)``,
     unpooled and head-free. :class:`ResNetImageClassify` composes this model
     and applies a GlobalAveragePooling2D + Dense head to produce logits.
 
@@ -351,7 +351,7 @@ class ResNetModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for
@@ -548,7 +548,7 @@ class ResNetImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for

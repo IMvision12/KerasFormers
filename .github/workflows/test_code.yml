@@ -42,7 +42,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools
           pip install -U keras>=3.11.0 pytest pytest-cov
-          # CPU-only torch wheel — the default PyPI wheel bundles
+          # CPU-only torch wheel: the default PyPI wheel bundles
           # CUDA/Triton which segfaults during `import triton.knobs`
           # on CUDA-less Linux runners (gets pulled in transitively by
           # torchvision -> torch._dynamo).

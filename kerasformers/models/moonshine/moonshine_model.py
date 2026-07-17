@@ -290,7 +290,7 @@ class MoonshineModel(FunctionalBaseModel):
 
     Unlike Whisper / Speech2Text, the Moonshine encoder consumes the **raw
     16 kHz waveform** directly (a 3-conv + GroupNorm stem replaces the log-mel
-    front end), so ``input_values`` is a ``(B, audio_length)`` float tensor —
+    front end), so ``input_values`` is a ``(B, audio_length)`` float tensor:
     feed :class:`MoonshineFeatureExtractor` output, which only zero-pads a
     batch to a common length.
 
@@ -502,7 +502,7 @@ class MoonshineSpeechToText(MoonshineModel, BaseSeq2SeqGeneration):
     Composes the same encoder + decoder + tied LM head Functional graph as
     :class:`MoonshineModel` (so it loads the same weights and is a drop-in
     replacement for teacher-forced training and forward passes), and adds
-    :meth:`generate` — an end-to-end audio -> text method that pulls in a
+    :meth:`generate`, an end-to-end audio -> text method that pulls in a
     :class:`~kerasformers.models.moonshine.MoonshineProcessor` for feature
     extraction (raw-waveform batching), greedy decoding, and detokenization.
 

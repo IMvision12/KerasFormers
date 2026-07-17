@@ -979,7 +979,7 @@ class SAM3Model(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `1008`.
         input_tensor: Optional input tensor.
@@ -1460,7 +1460,7 @@ class SAM3Model(FunctionalBaseModel):
         """Pre-compute vision features for a single image.
 
         Use this when you intend to run multiple prompts on the same
-        image — it avoids re-running the ViT backbone + FPN for each
+        image: it avoids re-running the ViT backbone + FPN for each
         call. Pass the returned dict as ``vision_embeds`` to
         :meth:`detect` / :meth:`segment_instances` / :meth:`segment_semantic`.
         """
@@ -1469,7 +1469,7 @@ class SAM3Model(FunctionalBaseModel):
         pixel_values, original_size = preprocess_image(image)
         vision_model = self._vision_submodel()
         # Decoder is built here so it is ready when the call uses
-        # ``vision_embeds``. Dummy text inputs are fine — the vision
+        # ``vision_embeds``. Dummy text inputs are fine: the vision
         # outputs do not depend on them.
         self._decoder_submodel()
         dummy_text = np.zeros((1, 1, self.text_hidden_size), dtype=np.float32)

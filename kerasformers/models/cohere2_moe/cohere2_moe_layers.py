@@ -11,7 +11,7 @@ from kerasformers.models.cohere2.cohere2_layers import (
 class Cohere2MoeRMSNorm(layers.Layer):
     """Root-mean-square norm (used when the checkpoint sets ``rms_norm_eps``).
 
-    Scales by ``rsqrt(mean(x**2) + eps)`` then by a learned ones-init weight —
+    Scales by ``rsqrt(mean(x**2) + eps)`` then by a learned ones-init weight:
     no mean-centering, unlike Cohere's :class:`~kerasformers.models.cohere2.cohere2_layers.Cohere2LayerNorm`.
     The reduction runs in float32 and casts back to the input dtype. RMSNorm
     Cohere2-MoE checkpoints (e.g. North-Mini) select this through ``make_norm``.
@@ -92,9 +92,9 @@ class Cohere2MoeMLP(layers.Layer):
 class Cohere2MoeExperts(layers.Layer):
     """Dense bank of SwiGLU experts evaluated with fused einsums (HF layout).
 
-    Holds every expert in two stacked weights — ``gate_up_proj``
+    Holds every expert in two stacked weights: ``gate_up_proj``
     ``(num_experts, 2*mlp_dim, embed_dim)`` and ``down_proj``
-    ``(num_experts, embed_dim, mlp_dim)`` — and runs all experts for all tokens
+    ``(num_experts, embed_dim, mlp_dim)``, and runs all experts for all tokens
     in three einsums, weighting each expert's output by the per-token routing
     weights (zero-weighted experts drop out of the sum). Computing every expert
     for every token is wasteful but vectorizes cleanly across backends.
@@ -158,7 +158,7 @@ class Cohere2MoeSparseBlock(layers.Layer):
     """Cohere2-MoE block: top-k-FIRST router, then softmax/sigmoid + shared experts.
 
     Distinct from Qwen/Mixtral: the router takes the top-``num_experts_per_tok``
-    raw logits *first*, then normalizes only those — ``softmax`` over the k
+    raw logits *first*, then normalizes only those: ``softmax`` over the k
     (no ``norm_topk_prob``), or ``sigmoid`` (with optional ``norm_topk_prob``).
     Optional shared expert(s) combined by ``sum`` or ``average``.
 
@@ -255,7 +255,7 @@ class Cohere2MoeSparseBlock(layers.Layer):
 class Cohere2MoeDecoderLayer(layers.Layer):
     """One Cohere2-MoE block: parallel attention + (dense MLP | MoE).
 
-    ``h = x + attention(norm(x)) + mlp(norm(x))`` — attention and the
+    ``h = x + attention(norm(x)) + mlp(norm(x))``: attention and the
     feed-forward both read the single input norm and add into the residual.
     ``use_rope`` controls the NoPE-vs-rope decision (sliding layers, and the
     force-rope dense prefix layers, get rope; full layers run NoPE) and

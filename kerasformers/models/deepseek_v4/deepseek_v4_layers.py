@@ -170,7 +170,7 @@ class DeepseekV4MoE(layers.Layer):
     The learned router takes a top-k of ``score + e_score_correction_bias``
     and keeps the unbiased ``sqrt(softplus(logits))`` scores, renormalized
     (+1e-20) and scaled by ``routed_scaling_factor``. ``hash_moe`` layers
-    instead select experts from the frozen ``tid2eid[input_ids]`` lookup —
+    instead select experts from the frozen ``tid2eid[input_ids]`` lookup:
     only the weighting comes from the learned gate. A clamped-SwiGLU shared
     expert of the block input is added.
 
@@ -318,7 +318,7 @@ class DeepseekV4Compressor(layers.Layer):
             trainable=True,
         )
         # kv_norm is only used inside compress_chunk (a plain method call), so
-        # build it here under the compressor's own name scope — otherwise its
+        # build it here under the compressor's own name scope: otherwise its
         # weight path collides with the attention's kv_norm.
         self.kv_norm.build((None, self.head_dim))
         self.built = True

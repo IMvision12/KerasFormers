@@ -121,7 +121,7 @@ def cache_supported(cls, quantization):
 
     Subclassed models rebuild from their constructor config in any precision
     (skeleton → build_for_transfer → stream). Functional models round-trip only
-    as float — their built graph can't be re-quantized from a skeleton, so
+    as float: their built graph can't be re-quantized from a skeleton, so
     functional + quantization is bypassed.
     """
     from kerasformers.base import FunctionalBaseModel, SubclassedBaseModel
@@ -139,7 +139,7 @@ def weight_key(model, w):
     A freshly built model carries the model name in ``w.path``
     (``qwen3_generate/decoder_layers/0/...``) while a deserialized one may not,
     so stripping ``model.name/`` normalizes both to the same stable, unique
-    sublayer path — robust to the ``model.weights`` reordering an in-place
+    sublayer path: robust to the ``model.weights`` reordering an in-place
     Dense→QuantizedDense swap causes.
     """
     prefix = f"{model.name}/"
@@ -221,7 +221,7 @@ def load_converted(directory, quantization, load_dtype):
     """Rebuild a model from a cache directory and stream its weights back.
 
     Deserializes the config to a skeleton, re-applies the quantization skeleton
-    (subclassed), builds it, then streams each cached tensor onto its weight —
+    (subclassed), builds it, then streams each cached tensor onto its weight:
     by structural key (subclassed) or position (functional). Raises on any
     count / shape / key mismatch so the caller can fall back to the source.
     """

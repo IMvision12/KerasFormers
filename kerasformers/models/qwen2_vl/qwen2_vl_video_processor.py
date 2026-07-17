@@ -17,7 +17,7 @@ class Qwen2VLVideoProcessor(BaseImageProcessor):
     pad the frame count up to a multiple of ``temporal_patch_size`` (repeating the
     last frame), and flatten into
     ``(grid_t * grid_h * grid_w, channel * temporal_patch_size * patch_size**2)``
-    patches in spatial-merge-block order — the exact patch layout the image
+    patches in spatial-merge-block order: the exact patch layout the image
     processor emits, so the shared vision tower consumes images and video frames
     identically. ``grid_t = num_frames // temporal_patch_size`` (vs. 1 for images).
 

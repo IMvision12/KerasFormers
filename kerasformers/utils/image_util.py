@@ -39,15 +39,15 @@ def standardize_input_shape(
 
     Accepts:
 
-    * ``int N`` — square image, builds ``(N, N, 3)`` for ``channels_last``
+    * ``int N``: square image, builds ``(N, N, 3)`` for ``channels_last``
       or ``(3, N, N)`` for ``channels_first``.
-    * ``(H, W)`` — rectangular image, adds a 3-channel dim per data format.
-    * ``(H, W, C)`` or ``(C, H, W)`` — already a 3-tuple. The channel
+    * ``(H, W)``: rectangular image, adds a 3-channel dim per data format.
+    * ``(H, W, C)`` or ``(C, H, W)``: already a 3-tuple. The channel
       dimension (``C in {1, 3, 4}``) must sit in the position required by
       the active data format; mismatches raise ``ValueError``.
 
     Args:
-        image_size: Flexible spec — int, 2-tuple, or 3-tuple.
+        image_size: Flexible spec, int, 2-tuple, or 3-tuple.
         data_format: ``"channels_first"`` / ``"channels_last"`` / ``None``.
             ``None`` defaults to ``keras.config.image_data_format()``.
 
@@ -109,10 +109,10 @@ def load_image(image: ImageInput) -> np.ndarray:
     """Load an image from common sources into an ``(H, W, 3)`` uint8 RGB array.
 
     Accepted inputs:
-        * ``str`` — a local file path or an ``http(s)://`` URL.
-        * ``bytes`` / ``bytearray`` — raw encoded image bytes.
-        * ``PIL.Image.Image`` — returned as a copy converted to RGB.
-        * ``np.ndarray`` — assumed to already be an HWC RGB image. 2D arrays
+        * ``str``: a local file path or an ``http(s)://`` URL.
+        * ``bytes`` / ``bytearray``: raw encoded image bytes.
+        * ``PIL.Image.Image``: returned as a copy converted to RGB.
+        * ``np.ndarray``: assumed to already be an HWC RGB image. 2D arrays
           are broadcast across 3 channels; 4-channel arrays are truncated to
           RGB; float arrays in [0, 1] are scaled to uint8.
     """
@@ -160,10 +160,10 @@ def normalize_image_for_classify_models(x, mode="imagenet"):
     the eager / processor-side normalization lives on ``BaseImageProcessor``). The
     input is cast to float32 and divided by 255, then:
 
-    * ``"imagenet"`` / ``"inception"`` / ``"dpn"`` / ``"clip"`` — ``(x - mean) / std``
+    * ``"imagenet"`` / ``"inception"`` / ``"dpn"`` / ``"clip"``: ``(x - mean) / std``
       with the preset per-channel mean/std (laid out for the active data format).
-    * ``"zero_to_one"`` — returned as-is (just the ``/ 255`` rescale).
-    * ``"minus_one_to_one"`` — scaled to ``[-1, 1]``.
+    * ``"zero_to_one"``: returned as-is (just the ``/ 255`` rescale).
+    * ``"minus_one_to_one"``: scaled to ``[-1, 1]``.
 
     Args:
         x: Image tensor with values in ``[0, 255]``.

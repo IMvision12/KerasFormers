@@ -71,7 +71,7 @@ class MiniMaxM3VLProcessor(BaseProcessor):
 
     Each ``]<]image[>[`` marker in the prompt is expanded to
     ``]<]start of image[>[`` + one placeholder per merged patch
-    (``grid.prod() / merge_size**2``) + ``]<]end of image[>[`` — and likewise
+    (``grid.prod() / merge_size**2``) + ``]<]end of image[>[``, and likewise
     per video frame for ``]<]video[>[`` (with an optional
     ``]<]{t:.1f} seconds[>[`` timestamp prefix when ``fps`` is given).
     ``call`` also accepts an OpenAI-style ``conversation`` rendered with the

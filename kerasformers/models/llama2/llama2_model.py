@@ -15,7 +15,7 @@ class Llama2Model(SubclassedBaseModel):
 
     ``token_embedding -> num_layers x Llama2DecoderLayer -> final RMSNorm``,
     with bias-free attention projections, half-rotation rotary positions
-    (plain inverse frequencies — no scaling), SwiGLU MLPs, and RMSNorm
+    (plain inverse frequencies: no scaling), SwiGLU MLPs, and RMSNorm
     pre-normalization. The 7B/13B variants are plain multi-head attention
     (``num_kv_heads == num_heads``); the 70B uses grouped-query attention.
     CodeLlama shares the architecture with ``rope_theta=1e6``. Subclassed

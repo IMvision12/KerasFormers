@@ -3,8 +3,8 @@
 **Model card**: [ibm-granite/granite-speech-4.1-2b-plus](https://huggingface.co/ibm-granite/granite-speech-4.1-2b-plus) · **Architecture paper**: [Granite-speech](https://arxiv.org/abs/2505.08699)
 
 Granite Speech Plus is the **granite-4.0-based** successor to Granite Speech. The
-architecture is identical — a conformer CTC encoder + BLIP-2 Q-Former projector +
-Granite decoder, fused at `<|audio|>` positions — so the kerasformers port simply
+architecture is identical: a conformer CTC encoder + BLIP-2 Q-Former projector +
+Granite decoder, fused at `<|audio|>` positions, so the kerasformers port simply
 **reuses the `granite_speech` implementation**; only the config and tokenizer
 differ. Read [`granite_speech.md`](granite_speech.md) first; this page documents
 just the deltas.
@@ -20,7 +20,7 @@ just the deltas.
 | `rope_theta` | 1e7 | **10000** |
 | `attention_multiplier` | 1/64 | **1/128** |
 | `audio_token_id` | 49159 | **100352** |
-| LoRA adapter | yes (rank 64) | **none** (`has_lora_adapter = False` — weights fully merged) |
+| LoRA adapter | yes (rank 64) | **none** (`has_lora_adapter = False`: weights fully merged) |
 | `cat_hidden_layers` | `None` | **`[3]`** |
 | Encoder `output_dim` | 256 | **348** |
 | Tokenizer | `granite_speech_tokenizer.json` | **`granite_speech_plus_tokenizer.json`** (granite-4.0 vocab, `<think>`/`<tool_call>` tokens) |
@@ -35,7 +35,7 @@ projector, so the projector's `encoder_hidden_size` becomes
 
 ## Classes
 
-Thin subclasses that only swap the config / tokenizer source — everything else is
+Thin subclasses that only swap the config / tokenizer source: everything else is
 inherited from `granite_speech`:
 
 | Class | Inherits | Note |
@@ -64,7 +64,7 @@ release tag. The plus `tokenizer.json` is hosted on the same tag as
 
 ## Usage
 
-Identical to Granite Speech — just use the `Plus` classes (the processor builds
+Identical to Granite Speech: just use the `Plus` classes (the processor builds
 the right tensors and the plus tokenizer is wired automatically):
 
 ```python
@@ -95,7 +95,7 @@ print(processor.tokenizer.decode(output_ids[0]))
 
 See [`granite_speech.md`](granite_speech.md) for the model forward signature,
 feature-extractor details, generation internals, and the conformer/Q-Former
-architecture — all shared.
+architecture: all shared.
 
 ## Citation
 

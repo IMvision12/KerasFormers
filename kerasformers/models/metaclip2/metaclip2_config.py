@@ -333,7 +333,7 @@ METACLIP2_WEIGHTS_URLS = {
     # L14/Huge/Giant: a single token-embedding tensor exceeds GitHub's 2 GiB
     # asset limit, so these are converted from the source checkpoints on the fly via
     # ``load_and_convert_from_hf`` (cached under ~/.cache/kerasformers/).
-    # Used through the normal variant name — no "hf:" prefix needed.
+    # Used through the normal variant name: no "hf:" prefix needed.
     "metaclip2_worldwide_l14_224": {
         "hf_id": "facebook/metaclip-2-worldwide-l14",
     },

@@ -18,7 +18,7 @@ class GemmaModel(SubclassedBaseModel):
     GeGLU (tanh-approximate gelu) MLPs, scaled token embeddings, ``head_dim``
     256 decoupled from ``embed_dim // num_heads`` (the 2B is MQA with one
     K/V head), and a tied LM head. Subclassed (imperative) model; returns
-    raw features — use :class:`GemmaGenerate` for logits / text.
+    raw features: use :class:`GemmaGenerate` for logits / text.
 
         model = GemmaModel.from_weights("gemma-2b")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
@@ -172,7 +172,7 @@ class GemmaModel(SubclassedBaseModel):
 class GemmaGenerate(GemmaModel, BaseGeneration):
     """Gemma backbone + a (tied) language-model head and fast ``.generate()``.
 
-    Adds the vocabulary projection on top of :class:`GemmaModel` — the
+    Adds the vocabulary projection on top of :class:`GemmaModel`, the
     transposed scaled token embedding when ``tie_embeddings`` (all Gemma
     checkpoints), else a separate bias-free ``lm_head``. ``call`` returns both
     ``logits`` ``(batch, seq, vocab_size)`` and ``last_hidden_state``. Fast

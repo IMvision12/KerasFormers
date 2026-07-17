@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     for variant, hf_id in HF_REPO.items():
         # Skip on-the-fly variants (l14 / huge / giant): their weights are not
-        # hosted — a single token-embedding tensor exceeds GitHub's 2 GiB asset
+        # hosted: a single token-embedding tensor exceeds GitHub's 2 GiB asset
         # limit, so they're converted at runtime via load_and_convert_from_hf.
         entry = METACLIP2_WEIGHTS_URLS.get(variant, {})
         if isinstance(entry, dict) and "hf_id" in entry:

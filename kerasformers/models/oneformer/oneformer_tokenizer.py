@@ -12,7 +12,7 @@ class OneFormerTokenizer(BaseTokenizer):
 
     Renders the chosen ``task`` (``"semantic"`` / ``"instance"`` /
     ``"panoptic"``) as ``"the task is {task}"``, tokenizes it with the CLIP BPE
-    vocabulary and pads to ``task_seq_len`` with ``<|endoftext|>`` — the float
+    vocabulary and pads to ``task_seq_len`` with ``<|endoftext|>``: the float
     task-id vector the model's task MLP consumes. Loads ``tokenizer.json`` for
     ``variant`` from the ``oneformer`` release, on the fly from ``hf_id``, or
     from an explicit ``tokenizer_file``.

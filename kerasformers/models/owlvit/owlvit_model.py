@@ -276,7 +276,7 @@ def owlvit_class_predictor(
         pred_logits: Cosine-similarity-based class logits
             ``(B, num_patches, num_queries)``.
         image_class_embeds: L2-normalized image projections
-            ``(B, num_patches, out_dim)`` — matches the reference's
+            ``(B, num_patches, out_dim)``: matches the reference's
             returned ``class_embeds`` so callers can use them directly
             for cosine-similarity scoring against custom text queries
             (e.g. one-shot / image-guided detection).
@@ -342,7 +342,7 @@ def owlvit_detection_head(
             CLS token at index 0.
         text_embeds: L2-normalized text projection
             ``(B, projection_dim)`` from the text tower.
-        input_ids: Original text token IDs — used to build the query
+        input_ids: Original text token IDs, used to build the query
             mask (queries whose first token is 0 are treated as padding).
         vision_hidden_dim: Vision tower hidden dimension.
         text_hidden_dim: Text tower hidden dimension (also the
@@ -423,7 +423,7 @@ class OwlViTVisionModel(FunctionalBaseModel):
 
         out = model(pixel_values)
         out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_dim)
-        out["pooler_output"]       # (B, vision_hidden_dim) — CLS token
+        out["pooler_output"]       # (B, vision_hidden_dim): CLS token
 
     Reference:
         - `Simple Open-Vocabulary Object Detection with Vision Transformers
@@ -552,7 +552,7 @@ class OwlViTTextModel(FunctionalBaseModel):
 
         out = model(input_ids)
         out["last_hidden_state"]   # (B, seq_len, text_hidden_dim)
-        out["pooler_output"]       # (B, text_hidden_dim) — EOS token
+        out["pooler_output"]       # (B, text_hidden_dim): EOS token
 
     Reference:
         - `Simple Open-Vocabulary Object Detection with Vision Transformers
@@ -667,7 +667,7 @@ class OwlViTModel(FunctionalBaseModel):
     :class:`OwlViTVisionModel` and :class:`OwlViTTextModel` (exposed as
     ``model.vision_model`` / ``model.text_model``), and applies the
     ``text_projection`` + L2-normalization on the text side. Returns the
-    raw vision encoder output and the L2-normalized text projection —
+    raw vision encoder output and the L2-normalized text projection:
     suitable for zero-shot similarity scoring or as a backbone for
     custom heads. For full detection, use ``OwlViTDetect``.
 

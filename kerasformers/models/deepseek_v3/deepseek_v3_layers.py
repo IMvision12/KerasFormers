@@ -39,7 +39,7 @@ def apply_interleaved_rope(x, cos, sin):
     """DeepSeek interleaved rope: pairs ``(x[2i], x[2i+1])`` rotate by one angle.
 
     ``cos`` / ``sin`` carry one entry per pair ``(..., dim // 2)``. The output
-    is laid out de-interleaved (evens then odds) — bit-identical attention to
+    is laid out de-interleaved (evens then odds): bit-identical attention to
     the reference complex formulation since q and k transform consistently.
     """
     x1 = x[..., 0::2]

@@ -244,7 +244,7 @@ def clip_head(image_embeddings, text_embeddings):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPVisionModel(FunctionalBaseModel):
-    """CLIP vision tower as a standalone model — no text encoder, no projection.
+    """CLIP vision tower as a standalone model: no text encoder, no projection.
 
     The patch-embedding +
     transformer stack from CLIP, ending at the post-encoder LayerNorm.
@@ -257,7 +257,7 @@ class CLIPVisionModel(FunctionalBaseModel):
 
         out = model(images)
         out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_dim)
-        out["pooler_output"]       # (B, vision_hidden_dim) — post-LN CLS token
+        out["pooler_output"]       # (B, vision_hidden_dim): post-LN CLS token
 
     Construction:
 
@@ -397,7 +397,7 @@ class CLIPVisionModel(FunctionalBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPTextModel(FunctionalBaseModel):
-    """CLIP text tower as a standalone model — no vision encoder, no projection.
+    """CLIP text tower as a standalone model: no vision encoder, no projection.
 
     Token + positional
     embedding, causal-masked transformer stack, post-encoder LayerNorm,
@@ -411,7 +411,7 @@ class CLIPTextModel(FunctionalBaseModel):
 
         out = model({"token_ids": ..., "padding_mask": ...})
         out["last_hidden_state"]   # (B, max_seq_len, text_hidden_dim)
-        out["pooler_output"]       # (B, text_hidden_dim) — EOT-position hidden state
+        out["pooler_output"]       # (B, text_hidden_dim): EOT-position hidden state
 
     Construction:
 
@@ -556,15 +556,15 @@ class CLIPTextModel(FunctionalBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPImageEmbed(FunctionalBaseModel):
-    """CLIP vision tower + ``visual_projection`` — joint-space image embeddings.
+    """CLIP vision tower + ``visual_projection``: joint-space image embeddings.
 
     Composes
     :class:`CLIPVisionModel` and applies the bias-free
     ``visual_projection`` Dense, producing the same image side as
     :class:`CLIPModel` but without instantiating the text tower or the
-    ``logit_scale``. The projection weights are **pretrained** — loaded
+    ``logit_scale``. The projection weights are **pretrained**: loaded
     from the same CLIP checkpoint as :class:`CLIPModel`'s
-    ``visual_projection`` — so the output already lives in the joint
+    ``visual_projection``, so the output already lives in the joint
     image/text space used by the contrastive head.
 
     Output dict:
@@ -572,7 +572,7 @@ class CLIPImageEmbed(FunctionalBaseModel):
     .. code-block:: python
 
         out = model(images)
-        out["image_embeds"]        # (B, embed_dim) — joint-space, unnormalized
+        out["image_embeds"]        # (B, embed_dim): joint-space, unnormalized
         out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_dim)
 
     Construction:
@@ -715,14 +715,14 @@ class CLIPImageEmbed(FunctionalBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPTextEmbed(FunctionalBaseModel):
-    """CLIP text tower + ``text_projection`` — joint-space text embeddings.
+    """CLIP text tower + ``text_projection``: joint-space text embeddings.
 
     Composes
     :class:`CLIPTextModel` and applies the bias-free ``text_projection``
     Dense, producing the same text side as :class:`CLIPModel` but
     without instantiating the vision tower or the ``logit_scale``. The
-    projection weights are **pretrained** — loaded from the same CLIP
-    checkpoint as :class:`CLIPModel`'s ``text_projection`` — so the
+    projection weights are **pretrained**: loaded from the same CLIP
+    checkpoint as :class:`CLIPModel`'s ``text_projection``, so the
     output already lives in the joint image/text space.
 
     Output dict:
@@ -730,7 +730,7 @@ class CLIPTextEmbed(FunctionalBaseModel):
     .. code-block:: python
 
         out = model({"token_ids": ..., "padding_mask": ...})
-        out["text_embeds"]         # (B, embed_dim) — joint-space, unnormalized
+        out["text_embeds"]         # (B, embed_dim): joint-space, unnormalized
         out["last_hidden_state"]   # (B, max_seq_len, text_hidden_dim)
 
     Construction:
@@ -892,7 +892,7 @@ class CLIPModel(FunctionalBaseModel):
     """Contrastive Language-Image Pre-training (CLIP) dual encoder.
 
     Joint vision + text encoder pair projecting to a shared embedding
-    space. Returns the projected embeddings on each side — *no*
+    space. Returns the projected embeddings on each side: *no*
     similarity / logit-scale head is applied; use
     :class:`CLIPZeroShotClassify` for the standard contrastive head,
     or call :meth:`CLIPModel` and compute similarity yourself.
@@ -920,7 +920,7 @@ class CLIPModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         vision_num_layers: ViT encoder depth.
@@ -1113,7 +1113,7 @@ class CLIPZeroShotClassify(FunctionalBaseModel):
     """CLIP + contrastive similarity head for zero-shot classification / retrieval.
 
     Composes the same vision + text encoders as :class:`CLIPModel` and
-    adds the standard CLIP head — L2-normalize both sides, then a
+    adds the standard CLIP head: L2-normalize both sides, then a
     learnable ``logit_scale`` temperature on the cosine-similarity
     matrix. Output is the ``(B, B)`` image-vs-text similarity logits,
     which softmax to zero-shot class probabilities when ``text_*``
@@ -1124,8 +1124,8 @@ class CLIPZeroShotClassify(FunctionalBaseModel):
     .. code-block:: python
 
         out = model({"images": ..., "token_ids": ..., "padding_mask": ...})
-        out["image_logits"]   # (B, B) — image[i] vs text[j], scaled
-        out["text_logits"]    # (B, B) — transpose of image_logits
+        out["image_logits"]   # (B, B): image[i] vs text[j], scaled
+        out["text_logits"]    # (B, B): transpose of image_logits
 
     Construction:
 
@@ -1269,7 +1269,7 @@ class CLIPImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         vision_num_layers: ViT encoder depth.

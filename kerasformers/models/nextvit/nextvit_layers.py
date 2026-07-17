@@ -60,7 +60,7 @@ class NextViTEfficientAttention(layers.Layer):
 
         self.use_sr = sr_ratio > 1
         if self.use_sr:
-            # BN on transposed (B, C, N_reduced) — axis=1 is always the
+            # BN on transposed (B, C, N_reduced): axis=1 is always the
             # channel dimension in this internal representation
             self.norm = layers.BatchNormalization(
                 axis=1,

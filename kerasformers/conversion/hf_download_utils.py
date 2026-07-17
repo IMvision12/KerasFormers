@@ -13,20 +13,20 @@ class LazyStateDict(collections.abc.Mapping):
 
     A drop-in for the eager ``{name: np.ndarray}`` dict every converter consumes,
     but each tensor is materialized only when looked up (``safe_open`` mmap +
-    ``get_tensor``) and freed as soon as the converter assigns it — so peak host
+    ``get_tensor``) and freed as soon as the converter assigns it, so peak host
     RAM is ~one tensor instead of the whole checkpoint. Backed by ``{name: shard
     path}``; ``safe_open`` handles open on first use and are cached per shard.
     Returns exactly what ``safetensors.numpy.load_file`` would (same values and
-    dtypes, incl. bf16 as ``ml_dtypes`` arrays) — purely a memory optimization.
+    dtypes, incl. bf16 as ``ml_dtypes`` arrays): purely a memory optimization.
 
     ``__contains__`` is overridden to test membership against the key index only:
     the default :class:`collections.abc.Mapping` implementation calls
-    ``__getitem__``, which for this class would read the whole tensor — so
+    ``__getitem__``, which for this class would read the whole tensor, so
     ``name in sd`` (which converters do right before ``sd[name]``) would otherwise
     read every present tensor twice.
 
     **Streaming mode** (:meth:`streaming`, for ``low_disk``): shards are not on
-    disk up front — each is downloaded to a private temp dir on first access and
+    disk up front: each is downloaded to a private temp dir on first access and
     an earlier shard is evicted (deleted) before the next is fetched, so peak
     disk is ~one shard (plus a pinned shard 0). Lets a checkpoint larger than the
     local disk be loaded. After the first successful conversion, the observed
@@ -144,7 +144,7 @@ class LazyStateDict(collections.abc.Mapping):
         return self._shard_of if self._shard_of is not None else self._paths
 
     def __contains__(self, key):
-        # O(1) key check — must NOT read the tensor (see class docstring).
+        # O(1) key check: must NOT read the tensor (see class docstring).
         return key in self._keys()
 
     def __iter__(self):
@@ -216,7 +216,7 @@ def load_bin_state_dict(paths):
     """Eagerly load legacy ``.bin`` pickle shards to a ``{name: numpy}`` dict.
 
     Pickle checkpoints have no mmap / lazy path, so they are read in full on CPU
-    (``weights_only=True`` — no arbitrary code execution). torch is conversion-only
+    (``weights_only=True``: no arbitrary code execution). torch is conversion-only
     here and never touches CUDA. bf16 / fp8 tensors are upcast to float32 first,
     since ``torch.bfloat16`` / ``float8`` have no numpy dtype and ``.numpy()`` on
     them raises ``TypeError: Got unsupported ScalarType``.
@@ -241,7 +241,7 @@ def download_hf_state_dict(hf_id, token=None, low_disk=False):
     """Download model weights and return a ``{name: numpy_array}`` mapping.
 
     ``token`` is forwarded to ``hf_hub_download`` for gated / private repos.
-    Safetensors are returned as a :class:`LazyStateDict` — memory-mapped and read
+    Safetensors are returned as a :class:`LazyStateDict`, memory-mapped and read
     one tensor at a time, so the full checkpoint never sits in host RAM. torch is
     used only as an eager CPU fallback for legacy ``.bin`` checkpoints (never
     touches CUDA); those return a plain dict.
@@ -334,7 +334,7 @@ def load_and_convert_from_hf(
     """Download, convert, and cache source weights for a Keras model.
 
     Generic helper used for models whose Keras weights cannot be
-    redistributed directly — either due to **license gating** (SAM3,
+    redistributed directly: either due to **license gating** (SAM3,
     DINOv3) or because the converted weights **exceed distribution host
     limits** (MetaCLIP 2 Huge/Giant variants at 3-4 GB single tensors,
     larger than GitHub's 2 GB release asset cap).

@@ -16,14 +16,14 @@ class BaseProcessor(PreprocessorMixin):
 
     The base then provides, generically over whatever components are declared:
 
-    * ``from_hf(repo)`` — loads **every** component from the HF ``repo`` (tokenizer
+    * ``from_hf(repo)``: loads **every** component from the HF ``repo`` (tokenizer
       files + image processor / feature extractor), so ``from_weights("hf:org/repo")``
       returns a complete processor.
-    * ``get_config`` / ``from_config`` — serialize/deserialize the components.
-    * ``decode`` / ``batch_decode`` — wired through to ``self.tokenizer``.
-    * ``render_conversations`` / ``deal_per_text`` — batching support: render one
-      conversation or a list of them, then hand each prompt only the vision inputs
-      its own markers claim.
+    * ``get_config`` / ``from_config``: serialize/deserialize the components.
+    * ``decode`` / ``batch_decode``: wired through to ``self.tokenizer``.
+    * ``render_conversations`` / ``deal_per_text``: batching support, rendering
+      one conversation or a list of them, then handing each prompt only the
+      vision inputs its own markers claim.
 
     Subclasses implement ``call`` (the modality dispatch) and, if they carry extra
     scalar state, extend ``get_config``. The loading API + ``__call__`` -> ``call``

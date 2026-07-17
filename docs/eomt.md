@@ -6,8 +6,8 @@ EoMT (Encoder-only Mask Transformer) is a universal segmentation model that simp
 
 Two classes are exposed:
 
-- `EoMTModel` — DINOv2-style ViT encoder with the query-injection stack (no task heads). Outputs the post-LayerNorm sequence.
-- `EoMTUniversalSegment` — full universal-segmentation model that adds the class predictor, mask head, and mask-feature upscale stack. Output is a dict with `class_logits` and `mask_logits`.
+- `EoMTModel`: DINOv2-style ViT encoder with the query-injection stack (no task heads). Outputs the post-LayerNorm sequence.
+- `EoMTUniversalSegment`: full universal-segmentation model that adds the class predictor, mask head, and mask-feature upscale stack. Output is a dict with `class_logits` and `mask_logits`.
 
 ## Architecture Highlights
 
@@ -73,8 +73,8 @@ inputs = processor(image)
 
 # Inference
 output = model(inputs["pixel_values"], training=False)
-# output["class_logits"]: (1, num_queries, 134) — class logits per query
-# output["mask_logits"]:  (1, num_queries, mask_h, mask_w) — mask logits
+# output["class_logits"]: (1, num_queries, 134), class logits per query
+# output["mask_logits"]:  (1, num_queries, mask_h, mask_w), mask logits
 
 #   processor.post_process_panoptic_segmentation(...)
 #   processor.post_process_semantic_segmentation(...)
@@ -126,7 +126,7 @@ instance = processor.post_process_instance_segmentation(
 | `post_process_semantic_segmentation` | `{"segmentation": (H, W) int32, "class_names": [...]}` |
 | `post_process_instance_segmentation` | `{"segmentation": (H, W) int32, "segments_info": [...]}` |
 
-The same forward pass on `model` is shared across all three methods —
+The same forward pass on `model` is shared across all three methods:
 just call the one(s) you need.
 
 ### Data format

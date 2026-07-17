@@ -207,7 +207,7 @@ def deeplabv3_aspp(x, name="classifier_0"):
         name: Prefix used for every layer name inside this block.
 
     Returns:
-        Tensor of shape ``(B, H, W, 256)`` — ASPP-fused features at the
+        Tensor of shape ``(B, H, W, 256)``: ASPP-fused features at the
         same spatial resolution as ``x``.
     """
     data_format = keras.config.image_data_format()
@@ -282,7 +282,7 @@ def deeplabv3_aspp(x, name="classifier_0"):
 
 
 def deeplabv3_classifier_head(x, num_classes, name="classifier"):
-    """DeepLabV3 classifier head — 3×3 conv → BN → ReLU → 1×1 conv to logits.
+    """DeepLabV3 classifier head: 3×3 conv → BN → ReLU → 1×1 conv to logits.
 
     Final per-pixel projection applied after :func:`deeplabv3_aspp`.
     Output retains the spatial resolution of ``x`` (typically the
@@ -296,7 +296,7 @@ def deeplabv3_classifier_head(x, num_classes, name="classifier"):
         name: Prefix used for every layer name inside this block.
 
     Returns:
-        Tensor of shape ``(B, H, W, num_classes)`` — per-pixel class
+        Tensor of shape ``(B, H, W, num_classes)``: per-pixel class
         logits at the same spatial resolution as ``x``.
     """
     data_format = keras.config.image_data_format()
@@ -336,7 +336,7 @@ class DeepLabV3Model(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `520`.
         input_tensor: Optional pre-existing Keras input tensor.
@@ -415,7 +415,7 @@ class DeepLabV3SemanticSegment(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `520`.
         input_tensor: Optional pre-existing Keras input tensor.

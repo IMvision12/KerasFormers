@@ -4,12 +4,12 @@ from kerasformers.samplers.sampler import NEG_INF, Sampler, gumbel
 
 
 class TopPSampler(Sampler):
-    """Nucleus sampling — the smallest set of top tokens with cumulative prob >= ``p``.
+    """Nucleus sampling: the smallest set of top tokens with cumulative prob >= ``p``.
 
     Matches Hugging Face's ``TopPLogitsWarper`` (with its default
     ``min_tokens_to_keep=1``): sort by probability, keep tokens while the prefix
-    *before* them holds less than ``p`` of the mass — which always retains the
-    top-1 and the token that crosses ``p`` — push the rest to ``NEG_INF``, then
+    *before* them holds less than ``p`` of the mass, which always retains the
+    top-1 and the token that crosses ``p``: push the rest to ``NEG_INF``, then
     draw with the Gumbel-max trick on the pre-supplied noise.
     """
 

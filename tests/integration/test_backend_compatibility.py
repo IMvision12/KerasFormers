@@ -38,7 +38,7 @@ def test_model_forward_pass(model_name):
 
     expected = config["expected_output_shape"]
     if expected is None:
-        # Models with dynamic output shapes (e.g. SAM) — just check it runs
+        # Models with dynamic output shapes (e.g. SAM): just check it runs
         return
 
     if isinstance(expected, dict):

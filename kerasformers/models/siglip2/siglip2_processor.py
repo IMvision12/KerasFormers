@@ -9,7 +9,7 @@ from kerasformers.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIP2Processor(BaseProcessor):
-    """Combined processor for SigLIP 2 models — image + Gemma text.
+    """Combined processor for SigLIP 2 models: image + Gemma text.
 
     Pairs :class:`SigLIP2ImageProcessor` (resize / center crop / normalize) with
     :class:`SigLIP2Tokenizer` (Gemma SentencePiece, vocab 256000).

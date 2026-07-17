@@ -120,7 +120,7 @@ def depth_anything_v2_post_process_depth(
             inputs.
 
     Returns:
-        Keras tensor of shape ``(B, orig_h, orig_w)`` — the depth map
+        Keras tensor of shape ``(B, orig_h, orig_w)``: the depth map
         resampled to the original image resolution.
 
     Example:

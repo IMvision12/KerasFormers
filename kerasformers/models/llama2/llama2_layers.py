@@ -49,8 +49,8 @@ class Llama2RMSNorm(layers.Layer):
 class Llama2MLP(layers.Layer):
     """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
 
-    Two parallel bias-free projections to ``mlp_dim`` — a SiLU-gated ``gate``
-    and a linear ``up`` — are multiplied elementwise, then projected back to
+    Two parallel bias-free projections to ``mlp_dim``: a SiLU-gated ``gate``
+    and a linear ``up``: are multiplied elementwise, then projected back to
     ``embed_dim`` by ``down``. Shape-preserving on the last axis.
 
     Args:
@@ -220,7 +220,7 @@ class Llama2DecoderLayer(layers.Layer):
     """One Llama 2 transformer block: pre-norm attention, then pre-norm SwiGLU.
 
     Computes ``h = x + attention(attention_norm(x))`` followed by
-    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual
+    ``h = h + mlp(mlp_norm(h))``: RMSNorm pre-normalization with residual
     adds. The rotary tables, mask, and KV cache pass straight through to the
     attention.
 

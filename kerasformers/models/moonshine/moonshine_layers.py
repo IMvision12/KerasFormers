@@ -112,7 +112,7 @@ class MoonshineAttention(keras.layers.Layer):
     """Multi-head attention shared by Moonshine self-attention and cross-attention.
 
     Reproduces ``MoonshineAttention`` (a ``GlmAttention`` variant). Each
-    instance owns four bias-free ``Dense`` projections — Q, K, V, output.
+    instance owns four bias-free ``Dense`` projections: Q, K, V, output.
     Scaling by ``1 / sqrt(head_dim)`` is applied inside the scaled dot-product
     on the (unpadded) head dimension. Grouped-query attention is supported via
     ``num_kv_heads`` (repeated to ``num_heads`` before the dot product); the
@@ -121,10 +121,10 @@ class MoonshineAttention(keras.layers.Layer):
 
     The same layer handles two modes through ``call``:
 
-    * **Self-attention** (default): ``key_value_states is None`` — keys and
+    * **Self-attention** (default): ``key_value_states is None``, keys and
       values are projected from ``hidden_states`` and rotary position
       embeddings (``cos`` / ``sin``) are applied to Q and K.
-    * **Cross-attention**: ``key_value_states`` is the encoder output —
+    * **Cross-attention**: ``key_value_states`` is the encoder output,
       queries come from ``hidden_states`` (the decoder input), keys / values
       from the encoder, and no rotary embedding is applied.
 

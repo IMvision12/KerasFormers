@@ -17,7 +17,7 @@ class OneFormerImageProcessor(BaseImageProcessor):
 
     Resizes the longest edge to ``target_size`` (preserving aspect ratio),
     bottom/right-pads to a square ``target_size`` x ``target_size`` canvas,
-    rescales to ``[0, 1]``, and applies ImageNet normalization — the same
+    rescales to ``[0, 1]``, and applies ImageNet normalization: the same
     fixed-canvas recipe as the Mask2Former processor in this library.
 
     Args:

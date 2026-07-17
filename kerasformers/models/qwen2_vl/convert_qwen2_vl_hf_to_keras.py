@@ -34,7 +34,7 @@ def transfer_qwen2_vl_weights(keras_model, hf_state_dict):
 
     Builds the model on a multimodal dummy input, accepts either HF key layout
     (``visual.* / model.*`` or ``model.visual.* / model.language_model.*``), maps
-    each Keras weight path to its HF name, and copies it — reshaping the vision
+    each Keras weight path to its HF name, and copies it, reshaping the vision
     Conv3d patch embed ``(embed_dim, in, t, p, p) -> (in*t*p*p, embed_dim)``.
     """
     if not keras_model.built or not keras_model.weights:

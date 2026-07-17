@@ -169,13 +169,13 @@ class Gemma3MultiModalProjector(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Gemma3Model(SubclassedBaseModel):
-    """Gemma 3 backbone — text decoder, optionally with the SigLIP tower and
+    """Gemma 3 backbone: text decoder, optionally with the SigLIP tower and
     average-pool projector (4B/12B/27B; the 1B is text-only).
 
     The decoder uses Gemma 3's recipe: scaled embeddings, ``(1 + w)``
     RMSNorms, per-head QK norms, the four-norm sandwich, a 5:1
     sliding-to-global layer pattern (``sliding_window_pattern``), and
-    *dual rotary bases* — sliding layers use ``rope_local_theta`` (10k,
+    *dual rotary bases*: sliding layers use ``rope_local_theta`` (10k,
     unscaled), global layers ``rope_theta`` (1M) with an optional linear
     ``rope_scaling_factor`` (8 on 4B+). Projected image embeddings replace
     the ``image_token_id`` placeholder slots, and image-token groups attend

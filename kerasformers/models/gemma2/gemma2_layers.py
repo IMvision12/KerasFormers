@@ -75,7 +75,7 @@ class Gemma2Attention(layers.Layer):
 
     Bias-free projections, half-rotation rotary, GQA; attention scores are
     scaled by ``query_pre_attn_scalar**-0.5`` (not ``head_dim**-0.5``) and
-    softcapped — ``tanh(scores / cap) * cap`` — *before* the mask is added.
+    softcapped, ``tanh(scores / cap) * cap``, *before* the mask is added.
     The (optionally sliding-window) additive mask is supplied by the caller.
 
     Args:
@@ -232,7 +232,7 @@ class Gemma2DecoderLayer(layers.Layer):
 
     Computes ``h = x + post_attention_norm(attention(attention_norm(x)))``
     followed by ``h = h + post_feedforward_norm(mlp(pre_feedforward_norm(h)))``
-    — each residual branch is normed on the way in *and* out.
+    each residual branch is normed on the way in *and* out.
 
     Args:
         embed_dim: Model / residual-stream width.

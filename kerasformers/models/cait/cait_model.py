@@ -178,7 +178,7 @@ def cait_backbone_feature(
             output. Otherwise return only the final-LN output.
 
     Returns:
-        ``(B, 1+N, D)`` tensor of final-LN normalized tokens — CLS at index 0
+        ``(B, 1+N, D)`` tensor of final-LN normalized tokens: CLS at index 0
         followed by ``N = (H/patch_size) * (W/patch_size)`` patch tokens.
         When ``return_stages=True``, returns a list of intermediate tensors;
         the last entry is the same final-LN output.
@@ -249,7 +249,7 @@ class CaiTModel(FunctionalBaseModel):
     dedicated class-attention stage where the model first runs ``depth``
     blocks on patch tokens alone, then appends a class token and updates
     it with ``depth_token_only`` extra class-attention blocks while the
-    patch tokens are frozen — so the CLS token aggregates information
+    patch tokens are frozen, so the CLS token aggregates information
     without contaminating the patch representation.
 
     Output is the last layer output before the classifier head:
@@ -281,7 +281,7 @@ class CaiTModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -432,7 +432,7 @@ class CaiTImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

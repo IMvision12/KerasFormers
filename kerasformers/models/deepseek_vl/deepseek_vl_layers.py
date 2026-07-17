@@ -49,8 +49,8 @@ class DeepseekVLTextRMSNorm(layers.Layer):
 class DeepseekVLTextMLP(layers.Layer):
     """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
 
-    Two parallel bias-free projections to ``mlp_dim`` — a SiLU-gated ``gate``
-    and a linear ``up`` — are multiplied elementwise, then projected back to
+    Two parallel bias-free projections to ``mlp_dim``: a SiLU-gated ``gate``
+    and a linear ``up``: are multiplied elementwise, then projected back to
     ``embed_dim`` by ``down``. Shape-preserving on the last axis.
 
     Args:
@@ -219,7 +219,7 @@ class DeepseekVLTextDecoderLayer(layers.Layer):
     """One DeepseekVLText transformer block: pre-norm attention, then pre-norm SwiGLU.
 
     Computes ``h = x + attention(attention_norm(x))`` followed by
-    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual
+    ``h = h + mlp(mlp_norm(h))``: RMSNorm pre-normalization with residual
     adds. The rotary tables, mask, and KV cache pass straight through to the
     attention.
 
@@ -323,7 +323,7 @@ class DeepseekVLTextDecoderLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DeepseekVLVisionAttention(layers.Layer):
-    """SigLIP full (bidirectional) self-attention — all projections biased."""
+    """SigLIP full (bidirectional) self-attention: all projections biased."""
 
     def __init__(self, embed_dim, num_heads, **kwargs):
         super().__init__(**kwargs)

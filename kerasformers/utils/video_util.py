@@ -129,8 +129,8 @@ def load_video(
 
     Args:
         video: A local file path, an ``http(s)://`` URL, raw video bytes,
-            a pre-decoded frame stack (``(N, H, W, 3)`` ndarray), or — as a
-            kerasformers extension — a directory containing pre-extracted frame
+            a pre-decoded frame stack (``(N, H, W, 3)`` ndarray), or: as a
+            kerasformers extension: a directory containing pre-extracted frame
             images.
         num_frames: Number of frames to sample uniformly. Mutually exclusive
             with ``fps`` unless ``sample_indices_fn`` is given.

@@ -1,7 +1,7 @@
 # Quantization (int8 / int4 / fp8)
 
 kerasformers ships its **own** weight-only int8 / int4 / fp8 quantization in
-`kerasformers/quantization/` — a from-scratch, backend-agnostic implementation
+`kerasformers/quantization/`: a from-scratch, backend-agnostic implementation
 (pure `keras.ops`), not Keras's built-in `model.quantize`. It shrinks a model
 ~4× (int8 / fp8) or ~8× (int4) so larger checkpoints fit in memory. int8 / int4
 run on TensorFlow / Torch / JAX; fp8 (float8-e4m3) is torch / jax only.
@@ -31,7 +31,7 @@ quantize_model(model, "fp8")                  # float8 e4m3 (torch / jax)
 building the full float model:
 
 ```python
-# never materializes the bf16 model — quantizes each tensor as it loads
+# never materializes the bf16 model: quantizes each tensor as it loads
 model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4", low_memory=True)
 ```
 
@@ -41,7 +41,7 @@ anything else, so it is always safe to pass.
 
 ## Production usage
 
-Pass a `QuantizationConfig` for fine control — named schemes, mixed precision,
+Pass a `QuantizationConfig` for fine control: named schemes, mixed precision,
 and skipping accuracy-sensitive layers:
 
 ```python
@@ -74,7 +74,7 @@ dequantize_model(model)                       # revert to float layers
 **MoE and functional models:** `quantize_model` also quantizes **fused MoE
 experts** (the `gate_up_proj` / `down_proj` banks of Qwen/GLM/DeepSeek-MoE, along
 the contracted axis) and **functional / vision** models (ViT, CLIP, …). A
-functional graph can't be mutated in place, so it is **cloned** — use the
+functional graph can't be mutated in place, so it is **cloned**: use the
 returned model:
 
 ```python
@@ -88,26 +88,26 @@ the fly** inside each layer's `call`, so the matmul still runs in the activation
 dtype. No special int kernels are needed, which is why it is fully
 backend-agnostic.
 
-- **int8** — per-channel **symmetric absmax** (one float scale per output
+- **int8**: per-channel **symmetric absmax** (one float scale per output
   channel, over the contracting axis). `w_int8 = round(w / scale)`,
   `scale = max|w| / 127`. This is *vector-wise per-channel int8*, **not**
-  LLM.int8() — there is no activation-outlier fp16 path; on very large models the
+  LLM.int8(): there is no activation-outlier fp16 path; on very large models the
   accuracy lever is keeping outlier-heavy layers in float (`skip_modules`) or
   going group-wise int4.
-- **int4** — **block-wise** symmetric absmax (the `in` axis is split into blocks
-  of `group_size`, each block × output-channel gets its own scale — the
+- **int4**: **block-wise** symmetric absmax (the `in` axis is split into blocks
+  of `group_size`, each block × output-channel gets its own scale: the
   bitsandbytes idea), packed **two values per byte**. `scale = max|w| / 7`.
-- **fp8** — per-output-channel absmax cast into the native `float8_e4m3fn` dtype
+- **fp8**: per-output-channel absmax cast into the native `float8_e4m3fn` dtype
   (1 byte, `scale = max|w| / 448`); the floating-point grid (4 exp / 3 mantissa
   bits) often tracks wide dynamic range better than uniform int8 at the same
   size. **torch / jax only**.
-- **Embeddings** — int8 with a per-row scale; the lookup gathers int8 rows and
+- **Embeddings**: int8 with a per-row scale; the lookup gathers int8 rows and
   dequantizes only the gathered slice (for both `int8` and `int4` model modes,
-  embeddings stay int8 — the 4-bit savings live in the Dense weights).
+  embeddings stay int8: the 4-bit savings live in the Dense weights).
 
 **N-D kernels.** Quantization is along the **contracting axis**, not a hardcoded
 `axis=0`, so the same quantizers serve 2-D `Dense` kernels, N-D `EinsumDense`
-kernels (axis derived from the equation — a tuple for int8/fp8, a single axis for
+kernels (axis derived from the equation: a tuple for int8/fp8, a single axis for
 packed int4), per-row embeddings (`axis=1`), and fused MoE expert banks
 (`axis=-1`). Scales keep the reduced axes as size 1 so they broadcast over any
 rank with no reshape.
@@ -121,13 +121,13 @@ compute `dtype`, so `mixed_bfloat16` graphs don't upcast through float32.
 → `QuantizedEinsumDense`, `Embedding` → `QuantizedEmbedding`, and fused experts →
 `QuantizedExperts`, freeing the float weights, then records the resolved
 `QuantizationConfig` on the model. The swap unlocks the keras layer tracker,
-untracks the float layer, and registers the quantized one — enumerating both
+untracks the float layer, and registers the quantized one, enumerating both
 `__dict__` and (on the torch backend, where keras `Layer` is an `nn.Module`)
 `_modules`, so it finds sub-layers on every backend.
 
 ## Components
 
-The package mirrors keras's `Quantizer` / `AbsMaxQuantizer` structure — a base
+The package mirrors keras's `Quantizer` / `AbsMaxQuantizer` structure: a base
 class plus one file per scheme:
 
 | Symbol | File | Role |
@@ -176,7 +176,7 @@ activations, so the *practical* ceilings on one 80 GB H100 are roughly **32B
 bf16 / 64B int8 / ~115B int4**.
 
 **MoE counts total, not active.** Sparse experts cut *compute* per token, but
-every expert must be resident — size by total parameters, not active ones.
+every expert must be resident: size by total parameters, not active ones.
 
 Worked examples (int4, ≈ 0.55 B/param):
 
@@ -184,8 +184,8 @@ Worked examples (int4, ≈ 0.55 B/param):
 |---|---|---|
 | 70B dense | ~38 GB | yes |
 | 120B (GPT-OSS-120B class) | ~66 GB | yes (tight) |
-| 355B (GLM-4.5) | ~195 GB | no — ~3 GPUs |
-| 744B (GLM-5.x) | ~410 GB | no — ~5–6 GPUs |
+| 355B (GLM-4.5) | ~195 GB | no: ~3 GPUs |
+| 744B (GLM-5.x) | ~410 GB | no: ~5–6 GPUs |
 
 > **Load time.** By default `quantization=` builds the float model first (peak ≈
 > the **bf16** size, params × 2) and quantizes after. Pass **`low_memory=True`**
@@ -208,25 +208,25 @@ Worked examples (int4, ≈ 0.55 B/param):
   reloads a saved quantized artifact the same way. The no-float load needs the
   model's converter to assign through `model.weights` (the standard LLM pattern);
   it verifies every quantized layer was filled and errors clearly otherwise, so it
-  never silently corrupts — fall back to the float path for those models.
+  never silently corrupts: fall back to the float path for those models.
 - **Coverage.** `Dense`, `EinsumDense`, `Embedding`, and fused-SwiGLU MoE expert
   banks (`gate_up_proj`/`down_proj`) are quantized; other custom weight layouts
-  stay float. A `Dense`/`Embedding` stored inside a Python list (rare —
+  stay float. A `Dense`/`Embedding` stored inside a Python list (rare:
   kerasformers uses attributes) is skipped with a warning. `dequantize_model`
   reverts `Dense`/`Embedding`; quantized `EinsumDense` / experts stay quantized
   (they still run correctly). Tied-output LLMs that read `token_embedding.embeddings`
-  for the logit projection keep working — `QuantizedEmbedding` exposes a
+  for the logit projection keep working: `QuantizedEmbedding` exposes a
   dequantizing `embeddings` property.
 - **Functional models are fully covered**, including Denses nested in custom
-  blocks and nested `Functional` sub-models (encoder/decoder) — after cloning the
+  blocks and nested `Functional` sub-models (encoder/decoder): after cloning the
   graph, the in-place swap descends into each block and recurses into sub-models.
   Functional **encoder-decoder ASR** (Whisper / Speech2Text / Moonshine) is the
   exception: it's *partially* quantized (cloneable parts like the encoder), but
   the decoder's weight-capturing `Lambda` lm_head can't be cloned so it stays
   float, and `clone_model` returns a plain `Functional` (dropping cached-
-  generation methods) — so quantized ASR is forward-only, not for `generate()`.
+  generation methods), so quantized ASR is forward-only, not for `generate()`.
 - **fp8 is torch / jax only.** TensorFlow lacks the float8 casts, so `"fp8"`
-  raises a clear error there — use `"int8"` for a tf-portable ~4× option.
+  raises a clear error there: use `"int8"` for a tf-portable ~4× option.
 - **No calibrated PTQ (GPTQ / AWQ).** This is round-to-nearest weight
   quantization; calibration-based methods for higher int4 accuracy are not
   included.

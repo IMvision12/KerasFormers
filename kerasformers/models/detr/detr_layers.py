@@ -343,7 +343,7 @@ class DETRMHAttentionMap(layers.Layer):
     """Multi-head attention map between decoder queries and encoder features.
 
     Computes per-head, per-query attention weights over the encoder's
-    spatial feature map — used by :class:`DETRPanopticSegment` as the seed for
+    spatial feature map: used by :class:`DETRPanopticSegment` as the seed for
     the mask head. Matches the reference ``DetrMHAttentionMap`` weights
     and forward semantics.
 
@@ -355,13 +355,13 @@ class DETRMHAttentionMap(layers.Layer):
             class.
 
     Input Shapes:
-        ``q``: ``(B, num_queries, hidden_dim)`` — decoder hidden states.
-        ``k``: ``(B, H, W, hidden_dim)`` — projected encoder feature map
+        ``q``: ``(B, num_queries, hidden_dim)``, decoder hidden states.
+        ``k``: ``(B, H, W, hidden_dim)``, projected encoder feature map
         in channels-last form (after the 1×1 ``input_projection`` and
         reshape from the encoder's flattened output).
 
     Output Shape:
-        5D tensor ``(B, num_queries, num_heads, H, W)`` — softmax-
+        5D tensor ``(B, num_queries, num_heads, H, W)``: softmax-
         normalized over the joint ``num_heads × H × W`` axis per query,
         matching the reference behaviour exactly.
     """
@@ -425,7 +425,7 @@ class DETRMaskHeadSmallConv(layers.Layer):
     backbone features (C4/C3/C2) through three nearest-neighbour
     upsampling stages, producing a per-query mask logit at stride 4.
 
-    Reproduces the ``DetrMaskHeadSmallConv`` exactly — five
+    Reproduces the ``DetrMaskHeadSmallConv`` exactly: five
     ``Conv2D + GroupNorm + ReLU`` stages, three 1×1 ``adapter`` convs
     that align backbone channel counts, and a final ``out_lay`` 1-
     channel conv. The intermediate channel widths are
@@ -433,7 +433,7 @@ class DETRMaskHeadSmallConv(layers.Layer):
     context_dim/16, context_dim/64]``.
 
     Args:
-        dim: Number of input channels — ``hidden_dim + num_heads``.
+        dim: Number of input channels, ``hidden_dim + num_heads``.
             Must be divisible by 8 (the ``GroupNormalization`` group
             count for the first stage).
         fpn_dims: Three integers ``(C4_channels, C3_channels,
@@ -446,9 +446,9 @@ class DETRMaskHeadSmallConv(layers.Layer):
             class.
 
     Input Shapes:
-        ``x``: ``(B, H, W, context_dim)`` — projected encoder feature
+        ``x``: ``(B, H, W, context_dim)``, projected encoder feature
         map reshaped back to spatial form.
-        ``bbox_mask``: ``(B, num_queries, num_heads, H, W)`` — output of
+        ``bbox_mask``: ``(B, num_queries, num_heads, H, W)``, output of
         :class:`DETRMHAttentionMap`.
         ``fpns``: list of three 4D tensors at strides 16, 8, 4 in
         channels-last form.

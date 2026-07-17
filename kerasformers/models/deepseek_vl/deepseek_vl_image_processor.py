@@ -12,7 +12,7 @@ class DeepseekVLImageProcessor(BaseImageProcessor):
     Per image: bicubic-resize so the longest edge equals ``size`` (preserving
     aspect ratio, each side at least ``min_size``), center-pad to a square
     ``size`` x ``size`` canvas with ``background_color`` (in raw 0-255 space),
-    rescale to ``[0, 1]``, and normalize with mean/std ``0.5`` — the HF
+    rescale to ``[0, 1]``, and normalize with mean/std ``0.5``: the HF
     ``DeepseekVLImageProcessor`` recipe.
 
     Args:

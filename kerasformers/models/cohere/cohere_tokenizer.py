@@ -12,7 +12,7 @@ class CohereTokenizer(BaseTokenizer):
     Cohere chat template / specials are applied by the caller.
 
     Args:
-        hf_id: Hub repo to pull ``tokenizer.json`` from — **required** (there is
+        hf_id: Hub repo to pull ``tokenizer.json`` from, **required** (there is
             no default), mirroring ``AutoTokenizer.from_pretrained`` (e.g.
             ``"CohereLabs/c4ai-command-r-v01"``). Optional only when
             ``tokenizer_file`` is supplied.

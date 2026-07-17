@@ -887,7 +887,7 @@ def rf_detr_decoder_inputs(
     decoder's iterative refinement loop.
 
     Args:
-        memory: Encoder memory ``(B, H*W, hidden_dim)`` — used only to
+        memory: Encoder memory ``(B, H*W, hidden_dim)``, used only to
             carry the batch dimension into the learned-embedding layers.
         num_queries: Number of object queries.
         hidden_dim: Query feature dimension.
@@ -1027,7 +1027,7 @@ def rf_detr_decoder(
     Two refinement modes are supported:
 
     - ``lite_refpoint_refine=True`` (default): reference points are
-      not refined between layers — the query positional encoding is
+      not refined between layers: the query positional encoding is
       computed once from the initial refpoints, and the bbox head is
       applied only after the final layer.
     - ``lite_refpoint_refine=False``: each decoder layer re-encodes
@@ -1040,7 +1040,7 @@ def rf_detr_decoder(
         memory: Encoder memory ``(B, H*W, hidden_dim)``.
         tgt: Initial query features ``(B, num_queries, hidden_dim)``.
         refpoints_unsigmoid: Initial reference points
-            ``(B, num_queries, 4)`` — either learned (no two-stage) or
+            ``(B, num_queries, 4)``: either learned (no two-stage) or
             from :func:`rf_detr_two_stage_refpoints`.
         hidden_dim: Decoder hidden dimension.
         dec_layers: Number of decoder layers.
@@ -1193,17 +1193,17 @@ def rf_detr_functional(
 
     Top-level orchestrator that wires the four architectural stages:
 
-    1. :func:`rf_detr_backbone` — DINOv2 windowed-attention backbone
+    1. :func:`rf_detr_backbone`, DINOv2 windowed-attention backbone
        producing multi-scale features.
-    2. :func:`rf_detr_projector` — concat + C2F fusion of the backbone
+    2. :func:`rf_detr_projector`, concat + C2F fusion of the backbone
        features into a single decoder memory.
     3. :func:`rf_detr_decoder_inputs` (+ optional
-       :func:`rf_detr_two_stage_refpoints`) — initial query features
+       :func:`rf_detr_two_stage_refpoints`): initial query features
        and reference points.
-    4. :func:`rf_detr_decoder` — deformable decoder with iterative
+    4. :func:`rf_detr_decoder`, deformable decoder with iterative
        bbox refinement and the final bbox prediction head.
 
-    The final class prediction head is intentionally not built here —
+    The final class prediction head is intentionally not built here:
     it is added by :class:`RFDETRDetect`, which composes
     :class:`RFDetrModel` around this graph.
 
@@ -1317,7 +1317,7 @@ def rf_detr_functional(
 class RFDetrModel(FunctionalBaseModel):
     """RF-DETR backbone + projector + decoder (no class heads).
 
-    bare-backbone ``Model`` variant — outputs the decoder ``last_hidden_state``
+    bare-backbone ``Model`` variant: outputs the decoder ``last_hidden_state``
     (post layernorm) with shape ``(B, num_queries, hidden_dim)``. The
     final class prediction head is pruned from the output graph; for the
     default ``lite_refpoint_refine=True`` setting, bbox-embed layers are
@@ -1519,7 +1519,7 @@ class RFDETRDetect(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `resolution` (an N x N x 3
             square at the per-variant resolution).
@@ -1552,7 +1552,7 @@ class RFDETRDetect(FunctionalBaseModel):
         num_windows = bb.get("num_windows", 1)
         image_size = bb["image_size"]
         # Input resolution isn't stored in config.json; reconstruct the value the
-        # image processor uses — the smallest multiple of patch_size * num_windows
+        # image processor uses: the smallest multiple of patch_size * num_windows
         # that is >= the backbone image_size (windowed attention needs the feature
         # grid divisible by num_windows).
         unit = patch_size * max(num_windows, 1)
@@ -1819,7 +1819,7 @@ class RFDETRInstanceSegment(FunctionalBaseModel):
     mask_downsample_ratio)}``.
 
     Reference:
-        - RF-DETR (Roboflow) — https://github.com/roboflow/rf-detr
+        - RF-DETR (Roboflow): https://github.com/roboflow/rf-detr
 
     Args:
         See :class:`RFDETRDetect` for the backbone / decoder arguments.

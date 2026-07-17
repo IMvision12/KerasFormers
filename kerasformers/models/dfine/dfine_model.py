@@ -1257,7 +1257,7 @@ def dfine_fdr_block(
     cross-attends queries to ``source_flat`` via multi-scale deformable
     attention guided by the current reference points. After the first
     decoder layer, a small ``pre_bbox_head`` MLP turns the initial
-    queries into ``ref_points_initial`` — the anchor used by FDR.
+    queries into ``ref_points_initial``: the anchor used by FDR.
 
     Per layer the FDR head ``bbox_embed_{di}`` predicts a residual
     over a discretized distribution of ``4 * (max_num_bins + 1)``
@@ -1265,7 +1265,7 @@ def dfine_fdr_block(
     distribution is integrated via ``dfine_integral`` into 4 corner
     distances, and ``dfine_distance2bbox`` reconstructs a refined box
     that replaces the reference points for the next iteration. Class
-    heads and LQE quality heads are not built here — they live in
+    heads and LQE quality heads are not built here: they live in
     ``DFineDetect``, which consumes ``last_pred_corners``.
 
     Args:
@@ -1383,13 +1383,13 @@ def dfine_decoder(
 
     Orchestrator that wires the three decoder sub-stages:
 
-    1. :func:`dfine_decoder_inputs` — re-project PAN features to
+    1. :func:`dfine_decoder_inputs`, re-project PAN features to
        ``hidden_dim``, flatten to a single token sequence, and generate
        anchor proposals with validity masks.
-    2. :func:`dfine_two_stage_proposals` — score every token and select
+    2. :func:`dfine_two_stage_proposals`, score every token and select
        the top ``num_queries`` as initial decoder queries + reference
        boxes.
-    3. :func:`dfine_fdr_block` — iterative deformable decoder with FDR
+    3. :func:`dfine_fdr_block`, iterative deformable decoder with FDR
        (Fine-grained Distribution Refinement) bbox refinement.
 
     Args:
@@ -1409,7 +1409,7 @@ def dfine_decoder(
         spatial_w: Input image width in pixels.
 
     Returns:
-        Tuple ``(hs, last_boxes, last_pred_corners)`` — see
+        Tuple ``(hs, last_boxes, last_pred_corners)``: see
         :func:`dfine_fdr_block` for shapes and semantics.
     """
     source_flat, spatial_shapes, anchors_t, vmask_t = dfine_decoder_inputs(
@@ -1470,15 +1470,15 @@ def dfine_functional(
 
     Top-level orchestrator that wires the three architectural stages:
 
-    1. :func:`dfine_backbone` — HGNetV2 backbone produces multi-scale
+    1. :func:`dfine_backbone`, HGNetV2 backbone produces multi-scale
        features at the levels chosen by ``encoder_in_channels``.
-    2. :func:`dfine_hybrid_encoder` — AIFI transformer encoder + CCFM
+    2. :func:`dfine_hybrid_encoder`, AIFI transformer encoder + CCFM
        (FPN + PAN) for cross-scale fusion.
-    3. :func:`dfine_decoder` — token preparation + two-stage query
+    3. :func:`dfine_decoder`, token preparation + two-stage query
        initialization + iterative deformable decoder with FDR refinement.
 
     Per-layer class prediction heads (``class_embed_*``) and LQE
-    quality-score heads are intentionally not built here — they are
+    quality-score heads are intentionally not built here: they are
     added by :class:`DFineDetect`, which composes :class:`DFineModel`
     around this graph.
 
@@ -1510,7 +1510,7 @@ def dfine_functional(
             used to compute per-level spatial sizes.
 
     Returns:
-        Tuple ``(hs, last_boxes, last_pred_corners)`` — the three
+        Tuple ``(hs, last_boxes, last_pred_corners)``: the three
         outputs of :func:`dfine_fdr_block`. ``hs`` is the decoder last
         hidden state, ``last_boxes`` are the final refined boxes, and
         ``last_pred_corners`` is fed into the LQE head of
@@ -1588,7 +1588,7 @@ def dfine_functional(
 class DFineModel(FunctionalBaseModel):
     """D-FINE backbone + hybrid encoder + decoder (no class heads).
 
-    Matches the reference ``DFineModel`` pattern — outputs the decoder
+    Matches the reference ``DFineModel`` pattern: outputs the decoder
     ``last_hidden_state`` with shape ``(B, num_queries, hidden_dim)``. The
     iterative bbox refinement layers stay in the model (they feed back
     into the decoder via reference points); only the per-layer class
@@ -1796,7 +1796,7 @@ class DFineDetect(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `640`.
         input_tensor: Optional input Keras tensor.

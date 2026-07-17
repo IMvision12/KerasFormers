@@ -60,7 +60,7 @@ _XCEPTION_BLOCK_CFGS = {
         },
     ],
     "41p": [
-        # preact variants don't take ``start_with_relu`` — PreXceptionModule
+        # preact variants don't take ``start_with_relu``: PreXceptionModule
         # always applies a leading norm+act block-wide.
         {"in_chs": 64, "out_chs": 128, "stride": 2},
         {"in_chs": 128, "out_chs": 256, "stride": 2},
@@ -161,7 +161,7 @@ def pre_separable_conv_block(
     name,
 ):
     """Aligned Xception ``PreSeparableConv2d``: (optional norm+act) →
-    depthwise → pointwise. No BN between the two convs — the next
+    depthwise → pointwise. No BN between the two convs: the next
     sub-conv's norm acts as that BN.
     """
     if first_act:
@@ -464,7 +464,7 @@ class XceptionModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an
@@ -621,7 +621,7 @@ class XceptionImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an

@@ -6,8 +6,8 @@ DeepLabV3 is a highly accurate semantic segmentation model that employs atrous (
 
 Two classes are exposed:
 
-- `DeepLabV3Model` — dilated ResNet backbone (no segmentation head). Returns the 2048-channel C5 feature at ``output_stride=8``.
-- `DeepLabV3SemanticSegment` — full semantic-segmentation model with the ASPP module + classifier head + bilinear upsample.
+- `DeepLabV3Model`: dilated ResNet backbone (no segmentation head). Returns the 2048-channel C5 feature at ``output_stride=8``.
+- `DeepLabV3SemanticSegment`: full semantic-segmentation model with the ASPP module + classifier head + bilinear upsample.
 
 ## Architecture Highlights
 

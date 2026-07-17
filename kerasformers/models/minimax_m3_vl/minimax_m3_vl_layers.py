@@ -488,7 +488,7 @@ class MiniMaxM3VLDecoderLayer(layers.Layer):
     Args:
         embed_dim / num_heads / num_kv_heads / head_dim: Attention geometry.
         mlp_type: ``"sparse"`` (MoE) or ``"dense"``.
-        mlp_dim: Expert hidden width (sparse) — see ``dense_mlp_dim``.
+        mlp_dim: Expert hidden width (sparse), see ``dense_mlp_dim``.
         dense_mlp_dim: Dense-MLP hidden width.
         shared_mlp_dim: Shared-expert hidden width.
         num_experts / num_experts_per_tok / routed_scaling_factor: MoE shape.

@@ -10,7 +10,7 @@ class WhisperAttention(keras.layers.Layer):
     """Multi-head attention shared between Whisper self-attention and cross-attention.
 
     Reproduces ``WhisperAttention`` bit-for-bit. Each instance owns
-    four ``Dense`` projections — Q, K, V, output — with biases on
+    four ``Dense`` projections (Q, K, V, output) with biases on
     Q / V / output and no bias on K. Scaling by ``1 / sqrt(head_dim)``
     is applied to the Q output **before** the scaled dot-product
     (``q *= scale`` then ``q @ k.T``), matching the reference
@@ -19,9 +19,9 @@ class WhisperAttention(keras.layers.Layer):
     The same layer handles two attention modes via the optional
     ``key_value_states`` argument to ``call``:
 
-    * **Self-attention** (default): ``key_value_states is None`` — keys
+    * **Self-attention** (default): ``key_value_states is None``, keys
       and values are projected from ``hidden_states``.
-    * **Cross-attention**: ``key_value_states`` is the encoder output —
+    * **Cross-attention**: ``key_value_states`` is the encoder output,
       queries come from ``hidden_states`` (the decoder input), keys and
       values come from the encoder.
 
@@ -125,7 +125,7 @@ class WhisperSinusoidalPositionEmbedding(keras.layers.Layer):
     the input, where ``T`` is the encoder sequence length (post
     stride-2 conv stem, so ``T == 1500`` for a full 30-second chunk).
 
-    Used only by :func:`whisper_encoder` — the decoder uses
+    Used only by :func:`whisper_encoder`, the decoder uses
     :class:`WhisperLearnedPositionEmbedding` instead.
 
     Args:

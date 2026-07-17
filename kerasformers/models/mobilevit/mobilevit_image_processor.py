@@ -19,11 +19,11 @@ class MobileViTImageProcessor(BaseImageProcessor):
        preserving aspect ratio (bilinear).
     2. Center crop to ``crop_size["height"] x crop_size["width"]``.
     3. Rescale by ``rescale_factor`` (defaults to ``1/255``).
-    4. (Optional) Flip channel order RGB → BGR — the MobileViT training
+    4. (Optional) Flip channel order RGB → BGR: the MobileViT training
        recipe used BGR input, so the checkpoints expect this flip.
     5. Return as a Keras tensor in the requested data format.
 
-    Note that MobileViT checkpoints are **not** mean/std normalized — the
+    Note that MobileViT checkpoints are **not** mean/std normalized: the
     only intensity transform is the rescale step.
 
     Args:

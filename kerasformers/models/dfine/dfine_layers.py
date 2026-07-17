@@ -45,8 +45,8 @@ class DFineDecoderParams(layers.Layer):
 
     Passes its input through unchanged and additionally returns the
     non-uniform FDR weighting vector (``project``) and ``reg_scale`` as
-    graph tensors. These are computed inside ``call`` — from the *current*
-    weight values at run time — rather than from the raw weight variables
+    graph tensors. These are computed inside ``call``: from the *current*
+    weight values at run time: rather than from the raw weight variables
     at graph-build time. This matters because ``reg_scale`` varies across
     D-FINE variants (e.g. 4.0 for large, 8.0 for xlarge) and is only set
     during weight transfer: evaluating the weighting function eagerly at
@@ -453,7 +453,7 @@ class DFineMultiScaleDeformableAttention(layers.Layer):
 
     Supports a variable number of sampling points per feature level via
     ``num_points_list``. Unlike RT-DETR, this layer has no value_proj or
-    output_proj — the encoder hidden states are used directly as values.
+    output_proj: the encoder hidden states are used directly as values.
 
     Args:
         hidden_dim (int): Model dimension. Defaults to 256.

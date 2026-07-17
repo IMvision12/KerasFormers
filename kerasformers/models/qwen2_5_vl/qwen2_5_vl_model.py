@@ -46,10 +46,10 @@ def get_window_index(grid_thw, window_size, spatial_merge_size, patch_size):
     Returns:
         ``(window_index, cu_window_seqlens)``:
 
-        - ``window_index`` — an ``int32`` permutation tensor of the
+        - ``window_index``: an ``int32`` permutation tensor of the
           ``seq // merge_unit`` merge-unit groups into window-contiguous order
           (apply with ``ops.take``; invert with ``ops.argsort``).
-        - ``cu_window_seqlens`` — a Python list of cumulative per-window sequence
+        - ``cu_window_seqlens``: a Python list of cumulative per-window sequence
           lengths in patch units (consecutive duplicates removed), used to build
           the block-diagonal window attention mask.
     """
@@ -381,7 +381,7 @@ class Qwen2_5VLModel(Qwen2VLModel):
         })
         out["last_hidden_state"]   # (B, L, embed_dim)
 
-    The vision keys are optional — pass the image pair, the video pair, both, or
+    The vision keys are optional: pass the image pair, the video pair, both, or
     neither (text-only).
 
     Construction:
@@ -464,7 +464,7 @@ class Qwen2_5VLModel(Qwen2VLModel):
 
         # Skip Qwen2VLModel.__init__ (it builds the 2-VL layers); run only the
         # base keras init. Use SubclassedBaseModel (this model's actual base),
-        # not FunctionalBaseModel — the functional FunctionalBaseModel gets its `__bases__`
+        # not FunctionalBaseModel: the functional FunctionalBaseModel gets its `__bases__`
         # rewritten to `Functional` when a functional model is built.
         SubclassedBaseModel.__init__(self, **kwargs)
         self.vocab_size = vocab_size

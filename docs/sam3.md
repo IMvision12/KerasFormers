@@ -180,9 +180,9 @@ All Conv2D, UpSampling2D, and GroupNormalization layers use the configured data 
 ## Performance Tips
 
 1. **Use pre-computed features** when running multiple prompts on the same image via `get_vision_features()`.
-2. **Text-only detection** is the simplest mode — no geometry encoder needed.
+2. **Text-only detection** is the simplest mode: no geometry encoder needed.
 3. **Box prompts** improve instance masks significantly by providing spatial guidance to the geometry encoder.
-4. **The text encoder model** is a separate functional `keras.Model` — it can be run independently for text caching.
+4. **The text encoder model** is a separate functional `keras.Model`: it can be run independently for text caching.
 
 ## Real-World End-to-End Example
 
@@ -251,7 +251,7 @@ plt.close(fig)
 ![SAM3 Open-Vocabulary Detection + Instance Segmentation Output](../assets/sam3_horse_dog_output.jpg)
 
 Running this on `assets/coco_horse_dog.jpg` with text prompts `"horse"`
-and `"dog"` returns one matched instance per prompt — the open-vocabulary
+and `"dog"` returns one matched instance per prompt: the open-vocabulary
 detector is **honest about absence**: querying for an object the image
 doesn't contain (e.g. `"person"`) returns zero detections, unlike
 fixed-class detectors that always emit `num_queries` candidates.

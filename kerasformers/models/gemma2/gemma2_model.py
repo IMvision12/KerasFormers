@@ -211,7 +211,7 @@ class Gemma2Generate(Gemma2Model, BaseGeneration):
     fast ``.generate()``.
 
     The vocabulary projection (tied token embedding) is followed by
-    ``tanh(logits / 30) * 30`` when ``final_logit_softcapping`` is set —
+    ``tanh(logits / 30) * 30`` when ``final_logit_softcapping`` is set:
     matching the Gemma 2 checkpoints. ``call`` returns both ``logits`` and
     ``last_hidden_state``. Fast generation comes from
     :class:`~kerasformers.base.BaseGeneration` via ``build_cache`` /

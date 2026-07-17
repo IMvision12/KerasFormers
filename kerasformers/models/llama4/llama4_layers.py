@@ -5,7 +5,7 @@ from kerasformers.base.base_attention import fused_attention
 
 
 def apply_interleaved_rope(x, cos, sin):
-    # Llama 4 rotates interleaved (re, im) pairs — the original Llama codebase's
+    # Llama 4 rotates interleaved (re, im) pairs: the original Llama codebase's
     # complex rope, unlike the half-rotation layout used by Llama 2/3 HF
     # checkpoints. x: (B, L, H, D); cos/sin: (B, L, D/2) broadcast over heads.
     b = ops.shape(x)[0]
@@ -123,9 +123,9 @@ class Llama4Experts(layers.Layer):
     (``gate_up_proj`` ``(E, H, 2I)`` with *contiguous* gate/up halves,
     ``down_proj`` ``(E, I, H)``, no biases) and, given per-token per-expert
     pre-scaled inputs ``(E, T, H)`` (each expert sees the token scaled by its
-    sigmoid routing score — Llama 4 scales the expert *input*, not output),
+    sigmoid routing score: Llama 4 scales the expert *input*, not output),
     computes every expert's SwiGLU and returns the per-expert outputs summed
-    over experts. Backend-agnostic ``einsum`` — mathematically identical to
+    over experts. Backend-agnostic ``einsum``: mathematically identical to
     the sparse top-1 routing but compute is O(num_experts).
 
     Args:

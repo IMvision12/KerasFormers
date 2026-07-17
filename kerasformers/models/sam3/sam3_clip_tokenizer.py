@@ -17,7 +17,7 @@ class SAM3CLIPTokenizer(BaseTokenizer):
     """BPE tokenizer for SAM3's CLIP text encoder (max_seq_len=32).
 
     SAM3's text encoder reuses the OpenAI CLIP tokenizer. The ``tokenizer.json``
-    is pulled on the fly from the gated ``facebook/sam3`` repo — the same source
+    is pulled on the fly from the gated ``facebook/sam3`` repo: the same source
     as the weights, so accept the license at https://huggingface.co/facebook/sam3
     and authenticate (``huggingface-cli login`` / ``HF_TOKEN``). Pass an explicit
     ``hf_id`` (e.g. ``"openai/clip-vit-base-patch16"``) or ``tokenizer_file`` to

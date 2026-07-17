@@ -7,11 +7,11 @@ DINO (self-**DI**stillation with **NO** labels) is a self-supervised learning me
 
 DINOv2 improves on DINO with a larger curated dataset (LVD-142M), LayerScale, and stronger training recipe, producing state-of-the-art visual features.
 
-DINO and DINOv2 are pure feature extractors — no classification head. Three model classes are exposed:
+DINO and DINOv2 are pure feature extractors: no classification head. Three model classes are exposed:
 
-- `DinoViTModel` — DINO V1 ViT (4 variants).
-- `DinoResNetModel` — DINO V1 ResNet-50.
-- `DinoV2Model` — DINOv2 ViT (3 variants). Supports `from_weights("hf:<repo>")` for HF Hub fine-tunes.
+- `DinoViTModel`: DINO V1 ViT (4 variants).
+- `DinoResNetModel`: DINO V1 ResNet-50.
+- `DinoV2Model`: DINOv2 ViT (3 variants). Supports `from_weights("hf:<repo>")` for HF Hub fine-tunes.
 
 `DinoViTModel` and `DinoResNetModel` accept an `as_backbone` flag (like the classification models): with `as_backbone=True` they return the list of intermediate feature maps from each block / stage (suitable for detection / segmentation / depth necks); with `as_backbone=False` (default) they return only the final output (ViT: the LN-normalized token sequence; ResNet: the final-stage feature map).
 
@@ -27,7 +27,7 @@ Pretrained weights are loaded via `Cls.from_weights(variant_id)`. `DinoV2Model` 
 | `dino_vits8`       | `DinoViTModel`      | ViT-S/8    |     8 |     ~21 M  |
 | `dino_vitb16`      | `DinoViTModel`      | ViT-B/16   |    16 |     ~85 M  |
 | `dino_vitb8`       | `DinoViTModel`      | ViT-B/8    |     8 |     ~85 M  |
-| `dino_resnet50`    | `DinoResNetModel`   | ResNet-50  |     — |     ~23 M  |
+| `dino_resnet50`    | `DinoResNetModel`   | ResNet-50  |: |     ~23 M  |
 
 ### DINOv2 (`DinoV2Model`)
 
@@ -44,27 +44,27 @@ import numpy as np
 from kerasformers.models.dino import DinoViTModel, DinoResNetModel
 from kerasformers.models.dino_v2 import DinoV2Model
 
-# DINO V1 ViT, as a backbone — returns 13 intermediate feature maps (embed + 12 blocks)
+# DINO V1 ViT, as a backbone: returns 13 intermediate feature maps (embed + 12 blocks)
 model = DinoViTModel.from_weights("dino_vits16", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)  # 13, (1, 197, 384)
 
-# Default (as_backbone=False) — returns only the final LN-normalized token sequence
+# Default (as_backbone=False): returns only the final LN-normalized token sequence
 model = DinoViTModel.from_weights("dino_vits16")
 out = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(out.shape)  # (1, 197, 384)
 
-# DINO V1 ResNet, as a backbone — returns 5 stage feature maps
+# DINO V1 ResNet, as a backbone: returns 5 stage feature maps
 model = DinoResNetModel.from_weights("dino_resnet50", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)  # 5, (1, 7, 7, 2048)
 
-# DINOv2, as a backbone — returns 13 intermediate feature maps
+# DINOv2, as a backbone: returns 13 intermediate feature maps
 model = DinoV2Model.from_weights("dinov2_vits14", as_backbone=True)
 features = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(len(features), features[-1].shape)  # 13, (1, 257, 384)
 
-# Default (as_backbone=False) — returns only the final LN-normalized token sequence
+# Default (as_backbone=False): returns only the final LN-normalized token sequence
 model = DinoV2Model.from_weights("dinov2_vits14")
 out = model(np.random.rand(1, 224, 224, 3).astype("float32"))
 print(out.shape)  # (1, 257, 384)

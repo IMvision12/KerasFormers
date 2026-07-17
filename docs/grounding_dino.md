@@ -2,8 +2,8 @@
 
 **Paper**: [Grounding DINO: Marrying DINO with Grounded Pre-Training for Open-Set Object Detection](https://arxiv.org/abs/2303.05499)
 
-Grounding DINO detects objects named by a **free-text prompt** — a list of phrases
-or a caption — instead of a fixed label set. A Swin image backbone and a BERT text
+Grounding DINO detects objects named by a **free-text prompt**: a list of phrases
+or a caption: instead of a fixed label set. A Swin image backbone and a BERT text
 encoder are fused by a cross-modality encoder, query proposals are picked by
 image-text similarity, and boxes are refined in a DINO-style decoder. Each output
 box is scored against the prompt tokens, so the "classes" are whatever you ask for.
@@ -28,8 +28,8 @@ box is scored against the prompt tokens, so the "classes" are whatever you ask f
 
 Two classes are exposed:
 
-- `GroundingDinoModel` — backbone + cross-modality encoder/decoder (raw features).
-- `GroundingDinoForObjectDetection` — adds the box + contrastive heads (detection).
+- `GroundingDinoModel`: backbone + cross-modality encoder/decoder (raw features).
+- `GroundingDinoForObjectDetection`: adds the box + contrastive heads (detection).
 
 ## Weights
 

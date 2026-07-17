@@ -333,7 +333,7 @@ class Qwen2VLModel(SubclassedBaseModel):
         })
         out["last_hidden_state"]   # (B, L, embed_dim)
 
-    The vision keys are optional — pass images, video, both, or neither (text-only).
+    The vision keys are optional: pass images, video, both, or neither (text-only).
 
     Construction:
 

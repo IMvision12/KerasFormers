@@ -2,7 +2,7 @@
 
 **Paper:** [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230) (Minderer et al., 2022)
 
-OWL-ViT detects objects described by free-text queries — no fixed
+OWL-ViT detects objects described by free-text queries: no fixed
 class list. The architecture composes a CLIP-style vision and text
 transformer, then uses class-token-modulated patch features as
 detection queries: each patch predicts one box and a per-text-query
@@ -35,8 +35,8 @@ similarity score.
 
 Two classes are exposed:
 
-- `OwlViTModel` — vision + text encoder only (returns `image_embeds`, `text_embeds`).
-- `OwlViTDetect` — encoder + class/box heads for object detection (returns `logits`, `pred_boxes`, …).
+- `OwlViTModel`: vision + text encoder only (returns `image_embeds`, `text_embeds`).
+- `OwlViTDetect`: encoder + class/box heads for object detection (returns `logits`, `pred_boxes`, …).
 
 The text tower is fixed across variants (12 layers, hidden 512 / 768,
 8–16 heads, vocab 49408, max length 16).
@@ -172,14 +172,14 @@ inputs (random RGB image + two text queries):
 | `text_embeds`  | `(1, 2, 512)`     | 1.1e-07 | 1.7e-08 |
 | `image_embeds` | `(1, 48, 48, 768)`| 9.5e-05 | 5.5e-07 |
 
-**Status: at fp32 epsilon** — production-ready.
+**Status: at fp32 epsilon**, production-ready.
 
 `owlvit-large-patch14` shares the same architecture and conversion
 path; only the layer count and hidden dims change. Weight transfer
 completes with **412 / 0 missing**. Running both the HF reference
 and the Keras port at fp32 in parallel needs ~12 GB of RAM
 (24 layers × 1024 hidden, 840×840 image), which OOMs on smaller
-machines — parity numbers are not re-listed here.
+machines: parity numbers are not re-listed here.
 
 Reproduce on any variant:
 
@@ -203,7 +203,7 @@ with three text queries (`cat`, `dog`, `remote`):
 
 Same 4 objects, scores within 0.01, boxes within 0.5 px. The small
 remaining gap is the bicubic-kernel difference between PIL (HF) and
-`keras.ops.image.resize` (kerasformers) — both are valid bicubic
+`keras.ops.image.resize` (kerasformers): both are valid bicubic
 implementations with slightly different coefficients.
 
 ## Notes

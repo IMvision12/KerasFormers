@@ -13,7 +13,7 @@ class DebertaV2Tokenizer(BaseTokenizer):
     """DeBERTa-v2 SentencePiece tokenizer (``tokenizers`` Rust backend).
 
     Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``deberta`` release tag (or an explicit ``tokenizer_file``) — the Unigram model,
+    ``deberta`` release tag (or an explicit ``tokenizer_file``): the Unigram model,
     the Precompiled normalizer + whitespace cleanup, the ``▁`` metaspace and the
     ``[CLS] A [SEP] B [SEP]`` post-processing are baked into the file. ``call``
     returns the ``input_ids`` / ``attention_mask`` / ``token_type_ids`` dict expected

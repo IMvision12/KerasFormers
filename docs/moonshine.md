@@ -4,9 +4,9 @@
 
 Moonshine is Useful Sensors' encoder-decoder transformer for fast, low-latency
 automatic speech recognition. Unlike Whisper, the encoder consumes the **raw
-16 kHz waveform** directly — a 3-layer Conv1D stem (kernel 127 / stride 64,
+16 kHz waveform** directly: a 3-layer Conv1D stem (kernel 127 / stride 64,
 no bias → `tanh` → GroupNorm; kernel 7 / stride 3 → GELU; kernel 3 / stride 2 →
-GELU) replaces the log-mel front end — followed by a stack of pre-LN transformer
+GELU) replaces the log-mel front end: followed by a stack of pre-LN transformer
 blocks with GLM-style **partial** rotary position embeddings. The decoder
 generates BPE token ids autoregressively, attending to the encoder output via
 cross-attention; its MLP is a gated-SiLU (`fc1` projects to `2 × ffn`, split into
@@ -16,7 +16,7 @@ embedding is tied with the LM head.
 kerasformers ships a **pure Keras 3** port of both official Useful Sensors
 checkpoints with bit-close parity to HuggingFace's reference implementation. The
 processor, encoder, decoder, and greedy `generate` loop run unmodified on
-TensorFlow / Torch / JAX backends — no `transformers` or `torch` runtime
+TensorFlow / Torch / JAX backends: no `transformers` or `torch` runtime
 dependency.
 
 ## Classes
@@ -49,14 +49,14 @@ model = MoonshineSpeechToText.from_weights("hf:UsefulSensors/moonshine-base")
 
 Both use `max_position_embeddings = 194`, `rope_theta = 10000`, GELU encoder MLP,
 and a gated-SiLU decoder MLP. The rotary dimension is
-`(hidden // heads) × partial_rotary_factor` — only that fraction of each head is
+`(hidden // heads) × partial_rotary_factor`: only that fraction of each head is
 rotated (GLM-style partial RoPE).
 
 ## Available Weights
 
 Each variant ships a single `"usefulsensors"` preset converted from the official
 Useful Sensors checkpoints on HuggingFace. One combined `.weights.h5` file per
-variant (encoder + decoder together — the same file serves both `MoonshineModel`
+variant (encoder + decoder together: the same file serves both `MoonshineModel`
 and `MoonshineSpeechToText`, since the LM head is tied) is hosted under the
 kerasformers
 [`moonshine`](https://github.com/IMvision12/KerasFormers/releases/tag/moonshine)
@@ -117,7 +117,7 @@ model = MoonshineModel(
 ## Loading HF Fine-tunes
 
 Any HF repo whose `model_type` is `"moonshine"` can be loaded directly via
-`from_weights("hf:<repo>")` — the class reads hidden size, depth, head counts,
+`from_weights("hf:<repo>")`: the class reads hidden size, depth, head counts,
 GQA kv-head counts, activations, partial-rotary factor, and rope theta straight
 from the HF config (`config_from_hf`), then converts the state dict. This covers
 the original Useful Sensors checkpoints and any community fine-tune sharing the
@@ -134,7 +134,7 @@ text = model.generate(audio, processor)
 ## Features and Capabilities
 
 - **Raw-waveform input**: the encoder ingests the 16 kHz waveform directly via a
-  Conv1D stem — no mel-spectrogram step, fewer ops, lower latency than Whisper.
+  Conv1D stem: no mel-spectrogram step, fewer ops, lower latency than Whisper.
 - **Partial rotary embeddings**: GLM-style RoPE over a fraction of each head
   dimension (`partial_rotary_factor`), applied on self-attention only.
 - **GQA-capable**: separate `encoder_num_kv_heads` / `decoder_num_kv_heads`
@@ -143,7 +143,7 @@ text = model.generate(audio, processor)
   projection (`proj_out`), so one weight file covers both classes.
 - **Generation in the model class**: `MoonshineSpeechToText` extends
   `MoonshineModel` and adds an end-to-end `.generate(audio, processor, ...)`
-  method — mirrors HF's `MoonshineForConditionalGeneration`.
+  method: mirrors HF's `MoonshineForConditionalGeneration`.
 - **Pure Keras 3**: the feature extractor (waveform batching) and the model run
   on any backend; the tokenizer is a Rust-backed `tokenizers.Tokenizer` (no
   `transformers`).
@@ -154,7 +154,7 @@ text = model.generate(audio, processor)
 
 ## Basic Usage
 
-The shortest path is `MoonshineSpeechToText` — same model graph as
+The shortest path is `MoonshineSpeechToText`: same model graph as
 `MoonshineModel` plus an end-to-end `.generate(audio, processor, ...)` method
 (audio in, text out).
 
@@ -189,13 +189,13 @@ and `model.decoder` directly:
 inputs = processor(audio=wave, sampling_rate=16000)
 enc_out = model.encoder(inputs["input_values"])        # encode once
 
-# then drive decoding however you like — call model.decoder per step with
+# then drive decoding however you like: call model.decoder per step with
 # {"decoder_input_ids": ids, "encoder_hidden_states": enc_out}
 ```
 
 ## Processor
 
-`MoonshineProcessor` is the recommended top-level entry point — it bundles the
+`MoonshineProcessor` is the recommended top-level entry point: it bundles the
 feature extractor and tokenizer and mirrors HF's `MoonshineProcessor` API.
 
 ```python
@@ -216,7 +216,7 @@ texts = processor.batch_decode(ids_batch, skip_special_tokens=True)
 
 processor.feature_extractor       # MoonshineFeatureExtractor
 processor.tokenizer               # MoonshineTokenizer
-processor.decoder_start_token_id  # 1  (<s>) — the seed token for generation
+processor.decoder_start_token_id  # 1  (<s>): the seed token for generation
 ```
 
 > The Moonshine `tokenizer.json` is identical across every Useful Sensors
@@ -225,7 +225,7 @@ processor.decoder_start_token_id  # 1  (<s>) — the seed token for generation
 
 ## Feature Extractor
 
-`MoonshineFeatureExtractor` is intentionally minimal — a `feature_size = 1`,
+`MoonshineFeatureExtractor` is intentionally minimal: a `feature_size = 1`,
 `do_normalize = False` extractor that simply stacks a batch of waveforms and
 right-zero-pads shorter clips to a common length. There is **no** mel /
 spectrogram step (the encoder's Conv1D stem learns the front-end features).
@@ -241,7 +241,7 @@ values = feat(raw_audio_or_list_of_waves)   # (B, max_audio_len) float32
 
 `MoonshineTokenizer` wraps a Rust-backed `tokenizers.Tokenizer` (byte-fallback
 BPE with a `▁` metaspace normalizer). The `tokenizer.json` is downloaded from the
-Useful Sensors Hub repo (`hf_id`, default `UsefulSensors/moonshine-tiny`) — no
+Useful Sensors Hub repo (`hf_id`, default `UsefulSensors/moonshine-tiny`): no
 runtime `transformers` dependency. Special ids: `<s>` = 1 (bos), `</s>` = 2
 (eos), `<unk>` = 0.
 
@@ -254,7 +254,7 @@ ids = tok.tokenize("Hello, world!")                          # no special tokens
 text = tok.decode(ids, skip_special_tokens=True)
 ```
 
-The encode path does **not** add special tokens — `MoonshineSpeechToText` seeds
+The encode path does **not** add special tokens: `MoonshineSpeechToText` seeds
 decoding with `decoder_start_token_id` (`<s>`) itself.
 
 ## Generation

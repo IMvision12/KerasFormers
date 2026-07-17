@@ -1066,17 +1066,17 @@ def rt_detr_v2_functional(
 
     Top-level orchestrator that wires the four architectural stages:
 
-    1. :func:`rt_detr_backbone` — ResNet-vd backbone producing
+    1. :func:`rt_detr_backbone`, ResNet-vd backbone producing
        multi-scale features (typically at strides 8, 16, 32).
-    2. :func:`rt_detr_hybrid_encoder` — AIFI transformer + CCFM
+    2. :func:`rt_detr_hybrid_encoder`, AIFI transformer + CCFM
        (FPN + PAN) for cross-scale fusion.
     3. :func:`rt_detr_decoder_inputs` + :func:`rt_detr_two_stage_proposals`
-       — token preparation, anchor generation, and two-stage encoder
+       token preparation, anchor generation, and two-stage encoder
        query selection.
-    4. :func:`rt_detr_v2_decoder` — deformable decoder with iterative
+    4. :func:`rt_detr_v2_decoder`, deformable decoder with iterative
        bbox refinement, using V2's functional-API decoder layer.
 
-    Per-layer class prediction heads are intentionally not built here —
+    Per-layer class prediction heads are intentionally not built here:
     they are added by :class:`RTDETRV2Detect`, which composes
     :class:`RTDetrV2Model` around this graph.
 
@@ -1188,7 +1188,7 @@ def rt_detr_v2_functional(
 class RTDetrV2Model(FunctionalBaseModel):
     """RT-DETR-V2 backbone + hybrid encoder + decoder (no class heads).
 
-    Matches the reference ``RTDetrV2Model`` pattern — outputs the
+    Matches the reference ``RTDetrV2Model`` pattern: outputs the
     decoder ``last_hidden_state`` with shape ``(B, num_queries,
     hidden_dim)``. Iterative bbox refinement layers stay in the model
     (they feed back into the decoder); only per-layer class prediction
@@ -1407,7 +1407,7 @@ class RTDETRV2Detect(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `640`.
         input_tensor: Optional input Keras tensor.

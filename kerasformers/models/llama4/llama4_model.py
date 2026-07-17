@@ -45,9 +45,9 @@ class Llama4Model(SubclassedBaseModel):
 
     ``token_embedding -> num_layers x Llama4DecoderLayer -> final RMSNorm``
     with Llama 4's iRoPE attention scheme: every
-    ``no_rope_layer_interval``-th layer (the 4th, 8th, ...) is a NoPE layer —
+    ``no_rope_layer_interval``-th layer (the 4th, 8th, ...) is a NoPE layer:
     no rotary, full causal attention, and position-dependent attention
-    temperature scaling — while the remaining layers apply the
+    temperature scaling, while the remaining layers apply the
     interleaved-pair rotary embedding and attend within
     ``attention_chunk_size``-token chunks (chunked causal). The feed-forward
     is a sigmoid-top-1-routed mixture of experts with an always-active shared
@@ -56,7 +56,7 @@ class Llama4Model(SubclassedBaseModel):
     the rest are dense ``intermediate_size_mlp`` SwiGLUs). Scout additionally
     L2-normalizes rotated q/k (``use_qk_norm``) and scales its rope inverse
     frequencies with the llama3 banded scheme. This port evaluates all experts
-    densely and combines by the routing scores — mathematically identical to
+    densely and combines by the routing scores: mathematically identical to
     sparse routing, compute O(num_experts). Text-only: the vision tower of the
     multimodal checkpoints is not ported; their ``language_model.*`` weights
     load directly. Returns raw features; use :class:`Llama4Generate` for
@@ -344,7 +344,7 @@ class Llama4Generate(Llama4Model, BaseGeneration):
     ``(batch, seq, vocab_size)`` and ``last_hidden_state``. Fast generation
     comes from :class:`~kerasformers.base.BaseGeneration`, fulfilled here by
     ``build_cache`` (parallel prefill into a fixed KV cache) and
-    ``call_with_cache`` (one compiled decode step) — both respect the
+    ``call_with_cache`` (one compiled decode step): both respect the
     per-layer full / chunked masks, the NoPE layers' temperature scaling, and
     the rope layers' interleaved rotary. Constructor ``Args`` are inherited
     from :class:`Llama4Model`.

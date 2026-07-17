@@ -1,7 +1,7 @@
 # GLM (text & vision-language)
 
-Zhipu / Z.ai's **GLM** family in pure Keras 3 — the text LLMs (GLM-4 through the
-GLM-5 MoE series) and the GLM-4V vision-language models — one implementation per
+Zhipu / Z.ai's **GLM** family in pure Keras 3: the text LLMs (GLM-4 through the
+GLM-5 MoE series) and the GLM-4V vision-language models: one implementation per
 family, runnable unchanged on **TensorFlow / Torch / JAX** and bit-close to the
 HuggingFace reference.
 
@@ -114,7 +114,7 @@ print(processor.decode(outputs[0], skip_special_tokens=True))
 ## Parity vs HuggingFace Reference
 
 Validated against `transformers` (cloned main, eager attention) on real forward
-passes — **greedy generation is token-identical**; max|Δ logits| ≈ `1.8e-7` (GLM-4),
+passes: **greedy generation is token-identical**; max|Δ logits| ≈ `1.8e-7` (GLM-4),
 `2.8e-7` (GLM-4-0414), `2e-7`–`3e-7` (GLM-4.5 / 4.1V / 4.5V), `~5e-8` (GLM-5 series,
 fp32 tiny-config). Verified across the `torch`, `jax`, and `tensorflow` backends.
 

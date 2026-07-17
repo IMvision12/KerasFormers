@@ -61,7 +61,7 @@ class GptOssModel(SubclassedBaseModel):
     sliding-window / full causal attention, YaRN-scaled rotary positions, and a
     top-k-routed mixture-of-experts feed-forward per layer. (The router picks
     top-k experts per token; this port evaluates *all* experts densely and
-    combines them by the routing weights — mathematically identical to sparse
+    combines them by the routing weights: mathematically identical to sparse
     top-k routing, but compute is O(num_experts).) Subclassed (imperative)
     model: the forward runs eagerly with ``keras.ops``. Returns raw features;
     use :class:`GptOssGenerate` for logits / text.
@@ -265,7 +265,7 @@ class GptOssGenerate(GptOssModel, BaseGeneration):
     ``logits`` ``(batch, seq, vocab_size)`` and ``last_hidden_state``. Fast generation
     comes from :class:`~kerasformers.base.BaseGeneration`, fulfilled here by
     ``build_cache`` (parallel prefill into a fixed KV cache) and ``call_with_cache``
-    (one compiled decode step) — both respect the per-layer sliding window (full /
+    (one compiled decode step): both respect the per-layer sliding window (full /
     sliding key masks) and the learned attention sinks. Constructor ``Args`` are
     inherited from :class:`GptOssModel`.
     """

@@ -1,10 +1,10 @@
 # GPT-2 (language model)
 
-OpenAI's GPT-2 in **pure Keras 3** — the classic decoder-only language model:
+OpenAI's GPT-2 in **pure Keras 3**, the classic decoder-only language model:
 learned token + absolute-position embeddings, pre-LayerNorm causal transformer
 blocks, a final LayerNorm, and a tied LM head. One implementation runs unmodified
 on **TensorFlow / Torch / JAX**, with bit-close parity to Hugging Face. Weights
-load from the kerasformers GitHub release — `gpt2_large` / `gpt2_xl` are **sharded**
+load from the kerasformers GitHub release: `gpt2_large` / `gpt2_xl` are **sharded**
 (`.weights.json` index + shards, since they exceed GitHub's 2 GB asset cap).
 
 **Paper**: [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)

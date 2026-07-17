@@ -26,16 +26,16 @@ class BaseImageProcessor(PreprocessorMixin):
     ``from_release``) and the ``__call__`` -> ``call`` forwarder are inherited
     from :class:`PreprocessorMixin`; ``from_hf`` is overridden here to map the
     repo's ``preprocessor_config.json`` onto whatever constructor params the
-    subclass exposes — ``image_mean`` / ``image_std`` (also as ``mean`` / ``std``),
-    ``size`` / ``crop_size`` (any HF form — int, ``[h, w]``, ``height``/``width``,
-    ``shortest_edge``/``longest_edge`` — reshaped to the form the subclass's own
+    subclass exposes: ``image_mean`` / ``image_std`` (also as ``mean`` / ``std``),
+    ``size`` / ``crop_size`` (any HF form: int, ``[h, w]``, ``height``/``width``,
+    ``shortest_edge``/``longest_edge``: reshaped to the form the subclass's own
     default uses, or reduced to a scalar for ``image_resolution`` /
     ``target_size`` / ``target_length``), ``resample`` (PIL code -> keras
     interpolation name) and the ``do_*`` / ``rescale_factor`` passthroughs.
     Explicit caller kwargs always win; a missing config falls back to the
     subclass defaults. Concrete subclasses define their own constructor kwargs
     (resolution, normalization stats, interpolation mode, patch size, …) and
-    ``get_config`` payload — the base bakes in no defaults.
+    ``get_config`` payload: the base bakes in no defaults.
 
     Provides backend-agnostic (``keras.ops``) building blocks shared by the pixel
     pipelines so processors don't re-derive them: the dtype/channel atoms
@@ -106,7 +106,7 @@ class BaseImageProcessor(PreprocessorMixin):
         size = cls.normalize_hf_size(hf.get("size"))
         crop_size = cls.normalize_hf_size(hf.get("crop_size"))
         # When the HF pipeline center-crops, ``size`` is only the pre-crop
-        # resize and ``crop_size`` is what actually reaches the model — so a
+        # resize and ``crop_size`` is what actually reaches the model, so a
         # class with a single size knob must take the crop, not the resize.
         # Classes exposing both ``size`` and ``crop_size`` mirror HF directly.
         if crop_size is not None and hf.get("do_center_crop", True):

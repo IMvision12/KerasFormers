@@ -85,7 +85,7 @@ def convmixer_backbone_feature(
         data_format: ``"channels_last"`` or ``"channels_first"``.
         channels_axis: Axis index of the channels dimension.
         return_stages: If True, return a singleton list ``[final]`` (ConvMixer
-            has no natural multi-stage hierarchy — all blocks share the same
+            has no natural multi-stage hierarchy: all blocks share the same
             spatial resolution and channel count). If False (default), return
             the final feature map directly.
 
@@ -128,7 +128,7 @@ class ConvMixerModel(FunctionalBaseModel):
 
     ConvMixer is a patch-based mixer that alternates depthwise and
     pointwise convolutions at a single spatial resolution throughout the
-    network — after a patch-embedding stem there is no further
+    network: after a patch-embedding stem there is no further
     downsampling or channel hierarchy. Output is the last layer output
     before the classifier head: the final feature map ``(B, H, W, C)``.
     :class:`ConvMixerImageClassify` composes this model and attaches a
@@ -155,7 +155,7 @@ class ConvMixerModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -311,7 +311,7 @@ class ConvMixerImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

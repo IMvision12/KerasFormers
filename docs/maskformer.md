@@ -6,8 +6,8 @@ MaskFormer reformulates per-pixel segmentation as a *mask classification* proble
 
 Two classes are exposed:
 
-- `MaskFormerModel` — Swin backbone + FPN pixel decoder + DETR-style transformer decoder + class/mask heads. Returns the segmentation output dict.
-- `MaskFormerUniversalSegment` — alias with the pretrained-weights registry attached (use this for `from_weights("hf:…")` or release variants).
+- `MaskFormerModel`: Swin backbone + FPN pixel decoder + DETR-style transformer decoder + class/mask heads. Returns the segmentation output dict.
+- `MaskFormerUniversalSegment`: alias with the pretrained-weights registry attached (use this for `from_weights("hf:…")` or release variants).
 
 ## Architecture Highlights
 
@@ -68,7 +68,7 @@ output = model(inputs["pixel_values"], training=False)
 semantic = processor.post_process_semantic_segmentation(
     output, target_sizes=[(original_h, original_w)],
 )
-# semantic[0]: (H, W) int32 — per-pixel class id
+# semantic[0]: (H, W) int32, per-pixel class id
 ```
 
 ## Segmentation Modes

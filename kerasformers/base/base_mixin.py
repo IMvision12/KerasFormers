@@ -32,10 +32,10 @@ def build_dtype_scope(dtype):
     """Build the model under a global dtype policy (e.g. ``"bfloat16"``).
 
     A layer's own dtype policy does **not** propagate to sublayers it creates in
-    ``__init__`` — a nested ``Dense`` / ``Embedding`` reads the *global* policy at
+    ``__init__``: a nested ``Dense`` / ``Embedding`` reads the *global* policy at
     construction time, so passing ``dtype=`` to a model constructor still leaves
-    its weights float32. Setting the global policy here makes the whole model —
-    including the lazy build the converter triggers — allocate its variables in
+    its weights float32. Setting the global policy here makes the whole model,
+    including the lazy build the converter triggers, allocate its variables in
     ``dtype``; a streamed fp32 / bf16 checkpoint is then cast to it on assign, so
     a bf16 model lands at its native ~2 bytes/param instead of an fp32 upcast.
     ``None`` restores the default (fp32) behaviour as a no-op.
@@ -56,18 +56,18 @@ class WeightLoadingMixin:
 
     Mixed into :class:`FunctionalBaseModel` (functional models) and
     :class:`SubclassedBaseModel` (imperative / subclassed models). Kept as a
-    plain mixin — **not** a ``keras.Model`` subclass — so those two bases stay
+    plain mixin, **not** a ``keras.Model`` subclass, so those two bases stay
     independent ``keras.Model`` subclasses (see :class:`SubclassedBaseModel`
     for why that independence matters). Subclasses share a single entry
     point for loading pretrained weights, regardless of source:
 
-    1. **kerasformers release** — weights hosted on GitHub Releases keyed by
+    1. **kerasformers release**: weights hosted on GitHub Releases keyed by
        a short variant string (e.g. ``"owlvit-base-patch32"``).
-    2. **Hub** — weights pulled from a model-hub repo, identified
+    2. **Hub**: weights pulled from a model-hub repo, identified
        by an ``"hf:org/repo"`` string. Works for the original checkpoints
        and for community fine-tunes that share the same architecture.
 
-    Hub loading uses ``huggingface_hub`` (not ``transformers``) — it
+    Hub loading uses ``huggingface_hub`` (not ``transformers``): it
     downloads ``config.json`` and the safetensors / pytorch weights
     directly. Subclasses provide a ``config_from_hf`` method that maps
     the parsed ``config.json`` dict into ``__init__`` kwargs, and a
@@ -122,9 +122,9 @@ class WeightLoadingMixin:
             identifier: One of two forms:
 
                 * a kerasformers variant string (e.g. ``"resnet50_a1_in1k"``)
-                  — resolves against ``cls.BASE_MODEL_CONFIG`` /
+                  resolves against ``cls.BASE_MODEL_CONFIG`` /
                   ``cls.BASE_WEIGHT_CONFIG``.
-                * ``"hf:<org>/<repo>"`` — pulls config and weights from
+                * ``"hf:<org>/<repo>"``: pulls config and weights from
                   the model Hub. Dispatches to :meth:`from_hf`, which
                   handles both transformers-style repos (CLIP, SigLIP,
                   DETR, …) and timm-style repos
@@ -156,7 +156,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
             low_memory: If ``True`` **and** ``quantization`` is set, load weights
                 straight into int storage without ever building the full float
                 model (the no-float skeleton path,
-                :func:`~kerasformers.quantization.quantize_and_load`) — so a
+                :func:`~kerasformers.quantization.quantize_and_load`), so a
                 checkpoint larger than device memory can be loaded quantized.
                 Only applies to subclassed models whose converter assigns through
                 ``model.weights`` (the standard LLM pattern); it falls back to the
@@ -171,7 +171,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
             cache_converted: If ``True`` (opt-in), cache the fully converted
                 (and optionally quantized) model under
                 ``$KERASFORMERS_HOME/converted`` on first load, and on later
-                identical calls rebuild straight from that cache — skipping the
+                identical calls rebuild straight from that cache, skipping the
                 download **and** the re-conversion (and re-quantization). The
                 cache stores weights-only + a rebuild recipe, so it round-trips
                 every precision (unlike a full ``.keras`` save, which can't
@@ -179,11 +179,11 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 SHA, converter/cache layout, backend/dtype and quantization recipe.
                 Applies to subclassed models in any precision and to functional
                 models when float; a cache miss / failure silently falls back to
-                the source path. Best on a persistent disk — set
+                the source path. Best on a persistent disk: set
                 ``KERASFORMERS_HOME`` on ephemeral boxes.
             low_disk: If ``True``, stream a **sharded** ``hf:`` safetensors
-                checkpoint shard-by-shard — download one shard, convert it, evict
-                it before fetching the next — so peak local disk is ~one shard
+                checkpoint shard-by-shard: download one shard, convert it, evict
+                it before fetching the next, so peak local disk is ~one shard
                 and a checkpoint larger than the disk can be loaded. Composes with
                 ``low_memory`` / ``quantization`` / ``load_dtype`` (the full "too
                 big for the box" stack). A successful conversion records its source
@@ -257,7 +257,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
             model = quantize_model(model, quantization)
 
         # First-load cache write: store the converted result so a later identical
-        # call rebuilds from it. Best-effort — never breaks the returned model.
+        # call rebuilds from it. Best-effort: never breaks the returned model.
         if cache_directory is not None:
             from kerasformers.conversion import converted_cache
 
@@ -452,11 +452,11 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
 
         Two flavours, auto-detected by :attr:`HF_MODEL_TYPE`:
 
-        1. **Transformers-style repos** (``HF_MODEL_TYPE`` set — CLIP,
+        1. **Transformers-style repos** (``HF_MODEL_TYPE`` set: CLIP,
            SigLIP, DETR, EoMT, …): pulls ``config.json``, validates
            ``model_type``, builds via :meth:`config_from_hf`, and
            dispatches to :meth:`transfer_from_hf`.
-        2. **Timm-style repos** (``HF_MODEL_TYPE is None`` — ResNet,
+        2. **Timm-style repos** (``HF_MODEL_TYPE is None``: ResNet,
            ConvNeXt, EfficientNet, …): infers the kerasformers
            variant from the repo's trailing path segment, builds via
            :attr:`BASE_MODEL_CONFIG`, and dispatches to
@@ -558,7 +558,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         """Map a ``config.json`` dict to ``cls.__init__`` kwargs.
 
         ``hf_config`` is the result of ``json.load(open("config.json"))``
-        — a plain dict, not a ``transformers`` config object. Subclasses
+        a plain dict, not a ``transformers`` config object. Subclasses
         must override this to support ``"hf:"`` loading.
         """
         raise NotImplementedError(f"{cls.__name__}.config_from_hf is not implemented.")
@@ -576,16 +576,16 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
 
 
 class PreprocessorMixin(keras.layers.Layer):
-    """Single base for every kerasformers preprocessing layer — tokenizers,
+    """Single base for every kerasformers preprocessing layer: tokenizers,
     processors, image processors, and feature extractors all inherit it.
 
     Preprocessing layers are stateless utility layers (no weights to build) that
-    take *Python* inputs — strings, chat-message lists, raw images, raw audio —
+    take *Python* inputs (strings, chat-message lists, raw images, raw audio)
     not tensors. ``__call__`` forwards straight to ``call`` so those inputs can be
     passed positionally (Keras's ``Layer.__call__`` rejects non-tensor positional
     args).
 
-    The loading API — ``from_weights`` / ``from_release`` / ``from_hf`` — mirrors
+    The loading API, ``from_weights`` / ``from_release`` / ``from_hf``, mirrors
     the model-side :class:`WeightLoadingMixin`, so a preprocessor loads with the
     *same* identifier as its model and can pull its files from a kerasformers
     release (a variant id) or from the HF Hub (an ``"hf:org/repo"`` id)::
@@ -596,7 +596,7 @@ class PreprocessorMixin(keras.layers.Layer):
 
     Subclasses (:class:`BaseTokenizer`, :class:`BaseProcessor`,
     :class:`BaseImageProcessor`, :class:`BaseAudioFeatureExtractor`) implement
-    ``call`` and add their own state / ``get_config`` — the base bakes in no
+    ``call`` and add their own state / ``get_config``: the base bakes in no
     defaults.
     """
 
@@ -657,7 +657,7 @@ class PreprocessorMixin(keras.layers.Layer):
     def from_hf(cls, repo, **kwargs):
         if "hf_id" not in inspect.signature(cls).parameters:
             raise NotImplementedError(
-                f"{cls.__name__} cannot load from an 'hf:' repo — its constructor "
+                f"{cls.__name__} cannot load from an 'hf:' repo: its constructor "
                 f"takes no `hf_id`. Use a release variant, or override `from_hf` "
                 f"to fetch the files from {repo!r}."
             )

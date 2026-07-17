@@ -216,9 +216,9 @@ class PoolFormerModel(FunctionalBaseModel):
     primitive is a simple average pooling layer (implemented as
     ``avg_pool(x) - x``) rather than self-attention or an MLP. By
     matching transformer-style results with such a trivial mixer, it
-    demonstrates that the MetaFormer template — norm + token mixer +
+    demonstrates that the MetaFormer template: norm + token mixer +
     norm + channel MLP, each wrapped in residual + PoolFormerLayerScale + drop
-    path — is what matters, not the mixer itself. The network has 4
+    path: is what matters, not the mixer itself. The network has 4
     stages with stride-2 conv downsamples between them.
 
     Output is the last layer output before the classifier head: the
@@ -244,7 +244,7 @@ class PoolFormerModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -409,7 +409,7 @@ class PoolFormerImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

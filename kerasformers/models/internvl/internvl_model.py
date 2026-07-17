@@ -270,7 +270,7 @@ class InternVLModel(SubclassedBaseModel):
         })
         out["last_hidden_state"]   # (B, L, embed_dim)
 
-    ``pixel_values`` is optional — text-only inputs work unchanged.
+    ``pixel_values`` is optional: text-only inputs work unchanged.
 
     Construction:
 
@@ -550,8 +550,8 @@ class InternVLGenerate(InternVLModel, BaseGeneration):
     """InternVL3 with an LM head + fast ``.generate()`` (image+text -> text).
 
     Adds a vocabulary projection on top of :class:`InternVLModel` (a separate
-    bias-free ``lm_head`` when ``tie_embeddings`` is ``False`` — every
-    InternVL3-hf checkpoint — else the tied token embedding). ``call`` returns
+    bias-free ``lm_head`` when ``tie_embeddings`` is ``False``: every
+    InternVL3-hf checkpoint: else the tied token embedding). ``call`` returns
     both ``logits`` and ``last_hidden_state``. Fast generation comes from
     :class:`~kerasformers.base.BaseGeneration`'s multimodal path:
     ``build_cache`` runs the vision tower + projector + fused prefill ONCE

@@ -41,7 +41,7 @@ class GptOssExperts(layers.Layer):
     Holds the packed per-expert parameters in Hugging Face's layout
     (``gate_up_proj`` ``(E, H, 2I)``, ``down_proj`` ``(E, I, H)`` + biases) and,
     given per-token expert weights ``(T, E)`` (zero for non-selected experts),
-    computes every expert and combines them by those weights — mathematically
+    computes every expert and combines them by those weights: mathematically
     identical to the sparse top-k routing but written with backend-agnostic
     ``einsum``. The expert activation is GPT-OSS's clamped gated-SiLU on the
     interleaved gate/up halves.
@@ -166,7 +166,7 @@ class GptOssAttention(layers.Layer):
 
     Bias-carrying q/k/v/o projections, rotary positions, GQA (K/V heads repeated
     to match the query heads), and a learned per-head "sink" logit appended to the
-    attention scores before softmax (then dropped) — letting a head attend to
+    attention scores before softmax (then dropped), letting a head attend to
     "nothing". The additive mask (causal, full or sliding-window) is supplied by
     the caller; a KV cache can be threaded through ``past_key_value``.
 

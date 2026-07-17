@@ -6,8 +6,8 @@ Mask2Former replaces MaskFormer's FPN pixel decoder with a 6-layer multi-scale d
 
 Two classes are exposed:
 
-- `Mask2FormerModel` — Swin backbone + MSDeformAttn pixel decoder + masked-attention transformer decoder + class/mask heads.
-- `Mask2FormerUniversalSegment` — alias with the pretrained-weights registry attached.
+- `Mask2FormerModel`: Swin backbone + MSDeformAttn pixel decoder + masked-attention transformer decoder + class/mask heads.
+- `Mask2FormerUniversalSegment`: alias with the pretrained-weights registry attached.
 
 ## Architecture Highlights
 

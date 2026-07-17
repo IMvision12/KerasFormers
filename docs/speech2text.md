@@ -15,7 +15,7 @@ a separate linear LM head. Token + conv embeddings are scaled by
 kerasformers ships a **pure Keras 3** port of the three LibriSpeech ASR
 checkpoints with bit-close parity to HuggingFace's reference implementation.
 The feature extractor, encoder, decoder, and greedy `generate` loop run
-unmodified on TensorFlow / Torch / JAX backends — no `transformers` or `torch`
+unmodified on TensorFlow / Torch / JAX backends: no `transformers` or `torch`
 runtime dependency.
 
 ## Classes
@@ -48,7 +48,7 @@ model = Speech2TextSpeechToText.from_weights("hf:facebook/s2t-small-librispeech-
 | `s2t-large-librispeech-asr` | 268 M | 12 / 6 | 1024 | 16 | 80 | 10 000 |
 
 All three are trained on LibriSpeech (English, lowercase) and share the **same
-10k SentencePiece vocabulary** — only the model size differs. The conv
+10k SentencePiece vocabulary**: only the model size differs. The conv
 subsampler (2x kernel-5 / stride-2 + GLU), `scale_embedding`, ReLU FFNs, and
 sinusoidal positions are identical across variants.
 
@@ -97,7 +97,7 @@ out["encoder_hidden_states"]     # (B, T // 4, hidden_dim)
 out["logits"]                    # (B, L, vocab_size)
 ```
 
-> **Note** — unlike Whisper, the fbank features are laid out
+> **Note**: unlike Whisper, the fbank features are laid out
 > `(B, T, num_mel_bins)` (time first), not `(B, num_mel_bins, T)`.
 
 The class is also constructable directly with custom hyperparameters for
@@ -120,7 +120,7 @@ model = Speech2TextModel(
 ## Loading HF Fine-tunes
 
 Any HF repo whose `model_type` is `"speech_to_text"` can be loaded directly via
-`Speech2TextModel.from_weights("hf:<repo>")` — the class reads `d_model`, depth,
+`Speech2TextModel.from_weights("hf:<repo>")`: the class reads `d_model`, depth,
 head count, conv config, and `scale_embedding` straight from the HF config. The
 converter normalizes both `Speech2TextForConditionalGeneration`
 (`model.encoder.*` prefix) and `Speech2TextModel` (`encoder.*` prefix)
@@ -129,7 +129,7 @@ state-dict layouts, and handles a tied or untied `lm_head`.
 ## Features and Capabilities
 
 - **End-to-end ASR**: `Speech2TextSpeechToText` extends `Speech2TextModel` and
-  adds an `.generate(audio, processor)` method — mirrors HF's
+  adds an `.generate(audio, processor)` method: mirrors HF's
   `Speech2TextForConditionalGeneration` (model class + `.generate()`).
 - **Single processor entry point**: `Speech2TextProcessor` bundles the
   feature extractor + tokenizer behind one object matching the HF API surface.
@@ -144,7 +144,7 @@ state-dict layouts, and handles a tied or untied `lm_head`.
 
 ## Basic Usage
 
-The shortest path is `Speech2TextSpeechToText` — same model graph as
+The shortest path is `Speech2TextSpeechToText`: same model graph as
 `Speech2TextModel` plus an end-to-end `.generate(audio, processor)` method
 (audio in, text out).
 
@@ -167,7 +167,7 @@ was trained).
 
 ## Processor
 
-`Speech2TextProcessor` is the recommended top-level entry point — it bundles
+`Speech2TextProcessor` is the recommended top-level entry point: it bundles
 the feature extractor and tokenizer behind a single object that mirrors
 HuggingFace's `transformers.Speech2TextProcessor` API.
 
@@ -197,7 +197,7 @@ processor.decoder_start_token_id  # 2  (</s>, Bart-style seed)
 ## Feature Extractor
 
 `Speech2TextFeatureExtractor` is a **pure Keras 3** Kaldi-style log-mel
-filterbank (fbank) extractor — the spectrogram math goes through `keras.ops`
+filterbank (fbank) extractor: the spectrogram math goes through `keras.ops`
 (`rfft`, `matmul`, `log`), so the same code runs on TF / Torch / JAX.
 
 Pipeline (matches the reference Kaldi fbank):

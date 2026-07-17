@@ -15,12 +15,12 @@ class MistralModel(SubclassedBaseModel):
 
     ``token_embedding -> num_layers x MistralDecoderLayer -> final RMSNorm``,
     with grouped-query attention, bias-free projections, SwiGLU MLPs,
-    half-rotation rotary positions, and — when ``sliding_window`` is set
-    (Mistral-7B-v0.1, Ministral-8B) — a sliding-window causal mask on every
+    half-rotation rotary positions, and: when ``sliding_window`` is set
+    (Mistral-7B-v0.1, Ministral-8B): a sliding-window causal mask on every
     layer. ``head_dim`` may differ from ``embed_dim // num_heads``
     (Mistral-Nemo). Covers the whole ``model_type: "mistral"`` line: 7B
     v0.1-v0.3, Nemo-12B, Small-24B-2501, Ministral-8B. Subclassed
-    (imperative) model; returns raw features — use :class:`MistralGenerate`
+    (imperative) model; returns raw features: use :class:`MistralGenerate`
     for logits / text.
 
         model = MistralModel.from_weights("mistral-7b-v0.3")
@@ -189,7 +189,7 @@ class MistralGenerate(MistralModel, BaseGeneration):
     both ``logits`` ``(batch, seq, vocab_size)`` and ``last_hidden_state``.
     Fast generation comes from :class:`~kerasformers.base.BaseGeneration`,
     fulfilled here by ``build_cache`` (parallel prefill into a fixed KV cache)
-    and ``call_with_cache`` (one compiled decode step) — both respect the
+    and ``call_with_cache`` (one compiled decode step): both respect the
     sliding window when set. Constructor ``Args`` are inherited from
     :class:`MistralModel`.
 
