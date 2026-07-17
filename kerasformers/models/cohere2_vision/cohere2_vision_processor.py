@@ -65,10 +65,15 @@ class Cohere2VisionProcessor(BaseProcessor):
             out["pixel_values"] = ops.convert_to_tensor(image_inputs["pixel_values"])
             num_patches = list(image_inputs["num_patches"])
             expanded = []
+            start = 0
             for t in texts:
                 parts = t.split(self.image_token)
+                # Each text consumes only the tile counts its own markers claim, so a
+                # batch does not reuse the first image's geometry for every prompt.
+                mine = num_patches[start : start + len(parts) - 1]
+                start += len(parts) - 1
                 buf = parts[0]
-                for tiles, part in zip(num_patches, parts[1:]):
+                for tiles, part in zip(mine, parts[1:]):
                     buf += self.image_token * (self.tokens_per_tile * int(tiles)) + part
                 expanded.append(buf)
             texts = expanded

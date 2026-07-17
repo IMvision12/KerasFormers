@@ -69,9 +69,13 @@ class KimiK25Processor(BaseProcessor):
         return int(np.prod(grid)) // merge
 
     def expand_images(self, text, grids):
-        for grid in grids:
-            text = text.replace(IMAGE_TOKEN, IMAGE_TOKEN * self.merged_tokens(grid), 1)
-        return text
+        # Split rather than repeated replace(): once the first marker expands, the
+        # next replace() would land inside that span instead of the next marker.
+        parts = text.split(IMAGE_TOKEN)
+        expanded = parts[0]
+        for grid, part in zip(grids, parts[1:]):
+            expanded += IMAGE_TOKEN * self.merged_tokens(grid) + part
+        return expanded
 
     def video_span(self, grid):
         merge = self.video_processor.merge_size**2
@@ -81,12 +85,16 @@ class KimiK25Processor(BaseProcessor):
         )
 
     def expand_videos(self, text, grids, chunks_per_video):
+        parts = text.split(VIDEO_TOKEN)
+        expanded = parts[0]
         start = 0
-        for count in chunks_per_video:
-            span = "".join(self.video_span(g) for g in grids[start : start + count])
-            text = text.replace(VIDEO_TOKEN, span, 1)
+        for count, part in zip(chunks_per_video, parts[1:]):
+            expanded += "".join(
+                self.video_span(g) for g in grids[start : start + count]
+            )
+            expanded += part
             start += count
-        return text
+        return expanded
 
     def encode_with_videos(self, text):
         """Encode around the out-of-vocabulary video placeholder."""
@@ -97,6 +105,16 @@ class KimiK25Processor(BaseProcessor):
             ids.extend(self.tokenizer.encode(segment))
         return ids
 
+    def deal_per_text(self, texts, marker, items):
+        """Hand each text the slice of ``items`` its own markers claim."""
+        out = []
+        start = 0
+        for text in texts:
+            count = text.count(marker)
+            out.append(items[start : start + count])
+            start += count
+        return out
+
     def call(self, text, images=None, videos=None):
         texts = self.tokenizer.normalize_texts(text)
         inputs = {}
@@ -104,13 +122,19 @@ class KimiK25Processor(BaseProcessor):
             image_inputs = self.image_processor(images)
             inputs.update(image_inputs)
             grids = np.asarray(image_inputs["image_grid_thw"]).tolist()
-            texts = [self.expand_images(t, grids) for t in texts]
+            per_text = self.deal_per_text(texts, IMAGE_TOKEN, grids)
+            texts = [self.expand_images(t, g) for t, g in zip(texts, per_text)]
         if videos is not None:
             video_inputs = self.video_processor(videos)
             chunks = video_inputs.pop("num_chunks_per_video")
             inputs.update(video_inputs)
             grids = np.asarray(video_inputs["video_grid_thw"]).tolist()
-            texts = [self.expand_videos(t, grids, chunks) for t in texts]
+            per_text = self.deal_per_text(texts, VIDEO_TOKEN, list(chunks))
+            offsets = np.cumsum([0] + [sum(c) for c in per_text]).tolist()
+            texts = [
+                self.expand_videos(t, grids[offset:], c)
+                for t, c, offset in zip(texts, per_text, offsets)
+            ]
 
         sequences = [self.encode_with_videos(t) for t in texts]
         input_ids, attention_mask = self.tokenizer.pad_batch(
