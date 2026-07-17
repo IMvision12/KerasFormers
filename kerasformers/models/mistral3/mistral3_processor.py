@@ -136,14 +136,17 @@ class Mistral3Processor(BaseProcessor):
         add_generation_prompt=True,
     ):
         if conversation is not None:
-            messages = conversation
+            texts, extracted = self.render_conversations(
+                conversation, add_generation_prompt
+            )
             if images is None:
-                images = self.extract_images(conversation)
-        if messages is not None:
-            text = self.apply_chat_template(messages, add_generation_prompt)
-        if text is None:
+                images = extracted
+        elif messages is not None:
+            texts = [self.apply_chat_template(messages, add_generation_prompt)]
+        elif text is not None:
+            texts = [text] if isinstance(text, str) else list(text)
+        else:
             raise ValueError("Provide a `conversation`, `messages`, or `text`.")
-        texts = [text] if isinstance(text, str) else list(text)
 
         out = {}
         if images is not None:
@@ -151,7 +154,8 @@ class Mistral3Processor(BaseProcessor):
             out["pixel_values"] = ops.convert_to_tensor(image_inputs["pixel_values"])
             out["image_sizes"] = ops.convert_to_tensor(image_inputs["image_sizes"])
             sizes = np.asarray(image_inputs["image_sizes"]).tolist()
-            texts = [self.expand_image_tokens(t, sizes) for t in texts]
+            per_text = self.deal_per_text(texts, self.image_token, sizes)
+            texts = [self.expand_image_tokens(t, s) for t, s in zip(texts, per_text)]
 
         bos = self.tokenizer.bos_token_id
         ids = [[bos] + self.tokenizer.encode(t) for t in texts]

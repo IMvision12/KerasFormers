@@ -181,28 +181,28 @@ outputs = model.generate(**inputs, max_new_tokens=64)
 
 ### Batch
 
-`InternVLProcessor` renders one conversation per call: it walks messages, so a list
-of conversations is not a valid input. Loop over them instead:
+Pass a list of conversations. Each one is rendered separately and takes only
+the images its own markers claim, so the conversations do not need the same
+number of images or images of the same size:
 
 ```python
-questions = [
-    ("a.jpg", "What is in this image?"),
-    ("b.jpg", "Describe the colours."),
+conversations = [
+    [{"role": "user", "content": [
+        {"type": "image", "image": Image.open("a.jpg")},
+        {"type": "text", "text": "What is in this image?"}]}],
+    [{"role": "user", "content": [
+        {"type": "image", "image": Image.open("b.jpg")},
+        {"type": "image", "image": Image.open("c.jpg")},
+        {"type": "text", "text": "What differs between these?"}]}],
 ]
-for path, question in questions:
-    inputs = processor(conversation=[{
-        "role": "user",
-        "content": [
-            {"type": "image", "image": Image.open(path)},
-            {"type": "text", "text": question},
-        ],
-    }])
-    outputs = model.generate(**inputs, max_new_tokens=64)
-    print(processor.decode(outputs[0]))
+inputs = processor(conversation=conversations)
+outputs = model.generate(**inputs, max_new_tokens=64)
+
+for text in processor.batch_decode(outputs):
+    print(text)
 ```
 
-Text-only prompts do batch in one call, since there are no images to line
-up: pass `text=[...]` with no `images`.
+Text-only prompts batch the same way: pass `text=[...]` with no `images`.
 
 ### Text only
 

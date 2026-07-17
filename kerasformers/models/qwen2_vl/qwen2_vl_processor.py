@@ -94,7 +94,7 @@ class Qwen2VLProcessor(BaseProcessor):
             text += "<|im_start|>assistant\n"
         return text
 
-    def _expand_pads(self, text, token, grids):
+    def expand_pads(self, text, token, grids):
         """Replace each single ``token`` placeholder with ``prod(grid) // merge^2``
         copies (the number of merged vision tokens for that image / video)."""
         parts = text.split(token)
@@ -146,7 +146,7 @@ class Qwen2VLProcessor(BaseProcessor):
             "Video content item needs a 'video', 'frames', 'path', or 'url'."
         )
 
-    def _extract_images(self, conversation):
+    def extract_images(self, conversation):
         """Collect inline images from a conversation's content lists, in order."""
         images = []
         for msg in conversation:
@@ -157,7 +157,7 @@ class Qwen2VLProcessor(BaseProcessor):
                         images.append(self._load_image(item))
         return images or None
 
-    def _extract_videos(self, conversation):
+    def extract_videos(self, conversation):
         """Collect inline videos as ``(frames, metadata)`` tuples, in order."""
         videos = []
         for msg in conversation:
@@ -179,19 +179,24 @@ class Qwen2VLProcessor(BaseProcessor):
     ):
         video_metas = None
         if conversation is not None:
-            messages = conversation
+            conversations = self.normalize_conversations(conversation)
+            texts = [
+                self.apply_chat_template(c, add_generation_prompt)
+                for c in conversations
+            ]
             if images is None:
-                images = self._extract_images(conversation)
+                images = self.collect_across(conversations, self.extract_images)
             if videos is None:
-                extracted = self._extract_videos(conversation)
+                extracted = self.collect_across(conversations, self.extract_videos)
                 if extracted is not None:
                     videos = [frames for frames, _ in extracted]
                     video_metas = [meta for _, meta in extracted]
-        if messages is not None:
-            text = self.apply_chat_template(messages, add_generation_prompt)
-        if text is None:
+        elif messages is not None:
+            texts = [self.apply_chat_template(messages, add_generation_prompt)]
+        elif text is not None:
+            texts = [text] if isinstance(text, str) else list(text)
+        else:
             raise ValueError("Provide a `conversation`, `messages`, or `text`.")
-        texts = [text] if isinstance(text, str) else list(text)
 
         out = {}
         image_grids = None
@@ -214,9 +219,17 @@ class Qwen2VLProcessor(BaseProcessor):
             video_grids = np.asarray(video_inputs["video_grid_thw"])
 
         if image_grids is not None:
-            texts = [self._expand_pads(t, self.image_token, image_grids) for t in texts]
+            per_text = self.deal_per_text(texts, self.image_token, image_grids)
+            texts = [
+                self.expand_pads(t, self.image_token, g)
+                for t, g in zip(texts, per_text)
+            ]
         if video_grids is not None:
-            texts = [self._expand_pads(t, self.video_token, video_grids) for t in texts]
+            per_text = self.deal_per_text(texts, self.video_token, video_grids)
+            texts = [
+                self.expand_pads(t, self.video_token, g)
+                for t, g in zip(texts, per_text)
+            ]
 
         ids = [self.tokenizer.encode(t) for t in texts]
         max_len = max(len(x) for x in ids)

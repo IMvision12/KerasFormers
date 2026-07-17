@@ -185,35 +185,36 @@ class MiniMaxM3VLProcessor(BaseProcessor):
         add_generation_prompt=True,
     ):
         if conversation is not None:
-            messages = conversation
+            texts, extracted = self.render_conversations(
+                conversation, add_generation_prompt
+            )
             if images is None:
-                images = self.extract_images(conversation)
-        if messages is not None:
-            text = self.apply_chat_template(messages, add_generation_prompt)
-        if text is None:
+                images = extracted
+        elif messages is not None:
+            texts = [self.apply_chat_template(messages, add_generation_prompt)]
+        elif text is not None:
+            texts = [text] if isinstance(text, str) else list(text)
+        else:
             raise ValueError("Provide a `conversation`, `messages`, or `text`.")
-        texts = [text] if isinstance(text, str) else list(text)
 
         out = {}
         if images is not None:
             image_inputs = self.image_processor(images)
             out["pixel_values"] = ops.convert_to_tensor(image_inputs["pixel_values"])
             out["image_grid_thw"] = image_inputs["image_grid_thw"]
-            texts = [
-                self.expand_image_tokens(t, list(image_inputs["image_grid_thw"]))
-                for t in texts
-            ]
+            grids = list(image_inputs["image_grid_thw"])
+            per_text = self.deal_per_text(texts, IMAGE_TOKEN, grids)
+            texts = [self.expand_image_tokens(t, g) for t, g in zip(texts, per_text)]
         if videos is not None:
             video_inputs = self.image_processor.process_video(videos)
             out["pixel_values_videos"] = ops.convert_to_tensor(
                 video_inputs["pixel_values_videos"]
             )
             out["video_grid_thw"] = video_inputs["video_grid_thw"]
+            grids = list(video_inputs["video_grid_thw"])
+            per_text = self.deal_per_text(texts, VIDEO_TOKEN, grids)
             texts = [
-                self.expand_video_tokens(
-                    t, list(video_inputs["video_grid_thw"]), fps=fps
-                )
-                for t in texts
+                self.expand_video_tokens(t, g, fps=fps) for t, g in zip(texts, per_text)
             ]
 
         ids = [self.tokenizer.encode(t) for t in texts]

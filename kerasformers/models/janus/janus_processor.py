@@ -121,14 +121,17 @@ class JanusProcessor(BaseProcessor):
         add_generation_prompt=True,
     ):
         if conversation is not None:
-            messages = conversation
+            texts, extracted = self.render_conversations(
+                conversation, add_generation_prompt
+            )
             if images is None:
-                images = self.extract_images(conversation)
-        if messages is not None:
-            text = self.apply_chat_template(messages, add_generation_prompt)
-        if text is None:
+                images = extracted
+        elif messages is not None:
+            texts = [self.apply_chat_template(messages, add_generation_prompt)]
+        elif text is not None:
+            texts = [text] if isinstance(text, str) else list(text)
+        else:
             raise ValueError("Provide a `conversation`, `messages`, or `text`.")
-        texts = [text] if isinstance(text, str) else list(text)
         texts = [self.expand_image_tokens(t) for t in texts]
         if self.use_default_system_prompt:
             texts = [DEFAULT_SYSTEM_PROMPT + t for t in texts]
