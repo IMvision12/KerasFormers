@@ -21,6 +21,9 @@ class BaseProcessor(PreprocessorMixin):
       returns a complete processor.
     * ``get_config`` / ``from_config`` — serialize/deserialize the components.
     * ``decode`` / ``batch_decode`` — wired through to ``self.tokenizer``.
+    * ``render_conversations`` / ``deal_per_text`` — batching support: render one
+      conversation or a list of them, then hand each prompt only the vision inputs
+      its own markers claim.
 
     Subclasses implement ``call`` (the modality dispatch) and, if they carry extra
     scalar state, extend ``get_config``. The loading API + ``__call__`` -> ``call``
@@ -42,6 +45,70 @@ class BaseProcessor(PreprocessorMixin):
         if cls.FEATURE_EXTRACTOR_CLS is not None:
             parts["feature_extractor"] = cls.FEATURE_EXTRACTOR_CLS.from_hf(repo)
         return cls(**parts, **kwargs)
+
+    def is_conversation_batch(self, conversation):
+        """True when ``conversation`` holds several conversations, not one.
+
+        One conversation is a list of ``{"role", "content"}`` dicts; a batch is a
+        list of those lists.
+        """
+        return (
+            isinstance(conversation, (list, tuple))
+            and len(conversation) > 0
+            and isinstance(conversation[0], (list, tuple))
+        )
+
+    def normalize_conversations(self, conversation):
+        """One conversation or a batch of them, always as a list of conversations."""
+        if self.is_conversation_batch(conversation):
+            return list(conversation)
+        return [conversation]
+
+    def collect_across(self, conversations, extract):
+        """Flatten what ``extract`` finds in each conversation, in marker order."""
+        found = []
+        for c in conversations:
+            found.extend(extract(c) or [])
+        return found or None
+
+    def render_conversations(self, conversation, add_generation_prompt=True):
+        """Render one conversation, or a batch of them, to prompts plus images.
+
+        Returns ``(texts, images)``: one prompt per conversation, and every image
+        across the batch flattened into a single list in marker order (``None``
+        when there are no images), which is the order ``deal_per_text`` reverses.
+        Processors carrying more modalities than images (video, audio) drive
+        ``normalize_conversations`` + ``collect_across`` directly instead.
+        """
+        conversations = self.normalize_conversations(conversation)
+        texts = [
+            self.apply_chat_template(c, add_generation_prompt) for c in conversations
+        ]
+        return texts, self.collect_across(conversations, self.extract_images)
+
+    def deal_per_text(self, texts, marker, items):
+        """Hand each text the slice of ``items`` its own markers claim.
+
+        Vision inputs arrive as one flat batch-wide list, so each prompt has to
+        take its own share: without this every prompt would expand against the
+        whole list and land the wrong geometry (or a mismatch) in the batch.
+
+        Raises when the markers and the inputs do not add up, rather than dealing
+        a short slice: a silent truncation would leave the extra inputs with no
+        placeholders to scatter into and fail later, inside the model.
+        """
+        dealt = []
+        start = 0
+        for text in texts:
+            count = text.count(marker)
+            dealt.append(items[start : start + count])
+            start += count
+        if start != len(items):
+            raise ValueError(
+                f"{start} {marker} placeholder(s) across {len(texts)} prompt(s) "
+                f"but {len(items)} vision input(s) were given."
+            )
+        return dealt
 
     def decode(self, *args, **kwargs) -> str:
         tokenizer = getattr(self, "tokenizer", None)

@@ -72,6 +72,11 @@ class KimiK25Processor(BaseProcessor):
         # Split rather than repeated replace(): once the first marker expands, the
         # next replace() would land inside that span instead of the next marker.
         parts = text.split(IMAGE_TOKEN)
+        if len(parts) - 1 != len(grids):
+            raise ValueError(
+                f"{len(parts) - 1} {IMAGE_TOKEN} placeholders but "
+                f"{len(grids)} images were given."
+            )
         expanded = parts[0]
         for grid, part in zip(grids, parts[1:]):
             expanded += IMAGE_TOKEN * self.merged_tokens(grid) + part
@@ -86,6 +91,11 @@ class KimiK25Processor(BaseProcessor):
 
     def expand_videos(self, text, grids, chunks_per_video):
         parts = text.split(VIDEO_TOKEN)
+        if len(parts) - 1 != len(chunks_per_video):
+            raise ValueError(
+                f"{len(parts) - 1} {VIDEO_TOKEN} placeholders but "
+                f"{len(chunks_per_video)} videos were given."
+            )
         expanded = parts[0]
         start = 0
         for count, part in zip(chunks_per_video, parts[1:]):
@@ -104,16 +114,6 @@ class KimiK25Processor(BaseProcessor):
             ids.append(self.video_token_id)
             ids.extend(self.tokenizer.encode(segment))
         return ids
-
-    def deal_per_text(self, texts, marker, items):
-        """Hand each text the slice of ``items`` its own markers claim."""
-        out = []
-        start = 0
-        for text in texts:
-            count = text.count(marker)
-            out.append(items[start : start + count])
-            start += count
-        return out
 
     def call(self, text, images=None, videos=None):
         texts = self.tokenizer.normalize_texts(text)

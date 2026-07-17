@@ -66,7 +66,7 @@ class Glm4vMoeProcessor(BaseProcessor):
             text += "<|assistant|>\n"
         return text
 
-    def _expand_pads(self, text, token, grids):
+    def expand_pads(self, text, token, grids):
         parts = text.split(token)
         n = len(parts) - 1
         if n != len(grids):
@@ -94,7 +94,7 @@ class Glm4vMoeProcessor(BaseProcessor):
                 return Image.open(io.BytesIO(resp.read()))
         raise ValueError("Image content item needs a 'path', 'url', or 'image'.")
 
-    def _extract_images(self, conversation):
+    def extract_images(self, conversation):
         images = []
         for msg in conversation:
             content = msg.get("content")
@@ -113,14 +113,17 @@ class Glm4vMoeProcessor(BaseProcessor):
         add_generation_prompt=True,
     ):
         if conversation is not None:
-            messages = conversation
+            texts, extracted = self.render_conversations(
+                conversation, add_generation_prompt
+            )
             if images is None:
-                images = self._extract_images(conversation)
-        if messages is not None:
-            text = self.apply_chat_template(messages, add_generation_prompt)
-        if text is None:
+                images = extracted
+        elif messages is not None:
+            texts = [self.apply_chat_template(messages, add_generation_prompt)]
+        elif text is not None:
+            texts = [text] if isinstance(text, str) else list(text)
+        else:
             raise ValueError("Provide a `conversation`, `messages`, or `text`.")
-        texts = [text] if isinstance(text, str) else list(text)
 
         out = {}
         image_grids = None
@@ -133,7 +136,11 @@ class Glm4vMoeProcessor(BaseProcessor):
             image_grids = np.asarray(image_inputs["image_grid_thw"])
 
         if image_grids is not None:
-            texts = [self._expand_pads(t, self.image_token, image_grids) for t in texts]
+            per_text = self.deal_per_text(texts, self.image_token, image_grids)
+            texts = [
+                self.expand_pads(t, self.image_token, g)
+                for t, g in zip(texts, per_text)
+            ]
 
         ids = [self.tokenizer.encode(t) for t in texts]
         max_len = max(len(x) for x in ids)

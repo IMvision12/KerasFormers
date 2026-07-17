@@ -129,21 +129,25 @@ class InternVLProcessor(BaseProcessor):
         add_generation_prompt=True,
     ):
         if conversation is not None:
-            messages = conversation
+            texts, extracted = self.render_conversations(
+                conversation, add_generation_prompt
+            )
             if images is None:
-                images = self.extract_images(conversation)
-        if messages is not None:
-            text = self.apply_chat_template(messages, add_generation_prompt)
-        if text is None:
+                images = extracted
+        elif messages is not None:
+            texts = [self.apply_chat_template(messages, add_generation_prompt)]
+        elif text is not None:
+            texts = [text] if isinstance(text, str) else list(text)
+        else:
             raise ValueError("Provide a `conversation`, `messages`, or `text`.")
-        texts = [text] if isinstance(text, str) else list(text)
 
         out = {}
         if images is not None:
             image_inputs = self.image_processor(images)
             out["pixel_values"] = ops.convert_to_tensor(image_inputs["pixel_values"])
             num_patches = list(image_inputs["num_patches"])
-            texts = [self.expand_image_tokens(t, num_patches) for t in texts]
+            per_text = self.deal_per_text(texts, self.image_token, num_patches)
+            texts = [self.expand_image_tokens(t, n) for t, n in zip(texts, per_text)]
 
         ids = [self.tokenizer.encode(t) for t in texts]
         max_len = max(len(x) for x in ids)
