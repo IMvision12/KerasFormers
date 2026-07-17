@@ -49,9 +49,9 @@ class MixtralRMSNorm(layers.Layer):
 class MixtralExperts(layers.Layer):
     """Mixtral fused expert bank (dense evaluation).
 
-    Holds the per-expert SwiGLU parameters in Hugging Face's fused layout —
+    Holds the per-expert SwiGLU parameters in Hugging Face's fused layout:
     ``gate_up_proj`` ``(E, 2I, H)`` with contiguous gate/up halves along the
-    output dim, ``down_proj`` ``(E, H, I)``, no biases — and, given per-token
+    output dim, ``down_proj`` ``(E, H, I)``, no biases, and, given per-token
     per-expert routing weights ``(T, E)`` (zero for non-selected experts),
     computes every expert and combines the *outputs* by those weights.
     Backend-agnostic ``einsum``; mathematically identical to sparse top-2

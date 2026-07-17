@@ -258,7 +258,7 @@ def mit_backbone_feature(
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MiTModel(FunctionalBaseModel):
-    """Instantiates the Mix Transformer (MiT) backbone — the SegFormer encoder.
+    """Instantiates the Mix Transformer (MiT) backbone: the SegFormer encoder.
 
     MiT is a hierarchical transformer backbone built from four stages.
     Each stage begins with an overlapping patch embedding (a strided
@@ -297,7 +297,7 @@ class MiTModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -446,7 +446,7 @@ class MiTImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

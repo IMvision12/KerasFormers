@@ -4,7 +4,7 @@
 
 CLIP (Contrastive Language-Image Pre-training) is a vision + text dual-encoder trained on hundreds of millions of (image, caption) pairs with a contrastive loss. The vision side is a ViT; the text side is a small transformer with causal masking. Both encoders project to a shared embedding space, and a learnable temperature scales the cosine-similarity logits.
 
-CLIP's similarity-matrix output makes it useful for many downstream tasks — zero-shot classification, image-text retrieval, image-image similarity, embedding extraction for diffusion models or VLMs, and (with a supervised head) standard image classification.
+CLIP's similarity-matrix output makes it useful for many downstream tasks: zero-shot classification, image-text retrieval, image-image similarity, embedding extraction for diffusion models or VLMs, and (with a supervised head) standard image classification.
 
 ## Classes
 
@@ -12,7 +12,7 @@ Two classes are exposed, mirroring HF's `CLIP*` hierarchy:
 
 | Class | HF equivalent | Purpose |
 |---|---|---|
-| `CLIPModel` | `CLIPModel` | Full contrastive dual-encoder. Image encoder + text encoder + learnable `logit_scale`. Outputs an `(B, B)` similarity matrix — use it for zero-shot classification, retrieval, or as a frozen encoder. |
+| `CLIPModel` | `CLIPModel` | Full contrastive dual-encoder. Image encoder + text encoder + learnable `logit_scale`. Outputs an `(B, B)` similarity matrix: use it for zero-shot classification, retrieval, or as a frozen encoder. |
 | `CLIPImageClassify` | `CLIPForImageClassification` | Vision encoder only + mean-pool patches + linear classifier head. Outputs `(B, num_labels)` class logits. For supervised image classification on a fixed label set. |
 
 Both load the same way:
@@ -53,7 +53,7 @@ from kerasformers.models.clip import CLIPModel
 # Canonical OpenAI
 model = CLIPModel.from_weights("hf:openai/clip-vit-base-patch16")
 
-# LAION variant — uses "gelu" instead of "quick_gelu"
+# LAION variant: uses "gelu" instead of "quick_gelu"
 model = CLIPModel.from_weights("hf:laion/CLIP-ViT-B-16-laion2B-s34B-b88K")
 ```
 
@@ -61,8 +61,8 @@ model = CLIPModel.from_weights("hf:laion/CLIP-ViT-B-16-laion2B-s34B-b88K")
 
 ```python
 out = model({"images": ..., "token_ids": ..., "padding_mask": ...})
-out["image_logits"]   # (B, B) — image[i] vs text[j] similarity
-out["text_logits"]    # (B, B) — transpose of image_logits
+out["image_logits"]   # (B, B): image[i] vs text[j] similarity
+out["text_logits"]    # (B, B): transpose of image_logits
 ```
 
 The output is a **similarity matrix**, not class probabilities. Entry `(i, j)` is:
@@ -81,7 +81,7 @@ image_logits[i, j] = exp(logit_scale) * cos_sim(image_embed_i, text_embed_j)
 - **Supervised Classification:** Use `CLIPImageClassify` for a fixed-label classification head on top of the CLIP vision encoder.
 - **HF passthrough:** `from_weights("hf:org/repo")` works for arbitrary community fine-tunes whose `model_type` is `"clip"`.
 
-## Basic Usage — Zero-Shot Classification
+## Basic Usage: Zero-Shot Classification
 
 ```python
 import keras
@@ -97,7 +97,7 @@ output = model({
     "padding_mask": inputs["attention_mask"],
 })
 
-# (1, 3) — single image, 3 class prompts. Softmax over the text axis.
+# (1, 3): single image, 3 class prompts. Softmax over the text axis.
 preds = keras.ops.softmax(output["image_logits"], axis=-1).numpy().squeeze()
 result = dict(zip(["mountains", "tortoise", "cat"], preds))
 print(result)
@@ -131,7 +131,7 @@ for i, img_path in enumerate(image_paths):
         print(f"  {label}: {probs[i, j]:.4f}")
 ```
 
-## Supervised Image Classification — `CLIPImageClassify`
+## Supervised Image Classification: `CLIPImageClassify`
 
 Mirrors HF's `CLIPForImageClassification`: the CLIP vision encoder feeds a mean-pool over the patch tokens (CLS excluded) and a single linear `classifier` Dense producing `num_labels` logits. The text tower, visual projection, and `logit_scale` are **not** built.
 

@@ -5,7 +5,7 @@
 Granite Speech is IBM's speech-aware large language model. A **conformer CTC audio
 encoder** and a **BLIP-2 Q-Former projector** turn mel features into audio
 embeddings, which are scattered into the `<|audio|>` placeholder positions of a
-**Granite text decoder** — exactly the way a vision-language model splices image
+**Granite text decoder**: exactly the way a vision-language model splices image
 embeddings into the token stream. In speech mode the encoder, projector, and a
 query/value **LoRA adapter** on the decoder are active; in text mode it is the
 plain Granite decoder. The decoder carries Granite's scalar multipliers
@@ -14,7 +14,7 @@ plain Granite decoder. The decoder carries Granite's scalar multipliers
 
 kerasformers ships a **self-contained, pure Keras 3** port: the conformer
 encoder, the Q-Former, the inline Granite decoder, and the audio LoRA all live in
-the `granite_speech` package — no separate LLM dependency. The forward runs
+the `granite_speech` package: no separate LLM dependency. The forward runs
 eagerly through `keras.ops` on TensorFlow / Torch / JAX, validated to **cosine
 1.0 / max|diff| ~1e-7** against HF `GraniteSpeechForConditionalGeneration`.
 
@@ -49,7 +49,7 @@ tied embeddings, audio token id `49159`, and a rank-64 query/value LoRA adapter
 `from_weights("hf:ibm-granite/granite-speech-3.3-8b")`.
 
 > **Granite Speech Plus** (`granite-speech-4.1-2b-plus`) is the granite-4.0-based
-> successor — same architecture, different config + tokenizer. See
+> successor: same architecture, different config + tokenizer. See
 > [`granite_speech_plus.md`](granite_speech_plus.md).
 
 ## Available Weights
@@ -60,7 +60,7 @@ under the kerasformers
 [`granite_speech`](https://github.com/IMvision12/KerasFormers/releases/tag/granite_speech)
 release tag and downloaded on first use. Because the model is subclassed (built
 lazily), `from_release` does a dummy forward to build the graph **before** loading
-the shards — handled automatically inside `from_weights` / `from_release`.
+the shards: handled automatically inside `from_weights` / `from_release`.
 
 ## Model
 
@@ -74,7 +74,7 @@ from kerasformers.models.granite_speech import GraniteSpeechModel
 model = GraniteSpeechModel.from_weights("granite_speech_3_3_2b")
 
 out = model({
-    "input_ids":           input_ids,            # (B, L) int — contains <|audio|> ids
+    "input_ids":           input_ids,            # (B, L) int: contains <|audio|> ids
     "input_features":      input_features,        # (num_audios, frames, 160) mel
     "input_features_mask": input_features_mask,   # (num_audios, max_proj_len) bool, optional
 })

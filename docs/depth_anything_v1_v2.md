@@ -14,21 +14,21 @@ indoor and outdoor scenes.
 Both versions share the same Keras implementation. Two classes are exposed
 per version:
 
-- `DepthAnythingV{1,2}Model` — backbone + DPT neck only (no head). Use as a
+- `DepthAnythingV{1,2}Model`: backbone + DPT neck only (no head). Use as a
   feature extractor or to attach a custom head.
-- `DepthAnythingV{1,2}DepthEstimation` — full monocular depth estimator
+- `DepthAnythingV{1,2}DepthEstimation`: full monocular depth estimator
   with the depth head. This is what you instantiate to predict depth.
 
 ## Architecture
 
-1. **DINOv2 backbone** (`depth_anything_v1_dino_backbone`) — patch embed +
+1. **DINOv2 backbone** (`depth_anything_v1_dino_backbone`): patch embed +
    CLS token + position embeddings + `backbone_depth` pre-norm transformer
    blocks with LayerScale on both branches. Returns four intermediate
    feature maps at the block indices listed in `out_indices`.
-2. **DPT neck** (`depth_anything_v1_neck`) — reassemble (1x1 projection +
+2. **DPT neck** (`depth_anything_v1_neck`): reassemble (1x1 projection +
    per-factor up/down sampling), project to `fusion_hidden_size` with 3x3
    convs, and walk the pyramid bottom-up through four fusion stages.
-3. **Depth head** (`depth_anything_v1_head`) — three convs with an
+3. **Depth head** (`depth_anything_v1_head`): three convs with an
    aligned-corners bilinear upsample to the input resolution between the
    first and second conv. Relative variants end in a `ReLU`, metric
    variants end in a `sigmoid` scaled by `max_depth`.
@@ -75,8 +75,8 @@ All variants default to a 518×518 input (37x37 DINOv2 patch grid).
 Both `kerasformers.models.depth_anything_v1` and
 `kerasformers.models.depth_anything_v2` ship a pure-Keras image processor that
 resizes an input image with bicubic interpolation, rescales to `[0, 1]`,
-and applies ImageNet normalization. Unlike HF `DPTImageProcessor` — which
-preserves the aspect ratio and produces a variable-shape output — this
+and applies ImageNet normalization. Unlike HF `DPTImageProcessor`, which
+preserves the aspect ratio and produces a variable-shape output: this
 processor stretches the image directly to the target size so the shape
 matches what the Keras model was built with.
 
@@ -131,7 +131,7 @@ processor = DepthAnythingV1ImageProcessor()
 inputs = processor("assets/coco_horse_dog.jpg")
 orig_h, orig_w = inputs["original_size"]
 
-# 3) forward pass — raw depth at model resolution
+# 3) forward pass: raw depth at model resolution
 raw_depth = model(inputs["pixel_values"], training=False)
 
 # 4) resample depth back to the original image size
@@ -148,13 +148,13 @@ side = np.concatenate([rgb, depth_color], axis=1)
 Image.fromarray(side).save("depth_output.png")
 ```
 
-Output (horse + dog in snow — closer objects are brighter):
+Output (horse + dog in snow: closer objects are brighter):
 
 ![DepthAnythingV1 output](../assets/depth_anything_v1_output.jpg)
 
 ### Relative Depth with V2
 
-Same API as V1 — swap the module and the variant name. V2 uses the same
+Same API as V1: swap the module and the variant name. V2 uses the same
 processor / post-processor contract, just with sharper and more robust
 depth thanks to its synthetic-data training set.
 
@@ -187,7 +187,7 @@ side = np.concatenate([rgb, depth_color], axis=1)
 Image.fromarray(side).save("depth_output.png")
 ```
 
-Output (mountain valley — crisp ridges and foreground detail):
+Output (mountain valley: crisp ridges and foreground detail):
 
 ![DepthAnythingV2 output](../assets/depth_anything_v2_output.jpg)
 

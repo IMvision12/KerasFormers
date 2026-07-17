@@ -6,11 +6,11 @@ SigLIP2 is the next generation of the SigLIP model, building upon the original a
 
 ## Model Variants
 
-- **SigLIP2BaseP16** — Base model with 16x16 patch size (768 hidden dimensions)
-- **SigLIP2BaseP32** — Base model with 32x32 patch size (768 hidden dimensions)
-- **SigLIP2LargeP16** — Large model with 16x16 patch size (1024 hidden dimensions)
-- **SigLIP2So400mP14** — So400m model with 14x14 patch size (1152 hidden dimensions)
-- **SigLIP2So400mP16** — So400m model with 16x16 patch size (1152 hidden dimensions)
+- **SigLIP2BaseP16**: Base model with 16x16 patch size (768 hidden dimensions)
+- **SigLIP2BaseP32**: Base model with 32x32 patch size (768 hidden dimensions)
+- **SigLIP2LargeP16**: Large model with 16x16 patch size (1024 hidden dimensions)
+- **SigLIP2So400mP14**, So400m model with 14x14 patch size (1152 hidden dimensions)
+- **SigLIP2So400mP16**, So400m model with 16x16 patch size (1152 hidden dimensions)
 
 ## Available Weights
 

@@ -7,7 +7,7 @@ from kerasformers.models.clip.clip_tokenizer import CLIPTokenizer
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPProcessor(BaseProcessor):
-    """Combined processor for CLIP — image processing + text tokenization.
+    """Combined processor for CLIP: image processing + text tokenization.
 
     Composes a :class:`CLIPImageProcessor` and a :class:`CLIPTokenizer` behind one
     callable. ``processor(text=..., images=...)`` returns the tokenizer outputs
@@ -16,10 +16,10 @@ class CLIPProcessor(BaseProcessor):
 
     Construction:
 
-    * ``CLIPProcessor.from_weights("clip_vit_base_16")`` — kerasformers release.
-    * ``CLIPProcessor.from_weights("hf:openai/clip-vit-base-patch16")`` — pulls the
+    * ``CLIPProcessor.from_weights("clip_vit_base_16")``: kerasformers release.
+    * ``CLIPProcessor.from_weights("hf:openai/clip-vit-base-patch16")``: pulls the
       tokenizer files **and** builds the image processor from the HF repo.
-    * ``CLIPProcessor()`` — defaults; or pass pre-built ``tokenizer=`` /
+    * ``CLIPProcessor()``: defaults; or pass pre-built ``tokenizer=`` /
       ``image_processor=``, or per-component build kwargs (``image_resolution=`` …).
     """
 

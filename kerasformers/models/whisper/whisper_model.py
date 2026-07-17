@@ -276,7 +276,7 @@ class WhisperModel(FunctionalBaseModel):
     .. note::
         Unlike vision models in kerasformers, Whisper has a **fixed input
         shape** dictated by the audio pipeline: log-mel spectrograms
-        of ``(num_mel_bins, max_source_positions * 2)`` —
+        of ``(num_mel_bins, max_source_positions * 2)``:
         ``(80, 3000)`` for v1/v2 variants, ``(128, 3000)`` for
         large-v3 / large-v3-turbo. There is no ``input_shape`` kwarg;
         feed :class:`WhisperFeatureExtractor` output directly.
@@ -454,7 +454,7 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
     Composes the same encoder + decoder + tied LM head Functional graph as
     :class:`WhisperModel` (so it loads the same weights and is a drop-in
     replacement for teacher-forced training and forward passes), and adds
-    :meth:`generate` — an end-to-end audio → text method that pulls in a
+    :meth:`generate`, an end-to-end audio → text method that pulls in a
     :class:`~kerasformers.models.whisper.WhisperProcessor` for feature
     extraction, prompt construction, and detokenization.
 
@@ -627,7 +627,7 @@ class WhisperAudioClassify(FunctionalBaseModel):
 
     When ``use_weighted_layer_sum=True``, all encoder hidden states
     (post-embedding through final LayerNorm) are stacked and combined
-    by a learnable softmax weighting before the projector — matching
+    by a learnable softmax weighting before the projector, matching
     the SUPERB-style classification head.
 
     .. code-block:: python

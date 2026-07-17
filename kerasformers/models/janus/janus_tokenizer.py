@@ -13,7 +13,7 @@ class JanusTokenizer(BaseTokenizer):
     when no explicit file is given) and exposes ``encode`` / ``decode`` plus
     the image special tokens (``<image_placeholder>`` / ``<begin_of_image>`` /
     ``<end_of_image>``). ``encode`` prepends the BOS id (the checkpoints use
-    ``add_bos_token=True``); ``call`` returns unpadded id lists — the
+    ``add_bos_token=True``); ``call`` returns unpadded id lists: the
     :class:`JanusProcessor` expands image placeholders and pads.
 
     Args:

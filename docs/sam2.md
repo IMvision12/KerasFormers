@@ -8,8 +8,8 @@ SAM2 (Segment Anything Model 2) is the next generation of the Segment Anything M
 
 Two classes are exposed:
 
-- `SAM2Model` — Hiera backbone + FPN neck (no prompt encoder, no mask decoder). Returns ``{"image_embeddings", "high_res_feat_s0", "high_res_feat_s1"}``. Use this to cache image features when running many prompt combinations.
-- `SAM2PromptableSegment` — full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores", "object_score_logits"}``.
+- `SAM2Model`: Hiera backbone + FPN neck (no prompt encoder, no mask decoder). Returns ``{"image_embeddings", "high_res_feat_s0", "high_res_feat_s1"}``. Use this to cache image features when running many prompt combinations.
+- `SAM2PromptableSegment`: full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores", "object_score_logits"}``.
 
 ## Architecture Highlights
 
@@ -167,7 +167,7 @@ processor = SAM2ImageProcessorWithPrompts(
 inputs = processor("photo.jpg")
 # Box input shape: (batch, num_boxes, 4) with (x1, y1, x2, y2) in
 # original-image pixel coordinates. ``num_boxes`` acts as the
-# ``point_batch`` axis in the sparse-embedding concat — supply one
+# ``point_batch`` axis in the sparse-embedding concat: supply one
 # box per point batch.
 input_boxes = np.array([[[100, 200, 400, 500]]], dtype=np.float32)
 
@@ -179,8 +179,8 @@ outputs = model({
 })
 ```
 
-> **Note — pass a point alongside boxes for HF parity.**
-> When `input_points is None`, HuggingFace's `Sam2Model` skips the point-encoding branch of the prompt encoder entirely. The Keras functional graph always runs that branch (its inputs are required), which injects a spurious "not a point" token into the sparse-prompt sequence and causes a small mask-logit drift on the pure box-only path. Supply at least one point alongside each box — even a dummy foreground point near the box center — to get bit-for-bit HF parity. Points + boxes matches HF within float32 noise (~1e-3 max mask diff across all four variants).
+> **Note: pass a point alongside boxes for HF parity.**
+> When `input_points is None`, HuggingFace's `Sam2Model` skips the point-encoding branch of the prompt encoder entirely. The Keras functional graph always runs that branch (its inputs are required), which injects a spurious "not a point" token into the sparse-prompt sequence and causes a small mask-logit drift on the pure box-only path. Supply at least one point alongside each box, even a dummy foreground point near the box center, to get bit-for-bit HF parity. Points + boxes matches HF within float32 noise (~1e-3 max mask diff across all four variants).
 
 ## Precomputed Image Embeddings (Multi-Prompt Inference)
 
@@ -253,8 +253,8 @@ from kerasformers.models.sam2 import (
 )
 
 COLORS = [
-    np.array([0, 180, 255, 150]) / 255.0,    # cyan — horse
-    np.array([255, 180, 60, 150]) / 255.0,   # yellow — dog
+    np.array([0, 180, 255, 150]) / 255.0,    # cyan: horse
+    np.array([255, 180, 60, 150]) / 255.0,   # yellow: dog
 ]
 
 
@@ -308,7 +308,7 @@ for i, prompt in enumerate(prompts):
     show_points((px, py), ax, color=COLORS[i][:3])
     print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
 
-ax.set_title("SAM2 Large — Point Prompts (COCO horse + dog)", fontsize=14)
+ax.set_title("SAM2 Large: Point Prompts (COCO horse + dog)", fontsize=14)
 ax.axis("off")
 plt.tight_layout()
 fig.savefig("sam2_horse_dog_output.jpg", bbox_inches="tight", dpi=130)
@@ -392,7 +392,7 @@ fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 axes[0].imshow(np.array(img)); axes[0].set_title("Input"); axes[0].axis("off")
 axes[1].imshow(np.array(img))
 overlay_masks(axes[1], result["masks"])
-axes[1].set_title(f"SAM2 BasePlus — AMG ({len(result['masks'])} masks)")
+axes[1].set_title(f"SAM2 BasePlus: AMG ({len(result['masks'])} masks)")
 axes[1].axis("off")
 plt.tight_layout()
 fig.savefig("sam2_coco_livingroom_amg_output.jpg", bbox_inches="tight", dpi=130)
@@ -401,7 +401,7 @@ plt.close(fig)
 
 ![SAM2 Automatic Mask Generation Output](../assets/sam2_coco_livingroom_amg_output.jpg)
 
-Running on a living-room / dining-scene COCO image (`val2017/000000000139.jpg`, saved locally as `assets/coco_livingroom.jpg`) with a 16 × 16 point grid returns ~60 deduplicated masks — the TV, windows, radiator, dining chairs, table, vases, hardwood floor, rug, fireplace, ceiling lamp, refrigerator, person, and several of the wall pictures, all segmented separately.
+Running on a living-room / dining-scene COCO image (`val2017/000000000139.jpg`, saved locally as `assets/coco_livingroom.jpg`) with a 16 × 16 point grid returns ~60 deduplicated masks: the TV, windows, radiator, dining chairs, table, vases, hardwood floor, rug, fireplace, ceiling lamp, refrigerator, person, and several of the wall pictures, all segmented separately.
 
 Under the hood the driver:
 
@@ -410,7 +410,7 @@ Under the hood the driver:
 3. Applies `filter_masks` per crop (IoU threshold, stability score, crop-edge filter, pad back to original image, encode as RLE).
 4. Applies `post_process_for_mask_generation` (single-class NMS on predicted boxes) to deduplicate across crops.
 
-`SAM2GenerateMasks` requires a SAM2 model built with the default point-only prompt interface (`include_box_input=False`, `include_mask_input=False`) — it raises `ValueError` otherwise. If you need AMG alongside a box-enabled model, build two instances.
+`SAM2GenerateMasks` requires a SAM2 model built with the default point-only prompt interface (`include_box_input=False`, `include_mask_input=False`): it raises `ValueError` otherwise. If you need AMG alongside a box-enabled model, build two instances.
 
 ### Rolling your own driver
 
@@ -422,7 +422,7 @@ from kerasformers.models.sam.sam_image_processor import (
 )
 ```
 
-These are architecture-agnostic — the SAM2 AMG driver reuses the same helpers verbatim — so you can mirror any custom pipeline written against `transformers`' `Sam2ImageProcessor`. They are not part of the top-level public API; keep `SAM2GenerateMasks` as the recommended entry point.
+These are architecture-agnostic, the SAM2 AMG driver reuses the same helpers verbatim, so you can mirror any custom pipeline written against `transformers`' `Sam2ImageProcessor`. They are not part of the top-level public API; keep `SAM2GenerateMasks` as the recommended entry point.
 
 ## Architecture
 
@@ -438,9 +438,9 @@ The model returns a dictionary with:
 
 - `pred_masks`: Low-resolution predicted masks of shape `(batch, point_batch, num_masks, 256, 256)`. `num_masks=3` for `multimask_output=True` (default) or `num_masks=1` for `multimask_output=False`.
 - `iou_scores`: Predicted IoU scores (0–1, sigmoid-activated) for each mask of shape `(batch, point_batch, num_masks)`.
-- `object_score_logits`: Object-presence score logits of shape `(batch, point_batch, 1)`. Raw logits — apply `sigmoid` if you want a probability.
+- `object_score_logits`: Object-presence score logits of shape `(batch, point_batch, 1)`. Raw logits, apply `sigmoid` if you want a probability.
 
-Use `processor.post_process_masks(...)` to upscale masks to the original image resolution. The output is mask **logits** — threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
+Use `processor.post_process_masks(...)` to upscale masks to the original image resolution. The output is mask **logits**: threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
 
 ## HuggingFace API Parity Notes
 
@@ -454,9 +454,9 @@ The Keras port intentionally differs from the PyTorch/HuggingFace `Sam2Model` AP
 | Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
 | Automatic mask generation | helpers on `Sam2ImageProcessor`; driver lives in Meta's original repo | helpers re-used from `kerasformers.models.sam` + built-in `SAM2GenerateMasks` driver |
 | Image preprocessing | `keep_aspect_ratio=True` + pad to square | per-axis stretch to 1024×1024 |
-| Box-only prompts | supported (points branch is skipped) | small drift — see the box-prompt note above |
+| Box-only prompts | supported (points branch is skipped) | small drift: see the box-prompt note above |
 
-All forward-pass weights are byte-equivalent to the HuggingFace checkpoints — across all four variants, `points`, `points + boxes`, and `multimask_output=False` paths match HF within float32 noise (~1e-3 max mask-logit diff).
+All forward-pass weights are byte-equivalent to the HuggingFace checkpoints: across all four variants, `points`, `points + boxes`, and `multimask_output=False` paths match HF within float32 noise (~1e-3 max mask-logit diff).
 
 ## Citation
 

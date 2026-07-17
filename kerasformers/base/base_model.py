@@ -19,7 +19,7 @@ def hf_num_classes(hf_config):
     if label2id:
         return len(label2id)
     raise KeyError(
-        "Could not determine num_labels from HF config.json — "
+        "Could not determine num_labels from HF config.json: "
         "neither 'num_labels' nor 'id2label' / 'label2id' is present."
     )
 
@@ -37,7 +37,7 @@ class SubclassedBaseModel(WeightLoadingMixin, keras.Model):
     ``inject_functional_model_class`` and rewrites the functional base's
     ``__bases__`` from ``keras.Model`` to ``Functional`` (functional models rely
     on this for their subsequent builds). If subclassed models shared that base,
-    ``Functional`` would leak into their MRO too — making Keras treat them as
+    ``Functional`` would leak into their MRO too, making Keras treat them as
     functional and fail with ``Functional.__init__() missing ... 'inputs' and
     'outputs'`` on construction, or ``'<Model>' object has no attribute
     '_inputs'`` on call. A separate base keeps subclassed models unaffected.
@@ -49,7 +49,7 @@ class SubclassedBaseModel(WeightLoadingMixin, keras.Model):
         Subclassed models build lazily on first call, so nothing has weights
         until they run once. The converted-weight cache reloads a model from a
         serialized *config* (an unbuilt skeleton) and then streams cached tensors
-        onto ``self.weights`` — which requires the weights to exist first. This
+        onto ``self.weights``, which requires the weights to exist first. This
         runs the minimal forward that materializes them: a length-4 ``input_ids``
         batch, the text-LLM signature. Non-text subclassed models (VLMs, ASR)
         override with a signature-matching dummy input.

@@ -59,15 +59,15 @@ inputs = processor(image)
 
 # Inference
 output = model(inputs["pixel_values"], training=False)
-# output["logits"]:     (1, 300, 80) — class logits per query
-# output["pred_boxes"]: (1, 300, 4)  — normalized (cx, cy, w, h)
+# output["logits"]:     (1, 300, 80), class logits per query
+# output["pred_boxes"]: (1, 300, 4), normalized (cx, cy, w, h)
 
 # Post-process: sigmoid, top-K selection, convert boxes to pixel coords
 results = processor.post_process_object_detection(output, threshold=0.5, target_sizes=[original_size])
 for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
-# Output (COCO val2017 #463730 — busy street):
+# Output (COCO val2017 #463730: busy street):
 # car: 0.94 at [510, 185, 640, 323]
 # bus: 0.94 at [196, 108, 320, 272]
 # person: 0.93 at [129, 185, 189, 313]
@@ -90,7 +90,7 @@ processor = RTDETRV2ImageProcessor(data_format="channels_first")
 inputs = processor("photo.jpg")
 ```
 
-Detection post-processors emit boxes in `xyxy` pixel coordinates and class indices — there is no spatial channel axis to interpret, so they don't take a `data_format` kwarg. See `docs/utils.md` for the families that do.
+Detection post-processors emit boxes in `xyxy` pixel coordinates and class indices: there is no spatial channel axis to interpret, so they don't take a `data_format` kwarg. See `docs/utils.md` for the families that do.
 
 ## Full Inference with Visualization
 

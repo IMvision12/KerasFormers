@@ -26,7 +26,7 @@ class MiniMaxM2Model(SubclassedBaseModel):
         num_heads / num_kv_heads / head_dim: 48 / 8 / 128.
         num_experts / num_experts_per_tok: 256 / 8.
         partial_rotary_factor: Fraction of head channels rotated by RoPE
-            (the released checkpoint runs 1.0 — full rotation — matching the
+            (the released checkpoint runs 1.0, full rotation, matching the
             HF reference implementation).
         rope_theta: Rotary base frequency (5e6).
         norm_eps: RMSNorm epsilon (1e-6).

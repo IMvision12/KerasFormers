@@ -22,9 +22,9 @@ MASK_NEG = -1e9
 def qwen3_text_cos_sin(position_ids, head_dim, theta, mrope_section):
     """Interleaved M-RoPE cos/sin (Qwen3-VL).
 
-    Builds per-axis frequencies then interleaves them channel-wise — T on
+    Builds per-axis frequencies then interleaves them channel-wise: T on
     channels ``0,3,6,...``, H on ``1,4,...`` (up to ``mrope_section[1]*3``),
-    W on ``2,5,...`` (up to ``mrope_section[2]*3``), the tail staying T — rather
+    W on ``2,5,...`` (up to ``mrope_section[2]*3``), the tail staying T: rather
     than the contiguous T/H/W sections of Qwen2.x. Returns merged
     ``(batch, seq, head_dim)`` cos/sin tensors.
     """
@@ -74,7 +74,7 @@ class Qwen3VLVisionModel(layers.Layer):
         grid_thw: Per-image ``(t, h, w)`` patch-grid sizes.
 
     Returns:
-        ``(merged, deepstack)`` — merged image embeddings
+        ``(merged, deepstack)``: merged image embeddings
         ``(num_merged_tokens, out_hidden_size)`` plus one DeepStack tensor of the
         same shape per entry in ``deepstack_visual_indexes``.
     """
@@ -382,7 +382,7 @@ class Qwen3VLModel(Qwen2VLModel):
         })
         out["last_hidden_state"]   # (B, L, embed_dim)
 
-    The vision keys are optional — pass images, video, both, or neither (text-only).
+    The vision keys are optional: pass images, video, both, or neither (text-only).
 
     Construction:
 

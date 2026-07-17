@@ -37,8 +37,8 @@ def apply_cohere_rope(x, cos, sin):
 class CohereLayerNorm(layers.Layer):
     """Cohere LayerNorm: mean-centered, bias-free, ones-init weight.
 
-    Unlike RMSNorm this subtracts the mean — ``(x - mean) * rsqrt(var + eps)``
-    — then scales by a learned weight. The statistics are taken over the last
+    Unlike RMSNorm this subtracts the mean: ``(x - mean) * rsqrt(var + eps)``
+    then scales by a learned weight. The statistics are taken over the last
     axis in float32. Used for the input norm, the final norm, and (with a
     per-head ``(num_heads, head_dim)`` weight) the optional QK-norm.
 
@@ -264,7 +264,7 @@ class CohereAttention(layers.Layer):
 class CohereDecoderLayer(layers.Layer):
     """One Cohere block: parallel attention + MLP off a single input norm.
 
-    ``h = x + attention(input_norm(x)) + mlp(input_norm(x))`` — the attention
+    ``h = x + attention(input_norm(x)) + mlp(input_norm(x))``: the attention
     and MLP read the *same* normed input and both add to the residual (no
     post-attention norm), the PaLM/GPT-J parallel formulation.
 

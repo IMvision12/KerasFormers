@@ -13,7 +13,7 @@ class XLMRobertaTokenizer(BaseTokenizer):
     """XLM-RoBERTa SentencePiece tokenizer (``tokenizers`` Rust backend).
 
     Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``roberta`` release tag (or an explicit ``tokenizer_file``) — the Unigram model,
+    ``roberta`` release tag (or an explicit ``tokenizer_file``): the Unigram model,
     the fairseq id offset, the Precompiled normalizer, the ``▁`` metaspace and the
     ``<s> A </s>`` post-processing are all baked into the file. ``call`` returns the
     ``input_ids`` / ``attention_mask`` / ``token_type_ids`` dict expected by

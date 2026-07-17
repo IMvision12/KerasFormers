@@ -5,7 +5,7 @@ from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
 # The text decoder and lm_head (keras paths starting "language_model." (none
-# here — the decoder is inline), "token_embedding", "decoder_layer_",
+# here: the decoder is inline), "token_embedding", "decoder_layer_",
 # "final_norm").
 TEXT_MAPPING = {
     "token_embedding.embeddings": "language_model.embed_tokens.weight",

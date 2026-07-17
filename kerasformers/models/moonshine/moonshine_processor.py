@@ -14,7 +14,7 @@ class MoonshineProcessor(BaseProcessor):
     and :class:`MoonshineTokenizer`. ``decode`` / ``batch_decode`` and the loaders
     (``from_weights`` / ``from_hf``) are inherited from :class:`BaseProcessor`.
 
-    ``decoder_start_token_id`` is ``<s>`` (id 1) — the token
+    ``decoder_start_token_id`` is ``<s>`` (id 1): the token
     :class:`~kerasformers.models.moonshine.MoonshineSpeechToText` seeds greedy
     decoding with.
     """

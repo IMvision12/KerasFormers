@@ -117,7 +117,7 @@ class SegFormerModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `512`.
         input_tensor: Optional pre-existing Keras tensor to use as the
@@ -231,7 +231,7 @@ class SegFormerSemanticSegment(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `512`.
         input_tensor: Optional pre-existing Keras tensor to use as the
@@ -246,7 +246,7 @@ class SegFormerSemanticSegment(FunctionalBaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         # SegformerConfig.image_size is a vestigial 224 default unrelated to the
-        # checkpoint's training resolution — keep the class default (override
+        # checkpoint's training resolution: keep the class default (override
         # with an explicit image_size kwarg if needed).
         return {
             "embed_dim": list(hf_config["hidden_sizes"]),

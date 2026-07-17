@@ -15,16 +15,16 @@ class Mistral3Processor(BaseProcessor):
     Composes the tokenizer and the variable-resolution image processor.
     ``call`` renders the ``[INST]`` chat template (each ``{"type": "image"}``
     content item becomes one ``[IMG]`` placeholder), resizes the images,
-    expands every placeholder to the merged-grid token rows —
+    expands every placeholder to the merged-grid token rows:
     ``[IMG] * (w // merged_patch)`` + ``[IMG_BREAK]`` per row, with the final
-    ``[IMG_BREAK]`` replaced by ``[IMG_END]`` — and tokenizes to padded
+    ``[IMG_BREAK]`` replaced by ``[IMG_END]``, and tokenizes to padded
     ``{"input_ids", "attention_mask"}`` (bos prepended) alongside
     ``pixel_values`` / ``image_sizes``.
 
     Args:
         hf_id: Hub repo for the tokenizer's ``tokenizer.json``.
         patch_size: Vision patch size in pixels (14).
-        spatial_merge_size: Projector patch-merge factor (2) — the effective
+        spatial_merge_size: Projector patch-merge factor (2), the effective
             token stride is ``patch_size * spatial_merge_size``.
         tokenizer / image_processor: Optional pre-built components.
     """

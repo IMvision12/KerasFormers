@@ -15,7 +15,7 @@ class BaseAudioFeatureExtractor(PreprocessorMixin):
     ``num_mel_bins``, …) onto same-named constructor params. Explicit caller
     kwargs always win; a missing config falls back to the subclass defaults.
     Concrete subclasses define their own constructor kwargs (sampling rate,
-    FFT size, mel bin count, chunk length, …) and ``get_config`` payload — the
+    FFT size, mel bin count, chunk length, …) and ``get_config`` payload: the
     base bakes in no defaults.
     """
 

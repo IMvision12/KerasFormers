@@ -86,17 +86,17 @@ def conv_block(
 
 
 def mixed_5b_block(inputs, name="mixed_5b"):
-    """Stem-end Mixed-5b inception block — feeds the Inception-ResNet-A stack.
+    """Stem-end Mixed-5b inception block: feeds the Inception-ResNet-A stack.
 
     Four parallel branches concatenated along the channel axis:
 
-    1. **1×1** — 96 channels.
-    2. **1×1 → 5×5** — 48 → 64 channels.
-    3. **1×1 → 3×3 → 3×3** — 64 → 96 → 96 channels.
-    4. **Avg-pool → 1×1** — 64 channels.
+    1. **1×1**: 96 channels.
+    2. **1×1 → 5×5**: 48 → 64 channels.
+    3. **1×1 → 3×3 → 3×3**: 64 → 96 → 96 channels.
+    4. **Avg-pool → 1×1**: 64 channels.
 
     Spatial size is preserved. Output has 96 + 64 + 96 + 64 = 320
-    channels — the input width expected by every :func:`block35`
+    channels: the input width expected by every :func:`block35`
     Inception-ResNet-A block downstream.
 
     Args:
@@ -137,13 +137,13 @@ def block35(inputs, scale=1.0, name="repeat_0"):
     320 channels by a 1×1 conv, scaled by ``scale``, added back into
     ``inputs`` as a residual, then ReLU. Branches:
 
-    1. **1×1** — 32 channels.
-    2. **1×1 → 3×3** — 32 → 32 channels.
-    3. **1×1 → 3×3 → 3×3** — 32 → 48 → 64 channels.
+    1. **1×1**: 32 channels.
+    2. **1×1 → 3×3**: 32 → 32 channels.
+    3. **1×1 → 3×3 → 3×3**: 32 → 48 → 64 channels.
 
     The ``scale=0.17`` factor (used throughout the model) keeps the
     residual contribution small enough for the training to remain
-    stable — without it the deeper Inception-ResNet variants diverge.
+    stable: without it the deeper Inception-ResNet variants diverge.
     Spatial size is preserved; channels stay at 320.
 
     Args:
@@ -176,16 +176,16 @@ def block35(inputs, scale=1.0, name="repeat_0"):
 
 
 def mixed_6a_block(inputs, name="mixed_6a"):
-    """Reduction-A — halves spatial size between Inception-ResNet-A and -B.
+    """Reduction-A: halves spatial size between Inception-ResNet-A and -B.
 
     Three parallel branches concatenated along the channel axis:
 
-    1. **Strided 3×3** — 384 channels, stride-2, valid padding.
-    2. **1×1 → 3×3 → strided 3×3** — 256 → 256 → 384 channels, last
+    1. **Strided 3×3**: 384 channels, stride-2, valid padding.
+    2. **1×1 → 3×3 → strided 3×3**: 256 → 256 → 384 channels, last
        conv stride-2.
-    3. **3×3 max-pool, stride-2** — passes through input channels (320).
+    3. **3×3 max-pool, stride-2**: passes through input channels (320).
 
-    Output has 384 + 384 + 320 = 1088 channels — the input width
+    Output has 384 + 384 + 320 = 1088 channels: the input width
     expected by every :func:`block17` Inception-ResNet-B block
     downstream.
 
@@ -221,8 +221,8 @@ def block17(inputs, scale=1.0, name="repeat_1_0"):
     ``scale``, added back into ``inputs`` as a residual, then ReLU.
     Branches:
 
-    1. **1×1** — 192 channels.
-    2. **1×1 → 1×7 → 7×1** — 128 → 160 → 192 channels (factorized 7×7).
+    1. **1×1**: 192 channels.
+    2. **1×1 → 1×7 → 7×1**: 128 → 160 → 192 channels (factorized 7×7).
 
     Uses ``scale=0.10`` throughout the model for training stability.
     Spatial size is preserved; channels stay at 1088.
@@ -254,17 +254,17 @@ def block17(inputs, scale=1.0, name="repeat_1_0"):
 
 
 def mixed_7a_block(inputs, name="mixed_7a"):
-    """Reduction-B — halves spatial size between Inception-ResNet-B and -C.
+    """Reduction-B: halves spatial size between Inception-ResNet-B and -C.
 
     Four parallel branches concatenated along the channel axis:
 
-    1. **1×1 → strided 3×3** — 256 → 384 channels, last conv stride-2.
-    2. **1×1 → strided 3×3** — 256 → 288 channels, last conv stride-2.
-    3. **1×1 → 3×3 → strided 3×3** — 256 → 288 → 320 channels, last
+    1. **1×1 → strided 3×3**: 256 → 384 channels, last conv stride-2.
+    2. **1×1 → strided 3×3**: 256 → 288 channels, last conv stride-2.
+    3. **1×1 → 3×3 → strided 3×3**: 256 → 288 → 320 channels, last
        conv stride-2.
-    4. **3×3 max-pool, stride-2** — passes through input channels (1088).
+    4. **3×3 max-pool, stride-2**: passes through input channels (1088).
 
-    Output has 384 + 288 + 320 + 1088 = 2080 channels — the input width
+    Output has 384 + 288 + 320 + 1088 = 2080 channels: the input width
     expected by every :func:`block8` Inception-ResNet-C block
     downstream.
 
@@ -308,8 +308,8 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
     ``scale``, added back into ``inputs`` as a residual, then ReLU
     (skipped on the final block). Branches:
 
-    1. **1×1** — 192 channels.
-    2. **1×1 → 1×3 → 3×1** — 192 → 224 → 256 channels (factorized 3×3).
+    1. **1×1**: 192 channels.
+    2. **1×1 → 1×3 → 3×1**: 192 → 224 → 256 channels (factorized 3×3).
 
     Uses ``scale=0.20`` throughout the model for training stability.
     The very last block in the C-stack passes ``activation=False`` so
@@ -402,9 +402,9 @@ def inception_resnet_v2_backbone_feature(inputs, *, data_format, return_stages=F
 class InceptionResNetV2Model(FunctionalBaseModel):
     """Instantiates the Inception-ResNet-v2 backbone.
 
-    Inception-ResNet-v2 combines Inception modules — parallel branches of
+    Inception-ResNet-v2 combines Inception modules: parallel branches of
     1x1, factorized n x 1 / 1 x n, and pooled convs concatenated along
-    the channel axis — with ResNet-style identity skip connections that
+    the channel axis: with ResNet-style identity skip connections that
     add a scaled residual back into the input of each block. The network
     has a deep conv stem followed by three inception-residual stacks
     (A/B/C, operating on 35x35, 17x17, and 8x8 feature maps) separated
@@ -431,7 +431,7 @@ class InceptionResNetV2Model(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an
@@ -555,7 +555,7 @@ class InceptionResNetV2ImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an

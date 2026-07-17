@@ -241,7 +241,7 @@ def metaclip2_head(image_embeddings, text_embeddings):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MetaClip2VisionModel(FunctionalBaseModel):
-    """MetaCLIP 2 vision tower as a standalone model — no text encoder, no projection.
+    """MetaCLIP 2 vision tower as a standalone model: no text encoder, no projection.
 
     The patch-embedding +
     transformer stack from MetaCLIP 2, ending at the post-encoder
@@ -255,7 +255,7 @@ class MetaClip2VisionModel(FunctionalBaseModel):
 
         out = model(images)
         out["last_hidden_state"]   # (B, num_patches + 1, vision_hidden_dim)
-        out["pooler_output"]       # (B, vision_hidden_dim) — post-LN CLS token
+        out["pooler_output"]       # (B, vision_hidden_dim): post-LN CLS token
 
     Construction:
 
@@ -406,7 +406,7 @@ class MetaClip2VisionModel(FunctionalBaseModel):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MetaClip2TextModel(FunctionalBaseModel):
-    """MetaCLIP 2 text tower as a standalone model — no vision encoder, no projection.
+    """MetaCLIP 2 text tower as a standalone model: no vision encoder, no projection.
 
     Token + positional
     embedding, causal-masked transformer stack, post-encoder LayerNorm,
@@ -420,7 +420,7 @@ class MetaClip2TextModel(FunctionalBaseModel):
 
         out = model({"token_ids": ..., "padding_mask": ...})
         out["last_hidden_state"]   # (B, max_seq_len, text_hidden_dim)
-        out["pooler_output"]       # (B, text_hidden_dim) — EOS-position hidden state
+        out["pooler_output"]       # (B, text_hidden_dim): EOS-position hidden state
 
     Construction:
 
@@ -775,7 +775,7 @@ class MetaClip2ZeroShotClassify(FunctionalBaseModel):
     """MetaCLIP 2 + contrastive similarity head for zero-shot classification / retrieval.
 
     Composes the same vision + text encoders as :class:`MetaClip2Model`
-    and adds the standard CLIP-style head — L2-normalize both sides,
+    and adds the standard CLIP-style head: L2-normalize both sides,
     then a learnable ``logit_scale`` temperature on the cosine-similarity
     matrix. Output is the ``(B, B)`` image-vs-text similarity logits.
 

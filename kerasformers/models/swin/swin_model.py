@@ -457,7 +457,7 @@ class SwinModel(FunctionalBaseModel):
     """Instantiates the Swin Transformer backbone.
 
     Swin is a hierarchical vision transformer that computes self-attention
-    within shifted local windows — alternating regular and shifted
+    within shifted local windows, alternating regular and shifted
     windowing yields cross-window connections while keeping compute
     linear in image size. The network has 4 stages with progressive
     patch merging, halving spatial resolution and doubling channels
@@ -492,7 +492,7 @@ class SwinModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -663,7 +663,7 @@ class SwinImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

@@ -347,7 +347,7 @@ class Gemma3DecoderLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Gemma3VisionAttention(layers.Layer):
-    """SigLIP full (bidirectional) self-attention — all projections biased."""
+    """SigLIP full (bidirectional) self-attention: all projections biased."""
 
     def __init__(self, embed_dim, num_heads, **kwargs):
         super().__init__(**kwargs)

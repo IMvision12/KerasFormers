@@ -8,7 +8,7 @@ class MistralTokenizer(BaseTokenizer):
     """Mistral BPE tokenizer (``tokenizers`` backend).
 
     Loads the model's ``tokenizer.json`` (downloaded on the fly from ``hf_id``
-    when no explicit file is given — the v0.x SentencePiece-BPE and the newer
+    when no explicit file is given: the v0.x SentencePiece-BPE and the newer
     Tekken vocabularies both ship one) and exposes ``encode`` / ``decode``
     plus a ``call`` that tokenizes text(s) or a chat ``messages`` list
     (rendered with the ``[INST]`` template) into padded

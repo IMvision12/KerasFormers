@@ -47,7 +47,7 @@ class MetaClip2ImageProcessor(CLIPImageProcessor):
         ... )
         >>> processor = MetaClip2ImageProcessor(image_resolution=224)
         >>> inputs = processor("photo.jpg")
-        >>> inputs["pixel_values"].shape   # (1, 224, 224, 3) — channels_last
+        >>> inputs["pixel_values"].shape   # (1, 224, 224, 3): channels_last
     """
 
     def __init__(

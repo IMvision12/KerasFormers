@@ -15,9 +15,9 @@ class Gemma3Processor(BaseProcessor):
     Composes the tokenizer and image processor. ``call`` renders the
     ``<start_of_turn>`` chat template (each ``{"type": "image"}`` content item
     becomes one ``<start_of_image>`` marker), resizes the images, expands
-    every marker to the full image sequence — two newlines +
+    every marker to the full image sequence: two newlines +
     ``<start_of_image>`` + ``<image_soft_token>`` x ``mm_tokens_per_image`` +
-    ``<end_of_image>`` + two newlines — and tokenizes to padded
+    ``<end_of_image>`` + two newlines, and tokenizes to padded
     ``{"input_ids", "attention_mask"}`` (bos prepended) alongside
     ``pixel_values``.
 

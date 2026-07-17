@@ -197,7 +197,7 @@ class Glm4DecoderLayer(layers.Layer):
 
     Both the attention and MLP outputs are RMSNorm'd *before* the residual add
     (``post_self_attn_layernorm`` / ``post_mlp_layernorm``), in addition to the
-    usual pre-norms — the GLM-4-0414 formulation.
+    usual pre-norms: the GLM-4-0414 formulation.
 
     Args:
         embed_dim / mlp_dim / num_heads / num_kv_heads / head_dim / rotary_dim:

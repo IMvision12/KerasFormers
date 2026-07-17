@@ -13,7 +13,7 @@ MASK_NEG = -1e9
 class Glm4Model(SubclassedBaseModel):
     """GLM-4-0414 decoder backbone (no LM head).
 
-    Same as GLM-4 but each block adds sandwich norms — the attention and MLP
+    Same as GLM-4 but each block adds sandwich norms: the attention and MLP
     outputs are RMSNorm'd before being added back to the residual. Grouped-query
     attention, partial *interleaved* rotary, biased q/k/v, fused-SwiGLU MLP.
     Returns raw features; use :class:`Glm4Generate` for logits / text.

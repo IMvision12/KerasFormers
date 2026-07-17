@@ -156,7 +156,7 @@ if __name__ == "__main__":
             variant, load_weights=False
         )
         # Run the reference model on the same device Keras (torch backend) uses,
-        # so the equivalence check reflects the conversion — not GPU-vs-CPU
+        # so the equivalence check reflects the conversion, not GPU-vs-CPU
         # float accumulation, which inflates EoMT's raw mask logits on GPU.
         device = "cuda" if torch.cuda.is_available() else "cpu"
         hf_model = EomtForUniversalSegmentation.from_pretrained(hf_id).eval().to(device)

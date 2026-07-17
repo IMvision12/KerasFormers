@@ -29,7 +29,7 @@ class MetaClip2Processor(BaseProcessor):
         std: Per-channel std for normalization. Defaults to OpenAI
             CLIP's ``(0.26862954, 0.26130258, 0.27577711)``.
         do_center_crop: Whether to center-crop. **MetaCLIP 2 does not
-            center-crop** — :class:`MetaClip2ImageProcessor` ignores
+            center-crop**: :class:`MetaClip2ImageProcessor` ignores
             this and always sets it to ``False`` internally. Kept here
             for signature parity with :class:`CLIPProcessor`.
         do_normalize: Whether to apply mean/std normalization.

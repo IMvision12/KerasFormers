@@ -16,9 +16,9 @@ class MixtralModel(SubclassedBaseModel):
     ``token_embedding -> num_layers x MixtralDecoderLayer -> final RMSNorm``:
     a Mistral-style attention stack whose every feed-forward is an
     8-expert top-2 softmax-routed mixture of experts. (This port evaluates
-    all experts densely and combines by the routing weights — mathematically
+    all experts densely and combines by the routing weights: mathematically
     identical to sparse routing, compute O(num_experts).) Subclassed
-    (imperative) model; returns raw features — use :class:`MixtralGenerate`
+    (imperative) model; returns raw features: use :class:`MixtralGenerate`
     for logits / text.
 
         model = MixtralModel.from_weights("mixtral-8x7b-instruct")

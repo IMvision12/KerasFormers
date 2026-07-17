@@ -16,7 +16,7 @@ from .siglip2_config import SIGLIP2_CONFIG, SIGLIP2_WEIGHTS_URLS
 class SigLIP2VisionModel(SigLIPVisionModel):
     """SigLIP 2 vision tower as a standalone model.
 
-    Thin subclass of :class:`SigLIPVisionModel` — architecture is
+    Thin subclass of :class:`SigLIPVisionModel`, architecture is
     identical; only the variant registry (``SIGLIP2_CONFIG`` /
     ``SIGLIP2_WEIGHTS_URLS``) differs, and ``from_release`` warm-starts the
     encoder from a :class:`SigLIP2Model` checkpoint instead of
@@ -28,7 +28,7 @@ class SigLIP2VisionModel(SigLIPVisionModel):
 
         out = model(images)
         out["last_hidden_state"]   # (B, num_patches, vision_hidden_dim)
-        out["pooler_output"]       # (B, vision_hidden_dim) — attention-pooled
+        out["pooler_output"]       # (B, vision_hidden_dim): attention-pooled
 
     Construction:
 
@@ -63,7 +63,7 @@ class SigLIP2VisionModel(SigLIPVisionModel):
 class SigLIP2TextModel(SigLIPTextModel):
     """SigLIP 2 text tower as a standalone model.
 
-    Thin subclass of :class:`SigLIPTextModel` — architecture is
+    Thin subclass of :class:`SigLIPTextModel`, architecture is
     identical; differs only in the variant registry (``SIGLIP2_CONFIG``
     / ``SIGLIP2_WEIGHTS_URLS``) and the Gemma-style ``vocab_size`` of
     256000 set by the SigLIP 2 config entries. ``from_release``
@@ -75,7 +75,7 @@ class SigLIP2TextModel(SigLIPTextModel):
 
         out = model(token_ids)
         out["last_hidden_state"]   # (B, sequence_length, text_hidden_dim)
-        out["pooler_output"]       # (B, embed_dim) — last-token + Dense head
+        out["pooler_output"]       # (B, embed_dim): last-token + Dense head
 
     Construction:
 
@@ -108,7 +108,7 @@ class SigLIP2TextModel(SigLIPTextModel):
 class SigLIP2Model(SigLIPModel):
     """SigLIP 2 dual encoder (no contrastive head).
 
-    Thin subclass of :class:`SigLIPModel` — architecture is identical;
+    Thin subclass of :class:`SigLIPModel`, architecture is identical;
     only the variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS_URLS``)
     differs. Composes :class:`SigLIP2VisionModel` and
     :class:`SigLIP2TextModel` via the inherited ``__init__``.
@@ -160,8 +160,8 @@ class SigLIP2ZeroShotClassify(FunctionalBaseModel):
     .. code-block:: python
 
         out = model({"images": ..., "token_ids": ...})
-        out["image_logits"]   # (B, B) — image[i] vs text[j], scaled+biased
-        out["text_logits"]    # (B, B) — transpose of image_logits
+        out["image_logits"]   # (B, B): image[i] vs text[j], scaled+biased
+        out["text_logits"]    # (B, B): transpose of image_logits
 
     Construction:
 
@@ -290,7 +290,7 @@ class SigLIP2ZeroShotClassify(FunctionalBaseModel):
 class SigLIP2ImageClassify(SigLIPImageClassify):
     """SigLIP 2 vision tower + linear image-classification head.
 
-    Thin subclass of :class:`SigLIPImageClassify` — architecture is
+    Thin subclass of :class:`SigLIPImageClassify`, architecture is
     identical; only the variant registry (``SIGLIP2_CONFIG`` /
     ``SIGLIP2_WEIGHTS_URLS``) differs, and ``from_release`` warm-starts the
     encoder from a :class:`SigLIP2Model` checkpoint instead of

@@ -17,13 +17,13 @@ class Gemma4Model(SubclassedBaseModel):
     attention geometry: sliding layers (5:1 pattern) use ``head_dim`` 256
     with full default rope (theta 1e4); global layers use
     ``global_head_dim`` 512 with few K/V heads, ``K = V`` attention (no value
-    projection — the value is the weightlessly-normed key projection), and
+    projection: the value is the weightlessly-normed key projection), and
     "proportional" *partial* rotary (the first quarter of the head, theta
     1e6). Attention scores are unscaled; per-head q/k norms carry the scale.
     Feed-forwards are GeGLU; on the 26B-A4B a parallel 128-expert top-8
     branch (per-expert-scaled router) is added. Each layer's output is
     multiplied by a learned ``layer_scalar``. The audio and vision towers of
-    the omnimodal checkpoints are not ported — their ``model.*`` text weights
+    the omnimodal checkpoints are not ported: their ``model.*`` text weights
     load directly. E2B/E4B variants (per-layer inputs, shared KV) are not
     supported. Returns raw features; use :class:`Gemma4Generate`.
 
@@ -139,7 +139,7 @@ class Gemma4Model(SubclassedBaseModel):
 
     def rope_tables(self, position_ids, local):
         # Sliding layers: full-width default rope over head_dim, theta 1e4.
-        # Global layers: "proportional" partial rope — frequencies for the
+        # Global layers: "proportional" partial rope, frequencies for the
         # first ``global_rot_dim`` dims (exponent / head_dim), zero-padded to
         # head_dim // 2 so the padded dims pass through unrotated (HF scheme:
         # cos(0) = 1, sin(0) = 0).

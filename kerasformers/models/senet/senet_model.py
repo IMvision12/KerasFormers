@@ -42,10 +42,10 @@ class SENetModel(ResNetModel):
     """Instantiates the Squeeze-and-Excitation Network (SENet) backbone.
 
     SENet augments a ResNet or ResNeXt trunk with Squeeze-and-Excitation
-    blocks — per-channel attention weights computed by global average
+    blocks: per-channel attention weights computed by global average
     pooling followed by a 2-layer MLP (reduce -> expand) and a sigmoid
     gate that rescales each channel of the residual branch. The output
-    tensor is the last layer output before the classifier head — the
+    tensor is the last layer output before the classifier head: the
     final-stage feature map ``(B, H, W, C)``, unpooled and head-free.
     :class:`SENetImageClassify` composes this model and applies a
     GlobalAveragePooling2D + Dense head to produce logits.
@@ -101,7 +101,7 @@ class SENetImageClassify(ResNetImageClassify):
     :class:`SENetModel`; only ``num_classes`` and
     ``classifier_activation`` are head-specific. Both ``seresnet*``
     (bottleneck block) and ``seresnext*`` (grouped block) variants are
-    supported — the block function is selected per-variant via the
+    supported: the block function is selected per-variant via the
     ``block_fn_name`` key in :data:`SENET_MODEL_CONFIG`.
 
     References:
@@ -136,7 +136,7 @@ class SENetImageClassify(ResNetImageClassify):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for

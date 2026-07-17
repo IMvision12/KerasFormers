@@ -29,7 +29,7 @@ pip install -e ".[test]"
 
 | Job | Backends | Trigger |
 |-----|----------|---------|
-| Lint & Format | — | PR, release |
+| Lint & Format |: | PR, release |
 | Test the code | torch, tf, jax | PR, release |
 
 ## Local GPU (manual)
@@ -41,4 +41,4 @@ kerasformers-test gpu                # All GPU-marked tests
 
 ## Adding a new model
 
-Add one entry to `tests/base/model_test_registry.py` — all integration tests pick it up automatically.
+Add one entry to `tests/base/model_test_registry.py`: all integration tests pick it up automatically.

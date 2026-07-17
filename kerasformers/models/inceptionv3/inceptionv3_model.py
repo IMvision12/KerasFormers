@@ -86,12 +86,12 @@ def inception_blocka(inputs, pool_channels, name="inception_block_a"):
 
     Four parallel branches concatenated along the channel axis:
 
-    1. **1×1** — 64 channels.
-    2. **5×5 via 1×1 → 5×5** — 48 → 64 channels (factorized
+    1. **1×1**: 64 channels.
+    2. **5×5 via 1×1 → 5×5**: 48 → 64 channels (factorized
        dimensionality reduction).
-    3. **Double-3×3 via 1×1 → 3×3 → 3×3** — 64 → 96 → 96 channels
+    3. **Double-3×3 via 1×1 → 3×3 → 3×3**: 64 → 96 → 96 channels
        (replaces the original 5×5 with a stack of 3×3s).
-    4. **Avg-pool 1×1** — same spatial → ``pool_channels`` channels.
+    4. **Avg-pool 1×1**: same spatial → ``pool_channels`` channels.
        Pool-branch width varies across Mixed_5b (32), Mixed_5c (64),
        Mixed_5d (64).
 
@@ -143,14 +143,14 @@ def inception_blocka(inputs, pool_channels, name="inception_block_a"):
 
 
 def inception_blockb(inputs, name="inception_block_b"):
-    """Reduction-A block — halves spatial size between Inception-A and -C stages.
+    """Reduction-A block: halves spatial size between Inception-A and -C stages.
 
     Three parallel branches concatenated along the channel axis:
 
-    1. **Strided 3×3** — 384 channels, stride-2.
-    2. **Double-3×3 with stride** — 64 → 96 → 96 channels, last conv
+    1. **Strided 3×3**: 384 channels, stride-2.
+    2. **Double-3×3 with stride**: 64 → 96 → 96 channels, last conv
        stride-2.
-    3. **Strided max-pool** — 3×3 max-pool, stride-2 (zero-channel
+    3. **Strided max-pool**: 3×3 max-pool, stride-2 (zero-channel
        contribution; relays input channels).
 
     Used once in InceptionV3 at the ``Mixed_6a`` position to transition
@@ -193,14 +193,14 @@ def inception_blockc(inputs, branch7x7_channels, name="inception_block_c"):
     Four parallel branches with factorized 7×7 convolutions
     (``7×7 = 1×7 → 7×1``), concatenated along the channel axis:
 
-    1. **1×1** — 192 channels.
-    2. **Single 7×7** via ``1×1 → 1×7 → 7×1`` — ``c7 → c7 → 192``
+    1. **1×1**: 192 channels.
+    2. **Single 7×7** via ``1×1 → 1×7 → 7×1``: ``c7 → c7 → 192``
        channels.
-    3. **Double 7×7** via ``1×1 → 7×1 → 1×7 → 7×1 → 1×7`` —
+    3. **Double 7×7** via ``1×1 → 7×1 → 1×7 → 7×1 → 1×7``:
        ``c7 → c7 → c7 → c7 → 192`` channels.
-    4. **Avg-pool 1×1** — 192 channels.
+    4. **Avg-pool 1×1**: 192 channels.
 
-    The inner width ``c7`` widens with depth — 128 at Mixed_6b, 160 at
+    The inner width ``c7`` widens with depth: 128 at Mixed_6b, 160 at
     Mixed_6c/6d, 192 at Mixed_6e. Spatial size is preserved. Output
     channels = ``192 × 4 = 768``.
 
@@ -256,14 +256,14 @@ def inception_blockc(inputs, branch7x7_channels, name="inception_block_c"):
 
 
 def inception_blockd(inputs, name="inception_block_d"):
-    """Reduction-B block — halves spatial size between Inception-C and -E stages.
+    """Reduction-B block: halves spatial size between Inception-C and -E stages.
 
     Three parallel branches concatenated along the channel axis:
 
-    1. **1×1 → strided 3×3** — 192 → 320 channels, stride-2.
-    2. **1×1 → 1×7 → 7×1 → strided 3×3** — 192 → 192 → 192 → 192
+    1. **1×1 → strided 3×3**: 192 → 320 channels, stride-2.
+    2. **1×1 → 1×7 → 7×1 → strided 3×3**: 192 → 192 → 192 → 192
        channels (factorized 7×7 followed by a stride-2 3×3).
-    3. **Strided max-pool** — 3×3, stride-2.
+    3. **Strided max-pool**: 3×3, stride-2.
 
     Used once in InceptionV3 at the ``Mixed_7a`` position to transition
     17×17 → 8×8 feature maps before the Inception-E stack.
@@ -302,17 +302,17 @@ def inception_blocke(inputs, name="inception_block_e"):
     """Inception-E block (8×8 stage of InceptionV3, used at Mixed_7b/7c).
 
     Four parallel branches with the **parallel** (not stacked) 3×3
-    factorization — each ``3×3`` is replaced by ``1×3 || 3×1``
+    factorization: each ``3×3`` is replaced by ``1×3 || 3×1``
     branches whose outputs are concatenated, producing a wider feature
     map per branch instead of a deeper stack. Branches:
 
-    1. **1×1** — 320 channels.
-    2. **1×1 → (1×3 ∥ 3×1)** — 384 → 384 || 384 channels (concat = 768).
-    3. **1×1 → 3×3 → (1×3 ∥ 3×1)** — 448 → 384 → 384 || 384 channels
+    1. **1×1**: 320 channels.
+    2. **1×1 → (1×3 ∥ 3×1)**: 384 → 384 || 384 channels (concat = 768).
+    3. **1×1 → 3×3 → (1×3 ∥ 3×1)**: 448 → 384 → 384 || 384 channels
        (concat = 768).
-    4. **Avg-pool 1×1** — 192 channels.
+    4. **Avg-pool 1×1**: 192 channels.
 
-    Output channels = ``320 + 768 + 768 + 192 = 2048`` — the final
+    Output channels = ``320 + 768 + 768 + 192 = 2048``: the final
     InceptionV3 feature width.
 
     Args:
@@ -439,7 +439,7 @@ class InceptionV3Model(FunctionalBaseModel):
     5x5 convs with double 3x3 stacks, and using dedicated grid-reduction
     blocks; the original training procedure also relied on auxiliary
     classifiers, label smoothing, and the RMSProp optimizer. The output
-    tensor is the last layer output before the classifier head — the
+    tensor is the last layer output before the classifier head: the
     final-stage feature map ``(B, H, W, C)`` (after the last Mixed_7c
     Inception-E block), unpooled and head-free.
     :class:`InceptionV3ImageClassify` composes this model and applies a
@@ -452,7 +452,7 @@ class InceptionV3Model(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an
@@ -579,7 +579,7 @@ class InceptionV3ImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `299`.
         include_normalization: Boolean, whether to prepend an

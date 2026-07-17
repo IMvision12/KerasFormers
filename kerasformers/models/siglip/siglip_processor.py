@@ -17,10 +17,10 @@ class SigLIPProcessor(BaseProcessor):
 
     Construction:
 
-    * ``SigLIPProcessor.from_weights("siglip_base_p16_224")`` — kerasformers release.
-    * ``SigLIPProcessor.from_weights("hf:google/siglip-base-patch16-224")`` — pulls the
+    * ``SigLIPProcessor.from_weights("siglip_base_p16_224")``: kerasformers release.
+    * ``SigLIPProcessor.from_weights("hf:google/siglip-base-patch16-224")``: pulls the
       SentencePiece tokenizer **and** builds the image processor from the HF repo.
-    * ``SigLIPProcessor()`` — defaults; or pass pre-built ``tokenizer=`` /
+    * ``SigLIPProcessor()``: defaults; or pass pre-built ``tokenizer=`` /
       ``image_processor=``, or per-component build kwargs. Set ``multilingual=True``
       for the multilingual checkpoints when building from defaults.
     """

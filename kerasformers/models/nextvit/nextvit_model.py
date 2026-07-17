@@ -538,9 +538,9 @@ class NextViTModel(FunctionalBaseModel):
 
     NextViT is a next-generation hybrid CNN-Transformer backbone that
     alternates two purpose-built block types across 4 hierarchical
-    stages: Next Convolution Blocks (NCB) — efficient multi-head
-    convolutional attention paired with a Conv-MLP — and Next
-    Transformer Blocks (NTB) — efficient multi-head self-attention with
+    stages: Next Convolution Blocks (NCB), efficient multi-head
+    convolutional attention paired with a Conv-MLP, and Next
+    Transformer Blocks (NTB): efficient multi-head self-attention with
     spatial reduction (E-MHSA, linear in the number of tokens) fused
     with a parallel MHCA branch. The four stages follow the standard
     pyramid downsampling schedule and end with a trailing BatchNorm.
@@ -577,7 +577,7 @@ class NextViTModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -739,7 +739,7 @@ class NextViTImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

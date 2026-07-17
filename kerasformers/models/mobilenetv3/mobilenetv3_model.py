@@ -70,7 +70,7 @@ def inverted_residual_block(
             1x1 SE convs). Defaults to ``"relu"`` (matches timm's standard
             mobilenetv3 which forces ReLU via ``force_act_layer=nn.ReLU``).
             The timm ``rw`` variant omits ``force_act_layer`` so the SE
-            activation follows the block's own activation — callers should
+            activation follows the block's own activation: callers should
             pass ``activation`` (the block's act) in that case.
 
     Returns:
@@ -438,7 +438,7 @@ class MobileNetV3Model(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -633,7 +633,7 @@ class MobileNetV3ImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

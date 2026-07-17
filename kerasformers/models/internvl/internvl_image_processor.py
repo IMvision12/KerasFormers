@@ -8,7 +8,7 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
 def supported_aspect_ratios(min_patches, max_patches):
-    # Enumeration order matters for tie-breaking — mirror HF's
+    # Enumeration order matters for tie-breaking: mirror HF's
     # get_all_supported_aspect_ratios (width-major loops).
     ratios = []
     for width in range(1, max_patches + 1):
@@ -46,8 +46,8 @@ class InternVLImageProcessor(BaseImageProcessor):
 
     Each image is matched to the tile grid (between ``min_patches`` and
     ``max_patches`` 448x448 tiles) whose aspect ratio is closest to its own,
-    bicubic-resized onto that canvas, cropped into tiles, and — when more than
-    one tile is produced — a full-image thumbnail tile is appended. Tiles are
+    bicubic-resized onto that canvas, cropped into tiles, and: when more than
+    one tile is produced: a full-image thumbnail tile is appended. Tiles are
     rescaled to ``[0, 1]`` and ImageNet-normalized.
 
     Returns ``{"pixel_values": (total_tiles, size, size, 3) float32,

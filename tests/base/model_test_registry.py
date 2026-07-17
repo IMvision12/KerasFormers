@@ -5,7 +5,7 @@
 # - `init_kwargs`: arguments to instantiate the model. For classification
 #   models, these are the architectural params (matching a *_MODEL_CONFIG
 #   entry) plus a `num_classes`. The pretrained-weights loading path is
-#   intentionally NOT exercised here — these tests stay offline.
+#   intentionally NOT exercised here: these tests stay offline.
 # - `input_shape` OR `input_factory`: how the integration tests build a
 #   dummy input batch. `input_factory` is for models whose input is a dict
 #   (VLMs, SAM, OwlViT).

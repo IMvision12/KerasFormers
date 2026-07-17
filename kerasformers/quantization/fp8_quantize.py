@@ -22,7 +22,7 @@ class Fp8Quantizer(Quantizer):
     float32 scale per output channel (``scale = max|w| / 448`` over the
     contracting ``axis``). At the same footprint as int8 the floating-point grid
     (4 exponent / 3 mantissa bits) often tracks weight distributions with wide
-    dynamic range better than uniform int8. **torch / jax only** — tensorflow
+    dynamic range better than uniform int8. **torch / jax only**: tensorflow
     lacks the float8 casts. ``axis`` may be an int or a tuple.
     """
 

@@ -99,7 +99,7 @@ def mask2former_pixel_decoder(
 
     Returns:
         mask_features: ``(B, H/4, W/4, mask_feature_size)`` for mask prediction.
-        multi_scale_features: 3 feature maps at strides 32, 16, 8 — fed to
+        multi_scale_features: 3 feature maps at strides 32, 16, 8, fed to
             the transformer decoder as cross-attention memory (one per scale).
         spatial_shapes_msda: list of (h, w) per level (coarsest first).
     """
@@ -668,7 +668,7 @@ class Mask2FormerModel(FunctionalBaseModel):
 class Mask2FormerUniversalSegment(Mask2FormerModel):
     """Universal-segmentation alias for ``Mask2FormerModel``.
 
-    Mask2Former has integrated heads — there's no "base vs segment" split
+    Mask2Former has integrated heads: there's no "base vs segment" split
     like in MaskFormer. ``Mask2FormerUniversalSegment`` is provided as an alias for
     API symmetry with the other segmentation classes in kerasformers.
     """

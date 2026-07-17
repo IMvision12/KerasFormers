@@ -6,7 +6,7 @@ def vision_rope_angles(height, width, head_dim, theta_base=10000.0):
     """2D-RoPE angles for a height x width grid, row-major flattened.
 
     The angle vector is built per frequency as ``[w*f0, h*f0, w*f1, h*f1, ...]``
-    (the two spatial axes interleaved *within* each frequency, width first — the
+    (the two spatial axes interleaved *within* each frequency, width first: the
     source flips the ``(h, w)`` position columns before the rotary), then
     duplicated to ``head_dim`` for the split-half ``rotate_half`` rotation. This
     is the Qwen2-VL-style convention, **not** the adjacent-pair rotation the
@@ -135,9 +135,9 @@ class KimiK25VisionModel(layers.Layer):
     Patch-embeds each ``(t, h, w)`` clip, adds a bicubic-interpolated learnable 2D
     position embedding (plus an additive sinusoidal *time* table when ``t > 1``),
     runs 27 pre-norm 2D-rotary blocks over the whole clip at once (each clip
-    attended independently — the source's block-diagonal ``cu_seqlens`` packing),
+    attended independently: the source's block-diagonal ``cu_seqlens`` packing),
     then temporally averages the frames and merges ``merge_kernel`` (2x2)
-    spatial neighborhoods. Returns ``(total_merged, kh*kw, embed_dim)`` — the
+    spatial neighborhoods. Returns ``(total_merged, kh*kw, embed_dim)``: the
     ``kh*kw`` axis is kept separate because the projector layer-norms over
     ``embed_dim`` *before* flattening it.
     """

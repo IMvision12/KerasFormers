@@ -93,7 +93,7 @@ class Owlv2Processor(BaseProcessor):
         """Load the image processor (``preprocessor_config.json``) and, when the
         ``repo`` publishes one, its ``tokenizer.json``. The canonical OWL repos
         ship slow tokenizer files only, and their BPE is byte-identical to
-        CLIP's — so absent a ``tokenizer.json`` the CLIP release default is the
+        CLIP's, so absent a ``tokenizer.json`` the CLIP release default is the
         faithful fallback."""
         from huggingface_hub import hf_hub_download
 

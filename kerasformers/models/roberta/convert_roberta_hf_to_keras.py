@@ -169,7 +169,7 @@ if __name__ == "__main__":
         hf_mlm = RobertaForMaskedLM.from_pretrained(hf_id, token=HF_TOKEN).eval()
         keras_mlm = RobertaMaskedLM(**arch)
         # Simulate the safetensors / `hf:` path: the tied MLM decoder kernel is
-        # stripped from safetensors, so drop it here too — the converter must
+        # stripped from safetensors, so drop it here too: the converter must
         # reconstruct it from the word embeddings, not depend on the tied key.
         mlm_sd = dict(hf_mlm.state_dict())
         mlm_sd.pop("lm_head.decoder.weight", None)

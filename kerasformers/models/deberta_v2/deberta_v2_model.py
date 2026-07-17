@@ -361,8 +361,8 @@ class DebertaV2Model(FunctionalBaseModel):
 class DebertaV2MaskedLM(FunctionalBaseModel):
     """DeBERTa-v2 with the masked-language-modeling head.
 
-    Wraps a :class:`DebertaV2Model` backbone and attaches DeBERTa's MLM head — a
-    dense transform with ``gelu`` + LayerNorm, then a vocabulary projection —
+    Wraps a :class:`DebertaV2Model` backbone and attaches DeBERTa's MLM head, a
+    dense transform with ``gelu`` + LayerNorm, then a vocabulary projection:
     producing token logits ``(B, seq, vocab_size)``. The head weights are part of
     the pretrained checkpoint, so ``from_weights`` restores a ready-to-use
     fill-mask model.
@@ -495,7 +495,7 @@ class DebertaV2SequenceClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -623,7 +623,7 @@ class DebertaV2TokenClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -737,7 +737,7 @@ class DebertaV2QnA(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -834,7 +834,7 @@ class DebertaV2MultipleChoice(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )

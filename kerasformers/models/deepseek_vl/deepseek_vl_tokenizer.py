@@ -13,7 +13,7 @@ class DeepseekVLTokenizer(BaseTokenizer):
     when no explicit file is given) and exposes ``encode`` / ``decode`` plus
     the ``<image_placeholder>`` special token. ``encode`` prepends the BOS id
     (the checkpoints use ``add_bos_token=True``); ``call`` returns unpadded id
-    lists — the :class:`DeepseekVLProcessor` expands image placeholders and
+    lists: the :class:`DeepseekVLProcessor` expands image placeholders and
     pads.
 
     Args:

@@ -61,7 +61,7 @@ class InternVLVisionEmbeddings(layers.Layer):
     Pixels ``(batch, H, W, 3)`` (channels-first inputs are transposed) are
     patch-projected by a strided Conv2D, flattened to a token sequence, a
     learnable CLS token is prepended, and learnable absolute position
-    embeddings are added — bicubically interpolated when the input grid
+    embeddings are added: bicubically interpolated when the input grid
     differs from the pretrained one.
 
     Args:
@@ -175,7 +175,7 @@ class InternVLVisionAttention(layers.Layer):
     Separate ``query`` / ``key`` / ``value`` projections (with bias on the
     300M tower, bias-free on the 6B tower) and a biased ``output_proj``. On
     the 6B tower the *full-width* query / key vectors are RMS-normalized
-    before the head split (``qk_norm``). No rotary — InternViT uses absolute
+    before the head split (``qk_norm``). No rotary: InternViT uses absolute
     position embeddings.
 
     Args:
@@ -555,7 +555,7 @@ class InternVLDecoderLayer(layers.Layer):
     """One InternVL text block: pre-norm Qwen2-style attention, then pre-norm SwiGLU.
 
     Computes ``h = x + attention(attention_norm(x))`` followed by
-    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual
+    ``h = h + mlp(mlp_norm(h))``: RMSNorm pre-normalization with residual
     adds. The rotary tables, mask, and KV cache pass straight through to the
     attention.
 

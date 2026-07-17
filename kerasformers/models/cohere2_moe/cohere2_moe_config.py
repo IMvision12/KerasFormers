@@ -23,7 +23,7 @@ COHERE2_MOE_CONFIG = {
         "logit_scale": 0.0625,
         "tie_embeddings": True,
     },
-    # CohereLabs/North-Mini-Code-1.0 — official Cohere2-MoE checkpoint.
+    # CohereLabs/North-Mini-Code-1.0: official Cohere2-MoE checkpoint.
     "north-mini-code-1.0": {
         "vocab_size": 262144,
         "embed_dim": 2048,

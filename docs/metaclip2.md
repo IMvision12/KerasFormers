@@ -4,13 +4,13 @@
 
 MetaCLIP 2 is Meta's second-generation contrastive vision-language model,
 trained on multilingual image-text pairs. Architecturally it is a direct
-descendant of OpenAI CLIP — same ViT vision tower, same causal-attention
-text tower, same logit-scale head — differing only in:
+descendant of OpenAI CLIP: same ViT vision tower, same causal-attention
+text tower, same logit-scale head, differing only in:
 
 - **Multilingual text encoder** in two tokenizer families:
-  - **Worldwide** — XLM-R SentencePiece tokenizer, vocab `901 629`, 300+
+  - **Worldwide**: XLM-R SentencePiece tokenizer, vocab `901 629`, 300+
     languages (13 variants).
-  - **mT5** — SigLIP-style SentencePiece tokenizer, vocab `250 100`
+  - **mT5**: SigLIP-style SentencePiece tokenizer, vocab `250 100`
     (3 variants).
 - **Configurable MLP activation** (`gelu` for most variants, `quick_gelu`
   for the `huge-quickgelu` checkpoint).
@@ -146,10 +146,10 @@ for prompt, score, prob in sorted(
    0.00%    8.113  a photo of a car
 ```
 
-The top match is the German phrase for *"a photo of a horse"* — the
+The top match is the German phrase for *"a photo of a horse"*: the
 tokenizer handles English / German / French / Chinese prompts uniformly
 through the same XLM-R vocabulary. End-to-end diff vs the HF reference
-is **3.7e-2** on logits / **0.11%** on probabilities — identical top-K
+is **3.7e-2** on logits / **0.11%** on probabilities: identical top-K
 rankings, float-precision-drift only.
 
 ### With the mT5 variants
@@ -241,19 +241,19 @@ for prompt, score, prob in sorted(zip(prompts, scores, probs), key=lambda t: -t[
        0.00%    8.089  a photo of a car
 ```
 
-The top-4 predictions are all correct descriptions of the same scene —
+The top-4 predictions are all correct descriptions of the same scene:
 German, Spanish, French, and Japanese all rank above the distractors.
 Cat / car distractors round to 0% across all six languages.
 
 ## Tokenizers
 
-Both tokenizers are **pure-Python wrappers around `sentencepiece`** — no
+Both tokenizers are **pure-Python wrappers around `sentencepiece`**: no
 `transformers` dependency at runtime. The SentencePiece model files are
 hosted on the kerasformers [`metaclip-2`
 release](https://github.com/IMvision12/KerasFormers/releases/tag/metaclip-2)
 and downloaded + cached on first use.
 
-### `MetaClip2Tokenizer` — for Worldwide (XLM-R) variants
+### `MetaClip2Tokenizer`: for Worldwide (XLM-R) variants
 
 Wraps `sentencepiece.SentencePieceProcessor` with the XLM-R convention:
 fairseq-style offset `+1` on SentencePiece ids, BOS/EOS wrapping, EOS
@@ -267,7 +267,7 @@ out = tok(inputs=["hello world", "bonjour le monde"])
 print(out["token_ids"].shape)  # (2, 77)
 ```
 
-### `MetaClip2Mt5Tokenizer` — for mT5 variants
+### `MetaClip2Mt5Tokenizer`: for mT5 variants
 
 SigLIP-style tokenizer: **lowercase text**, SP encode, append `eos=1`,
 pad with `eos` (no bos). Hardcoded token ids: `eos=1`, `pad=1`, `unk=2`.
@@ -281,7 +281,7 @@ print(out["token_ids"].shape)  # (2, 77)
 
 ### Tokenizer files (release assets)
 
-Two SentencePiece model files — no tokenizer config JSON needed. Special
+Two SentencePiece model files: no tokenizer config JSON needed. Special
 token ids are hardcoded in Python constants since the XLM-R / SigLIP
 conventions are fixed.
 
@@ -291,7 +291,7 @@ conventions are fixed.
 | [`spiece.model`](https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/spiece.model) | `MetaClip2Mt5Tokenizer` (3 mT5 variants) | 250 100 |
 
 Both are ~5 MB. Token-id parity with HF's `XLMRobertaTokenizerFast` and
-`SiglipTokenizer` is verified — kerasformers produces **bit-identical** token
+`SiglipTokenizer` is verified: kerasformers produces **bit-identical** token
 ids across English / German / French / Chinese / Japanese inputs.
 
 ## Image processor
@@ -312,7 +312,7 @@ pixel_values = proc("photo.jpg")["pixel_values"]
 ## Data format
 
 `MetaClip2ImageProcessor` accepts the same `data_format=None` kwarg as
-every other kerasformers processor — `None` resolves to
+every other kerasformers processor: `None` resolves to
 `keras.config.image_data_format()`; pass `"channels_first"` /
 `"channels_last"` to override per-call.
 

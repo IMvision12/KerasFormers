@@ -11,14 +11,14 @@ class QuantizationConfig:
     setups can keep sensitive layers in float and mix precisions per layer.
 
     Args:
-        mode: Default scheme for quantized layers — ``"int8"``, ``"int4"`` or
+        mode: Default scheme for quantized layers, ``"int8"``, ``"int4"`` or
             ``"fp8"``.
         group_size: int4 block size along the input dim (ignored by int8/fp8).
         skip_modules: Tuple of name substrings; any layer whose path contains one
             is left in float. Defaults to ``("lm_head",)`` (the output head is
             accuracy-sensitive).
         quantize_embeddings: If ``False``, ``Embedding`` layers stay float.
-        overrides: ``{name_substring: mode}`` — per-layer precision overrides
+        overrides: ``{name_substring: mode}``, per-layer precision overrides
             (checked before ``mode``), e.g. ``{"decoder_layer_0": "int8"}`` to
             keep the first block at int8 while the rest go int4.
     """

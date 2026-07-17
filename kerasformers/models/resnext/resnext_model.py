@@ -119,7 +119,7 @@ class ResNeXtModel(ResNetModel):
     with a grouped convolution of ``groups`` parallel paths
     (``cardinality``), exposing a third axis besides depth and width for
     capacity at near-constant FLOPs. The output tensor is the last layer
-    output before the classifier head — the final-stage feature map
+    output before the classifier head: the final-stage feature map
     ``(B, H, W, C)``, unpooled and head-free. :class:`ResNeXtImageClassify`
     composes this model and applies a GlobalAveragePooling2D + Dense
     head to produce logits.
@@ -231,7 +231,7 @@ class ResNeXtImageClassify(ResNetImageClassify):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional Keras tensor as input. Useful for

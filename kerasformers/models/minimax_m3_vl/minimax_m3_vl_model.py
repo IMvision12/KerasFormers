@@ -102,7 +102,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
     The packed vision features are projected per patch (GELU MLP to the text
     width), grouped ``spatial_merge_size**2`` patches at a time, fused by a
     second GELU MLP, and scattered into the ``image_token_id`` /
-    ``video_token_id`` slots of the M3 text decoder — a 60-layer GQA model
+    ``video_token_id`` slots of the M3 text decoder: a 60-layer GQA model
     with per-head Gemma QK-norms, partial RoPE (64 of 128 channels),
     Lightning-Indexer block-sparse attention on the sparse layers, and
     per-layer dense SwiGLU-OAI MLPs or sigmoid-routed MoE (top-4 of 128, x2

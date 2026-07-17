@@ -17,7 +17,7 @@ from .eomt_layers import (
 
 
 def eomt_mlp(x, hidden_dim, mlp_ratio=4, block_prefix="layers_0"):
-    """Standard two-layer transformer MLP — Dense → GELU → Dense.
+    """Standard two-layer transformer MLP: Dense → GELU → Dense.
 
     Used in EoMT encoder layers when ``use_swiglu_ffn=False`` (matches the
     standard DINOv2 MLP).
@@ -25,7 +25,7 @@ def eomt_mlp(x, hidden_dim, mlp_ratio=4, block_prefix="layers_0"):
     Args:
         x: Input token sequence of shape ``(B, N, hidden_dim)``.
         hidden_dim: Token / model dimension.
-        mlp_ratio: Hidden expansion factor — the intermediate Dense
+        mlp_ratio: Hidden expansion factor, the intermediate Dense
             width is ``int(hidden_dim * mlp_ratio)``.
         block_prefix: Prefix used to name the inner Dense / Activation
             layers.
@@ -44,14 +44,14 @@ def eomt_swiglu_ffn(x, hidden_dim, mlp_ratio=4, block_prefix="layers_0"):
     """SwiGLU gated feed-forward network.
 
     Single fused ``Dense`` projects up to ``2 * hidden_features`` and
-    the result is split into a value branch and a gate branch — the
+    the result is split into a value branch and a gate branch: the
     gate is passed through SiLU then multiplied with the value, and a
     final ``Dense`` projects back to ``hidden_dim``. Matches the
     DINOv2-style SwiGLU used by the SwiGLU EoMT variants.
 
     The hidden width is computed as ``int(hidden_dim * mlp_ratio)``,
     then scaled by ``2/3`` and rounded up to the nearest multiple of 8
-    (the canonical DINOv2 / Llama recipe — keeps total params close to
+    (the canonical DINOv2 / Llama recipe: keeps total params close to
     the standard MLP while being kernel-friendly).
 
     Args:
@@ -233,7 +233,7 @@ def eomt_scale_block(x, hidden_dim, num_upscale_blocks, data_format):
 
 
 def eomt_mask_head(x, hidden_dim):
-    """Per-query mask-token MLP — Dense → GELU → Dense → GELU → Dense.
+    """Per-query mask-token MLP: Dense → GELU → Dense → GELU → Dense.
 
     Applied to each object-query embedding to produce a ``hidden_dim``
     "mask token". The mask token is then bilinearly broadcast against
@@ -245,7 +245,7 @@ def eomt_mask_head(x, hidden_dim):
         hidden_dim: Dimension used for every Dense layer in this head.
 
     Returns:
-        Tensor of shape ``(B, num_queries, hidden_dim)`` — per-query
+        Tensor of shape ``(B, num_queries, hidden_dim)``: per-query
         mask tokens.
     """
     x = layers.Dense(hidden_dim, name="mask_head_fc1")(x)
@@ -286,7 +286,7 @@ def eomt_functional(
           <https://arxiv.org/abs/2503.19108>`_
 
     Args:
-        inputs: Image tensor — ``(B, H, W, 3)`` for ``channels_last`` or
+        inputs: Image tensor, ``(B, H, W, 3)`` for ``channels_last`` or
             ``(B, 3, H, W)`` for ``channels_first``.
         hidden_dim: Transformer hidden dimension.
         num_hidden_layers: Total number of encoder blocks.
@@ -386,7 +386,7 @@ class EoMTModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `640`.
         input_tensor: Optional pre-existing Keras input tensor.

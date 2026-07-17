@@ -22,7 +22,7 @@ class InternVLProcessor(BaseProcessor):
 
     Args:
         hf_id: Hub repo for the tokenizer's ``tokenizer.json``.
-        image_seq_length: Vision tokens per tile —
+        image_seq_length: Vision tokens per tile,
             ``(size // patch_size)**2 * downsample_ratio**2`` (448/14 -> 256).
         tokenizer / image_processor: Optional pre-built components.
     """

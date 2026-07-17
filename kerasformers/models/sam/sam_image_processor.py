@@ -409,7 +409,7 @@ def generate_crop_boxes(
             - ``"cropped_images"``: list of ``num_crops`` numpy arrays at
               original-image pixel resolution (variable shapes).
             - ``"input_labels"``: ``(num_crops, num_points)`` int32 labels
-              (all ones — foreground).
+              (all ones: foreground).
             - ``"original_size"``: ``(orig_h, orig_w)``.
     """
     if isinstance(image, np.ndarray) and image.ndim == 4:
@@ -457,7 +457,7 @@ def generate_crop_boxes(
 def compute_stability_score(
     masks, mask_threshold: float, stability_score_offset: float
 ):
-    """Ratio of mask areas at two thresholds — higher means more stable.
+    """Ratio of mask areas at two thresholds: higher means more stable.
 
     ``masks`` is a float tensor; values above ``mask_threshold`` are
     considered foreground. Stability is defined as
@@ -685,7 +685,7 @@ def mask_to_rle(input_mask) -> List[Dict[str, Any]]:
     )
     diff = keras.ops.not_equal(flat[:, 1:], flat[:, :-1])
 
-    # Variable-length per-row extraction of change indices — numpy boundary.
+    # Variable-length per-row extraction of change indices: numpy boundary.
     flat_np = keras.ops.convert_to_numpy(flat)
     diff_np = keras.ops.convert_to_numpy(diff)
 
@@ -756,7 +756,7 @@ def box_iou_matrix(boxes_a, boxes_b):
 def batched_nms(boxes, scores, iou_threshold: float):
     """Single-class greedy NMS. Returns kept indices sorted by score desc.
 
-    The outer greedy loop is inherently sequential — IoU computation
+    The outer greedy loop is inherently sequential: IoU computation
     uses ``keras.ops``, the loop state uses plain Python lists.
     """
     n = int(keras.ops.shape(boxes)[0])
@@ -803,7 +803,7 @@ def post_process_for_mask_generation(
         crops_nms_thresh: IoU threshold for NMS. Defaults to ``0.7``.
 
     Returns:
-        ``(masks, scores, rle_masks, boxes)`` — ``masks`` is a list of
+        ``(masks, scores, rle_masks, boxes)``: ``masks`` is a list of
         bool ``(H, W)`` keras tensors decoded from the kept RLEs,
         ``scores`` and ``boxes`` are filtered tensors, and
         ``rle_masks`` is the filtered RLE list.

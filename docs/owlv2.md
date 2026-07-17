@@ -2,7 +2,7 @@
 
 **Paper:** [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683) (Minderer et al., 2023)
 
-OWLv2 is the successor to OWL-ViT — same dual-tower (CLIP-style vision
+OWLv2 is the successor to OWL-ViT: same dual-tower (CLIP-style vision
 + text) skeleton, same per-patch detection idea, with two changes that
 unlock the larger-scale ("OWL-ST" self-training) recipe:
 
@@ -16,14 +16,14 @@ unlock the larger-scale ("OWL-ST" self-training) recipe:
 ## Architecture Highlights
 
 - **Open-vocabulary detection:** classes are arbitrary text strings,
-  encoded by the CLIP-style text tower — no fixed softmax head.
+  encoded by the CLIP-style text tower: no fixed softmax head.
 - **CLIP-style backbones:** vision tower is a ViT-B/16 or ViT-L/14;
   text tower is a 12-layer GPT-style transformer with a causal mask.
 - **Per-patch detection:** every patch token (after class-token
   modulation) emits a box, a per-query class score, and an
   objectness logit.
 - **Objectness head (new in v2):** a 3-layer MLP mirroring the box
-  head with `out_dim=1` — produces a per-patch objectness logit
+  head with `out_dim=1`: produces a per-patch objectness logit
   used to filter low-objectness patches at inference.
 - **Box bias:** raw box outputs are added to a precomputed per-patch
   log-space bias so each patch's "default" box centers on its grid
@@ -42,8 +42,8 @@ unlock the larger-scale ("OWL-ST" self-training) recipe:
 
 Two classes are exposed:
 
-- `Owlv2Model` — vision + text encoder only (returns `image_embeds`, `text_embeds`).
-- `Owlv2Detect` — encoder + class/box/objectness heads for object detection (returns `logits`, `objectness_logits`, `pred_boxes`, …).
+- `Owlv2Model`: vision + text encoder only (returns `image_embeds`, `text_embeds`).
+- `Owlv2Detect`: encoder + class/box/objectness heads for object detection (returns `logits`, `objectness_logits`, `pred_boxes`, …).
 
 The text tower is fixed across variants (12 layers, hidden 512 / 768,
 8–16 heads, vocab 49408, max length 16).
@@ -173,7 +173,7 @@ inputs (random RGB image + two text queries):
 | `objectness_logits` | 2.1e-04 |
 | `logits` cosine sim | 1.0000  |
 
-**Status: at fp32 epsilon** — production-ready.
+**Status: at fp32 epsilon**, production-ready.
 
 Reproduce on any variant:
 

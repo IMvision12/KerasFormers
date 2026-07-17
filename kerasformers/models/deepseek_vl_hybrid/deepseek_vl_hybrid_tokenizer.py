@@ -11,7 +11,7 @@ class DeepseekVLHybridTokenizer(DeepseekVLTokenizer):
 
     Byte-for-byte the same BPE tokenizer as the 1.3B
     :class:`~kerasformers.models.deepseek_vl.DeepseekVLTokenizer` (the whole
-    DeepSeek-VL family shares one vocab — ``<image_placeholder>`` id 100015,
+    DeepSeek-VL family shares one vocab: ``<image_placeholder>`` id 100015,
     vocab 100016); only the release variant URLs differ, so this just re-points
     ``TOKENIZER_URLS`` / ``DEFAULT_VARIANT`` at the 7B release.
     """

@@ -9,7 +9,7 @@ from kerasformers.models.mobilevit.mobilevit_image_processor import (
 class MobileViTV2ImageProcessor(MobileViTImageProcessor):
     """Preprocess images for MobileViTV2 inference.
 
-    Functionally identical to :class:`MobileViTImageProcessor` —
+    Functionally identical to :class:`MobileViTImageProcessor`,
     The reference ships a single ``MobileViTImageProcessor`` class that
     serves both V1 and V2 checkpoints. The two only differ in default
     sizes (carried over from the parent), which are loaded from the source

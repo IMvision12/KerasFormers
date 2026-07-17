@@ -13,7 +13,7 @@ from .granite_speech_plus_config import (
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GraniteSpeechPlusModel(GraniteSpeechModel):
-    """GraniteSpeechPlus backbone — :class:`GraniteSpeechModel` whose conformer CTC
+    """GraniteSpeechPlus backbone: :class:`GraniteSpeechModel` whose conformer CTC
     encoder concatenates a subset of intermediate layer outputs
     (``cat_hidden_layers``) with its final output before the projector (so the
     projector's ``encoder_hidden_size`` becomes
@@ -29,7 +29,7 @@ class GraniteSpeechPlusModel(GraniteSpeechModel):
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GraniteSpeechPlusGenerate(GraniteSpeechGenerate):
     """GraniteSpeechPlus with an LM head + fast ``.generate()`` (audio+text -> text)
-    — the Plus variant of :class:`GraniteSpeechGenerate`."""
+    the Plus variant of :class:`GraniteSpeechGenerate`."""
 
     HF_MODEL_TYPE = "granite_speech_plus"
     BASE_MODEL_CONFIG = GRANITE_SPEECH_PLUS_CONFIG

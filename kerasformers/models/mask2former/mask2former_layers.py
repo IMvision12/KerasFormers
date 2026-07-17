@@ -33,7 +33,7 @@ class Mask2FormerSinePositionEmbedding(layers.Layer):
         (channels-first); only the spatial dimensions are read.
 
     Output shape:
-        4D tensor of positional encodings — ``(B, H, W, hidden_dim)`` or
+        4D tensor of positional encodings: ``(B, H, W, hidden_dim)`` or
         ``(B, hidden_dim, H, W)`` matching ``data_format``.
 
     References:
@@ -328,8 +328,8 @@ class Mask2FormerDeformableAttention(layers.Layer):
 class Mask2FormerCrossAttention(layers.Layer):
     """Cross-attention with a PyTorch-style fused QKV input projection.
 
-    Mirrors ``torch.nn.MultiheadAttention``'s ``in_proj_weight`` layout — a
-    single ``(3*hidden_dim, hidden_dim)`` matrix sliced into Q, K, V — so the
+    Mirrors ``torch.nn.MultiheadAttention``'s ``in_proj_weight`` layout: a
+    single ``(3*hidden_dim, hidden_dim)`` matrix sliced into Q, K, V, so the
     converter can transfer ``cross_attn.in_proj_*`` weights directly. Accepts
     an additive ``attn_mask`` for the decoder's masked cross-attention.
 
@@ -483,7 +483,7 @@ class Mask2FormerLearnedEmbedding(layers.Layer):
 
     Holds a ``(num_embeddings, hidden_dim)`` learned weight (named ``weight``
     to match ``torch.nn.Embedding``) and tiles it to
-    ``(B, num_embeddings, hidden_dim)`` — used for the decoder's learned object
+    ``(B, num_embeddings, hidden_dim)``: used for the decoder's learned object
     queries and the per-level embeddings.
 
     Args:

@@ -279,7 +279,7 @@ class DeepseekV2Generate(DeepseekV2Model, BaseGeneration):
     """DeepSeek-V2 with an LM head + fast ``.generate()``.
 
     The MLA cache stores expanded per-head keys and values as a per-layer
-    ``(k, v)`` tuple — their head dims differ (k: nope+rope = 192,
+    ``(k, v)`` tuple: their head dims differ (k: nope+rope = 192,
     v: ``v_head_dim`` = 128), so they cannot share one stacked buffer.
     """
 

@@ -8,8 +8,8 @@ SAM (Segment Anything Model) is a promptable segmentation model that can generat
 
 Two classes are exposed:
 
-- `SAMModel` — ViT vision encoder + neck (no prompt encoder, no mask decoder). Returns image embeddings ``(B, 64, 64, 256)``. Use this to cache image features when running many prompt combinations.
-- `SAMPromptableSegment` — full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores"}``.
+- `SAMModel`: ViT vision encoder + neck (no prompt encoder, no mask decoder). Returns image embeddings ``(B, 64, 64, 256)``. Use this to cache image features when running many prompt combinations.
+- `SAMPromptableSegment`: full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores"}``.
 
 ## Architecture Highlights
 
@@ -203,7 +203,7 @@ for (x, y) in [(450, 600), (200, 150), (700, 300)]:
     }, verbose=0)
 ```
 
-For a 1024×1024 image the ViT is roughly 95% of the compute — the decoder itself runs in milliseconds.
+For a 1024×1024 image the ViT is roughly 95% of the compute: the decoder itself runs in milliseconds.
 
 Alternatively use `SAMModel` standalone if you only need image embeddings (no prompt encoder / mask decoder built):
 
@@ -384,7 +384,7 @@ plt.close(fig)
 
 ![SAM Automatic Mask Generation Output](../assets/sam_coco_cats_amg_output.jpg)
 
-Running on ``assets/coco_cats.jpg`` with a 16 × 16 point grid returns ~21 deduplicated masks — each cat as a whole, the two remote controls, the pink couch, and a handful of sub-parts (ears, paws, tail tips).
+Running on ``assets/coco_cats.jpg`` with a 16 × 16 point grid returns ~21 deduplicated masks: each cat as a whole, the two remote controls, the pink couch, and a handful of sub-parts (ears, paws, tail tips).
 
 Under the hood the driver:
 1. Calls `generate_crop_boxes` to build the point grid (and optional crop hierarchy).
@@ -402,7 +402,7 @@ from kerasformers.models.sam.sam_image_processor import (
 )
 ```
 
-These map 1:1 to the HF equivalents, so you can mirror any custom pipeline written against `transformers`' `SamProcessor`. They are not part of the top-level public API — keep `SAMGenerateMasks` as the recommended entry point.
+These map 1:1 to the HF equivalents, so you can mirror any custom pipeline written against `transformers`' `SamProcessor`. They are not part of the top-level public API: keep `SAMGenerateMasks` as the recommended entry point.
 
 ## Architecture
 
@@ -420,7 +420,7 @@ The model returns a dictionary with:
 - `pred_masks`: Low-resolution predicted masks of shape `(batch, point_batch, num_masks, 256, 256)`, where `num_masks=3` for `multimask_output=True` (the default) or `num_masks=1` for `multimask_output=False`.
 - `iou_scores`: Predicted IoU scores for each mask of shape `(batch, point_batch, num_masks)`.
 
-Use `processor.post_process_masks(...)` to upscale masks to the original image resolution. The output is mask **logits** — threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
+Use `processor.post_process_masks(...)` to upscale masks to the original image resolution. The output is mask **logits**: threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
 
 ## HuggingFace API Parity Notes
 
@@ -434,4 +434,4 @@ The Keras port intentionally differs from the PyTorch/HuggingFace `SamModel` API
 | Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
 | Automatic mask generation | helpers only; driver lives in Meta's original repo | helpers + built-in `SAMGenerateMasks` driver |
 
-All forward-pass weights are byte-equivalent to the HuggingFace checkpoints — the divergence is purely at the Python API surface.
+All forward-pass weights are byte-equivalent to the HuggingFace checkpoints: the divergence is purely at the Python API surface.

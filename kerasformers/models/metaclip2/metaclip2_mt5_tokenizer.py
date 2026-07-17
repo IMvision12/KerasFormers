@@ -31,13 +31,13 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
     Tokenization pipeline:
 
     1. **Lowercase** the input string and strip ASCII punctuation
-       (matches the reference SigLIP preprocessing — without this the token ids
+       (matches the reference SigLIP preprocessing: without this the token ids
        drift from the reference).
     2. SentencePiece encode to integer pieces (no fairseq offset, no
        BOS).
     3. Append ``eos_token_id`` (``1``).
     4. Truncate (replacing the last token with EOS) or pad with
-       ``pad_token_id`` to ``max_seq_len`` — note that PAD and EOS
+       ``pad_token_id`` to ``max_seq_len``: note that PAD and EOS
        share the same id ``1`` here, so the attention mask is the
        only reliable signal for "real vs padding".
     5. Build an attention mask: ``1`` for real tokens, ``0`` for
@@ -49,7 +49,7 @@ class MetaClip2Mt5Tokenizer(BaseTokenizer):
             URL on first use.
         max_seq_len: Maximum sequence length. Defaults to ``77``.
         eos_token_id: EOS token id. Defaults to ``1``.
-        pad_token_id: PAD token id. Defaults to ``1`` (same as EOS —
+        pad_token_id: PAD token id. Defaults to ``1`` (same as EOS,
             the SigLIP convention).
         unk_token_id: UNK token id. Defaults to ``2``.
 

@@ -374,7 +374,7 @@ if __name__ == "__main__":
 
         # RT-DETR's two-stage decoder selects queries via top-k on encoder
         # scores. fp32-level encoder differences reorder near-tied scores,
-        # so the *same* set of queries can land in different positions — a
+        # so the *same* set of queries can land in different positions: a
         # benign permutation (detection is set prediction, order-invariant).
         # Match each reference query to its nearest keras query by logits before
         # diffing so the metric reflects the true error.

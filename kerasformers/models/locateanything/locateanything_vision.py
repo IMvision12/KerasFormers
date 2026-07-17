@@ -158,7 +158,7 @@ class LocateAnythingVisionModel(layers.Layer):
     """MoonViT-SO-400M: native-resolution packed ViT.
 
     Patch embedding + bicubic-interpolated learnable 2D position embedding, 27
-    pre-norm blocks with 2D rotary attention (each image attended independently —
+    pre-norm blocks with 2D rotary attention (each image attended independently:
     equivalent to the source's block-diagonal packed attention), a final
     LayerNorm, then a ``merge_kernel`` (2x2) patch merge that concatenates
     neighborhoods into ``hidden*4`` tokens for the projector.

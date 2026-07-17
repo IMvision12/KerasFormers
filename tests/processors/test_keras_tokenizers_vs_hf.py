@@ -92,7 +92,7 @@ def _build_legs(module, cls_name, repo):
     defaults, i.e. what ``from_weights(variant)`` uses) and ``from_hf`` =
     ``cls.from_hf(repo)`` (files pulled from the HF repo). A leg that fails to
     BUILD is recorded (a release asset or repo file may legitimately be
-    absent — e.g. deberta repos publish no tokenizer.json); only a built leg
+    absent, e.g. deberta repos publish no tokenizer.json); only a built leg
     with mismatched ids fails the test."""
     cls = getattr(importlib.import_module(module), cls_name)
     legs = []

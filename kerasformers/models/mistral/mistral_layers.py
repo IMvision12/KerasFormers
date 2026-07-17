@@ -214,7 +214,7 @@ class MistralDecoderLayer(layers.Layer):
     """One Mistral transformer block: pre-norm attention, then pre-norm SwiGLU.
 
     Computes ``h = x + attention(attention_norm(x))`` followed by
-    ``h = h + mlp(mlp_norm(h))`` — RMSNorm pre-normalization with residual
+    ``h = h + mlp(mlp_norm(h))``: RMSNorm pre-normalization with residual
     adds. The rotary tables, mask, and KV cache pass straight through to the
     attention.
 

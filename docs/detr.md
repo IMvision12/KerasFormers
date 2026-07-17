@@ -49,8 +49,8 @@ processor = DETRImageProcessor(size={"height": 800, "width": 800})
 inputs = processor(image)
 
 output = model(inputs["pixel_values"], training=False)
-# output["logits"]:     (1, 100, 92) — class logits per query
-# output["pred_boxes"]: (1, 100, 4)  — normalized (cx, cy, w, h)
+# output["logits"]:     (1, 100, 92), class logits per query
+# output["pred_boxes"]: (1, 100, 4), normalized (cx, cy, w, h)
 
 results = processor.post_process_object_detection(
     output, threshold=0.7, target_sizes=[original_size]
@@ -73,7 +73,7 @@ processor = DETRImageProcessor(data_format="channels_first")
 inputs = processor("photo.jpg")
 ```
 
-Detection post-processors emit boxes in `xyxy` pixel coordinates and class indices — there is no spatial channel axis to interpret, so they don't take a `data_format` kwarg. See `docs/utils.md` for the families that do.
+Detection post-processors emit boxes in `xyxy` pixel coordinates and class indices: there is no spatial channel axis to interpret, so they don't take a `data_format` kwarg. See `docs/utils.md` for the families that do.
 
 ## Full Inference with Visualization
 

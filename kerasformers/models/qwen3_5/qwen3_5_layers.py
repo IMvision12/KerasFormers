@@ -37,7 +37,7 @@ class Qwen3_5RMSNorm(layers.Layer):
         x = ops.cast(x, "float32")
         x = x * ops.rsqrt(ops.mean(ops.square(x), axis=-1, keepdims=True) + self.eps)
         # Match HF Qwen3-Next: scale by (1 + weight) in float32, THEN cast back to
-        # the input dtype. (Llama instead casts first, then multiplies — this order
+        # the input dtype. (Llama instead casts first, then multiplies: this order
         # reduces fp16/bf16 drift. See HF Qwen3NextRMSNorm / transformers#29402.)
         x = x * (1.0 + ops.cast(self.weight, "float32"))
         return ops.cast(x, dtype)
@@ -87,8 +87,8 @@ class Qwen3_5RMSNormGated(layers.Layer):
 class Qwen3_5MLP(layers.Layer):
     """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
 
-    Two parallel bias-free projections to ``mlp_dim`` — a SiLU-gated ``gate`` and
-    a linear ``up`` — are multiplied elementwise, then projected back to
+    Two parallel bias-free projections to ``mlp_dim``: a SiLU-gated ``gate`` and
+    a linear ``up``: are multiplied elementwise, then projected back to
     ``embed_dim`` by ``down``. Shape-preserving on the last axis.
 
     Args:
@@ -322,8 +322,8 @@ class Qwen3_5GatedDeltaNet(layers.Layer):
     scaled ``q`` / ``k``). The read-out is gated-RMSNorm'd by ``z`` and projected
     out. Runs in O(seq) with no quadratic attention matrix.
 
-    The cache state is ``(conv_state, recurrent_state)`` — the last
-    ``conv_kernel_dim - 1`` conv inputs and the recurrent ``S`` — so decoding
+    The cache state is ``(conv_state, recurrent_state)``: the last
+    ``conv_kernel_dim - 1`` conv inputs and the recurrent ``S``, so decoding
     consumes one token at a time. ``cos`` / ``sin`` / ``attention_mask`` are
     unused (no rotary, no explicit mask: causality is inherent to the recurrence).
 

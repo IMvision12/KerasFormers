@@ -26,7 +26,7 @@ def siglip_encoder(
     """One pre-LN SigLIP transformer block (LN → MHSA → Add → LN → MLP → Add).
 
     Shared building block for both the vision and text encoders. All
-    sublayer names are deterministic — ``{name}_*`` — so the
+    sublayer names are deterministic, ``{name}_*``, so the
     corresponding pretrained weights can be transferred by name during
     checkpoint conversion.
 
@@ -252,7 +252,7 @@ def siglip_vision_features(
 
     Returns:
         Full token sequence ``(B, num_patches, hidden_dim)`` after the final
-        LayerNorm — equivalent to the reference vision encoder's last hidden state.
+        LayerNorm: equivalent to the reference vision encoder's last hidden state.
     """
     input_shape = inputs.shape
     if data_format == "channels_last":
@@ -298,7 +298,7 @@ def siglip_vision_backbone(
     layer_norm_epsilon=1e-6,
     data_format=None,
 ):
-    """SigLIP vision encoder: features + attention pooling — no projection.
+    """SigLIP vision encoder: features + attention pooling, no projection.
 
     Vision-encoder forward pass. Pipeline:
     :func:`siglip_vision_features` → :func:`siglip_attention_pooling`.
@@ -515,7 +515,7 @@ class SigLIPVisionModel(FunctionalBaseModel):
 
         out = model(images)
         out["last_hidden_state"]   # (B, num_patches, vision_hidden_dim)
-        out["pooler_output"]       # (B, vision_hidden_dim) — attention-pooled
+        out["pooler_output"]       # (B, vision_hidden_dim): attention-pooled
 
     Construction:
 
@@ -675,7 +675,7 @@ class SigLIPTextModel(FunctionalBaseModel):
 
         out = model(token_ids)
         out["last_hidden_state"]   # (B, sequence_length, text_hidden_dim)
-        out["pooler_output"]       # (B, embed_dim) — last-token + Dense head
+        out["pooler_output"]       # (B, embed_dim): last-token + Dense head
 
     Construction:
 
@@ -826,7 +826,7 @@ class SigLIPModel(FunctionalBaseModel):
     Composes :class:`SigLIPVisionModel` and :class:`SigLIPTextModel`
     around a shared input pair, and returns the towers'
     ``pooler_output`` as ``image_embeddings`` / ``text_embeddings``. No
-    L2-norm or ``logit_scale`` / ``logit_bias`` is applied — for the
+    L2-norm or ``logit_scale`` / ``logit_bias`` is applied: for the
     full zero-shot head use :class:`SigLIPZeroShotClassify`. For
     supervised classification use :class:`SigLIPImageClassify`.
 
@@ -1034,8 +1034,8 @@ class SigLIPZeroShotClassify(FunctionalBaseModel):
     .. code-block:: python
 
         out = model({"images": ..., "token_ids": ...})
-        out["image_logits"]   # (B, B) — image[i] vs text[j], scaled+biased
-        out["text_logits"]    # (B, B) — transpose of image_logits
+        out["image_logits"]   # (B, B): image[i] vs text[j], scaled+biased
+        out["text_logits"]    # (B, B): transpose of image_logits
 
     Construction:
 

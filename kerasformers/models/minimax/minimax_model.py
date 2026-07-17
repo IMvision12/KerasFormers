@@ -34,7 +34,7 @@ class MiniMaxModel(SubclassedBaseModel):
         full_attn_alpha / full_attn_beta / linear_attn_alpha /
         linear_attn_beta / mlp_alpha / mlp_beta: Residual weights.
         partial_rotary_factor: Fraction of head channels rotated by RoPE
-            (the released checkpoints use 1.0 — full rotation — matching the
+            (the released checkpoints use 1.0, full rotation, matching the
             HF reference implementation).
         rope_theta: Rotary base frequency.
         norm_eps: RMSNorm epsilon.
@@ -248,7 +248,7 @@ class MiniMaxGenerate(MiniMaxModel, BaseGeneration):
     The hybrid cache is a per-layer tuple: full-attention layers carry a
     fixed ``(batch, 2, kv_heads, max_len, head_dim)`` KV buffer, lightning
     layers carry the constant-size ``(batch, heads, head_dim, head_dim)``
-    running KV state — so the decode loop stays compilable and lightning
+    running KV state, so the decode loop stays compilable and lightning
     layers never grow with sequence length.
     """
 

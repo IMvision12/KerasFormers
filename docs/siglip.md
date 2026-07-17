@@ -6,9 +6,9 @@ SigLIP (Sigmoid Loss for Language Image Pre-training) uses a simple pairwise sig
 
 ## Model Variants
 
-- **SigLIPBaseP16** — Base model with 16x16 patch size (768 hidden dimensions)
-- **SigLIPLargeP16** — Large model with 16x16 patch size (1024 hidden dimensions)
-- **SigLIPSo400mP14** — So400m model with 14x14 patch size (1152 hidden dimensions)
+- **SigLIPBaseP16**: Base model with 16x16 patch size (768 hidden dimensions)
+- **SigLIPLargeP16**: Large model with 16x16 patch size (1024 hidden dimensions)
+- **SigLIPSo400mP14**, So400m model with 14x14 patch size (1152 hidden dimensions)
 
 ## Available Weights
 

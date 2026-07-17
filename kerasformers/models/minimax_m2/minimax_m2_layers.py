@@ -179,7 +179,7 @@ class MiniMaxM2Attention(layers.Layer):
 
     Bias-free ``query`` / ``key`` / ``value`` / ``output_proj``;
     ``query_norm`` / ``key_norm`` are RMSNorms over the *whole* projected
-    width (all heads jointly), applied before the head split — then rotary
+    width (all heads jointly), applied before the head split, then rotary
     embeddings on the first ``cos.shape[-1]`` head channels.
 
     Args:

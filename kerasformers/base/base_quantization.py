@@ -21,8 +21,8 @@ def single_axis(axis, ndim):
 class Quantizer:
     """Base class for kerasformers weight-only quantizers.
 
-    A quantizer compresses a float weight along its **contracting axis** — the
-    axis (or axes) summed over in the owning layer's matmul / einsum — and
+    A quantizer compresses a float weight along its **contracting axis**: the
+    axis (or axes) summed over in the owning layer's matmul / einsum, and
     reconstructs it on the fly. Because ``axis`` is explicit, one quantizer
     serves 2-D ``Dense`` kernels (``axis=0``), N-D ``EinsumDense`` kernels (axis
     derived from the equation), per-row embeddings (``axis=1``), and fused MoE
@@ -31,7 +31,7 @@ class Quantizer:
     Contract:
 
     - :meth:`quantize` ``(weight, axis) -> (packed, scale)``
-    - :meth:`dequantize` ``(packed, scale, axis, dtype) -> float weight`` — pass
+    - :meth:`dequantize` ``(packed, scale, axis, dtype) -> float weight``, pass
       the activation/compute ``dtype`` so mixed-precision graphs don't upcast.
     - :meth:`storage_spec` ``(weight_shape, axis) -> {"kernel": (shape, dtype),
       "scale": (shape, dtype)}`` so a layer can pre-create the stored weights

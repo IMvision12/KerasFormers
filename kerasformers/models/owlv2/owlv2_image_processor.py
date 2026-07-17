@@ -16,7 +16,7 @@ class Owlv2ImageProcessor(BaseImageProcessor):
     Reproduces ``Owlv2ImageProcessor``'s unusual order:
     rescale → pad-to-square → resize → normalize. The pad-to-square
     step pads the bottom/right of each image with zeros so the input
-    becomes square before resizing — this preserves the aspect ratio
+    becomes square before resizing: this preserves the aspect ratio
     of the original image, unlike OWL-ViT's straight resize.
 
     Args:
@@ -150,7 +150,7 @@ class Owlv2ImageProcessor(BaseImageProcessor):
         }[interpolation]
         # PIL needs uint8 or float images via fromarray. We're carrying
         # float32 with values roughly in [0, 1] after rescale; scale back
-        # to uint8 only if it's still raw uint8 range — otherwise PIL's
+        # to uint8 only if it's still raw uint8 range: otherwise PIL's
         # bicubic preserves precision on float arrays via mode 'F' per
         # channel. To keep parity with timm's anti-aliased bicubic, use
         # PIL with float channels.

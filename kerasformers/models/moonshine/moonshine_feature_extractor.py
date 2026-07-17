@@ -9,8 +9,8 @@ from kerasformers.base import BaseAudioFeatureExtractor
 class MoonshineFeatureExtractor(BaseAudioFeatureExtractor):
     """Raw-waveform "feature extractor" for Moonshine.
 
-    Moonshine ingests the 16 kHz waveform directly — its conv stem replaces the
-    log-mel front end — so this extractor mirrors the reference
+    Moonshine ingests the 16 kHz waveform directly: its conv stem replaces the
+    log-mel front end, so this extractor mirrors the reference
     ``Wav2Vec2FeatureExtractor`` configuration used by the Moonshine repo
     (``feature_size=1``, ``do_normalize=False``, ``padding_value=0.0``): it
     simply stacks a batch of waveforms, right-zero-padding shorter clips to the

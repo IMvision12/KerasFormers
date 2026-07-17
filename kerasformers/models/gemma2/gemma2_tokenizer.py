@@ -8,7 +8,7 @@ class Gemma2Tokenizer(BaseTokenizer):
     """Gemma 2 SentencePiece-BPE tokenizer (``tokenizers`` backend).
 
     Loads the model's ``tokenizer.json`` (downloaded on the fly from ``hf_id``
-    when no explicit file is given; the official google repos are gated —
+    when no explicit file is given; the official google repos are gated:
     public mirrors like ``unsloth/gemma-2-2b-it`` work too) and exposes
     ``encode`` / ``decode`` plus a ``call`` that tokenizes text(s) or a chat
     ``messages`` list (rendered with the ``<start_of_turn>`` template) into

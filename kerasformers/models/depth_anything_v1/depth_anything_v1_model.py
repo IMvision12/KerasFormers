@@ -139,7 +139,7 @@ class DepthAnythingV1Resize(layers.Layer):
 
     Wraps :func:`depth_anything_v1_aligned_bilinear_resize` (used by the fusion
     blocks and the head) as a real layer with a ``get_config`` so the model
-    round-trips through ``model.save()`` / ``load_model()`` — unlike a closure
+    round-trips through ``model.save()`` / ``load_model()``: unlike a closure
     ``Lambda``, which Keras cannot serialize.
     """
 
@@ -248,10 +248,10 @@ def depth_anything_v1_dino_backbone(
 ):
     """Functional DINOv2 ViT backbone used by Depth Anything V1.
 
-    Runs the standard DINOv2 stack — patch embedding, class token,
+    Runs the standard DINOv2 stack: patch embedding, class token,
     learnable position embeddings, ``backbone_depth`` pre-norm
     transformer blocks with ``DepthAnythingV1LayerScale`` on both branches, and a
-    final shared ``LayerNorm`` — and returns the intermediate token
+    final shared ``LayerNorm``, and returns the intermediate token
     sequences listed in ``out_indices`` as spatial feature maps.
 
     The final ``LayerNorm`` is applied once per selected block, the
@@ -584,14 +584,14 @@ def depth_anything_v1_functional(
     Top-level orchestrator wiring the two stages that are shared
     between the relative and metric variants:
 
-    1. :func:`depth_anything_v1_dino_backbone` — DINOv2 ViT backbone
+    1. :func:`depth_anything_v1_dino_backbone`, DINOv2 ViT backbone
        producing multi-scale patch token sequences at the layers
        listed in ``out_indices``.
-    2. :func:`depth_anything_v1_neck` — DPT reassemble + project +
+    2. :func:`depth_anything_v1_neck`, DPT reassemble + project +
        bottom-up fusion producing a single fused feature map at the
        finest pyramid level.
 
-    The depth-prediction head is intentionally not built here — it is
+    The depth-prediction head is intentionally not built here: it is
     added by :class:`DepthAnythingV1DepthEstimation`, which composes
     :class:`DepthAnythingV1Model` around this graph. This separation
     means fine-tuning hyperparameters (``depth_estimation_type``,
@@ -654,7 +654,7 @@ class DepthAnythingV1Model(FunctionalBaseModel):
     Wraps the functional graph built by
     :func:`depth_anything_v1_functional`: a DINOv2 ViT backbone and a
     DPT reassemble + fusion neck. Outputs the fused feature map at
-    the finest pyramid level — the same tensor that
+    the finest pyramid level: the same tensor that
     :class:`DepthAnythingV1DepthEstimation` then feeds into the depth head.
 
     Use this class when you want the backbone+neck features (e.g. for
@@ -819,13 +819,13 @@ class DepthAnythingV1DepthEstimation(FunctionalBaseModel):
         reassemble_factors: Up/down-sampling factors per stage in the
             reassemble step.
         depth_estimation_type: ``"relative"`` or ``"metric"`` (fine-tune
-            switch — the metric variants use ``"metric"``).
+            switch: the metric variants use ``"metric"``).
         max_depth: Metric-depth scale factor; only used when
             ``depth_estimation_type == "metric"``.
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `518`.
         input_tensor: Optional pre-existing Keras input tensor.

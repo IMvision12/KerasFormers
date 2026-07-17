@@ -13,7 +13,7 @@ class _LoadProxy:
     It holds **no storage of its own**. A weight-transfer converter sees the
     layer's logical float kernel (right ``shape`` / ``path`` / ``name``), and its
     ``assign`` quantizes the incoming float straight into the layer's
-    pre-allocated int kernel + scale — so the full float weight is never
+    pre-allocated int kernel + scale, so the full float weight is never
     materialized on the device.
 
     ``assign_fn`` targets a specific bank when a layer has more than one (a fused
@@ -293,7 +293,7 @@ class QuantizedEmbedding(layers.Layer):
     The table is stored int8 with a per-row (per-token) scale (contracting
     ``axis=1``); the lookup gathers int8 rows and dequantizes only the gathered
     slice (the float table is never materialized). Used for both int8 and int4
-    model modes — embeddings stay int8 (the 4-bit savings live in Dense weights).
+    model modes: embeddings stay int8 (the 4-bit savings live in Dense weights).
     """
 
     def __init__(self, input_dim, output_dim, **kwargs):

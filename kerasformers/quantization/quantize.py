@@ -155,7 +155,7 @@ def quantize_and_load(model, config, transfer_fn, state_dict, group_size=32):
     """No-float quantized load: stream a float checkpoint straight into int storage.
 
     Builds an integer skeleton (:func:`quantize_skeleton`) on the **unbuilt**
-    subclassed ``model``, then runs the model's own ``transfer_fn`` — but with the
+    subclassed ``model``, then runs the model's own ``transfer_fn``, but with the
     quantized layers surfacing float proxies, so each source tensor is quantized
     into int storage as it is assigned and the full float model is never built.
     Dense and Embedding weights are quantized; layers the skeleton leaves float
@@ -201,7 +201,7 @@ def dequantize_model(model):
     """Revert a quantized model back to float ``Dense`` / ``Embedding`` layers.
 
     Subclassed models are reverted in place; functional models return a NEW
-    cloned model. (Quantized MoE experts in subclassed models stay quantized —
+    cloned model. (Quantized MoE experts in subclassed models stay quantized:
     they still run correctly via ``QuantizedExperts``.)
     """
     if _is_functional(model):
@@ -236,7 +236,7 @@ def load_quantized(model, filepath, dummy_inputs=None):
 
     - **No-float** (``dummy_inputs`` given and ``model`` unbuilt subclassed):
       build an integer skeleton via :func:`quantize_skeleton`, forward once to
-      materialize int storage, then load — the float model is never built.
+      materialize int storage, then load: the float model is never built.
     - **Float** (built model, or no ``dummy_inputs``): quantize the built float
       model in place (materializing float once), then load.
     """
@@ -312,7 +312,7 @@ def _swap(parent, name, old, new):
 def _build_scope(target_path):
     # Recreate the name-scope stack so a layer built OUTSIDE a forward pass (the
     # in-place swap) gets the SAME weight paths it would get if built during its
-    # parent's call. Without this, swapped layers lose their parent prefix — all
+    # parent's call. Without this, swapped layers lose their parent prefix: all
     # `block_*/q` collapse to bare `q`, which collides in the sharded
     # `.weights.json` format and desyncs the saved model from a skeleton reload
     # (the skeleton builds during a forward, so it keeps the full path).
@@ -329,7 +329,7 @@ def _build_scope(target_path):
 
 def _swap_to_quantized_dense(parent, name, dense, mode, group_size):
     # Attach the (unbuilt) quantized layer, THEN build it within the original
-    # layer's name scope — so its weights take the full graph path
+    # layer's name scope, so its weights take the full graph path
     # (parent/.../name/kernel), matching the skeleton path and keeping save/load
     # consistent. (Building standalone would give bare, collision-prone paths.)
     in_dim = int(dense.kernel.shape[0])
@@ -462,7 +462,7 @@ def _transfer_unquantized(src, dst):
         if not layer.weights or isinstance(layer, quant):
             continue
         if getattr(layer, "_quantization_config", None) is not None:
-            continue  # a recursively-quantized sub-model — weights already baked
+            continue  # a recursively-quantized sub-model: weights already baked
         try:
             orig = src.get_layer(layer.name)
         except ValueError:
@@ -476,7 +476,7 @@ def quantize_functional(model, config="int8", group_size=32):
     """Quantize a functional model by cloning its graph with quantized layers.
 
     In-place swap can't rewire a functional graph, so this rebuilds it via
-    ``keras.models.clone_model`` — replacing eligible ``Dense`` / ``Embedding``
+    ``keras.models.clone_model``, replacing eligible ``Dense`` / ``Embedding``
     with their quantized variants (weights baked in) and copying the remaining
     float weights. Returns a NEW model.
     """
@@ -484,7 +484,7 @@ def quantize_functional(model, config="int8", group_size=32):
 
     def clone_fn(layer):
         if _is_functional(layer):
-            # Nested Functional sub-model (e.g. encoder / decoder) — recurse so its
+            # Nested Functional sub-model (e.g. encoder / decoder): recurse so its
             # own graph (and its nested blocks) get quantized too. If it can't be
             # cloned (e.g. a weight-capturing `Lambda` lm_head), keep it float.
             try:

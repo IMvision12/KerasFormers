@@ -390,7 +390,7 @@ class DeepseekV4Generate(DeepseekV4Model, BaseGeneration):
     cached for every position, and whenever a window boundary closes during
     decode (``(pos + 1) % rate == 0``) the new compressed entry is computed
     from the cached projections and written into the fixed-size entries
-    buffer — so the loop stays constant-shape.
+    buffer, so the loop stays constant-shape.
     """
 
     # DeepSeek-V4 end-of-sentence id (1). Explicit generate() args override.

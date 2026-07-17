@@ -9,10 +9,10 @@ MobileViT is a hybrid CNN-Transformer backbone designed for mobile inference. It
 
 Both versions ship as four classes:
 
-- `MobileViTModel` / `MobileViTV2Model` — backbone (no head). Returns the last-stage feature map at `output_stride=32`.
-- `MobileViTImageClassify` / `MobileViTV2ImageClassify` — full ImageNet classifier (backbone + 1×1 head conv + GAP + Dense).
-- `MobileViTSemanticSegment` / `MobileViTV2SemanticSegment` — full DeepLabV3 semantic segmenter (backbone with `output_stride=16` and atrous convolutions in the last stage + ASPP module + 1×1 classifier conv).
-- `MobileViTImageProcessor` / `MobileViTV2ImageProcessor` — matching preprocessor: resize-shortest-edge + center-crop + rescale + RGB→BGR flip.
+- `MobileViTModel` / `MobileViTV2Model`: backbone (no head). Returns the last-stage feature map at `output_stride=32`.
+- `MobileViTImageClassify` / `MobileViTV2ImageClassify`: full ImageNet classifier (backbone + 1×1 head conv + GAP + Dense).
+- `MobileViTSemanticSegment` / `MobileViTV2SemanticSegment`: full DeepLabV3 semantic segmenter (backbone with `output_stride=16` and atrous convolutions in the last stage + ASPP module + 1×1 classifier conv).
+- `MobileViTImageProcessor` / `MobileViTV2ImageProcessor`: matching preprocessor (resize-shortest-edge + center-crop + rescale + RGB→BGR flip).
 
 ## Architecture Highlights
 
@@ -36,7 +36,7 @@ All HuggingFace `model_type == "mobilevit"` or `"mobilevitv2"` repos load via `f
 | `MobileViTV2ImageClassify` | `apple/mobilevitv2-{0.5,…,2.0}-imagenet1k-256` | ImageNet classify | 1000 | 256×256 |
 | `MobileViTV2SemanticSegment`       | `apple/mobilevitv2-1.0-voc-deeplabv3`   | PASCAL VOC segment    |   21 | 512×512 |
 
-Community fine-tunes work the same way — the model auto-detects `num_classes` from the HF config's `num_labels` (or falls back to `len(id2label)`).
+Community fine-tunes work the same way: the model auto-detects `num_classes` from the HF config's `num_labels` (or falls back to `len(id2label)`).
 
 ## Basic Usage
 
@@ -86,7 +86,7 @@ logits = model(inputs["pixel_values"], training=False)
 pred_class = int(keras.ops.argmax(logits, axis=-1)[0])
 ```
 
-`include_normalization=False` is important when feeding tensors from the processor — the processor already handles MobileViT's pixel scaling, so the in-model `ImageNormalizationLayer` would double-normalize. Either build the model with `include_normalization=False` and use the processor, or build with `include_normalization=True` (default) and pass raw images.
+`include_normalization=False` is important when feeding tensors from the processor: the processor already handles MobileViT's pixel scaling, so the in-model `ImageNormalizationLayer` would double-normalize. Either build the model with `include_normalization=False` and use the processor, or build with `include_normalization=True` (default) and pass raw images.
 
 ## Segmentation Inference
 
@@ -137,10 +137,10 @@ Pipeline (matches HuggingFace `MobileViTImageProcessor`):
 1. Resize so the shortest edge equals `size["shortest_edge"]` (preserves aspect ratio).
 2. Center-crop to `crop_size["height"] × crop_size["width"]`.
 3. Rescale pixel values by `rescale_factor` (default `1/255`).
-4. Flip channel order RGB → BGR (`do_flip_channel_order=True`) — required to match how MobileViT was trained.
+4. Flip channel order RGB → BGR (`do_flip_channel_order=True`): required to match how MobileViT was trained.
 5. Return `{"pixel_values": tensor}` in the configured `data_format`.
 
-No mean/std normalization — that's the HF default for MobileViT, and the matching keras checkpoints are trained the same way.
+No mean/std normalization: that's the HF default for MobileViT, and the matching keras checkpoints are trained the same way.
 
 ## Fine-tuning with a Different Class Count
 

@@ -56,7 +56,7 @@ def build_mel_filter_bank(
 class WhisperFeatureExtractor(BaseAudioFeatureExtractor):
     """Mel spectrogram extractor.
 
-    Pure Keras 3 implementation — all numeric operations go through
+    Pure Keras 3 implementation: all numeric operations go through
     ``keras.ops`` (``ops.stft``, ``ops.matmul``, ``ops.log``, ...) so the
     same code runs on TF / Torch / JAX backends. Input normalization
     (list → stacked ``(B, n_samples)``) uses numpy since it's plumbing.

@@ -26,8 +26,8 @@ def dinov3_swiglu_ffn(
 ):
     """Gated feed-forward network used in DINOv3 ViT blocks (GeGLU / SwiGLU).
 
-    Three Dense projections — a gate branch (activated) and a value /
-    up branch — are multiplied elementwise, then projected back to
+    Three Dense projections: a gate branch (activated) and a value /
+    up branch: are multiplied elementwise, then projected back to
     ``embed_dim`` by a third Dense. With ``hidden_act="silu"`` this is the
     standard SwiGLU; with ``"gelu"`` it is GeGLU. DINOv3 selects the
     variant via the ``use_swiglu`` flag on the encoder block.
@@ -62,7 +62,7 @@ def dinov3_swiglu_ffn(
 def dinov3_mlp_block(
     x, embed_dim, hidden_dim, block_idx, hidden_act="gelu", mlp_bias=True
 ):
-    """Standard two-layer transformer MLP — Dense → activation → Dense.
+    """Standard two-layer transformer MLP: Dense → activation → Dense.
 
     Used by DINOv3 blocks when ``use_swiglu=False``. Layer names follow
     ``blocks_{block_idx}_dense_{1,2}`` so the PyTorch state-dict can be
@@ -113,7 +113,7 @@ def dinov3_transformer_block(
     Structure:
 
     1. Pre-norm → :class:`DinoV3Attention` (with 2D RoPE applied to
-       Q/K of the patch tokens; prefix tokens — CLS + registers — skip
+       Q/K of the patch tokens; prefix tokens, CLS + registers, skip
        RoPE) → optional :class:`DinoV3LayerScale` → residual.
     2. Pre-norm → :func:`dinov3_mlp_block` *or* :func:`dinov3_swiglu_ffn`
        (selected by ``use_swiglu``) → optional :class:`DinoV3LayerScale` →
@@ -129,7 +129,7 @@ def dinov3_transformer_block(
         - `DINOv3 <https://arxiv.org/abs/2508.10104>`_
 
     Args:
-        inputs: Token sequence ``(B, N, embed_dim)`` — typically
+        inputs: Token sequence ``(B, N, embed_dim)``, typically
             ``[CLS, registers..., patch_tokens...]``.
         embed_dim: Hidden / model dimension.
         num_heads: Number of attention heads.
@@ -152,7 +152,7 @@ def dinov3_transformer_block(
         layer_norm_eps: Epsilon for both pre-norm LayerNorms.
 
     Returns:
-        Tensor of shape ``(B, N, embed_dim)`` — the block's output sequence.
+        Tensor of shape ``(B, N, embed_dim)``: the block's output sequence.
     """
     x = layers.LayerNormalization(
         epsilon=layer_norm_eps, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
@@ -205,7 +205,7 @@ class DinoV3ViTModel(FunctionalBaseModel):
     each transformer block, last LayerNorm-normalized), suitable for
     feeding into detection / segmentation / depth necks.
 
-    Weights are gated on the model Hub — see
+    Weights are gated on the model Hub: see
     https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m for
     license acceptance. Accept the license and set ``HF_TOKEN`` env var
     before calling :meth:`from_weights`.
@@ -244,7 +244,7 @@ class DinoV3ViTModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional pre-existing Keras input tensor.
@@ -452,7 +452,7 @@ class DinoV3ConvNeXtModel(FunctionalBaseModel):
     returns the list of per-stage feature maps, suitable for feeding
     into detection / segmentation / depth necks.
 
-    Weights are gated on the model Hub — see
+    Weights are gated on the model Hub: see
     https://huggingface.co/facebook/dinov3-convnext-tiny-pretrain-lvd1689m
     for license acceptance. Accept the license and set ``HF_TOKEN`` env
     var before calling :meth:`from_weights`.
@@ -472,7 +472,7 @@ class DinoV3ConvNeXtModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         input_tensor: Optional pre-existing Keras input tensor.

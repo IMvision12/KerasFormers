@@ -1,11 +1,11 @@
 """Canonical label vocabularies for kerasformers image-processor post-processing.
 
 Single source of truth for class-name lists used by detection and
-segmentation post-processors. Tuples (immutable, hashable) — do not
+segmentation post-processors. Tuples (immutable, hashable): do not
 mutate; copy first if you need a mutable list.
 """
 
-# COCO with N/A placeholders (detr / rf_detr) — 91 entries.
+# COCO with N/A placeholders (detr / rf_detr): 91 entries.
 COCO_91_CLASSES = (
     "N/A",
     "person",
@@ -100,7 +100,7 @@ COCO_91_CLASSES = (
     "toothbrush",
 )
 
-# COCO populated only (dfine / rt_detr / rt_detr_v2) — 80 entries.
+# COCO populated only (dfine / rt_detr / rt_detr_v2): 80 entries.
 COCO_80_CLASSES = (
     "person",
     "bicycle",
@@ -184,7 +184,7 @@ COCO_80_CLASSES = (
     "toothbrush",
 )
 
-# COCO panoptic (eomt) — 80 things + 53 stuff = 133 entries.
+# COCO panoptic (eomt): 80 things + 53 stuff = 133 entries.
 COCO_PANOPTIC_133_CLASSES = (
     "things: person",
     "things: bicycle",
@@ -325,7 +325,7 @@ COCO_PANOPTIC_133_CLASSES = (
 COCO_PANOPTIC_THING_IDS = tuple(range(80))
 COCO_PANOPTIC_STUFF_IDS = tuple(range(80, 133))
 
-# ADE20K semantic (segformer) — 150 entries.
+# ADE20K semantic (segformer): 150 entries.
 ADE20K_150_CLASSES = (
     "wall",
     "building",
@@ -479,7 +479,7 @@ ADE20K_150_CLASSES = (
     "flag",
 )
 
-# Cityscapes semantic (segformer) — 19 entries.
+# Cityscapes semantic (segformer): 19 entries.
 CITYSCAPES_19_CLASSES = (
     "road",
     "sidewalk",
@@ -502,7 +502,7 @@ CITYSCAPES_19_CLASSES = (
     "bicycle",
 )
 
-# Pascal VOC (deeplabv3) — 21 entries with background.
+# Pascal VOC (deeplabv3): 21 entries with background.
 PASCAL_VOC_CLASSES = (
     "background",
     "aeroplane",

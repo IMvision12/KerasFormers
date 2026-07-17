@@ -1,6 +1,6 @@
 # BERT (text encoder)
 
-Google's BERT in **pure Keras 3** — the bidirectional transformer text encoder
+Google's BERT in **pure Keras 3**: the bidirectional transformer text encoder
 with its masked-LM, sequence-classification, and token-classification heads.
 One implementation runs unmodified on **TensorFlow / Torch / JAX**, with
 bit-close parity to Hugging Face on real checkpoints (see below).
@@ -22,16 +22,16 @@ All models are functional `FunctionalBaseModel`s; the head classes compose a `Be
 backbone. The next-sentence head is part of the pretrained checkpoint, so it
 loads real weights; the other task heads are randomly initialized for the
 official release (ready for fine-tuning) and load trained weights from a `hf:`
-fine-tune. The architecture is identical across variants — only the vocabulary
+fine-tune. The architecture is identical across variants: only the vocabulary
 and tokenizer casing differ.
 
 ## Loading
 
 Two paths, both via `from_weights`:
 
-- **Official release variant** — `from_weights("bert_base_uncased")` downloads the
+- **Official release variant**: `from_weights("bert_base_uncased")` downloads the
   kerasformers-release `.weights.h5`.
-- **`hf:` community fine-tune** — `from_weights("hf:org/repo")` reads the repo's
+- **`hf:` community fine-tune**: `from_weights("hf:org/repo")` reads the repo's
   `config.json` (architecture + `num_labels`) and loads the checkpoint, including
   the fine-tuned classifier head.
 
@@ -82,19 +82,19 @@ both casings).
 
 ## Forward pass
 
-The models take a dict of token ids, an attention mask, and segment ids — exactly
+The models take a dict of token ids, an attention mask, and segment ids: exactly
 what `BertTokenizer` returns:
 
 ```python
 inputs = {
     "input_ids":      input_ids,       # (B, L) int
-    "attention_mask": attention_mask,  # (B, L) int — 1 keep, 0 pad
-    "token_type_ids": token_type_ids,  # (B, L) int — segment (0 / 1)
+    "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
+    "token_type_ids": token_type_ids,  # (B, L) int: segment (0 / 1)
 }
 BertModel.from_weights("bert_base_uncased")(inputs)["last_hidden_state"]
 ```
 
-These are token-id models — **no spatial H/W axes**, so `channels_first/last`
+These are token-id models: **no spatial H/W axes**, so `channels_first/last`
 does not apply.
 
 ### Fill-mask
@@ -131,15 +131,15 @@ from kerasformers.models.bert import (
     BertNextSentencePredict, BertQnA, BertMultipleChoice,
 )
 
-# next-sentence prediction — head is pretrained, so a base checkpoint works
+# next-sentence prediction: head is pretrained, so a base checkpoint works
 nsp = BertNextSentencePredict.from_weights("hf:google-bert/bert-base-uncased")
 
-# extractive QA — start/end span logits, from a SQuAD fine-tune
+# extractive QA: start/end span logits, from a SQuAD fine-tune
 qa = BertQnA.from_weights("hf:deepset/bert-base-cased-squad2")
 out = qa(tokenizer("Where is Paris?", text_pair="Paris is in France."))
 out["start_logits"]  # (B, L)   out["end_logits"]  # (B, L)
 
-# multiple choice — inputs are (B, num_choices, seq); fix num_choices at build
+# multiple choice: inputs are (B, num_choices, seq); fix num_choices at build
 mc = BertMultipleChoice.from_weights("hf:org/bert-swag", num_choices=4)
 ```
 
@@ -158,16 +158,16 @@ string, a list of strings, or a sentence pair (`text_pair=`), and returns the
 
 ## Architecture notes
 
-- **Embeddings** — summed word + absolute-position + token-type embeddings, then
+- **Embeddings**: summed word + absolute-position + token-type embeddings, then
   LayerNorm + dropout. Position ids come from `cumsum(ones_like(input_ids)) - 1`
   (rather than `arange`) so the model stays shape-polymorphic across backends and
   supports variable sequence length.
-- **Encoder** — `num_layers` post-LayerNorm transformer blocks
+- **Encoder**: `num_layers` post-LayerNorm transformer blocks
   (`LayerNorm(x + Sublayer(x))`): multi-head self-attention with an additive
   padding mask, then a `mlp_dim` feed-forward with `hidden_act` (exact `gelu`).
-- **Pooler** — a `tanh` dense projection of the `[CLS]` token (`BertModel`,
+- **Pooler**: a `tanh` dense projection of the `[CLS]` token (`BertModel`,
   `BertSequenceClassify`).
-- **Heads** — `BertMaskedLM` adds the transform (dense + `gelu` + LayerNorm) and a
+- **Heads**: `BertMaskedLM` adds the transform (dense + `gelu` + LayerNorm) and a
   vocabulary projection; the classify models add dropout + a dense classifier.
 
 Constructor arguments follow the kerasformers convention: `embed_dim`,

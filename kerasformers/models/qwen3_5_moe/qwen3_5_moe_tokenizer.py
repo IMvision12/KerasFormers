@@ -43,7 +43,7 @@ class Qwen35MoeTokenizer(BaseTokenizer):
         """Tokenize text(s) or a chat ``messages`` list into model inputs.
 
         Accepts a single string, a list of strings, or a ChatML-style
-        conversation (``[{"role": ..., "content": ...}, ...]``) — the latter is
+        conversation (``[{"role": ..., "content": ...}, ...]``), the latter is
         run through :meth:`apply_chat_template` first. Returns padded
         ``{"input_ids", "attention_mask"}`` (numpy) ready for ``model.generate``.
         """

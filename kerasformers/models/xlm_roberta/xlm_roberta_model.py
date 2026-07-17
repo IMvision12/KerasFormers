@@ -27,7 +27,7 @@ class XLMRobertaModel(FunctionalBaseModel):
 
     XLM-RoBERTa is architecturally identical to RoBERTa (padding-offset position
     ids, a single token-type, ``1e-5`` LayerNorm epsilon, optional ``<s>``
-    pooler) and reuses RoBERTa's encoder; it differs only in scale — a 250k
+    pooler) and reuses RoBERTa's encoder; it differs only in scale: a 250k
     multilingual SentencePiece vocabulary trained on 100 languages.
 
     The model takes a dict of ``input_ids``, ``attention_mask`` and
@@ -190,8 +190,8 @@ class XLMRobertaMaskedLM(FunctionalBaseModel):
     """XLM-RoBERTa with the masked-language-modeling head.
 
     Wraps an :class:`XLMRobertaModel` backbone (no pooler) and attaches the
-    RoBERTa-style MLM head — a dense transform with ``gelu`` + LayerNorm, then a
-    vocabulary projection — producing token logits ``(B, seq, vocab_size)``. The
+    RoBERTa-style MLM head: a dense transform with ``gelu`` + LayerNorm, then a
+    vocabulary projection, producing token logits ``(B, seq, vocab_size)``. The
     head's weights are part of the pretrained checkpoint, so ``from_weights``
     restores a ready-to-use multilingual fill-mask model.
 
@@ -363,7 +363,7 @@ class XLMRobertaSequenceClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -518,7 +518,7 @@ class XLMRobertaTokenClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -663,7 +663,7 @@ class XLMRobertaQnA(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -799,7 +799,7 @@ class XLMRobertaMultipleChoice(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )

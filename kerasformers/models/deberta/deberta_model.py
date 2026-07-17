@@ -314,9 +314,9 @@ class DebertaModel(FunctionalBaseModel):
 class DebertaMaskedLM(FunctionalBaseModel):
     """DeBERTa with the masked-language-modeling head.
 
-    Wraps a :class:`DebertaModel` backbone and attaches DeBERTa's MLM head — a
+    Wraps a :class:`DebertaModel` backbone and attaches DeBERTa's MLM head, a
     dense transform with ``gelu`` + LayerNorm, then a vocabulary projection tied
-    to the input word embeddings — producing token logits ``(B, seq, vocab_size)``.
+    to the input word embeddings, producing token logits ``(B, seq, vocab_size)``.
     The head weights are part of the pretrained checkpoint, so ``from_weights``
     restores a ready-to-use fill-mask model.
 
@@ -443,7 +443,7 @@ class DebertaSequenceClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -566,7 +566,7 @@ class DebertaTokenClassify(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )
@@ -675,7 +675,7 @@ class DebertaQnA(FunctionalBaseModel):
             if skipped:
                 warnings.warn(
                     f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized — the loaded checkpoint has no "
+                    f"randomly initialized: the loaded checkpoint has no "
                     f"weights for them. Fine-tune before use.",
                     stacklevel=2,
                 )

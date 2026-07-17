@@ -13,8 +13,8 @@ class Cohere2VisionImageProcessor(BaseImageProcessor):
 
     Each image is matched to the tile grid (between ``min_patches`` and
     ``max_patches`` 512x512 tiles) whose aspect ratio is closest to its own,
-    bicubic-resized onto that canvas, cropped into tiles, and — when more than
-    one tile is produced — a full-image thumbnail tile is appended. Tiles are
+    bicubic-resized onto that canvas, cropped into tiles, and: when more than
+    one tile is produced: a full-image thumbnail tile is appended. Tiles are
     rescaled to ``[0, 1]`` and ImageNet-normalized.
 
     Returns ``{"pixel_values": (total_tiles, size, size, 3) float32,

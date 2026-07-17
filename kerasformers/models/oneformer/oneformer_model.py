@@ -539,14 +539,14 @@ def oneformer_functional(
 class OneFormerModel(FunctionalBaseModel):
     """OneFormer universal segmentation (Swin backbone, task-conditioned queries).
 
-    One model performs semantic, instance, and panoptic segmentation — the
+    One model performs semantic, instance, and panoptic segmentation: the
     task is selected at inference by the tokenized ``"the task is {task}"``
     prompt (``task_inputs``). A Swin backbone feeds an MSDeformAttn pixel
     decoder; the object queries are initialized by a small query transformer
     over the mask features (seeded with the task token, which is also
     appended as the final query), then refined by a masked-attention decoder
     identical in spirit to Mask2Former's. The training-only text encoder /
-    text mapper (contrastive loss) is not ported — the released inference
+    text mapper (contrastive loss) is not ported: the released inference
     checkpoints (``is_training: false``) carry no weights for it.
 
     Inputs: ``{"pixel_values": (B, H, W, 3), "task_inputs": (B, 77)}`` (the

@@ -4,7 +4,7 @@ from kerasformers.samplers.sampler import Sampler
 
 
 class GreedySampler(Sampler):
-    """Deterministic argmax — the default decoding strategy."""
+    """Deterministic argmax: the default decoding strategy."""
 
     stochastic = False
 

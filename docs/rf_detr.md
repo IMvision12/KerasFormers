@@ -39,7 +39,7 @@ model = RFDETRDetect.from_weights("rfdetr-base", load_weights=False)
 > `Roboflow/rf-detr-{nano,small,medium,base,large}`.
 > `from_weights("hf:Roboflow/rf-detr-...")` reads the repo's `config.json` and
 > safetensors directly (via `huggingface_hub`, no `transformers` dependency) and
-> converts them to Keras on the fly — the architecture and weights are identical
+> converts them to Keras on the fly: the architecture and weights are identical
 > to the kerasformers release variants above.
 
 ## Example Inference
@@ -59,8 +59,8 @@ inputs = processor(image)
 
 # Inference
 output = model(inputs["pixel_values"], training=False)
-# output["pred_logits"]: (1, 300, 91) — class logits per query
-# output["pred_boxes"]:  (1, 300, 4)  — normalized (cx, cy, w, h)
+# output["pred_logits"]: (1, 300, 91), class logits per query
+# output["pred_boxes"]:  (1, 300, 4), normalized (cx, cy, w, h)
 
 # Post-process: sigmoid, top-K selection, convert boxes to pixel coords
 results = processor.post_process_object_detection(output, threshold=0.5, target_sizes=[original_size])
@@ -89,7 +89,7 @@ processor = RFDETRImageProcessor(data_format="channels_first")
 inputs = processor("photo.jpg")
 ```
 
-Detection post-processors emit boxes in `xyxy` pixel coordinates and class indices — there is no spatial channel axis to interpret, so they don't take a `data_format` kwarg. See `docs/utils.md` for the families that do.
+Detection post-processors emit boxes in `xyxy` pixel coordinates and class indices: there is no spatial channel axis to interpret, so they don't take a `data_format` kwarg. See `docs/utils.md` for the families that do.
 
 ## Full Inference with Visualization
 
@@ -177,9 +177,9 @@ model = RFDETRInstanceSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
 processor = RFDETRImageProcessor(size={"height": 384, "width": 384})
 inputs = processor("image.jpg")
 out = model(inputs["pixel_values"], training=False)
-# out["pred_logits"]: (1, 100, 91)         — class logits per query
-# out["pred_boxes"]:  (1, 100, 4)          — normalized (cx, cy, w, h)
-# out["pred_masks"]:  (1, 100, 96, 96)     — mask logits (resolution // 4)
+# out["pred_logits"]: (1, 100, 91), class logits per query
+# out["pred_boxes"]:  (1, 100, 4), normalized (cx, cy, w, h)
+# out["pred_masks"]:  (1, 100, 96, 96), mask logits (resolution // 4)
 ```
 
 Masks are emitted at `resolution // mask_downsample_ratio` (ratio `4`). The image
@@ -200,7 +200,7 @@ for name, score, mask in zip(results[0]["label_names"],
                               results[0]["scores"],
                               results[0]["masks"]):
     print(f"{name}: {score:.2f}, {int(mask.sum())} mask px")
-# results[0]["masks"] is (num_detections, H, W) bool — one binary mask per detection
+# results[0]["masks"] is (num_detections, H, W) bool: one binary mask per detection
 ```
 
 `RFDETRInstanceSegment` is validated to match `transformers.RfDetrForInstanceSegmentation`

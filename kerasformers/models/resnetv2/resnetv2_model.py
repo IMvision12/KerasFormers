@@ -243,11 +243,11 @@ def resnetv2_backbone_feature(
 class ResNetV2Model(FunctionalBaseModel):
     """Instantiates the ResNetV2 (Pre-activation ResNet / BiT) backbone.
 
-    ResNetV2 is the pre-activation variant of ResNet — it moves
+    ResNetV2 is the pre-activation variant of ResNet: it moves
     GroupNorm + ReLU to the start of each residual branch, which
     improves gradient flow and stabilizes training of very deep
     networks. The output tensor is the last layer output before the
-    classifier head — the raw final-stage feature map ``(B, H, W, C)``
+    classifier head: the raw final-stage feature map ``(B, H, W, C)``
     (pre final GroupNorm). :class:`ResNetV2ImageClassify` composes this model
     and applies the final GroupNorm + ReLU + GlobalAveragePooling2D +
     optional Dropout + Dense head to produce logits.
@@ -271,7 +271,7 @@ class ResNetV2Model(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -434,7 +434,7 @@ class ResNetV2ImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

@@ -592,7 +592,7 @@ def copy_weights_by_path_suffix(src, dst):
 
     Returns:
         list[str]: paths of ``dst`` weights left untouched (no suffix match or
-        shape mismatch) — e.g. a task head absent from the source checkpoint.
+        shape mismatch), e.g. a task head absent from the source checkpoint.
     """
 
     def suffix(w):

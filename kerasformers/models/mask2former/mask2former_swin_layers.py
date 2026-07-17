@@ -12,7 +12,7 @@ def window_partition(x, window_size):
         window_size: Edge length of each square window.
 
     Returns:
-        Tensor of shape ``(b * num_windows, window_size * window_size, c)`` —
+        Tensor of shape ``(b * num_windows, window_size * window_size, c)``:
         each window flattened to a token sequence for windowed self-attention.
     """
     b = ops.shape(x)[0]
@@ -56,7 +56,7 @@ class Mask2FormerSwinPatchEmbeddings(layers.Layer):
     """Patch-embedding stem: a strided convolution flattened to tokens.
 
     Projects the input image with a ``patch_size`` strided convolution and
-    flattens the spatial grid to a ``(b, h*w, embed_dim)`` token sequence —
+    flattens the spatial grid to a ``(b, h*w, embed_dim)`` token sequence:
     the layout the windowed attention operates on. The convolution honours the
     configured data format; a channels-first output is transposed to
     channels-last before flattening.
@@ -113,7 +113,7 @@ class Mask2FormerSwinPatchMerging(layers.Layer):
 
     Gathers each 2x2 neighbourhood of tokens, concatenates them along the
     channel axis (``4C``), applies LayerNorm, then a bias-free linear
-    projection to ``2C`` — halving the spatial resolution while doubling the
+    projection to ``2C``, halving the spatial resolution while doubling the
     channel count.
 
     Args:
@@ -291,7 +291,7 @@ def get_shift_mask(h, w, window_size, shift_size):
     """
     # Region id (0..8) per location matching the cyclic-shift partition, built
     # with ops so symbolic h/w (e.g. traced call-kwargs on JAX) don't break. The
-    # absolute ids are arbitrary — only same/different region matters below.
+    # absolute ids are arbitrary: only same/different region matters below.
     hi = ops.arange(h)
     wi = ops.arange(w)
     h_idx = ops.cast(hi >= h - window_size, "int32") + ops.cast(
@@ -325,7 +325,7 @@ class Mask2FormerSwinBlock(layers.Layer):
         dim: Token feature dimension.
         num_heads: Number of attention heads.
         window_size: Edge length of the attention window.
-        shift_size: Cyclic-shift offset — ``0`` for a regular block,
+        shift_size: Cyclic-shift offset, ``0`` for a regular block,
             ``window_size // 2`` for a shifted block.
         mlp_ratio: Hidden-dimension expansion ratio of the MLP.
         **kwargs: Additional keyword arguments forwarded to ``keras.layers.Layer``.

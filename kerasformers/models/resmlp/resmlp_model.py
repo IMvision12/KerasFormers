@@ -96,7 +96,7 @@ def resmlp_backbone_feature(
         data_format: ``"channels_last"`` or ``"channels_first"``.
         return_stages: If True, return a list of per-block (post-residual)
             outputs (one per ResMLP block, ``depth`` total). ResMLP is
-            isotropic — shape is constant across blocks. If False (default),
+            isotropic: shape is constant across blocks. If False (default),
             return the single post-final-ResMLPAffine sequence.
 
     Returns:
@@ -182,7 +182,7 @@ class ResMLPModel(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an
@@ -346,7 +346,7 @@ class ResMLPImageClassify(FunctionalBaseModel):
         image_size: Input image specification. Accepts an integer
             ``N`` (builds an ``N x N x 3`` square input), a 2-tuple
             ``(H, W)`` (assumes 3 channels), or a 3-tuple ordered to
-            match the active ``keras.config.image_data_format()`` —
+            match the active ``keras.config.image_data_format()``:
             ``(H, W, C)`` for ``channels_last`` or ``(C, H, W)`` for
             ``channels_first``. Defaults to `224`.
         include_normalization: Boolean, whether to prepend an

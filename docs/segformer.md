@@ -6,8 +6,8 @@ SegFormer is a simple, efficient yet powerful semantic segmentation framework wh
 
 Two classes are exposed:
 
-- `SegFormerModel` — MiT hierarchical Transformer backbone (no decode head). Use as a feature extractor or to attach a custom head.
-- `SegFormerSemanticSegment` — full semantic-segmentation model with the all-MLP decode head + classifier + bilinear upsample. This is what you instantiate to predict masks.
+- `SegFormerModel`: MiT hierarchical Transformer backbone (no decode head). Use as a feature extractor or to attach a custom head.
+- `SegFormerSemanticSegment`: full semantic-segmentation model with the all-MLP decode head + classifier + bilinear upsample. This is what you instantiate to predict masks.
 
 ## Available Weights
 

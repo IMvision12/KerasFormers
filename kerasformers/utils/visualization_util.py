@@ -302,7 +302,7 @@ def plot_segmentation(
 ):
     """Render a class-id segmentation map on top of an image.
 
-    Works for semantic, instance, and panoptic segmentation — any
+    Works for semantic, instance, and panoptic segmentation: any
     output where ``segmentation`` is an integer label map. Each unique
     label gets a deterministic color. Matches the visualization used in
     SegFormer / DeepLabV3 / EoMT docs.
@@ -351,7 +351,7 @@ def plot_segmentation(
         colors = rng.integers(50, 220, size=(n_unique, 3), dtype=np.uint8)
 
     # Color the segmentation map; treat negative IDs (e.g. EoMT "no class") as
-    # background — leave the source image visible there.
+    # background: leave the source image visible there.
     valid = segmentation >= 0
     colored = np.zeros((*segmentation.shape, 3), dtype=np.uint8)
     if valid.any():
@@ -405,7 +405,7 @@ def plot_depth(
 
     Args:
         image: ``(H, W, 3)`` source image.
-        depth: ``(H, W)`` depth array (any range — min-max normalized
+        depth: ``(H, W)`` depth array (any range, min-max normalized
             internally).
         side_by_side: If True, returns a 2-axis figure (image | depth).
             If False, alpha-blends the colormapped depth onto the image
