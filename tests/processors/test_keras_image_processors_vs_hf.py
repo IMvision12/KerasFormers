@@ -48,7 +48,9 @@ from kerasformers.models.siglip.siglip_image_processor import (
 )
 
 ASSET_PATH = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "assets", "coco_horse_dog.jpg")
+    os.path.join(
+        os.path.dirname(__file__), "..", "..", "assets", "coco", "coco_cats.jpg"
+    )
 )
 
 DATA_FORMATS = ["channels_last", "channels_first"]
