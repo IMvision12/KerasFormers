@@ -12,10 +12,18 @@ from kerasformers.utils.labels_util import COCO_91_CLASSES
 class RFDETRImageProcessor(BaseImageProcessor):
     """Preprocess images for RF-DETR inference.
 
+    Every variant trains at its own resolution, so prefer
+    ``RFDETRImageProcessor.from_weights(variant)``, which reads the right size
+    from the model config. Constructing the class bare gives rfdetr-base's 560,
+    which is wrong for every other variant.
+
     Args:
-        size: Target size as ``{"height": H, "width": W}``. Default:
-            ``{"height": 560, "width": 560}`` (rfdetr-base). Use the model's
-            resolution:
+        variant: Release variant whose resolution to adopt, for example
+            ``"rfdetr-nano"``. Ignored when ``size`` is given explicitly.
+        size: Target size as ``{"height": H, "width": W}``. Overrides
+            ``variant``. Defaults to the variant's resolution, or
+            ``{"height": 560, "width": 560}`` (rfdetr-base) when neither is
+            given:
 
             * Detection (``RFDETRDetect``): 384 (nano), 512 (small),
               576 (medium), 560 (base), 704 (large).
@@ -49,10 +57,12 @@ class RFDETRImageProcessor(BaseImageProcessor):
         image_std: Optional[Tuple[float, ...]] = None,
         return_tensor: bool = True,
         data_format: Optional[str] = None,
+        variant: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.size = size if size is not None else {"height": 560, "width": 560}
+        self.variant = variant
+        self.size = size if size is not None else self.variant_size(variant)
         self.resample = resample
         self.do_rescale = do_rescale
         self.rescale_factor = rescale_factor
@@ -63,6 +73,25 @@ class RFDETRImageProcessor(BaseImageProcessor):
         self.image_std = image_std if image_std is not None else (0.229, 0.224, 0.225)
         self.return_tensor = return_tensor
         self.data_format = data_format
+
+    @staticmethod
+    def variant_size(variant: Optional[str]) -> Dict[str, int]:
+        """Square target size for a release variant.
+
+        Read from the model config rather than a table kept here, so the
+        processor cannot drift from the resolution the variant was built for.
+        Unknown or missing variants fall back to rfdetr-base's 560.
+        """
+        resolution = 560
+        if variant is not None:
+            from kerasformers.models.rf_detr import rf_detr_config
+
+            for name in ("RF_DETR_DETECT_CONFIG", "RF_DETR_SEGMENT_CONFIG"):
+                entry = getattr(rf_detr_config, name, {}).get(variant)
+                if entry and entry.get("resolution"):
+                    resolution = entry["resolution"]
+                    break
+        return {"height": resolution, "width": resolution}
 
     def __call__(
         self, image: Union[str, np.ndarray, Image.Image]
