@@ -117,13 +117,19 @@ class GroundingDinoProcessor(BaseProcessor):
                 axis=-1,
             )
             token_argmax = probs[i].argmax(axis=-1)
+            if ids.ndim == 2:
+                limit = ids.shape[1] - 1
+                token_ids = [
+                    int(ids[i, min(int(token_argmax[j]), limit)])
+                    for j in np.where(keep)[0]
+                ]
+            else:
+                token_ids = [int(token_argmax[j]) for j in np.where(keep)[0]]
             results.append(
                 {
                     "boxes": xyxy[keep],
                     "scores": scores[i][keep],
-                    "token_ids": [int(ids[i, j]) for j in np.where(keep)[0]]
-                    if ids.ndim == 2
-                    else [int(token_argmax[j]) for j in np.where(keep)[0]],
+                    "token_ids": token_ids,
                 }
             )
         return results
