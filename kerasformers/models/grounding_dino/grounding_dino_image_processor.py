@@ -45,9 +45,13 @@ class GroundingDinoImageProcessor(BaseImageProcessor):
         self.data_format = data_format
 
     def _to_rgb(self, image):
+        import os
+
         from PIL import Image
 
-        if not isinstance(image, Image.Image):
+        if isinstance(image, (str, os.PathLike)):
+            image = Image.open(image)
+        elif not isinstance(image, Image.Image):
             image = Image.fromarray(np.asarray(image).astype("uint8"))
         return image.convert("RGB")
 

@@ -726,7 +726,7 @@ MODEL_TEST_CONFIGS = {
         },
         "input_shape": (2, 256, 256, 3),
         "expected_output_shape": {
-            "pred_logits": (2, 10, 91),
+            "logits": (2, 10, 91),
             "pred_boxes": (2, 10, 4),
         },
     },
@@ -746,7 +746,7 @@ MODEL_TEST_CONFIGS = {
         },
         "input_shape": (2, 256, 256, 3),
         "expected_output_shape": {
-            "pred_logits": (2, 10, 91),
+            "logits": (2, 10, 91),
             "pred_boxes": (2, 10, 4),
             "pred_masks": (2, 10, 64, 64),
         },

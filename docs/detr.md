@@ -110,13 +110,14 @@ statistics.
 - **return_tensor** (`bool`, *optional*, defaults to `True`): return backend tensors rather than numpy.
 - **data_format** (`str`, *optional*): `"channels_last"` or `"channels_first"`. Defaults to `keras.config.image_data_format()`.
 
-**Call** `processor(image)` with **one** image: a path, a PIL image, or an array. It
-does not take a list. **Returns** a `dict`:
+**Call** `processor(image)` with a path, a PIL image, an array, or a **list** of any
+mix of those. **Returns** a `dict`:
 
-- **pixel_values** (`(1, H, W, 3)`): the preprocessed image, in the configured data format.
+- **pixel_values** (`(B, H, W, 3)`): the preprocessed images, in the configured data format.
 
-See [Batch Processing](#batch-processing-multiple-images) for running several images at
-once.
+A list is preprocessed and stacked into one batch, which is always safe here because
+every image is resized to the same square. See
+[Batch Processing](#batch-processing-multiple-images).
 
 **post_process_object_detection**
 
@@ -207,11 +208,9 @@ lowering it mostly adds duplicates of what is already found.
 
 ### Batch Processing Multiple Images
 
-`DETRImageProcessor` handles one image per call, so stack the results yourself and pass
-one `target_sizes` entry per image:
+Pass a list of images and one `target_sizes` entry per image:
 
 ```python
-import keras
 from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 
@@ -221,8 +220,8 @@ processor = DETRImageProcessor()
 paths = ["assets/coco/coco_desk.jpg", "assets/coco/coco_cats.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
-batch = keras.ops.concatenate([processor(im)["pixel_values"] for im in images], axis=0)
-output = model(batch, training=False)          # (2, 100, 92) and (2, 100, 4)
+inputs = processor(paths)                      # (2, 800, 800, 3)
+output = model(inputs["pixel_values"], training=False)   # (2, 100, 92) and (2, 100, 4)
 
 results = processor.post_process_object_detection(
     output, threshold=0.9,

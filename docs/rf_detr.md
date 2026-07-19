@@ -53,13 +53,13 @@ model = RFDETRDetect.from_weights("rfdetr-base")
 image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
 
-# Preprocess: rescale, ImageNet normalize, resize to model resolution
-processor = RFDETRImageProcessor(size={"height": 560, "width": 560})
+# Preprocess: rescale, ImageNet normalize, resize to the variant's resolution
+processor = RFDETRImageProcessor.from_weights("rfdetr-base")
 inputs = processor(image)
 
 # Inference
 output = model(inputs["pixel_values"], training=False)
-# output["pred_logits"]: (1, 300, 91), class logits per query
+# output["logits"]: (1, 300, 91), class logits per query
 # output["pred_boxes"]:  (1, 300, 4), normalized (cx, cy, w, h)
 
 # Post-process: sigmoid, top-K selection, convert boxes to pixel coords
@@ -110,7 +110,7 @@ model = RFDETRDetect.from_weights("rfdetr-base")
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
-processor = RFDETRImageProcessor(size={"height": 560, "width": 560})
+processor = RFDETRImageProcessor.from_weights("rfdetr-base")
 inputs = processor(img)
 output = model(inputs["pixel_values"], training=False)
 
@@ -174,10 +174,10 @@ from kerasformers.models.rf_detr import RFDETRInstanceSegment, RFDETRImageProces
 model = RFDETRInstanceSegment.from_weights("rfdetr-seg-small")
 model = RFDETRInstanceSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
 
-processor = RFDETRImageProcessor(size={"height": 384, "width": 384})
+processor = RFDETRImageProcessor.from_weights("rfdetr-seg-small")
 inputs = processor("image.jpg")
 out = model(inputs["pixel_values"], training=False)
-# out["pred_logits"]: (1, 100, 91), class logits per query
+# out["logits"]: (1, 100, 91), class logits per query
 # out["pred_boxes"]:  (1, 100, 4), normalized (cx, cy, w, h)
 # out["pred_masks"]:  (1, 100, 96, 96), mask logits (resolution // 4)
 ```

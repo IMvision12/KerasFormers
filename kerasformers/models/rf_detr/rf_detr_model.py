@@ -1654,9 +1654,9 @@ class RFDETRDetect(FunctionalBaseModel):
         last_hidden_state = base.output["last_hidden_state"]
         pred_boxes = base.output["pred_boxes"]
 
-        pred_logits = layers.Dense(num_classes, name="class_embed")(last_hidden_state)
+        logits = layers.Dense(num_classes, name="class_embed")(last_hidden_state)
 
-        outputs = {"pred_logits": pred_logits, "pred_boxes": pred_boxes}
+        outputs = {"logits": logits, "pred_boxes": pred_boxes}
         super().__init__(inputs=base.input, outputs=outputs, name=name, **kwargs)
 
         self.hidden_dim = hidden_dim
@@ -1814,7 +1814,7 @@ class RFDETRInstanceSegment(FunctionalBaseModel):
     to produce per-query masks.
 
     Takes a ``(B, H, W, 3)`` image (``RFDETRImageProcessor`` output) and returns
-    ``{"pred_logits": (B, num_queries, num_classes), "pred_boxes": (B, num_queries,
+    ``{"logits": (B, num_queries, num_classes), "pred_boxes": (B, num_queries,
     4), "pred_masks": (B, num_queries, H // mask_downsample_ratio, W //
     mask_downsample_ratio)}``.
 
@@ -1935,7 +1935,7 @@ class RFDETRInstanceSegment(FunctionalBaseModel):
             return_seg_features=True,
         )
 
-        pred_logits = layers.Dense(num_classes, name="class_embed")(last_hidden_state)
+        logits = layers.Dense(num_classes, name="class_embed")(last_hidden_state)
 
         if data_format == "channels_last":
             img_h, img_w = image_size[0], image_size[1]
@@ -1954,7 +1954,7 @@ class RFDETRInstanceSegment(FunctionalBaseModel):
         )
 
         outputs = {
-            "pred_logits": pred_logits,
+            "logits": logits,
             "pred_boxes": pred_boxes,
             "pred_masks": pred_masks,
         }

@@ -55,9 +55,13 @@ class Glm4vImageProcessor(BaseImageProcessor):
         self.image_std = np.array(image_std, dtype="float32")
 
     def _to_rgb_array(self, image):
+        import os
+
         from PIL import Image
 
-        if not isinstance(image, Image.Image):
+        if isinstance(image, (str, os.PathLike)):
+            image = Image.open(image)
+        elif not isinstance(image, Image.Image):
             image = Image.fromarray(np.asarray(image).astype("uint8"))
         return image.convert("RGB")
 

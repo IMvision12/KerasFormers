@@ -12,10 +12,18 @@ from kerasformers.utils.labels_util import COCO_91_CLASSES
 class RFDETRImageProcessor(BaseImageProcessor):
     """Preprocess images for RF-DETR inference.
 
+    Every variant trains at its own resolution, so prefer
+    ``RFDETRImageProcessor.from_weights(variant)``, which reads the right size
+    from the model config. Constructing the class bare gives rfdetr-base's 560,
+    which is wrong for every other variant.
+
     Args:
-        size: Target size as ``{"height": H, "width": W}``. Default:
-            ``{"height": 560, "width": 560}`` (rfdetr-base). Use the model's
-            resolution:
+        variant: Release variant whose resolution to adopt, for example
+            ``"rfdetr-nano"``. Ignored when ``size`` is given explicitly.
+        size: Target size as ``{"height": H, "width": W}``. Overrides
+            ``variant``. Defaults to the variant's resolution, or
+            ``{"height": 560, "width": 560}`` (rfdetr-base) when neither is
+            given:
 
             * Detection (``RFDETRDetect``): 384 (nano), 512 (small),
               576 (medium), 560 (base), 704 (large).
@@ -49,10 +57,12 @@ class RFDETRImageProcessor(BaseImageProcessor):
         image_std: Optional[Tuple[float, ...]] = None,
         return_tensor: bool = True,
         data_format: Optional[str] = None,
+        variant: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.size = size if size is not None else {"height": 560, "width": 560}
+        self.variant = variant
+        self.size = size if size is not None else self.variant_size(variant)
         self.resample = resample
         self.do_rescale = do_rescale
         self.rescale_factor = rescale_factor
@@ -64,14 +74,35 @@ class RFDETRImageProcessor(BaseImageProcessor):
         self.return_tensor = return_tensor
         self.data_format = data_format
 
+    @staticmethod
+    def variant_size(variant: Optional[str]) -> Dict[str, int]:
+        """Square target size for a release variant.
+
+        Read from the model config rather than a table kept here, so the
+        processor cannot drift from the resolution the variant was built for.
+        Unknown or missing variants fall back to rfdetr-base's 560.
+        """
+        resolution = 560
+        if variant is not None:
+            from kerasformers.models.rf_detr import rf_detr_config
+
+            for name in ("RF_DETR_DETECT_CONFIG", "RF_DETR_SEGMENT_CONFIG"):
+                entry = getattr(rf_detr_config, name, {}).get(variant)
+                if entry and entry.get("resolution"):
+                    resolution = entry["resolution"]
+                    break
+        return {"height": resolution, "width": resolution}
+
     def __call__(
-        self, image: Union[str, np.ndarray, Image.Image]
-    ) -> Union[keras.KerasTensor, np.ndarray]:
+        self, image: Union[str, np.ndarray, Image.Image, List]
+    ) -> Dict[str, Union[keras.KerasTensor, np.ndarray]]:
         return self.call(image)
 
     def call(
-        self, image: Union[str, np.ndarray, Image.Image]
-    ) -> Union[keras.KerasTensor, np.ndarray]:
+        self, image: Union[str, np.ndarray, Image.Image, List]
+    ) -> Dict[str, Union[keras.KerasTensor, np.ndarray]]:
+        if isinstance(image, (list, tuple)):
+            return self.stack_images(image)
         image, _, _, _ = self.preprocess_image(
             image,
             target_size=(self.size["height"], self.size["width"]),
@@ -140,7 +171,7 @@ def rf_detr_post_process_object_detection(
     normalized cxcywh to xyxy pixel coordinates, and filters by score threshold.
 
     Args:
-        outputs: Raw model output dict with keys ``"pred_logits"`` of shape
+        outputs: Raw model output dict with keys ``"logits"`` of shape
             ``(B, num_queries, num_classes)`` and ``"pred_boxes"`` of shape
             ``(B, num_queries, 4)`` in normalized ``(cx, cy, w, h)`` format.
         threshold: Minimum confidence score to keep a detection.
@@ -175,7 +206,7 @@ def rf_detr_post_process_object_detection(
                 print(f"{name}: {score:.2f}")
         ```
     """
-    logits = keras.ops.convert_to_numpy(outputs["pred_logits"])
+    logits = keras.ops.convert_to_numpy(outputs["logits"])
     boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
 
     batch_size = logits.shape[0]
@@ -254,7 +285,7 @@ def rf_detr_post_process_instance_segmentation(
     mask.
 
     Args:
-        outputs: Dict with ``pred_logits`` ``(B, Q, num_classes)``, ``pred_boxes``
+        outputs: Dict with ``logits`` ``(B, Q, num_classes)``, ``pred_boxes``
             ``(B, Q, 4)`` in normalized (cx, cy, w, h), and ``pred_masks``
             ``(B, Q, mh, mw)`` of mask logits.
         threshold: Minimum class score to keep a detection.
@@ -270,7 +301,7 @@ def rf_detr_post_process_instance_segmentation(
         ``"label_names"``, ``"boxes"`` (xyxy), and ``"masks"``: a boolean array of
         shape ``(K, H, W)`` for each image.
     """
-    logits = keras.ops.convert_to_numpy(outputs["pred_logits"])
+    logits = keras.ops.convert_to_numpy(outputs["logits"])
     boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
     mask_logits = keras.ops.convert_to_numpy(outputs["pred_masks"]).astype(np.float32)
 

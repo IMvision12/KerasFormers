@@ -80,7 +80,9 @@ class DFineImageProcessor(BaseImageProcessor):
     def __call__(self, image: Union[str, np.ndarray, "Image.Image"]):
         return self.call(image)
 
-    def call(self, image: Union[str, np.ndarray, "Image.Image"]):
+    def call(self, image: Union[str, np.ndarray, "Image.Image", List]):
+        if isinstance(image, (list, tuple)):
+            return self.stack_images(image)
         if isinstance(image, np.ndarray) and image.ndim == 4:
             image = image[0]
         arr = load_image(image)
