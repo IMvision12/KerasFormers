@@ -325,7 +325,7 @@ if __name__ == "__main__":
         pt_boxes = pt_out.pred_boxes.cpu().numpy()
 
         keras_out = keras_model(norm, training=False)
-        keras_logits = keras.ops.convert_to_numpy(keras_out["pred_logits"])
+        keras_logits = keras.ops.convert_to_numpy(keras_out["logits"])
         keras_boxes = keras.ops.convert_to_numpy(keras_out["pred_boxes"])
 
         logits_diff = float(np.max(np.abs(pt_logits - keras_logits)))
@@ -397,7 +397,7 @@ if __name__ == "__main__":
         pt_masks = pt_out.pred_masks.cpu().numpy()
 
         keras_out = keras_model(norm, training=False)
-        keras_logits = keras.ops.convert_to_numpy(keras_out["pred_logits"])
+        keras_logits = keras.ops.convert_to_numpy(keras_out["logits"])
         keras_boxes = keras.ops.convert_to_numpy(keras_out["pred_boxes"])
         keras_masks = keras.ops.convert_to_numpy(keras_out["pred_masks"])
 

@@ -59,7 +59,7 @@ inputs = processor(image)
 
 # Inference
 output = model(inputs["pixel_values"], training=False)
-# output["pred_logits"]: (1, 300, 91), class logits per query
+# output["logits"]: (1, 300, 91), class logits per query
 # output["pred_boxes"]:  (1, 300, 4), normalized (cx, cy, w, h)
 
 # Post-process: sigmoid, top-K selection, convert boxes to pixel coords
@@ -177,7 +177,7 @@ model = RFDETRInstanceSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
 processor = RFDETRImageProcessor(size={"height": 384, "width": 384})
 inputs = processor("image.jpg")
 out = model(inputs["pixel_values"], training=False)
-# out["pred_logits"]: (1, 100, 91), class logits per query
+# out["logits"]: (1, 100, 91), class logits per query
 # out["pred_boxes"]:  (1, 100, 4), normalized (cx, cy, w, h)
 # out["pred_masks"]:  (1, 100, 96, 96), mask logits (resolution // 4)
 ```

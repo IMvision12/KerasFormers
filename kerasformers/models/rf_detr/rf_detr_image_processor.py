@@ -140,7 +140,7 @@ def rf_detr_post_process_object_detection(
     normalized cxcywh to xyxy pixel coordinates, and filters by score threshold.
 
     Args:
-        outputs: Raw model output dict with keys ``"pred_logits"`` of shape
+        outputs: Raw model output dict with keys ``"logits"`` of shape
             ``(B, num_queries, num_classes)`` and ``"pred_boxes"`` of shape
             ``(B, num_queries, 4)`` in normalized ``(cx, cy, w, h)`` format.
         threshold: Minimum confidence score to keep a detection.
@@ -175,7 +175,7 @@ def rf_detr_post_process_object_detection(
                 print(f"{name}: {score:.2f}")
         ```
     """
-    logits = keras.ops.convert_to_numpy(outputs["pred_logits"])
+    logits = keras.ops.convert_to_numpy(outputs["logits"])
     boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
 
     batch_size = logits.shape[0]
@@ -254,7 +254,7 @@ def rf_detr_post_process_instance_segmentation(
     mask.
 
     Args:
-        outputs: Dict with ``pred_logits`` ``(B, Q, num_classes)``, ``pred_boxes``
+        outputs: Dict with ``logits`` ``(B, Q, num_classes)``, ``pred_boxes``
             ``(B, Q, 4)`` in normalized (cx, cy, w, h), and ``pred_masks``
             ``(B, Q, mh, mw)`` of mask logits.
         threshold: Minimum class score to keep a detection.
@@ -270,7 +270,7 @@ def rf_detr_post_process_instance_segmentation(
         ``"label_names"``, ``"boxes"`` (xyxy), and ``"masks"``: a boolean array of
         shape ``(K, H, W)`` for each image.
     """
-    logits = keras.ops.convert_to_numpy(outputs["pred_logits"])
+    logits = keras.ops.convert_to_numpy(outputs["logits"])
     boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
     mask_logits = keras.ops.convert_to_numpy(outputs["pred_masks"]).astype(np.float32)
 
