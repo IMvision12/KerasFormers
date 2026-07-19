@@ -146,6 +146,25 @@ def _common(rest):
     return rest
 
 
+def resolve_key(name, state):
+    """First candidate key present in ``state``, or None.
+
+    All six decoder layers share one bbox head (``decoder_bbox_embed_share``),
+    and the two released checkpoints disagree on where it lives: tiny stores it
+    top-level as ``bbox_embed.0.*``, base under ``model.decoder.bbox_embed.0.*``.
+    """
+    candidates = [name]
+    shared = re.sub(r"bbox_embed\.\d+\.", "bbox_embed.0.", name)
+    if shared != name:
+        candidates.append(shared)
+    for cand in list(candidates):
+        if cand.startswith("bbox_embed."):
+            candidates.append("model.decoder." + cand)
+        elif cand.startswith("model."):
+            candidates.append(cand[len("model.") :])
+    return next((c for c in candidates if c in state), None)
+
+
 def transfer_grounding_dino_weights(keras_model, hf_state_dict):
     if not keras_model.built or not keras_model.weights:
         keras_model(
@@ -160,13 +179,10 @@ def transfer_grounding_dino_weights(keras_model, hf_state_dict):
     state = hf_state_dict
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
         kname = weight.path.split("/", 1)[1].replace("/", ".")
-        hf = keras_to_hf(kname)
-        if hf not in state and re.match(r"bbox_embed\.\d+\.", hf):
-            hf = re.sub(r"bbox_embed\.\d+\.", "bbox_embed.0.", hf)
-        if hf not in state and hf.startswith("model.") and hf[len("model.") :] in state:
-            hf = hf[len("model.") :]
-        if hf not in state:
-            raise WeightMappingError(weight.path, hf)
+        mapped = keras_to_hf(kname)
+        hf = resolve_key(mapped, state)
+        if hf is None:
+            raise WeightMappingError(weight.path, mapped)
         value = state[hf]
         if kname.endswith("patch_embeddings_projection.kernel") or re.search(
             r"input_proj_\d+_conv\.kernel", kname
@@ -193,7 +209,7 @@ if __name__ == "__main__":
     from PIL import Image
 
     from kerasformers.models.grounding_dino import (
-        GroundingDinoModel,
+        GroundingDinoForObjectDetection,
         GroundingDinoProcessor,
     )
     from kerasformers.models.grounding_dino.grounding_dino_config import (
@@ -208,15 +224,28 @@ if __name__ == "__main__":
     rng = np.random.default_rng(0)
 
     def cosine(a, b):
-        a, b = a.astype("float64").ravel(), b.astype("float64").ravel()
+        a = np.nan_to_num(a.astype("float64"), neginf=-50.0, posinf=50.0).ravel()
+        b = np.nan_to_num(b.astype("float64"), neginf=-50.0, posinf=50.0).ravel()
         return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
+
+    def detections(logits, boxes, threshold=0.3):
+        """Confident queries only, sorted by score. The full 900-query tensor is
+        top-k ordered, so tiny numeric drift permutes the low-scoring tail and
+        makes an elementwise comparison meaningless."""
+        lg = np.nan_to_num(logits[0], neginf=-50.0, posinf=50.0)
+        scores = (1.0 / (1.0 + np.exp(-np.clip(lg, -50, 50)))).max(axis=-1)
+        keep = np.where(scores > threshold)[0]
+        order = keep[np.argsort(-scores[keep])]
+        return scores[order], boxes[0][order]
 
     for variant, meta in GROUNDING_DINO_WEIGHTS_URLS.items():
         hf_id = HF_SOURCES[variant]
         out_path = os.path.basename(meta["url"])
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
-        model = GroundingDinoModel.from_weights("hf:" + hf_id)
+        # The detection class, not the backbone: the six decoder bbox_embed
+        # heads live on it, and a backbone-only export leaves them unsaved.
+        model = GroundingDinoForObjectDetection.from_weights("hf:" + hf_id)
 
         img = Image.fromarray(rng.integers(0, 255, (480, 480, 3), dtype="uint8"))
         proc = GroundingDinoProcessor.from_weights("hf:" + hf_id)
@@ -228,9 +257,14 @@ if __name__ == "__main__":
         am = np.asarray(keras.ops.convert_to_numpy(kin["attention_mask"])).astype(
             "int64"
         )
-        k_h = np.asarray(
-            keras.ops.convert_to_numpy(model(kin)["encoder_last_hidden_state_text"])
-        )
+        with torch.no_grad():
+            k_out = model(kin)
+            k_enc = model.encode(kin)
+        k_logits = np.asarray(keras.ops.convert_to_numpy(k_out["logits"]))
+        k_boxes = np.asarray(keras.ops.convert_to_numpy(k_out["pred_boxes"]))
+        k_vis = np.asarray(keras.ops.convert_to_numpy(k_enc["vision"]))
+        k_txt = np.asarray(keras.ops.convert_to_numpy(k_enc["text"]))
+        del k_out, k_enc
         n_bytes = sum(int(np.prod(w.shape)) * 4 for w in model.weights)
         if out_path.endswith(".json"):
             model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
@@ -246,16 +280,39 @@ if __name__ == "__main__":
         keras.backend.clear_session()
         gc.collect()
 
-        hf_model = transformers.GroundingDinoModel.from_pretrained(hf_id).eval()
+        hf_model = transformers.GroundingDinoForObjectDetection.from_pretrained(
+            hf_id
+        ).eval()
         with torch.no_grad():
             hf_out = hf_model(
                 pixel_values=torch.from_numpy(pv),
                 input_ids=torch.from_numpy(ids),
                 attention_mask=torch.from_numpy(am),
+                output_hidden_states=True,
             )
-        cos = cosine(k_h, hf_out.encoder_last_hidden_state_text.numpy())
-        print(f"  encoder_last_hidden_state_text cosine: {cos:.6f}")
-        if cos < 0.99:
-            raise ValueError(f"{variant}: Grounding DINO parity failed (cos={cos:.4f})")
+        cos_vis = cosine(k_vis, hf_out.encoder_last_hidden_state_vision.numpy())
+        cos_txt = cosine(k_txt, hf_out.encoder_last_hidden_state_text.numpy())
+        cos_logits = cosine(k_logits, hf_out.logits.numpy())
+        print(f"  encoder vision cosine: {cos_vis:.6f}")
+        print(f"  encoder text cosine:   {cos_txt:.6f}")
+        print(f"  logits cosine:         {cos_logits:.6f}")
+
+        k_scores, k_dets = detections(k_logits, k_boxes)
+        h_scores, h_dets = detections(hf_out.logits.numpy(), hf_out.pred_boxes.numpy())
+        print(f"  detections: keras {len(k_scores)}, hf {len(h_scores)}")
+        if len(k_scores) != len(h_scores):
+            raise ValueError(
+                f"{variant}: detection count differs "
+                f"(keras={len(k_scores)}, hf={len(h_scores)})"
+            )
+        box_diff = float(np.abs(k_dets - h_dets).max()) if len(k_dets) else 0.0
+        score_diff = float(np.abs(k_scores - h_scores).max()) if len(k_scores) else 0.0
+        print(f"  detected box max|diff|:   {box_diff:.3e}")
+        print(f"  detected score max|diff|: {score_diff:.3e}")
+        if min(cos_vis, cos_txt, cos_logits) < 0.99 or box_diff > 5e-3:
+            raise ValueError(
+                f"{variant}: Grounding DINO parity failed (vision={cos_vis:.4f}, "
+                f"text={cos_txt:.4f}, logits={cos_logits:.4f}, boxes={box_diff:.2e})"
+            )
         del hf_model
         gc.collect()
