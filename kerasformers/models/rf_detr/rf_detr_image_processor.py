@@ -94,13 +94,15 @@ class RFDETRImageProcessor(BaseImageProcessor):
         return {"height": resolution, "width": resolution}
 
     def __call__(
-        self, image: Union[str, np.ndarray, Image.Image]
-    ) -> Union[keras.KerasTensor, np.ndarray]:
+        self, image: Union[str, np.ndarray, Image.Image, List]
+    ) -> Dict[str, Union[keras.KerasTensor, np.ndarray]]:
         return self.call(image)
 
     def call(
-        self, image: Union[str, np.ndarray, Image.Image]
-    ) -> Union[keras.KerasTensor, np.ndarray]:
+        self, image: Union[str, np.ndarray, Image.Image, List]
+    ) -> Dict[str, Union[keras.KerasTensor, np.ndarray]]:
+        if isinstance(image, (list, tuple)):
+            return self.stack_images(image)
         image, _, _, _ = self.preprocess_image(
             image,
             target_size=(self.size["height"], self.size["width"]),

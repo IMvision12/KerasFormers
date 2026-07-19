@@ -63,6 +63,24 @@ class BaseImageProcessor(PreprocessorMixin):
             f"{type(self).__name__} must implement `call(images)`."
         )
 
+    def stack_images(self, images):
+        """Preprocess each image and concatenate along the batch axis.
+
+        For processors whose ``call`` returns ``{"pixel_values": (1, ...)}``
+        for a single image: delegating a list here is what gives them batch
+        support. Safe because these resize to one fixed size, so the parts
+        always share a shape.
+        """
+        if len(images) == 0:
+            raise ValueError(
+                f"{type(self).__name__} received an empty image list; pass at "
+                f"least one image."
+            )
+        values = [self.call(image)["pixel_values"] for image in images]
+        if getattr(self, "return_tensor", True):
+            return {"pixel_values": ops.concatenate(values, axis=0)}
+        return {"pixel_values": np.concatenate(values, axis=0)}
+
     @classmethod
     def from_hf(cls, repo, **kwargs):
         import inspect
