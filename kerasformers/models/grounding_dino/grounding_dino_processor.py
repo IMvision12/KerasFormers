@@ -17,9 +17,9 @@ class GroundingDinoProcessor(BaseProcessor):
     prompt ending in ``"."`` (the convention the model was trained on), then
     tokenizes and preprocesses the image(s).
 
-    ``post_process`` turns ``logits`` / ``pred_boxes`` into per-image boxes
-    (xyxy, scaled to the target size), scores, and the token spans above the
-    thresholds.
+    ``post_process_object_detection`` turns ``logits`` / ``pred_boxes`` into
+    per-image ``{scores, labels, boxes}``, matching the other detection
+    processors, plus ``text_labels`` when ``input_ids`` is supplied.
     """
 
     TOKENIZER_CLS = GroundingDinoTokenizer
@@ -86,21 +86,34 @@ class GroundingDinoProcessor(BaseProcessor):
             out["pixel_mask"] = ops.convert_to_tensor(img["pixel_mask"])
         return out
 
-    def post_process(self, outputs, input_ids, target_sizes, box_threshold=0.3):
-        """Decode detector outputs to per-image ``{boxes, scores, token_ids}``.
+    def post_process_object_detection(
+        self, outputs, threshold=0.3, target_sizes=None, input_ids=None
+    ):
+        """Decode detector outputs to per-image ``{scores, labels, boxes}``.
 
-        Boxes are converted (cx, cy, w, h) -> (x0, y0, x1, y1) and scaled to each
-        ``target_sizes`` ``(height, width)``; queries whose max token score
-        exceeds ``box_threshold`` are kept.
+        Boxes are converted (cx, cy, w, h) -> (x0, y0, x1, y1), and scaled to
+        each ``target_sizes`` ``(height, width)`` when given (otherwise left
+        normalized). Queries whose max token score exceeds ``threshold`` are
+        kept.
+
+        ``labels`` is the prompt-token *position* each query matched, which is
+        what the open-set head actually predicts. Pass ``input_ids`` to also get
+        ``text_labels``, those positions decoded back to strings. Note that a
+        query matches one token, not a span, so a multi-word phrase such as
+        "paddle board" is reported by whichever single token scored highest.
+        Prompts read best without articles: "a paddle" lets the "a" outscore
+        the noun.
         """
         logits = np.asarray(ops.convert_to_numpy(outputs["logits"]))
         boxes = np.asarray(ops.convert_to_numpy(outputs["pred_boxes"]))
-        ids = np.asarray(ops.convert_to_numpy(ops.convert_to_tensor(input_ids)))
         probs = 1.0 / (1.0 + np.exp(-np.clip(logits, -50, 50)))
         scores = probs.max(axis=-1)  # (B, num_queries)
+        ids = None
+        if input_ids is not None:
+            ids = np.asarray(ops.convert_to_numpy(ops.convert_to_tensor(input_ids)))
         results = []
-        for i, (h, w) in enumerate(target_sizes):
-            keep = scores[i] > box_threshold
+        for i in range(scores.shape[0]):
+            keep = scores[i] > threshold
             cx, cy, bw, bh = (
                 boxes[i, :, 0],
                 boxes[i, :, 1],
@@ -108,30 +121,26 @@ class GroundingDinoProcessor(BaseProcessor):
                 boxes[i, :, 3],
             )
             xyxy = np.stack(
-                [
-                    (cx - bw / 2) * w,
-                    (cy - bh / 2) * h,
-                    (cx + bw / 2) * w,
-                    (cy + bh / 2) * h,
-                ],
-                axis=-1,
+                [cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2], axis=-1
             )
+            if target_sizes is not None:
+                h, w = target_sizes[i]
+                xyxy = xyxy * np.array([w, h, w, h], dtype="float32")
             token_argmax = probs[i].argmax(axis=-1)
-            if ids.ndim == 2:
-                limit = ids.shape[1] - 1
-                token_ids = [
-                    int(ids[i, min(int(token_argmax[j]), limit)])
-                    for j in np.where(keep)[0]
+            labels = [int(token_argmax[j]) for j in np.where(keep)[0]]
+            result = {
+                "scores": scores[i][keep],
+                "labels": labels,
+                "boxes": xyxy[keep],
+            }
+            if ids is not None:
+                row = ids[i] if ids.ndim == 2 else ids
+                limit = len(row) - 1
+                result["text_labels"] = [
+                    self.tokenizer.decode([int(row[min(label, limit)])])
+                    for label in labels
                 ]
-            else:
-                token_ids = [int(token_argmax[j]) for j in np.where(keep)[0]]
-            results.append(
-                {
-                    "boxes": xyxy[keep],
-                    "scores": scores[i][keep],
-                    "token_ids": token_ids,
-                }
-            )
+            results.append(result)
         return results
 
     def get_config(self):

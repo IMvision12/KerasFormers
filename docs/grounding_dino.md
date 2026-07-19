@@ -72,29 +72,42 @@ from kerasformers.models.grounding_dino import (
 model = GroundingDinoForObjectDetection.from_weights("grounding_dino_tiny")
 processor = GroundingDinoProcessor.from_weights("grounding_dino_tiny")
 
-image = Image.open("image.jpg").convert("RGB")
-text = "a cat. a remote control."
+image = Image.open("assets/coco/coco_paddleboard.jpg").convert("RGB")
 
-inputs = processor(images=image, text=text)
+# Prompts read best without articles: in "a paddle" the "a" can outscore the noun.
+inputs = processor(images=image, text=["person", "paddle", "board"])
 outputs = model(inputs)
 
-results = processor.post_process(
+results = processor.post_process_object_detection(
     outputs,
-    input_ids=inputs["input_ids"],
+    threshold=0.3,
     target_sizes=[(image.height, image.width)],
-    box_threshold=0.3,
+    input_ids=inputs["input_ids"],
 )[0]
 
-for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
-    x1, y1, x2, y2 = [float(v) for v in box]
-    print(f"{label}: {score:.2f} at [{x1:.0f}, {y1:.0f}, {x2:.0f}, {y2:.0f}]")
-# a cat: 0.61 at [12, 51, 316, 472]
-# a remote control: 0.49 at [40, 72, 176, 117]
+detections = sorted(
+    zip(results["scores"], results["text_labels"], results["boxes"]),
+    key=lambda d: -float(d[0]),
+)
+for score, name, box in detections:
+    print(f"{name:8s} {float(score):.3f}  {[round(float(v)) for v in box]}")
 ```
 
-`post_process` returns, per image, `boxes` (xyxy pixel coords), `scores`, and
-`labels` (the prompt phrase each box matched). `box_threshold` filters low-scoring
-detections.
+```
+person   0.911  [449, 119, 500, 242]
+board    0.603  [361, 230, 578, 247]
+paddle   0.588  [399, 159, 476, 222]
+```
+
+`post_process_object_detection` returns, per image, `scores`, `labels`, and `boxes`
+(xyxy pixel coordinates), the same schema as every other detector in the library.
+`labels` holds the prompt-**token position** each query matched, which is what the
+open-set head predicts. Pass `input_ids` to also get `text_labels`, those positions
+decoded back to strings.
+
+A query matches a single token rather than a span, so a multi-word phrase like
+"paddle board" is reported by whichever token scored highest. Keep prompts to single
+words where you can. Omitting `target_sizes` leaves boxes normalized to `[0, 1]`.
 
 ## Parity vs HuggingFace Reference
 
