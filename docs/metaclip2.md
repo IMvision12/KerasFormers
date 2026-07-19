@@ -1,328 +1,483 @@
 # MetaCLIP 2
 
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> eleven of the sixteen MetaCLIP 2 variants have weights on the kerasformers
+<a href="https://github.com/IMvision12/KerasFormers/releases/tag/metaclip2" style="color:#1a5c8a;">metaclip2</a>
+release tag and download automatically. The remaining five are converted from
+Hugging Face on the fly: see <b>Variants without release weights</b> below.
+</div>
+<br>
+
+MetaCLIP 2 is a CLIP-architecture dual encoder trained on a worldwide,
+multi-language data distribution rather than an English-filtered one. The
+architecture matches OpenAI CLIP, so the layer code is shared; what differs is
+the data recipe, a **901629-token XLM-RoBERTa vocabulary** in place of CLIP's
+49408-token English BPE, and a set of `worldwide` variants.
+
+Three `mt5` variants use a SentencePiece tokenizer instead, exposed separately
+as `MetaClip2Mt5Tokenizer`.
+
 **Paper**: [MetaCLIP 2: A Worldwide Scaling Recipe](https://arxiv.org/abs/2507.22062)
 
-MetaCLIP 2 is Meta's second-generation contrastive vision-language model,
-trained on multilingual image-text pairs. Architecturally it is a direct
-descendant of OpenAI CLIP: same ViT vision tower, same causal-attention
-text tower, same logit-scale head, differing only in:
+## API
 
-- **Multilingual text encoder** in two tokenizer families:
-  - **Worldwide**: XLM-R SentencePiece tokenizer, vocab `901 629`, 300+
-    languages (13 variants).
-  - **mT5**: SigLIP-style SentencePiece tokenizer, vocab `250 100`
-    (3 variants).
-- **Configurable MLP activation** (`gelu` for most variants, `quick_gelu`
-  for the `huge-quickgelu` checkpoint).
-- **EOS pooling** via explicit `eos_token_id` lookup instead of the
-  `argmax-over-token-ids` trick CLIP uses (XLM-R's mask token
-  `901628` would break that trick; mT5's `eos=1` also wouldn't be the
-  argmax).
-
-kerasformers reuses CLIP's attention, position-embedding, and logit-scale
-layers directly; only the model wiring and tokenizers are MetaCLIP
-2-specific.
-
-## Available Models
-
-### Worldwide (XLM-R tokenizer, vocab 901 629, eos = 2)
-
-| Variant | Image | Patch | Vision hidden / L | Text hidden / L | Proj | Activation |
-|---|---|---|---|---|---|---|
-| `MetaClip2WorldwideS16` | 224 | 16 | 384 / 12 | 384 / 12 | 384 | gelu |
-| `MetaClip2WorldwideS16_384` | 384 | 16 | 384 / 12 | 384 / 12 | 384 | gelu |
-| `MetaClip2WorldwideM16` | 224 | 16 | 512 / 12 | 512 / 12 | 512 | gelu |
-| `MetaClip2WorldwideM16_384` | 384 | 16 | 512 / 12 | 512 / 12 | 512 | gelu |
-| `MetaClip2WorldwideB16` | 224 | 16 | 768 / 12 | 512 / 12 | 512 | gelu |
-| `MetaClip2WorldwideB16_384` | 384 | 16 | 768 / 12 | 512 / 12 | 512 | gelu |
-| `MetaClip2WorldwideB32` | 224 | 32 | 768 / 12 | 512 / 12 | 512 | gelu |
-| `MetaClip2WorldwideB32_384` | 384 | 32 | 768 / 12 | 512 / 12 | 512 | gelu |
-| `MetaClip2WorldwideL14` | 224 | 14 | 1024 / 24 | 768 / 12 | 768 | gelu |
-| `MetaClip2WorldwideHugeQuickgelu` | 224 | 14 | 1280 / 32 | 1024 / 24 | 1024 | quick_gelu |
-| `MetaClip2WorldwideHuge378` | 378 | 14 | 1280 / 32 | 1024 / 24 | 1024 | gelu |
-| `MetaClip2WorldwideGiant` | 224 | 14 | 1664 / 48 | 1280 / 32 | 1280 | gelu |
-| `MetaClip2WorldwideGiant378` | 378 | 14 | 1664 / 48 | 1280 / 32 | 1280 | gelu |
-
-### mT5 (mT5 tokenizer, vocab 250 100, eos = 1)
-
-Same CLIP-style transformer architecture as the Worldwide variants; only
-the tokenizer vocab and EOS id differ.
-
-| Variant | Image | Patch | Vision hidden / L | Text hidden / L | Proj | Activation |
-|---|---|---|---|---|---|---|
-| `MetaClip2Mt5WorldwideS16` | 224 | 16 | 384 / 12 | 384 / 12 | 384 | gelu |
-| `MetaClip2Mt5WorldwideM16` | 224 | 16 | 512 / 12 | 512 / 12 | 512 | gelu |
-| `MetaClip2Mt5WorldwideB32` | 224 | 32 | 768 / 12 | 512 / 12 | 512 | gelu |
-
-## Basic Usage
+### MetaClip2Model
 
 ```python
+MetaClip2Model(embed_dim=512, image_size=224, vision_num_layers=12,
+               vision_hidden_dim=768, vision_patch_size=32,
+               vision_num_heads=None, max_seq_len=77, vocab_size=901629,
+               text_hidden_dim=512, text_num_heads=8, text_num_layers=12,
+               vision_mlp_ratio=4.0, text_mlp_ratio=4.0, hidden_act='gelu',
+               eos_token_id=2, input_tensor=None, name='MetaClip2Model')
+```
+
+MetaCLIP 2 (multilingual / worldwide) contrastive vision-language model.
+
+**Parameters**
+
+- **embed_dim** (`int`, *optional*, defaults to `512`): shared joint embedding dimension.
+- **image_size** (`int`, *optional*, defaults to `224`): input image spec. An `int` builds an `N x N x 3` input, a 2-tuple `(H, W)` assumes 3 channels, and a 3-tuple follows the active `keras.config.image_data_format()`.
+- **vision_num_layers** (`int`, *optional*, defaults to `12`): ViT encoder depth.
+- **vision_hidden_dim** (`int`, *optional*, defaults to `768`): ViT hidden dimension.
+- **vision_patch_size** (`int`, *optional*, defaults to `32`): ViT patch size.
+- **vision_num_heads** (`NoneType`, *optional*, defaults to `None`): ViT attention heads.
+- **max_seq_len** (`int`, *optional*, defaults to `77`): text input length.
+- **vocab_size** (`int`, *optional*, defaults to `901629`): tokenizer vocabulary size.
+- **text_hidden_dim** (`int`, *optional*, defaults to `512`): text encoder hidden dimension.
+- **text_num_heads** (`int`, *optional*, defaults to `8`): text encoder attention heads.
+- **text_num_layers** (`int`, *optional*, defaults to `12`): text encoder depth.
+- **vision_mlp_ratio** (`float`, *optional*, defaults to `4.0`): MLP expansion ratio in the vision blocks.
+- **text_mlp_ratio** (`float`, *optional*, defaults to `4.0`): MLP expansion ratio in the text blocks.
+- **hidden_act** (`str`, *optional*, defaults to `'gelu'`): MLP activation.
+- **eos_token_id** (`int`, *optional*, defaults to `2`): end-of-sequence token id.
+- **input_tensor** (`NoneType`, *optional*, defaults to `None`): pre-existing input tensors to build on.
+- **name** (`str`, *optional*, defaults to `'MetaClip2Model'`): model name.
+
+### MetaClip2ZeroShotClassify
+
+```python
+MetaClip2ZeroShotClassify(embed_dim=512, image_size=224,
+                          vision_num_layers=12, vision_hidden_dim=768,
+                          vision_patch_size=32, vision_num_heads=None,
+                          max_seq_len=77, vocab_size=901629,
+                          text_hidden_dim=512, text_num_heads=8,
+                          text_num_layers=12, vision_mlp_ratio=4.0,
+                          text_mlp_ratio=4.0, hidden_act='gelu',
+                          eos_token_id=2, input_tensor=None,
+                          name='MetaClip2ZeroShotClassify')
+```
+
+MetaCLIP 2 + contrastive similarity head for zero-shot classification / retrieval.
+
+**Parameters**
+
+- **embed_dim** (`int`, *optional*, defaults to `512`): shared joint embedding dimension.
+- **image_size** (`int`, *optional*, defaults to `224`): input image spec. An `int` builds an `N x N x 3` input, a 2-tuple `(H, W)` assumes 3 channels, and a 3-tuple follows the active `keras.config.image_data_format()`.
+- **vision_num_layers** (`int`, *optional*, defaults to `12`): ViT encoder depth.
+- **vision_hidden_dim** (`int`, *optional*, defaults to `768`): ViT hidden dimension.
+- **vision_patch_size** (`int`, *optional*, defaults to `32`): ViT patch size.
+- **vision_num_heads** (`NoneType`, *optional*, defaults to `None`): ViT attention heads.
+- **max_seq_len** (`int`, *optional*, defaults to `77`): text input length.
+- **vocab_size** (`int`, *optional*, defaults to `901629`): tokenizer vocabulary size.
+- **text_hidden_dim** (`int`, *optional*, defaults to `512`): text encoder hidden dimension.
+- **text_num_heads** (`int`, *optional*, defaults to `8`): text encoder attention heads.
+- **text_num_layers** (`int`, *optional*, defaults to `12`): text encoder depth.
+- **vision_mlp_ratio** (`float`, *optional*, defaults to `4.0`): MLP expansion ratio in the vision blocks.
+- **text_mlp_ratio** (`float`, *optional*, defaults to `4.0`): MLP expansion ratio in the text blocks.
+- **hidden_act** (`str`, *optional*, defaults to `'gelu'`): MLP activation.
+- **eos_token_id** (`int`, *optional*, defaults to `2`): end-of-sequence token id.
+- **input_tensor** (`NoneType`, *optional*, defaults to `None`): pre-existing input tensors to build on.
+- **name** (`str`, *optional*, defaults to `'MetaClip2ZeroShotClassify'`): model name.
+
+### MetaClip2ImageClassify
+
+```python
+MetaClip2ImageClassify(num_classes=1000, image_size=224,
+                       vision_num_layers=12, vision_hidden_dim=768,
+                       vision_patch_size=16, vision_num_heads=None,
+                       vision_mlp_ratio=4.0, hidden_act='gelu',
+                       input_tensor=None, name='MetaClip2ImageClassify')
+```
+
+MetaCLIP 2 vision encoder + linear image-classification head.
+
+**Parameters**
+
+- **num_classes** (`int`, *optional*, defaults to `1000`): number of output classes.
+- **image_size** (`int`, *optional*, defaults to `224`): input image spec. An `int` builds an `N x N x 3` input, a 2-tuple `(H, W)` assumes 3 channels, and a 3-tuple follows the active `keras.config.image_data_format()`.
+- **vision_num_layers** (`int`, *optional*, defaults to `12`): ViT encoder depth.
+- **vision_hidden_dim** (`int`, *optional*, defaults to `768`): ViT hidden dimension.
+- **vision_patch_size** (`int`, *optional*, defaults to `16`): ViT patch size.
+- **vision_num_heads** (`NoneType`, *optional*, defaults to `None`): ViT attention heads.
+- **vision_mlp_ratio** (`float`, *optional*, defaults to `4.0`): MLP expansion ratio in the vision blocks.
+- **hidden_act** (`str`, *optional*, defaults to `'gelu'`): MLP activation.
+- **input_tensor** (`NoneType`, *optional*, defaults to `None`): pre-existing input tensors to build on.
+- **name** (`str`, *optional*, defaults to `'MetaClip2ImageClassify'`): model name.
+
+### MetaClip2VisionModel
+
+```python
+MetaClip2VisionModel(image_size=224, vision_num_layers=12,
+                     vision_hidden_dim=768, vision_patch_size=32,
+                     vision_num_heads=None, vision_mlp_ratio=4.0,
+                     hidden_act='gelu', input_tensor=None,
+                     name='MetaClip2VisionModel')
+```
+
+MetaCLIP 2 vision tower as a standalone model: no text encoder, no projection.
+
+**Parameters**
+
+- **image_size** (`int`, *optional*, defaults to `224`): input image spec. An `int` builds an `N x N x 3` input, a 2-tuple `(H, W)` assumes 3 channels, and a 3-tuple follows the active `keras.config.image_data_format()`.
+- **vision_num_layers** (`int`, *optional*, defaults to `12`): ViT encoder depth.
+- **vision_hidden_dim** (`int`, *optional*, defaults to `768`): ViT hidden dimension.
+- **vision_patch_size** (`int`, *optional*, defaults to `32`): ViT patch size.
+- **vision_num_heads** (`NoneType`, *optional*, defaults to `None`): ViT attention heads.
+- **vision_mlp_ratio** (`float`, *optional*, defaults to `4.0`): MLP expansion ratio in the vision blocks.
+- **hidden_act** (`str`, *optional*, defaults to `'gelu'`): MLP activation.
+- **input_tensor** (`NoneType`, *optional*, defaults to `None`): pre-existing input tensors to build on.
+- **name** (`str`, *optional*, defaults to `'MetaClip2VisionModel'`): model name.
+
+### MetaClip2TextModel
+
+```python
+MetaClip2TextModel(max_seq_len=77, vocab_size=901629, text_hidden_dim=512,
+                   text_num_heads=8, text_num_layers=12, text_mlp_ratio=4.0,
+                   hidden_act='gelu', eos_token_id=2, input_tensor=None,
+                   name='MetaClip2TextModel')
+```
+
+MetaCLIP 2 text tower as a standalone model: no vision encoder, no projection.
+
+**Parameters**
+
+- **max_seq_len** (`int`, *optional*, defaults to `77`): text input length.
+- **vocab_size** (`int`, *optional*, defaults to `901629`): tokenizer vocabulary size.
+- **text_hidden_dim** (`int`, *optional*, defaults to `512`): text encoder hidden dimension.
+- **text_num_heads** (`int`, *optional*, defaults to `8`): text encoder attention heads.
+- **text_num_layers** (`int`, *optional*, defaults to `12`): text encoder depth.
+- **text_mlp_ratio** (`float`, *optional*, defaults to `4.0`): MLP expansion ratio in the text blocks.
+- **hidden_act** (`str`, *optional*, defaults to `'gelu'`): MLP activation.
+- **eos_token_id** (`int`, *optional*, defaults to `2`): end-of-sequence token id.
+- **input_tensor** (`NoneType`, *optional*, defaults to `None`): pre-existing input tensors to build on.
+- **name** (`str`, *optional*, defaults to `'MetaClip2TextModel'`): model name.
+
+> **`MetaClip2Model` gives you embeddings, `MetaClip2ZeroShotClassify` gives you
+> logits.**
+
+## Preprocessing
+
+### MetaClip2ImageProcessor
+
+```python
+MetaClip2ImageProcessor(image_resolution=224,
+                        mean=(0.48145466, 0.4578275, 0.40821073),
+                        std=(0.26862954, 0.26130258, 0.27577711),
+                        do_center_crop=True, do_normalize=True,
+                        do_resize=True, square_resize=True, data_format=None)
+```
+
+Image processor for MetaCLIP 2: direct square bicubic resize.
+
+Resize geometry is not uniform across variants: most publish a square
+`size`, but `metaclip2_worldwide_huge_quickgelu` publishes
+`{"shortest_edge": 224}`. Pass `square_resize=False` for that one.
+
+**Parameters**
+
+- **image_resolution** (`int`, *optional*, defaults to `224`): target square resolution.
+- **mean** (`tuple`, *optional*, defaults to `(0.48145466, 0.4578275, 0.40821073)`): per-channel normalization mean.
+- **std** (`tuple`, *optional*, defaults to `(0.26862954, 0.26130258, 0.27577711)`): per-channel normalization std.
+- **do_center_crop** (`bool`, *optional*, defaults to `True`): center-crop after the resize.
+- **do_normalize** (`bool`, *optional*, defaults to `True`): apply mean/std normalization.
+- **do_resize** (`bool`, *optional*, defaults to `True`): resize before cropping.
+- **square_resize** (`bool`, *optional*, defaults to `True`): stretch straight onto the square rather than resizing on the shortest edge.
+- **data_format** (`NoneType`, *optional*, defaults to `None`): `"channels_last"` or `"channels_first"`. Defaults to `keras.config.image_data_format()`.
+
+### MetaClip2Tokenizer
+
+```python
+MetaClip2Tokenizer(variant=None, tokenizer_file=None, max_seq_len=77,
+                   bos_token_id=0, eos_token_id=2, pad_token_id=1,
+                   unk_token_id=3)
+```
+
+XLM-RoBERTa tokenizer for MetaCLIP 2 worldwide variants (``tokenizers`` backend).
+
+**Parameters**
+
+- **variant** (`NoneType`, *optional*, defaults to `None`): variant key, used to fetch the matching tokenizer files.
+- **tokenizer_file** (`NoneType`, *optional*, defaults to `None`): explicit `tokenizer.json` path, overriding `variant`.
+- **max_seq_len** (`int`, *optional*, defaults to `77`): text input length.
+- **bos_token_id** (`int`, *optional*, defaults to `0`): begin-of-sequence token id.
+- **eos_token_id** (`int`, *optional*, defaults to `2`): end-of-sequence token id.
+- **pad_token_id** (`int`, *optional*, defaults to `1`): padding token id.
+- **unk_token_id** (`int`, *optional*, defaults to `3`): unknown token id.
+
+### MetaClip2Mt5Tokenizer
+
+```python
+MetaClip2Mt5Tokenizer(sentencepiece_model_file=None, max_seq_len=77,
+                      eos_token_id=1, pad_token_id=1, unk_token_id=2)
+```
+
+SigLIP-style SentencePiece tokenizer for the MetaCLIP 2 mT5 variants.
+
+Only the three `metaclip2_mt5_*` variants use this. It is SentencePiece
+based and has no `tokenizer.json`, so it is fetched as `spiece.model`.
+
+**Parameters**
+
+- **sentencepiece_model_file** (`NoneType`, *optional*, defaults to `None`): explicit `spiece.model` path.
+- **max_seq_len** (`int`, *optional*, defaults to `77`): text input length.
+- **eos_token_id** (`int`, *optional*, defaults to `1`): end-of-sequence token id.
+- **pad_token_id** (`int`, *optional*, defaults to `1`): padding token id.
+- **unk_token_id** (`int`, *optional*, defaults to `2`): unknown token id.
+
+### MetaClip2Processor
+
+```python
+MetaClip2Processor(image_resolution=224,
+                   mean=(0.48145466, 0.4578275, 0.40821073),
+                   std=(0.26862954, 0.26130258, 0.27577711),
+                   do_center_crop=True, do_normalize=True, do_resize=True,
+                   data_format=None, variant=None, tokenizer_file=None,
+                   max_seq_len=77, tokenizer=None, image_processor=None)
+```
+
+Combined image + text processor for MetaCLIP 2.
+
+**Parameters**
+
+- **image_resolution** (`int`, *optional*, defaults to `224`): target square resolution.
+- **mean** (`tuple`, *optional*, defaults to `(0.48145466, 0.4578275, 0.40821073)`): per-channel normalization mean.
+- **std** (`tuple`, *optional*, defaults to `(0.26862954, 0.26130258, 0.27577711)`): per-channel normalization std.
+- **do_center_crop** (`bool`, *optional*, defaults to `True`): center-crop after the resize.
+- **do_normalize** (`bool`, *optional*, defaults to `True`): apply mean/std normalization.
+- **do_resize** (`bool`, *optional*, defaults to `True`): resize before cropping.
+- **data_format** (`NoneType`, *optional*, defaults to `None`): `"channels_last"` or `"channels_first"`. Defaults to `keras.config.image_data_format()`.
+- **variant** (`NoneType`, *optional*, defaults to `None`): variant key, used to fetch the matching tokenizer files.
+- **tokenizer_file** (`NoneType`, *optional*, defaults to `None`): explicit `tokenizer.json` path, overriding `variant`.
+- **max_seq_len** (`int`, *optional*, defaults to `77`): text input length.
+- **tokenizer** (`NoneType`, *optional*, defaults to `None`): a pre-built tokenizer, instead of building one.
+- **image_processor** (`NoneType`, *optional*, defaults to `None`): a pre-built image processor.
+
+## Model Variants
+
+Load any of these with `from_weights("<variant id>")`.
+
+| Variant id | Image size | Patch | Weights |
+|---|---:|---:|---|
+| `metaclip2_worldwide_s16_224` | 224 | 16 | release |
+| `metaclip2_worldwide_s16_384` | 384 | 16 | release |
+| `metaclip2_worldwide_m16_224` | 224 | 16 | release |
+| `metaclip2_worldwide_m16_384` | 384 | 16 | release |
+| `metaclip2_worldwide_b16_224` | 224 | 16 | release |
+| `metaclip2_worldwide_b16_384` | 384 | 16 | release |
+| `metaclip2_worldwide_b32_224` | 224 | 32 | release |
+| `metaclip2_worldwide_b32_384` | 384 | 32 | release |
+| `metaclip2_worldwide_l14_224` | 224 | 14 | on the fly from `facebook/metaclip-2-worldwide-l14` |
+| `metaclip2_worldwide_huge_quickgelu` | 224 | 14 | on the fly from `facebook/metaclip-2-worldwide-huge-quickgelu` |
+| `metaclip2_worldwide_huge_378` | 378 | 14 | on the fly from `facebook/metaclip-2-worldwide-huge-378` |
+| `metaclip2_worldwide_giant_224` | 224 | 14 | on the fly from `facebook/metaclip-2-worldwide-giant` |
+| `metaclip2_worldwide_giant_378` | 378 | 14 | on the fly from `facebook/metaclip-2-worldwide-giant-378` |
+| `metaclip2_mt5_worldwide_s16_224` | 224 | 16 | release |
+| `metaclip2_mt5_worldwide_m16_224` | 224 | 16 | release |
+| `metaclip2_mt5_worldwide_b32_224` | 224 | 32 | release |
+
+### Variants without release weights
+
+The five variants marked *on the fly* have **no kerasformers release asset**.
+Calling `from_weights` on them silently falls back to downloading the Hugging
+Face checkpoint and converting it in-process. That still works, but it differs
+from the other eleven in ways worth knowing:
+
+- It downloads from Hugging Face, not the kerasformers release, so it depends on
+  that repo staying available and on any gating it may have.
+- Conversion runs every time the weights are not already cached, which is slower
+  than fetching a prebuilt `.weights.h5`.
+- These are the largest variants (l14, huge, giant), so the download is big.
+
+If you want the fast path, prefer one of the eleven release variants.
+
+## Basic Usage: Zero-Shot Classification
+
+<img src="../assets/coco/coco_teddy_bears.jpg" alt="Two teddy bears" width="380">
+
+```python
+import keras
 from kerasformers.models.metaclip2 import (
-    MetaClip2WorldwideB32,
     MetaClip2Processor,
+    MetaClip2ZeroShotClassify,
 )
 
-model = MetaClip2WorldwideB32(weights="worldwide_224")
-processor = MetaClip2Processor.from_weights("metaclip2_worldwide_b32_224", image_resolution=224)
+processor = MetaClip2Processor.from_weights("metaclip2_worldwide_s16_224")
+model = MetaClip2ZeroShotClassify.from_weights("metaclip2_worldwide_s16_224")
 
-inputs = processor(
-    text=["un chat", "a dog", "ein Auto"],
-    image_paths="photo.jpg",
-)
-outputs = model(inputs, training=False)
-print(outputs["image_logits"].shape)
+labels = [
+    "a photo of teddy bears",
+    "a photo of a bowl of food",
+    "a photo of a skier",
+    "a photo of a living room",
+]
+inputs = processor(text=labels, image_paths="assets/coco/coco_teddy_bears.jpg")
+output = model({
+    "images": inputs["images"],
+    "token_ids": inputs["token_ids"],
+    "padding_mask": inputs["padding_mask"],
+})
+
+# (1, 4): one image, four class prompts.
+probs = keras.ops.convert_to_numpy(
+    keras.ops.softmax(output["image_logits"], axis=-1)
+).squeeze()
+for label, p in zip(labels, probs):
+    print(f"{p:.6f}  {label}")
 ```
 
-## End-to-End Zero-Shot Classification
+```
+1.000000  a photo of teddy bears
+0.000000  a photo of a bowl of food
+0.000000  a photo of a skier
+0.000000  a photo of a living room
+```
 
-Full example with multilingual prompts on a real image. Works on any
-Keras 3 backend (torch / tensorflow / jax).
+Unlike SigLIP, `MetaClip2Processor` already returns `token_ids` and
+`padding_mask` under the model's own key names, so no remapping is needed.
+
+## Batch Processing Multiple Images
+
+Pass a list of paths. `image_logits` becomes `(num_images, num_texts)`, one row per
+image, and the same label set is scored against each:
+
+<p>
+  <img src="../assets/coco/coco_teddy_bears.jpg" alt="Two teddy bears" width="300">
+  <img src="../assets/coco/coco_food_bowl.jpg" alt="A bowl of rice, broccoli and chili" width="300">
+</p>
+
+```python
+image_paths = ["assets/coco/coco_teddy_bears.jpg", "assets/coco/coco_food_bowl.jpg"]
+labels = [
+    "a photo of teddy bears",
+    "a photo of a bowl of food",
+    "a photo of a skier",
+    "a photo of a living room",
+]
+
+inputs = processor(text=labels, image_paths=image_paths)
+output = model({
+    "images": inputs["images"],
+    "token_ids": inputs["token_ids"],
+    "padding_mask": inputs["padding_mask"],
+})
+
+probs = keras.ops.convert_to_numpy(
+    keras.ops.softmax(output["image_logits"], axis=-1)
+)                                        # (2, 4)
+for path, row in zip(image_paths, probs):
+    print(f"\n{path}")
+    for label, p in zip(labels, row):
+        print(f"  {p:.6f}  {label}")
+```
+
+```
+assets/coco/coco_teddy_bears.jpg
+  1.000000  a photo of teddy bears
+  0.000000  a photo of a bowl of food
+  0.000000  a photo of a skier
+  0.000000  a photo of a living room
+
+assets/coco/coco_food_bowl.jpg
+  0.000014  a photo of teddy bears
+  0.999821  a photo of a bowl of food
+  0.000113  a photo of a skier
+  0.000052  a photo of a living room
+```
+
+## Multilingual Prompts
+
+MetaCLIP 2 is trained worldwide, so class prompts do not have to be English.
+Scoring the same concept in four languages against one distractor:
+
+```python
+labels = [
+    "a photo of teddy bears",           # English
+    "une photo d'ours en peluche",      # French
+    "una foto de ositos de peluche",    # Spanish
+    "ein Foto von Teddybären",          # German
+    "a photo of a truck",               # English distractor
+]
+inputs = processor(text=labels, image_paths="assets/coco/coco_teddy_bears.jpg")
+output = model({
+    "images": inputs["images"],
+    "token_ids": inputs["token_ids"],
+    "padding_mask": inputs["padding_mask"],
+})
+probs = keras.ops.convert_to_numpy(
+    keras.ops.softmax(output["image_logits"], axis=-1)
+).squeeze()
+```
+
+```
+0.855608  a photo of teddy bears
+0.038126  une photo d'ours en peluche
+0.103371  una foto de ositos de peluche
+0.002894  ein Foto von Teddybären
+0.000000  a photo of a truck
+```
+
+Every language ranks the correct concept far above the distractor, which is the
+capability being shown. English still takes most of the mass here, so treat this as
+"all four languages work", not "all four are equally strong".
+
+Accents matter. Writing the German prompt as `Teddybaren` instead of
+`Teddybären` drops it from `0.002894` to `0.000078`, roughly 37x worse, because the
+tokenizer sees a different word.
+
+## Data Format
+
+**Both the models and the processors support `channels_last` and `channels_first`.**
+
+Processors take a `data_format` kwarg per instance, where `None` resolves to
+`keras.config.image_data_format()`. Models have no such argument and read
+`keras.config.image_data_format()` when they are **constructed**. To switch the whole
+pipeline, set the global format before building the model:
 
 ```python
 import keras
-import numpy as np
 
-from kerasformers.models.metaclip2 import (
-    MetaClip2WorldwideS16,
-    MetaClip2ImageProcessor,
-    MetaClip2Tokenizer,
-)
-
-# 1) build model + load weights
-model = MetaClip2WorldwideS16(weights="worldwide_224")
-
-# 2) preprocess image (direct square PIL.BICUBIC resize + CLIP normalize)
-img_proc = MetaClip2ImageProcessor(image_resolution=224)
-images = img_proc("assets/coco_horse_dog.jpg")["pixel_values"]  # (1, 224, 224, 3)
-
-# 3) tokenize candidate prompts (pure-sentencepiece XLM-R tokenizer, 300+ langs)
-tokenizer = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_b32_224")
-prompts = [
-    "a photo of a horse",
-    "a photo of a dog",
-    "a photo of a cat",
-    "a photo of a car",
-    "a horse and a dog in the snow",
-    "une photo d'un chien",
-    "ein Foto von einem Pferd",
-    "雪地里的马和狗",
-]
-tok = tokenizer(inputs=prompts)  # {token_ids, padding_mask}
-
-# 4) broadcast image to match prompt batch
-images = keras.ops.repeat(images, len(prompts), axis=0)
-
-# 5) forward pass
-out = model(
-    {
-        "images": images,
-        "token_ids": tok["token_ids"],
-        "padding_mask": tok["padding_mask"],
-    },
-    training=False,
-)
-
-# 6) rank: similarity matrix is (B, B); diagonal holds (image_i, text_i) scores
-scores = np.diag(keras.ops.convert_to_numpy(out["image_logits"]))
-probs = np.exp(scores - scores.max())
-probs = probs / probs.sum()
-
-for prompt, score, prob in sorted(
-    zip(prompts, scores, probs), key=lambda t: -t[1]
-):
-    print(f"  {prob:6.2%}  {score:7.3f}  {prompt}")
+keras.config.set_image_data_format("channels_first")
 ```
 
-**Output** (`MetaClip2WorldwideS16`, image = horse + dog in snow):
+`set_image_data_format` is global state. Set it once at the top of a script rather
+than toggling it between calls, since already-built models keep the layout they were
+constructed with.
 
-```
-  59.73%   18.706  ein Foto von einem Pferd
-  14.79%   17.310  雪地里的马和狗
-  14.78%   17.309  une photo d'un chien
-   4.84%   16.194  a photo of a horse
-   2.52%   15.538  a photo of a dog
-   0.86%   14.460  a horse and a dog in the snow
-   0.00%    9.494  a photo of a cat
-   0.00%    8.113  a photo of a car
-```
+## Loading Fine-tuned and Community Weights
 
-The top match is the German phrase for *"a photo of a horse"*: the
-tokenizer handles English / German / French / Chinese prompts uniformly
-through the same XLM-R vocabulary. End-to-end diff vs the HF reference
-is **3.7e-2** on logits / **0.11%** on probabilities: identical top-K
-rankings, float-precision-drift only.
-
-### With the mT5 variants
-
-mT5 variants use the SigLIP-style tokenizer (lowercase + strip ASCII
-punctuation + SP encode). Swap in `MetaClip2Mt5Tokenizer`:
+You are not limited to the variants above. Any Hugging Face repo whose
+`model_type` is `"metaclip_2"` loads directly with the `hf:` prefix, including
+community fine-tunes.
 
 ```python
-from kerasformers.models.metaclip2 import (
-    MetaClip2Mt5WorldwideB32,
-    MetaClip2ImageProcessor,
-    MetaClip2Mt5Tokenizer,
-)
+from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
 
-model = MetaClip2Mt5WorldwideB32(weights="mt5_worldwide_224")
-img_proc = MetaClip2ImageProcessor(image_resolution=224)
-tokenizer = MetaClip2Mt5Tokenizer.from_weights("metaclip2_mt5_worldwide_b32_224")
-# same pipeline from step 2 onward
+model = MetaClip2ZeroShotClassify.from_weights("hf:facebook/metaclip-2-worldwide-s16")
+model = MetaClip2ZeroShotClassify.from_weights("hf:<user>/my-finetune")
 ```
 
-## Real-World Multilingual Zero-Shot Example
+No shape arguments are needed. The architecture is read from the repo's `config.json`
+and mapped onto the constructor.
 
-End-to-end zero-shot classification on a real image, with prompts in
-six languages plus two distractors. Prints the ranked probabilities
-and raw similarity scores.
-
-**Input image:**
-
-![Horse and dog input](../assets/coco_horse_dog.jpg)
+All 5 model classes accept `hf:`, as do `MetaClip2ImageProcessor`,
+`MetaClip2Tokenizer`, `MetaClip2Mt5Tokenizer`, and `MetaClip2Processor`, so you can
+pull the matching preprocessing from the same repo:
 
 ```python
-import keras
-import numpy as np
-
-from kerasformers.models.metaclip2 import (
-    MetaClip2WorldwideS16,
-    MetaClip2ImageProcessor,
-    MetaClip2Tokenizer,
-)
-
-model = MetaClip2WorldwideS16(weights="worldwide_224")
-img_proc = MetaClip2ImageProcessor(image_resolution=224)
-tokenizer = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_s16_224")
-
-prompts = [
-    "a photo of a horse and a dog in the snow",   # English
-    "une photo d'un chien et d'un cheval",        # French
-    "ein Foto von einem Pferd und einem Hund",    # German
-    "una foto de un caballo y un perro",          # Spanish
-    "雪地里的马和狗",                             # Chinese
-    "馬と犬の写真",                               # Japanese
-    "a photo of a cat",                            # distractor
-    "a photo of a car",                            # distractor
-]
-
-images = img_proc("assets/coco_horse_dog.jpg")["pixel_values"]
-tok = tokenizer(inputs=prompts)
-images = keras.ops.repeat(images, len(prompts), axis=0)
-
-out = model(
-    {
-        "images": images,
-        "token_ids": tok["token_ids"],
-        "padding_mask": tok["padding_mask"],
-    },
-    training=False,
-)
-
-scores = np.diag(keras.ops.convert_to_numpy(out["image_logits"]))
-probs = np.exp(scores - scores.max())
-probs = probs / probs.sum()
-
-print(f"{'Probability':>12s}  {'Score':>7s}  Prompt")
-for prompt, score, prob in sorted(zip(prompts, scores, probs), key=lambda t: -t[1]):
-    print(f"{prob:11.2%}   {score:7.3f}  {prompt}")
+processor = MetaClip2Processor.from_weights("hf:facebook/metaclip-2-worldwide-s16")
 ```
 
-**Output:**
-
-```
- Probability    Score  Prompt
-      54.83%   24.143  ein Foto von einem Pferd und einem Hund
-      19.24%   23.096  una foto de un caballo y un perro
-      13.47%   22.740  une photo d'un chien et d'un cheval
-      12.40%   22.656  馬と犬の写真
-       0.06%   17.308  雪地里的马和狗
-       0.01%   14.931  a photo of a horse and a dog in the snow
-       0.00%    9.457  a photo of a cat
-       0.00%    8.089  a photo of a car
-```
-
-The top-4 predictions are all correct descriptions of the same scene:
-German, Spanish, French, and Japanese all rank above the distractors.
-Cat / car distractors round to 0% across all six languages.
-
-## Tokenizers
-
-Both tokenizers are **pure-Python wrappers around `sentencepiece`**: no
-`transformers` dependency at runtime. The SentencePiece model files are
-hosted on the kerasformers [`metaclip-2`
-release](https://github.com/IMvision12/KerasFormers/releases/tag/metaclip-2)
-and downloaded + cached on first use.
-
-### `MetaClip2Tokenizer`: for Worldwide (XLM-R) variants
-
-Wraps `sentencepiece.SentencePieceProcessor` with the XLM-R convention:
-fairseq-style offset `+1` on SentencePiece ids, BOS/EOS wrapping, EOS
-padding. Hardcoded token ids: `<s>=0`, `<pad>=1`, `</s>=2`, `<unk>=3`,
-`<mask>=901628`. Context length defaults to `77`.
-
-```python
-from kerasformers.models.metaclip2 import MetaClip2Tokenizer
-tok = MetaClip2Tokenizer.from_weights("metaclip2_worldwide_b32_224")
-out = tok(inputs=["hello world", "bonjour le monde"])
-print(out["token_ids"].shape)  # (2, 77)
-```
-
-### `MetaClip2Mt5Tokenizer`: for mT5 variants
-
-SigLIP-style tokenizer: **lowercase text**, SP encode, append `eos=1`,
-pad with `eos` (no bos). Hardcoded token ids: `eos=1`, `pad=1`, `unk=2`.
-
-```python
-from kerasformers.models.metaclip2 import MetaClip2Mt5Tokenizer
-tok = MetaClip2Mt5Tokenizer.from_weights("metaclip2_mt5_worldwide_b32_224")
-out = tok(inputs=["hello world", "una foto de un gato"])
-print(out["token_ids"].shape)  # (2, 77)
-```
-
-### Tokenizer files (release assets)
-
-Two SentencePiece model files: no tokenizer config JSON needed. Special
-token ids are hardcoded in Python constants since the XLM-R / SigLIP
-conventions are fixed.
-
-| File | Used by | Vocab |
-|---|---|---|
-| [`sentencepiece.bpe.model`](https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/sentencepiece.bpe.model) | `MetaClip2Tokenizer` (13 Worldwide variants) | 901 629 |
-| [`spiece.model`](https://github.com/IMvision12/KerasFormers/releases/download/metaclip-2/spiece.model) | `MetaClip2Mt5Tokenizer` (3 mT5 variants) | 250 100 |
-
-Both are ~5 MB. Token-id parity with HF's `XLMRobertaTokenizerFast` and
-`SiglipTokenizer` is verified: kerasformers produces **bit-identical** token
-ids across English / German / French / Chinese / Japanese inputs.
-
-## Image processor
-
-`MetaClip2ImageProcessor` inherits from `CLIPImageProcessor` but uses
-the HF MetaCLIP 2 default config: **direct square resize** to
-`image_resolution` with `PIL.BICUBIC` (no shortest-edge scaling + center
-crop, which is CLIP's default). Rescale to `[0, 1]` and OpenAI-CLIP
-normalization follow.
-
-```python
-from kerasformers.models.metaclip2 import MetaClip2ImageProcessor
-proc = MetaClip2ImageProcessor(image_resolution=224)
-pixel_values = proc("photo.jpg")["pixel_values"]
-# (1, 224, 224, 3) float32, normalized
-```
-
-## Data format
-
-`MetaClip2ImageProcessor` accepts the same `data_format=None` kwarg as
-every other kerasformers processor: `None` resolves to
-`keras.config.image_data_format()`; pass `"channels_first"` /
-`"channels_last"` to override per-call.
-
-## Citation
-
-```bibtex
-@article{chuang2025metaclip2,
-  title={MetaCLIP 2: A Worldwide Scaling Recipe},
-  author={Chuang, Yung-Sung and Xie, Saining and others},
-  journal={arXiv preprint arXiv:2507.22062},
-  year={2025}
-}
-```
+Loading `hf:facebook/metaclip-2-worldwide-s16` and the `metaclip2_worldwide_s16_224`
+release variant produces identical outputs, since they are the same checkpoint by two
+routes.
