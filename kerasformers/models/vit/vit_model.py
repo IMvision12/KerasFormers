@@ -220,9 +220,11 @@ class ViTModel(FunctionalBaseModel):
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
-            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
-            Only used when ``include_normalization=True``.
+            Only used when ``include_normalization=True``. Every released ViT
+            checkpoint was trained with 0.5/0.5 statistics, which is
+            `'inception'`; `'imagenet'` misclassifies.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -271,7 +273,7 @@ class ViTModel(FunctionalBaseModel):
         resize_mode="bilinear",
         image_size=224,
         include_normalization=True,
-        normalization_mode="imagenet",
+        normalization_mode="inception",
         input_tensor=None,
         name="ViTModel",
         **kwargs,
@@ -433,9 +435,11 @@ class ViTImageClassify(FunctionalBaseModel):
             of the network. When True, input images should be in uint8
             format with values in `[0, 255]`. Defaults to `True`.
         normalization_mode: String, specifying the normalization mode to
-            use. Must be one of: `'imagenet'` (default), `'inception'`,
+            use. Must be one of: `'imagenet'`, `'inception'` (default),
             `'dpn'`, `'clip'`, `'zero_to_one'`, or `'minus_one_to_one'`.
-            Only used when ``include_normalization=True``.
+            Only used when ``include_normalization=True``. Every released ViT
+            checkpoint was trained with 0.5/0.5 statistics, which is
+            `'inception'`; `'imagenet'` misclassifies.
         input_tensor: Optional Keras tensor as input. Useful for
             connecting the model to other Keras components.
             Defaults to `None`.
@@ -481,7 +485,7 @@ class ViTImageClassify(FunctionalBaseModel):
         resize_mode="bilinear",
         image_size=224,
         include_normalization=True,
-        normalization_mode="imagenet",
+        normalization_mode="inception",
         input_tensor=None,
         num_classes=1000,
         classifier_activation="linear",
