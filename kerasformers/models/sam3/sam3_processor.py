@@ -131,7 +131,7 @@ def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
 
         if normalized:
             norm_arr = np.array(normalized, dtype=np.float32)
-            cxcywh = box_xyxy_to_cxcywh(norm_arr)
+            cxcywh = np.asarray(ops.convert_to_numpy(box_xyxy_to_cxcywh(norm_arr)))
         else:
             cxcywh = np.zeros((0, 4), dtype=np.float32)
 

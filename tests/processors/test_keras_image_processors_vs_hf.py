@@ -49,7 +49,7 @@ from kerasformers.models.siglip.siglip_image_processor import (
 
 ASSET_PATH = os.path.abspath(
     os.path.join(
-        os.path.dirname(__file__), "..", "..", "assets", "coco", "coco_cats.jpg"
+        os.path.dirname(__file__), "..", "..", "assets", "data", "coco_cats.jpg"
     )
 )
 

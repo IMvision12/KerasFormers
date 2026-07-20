@@ -18,7 +18,13 @@ vit_name_mapping = {
 }
 
 
+DETECTOR_PREFIX = "detector_model"
+PROBE_KEY = "vision_encoder.backbone.embeddings.patch_embeddings.projection.weight"
+
+
 def transfer_sam3_weights(sam3_model, hf, prefix=""):
+    if not prefix and f"{DETECTOR_PREFIX}.{PROBE_KEY}" in hf:
+        prefix = DETECTOR_PREFIX
     p = f"{prefix}." if prefix else ""
     det = sam3_model
 

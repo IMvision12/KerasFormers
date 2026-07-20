@@ -113,12 +113,16 @@ class SAM2ImageProcessor(BaseImageProcessor):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SAM2ImageProcessorWithPrompts(SAM2ImageProcessor):
-    """Preprocess an image plus optional point prompts for Sam2 inference.
+    """Preprocess an image plus optional point or box prompts for Sam2 inference.
 
-    Extends :class:`SAM2ImageProcessor` by also encoding point prompts.
-    Since SAM 2 stretches images independently per axis, point
+    Extends :class:`SAM2ImageProcessor` by also encoding point and box
+    prompts. Since SAM 2 stretches images independently per axis, prompt
     coordinates are scaled per axis as well
     (``x_new = x * target / orig_w``, ``y_new = y * target / orig_h``).
+
+    ``input_boxes`` only feeds a model built with
+    ``include_box_input=True``; the default graph declares point inputs
+    only.
     """
 
     def __call__(
@@ -126,14 +130,16 @@ class SAM2ImageProcessorWithPrompts(SAM2ImageProcessor):
         image: Union[str, np.ndarray, "Image.Image"],
         input_points: Optional[np.ndarray] = None,
         input_labels: Optional[np.ndarray] = None,
+        input_boxes: Optional[np.ndarray] = None,
     ) -> Dict[str, "keras.KerasTensor"]:
-        return self.call(image, input_points, input_labels)
+        return self.call(image, input_points, input_labels, input_boxes)
 
     def call(
         self,
         image: Union[str, np.ndarray, "Image.Image"],
         input_points: Optional[np.ndarray] = None,
         input_labels: Optional[np.ndarray] = None,
+        input_boxes: Optional[np.ndarray] = None,
     ) -> Dict[str, "keras.KerasTensor"]:
         result = SAM2ImageProcessor.call(self, image)
 
@@ -159,6 +165,24 @@ class SAM2ImageProcessorWithPrompts(SAM2ImageProcessor):
             if keras.ops.ndim(labels) == 2:
                 labels = keras.ops.expand_dims(labels, axis=0)
             result["input_labels"] = labels
+
+        if input_boxes is not None:
+            boxes = np.array(input_boxes, dtype=np.float64)
+            boxes[..., 0::2] = boxes[..., 0::2] * scale_x
+            boxes[..., 1::2] = boxes[..., 1::2] * scale_y
+            boxes = keras.ops.convert_to_tensor(boxes, dtype="float32")
+            if keras.ops.ndim(boxes) == 1:
+                boxes = keras.ops.expand_dims(boxes, axis=0)
+            if keras.ops.ndim(boxes) == 2:
+                boxes = keras.ops.expand_dims(boxes, axis=0)
+            result["input_boxes"] = boxes
+            if input_points is None:
+                result["input_points"] = keras.ops.zeros(
+                    (1, keras.ops.shape(boxes)[1], 1, 2), dtype="float32"
+                )
+                result["input_labels"] = -keras.ops.ones(
+                    (1, keras.ops.shape(boxes)[1], 1), dtype="int32"
+                )
 
         return result
 

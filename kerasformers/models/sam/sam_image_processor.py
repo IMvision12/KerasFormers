@@ -93,15 +93,8 @@ class SAMImageProcessor(BaseImageProcessor):
         if get_data_format(self.data_format) == "channels_first":
             padded = keras.ops.transpose(padded, (0, 3, 1, 2))
 
-        empty_points = keras.ops.zeros((1, 1, 0, 2), dtype="float32")
-        empty_labels = keras.ops.zeros((1, 1, 0), dtype="int32")
-        empty_boxes = keras.ops.zeros((1, 0, 4), dtype="float32")
-
         return {
             "pixel_values": padded,
-            "input_points": empty_points,
-            "input_labels": empty_labels,
-            "input_boxes": empty_boxes,
             "original_size": (orig_h, orig_w),
             "reshaped_size": (new_h, new_w),
         }
@@ -192,6 +185,10 @@ class SAMImageProcessorWithPrompts(SAMImageProcessor):
             if keras.ops.ndim(boxes) == 2:
                 boxes = keras.ops.expand_dims(boxes, axis=0)
             result["input_boxes"] = boxes
+            result["has_boxes_input"] = keras.ops.ones((1, 1), dtype="float32")
+            if "input_points" not in result:
+                result["input_points"] = keras.ops.zeros((1, 1, 1, 2), dtype="float32")
+                result["input_labels"] = -keras.ops.ones((1, 1, 1), dtype="int32")
 
         return result
 
