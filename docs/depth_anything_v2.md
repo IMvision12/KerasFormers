@@ -149,7 +149,7 @@ print(depth.shape, round(float(depth.min()), 2), round(float(depth.max()), 2))
 # Visualize: per-image min-max normalize, then Spectral_r.
 lo, hi = float(depth.min()), float(depth.max())
 rgb = matplotlib.colormaps["Spectral_r"]((depth - lo) / (hi - lo + 1e-8))[..., :3]
-Image.fromarray((rgb * 255).astype("uint8")).save("depth.jpg")
+Image.fromarray((rgb * 255).astype("uint8")).save("assets/depth.jpg")
 ```
 
 ```
