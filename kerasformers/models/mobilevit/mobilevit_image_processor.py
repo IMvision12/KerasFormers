@@ -71,13 +71,14 @@ class MobileViTImageProcessor(BaseImageProcessor):
         do_flip_channel_order: bool = True,
         return_tensor: bool = True,
         data_format: Optional[str] = None,
+        variant: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.size = size if size is not None else {"shortest_edge": 288}
-        self.crop_size = (
-            crop_size if crop_size is not None else {"height": 256, "width": 256}
-        )
+        self.variant = variant
+        default_size, default_crop = self.variant_sizes(variant)
+        self.size = size if size is not None else default_size
+        self.crop_size = crop_size if crop_size is not None else default_crop
         self.resample = resample
         self.do_resize = do_resize
         self.do_center_crop = do_center_crop
@@ -86,6 +87,40 @@ class MobileViTImageProcessor(BaseImageProcessor):
         self.do_flip_channel_order = do_flip_channel_order
         self.return_tensor = return_tensor
         self.data_format = data_format
+
+    @staticmethod
+    def variant_sizes(variant):
+        """``(size, crop_size)`` for a release variant.
+
+        The classification and segmentation checkpoints train at different
+        resolutions (256 vs 512), so a single default is wrong for one of them.
+        The side is read from the model config and the resize target is the
+        crop plus 32, matching the reference preprocessor configs (288/256 for
+        classification, 544/512 for the DeepLabV3 heads).
+        """
+        side = 256
+        if variant is not None:
+            import importlib
+
+            family = type_module = None
+            for family in ("mobilevit", "mobilevitv2"):
+                try:
+                    cfg = importlib.import_module(
+                        f"kerasformers.models.{family}.{family}_config"
+                    )
+                except ModuleNotFoundError:
+                    continue
+                for name in dir(cfg):
+                    if not name.isupper() or "CONFIG" not in name:
+                        continue
+                    entry = getattr(cfg, name).get(variant)
+                    if entry and entry.get("image_size"):
+                        side = entry["image_size"]
+                        type_module = family
+                        break
+                if type_module:
+                    break
+        return {"shortest_edge": side + 32}, {"height": side, "width": side}
 
     def __call__(self, image):
         return self.call(image)

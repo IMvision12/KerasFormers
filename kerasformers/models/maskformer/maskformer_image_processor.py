@@ -30,17 +30,37 @@ class MaskFormerImageProcessor(BaseImageProcessor):
 
     def __init__(
         self,
-        target_size: int = 512,
+        target_size: Optional[int] = None,
         image_mean: Optional[Tuple[float, ...]] = None,
         image_std: Optional[Tuple[float, ...]] = None,
         data_format: Optional[str] = None,
+        variant: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.target_size = target_size
+        self.variant = variant
+        self.target_size = (
+            target_size if target_size is not None else self.variant_size(variant)
+        )
         self.image_mean = image_mean if image_mean is not None else IMAGENET_MEAN
         self.image_std = image_std if image_std is not None else IMAGENET_STD
         self.data_format = data_format
+
+    @staticmethod
+    def variant_size(variant):
+        """Square side for a release variant, read from the model config.
+
+        The COCO checkpoints build at 384 and the ADE ones at 512, so a fixed
+        default mismatches the model for one of the two and the forward pass
+        raises on shape. Unknown variants fall back to 512.
+        """
+        if variant is not None:
+            from kerasformers.models.maskformer import maskformer_config
+
+            entry = maskformer_config.MASKFORMER_CONFIG.get(variant)
+            if entry and entry.get("image_size"):
+                return entry["image_size"]
+        return 512
 
     def __call__(
         self, image: Union[str, np.ndarray, Image.Image]
