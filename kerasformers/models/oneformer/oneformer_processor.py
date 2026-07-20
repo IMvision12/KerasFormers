@@ -2,6 +2,10 @@ import keras
 import numpy as np
 
 from kerasformers.base import BaseImageProcessor, BaseProcessor
+from kerasformers.models.maskformer.maskformer_image_processor import (
+    maskformer_post_process_panoptic,
+    maskformer_post_process_semantic,
+)
 from kerasformers.utils.image_util import get_data_format, load_image
 
 from .oneformer_config import ONEFORMER_CONFIG
@@ -162,3 +166,41 @@ class OneFormerProcessor(BaseProcessor):
             }
         )
         return config
+
+    def post_process_semantic_segmentation(
+        self, outputs, target_sizes=None, label_names=None
+    ):
+        """Fuse per-query class and mask predictions into semantic label maps.
+
+        OneFormer emits the same ``class_queries_logits`` /
+        ``masks_queries_logits`` pair as MaskFormer, so the fusion is shared
+        rather than reimplemented.
+        """
+        return maskformer_post_process_semantic(
+            outputs,
+            target_sizes=target_sizes,
+            model_size=self.image_processor.target_size,
+            label_names=label_names,
+        )
+
+    def post_process_panoptic_segmentation(
+        self,
+        outputs,
+        target_size,
+        threshold=0.8,
+        mask_threshold=0.5,
+        overlap_mask_area_threshold=0.8,
+        stuff_classes=None,
+        label_names=None,
+    ):
+        """Merge queries into one panoptic map plus per-segment metadata."""
+        return maskformer_post_process_panoptic(
+            outputs,
+            target_size=target_size,
+            threshold=threshold,
+            mask_threshold=mask_threshold,
+            overlap_mask_area_threshold=overlap_mask_area_threshold,
+            model_size=self.image_processor.target_size,
+            stuff_classes=stuff_classes,
+            label_names=label_names,
+        )

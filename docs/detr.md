@@ -210,6 +210,8 @@ lowering it mostly adds duplicates of what is already found.
 
 Pass a list of images and one `target_sizes` entry per image:
 
+<img src="../assets/detr_batch_output.jpg" alt="DETR detections on a desk and on two cats, run as one batch" width="660">
+
 ```python
 from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
@@ -255,6 +257,107 @@ assets/coco/coco_cats.jpg
 
 Every image is resized to the same square, so stacking is always safe here. Batch
 results are identical to running the images one at a time.
+
+## Panoptic Segmentation
+
+`DETRPanopticSegment` adds a mask head, predicting a per-query mask alongside the class
+and box. It needs one of the panoptic variants, whose head is 251-way (COCO panoptic's
+things plus stuff, plus "no object") rather than the detector's 92.
+
+<img src="../assets/detr_panoptic_output.jpg" alt="DETR panoptic masks over a skier: person, skis, and the snow and sky stuff regions" width="560">
+
+```python
+from PIL import Image
+from kerasformers.models.detr import DETRImageProcessor, DETRPanopticSegment
+
+model = DETRPanopticSegment.from_weights("detr-resnet-50-panoptic")
+processor = DETRImageProcessor()
+
+image = Image.open("assets/coco/coco_skier.jpg").convert("RGB")
+output = model(processor(image)["pixel_values"], training=False)
+
+# output["logits"]:     (1, 100, 251)
+# output["pred_boxes"]: (1, 100, 4)
+# output["pred_masks"]: (1, 100, 200, 200)   per-query mask logits
+```
+
+`pred_masks` is one mask logit map per query, at a lower resolution than the input.
+Threshold at zero for a binary mask, and resize to the target size yourself.
+
+### Rendering the masks
+
+Since nothing in the library does this for you, here is the overlay above, end to end.
+The one detail worth copying is the **paint order**: sort by mask area and draw the
+largest first, or a big stuff region such as a wall will bury every object inside it.
+
+```python
+import keras
+import numpy as np
+from PIL import Image
+from kerasformers.utils.labels_util import COCO_91_CLASSES
+
+PALETTE = [(255, 59, 48), (52, 199, 89), (0, 122, 255), (255, 149, 0),
+           (175, 82, 222), (255, 204, 0), (0, 199, 190), (255, 45, 85)]
+
+logits = np.asarray(keras.ops.convert_to_numpy(output["logits"]))[0]     # (100, 251)
+masks = np.asarray(keras.ops.convert_to_numpy(output["pred_masks"]))[0]  # (100, 200, 200)
+
+probs = np.exp(logits - logits.max(-1, keepdims=True))
+probs /= probs.sum(-1, keepdims=True)
+probs = probs[:, :-1]                       # drop the "no object" column
+scores, labels = probs.max(-1), probs.argmax(-1)
+
+keep = np.where(scores > 0.85)[0]
+keep = keep[np.argsort(-scores[keep])][:8]
+
+W, H = image.size
+binary = {q: np.asarray(Image.fromarray(masks[q]).resize((W, H), Image.BILINEAR)) > 0.0
+          for q in keep}
+
+canvas = np.asarray(image, dtype="float32").copy()
+for q in sorted(keep, key=lambda q: -int(binary[q].sum())):   # largest first
+    m = binary[q]
+    canvas[m] = 0.6 * canvas[m] + 0.4 * np.array(PALETTE[list(keep).index(q) % 8],
+                                                 dtype="float32")
+
+Image.fromarray(canvas.astype("uint8")).save("panoptic.jpg")
+
+for q in keep:
+    idx = int(labels[q])
+    name = COCO_91_CLASSES[idx] if idx < len(COCO_91_CLASSES) else f"class_{idx}"
+    print(f"{name:14s} {scores[q]:.3f}  area {int(binary[q].sum())}")
+```
+
+```
+person         1.000  area 29690
+class_159      0.999  area 218106
+skis           0.995  area 3794
+class_187      0.974  area 25486
+```
+
+`class_159` is the snow and `class_187` the sky. At 218106 pixels the snow is over
+seven times the size of the skier, which is exactly why it has to be painted first.
+
+Two things to know before using it:
+
+**There is no panoptic post-processor.** `DETRImageProcessor` provides
+`post_process_object_detection` only. That method works on panoptic output and returns
+the boxes and scores correctly, but it ignores `pred_masks` entirely, so stitching
+queries into a single panoptic map is left to you.
+
+**Pass `label_names`.** The post-processor falls back to COCO's 91 detection names,
+which do not cover a 251-class panoptic head, so high-numbered classes come back as
+placeholders:
+
+```
+person 1.000, class_159 0.999, skis 0.995, class_187 0.974
+```
+
+`person` and `skis` are COCO detection classes so they resolve, while `class_159`
+(snow) and `class_187` (sky) are stuff classes with no name in the default list. The library ships
+`COCO_91_CLASSES`, `COCO_80_CLASSES`, and `PASCAL_VOC_CLASSES` in
+`kerasformers.utils.labels_util`, plus `COCO_PANOPTIC_THING_IDS` and
+`COCO_PANOPTIC_STUFF_IDS`, but no panoptic **name** list, so supply your own.
 
 ## Custom Class Names
 

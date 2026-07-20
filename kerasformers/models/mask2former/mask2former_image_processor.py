@@ -1,9 +1,13 @@
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import keras
 import numpy as np
 
 from kerasformers.base import BaseImageProcessor
+from kerasformers.models.maskformer.maskformer_image_processor import (
+    maskformer_post_process_panoptic,
+    maskformer_post_process_semantic,
+)
 from kerasformers.utils.image_util import get_data_format, load_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -46,6 +50,47 @@ class Mask2FormerImageProcessor(BaseImageProcessor):
         self.image_mean = image_mean if image_mean is not None else IMAGENET_MEAN
         self.image_std = image_std if image_std is not None else IMAGENET_STD
         self.data_format = data_format
+
+    def post_process_semantic_segmentation(
+        self,
+        outputs: Dict[str, keras.KerasTensor],
+        target_sizes: Optional[List[Tuple[int, int]]] = None,
+        label_names: Optional[List[str]] = None,
+    ) -> List[np.ndarray]:
+        """Fuse per-query class and mask predictions into semantic label maps.
+
+        Mask2Former emits the same ``class_queries_logits`` /
+        ``masks_queries_logits`` pair as MaskFormer, so the fusion is shared
+        rather than reimplemented.
+        """
+        return maskformer_post_process_semantic(
+            outputs,
+            target_sizes=target_sizes,
+            model_size=self.target_size,
+            label_names=label_names,
+        )
+
+    def post_process_panoptic_segmentation(
+        self,
+        outputs: Dict[str, keras.KerasTensor],
+        target_size: Tuple[int, int],
+        threshold: float = 0.8,
+        mask_threshold: float = 0.5,
+        overlap_mask_area_threshold: float = 0.8,
+        stuff_classes: Optional[List[int]] = None,
+        label_names: Optional[List[str]] = None,
+    ) -> Dict:
+        """Merge queries into one panoptic map plus per-segment metadata."""
+        return maskformer_post_process_panoptic(
+            outputs,
+            target_size=target_size,
+            threshold=threshold,
+            mask_threshold=mask_threshold,
+            overlap_mask_area_threshold=overlap_mask_area_threshold,
+            model_size=self.target_size,
+            stuff_classes=stuff_classes,
+            label_names=label_names,
+        )
 
     def __call__(self, image):
         return self.call(image)
