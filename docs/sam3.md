@@ -217,7 +217,7 @@ from kerasformers.models.sam3.sam3_utils import (
 # First call: downloads from HF, converts, caches (~5 min)
 model = SAM3Model(input_image_shape=(1008, 1008, 3), weights="saco")
 
-image = Image.open("assets/coco_horse_dog.jpg").convert("RGB")
+image = Image.open("assets/data_horse_dog.jpg").convert("RGB")
 
 # 1) Object detection on the same image with multiple text prompts
 detector = SAM3Detect(model=model)
@@ -250,7 +250,7 @@ plt.close(fig)
 
 ![SAM3 Open-Vocabulary Detection + Instance Segmentation Output](../assets/sam3_horse_dog_output.jpg)
 
-Running this on `assets/coco_horse_dog.jpg` with text prompts `"horse"`
+Running this on `assets/data_horse_dog.jpg` with text prompts `"horse"`
 and `"dog"` returns one matched instance per prompt: the open-vocabulary
 detector is **honest about absence**: querying for an object the image
 doesn't contain (e.g. `"person"`) returns zero detections, unlike

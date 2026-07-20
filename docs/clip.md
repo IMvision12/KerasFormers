@@ -305,7 +305,7 @@ Variant ids for `CLIPModel.from_weights`:
 
 ## Basic Usage: Zero-Shot Classification
 
-<img src="../assets/coco/coco_cats.jpg" alt="Two cats on a pink blanket" width="380">
+<img src="../assets/data/coco_cats.jpg" alt="Two cats on a pink blanket" width="380">
 
 ```python
 import keras
@@ -320,7 +320,7 @@ labels = [
     "a photo of a skier",
     "a photo of green apples",
 ]
-inputs = processor(text=labels, image_paths="assets/coco/coco_cats.jpg")
+inputs = processor(text=labels, image_paths="assets/data/coco_cats.jpg")
 output = model({
     "images": inputs["images"],
     "token_ids": inputs["input_ids"],
@@ -351,8 +351,8 @@ Pass a list of images. `image_logits` becomes `(num_images, num_texts)`, one row
 image, and the same label set is scored against each:
 
 <p>
-  <img src="../assets/coco/coco_cats.jpg" alt="Two cats on a pink blanket" width="300">
-  <img src="../assets/coco/coco_bear.jpg" alt="A brown bear" width="300">
+  <img src="../assets/data/coco_cats.jpg" alt="Two cats on a pink blanket" width="300">
+  <img src="../assets/data/coco_bear.jpg" alt="A brown bear" width="300">
 </p>
 
 ```python
@@ -362,7 +362,7 @@ from kerasformers.models.clip import CLIPProcessor, CLIPZeroShotClassify
 processor = CLIPProcessor.from_weights("clip_vit_base_16")
 model = CLIPZeroShotClassify.from_weights("clip_vit_base_16")
 
-image_paths = ["assets/coco/coco_cats.jpg", "assets/coco/coco_bear.jpg"]
+image_paths = ["assets/data/coco_cats.jpg", "assets/data/coco_bear.jpg"]
 labels = [
     "a photo of two cats",
     "a photo of a bear",
@@ -387,13 +387,13 @@ for path, row in zip(image_paths, probs):
 ```
 
 ```
-assets/coco/coco_cats.jpg
+assets/data/coco_cats.jpg
   0.999611  a photo of two cats
   0.000001  a photo of a bear
   0.000003  a photo of a skier
   0.000386  a photo of green apples
 
-assets/coco/coco_bear.jpg
+assets/data/coco_bear.jpg
   0.000001  a photo of two cats
   0.999802  a photo of a bear
   0.000192  a photo of a skier
@@ -498,7 +498,7 @@ keras.config.set_image_data_format("channels_first")
 processor = CLIPProcessor.from_weights("clip_vit_base_16")
 model = CLIPZeroShotClassify.from_weights("clip_vit_base_16")
 
-inputs = processor(text=labels, image_paths="assets/coco/coco_cats.jpg")
+inputs = processor(text=labels, image_paths="assets/data/coco_cats.jpg")
 # inputs["images"] is (1, 3, 224, 224)
 output = model({
     "images": inputs["images"],

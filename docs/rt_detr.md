@@ -140,7 +140,7 @@ from kerasformers.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 model = RTDETRDetect.from_weights("rtdetr-r18vd")
 processor = RTDETRImageProcessor()
 
-image = Image.open("assets/coco/coco_children_pool.jpg").convert("RGB")
+image = Image.open("assets/data/coco_children_pool.jpg").convert("RGB")
 inputs = processor(image)
 
 output = model(inputs["pixel_values"], training=False)
@@ -195,7 +195,7 @@ from kerasformers.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 model = RTDETRDetect.from_weights("rtdetr-r18vd")
 processor = RTDETRImageProcessor()
 
-paths = ["assets/coco/coco_conference.jpg", "assets/coco/coco_stop_sign.jpg"]
+paths = ["assets/data/coco_conference.jpg", "assets/data/coco_stop_sign.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
 inputs = processor(paths)                                  # (2, 640, 640, 3)
@@ -217,7 +217,7 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_conference.jpg
+assets/data/coco_conference.jpg
   person       0.962  [228, 45, 586, 423]
   person       0.944  [43, 42, 328, 423]
   tie          0.925  [395, 191, 433, 366]
@@ -237,7 +237,7 @@ assets/coco/coco_conference.jpg
   wine glass   0.507  [223, 246, 241, 288]
   person       0.505  [68, 141, 99, 212]
 
-assets/coco/coco_stop_sign.jpg
+assets/data/coco_stop_sign.jpg
   stop sign    0.961  [120, 71, 255, 226]
 ```
 

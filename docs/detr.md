@@ -168,7 +168,7 @@ from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 model = DETRDetect.from_weights("detr-resnet-50")
 processor = DETRImageProcessor()
 
-image = Image.open("assets/coco/coco_living_room.jpg").convert("RGB")
+image = Image.open("assets/data/coco_living_room.jpg").convert("RGB")
 inputs = processor(image)
 
 output = model(inputs["pixel_values"], training=False)
@@ -219,7 +219,7 @@ from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 model = DETRDetect.from_weights("detr-resnet-50")
 processor = DETRImageProcessor()
 
-paths = ["assets/coco/coco_desk.jpg", "assets/coco/coco_cats.jpg"]
+paths = ["assets/data/coco_desk.jpg", "assets/data/coco_cats.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
 inputs = processor(paths)                      # (2, 800, 800, 3)
@@ -241,13 +241,13 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_desk.jpg
+assets/data/coco_desk.jpg
   mouse      0.999  [123, 181, 157, 200]
   laptop     0.999  [0, 99, 125, 239]
   keyboard   0.998  [162, 153, 316, 198]
   tv         0.998  [124, 11, 241, 106]
 
-assets/coco/coco_cats.jpg
+assets/data/coco_cats.jpg
   remote     0.999  [39, 71, 178, 117]
   cat        0.998  [345, 24, 640, 371]
   cat        0.998  [12, 52, 315, 469]
@@ -273,7 +273,7 @@ from kerasformers.models.detr import DETRImageProcessor, DETRPanopticSegment
 model = DETRPanopticSegment.from_weights("detr-resnet-50-panoptic")
 processor = DETRImageProcessor()
 
-image = Image.open("assets/coco/coco_skier.jpg").convert("RGB")
+image = Image.open("assets/data/coco_skier.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
 
 # output["logits"]:     (1, 100, 251)

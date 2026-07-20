@@ -134,7 +134,7 @@ from kerasformers.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcesso
 model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd")
 processor = RTDETRV2ImageProcessor()
 
-image = Image.open("assets/coco/coco_surfer.jpg").convert("RGB")
+image = Image.open("assets/data/coco_surfer.jpg").convert("RGB")
 inputs = processor(image)
 
 output = model(inputs["pixel_values"], training=False)
@@ -176,7 +176,7 @@ from kerasformers.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcesso
 model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd")
 processor = RTDETRV2ImageProcessor()
 
-paths = ["assets/coco/coco_woman_phone.jpg", "assets/coco/coco_waterfront.jpg"]
+paths = ["assets/data/coco_woman_phone.jpg", "assets/data/coco_waterfront.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
 inputs = processor(paths)                                  # (2, 640, 640, 3)
@@ -198,13 +198,13 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_woman_phone.jpg
+assets/data/coco_woman_phone.jpg
   person       0.969  [1, 6, 428, 635]
   cell phone   0.849  [249, 143, 372, 393]
   person       0.669  [263, 22, 408, 233]
   person       0.539  [264, 22, 407, 171]
 
-assets/coco/coco_waterfront.jpg
+assets/data/coco_waterfront.jpg
   person       0.938  [402, 206, 469, 294]
   person       0.931  [495, 83, 640, 424]
   handbag      0.929  [493, 199, 596, 398]

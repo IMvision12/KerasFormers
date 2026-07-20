@@ -303,7 +303,7 @@ If you want the fast path, prefer one of the eleven release variants.
 
 ## Basic Usage: Zero-Shot Classification
 
-<img src="../assets/coco/coco_teddy_bears.jpg" alt="Two teddy bears" width="380">
+<img src="../assets/data/coco_teddy_bears.jpg" alt="Two teddy bears" width="380">
 
 ```python
 import keras
@@ -321,7 +321,7 @@ labels = [
     "a photo of a skier",
     "a photo of a living room",
 ]
-inputs = processor(text=labels, image_paths="assets/coco/coco_teddy_bears.jpg")
+inputs = processor(text=labels, image_paths="assets/data/coco_teddy_bears.jpg")
 output = model({
     "images": inputs["images"],
     "token_ids": inputs["token_ids"],
@@ -352,12 +352,12 @@ Pass a list of paths. `image_logits` becomes `(num_images, num_texts)`, one row 
 image, and the same label set is scored against each:
 
 <p>
-  <img src="../assets/coco/coco_teddy_bears.jpg" alt="Two teddy bears" width="300">
-  <img src="../assets/coco/coco_food_bowl.jpg" alt="A bowl of rice, broccoli and chili" width="300">
+  <img src="../assets/data/coco_teddy_bears.jpg" alt="Two teddy bears" width="300">
+  <img src="../assets/data/coco_food_bowl.jpg" alt="A bowl of rice, broccoli and chili" width="300">
 </p>
 
 ```python
-image_paths = ["assets/coco/coco_teddy_bears.jpg", "assets/coco/coco_food_bowl.jpg"]
+image_paths = ["assets/data/coco_teddy_bears.jpg", "assets/data/coco_food_bowl.jpg"]
 labels = [
     "a photo of teddy bears",
     "a photo of a bowl of food",
@@ -382,13 +382,13 @@ for path, row in zip(image_paths, probs):
 ```
 
 ```
-assets/coco/coco_teddy_bears.jpg
+assets/data/coco_teddy_bears.jpg
   1.000000  a photo of teddy bears
   0.000000  a photo of a bowl of food
   0.000000  a photo of a skier
   0.000000  a photo of a living room
 
-assets/coco/coco_food_bowl.jpg
+assets/data/coco_food_bowl.jpg
   0.000014  a photo of teddy bears
   0.999821  a photo of a bowl of food
   0.000113  a photo of a skier
@@ -408,7 +408,7 @@ labels = [
     "ein Foto von Teddybären",          # German
     "a photo of a truck",               # English distractor
 ]
-inputs = processor(text=labels, image_paths="assets/coco/coco_teddy_bears.jpg")
+inputs = processor(text=labels, image_paths="assets/data/coco_teddy_bears.jpg")
 output = model({
     "images": inputs["images"],
     "token_ids": inputs["token_ids"],

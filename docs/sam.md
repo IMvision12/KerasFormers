@@ -255,7 +255,7 @@ def show_points(coords, ax, color, marker_size=340):
 
 
 model = SAMPromptableSegment.from_weights("sam_vit_large")
-img = Image.open("assets/coco_cats.jpg").convert("RGB")   # COCO val2017/000000039769.jpg
+img = Image.open("assets/data_cats.jpg").convert("RGB")   # COCO val2017/000000039769.jpg
 
 prompts = [
     {"points": np.array([[[150, 200]]]), "labels": np.array([[1]]), "name": "left cat"},
@@ -300,7 +300,7 @@ plt.close(fig)
 
 ![SAM Point Prompts Output](../assets/sam_train_output.jpg)
 
-Running this on the default HF-parity model (three inputs: `pixel_values`, `input_points`, `input_labels`) on the classic two-cats COCO image (``val2017/000000039769.jpg``, saved locally as ``assets/coco_cats.jpg``) segments each cat from a single point click with IoU scores > 0.99.
+Running this on the default HF-parity model (three inputs: `pixel_values`, `input_points`, `input_labels`) on the classic two-cats COCO image (``val2017/000000039769.jpg``, saved locally as ``assets/data_cats.jpg``) segments each cat from a single point click with IoU scores > 0.99.
 
 ## Automatic Mask Generation ("Segment Everything")
 
@@ -352,7 +352,7 @@ def overlay_masks(ax, masks_list):
 
 
 model = SAMPromptableSegment.from_weights("sam_vit_large")
-img = Image.open("assets/coco_cats.jpg").convert("RGB")
+img = Image.open("assets/data_cats.jpg").convert("RGB")
 
 result = SAMGenerateMasks(
     model,
@@ -384,7 +384,7 @@ plt.close(fig)
 
 ![SAM Automatic Mask Generation Output](../assets/sam_coco_cats_amg_output.jpg)
 
-Running on ``assets/coco_cats.jpg`` with a 16 × 16 point grid returns ~21 deduplicated masks: each cat as a whole, the two remote controls, the pink couch, and a handful of sub-parts (ears, paws, tail tips).
+Running on ``assets/data_cats.jpg`` with a 16 × 16 point grid returns ~21 deduplicated masks: each cat as a whole, the two remote controls, the pink couch, and a handful of sub-parts (ears, paws, tail tips).
 
 Under the hood the driver:
 1. Calls `generate_crop_boxes` to build the point grid (and optional crop hierarchy).

@@ -168,14 +168,18 @@ def deeplabv3_post_process_semantic_segmentation(
 
     logits = keras.ops.convert_to_numpy(outputs)
     channel_axis = 0 if get_data_format(data_format) == "channels_first" else -1
-    pred_mask = np.argmax(logits[0], axis=channel_axis)  # (H, W)
-
+    # Upsample the logits, then take the argmax. Doing it the other way round
+    # quantises the decision to the model's output stride and gives visibly
+    # blocky boundaries.
     if target_size is not None:
-        pred_mask = np.array(
-            Image.fromarray(pred_mask.astype(np.uint8)).resize(
-                (target_size[1], target_size[0]), Image.NEAREST
-            )
+        if channel_axis == 0:
+            logits = np.transpose(logits, (0, 2, 3, 1))
+        resized = keras.ops.image.resize(
+            logits, (target_size[0], target_size[1]), interpolation="bilinear"
         )
+        pred_mask = np.argmax(keras.ops.convert_to_numpy(resized)[0], axis=-1)
+    else:
+        pred_mask = np.argmax(logits[0], axis=channel_axis)  # (H, W)
 
     unique_classes = np.unique(pred_mask)
     class_names = [

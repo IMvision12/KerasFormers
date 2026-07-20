@@ -269,7 +269,7 @@ def show_points(coords, ax, color, marker_size=340):
 
 
 model = SAM2PromptableSegment.from_weights("sam2_hiera_large")
-img = Image.open("assets/coco_horse_dog.jpg").convert("RGB")   # COCO val2017/000000049269.jpg
+img = Image.open("assets/data_horse_dog.jpg").convert("RGB")   # COCO val2017/000000049269.jpg
 img_np = np.array(img)
 
 # One foreground point per subject, in original pixel space
@@ -317,7 +317,7 @@ plt.close(fig)
 
 ![SAM2 Point Prompts Output](../assets/sam2_horse_dog_output.jpg)
 
-Running this on the COCO horse-and-dog image (`val2017/000000049269.jpg`, saved locally as `assets/coco_horse_dog.jpg`) segments both subjects from a single point click each, with IoU scores > 0.95.
+Running this on the COCO horse-and-dog image (`val2017/000000049269.jpg`, saved locally as `assets/data_horse_dog.jpg`) segments both subjects from a single point click each, with IoU scores > 0.95.
 
 ## Automatic Mask Generation ("Segment Everything")
 
@@ -369,7 +369,7 @@ def overlay_masks(ax, masks_list):
 
 
 model = SAM2PromptableSegment.from_weights("sam2_hiera_base_plus")
-img = Image.open("assets/coco_livingroom.jpg").convert("RGB")
+img = Image.open("assets/data_livingroom.jpg").convert("RGB")
 
 result = SAM2GenerateMasks(
     model,
@@ -401,7 +401,7 @@ plt.close(fig)
 
 ![SAM2 Automatic Mask Generation Output](../assets/sam2_coco_livingroom_amg_output.jpg)
 
-Running on a living-room / dining-scene COCO image (`val2017/000000000139.jpg`, saved locally as `assets/coco_livingroom.jpg`) with a 16 × 16 point grid returns ~60 deduplicated masks: the TV, windows, radiator, dining chairs, table, vases, hardwood floor, rug, fireplace, ceiling lamp, refrigerator, person, and several of the wall pictures, all segmented separately.
+Running on a living-room / dining-scene COCO image (`val2017/000000000139.jpg`, saved locally as `assets/data_livingroom.jpg`) with a 16 × 16 point grid returns ~60 deduplicated masks: the TV, windows, radiator, dining chairs, table, vases, hardwood floor, rug, fireplace, ceiling lamp, refrigerator, person, and several of the wall pictures, all segmented separately.
 
 Under the hood the driver:
 

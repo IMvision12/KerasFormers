@@ -158,7 +158,7 @@ model = Owlv2Detect.from_weights("owlv2-base-patch16")
 processor = Owlv2Processor.from_weights("owlv2-base-patch16")
 image_processor = Owlv2ImageProcessor()
 
-image = Image.open("assets/coco/coco_teddy_bears.jpg").convert("RGB")
+image = Image.open("assets/data/coco_teddy_bears.jpg").convert("RGB")
 prompts = [
     "a photo of a teddy bear",
     "a photo of a real bear",
@@ -218,7 +218,7 @@ model = Owlv2Detect.from_weights("owlv2-base-patch16")
 processor = Owlv2Processor.from_weights("owlv2-base-patch16")
 image_processor = Owlv2ImageProcessor()
 
-paths = ["assets/coco/coco_bear.jpg", "assets/coco/coco_girl_umbrella.jpg"]
+paths = ["assets/data/coco_bear.jpg", "assets/data/coco_girl_umbrella.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 prompts = [["a photo of a real bear", "a photo of a teddy bear"],
            ["a photo of an umbrella", "a photo of a person"]]
@@ -236,8 +236,7 @@ results = image_processor.post_process_object_detection(
 )
 
 for path, result in zip(paths, results):
-    print(f"
-{path}")
+    print(f"\n{path}")
     detections = sorted(
         zip(result["scores"], result["text_labels"], result["boxes"]),
         key=lambda d: -float(d[0]),
@@ -247,10 +246,10 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_bear.jpg
+assets/data/coco_bear.jpg
   a photo of a real bear     0.614  [7, 66, 588, 641]
 
-assets/coco/coco_girl_umbrella.jpg
+assets/data/coco_girl_umbrella.jpg
   a photo of an umbrella     0.405  [4, 2, 548, 393]
   a photo of an umbrella     0.301  [1, 11, 549, 626]
 ```

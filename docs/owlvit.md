@@ -135,7 +135,7 @@ model = OwlViTDetect.from_weights("owlvit-base-patch32")
 processor = OwlViTProcessor.from_weights("owlvit-base-patch32")
 image_processor = OwlViTImageProcessor()
 
-image = Image.open("assets/coco/coco_mug_knife.jpg").convert("RGB")
+image = Image.open("assets/data/coco_mug_knife.jpg").convert("RGB")
 prompts = ["a photo of a mug", "a photo of a knife", "a photo of an apple"]
 
 inputs = processor(text=[prompts], images=image)
@@ -188,7 +188,7 @@ model = OwlViTDetect.from_weights("owlvit-base-patch32")
 processor = OwlViTProcessor.from_weights("owlvit-base-patch32")
 image_processor = OwlViTImageProcessor()
 
-paths = ["assets/coco/coco_apples.jpg", "assets/coco/coco_bananas.jpg"]
+paths = ["assets/data/coco_apples.jpg", "assets/data/coco_bananas.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 prompts = [["a photo of an apple", "a photo of a banana"],
            ["a photo of a banana", "a photo of an apple"]]
@@ -207,8 +207,7 @@ results = image_processor.post_process_object_detection(
 )
 
 for path, result in zip(paths, results):
-    print(f"
-{path}")
+    print(f"\n{path}")
     detections = sorted(
         zip(result["scores"], result["text_labels"], result["boxes"]),
         key=lambda d: -float(d[0]),
@@ -218,12 +217,12 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_apples.jpg
+assets/data/coco_apples.jpg
   a photo of an apple    0.317  [339, 71, 589, 325]
   a photo of an apple    0.267  [243, 297, 460, 406]
   a photo of an apple    0.256  [89, 88, 338, 329]
 
-assets/coco/coco_bananas.jpg
+assets/data/coco_bananas.jpg
   a photo of an apple    0.597  [200, 247, 442, 474]
   a photo of a banana    0.520  [89, 17, 555, 502]
   a photo of a banana    0.376  [362, 129, 547, 502]

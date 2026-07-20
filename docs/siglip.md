@@ -243,7 +243,7 @@ Load any of these with `from_weights("<variant id>")`.
 
 ## Basic Usage: Zero-Shot Classification
 
-<img src="../assets/coco/coco_skier.jpg" alt="A person skiing on a snowy slope" width="380">
+<img src="../assets/data/coco_skier.jpg" alt="A person skiing on a snowy slope" width="380">
 
 ```python
 import keras
@@ -258,7 +258,7 @@ labels = [
     "a photo of a bear",
     "a photo of a living room",
 ]
-inputs = processor(text=labels, image_paths="assets/coco/coco_skier.jpg")
+inputs = processor(text=labels, image_paths="assets/data/coco_skier.jpg")
 output = model({
     "images": inputs["images"],
     "token_ids": inputs["input_ids"],
@@ -288,12 +288,12 @@ Pass a list of paths. `image_logits` becomes `(num_images, num_texts)`, one row 
 image, and the same label set is scored against each:
 
 <p>
-  <img src="../assets/coco/coco_skier.jpg" alt="A person skiing on a snowy slope" width="300">
-  <img src="../assets/coco/coco_apples.jpg" alt="Green apples in a bowl" width="300">
+  <img src="../assets/data/coco_skier.jpg" alt="A person skiing on a snowy slope" width="300">
+  <img src="../assets/data/coco_apples.jpg" alt="Green apples in a bowl" width="300">
 </p>
 
 ```python
-image_paths = ["assets/coco/coco_skier.jpg", "assets/coco/coco_apples.jpg"]
+image_paths = ["assets/data/coco_skier.jpg", "assets/data/coco_apples.jpg"]
 labels = [
     "a photo of a person skiing",
     "a photo of green apples",
@@ -317,13 +317,13 @@ for path, row in zip(image_paths, probs):
 ```
 
 ```
-assets/coco/coco_skier.jpg
+assets/data/coco_skier.jpg
   1.000000  a photo of a person skiing
   0.000000  a photo of green apples
   0.000000  a photo of a bear
   0.000000  a photo of a living room
 
-assets/coco/coco_apples.jpg
+assets/data/coco_apples.jpg
   0.000000  a photo of a person skiing
   1.000000  a photo of green apples
   0.000000  a photo of a bear

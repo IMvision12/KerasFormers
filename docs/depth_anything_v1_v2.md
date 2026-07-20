@@ -128,7 +128,7 @@ model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_small")
 
 # 2) preprocess the image (stretches to 518x518, ImageNet-normalized)
 processor = DepthAnythingV1ImageProcessor()
-inputs = processor("assets/coco_horse_dog.jpg")
+inputs = processor("assets/data_horse_dog.jpg")
 orig_h, orig_w = inputs["original_size"]
 
 # 3) forward pass: raw depth at model resolution
@@ -143,7 +143,7 @@ depth = keras.ops.convert_to_numpy(depth)[0]   # (orig_h, orig_w) float32
 # 5) visualize: normalize + apply inferno colormap, save side-by-side
 dn = (depth - depth.min()) / max(depth.max() - depth.min(), 1e-8)
 depth_color = (cm.inferno(dn)[..., :3] * 255).astype(np.uint8)
-rgb = np.array(Image.open("assets/coco_horse_dog.jpg").convert("RGB").resize((orig_w, orig_h)))
+rgb = np.array(Image.open("assets/data_horse_dog.jpg").convert("RGB").resize((orig_w, orig_h)))
 side = np.concatenate([rgb, depth_color], axis=1)
 Image.fromarray(side).save("depth_output.png")
 ```

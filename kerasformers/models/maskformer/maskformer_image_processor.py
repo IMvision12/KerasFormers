@@ -176,6 +176,29 @@ def unpad_and_resize_masks(
     return keras.ops.convert_to_numpy(mask_final)
 
 
+def default_label_names(num_classes):
+    """Pick a label set from the head width when the caller supplies none.
+
+    The class count identifies the training set unambiguously across the
+    checkpoints in this library, and every one of these post-processors is
+    shared by MaskFormer, Mask2Former and OneFormer, so without this they all
+    fall back to ``class_57`` style placeholders.
+    """
+    from kerasformers.utils.labels_util import (
+        ADE20K_150_CLASSES,
+        CITYSCAPES_19_CLASSES,
+        COCO_PANOPTIC_133_CLASSES,
+    )
+
+    # class_queries_logits carries a trailing "no object" column, so the head
+    # is one wider than the label list it corresponds to.
+    return {
+        len(COCO_PANOPTIC_133_CLASSES) + 1: COCO_PANOPTIC_133_CLASSES,
+        len(ADE20K_150_CLASSES) + 1: ADE20K_150_CLASSES,
+        len(CITYSCAPES_19_CLASSES) + 1: CITYSCAPES_19_CLASSES,
+    }.get(num_classes)
+
+
 def maskformer_post_process_semantic(
     outputs: Dict[str, keras.KerasTensor],
     target_sizes: Optional[List[Tuple[int, int]]] = None,
@@ -259,6 +282,8 @@ def maskformer_post_process_panoptic(
     """
     class_logits = outputs["class_queries_logits"]
     mask_logits = outputs["masks_queries_logits"]
+    if label_names is None:
+        label_names = default_label_names(int(class_logits.shape[-1]))
 
     num_classes = class_logits.shape[-1] - 1
     target_h, target_w = target_size
