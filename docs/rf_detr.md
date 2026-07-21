@@ -184,7 +184,7 @@ from kerasformers.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 model = RFDETRDetect.from_weights("rfdetr-nano")
 processor = RFDETRImageProcessor.from_weights("rfdetr-nano")   # resolves 384
 
-image = Image.open("assets/coco/coco_fairground_ride.jpg").convert("RGB")
+image = Image.open("assets/data/coco_fairground_ride.jpg").convert("RGB")
 inputs = processor(image)
 
 output = model(inputs["pixel_values"], training=False)
@@ -230,7 +230,7 @@ from kerasformers.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 model = RFDETRDetect.from_weights("rfdetr-nano")
 processor = RFDETRImageProcessor.from_weights("rfdetr-nano")
 
-paths = ["assets/coco/coco_sandwich.jpg", "assets/coco/coco_baseball.jpg"]
+paths = ["assets/data/coco_sandwich.jpg", "assets/data/coco_baseball.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
 inputs = processor(paths)                                  # (2, 384, 384, 3)
@@ -252,11 +252,11 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_sandwich.jpg
+assets/data/coco_sandwich.jpg
   sandwich     0.841  [33, 177, 439, 398]
   bowl         0.787  [494, 182, 640, 378]
 
-assets/coco/coco_baseball.jpg
+assets/data/coco_baseball.jpg
   person       0.933  [86, 187, 241, 324]
   person       0.925  [259, 72, 355, 299]
   person       0.924  [17, 142, 127, 324]
@@ -288,7 +288,7 @@ from kerasformers.models.rf_detr import RFDETRImageProcessor, RFDETRInstanceSegm
 model = RFDETRInstanceSegment.from_weights("rfdetr-seg-small")
 processor = RFDETRImageProcessor.from_weights("rfdetr-seg-small")   # resolves 384
 
-image = Image.open("assets/coco/coco_bus.jpg").convert("RGB")
+image = Image.open("assets/data/coco_bus.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
 # output["logits"]:     (1, 100, 91)
 # output["pred_boxes"]: (1, 100, 4)

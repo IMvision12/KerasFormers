@@ -1,470 +1,398 @@
-# SAM2 (Segment Anything Model 2)
+# SAM2
 
-## Overview
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> the pretrained weights for the SAM2 model are hosted on the
+kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/sam2" style="color:#1a5c8a;">sam2</a>
+release tag, and download automatically the first time you call
+<code>from_weights(...)</code>.
+</div>
+<br>
 
-SAM2 (Segment Anything Model 2) is the next generation of the Segment Anything Model, designed for promptable segmentation in both images and videos. It features a Hiera hierarchical vision transformer backbone with improved efficiency and mask quality, object-presence prediction, and high-resolution feature skip connections in the mask decoder.
+SAM2 keeps [SAM](sam.md)'s promptable formulation and replaces the plain ViT with a **Hiera** backbone: a hierarchical encoder that produces multi-scale features, feeding an FPN neck before the mask decoder. The result is both faster and sharper at object boundaries than the original.
 
-**Reference:** [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) (Ravi et al., 2024)
+The paper's headline is video, where a memory bank carries object identity across frames. **This port covers the image path only**: the classes here segment a single image from point or box prompts, with no memory or frame propagation.
 
-Two classes are exposed:
+**Paper**: [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714)
 
-- `SAM2Model`: Hiera backbone + FPN neck (no prompt encoder, no mask decoder). Returns ``{"image_embeddings", "high_res_feat_s0", "high_res_feat_s1"}``. Use this to cache image features when running many prompt combinations.
-- `SAM2PromptableSegment`: full promptable segmentation model. Composes the vision encoder with the prompt encoder and mask decoder. Returns ``{"pred_masks", "iou_scores", "object_score_logits"}``.
+## API
 
-## Architecture Highlights
+### SAM2PromptableSegment
 
-- **Hiera Backbone:** Hierarchical vision transformer with windowed / global attention, query pooling at stage transitions, and an FPN neck that emits multi-scale features (64×64, 128×128, 256×256).
-- **Promptable Segmentation:** Accepts points, boxes, and (optional) dense mask prompts through a lightweight sparse/dense prompt encoder.
-- **High-Res Feature Skip:** The mask decoder mixes the coarse image embedding with the FPN's high-resolution feature maps, producing sharper masks than SAM v1.
-- **Object Score Head:** An extra head predicts whether a valid object is actually present, usable as a rejection signal for weak prompts.
-- **Ambiguity Awareness:** Like SAM v1, predicts multiple valid mask hypotheses for underspecified prompts (part vs whole).
+```python
+SAM2PromptableSegment(hidden_dim=96, blocks_per_stage=(1, 2, 7, 2),
+                      embed_dim_per_stage=(96, 192, 384, 768),
+                      num_attention_heads_per_stage=(1, 2, 4, 8),
+                      window_size_per_stage=..., num_multimask_outputs=3,
+                      include_box_input=False, include_mask_input=False,
+                      multimask_output=True, image_size=1024,
+                      name="SAM2PromptableSegment")
+```
 
-## Available Weights
+Hiera image encoder, FPN neck, prompt encoder and mask decoder. **This is the class for
+prompted segmentation.**
 
-Pretrained weights are loaded via `SAM2PromptableSegment.from_weights(variant_id)` for kerasformers releases, or `SAM2PromptableSegment.from_weights("hf:<repo>")` for HF fine-tunes.
+Architecture arguments are filled in by `from_weights` from the variant config. The
+per-stage tuples are where the size difference between variants lives.
 
-| Variant                 | Parameters | Backbone     |
-|-------------------------|-----------:|--------------|
-| `sam2_hiera_tiny`       |     ~38 M  | Hiera-Tiny   |
-| `sam2_hiera_small`      |     ~46 M  | Hiera-Small  |
-| `sam2_hiera_base_plus`  |     ~80 M  | Hiera-Base+  |
-| `sam2_hiera_large`      |    ~224 M  | Hiera-Large  |
+| Argument | What it does |
+|---|---|
+| `include_box_input` | Adds an `input_boxes` input to the graph. Off by default: the point-only graph is what [automatic mask generation](#automatic-mask-generation) requires. |
+| `include_mask_input` | Adds `input_masks` plus a `has_input_masks` gate, for refining a mask from a previous pass. |
+| `multimask_output` | `True` returns three candidates; `False` returns one. |
 
-All variants take a 1024×1024 input and are trained on the SA-V dataset (Segment Anything in Videos).
+Because the prompt inputs are baked into the functional graph, **choose the flags at
+construction**, not per call.
 
-## Basic Usage
+**Call** `model(inputs)` with the processor's tensor outputs. **Returns** a `dict`:
+
+- **pred_masks** (`(B, point_batch, 3, 256, 256)`): three mask candidates per prompt.
+- **iou_scores** (`(B, point_batch, 3)`): predicted quality per candidate.
+- **object_score_logits** (`(B, point_batch, 1)`): whether an object is present at all. SAM has no equivalent; it is the signal SAM2 uses in video to notice an object has left the frame.
+
+### SAM2Model
+
+```python
+SAM2Model(hidden_dim=96, ..., name="SAM2Model")
+```
+
+The Hiera encoder and neck alone, producing multi-scale image embeddings. Use it to
+encode once and prompt repeatedly.
+
+## Preprocessing
+
+### SAM2ImageProcessorWithPrompts
+
+```python
+SAM2ImageProcessorWithPrompts(target_length=1024, image_mean=None,
+                              image_std=None, data_format=None)
+```
+
+Stretches the image to a square `target_length`, normalizes, and rescales prompt
+coordinates the same way.
+
+> **SAM2 stretches, SAM pads.** SAM resizes the long edge and pads the short one, so a
+> single scale factor covers both axes. SAM2 stretches each axis independently, so `x`
+> and `y` are scaled by different factors. This is also why `post_process_masks` needs
+> no `reshaped_size`: there is no padding to undo.
+
+**Call** `processor(image, input_points=None, input_labels=None, input_boxes=None)`.
+**Returns** a `dict`:
+
+- **pixel_values** (`(1, 1024, 1024, 3)`).
+- **input_points** (`(1, point_batch, num_points, 2)`): coordinates, rescaled from the original image's pixel space.
+- **input_labels** (`(1, point_batch, num_points)`): `1` foreground, `0` background, `-1` padding.
+- **input_boxes** (`(1, num_boxes, 4)`), only when `input_boxes` was passed: `(x1, y1, x2, y2)`, rescaled.
+- **original_size** / **reshaped_size**: plain tuples, for `post_process_masks`.
+
+> **The last two are metadata, not model inputs.** Keras refuses a nested call argument
+> that mixes tensors and non-tensors, so pass the tensors only.
+
+```python
+META = ("original_size", "reshaped_size")
+output = model({k: v for k, v in inputs.items() if k not in META})
+```
+
+**post_process_masks**
+
+```python
+processor.post_process_masks(pred_masks, original_size, target_length=None)
+```
+
+Upsamples the decoder output back to the original resolution and returns
+`(B, point_batch, 3, H, W)` float logits; threshold at zero.
+
+### SAM2ImageProcessor
+
+The same preprocessing without prompt arguments, for use with `SAM2Model`.
+
+## Model Variants
+
+| Variant id             | Backbone     | Params | HF original                   |
+|------------------------|--------------|-------:|-------------------------------|
+| `sam2_hiera_tiny`      | Hiera-T      |  ~39 M | `facebook/sam2.1-hiera-tiny`   |
+| `sam2_hiera_small`     | Hiera-S      |  ~46 M | `facebook/sam2.1-hiera-small`  |
+| `sam2_hiera_base_plus` | Hiera-B+     |  ~81 M | `facebook/sam2.1-hiera-base-plus` |
+| `sam2_hiera_large`     | Hiera-L      | ~224 M | `facebook/sam2.1-hiera-large`  |
+
+Even `sam2_hiera_tiny` at 39 M is less than half `sam_vit_base`, while producing
+tighter boundaries.
+
+## Basic Usage: Point Prompts
+
+<img src="../assets/sam2_points_output.jpg" alt="SAM2 point prompts: one click, two clicks, and a click with a negative point" width="820">
+
+White dots are positive points, the black dot is negative.
+
+```python
+import keras
+import numpy as np
+import torch
+from PIL import Image
+from kerasformers.models.sam2 import (
+    SAM2ImageProcessorWithPrompts, SAM2PromptableSegment,
+)
+
+model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
+processor = SAM2ImageProcessorWithPrompts()
+
+image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
+
+# One click on the right-hand cat, in original pixel space.
+inputs = processor(
+    image,
+    input_points=np.array([[[[450, 200]]]], dtype="float32"),
+    input_labels=np.array([[[1]]], dtype="int32"),
+)
+
+META = ("original_size", "reshaped_size")
+with torch.no_grad():
+    output = model({k: v for k, v in inputs.items() if k not in META})
+# output["pred_masks"]:          (1, 1, 3, 256, 256)
+# output["iou_scores"]:          (1, 1, 3)
+# output["object_score_logits"]: (1, 1, 1)
+
+masks = processor.post_process_masks(
+    output["pred_masks"], original_size=inputs["original_size"]
+)
+masks = np.asarray(keras.ops.convert_to_numpy(masks))
+iou = np.asarray(keras.ops.convert_to_numpy(output["iou_scores"])).ravel()
+
+best = int(np.argmax(iou))
+mask = masks[0, 0, best] > 0
+print(f"iou {[round(float(v), 3) for v in iou]}  best={best}  {int(mask.sum())} px")
+```
+
+```
+iou [0.610, 0.852, 0.980]  best=2  57302 px
+```
+
+Note the candidate ordering differs from SAM's. SAM returns its most confident mask at
+index 1 on this image; SAM2 puts it at index 2, and spreads the scores much wider
+(0.610 to 0.980 against SAM's 0.784 to 0.968). **Never hard-code a candidate index**:
+always rank by `iou_scores`.
+
+### Multiple Points for Refinement
+
+```python
+inputs = processor(
+    image,
+    input_points=np.array([[[[450, 200], [560, 300]]]], dtype="float32"),
+    input_labels=np.array([[[1, 1]]], dtype="int32"),
+)
+```
+
+```
+iou [0.894, 0.524, 0.976]  best=2  57391 px
+```
+
+A negative point (label `0`) carves a region out:
+
+```python
+inputs = processor(
+    image,
+    input_points=np.array([[[[450, 200], [150, 250]]]], dtype="float32"),
+    input_labels=np.array([[[1, 0]]], dtype="int32"),   # 1 = keep, 0 = exclude
+)
+```
+
+```
+iou [0.767, 0.816, 0.975]  best=2  56960 px
+```
+
+All three prompts land within about 400 pixels of each other (57302, 57391, 56960),
+which is the point: SAM2's mask on this cat is already tight enough that extra prompts
+barely move it. The same three prompts on SAM shift the mask by nearly 2000 pixels.
+
+**As with SAM, `argmax(iou)` can pick a candidate that contains your negative point.**
+Filter first, then rank:
+
+```python
+neg = [(x, y) for (x, y), lab in zip(points, labels) if lab == 0]
+valid = [i for i in range(masks.shape[2])
+         if not any((masks[0, 0, i] > 0)[y, x] for x, y in neg)]
+best = max(valid, key=lambda i: iou[i]) if valid else int(np.argmax(iou))
+```
+
+## Box Prompts
+
+<img src="../assets/sam2_boxes_output.jpg" alt="SAM2 box prompts: a loose box around each cat and the resulting mask" width="660">
+
+A box is the easiest prompt to produce automatically, since any detector already emits
+them. **Box support is off by default**, so build the model with `include_box_input=True`:
+
+```python
+import keras
+import numpy as np
+import torch
+from PIL import Image
+from kerasformers.models.sam2 import (
+    SAM2ImageProcessorWithPrompts, SAM2PromptableSegment,
+)
+
+model = SAM2PromptableSegment.from_weights(
+    "sam2_hiera_tiny", include_box_input=True
+)
+processor = SAM2ImageProcessorWithPrompts()
+image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
+
+# (x1, y1, x2, y2) in original pixel space, shaped (batch, num_boxes, 4).
+inputs = processor(image, input_boxes=np.array([[[330, 20, 640, 375]]], "float32"))
+
+META = ("original_size", "reshaped_size")
+with torch.no_grad():
+    output = model({k: v for k, v in inputs.items() if k not in META})
+
+masks = processor.post_process_masks(
+    output["pred_masks"], original_size=inputs["original_size"]
+)
+masks = np.asarray(keras.ops.convert_to_numpy(masks))
+iou = np.asarray(keras.ops.convert_to_numpy(output["iou_scores"])).ravel()
+
+best = int(np.argmax(iou))
+print(f"iou {[round(float(v), 3) for v in iou]}  best={best}  {int((masks[0, 0, best] > 0).sum())} px")
+```
+
+```
+iou [0.967, 0.968, 0.980]  best=2  57664 px
+```
+
+The second box, `[0, 40, 320, 470]`, gives `iou [0.916, 0.941, 0.973]` and 50398 px.
+In both panels the mask escapes the box where the animal does, following the tail and
+the outstretched paw past the drawn edge: the box is a hint about *which* object, not a
+crop.
+
+> **The box-enabled graph still declares the point inputs.** Passing `input_boxes` alone
+> is fine, the processor pads the points with SAM2's "not a point" label (`-1`) for you.
+> If you pass both, `num_boxes` must equal `point_batch`, because the box embedding is
+> concatenated onto the point embedding along that axis.
+
+`include_mask_input=True` adds `input_masks` and a `has_input_masks` gate on the same
+pattern, for feeding a previous mask back in as a starting point.
+
+## Automatic Mask Generation
+
+<img src="../assets/sam2_amg_output.jpg" alt="SAM2 automatic mask generation: original and the discovered masks" width="660">
+
+With no prompt, `SAM2GenerateMasks` sweeps a grid of points and keeps whatever survives
+quality and stability filtering.
+
+```python
+import torch
+from kerasformers.models.sam2 import SAM2GenerateMasks, SAM2PromptableSegment
+
+model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
+
+with torch.no_grad():
+    result = SAM2GenerateMasks(
+        model, "assets/data/coco_cats.jpg",
+        points_per_side=12,             # 12 x 12 = 144 candidate clicks
+        points_per_batch=8,
+        stability_score_thresh=0.85,    # the default 0.95 drops soft-edged objects
+    )
+
+print(sorted(result))
+print(len(result["masks"]), tuple(result["masks"][0].shape))
+```
+
+```
+['boxes', 'iou_scores', 'masks', 'rle_masks']
+11 (480, 640)
+```
+
+`masks` is a **list** of bool `(H, W)` arrays, one per surviving object, alongside
+`iou_scores` `(N,)`, XYXY `boxes` `(N, 4)` in original-image pixels, and `rle_masks` in
+COCO run-length form.
+
+Two parameters need attention, for the same reasons as [SAM](sam.md#automatic-mask-generation):
+
+- **`stability_score_thresh`** defaults to `0.95`, which discards objects with soft boundaries such as fur, keeping only crisp-edged ones. Lower it first if the output looks sparse.
+- **`points_per_batch`** defaults to `64`, which runs 64 `Conv2DTranspose` calls at once and will exhaust an 8 GB card. Wrap the call in `torch.no_grad()` and use `8` to start.
+
+`SAM2GenerateMasks` needs the **point-only** graph and raises if you hand it a model
+built with `include_box_input=True` or `include_mask_input=True`, since it drives the
+decoder with grid points and supplies neither.
+
+## Encode Once, Prompt Many Times
+
+The Hiera encoder dominates the cost, and an interactive tool re-prompts the same image
+over and over. `SAM2PromptableSegment` splits itself into two sub-models for exactly
+this, so the backbone runs once and each new click pays only for the decoder:
+
+```python
+import keras
+import numpy as np
+import torch
+from PIL import Image
+from kerasformers.models.sam2 import SAM2ImageProcessorWithPrompts, SAM2PromptableSegment
+
+model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
+processor = SAM2ImageProcessorWithPrompts()
+image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
+
+# Run the Hiera backbone once.
+with torch.no_grad():
+    features = model.vision_encoder_model(processor(image)["pixel_values"])
+
+# Then pay only for the decoder on each new click.
+for x, y in [(450, 200), (150, 250)]:
+    inputs = processor(image,
+                       input_points=np.array([[[[x, y]]]], "float32"),
+                       input_labels=np.array([[[1]]], "int32"))
+    with torch.no_grad():
+        output = model.prompt_decoder_model({
+            **features,
+            "input_points": inputs["input_points"],
+            "input_labels": inputs["input_labels"],
+        })
+    masks = processor.post_process_masks(
+        output["pred_masks"], original_size=inputs["original_size"]
+    )
+    masks = np.asarray(keras.ops.convert_to_numpy(masks))
+    iou = np.asarray(keras.ops.convert_to_numpy(output["iou_scores"])).ravel()
+    best = int(np.argmax(iou))
+    print(f"({x}, {y}) -> {int((masks[0, 0, best] > 0).sum())} px")
+```
+
+```
+(450, 200) -> 57302 px
+(150, 250) -> 48363 px
+```
+
+The first click reproduces the whole-model number above exactly, which is the point:
+splitting the graph changes nothing but where the time goes.
+
+`vision_encoder_model` returns three tensors, not one. SAM2 feeds `high_res_feat_s0` and
+`high_res_feat_s1` past the low-resolution `image_embeddings` straight into the decoder,
+and those skip connections are where the sharper boundaries come from. Splatting the
+dict with `**features` keeps all three.
+
+> **`SAM2Model` is the encoder-only class**, but it has no entry on the release tag, so
+> `SAM2Model.from_weights("sam2_hiera_tiny")` raises. Use `hf:facebook/sam2.1-hiera-tiny`
+> if you want it standalone, or the `vision_encoder_model` sub-model above.
+
+## Data Format
+
+**Both the model and the processor support `channels_last` and `channels_first`.**
+
+| | How it picks the format |
+|---|---|
+| Processors | A `data_format` kwarg, per instance. `None` (the default) resolves to `keras.config.image_data_format()`. |
+| Models | Read `keras.config.image_data_format()` when they are **constructed**. There is no `data_format` argument. |
+
+`post_process_masks` returns `(B, point_batch, 3, H, W)` in either case.
+
+## Loading Fine-tuned and Community Weights
+
+Any Hugging Face repo whose `model_type` is `"sam2"` loads with the `hf:` prefix.
 
 ```python
 from kerasformers.models.sam2 import SAM2PromptableSegment
 
-# Build a SAM2 model (default 1024x1024 input, 3-mask output)
-model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
+model = SAM2PromptableSegment.from_weights("hf:facebook/sam2.1-hiera-tiny")
+model = SAM2PromptableSegment.from_weights("hf:<user>/sam2-finetuned-on-my-data")
 
-# For single best-mask output (HF ``multimask_output=False`` path):
-model_single = SAM2PromptableSegment.from_weights(
-    "sam2_hiera_tiny", multimask_output=False
-)
-
-# Build an untrained model
-model_init = SAM2PromptableSegment.from_weights(
-    "sam2_hiera_tiny", load_weights=False
-)
+# Architecture only, randomly initialized
+model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny", load_weights=False)
 ```
 
-`multimask_output` is a **construction-time** flag in the Keras port (unlike the HuggingFace `Sam2Model` where it is a runtime kwarg). Building with `multimask_output=False` also wires in the HF-parity dynamic-stability fallback: the single-mask token is preferred when its stability score clears `0.98`, otherwise the argmax-IoU multi-mask token is used.
-
-## Model Inputs
-
-The default SAM2 functional graph has three inputs. Box and dense-mask prompts are opt-in via constructor flags (`include_box_input`, `include_mask_input`) that extend the input dict.
-
-| Input | Shape | Notes |
-|---|---|---|
-| `pixel_values` | `(batch, 1024, 1024, 3)` | Normalized image (ImageNet mean/std), stretch-to-1024. |
-| `input_points` | `(batch, point_batch, num_points, 2)` | `(x, y)` pixel coords in the **model input** frame (1024-space). |
-| `input_labels` | `(batch, point_batch, num_points)` | `1` foreground, `0` background, `-1` padding. |
-| `input_boxes` *(opt-in)* | `(batch, num_boxes, 4)` | `(x1, y1, x2, y2)`. Present only when `include_box_input=True`. `num_boxes` doubles as the sparse-embedding `point_batch` axis. |
-| `input_masks` *(opt-in)* | `(batch, 256, 256, 1)` | Dense mask prompt at 4× downscale. Present only when `include_mask_input=True`. |
-| `has_input_masks` *(opt-in)* | `(batch,)` | Gate (0/1) for the dense mask embedding vs the learned no-mask fallback. |
-
-## Inference with Point Prompts
-
-```python
-import numpy as np
-import keras
-from kerasformers.models.sam2 import (
-    SAM2PromptableSegment, SAM2ImageProcessorWithPrompts,
-)
-
-model = SAM2PromptableSegment.from_weights("sam2_hiera_large")
-
-# Foreground point in original image pixel coordinates
-processor = SAM2ImageProcessorWithPrompts(
-    input_points=np.array([[[450, 600]]], dtype=np.float32),
-    input_labels=np.array([[1]], dtype=np.int32)
-)
-inputs = processor("photo.jpg")
-
-outputs = model({
-    "pixel_values": inputs["pixel_values"],
-    "input_points": inputs["input_points"],
-    "input_labels": inputs["input_labels"],
-})
-
-masks = processor.post_process_masks(
-    outputs["pred_masks"], original_size=inputs["original_size"]
-)
-iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
-best_idx = int(np.argmax(iou_scores))
-best_mask = keras.ops.convert_to_numpy(masks)[0, 0, best_idx] > 0.0
-print(f"IoU: {iou_scores[best_idx]:.3f}, Mask shape: {best_mask.shape}")
-```
-
-### Data format
-
-Every processor and format-sensitive post-processor in this module accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
-
-```python
-# follow the global config (the default)
-processor = SAM2ImageProcessor()
-inputs = processor("photo.jpg")
-
-# force channels_first for this call only
-processor = SAM2ImageProcessor(data_format="channels_first")
-inputs = processor("photo.jpg")
-```
-
-Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
-
-## Inference with Box Prompts
-
-SAM2 supports two box-prompt paths:
-
-1. **Point-encoding workaround** (no model rebuild): encode each box as two points with labels `2` (top-left) and `3` (bottom-right). Works with the default SAM2 model.
-2. **Native `input_boxes` input** (opt-in via `include_box_input=True`): exposes a dedicated `input_boxes` input tensor. Matches the HuggingFace reference bit-for-bit when at least one point is supplied alongside the box.
-
-### Point-encoding workaround
-
-```python
-import numpy as np
-from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2ImageProcessorWithPrompts
-
-model = SAM2PromptableSegment.from_weights("sam2_hiera_small")
-
-# A box is encoded as two corner points: top-left + bottom-right.
-# Coordinates are in original image pixel space.
-box_corners = np.array([[[100, 200], [400, 500]]], dtype=np.float32)
-# Labels: 2 = top-left corner, 3 = bottom-right corner
-box_labels = np.array([[2, 3]], dtype=np.int32)
-
-processor = SAM2ImageProcessorWithPrompts(
-    input_points=box_corners,
-    input_labels=box_labels
-)
-inputs = processor("photo.jpg")
-
-outputs = model({
-    "pixel_values": inputs["pixel_values"],
-    "input_points": inputs["input_points"],
-    "input_labels": inputs["input_labels"],
-})
-```
-
-### Native `input_boxes` path
-
-```python
-import numpy as np
-from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2ImageProcessorWithPrompts
-
-model = SAM2PromptableSegment.from_weights(
-    "sam2_hiera_small",
-    include_box_input=True,
-)
-
-processor = SAM2ImageProcessorWithPrompts(
-    input_points=np.array([[[450, 600]]], dtype=np.float32),
-    input_labels=np.array([[1]], dtype=np.int32)
-)
-inputs = processor("photo.jpg")
-# Box input shape: (batch, num_boxes, 4) with (x1, y1, x2, y2) in
-# original-image pixel coordinates. ``num_boxes`` acts as the
-# ``point_batch`` axis in the sparse-embedding concat: supply one
-# box per point batch.
-input_boxes = np.array([[[100, 200, 400, 500]]], dtype=np.float32)
-
-outputs = model({
-    "pixel_values": inputs["pixel_values"],
-    "input_points": inputs["input_points"],
-    "input_labels": inputs["input_labels"],
-    "input_boxes": input_boxes,
-})
-```
-
-> **Note: pass a point alongside boxes for HF parity.**
-> When `input_points is None`, HuggingFace's `Sam2Model` skips the point-encoding branch of the prompt encoder entirely. The Keras functional graph always runs that branch (its inputs are required), which injects a spurious "not a point" token into the sparse-prompt sequence and causes a small mask-logit drift on the pure box-only path. Supply at least one point alongside each box, even a dummy foreground point near the box center, to get bit-for-bit HF parity. Points + boxes matches HF within float32 noise (~1e-3 max mask diff across all four variants).
-
-## Precomputed Image Embeddings (Multi-Prompt Inference)
-
-For interactive tools that try many prompts on the same image, run the Hiera backbone + FPN **once** and reuse its output. Every SAM2 instance exposes two sub-models that share weights with the main model:
-
-| Attribute | Inputs | Outputs |
-|---|---|---|
-| `model.vision_encoder_model` | `pixel_values` | `image_embeddings` `(1, 64, 64, 256)`, `high_res_feat_s0` `(1, 256, 256, 256)`, `high_res_feat_s1` `(1, 128, 128, 256)` |
-| `model.prompt_decoder_model` | encoder outputs + `input_points` + `input_labels` *(+ optional boxes / mask inputs)* | `pred_masks`, `iou_scores`, `object_score_logits` |
-
-```python
-import numpy as np
-import keras
-from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2ImageProcessor
-
-model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
-processor = SAM2ImageProcessor()
-pre = processor("photo.jpg")
-
-# Run the Hiera + FPN encoder once
-encoder_out = model.get_image_embeddings(pre["pixel_values"])
-
-# Try many prompts without re-running the backbone
-for (x, y) in [(450, 600), (200, 150), (700, 300)]:
-    # Per-axis stretch from original pixel space into 1024-space.
-    orig_h, orig_w = pre["original_size"]
-    px = float(x) * 1024.0 / orig_w
-    py = float(y) * 1024.0 / orig_h
-    out = model.prompt_decoder_model({
-        "image_embeddings":  encoder_out["image_embeddings"],
-        "high_res_feat_s0":  encoder_out["high_res_feat_s0"],
-        "high_res_feat_s1":  encoder_out["high_res_feat_s1"],
-        "input_points":      keras.ops.convert_to_tensor(
-            np.array([[[[px, py]]]], dtype="float32")
-        ),
-        "input_labels":      keras.ops.convert_to_tensor(
-            np.array([[[1]]], dtype="int32")
-        ),
-    })
-```
-
-For a 1024×1024 image the Hiera backbone + FPN is the dominant cost; the mask decoder runs in milliseconds. This is the same path the built-in AMG driver uses under the hood.
-
-Alternatively use `SAM2Model` standalone if you only need image embeddings (no prompt encoder / mask decoder built):
-
-```python
-from kerasformers.models.sam2 import SAM2Model
-encoder = SAM2Model.from_weights("hf:facebook/sam2-hiera-tiny")
-encoder_out = encoder(pre["pixel_values"])
-# encoder_out is the same dict as model.vision_encoder_model: image_embeddings + high_res_feat_s0 + high_res_feat_s1
-```
-
-> **Tensor types.** Keras refuses to mix torch tensors (encoder outputs) and numpy arrays (prompt inputs) in a single call dict. Wrap all the prompt inputs with `keras.ops.convert_to_tensor` as above so everything is on the active backend.
-
-## Full Inference with Visualization
-
-```python
-import os
-os.environ["KERAS_BACKEND"] = "torch"
-
-import numpy as np
-import keras
-from PIL import Image
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-from kerasformers.models.sam2 import (
-    SAM2PromptableSegment, SAM2ImageProcessorWithPrompts,
-)
-
-COLORS = [
-    np.array([0, 180, 255, 150]) / 255.0,    # cyan: horse
-    np.array([255, 180, 60, 150]) / 255.0,   # yellow: dog
-]
-
-
-def show_mask(mask, ax, color):
-    h, w = mask.shape
-    ax.imshow(mask.reshape(h, w, 1) * color.reshape(1, 1, -1))
-
-
-def show_points(coords, ax, color, marker_size=340):
-    ax.scatter(coords[0], coords[1], color=color, marker="*",
-               s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
-
-
-model = SAM2PromptableSegment.from_weights("sam2_hiera_large")
-img = Image.open("assets/coco_horse_dog.jpg").convert("RGB")   # COCO val2017/000000049269.jpg
-img_np = np.array(img)
-
-# One foreground point per subject, in original pixel space
-prompts = [
-    {"point": (260, 220), "name": "horse"},
-    {"point": (120, 330), "name": "dog"},
-]
-
-fig, ax = plt.subplots(1, 1, figsize=(10, 6))
-ax.imshow(img_np)
-
-for i, prompt in enumerate(prompts):
-    px, py = prompt["point"]
-    processor = SAM2ImageProcessorWithPrompts(
-        input_points=np.array([[[px, py]]], dtype=np.float32),
-        input_labels=np.array([[1]], dtype=np.int32)
-)
-    inputs = processor(img_np)
-    outputs = model({
-        "pixel_values": inputs["pixel_values"],
-        "input_points": inputs["input_points"],
-        "input_labels": inputs["input_labels"],
-    })
-
-    iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
-    best_idx = int(np.argmax(iou_scores))
-
-    masks_full = keras.ops.convert_to_numpy(
-        processor.post_process_masks(
-            outputs["pred_masks"], original_size=inputs["original_size"]
-        )
-    )[0, 0]
-    best_mask = masks_full[best_idx] > 0.0
-
-    show_mask(best_mask, ax, COLORS[i])
-    show_points((px, py), ax, color=COLORS[i][:3])
-    print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
-
-ax.set_title("SAM2 Large: Point Prompts (COCO horse + dog)", fontsize=14)
-ax.axis("off")
-plt.tight_layout()
-fig.savefig("sam2_horse_dog_output.jpg", bbox_inches="tight", dpi=130)
-plt.close(fig)
-```
-
-![SAM2 Point Prompts Output](../assets/sam2_horse_dog_output.jpg)
-
-Running this on the COCO horse-and-dog image (`val2017/000000049269.jpg`, saved locally as `assets/coco_horse_dog.jpg`) segments both subjects from a single point click each, with IoU scores > 0.95.
-
-## Automatic Mask Generation ("Segment Everything")
-
-Without any prompts, SAM2 can sample a dense point grid over the image and return every mask it can find. The Keras port ships both the HuggingFace-parity helpers and a driver that ties them together, using the `vision_encoder_model` / `prompt_decoder_model` sub-models so the Hiera backbone runs once per crop and the mask decoder runs once per point batch.
-
-### What's where
-
-HuggingFace's `Sam2ImageProcessor` exposes the AMG **helpers** (`generate_crop_boxes`, `filter_masks`, `post_process_for_mask_generation`, plus internals like `_compute_stability_score`, `_mask_to_rle`) but leaves the crop loop, per-crop batching, and model orchestration to you. Meta's original repo ships the end-to-end driver as `SAM2AutomaticMaskGenerator`.
-
-The kerasformers port provides:
-
-| Function | What it corresponds to |
-|---|---|
-| `generate_crop_boxes` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.generate_crop_boxes` |
-| `filter_masks` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.filter_masks` |
-| `post_process_for_mask_generation` *(re-used from `kerasformers.models.sam`)* | `Sam2ImageProcessor.post_process_for_mask_generation` |
-| `SAM2GenerateMasks` | `SAM2AutomaticMaskGenerator` (Meta original) |
-
-All helpers run on `keras.ops` tensors and work on any backend.
-
-### One-call usage
-
-```python
-import os
-os.environ["KERAS_BACKEND"] = "torch"
-
-import numpy as np
-import keras
-from PIL import Image
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-from kerasformers.models.sam2 import SAM2PromptableSegment, SAM2GenerateMasks
-
-
-def overlay_masks(ax, masks_list):
-    rng = np.random.default_rng(7)
-    ordered = sorted(
-        [np.asarray(keras.ops.convert_to_numpy(m)).astype(bool) for m in masks_list],
-        key=lambda m: -int(m.sum()),
-    )
-    h, w = ordered[0].shape
-    overlay = np.zeros((h, w, 4), dtype=np.float32)
-    for mask in ordered:
-        color = np.concatenate([rng.random(3), [0.55]])
-        overlay[mask] = color
-    ax.imshow(overlay)
-
-
-model = SAM2PromptableSegment.from_weights("sam2_hiera_base_plus")
-img = Image.open("assets/coco_livingroom.jpg").convert("RGB")
-
-result = SAM2GenerateMasks(
-    model,
-    np.array(img, dtype="float32"),
-    points_per_side=16,          # 16 × 16 = 256 grid points
-    points_per_batch=16,
-    pred_iou_thresh=0.80,
-    stability_score_thresh=0.85,
-    crops_nms_thresh=0.7,
-    crop_n_layers=0,             # set 1 or 2 for multi-scale crops
-)
-
-# result["masks"]      : list of bool (orig_h, orig_w) keras tensors
-# result["iou_scores"] : (N,) float tensor
-# result["boxes"]      : (N, 4) xyxy in original-image coords
-# result["rle_masks"]  : list of uncompressed RLE dicts
-print(f"Found {len(result['masks'])} masks")
-
-fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-axes[0].imshow(np.array(img)); axes[0].set_title("Input"); axes[0].axis("off")
-axes[1].imshow(np.array(img))
-overlay_masks(axes[1], result["masks"])
-axes[1].set_title(f"SAM2 BasePlus: AMG ({len(result['masks'])} masks)")
-axes[1].axis("off")
-plt.tight_layout()
-fig.savefig("sam2_coco_livingroom_amg_output.jpg", bbox_inches="tight", dpi=130)
-plt.close(fig)
-```
-
-![SAM2 Automatic Mask Generation Output](../assets/sam2_coco_livingroom_amg_output.jpg)
-
-Running on a living-room / dining-scene COCO image (`val2017/000000000139.jpg`, saved locally as `assets/coco_livingroom.jpg`) with a 16 × 16 point grid returns ~60 deduplicated masks: the TV, windows, radiator, dining chairs, table, vases, hardwood floor, rug, fireplace, ceiling lamp, refrigerator, person, and several of the wall pictures, all segmented separately.
-
-Under the hood the driver:
-
-1. Calls `generate_crop_boxes` to build the point grid (and optional crop hierarchy).
-2. Runs `model.vision_encoder_model` once per crop, then calls `model.prompt_decoder_model` in batches of `points_per_batch`.
-3. Applies `filter_masks` per crop (IoU threshold, stability score, crop-edge filter, pad back to original image, encode as RLE).
-4. Applies `post_process_for_mask_generation` (single-class NMS on predicted boxes) to deduplicate across crops.
-
-`SAM2GenerateMasks` requires a SAM2 model built with the default point-only prompt interface (`include_box_input=False`, `include_mask_input=False`): it raises `ValueError` otherwise. If you need AMG alongside a box-enabled model, build two instances.
-
-### Rolling your own driver
-
-If you want HuggingFace-parity behavior exactly, import the helpers from the SAM submodule and skip `SAM2GenerateMasks`:
-
-```python
-from kerasformers.models.sam.sam_image_processor import (
-    generate_crop_boxes, filter_masks, post_process_for_mask_generation,
-)
-```
-
-These are architecture-agnostic, the SAM2 AMG driver reuses the same helpers verbatim, so you can mirror any custom pipeline written against `transformers`' `Sam2ImageProcessor`. They are not part of the top-level public API; keep `SAM2GenerateMasks` as the recommended entry point.
-
-## Architecture
-
-SAM2 consists of three main components:
-
-1. **Hiera Backbone + FPN:** Hierarchical vision transformer with multi-scale blocks, windowed and global attention, query pooling at stage transitions, windowed positional embeddings, and an FPN neck that produces `(64×64, 128×128, 256×256)` feature maps with sine-cosine positional encodings.
-2. **Prompt Encoder:** Encodes sparse prompts (points, box corners) via random Fourier positional encoding + learned type embeddings, and dense prompts (masks) via a small CNN. Shares its positional embedding layer with the image encoder.
-3. **Mask Decoder:** A lightweight two-way transformer (2 layers) that attends between prompt tokens and image embeddings, uses high-resolution FPN features as skip connections, and generates mask predictions via hypernetwork MLPs. Also predicts IoU confidence scores and object-presence logits.
-
-## Model Outputs
-
-The model returns a dictionary with:
-
-- `pred_masks`: Low-resolution predicted masks of shape `(batch, point_batch, num_masks, 256, 256)`. `num_masks=3` for `multimask_output=True` (default) or `num_masks=1` for `multimask_output=False`.
-- `iou_scores`: Predicted IoU scores (0–1, sigmoid-activated) for each mask of shape `(batch, point_batch, num_masks)`.
-- `object_score_logits`: Object-presence score logits of shape `(batch, point_batch, 1)`. Raw logits, apply `sigmoid` if you want a probability.
-
-Use `processor.post_process_masks(...)` to upscale masks to the original image resolution. The output is mask **logits**: threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
-
-## HuggingFace API Parity Notes
-
-The Keras port intentionally differs from the PyTorch/HuggingFace `Sam2Model` API in a few places due to the functional-graph constraint:
-
-| Aspect | HuggingFace | Keras port |
-|---|---|---|
-| Optional prompts | pass `None` in `forward` | build-time flags (`include_box_input`, `include_mask_input`) + explicit inputs |
-| `multimask_output` | runtime kwarg | construction-time flag |
-| Precomputed embeddings | `model(image_embeddings=..., ...)` | `model.prompt_decoder_model(...)` sub-model |
-| Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
-| Automatic mask generation | helpers on `Sam2ImageProcessor`; driver lives in Meta's original repo | helpers re-used from `kerasformers.models.sam` + built-in `SAM2GenerateMasks` driver |
-| Image preprocessing | `keep_aspect_ratio=True` + pad to square | per-axis stretch to 1024×1024 |
-| Box-only prompts | supported (points branch is skipped) | small drift: see the box-prompt note above |
-
-All forward-pass weights are byte-equivalent to the HuggingFace checkpoints: across all four variants, `points`, `points + boxes`, and `multimask_output=False` paths match HF within float32 noise (~1e-3 max mask-logit diff).
-
-## Citation
-
-```bibtex
-@article{ravi2024sam2,
-  title={SAM 2: Segment Anything in Images and Videos},
-  author={Ravi, Nikhila and Gabeur, Valentin and Hu, Yuan-Ting and Hu, Ronghang and Ryali, Chaitanya and Ma, Tengyu and Khedr, Haitham and R{\"a}dle, Roman and Rolland, Chloe and Gustafson, Laura and others},
-  journal={arXiv preprint arXiv:2408.00714},
-  year={2024}
-}
-```
+See also [SAM](sam.md), the original, and [SAM3](sam3.md), which prompts with text.

@@ -145,7 +145,7 @@ from kerasformers.models.grounding_dino import (
 model = GroundingDinoForObjectDetection.from_weights("grounding_dino_tiny")
 processor = GroundingDinoProcessor.from_weights("grounding_dino_tiny")
 
-image = Image.open("assets/coco/coco_paddleboard.jpg").convert("RGB")
+image = Image.open("assets/data/coco_paddleboard.jpg").convert("RGB")
 
 # No articles: in "a paddle" the "a" can outscore the noun.
 inputs = processor(images=image, text=["person", "paddle", "board"])
@@ -200,7 +200,7 @@ processor = GroundingDinoProcessor.from_weights(
     "grounding_dino_tiny", shortest_edge=600, longest_edge=1000,
 )
 
-paths = ["assets/coco/coco_bathroom.jpg", "assets/coco/coco_motorcycle.jpg"]
+paths = ["assets/data/coco_bathroom.jpg", "assets/data/coco_motorcycle.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 texts = [["man", "toilet", "sink"], ["motorcycle", "helmet", "person"]]
 
@@ -216,8 +216,7 @@ results = processor.post_process_object_detection(
 )
 
 for path, result in zip(paths, results):
-    print(f"
-{path}")
+    print(f"\n{path}")
     detections = sorted(
         zip(result["scores"], result["text_labels"], result["boxes"]),
         key=lambda d: -float(d[0]),
@@ -227,12 +226,12 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_bathroom.jpg
+assets/data/coco_bathroom.jpg
   man         0.883  [1, 15, 249, 639]
   sink        0.602  [0, 162, 41, 243]
   toilet      0.598  [172, 372, 299, 620]
 
-assets/coco/coco_motorcycle.jpg
+assets/data/coco_motorcycle.jpg
   motorcycle  0.852  [242, 108, 470, 252]
   helmet      0.846  [271, 55, 325, 102]
   person      0.752  [270, 55, 458, 192]

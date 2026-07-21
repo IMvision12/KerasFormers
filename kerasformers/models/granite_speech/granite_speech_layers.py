@@ -14,10 +14,17 @@ def rotate_half(x):
 
 
 def apply_rope(q, k, cos, sin):
+    # cos/sin are built in float32, so multiplying a bf16 q/k by them silently
+    # promoted the result to float32 and the bf16 KV cache then refused the
+    # write ("Index put requires the source and destination dtypes match").
+    # Rotate in float32 for precision, then hand back the dtype we were given.
+    dtype = q.dtype
     cos = ops.expand_dims(cos, axis=1)
     sin = ops.expand_dims(sin, axis=1)
-    q_embed = q * cos + rotate_half(q) * sin
-    k_embed = k * cos + rotate_half(k) * sin
+    q32 = ops.cast(q, "float32")
+    k32 = ops.cast(k, "float32")
+    q_embed = ops.cast(q32 * cos + rotate_half(q32) * sin, dtype)
+    k_embed = ops.cast(k32 * cos + rotate_half(k32) * sin, dtype)
     return q_embed, k_embed
 
 

@@ -1,109 +1,200 @@
 # Granite Speech Plus
 
-**Model card**: [ibm-granite/granite-speech-4.1-2b-plus](https://huggingface.co/ibm-granite/granite-speech-4.1-2b-plus) · **Architecture paper**: [Granite-speech](https://arxiv.org/abs/2505.08699)
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> the pretrained weights for Granite Speech Plus are hosted on the
+kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/granite" style="color:#1a5c8a;">granite</a>
+release tag, and download automatically the first time you call
+<code>from_weights(...)</code>.
+</div>
+<br>
 
-Granite Speech Plus is the **granite-4.0-based** successor to Granite Speech. The
-architecture is identical: a conformer CTC encoder + BLIP-2 Q-Former projector +
-Granite decoder, fused at `<|audio|>` positions, so the kerasformers port simply
-**reuses the `granite_speech` implementation**; only the config and tokenizer
-differ. Read [`granite_speech.md`](granite_speech.md) first; this page documents
-just the deltas.
+Granite Speech Plus is the **Granite 4.0-based** successor to
+[Granite Speech](granite_speech.md). The architecture is the same idea, a conformer CTC
+encoder and a BLIP-2 Q-Former projector feeding audio embeddings into `<|audio|>` slots of
+a Granite decoder, so this port reuses the `granite_speech` implementation outright and
+only the config and tokenizer differ.
 
-## What's different from Granite Speech 3.3
+Read [Granite Speech](granite_speech.md) for how the pieces fit together and how to call
+the processor. This page covers the deltas and gives a runnable example.
+
+**Model card**: [ibm-granite/granite-speech-4.1-2b-plus](https://huggingface.co/ibm-granite/granite-speech-4.1-2b-plus)
+**Architecture paper**: [Granite-speech](https://arxiv.org/abs/2505.08699)
+
+## What Changed
 
 | | `granite_speech_3_3_2b` | `granite_speech_4_1_2b_plus` |
 |---|---|---|
 | LLM base | Granite 3.3 | **Granite 4.0** |
-| Vocab | 49 160 | **100 353** |
+| Vocabulary | 49,160 | **100,353** |
 | MLP dim | 8192 | **4096** |
 | Heads (q / kv) | 32 / 8 | **16 / 4** |
 | `rope_theta` | 1e7 | **10000** |
 | `attention_multiplier` | 1/64 | **1/128** |
 | `audio_token_id` | 49159 | **100352** |
-| LoRA adapter | yes (rank 64) | **none** (`has_lora_adapter = False`: weights fully merged) |
+| LoRA adapter | rank 64 | **none**, weights fully merged |
 | `cat_hidden_layers` | `None` | **`[3]`** |
 | Encoder `output_dim` | 256 | **348** |
-| Tokenizer | `granite_speech_tokenizer.json` | **`granite_speech_plus_tokenizer.json`** (granite-4.0 vocab, `<think>`/`<tool_call>` tokens) |
 
 `hidden_size` (2048) and `num_layers` (40) are unchanged.
 
-**`cat_hidden_layers = [3]`** is the one structural change: the CTC encoder
-concatenates its layer-3 intermediate output with the final output before the
-projector, so the projector's `encoder_hidden_size` becomes
-`encoder_hidden_dim × (len(cat_hidden_layers) + 1) = 1024 × 2 = 2048`
-(derived automatically by the model).
+**`cat_hidden_layers = [3]`** is the one structural change: the CTC encoder concatenates
+its layer-3 intermediate output with the final output before the projector, so the
+projector's `encoder_hidden_size` doubles to `1024 x 2 = 2048`. The model derives that for
+you.
 
-## Classes
+Dropping the LoRA adapter is the other practical difference. Granite Speech switches a
+query/value LoRA on for audio and off for text; Plus has those weights merged, so there is
+no adapter to toggle.
 
-Thin subclasses that only swap the config / tokenizer source: everything else is
-inherited from `granite_speech`:
+## API
 
-| Class | Inherits | Note |
-|---|---|---|
-| `GraniteSpeechPlusModel` | `GraniteSpeechModel` | `BASE_MODEL_CONFIG` → plus config; `HF_MODEL_TYPE = "granite_speech_plus"` |
-| `GraniteSpeechPlusGenerate` | `GraniteSpeechGenerate` | LM head + fast `.generate()` |
-| `GraniteSpeechPlusTokenizer` | `GraniteSpeechTokenizer` | overrides `TOKENIZER_URL` → the plus `tokenizer.json` |
-| `GraniteSpeechPlusProcessor` | `GraniteSpeechProcessor` | overrides `TOKENIZER_CLS` → `GraniteSpeechPlusTokenizer` |
+The classes mirror Granite Speech exactly, under `kerasformers.models.granite_speech_plus`.
 
-The mel `GraniteSpeechFeatureExtractor` is shared unchanged (re-exported from the
-plus package).
+### GraniteSpeechPlusGenerate
+
+```python
+GraniteSpeechPlusGenerate(vocab_size=100353, embed_dim=2048, mlp_dim=4096,
+                          num_layers=40, num_heads=16, num_kv_heads=4,
+                          rope_theta=10000.0, attention_multiplier=1 / 128,
+                          audio_token_id=100352, has_lora_adapter=False,
+                          cat_hidden_layers=[3], ...,
+                          name="GraniteSpeechPlusGenerate")
+```
+
+The audio encoder, projector, Granite 4.0 decoder, and LM head. **This is the class for
+audio-plus-text to text.** The arguments are the same set as
+[`GraniteSpeechGenerate`](granite_speech.md#granitespeechgenerate), with the defaults in
+the table above; `from_weights` fills them in.
+
+**generate**
+
+```python
+model.generate(input_ids, attention_mask=None, max_new_tokens=None,
+               eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+```
+
+Call it as `model.generate(**inputs, max_new_tokens=...)` with the processor's output; the
+audio tensors ride along in `**prefill_inputs`. **Returns** token ids, which you decode
+with `processor.tokenizer.decode`.
+
+### Other classes
+
+| Class | What it is |
+|---|---|
+| `GraniteSpeechPlusModel` | the same stack without the LM head |
+| `GraniteSpeechPlusProcessor` | chat template, audio placeholder expansion, tokenization |
+| `GraniteSpeechPlusTokenizer` | the Granite 4.0 vocabulary |
+| `GraniteSpeechFeatureExtractor` | reused unchanged from `granite_speech` |
+
+## Preprocessing
+
+`GraniteSpeechPlusProcessor` takes the same call as Granite Speech's:
+
+```python
+processor(text=None, audio=None, conversation=None, messages=None,
+          sampling_rate=16000, add_generation_prompt=True)
+```
+
+**Returns** `input_ids`, `attention_mask`, `input_features`, and `input_features_mask`.
+The feature extractor is `GraniteSpeechFeatureExtractor`, unchanged; see
+[Granite Speech](granite_speech.md#preprocessing) for its parameters.
 
 ## Model Variants
 
-| Variant id | Params | LLM (layers / hidden / heads q·kv) | Vocab |
-|---|---|---|---|
-| `granite_speech_4_1_2b_plus` | ~2.5 B | 40 / 2048 / 16·4 | 100 353 |
+| Variant id | Decoder | Params |
+|---|---|---:|
+| `granite_speech_4_1_2b_plus` | Granite 4.0 2B | ~2 B |
 
-## Available Weights
+One variant. Load it in bf16 unless you have room for fp32.
 
-Sharded, like Granite Speech: a `granite_speech_4_1_2b_plus.weights.json` index +
-`_NNNNN.weights.h5` shards under the kerasformers
-[`granite_speech`](https://github.com/IMvision12/KerasFormers/releases/tag/granite_speech)
-release tag. The plus `tokenizer.json` is hosted on the same tag as
-`granite_speech_plus_tokenizer.json`.
+## Basic Usage: Transcription
 
-## Usage
+The sample below is a LibriSpeech clip, 9.90 s of 16 kHz mono, kept in the repo at
+`assets/speech_leighton.wav`:
 
-Identical to Granite Speech: just use the `Plus` classes (the processor builds
-the right tensors and the plus tokenizer is wired automatically):
+<audio controls src="../assets/speech_leighton.wav"></audio>
+
+Its reference transcript is *"HE HAS GRAVE DOUBTS WHETHER SIR FREDERICK LEIGHTON'S WORK IS
+REALLY GREEK AFTER ALL AND CAN DISCOVER IN IT BUT LITTLE OF ROCKY ITHACA"*.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"
+os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
 
+import keras
+import numpy as np
 import soundfile as sf
 from kerasformers.models.granite_speech_plus import (
     GraniteSpeechPlusGenerate, GraniteSpeechPlusProcessor,
 )
 
-model = GraniteSpeechPlusGenerate.from_weights("granite_speech_4_1_2b_plus")
-# or: GraniteSpeechPlusGenerate.from_weights("hf:ibm-granite/granite-speech-4.1-2b-plus")
-processor = GraniteSpeechPlusProcessor()      # downloads the granite-4.0 tokenizer
+model = GraniteSpeechPlusGenerate.from_weights(
+    "granite_speech_4_1_2b_plus", load_dtype="bfloat16"
+)
+processor = GraniteSpeechPlusProcessor.from_weights("granite_speech_4_1_2b_plus")
 
-audio, sr = sf.read("assets/sample.wav")      # 16 kHz mono float32
-conversation = [
-    {"role": "user", "content": [
-        {"type": "audio"},
-        {"type": "text", "text": "Can you transcribe this audio?"},
-    ]},
-]
+audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")   # 16 kHz mono
 
-inputs = processor(conversation=conversation, audio=audio)
-output_ids = model.generate(**inputs, max_new_tokens=200)
-print(processor.tokenizer.decode(output_ids[0]))
+conversation = [{"role": "user", "content": [
+    {"type": "audio"},
+    {"type": "text", "text": "can you transcribe the speech into a written format?"},
+]}]
+
+inputs = processor(conversation=conversation, audio=audio, sampling_rate=sr)
+out = model.generate(**inputs, max_new_tokens=64)
+
+ids = np.asarray(keras.ops.convert_to_numpy(out))[0].tolist()
+print(repr(processor.tokenizer.decode(ids)))
 ```
 
-See [`granite_speech.md`](granite_speech.md) for the model forward signature,
-feature-extractor details, generation internals, and the conformer/Q-Former
-architecture: all shared.
-
-## Citation
-
-```bibtex
-@article{saon2025granitespeech,
-  title={Granite-speech: open-source speech-aware LLMs with strong English ASR capabilities},
-  author={Saon, George and others},
-  journal={arXiv preprint arXiv:2505.08699},
-  year={2025}
-}
 ```
+"he has grave doubts whether sir frederick leighton's work is really greek after all and can discover in it but little of rocky ithaca"
+```
+
+Word-for-word the reference, including the proper nouns "Frederick Leighton" and "Ithaca"
+and the possessive apostrophe, across nearly ten seconds of audio.
+
+> **Audio goes in the `audio=` argument, not inside the conversation**, same as Granite
+> Speech. The `{"type": "audio"}` item only marks the position.
+
+## Audio Format
+
+**A 1-D float32 waveform in `[-1, 1]` at 16 kHz.**
+
+| | What it expects |
+|---|---|
+| Processor | The waveform in the `audio=` argument, plus a `{"type": "audio"}` marker in the conversation. `sampling_rate` tells it what rate you are handing over; it does not resample. |
+| Models | `input_features` / `input_features_mask` from the extractor, alongside `input_ids`. |
+
+```python
+import librosa
+import soundfile as sf
+
+audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")
+if audio.ndim > 1:
+    audio = audio.mean(axis=1)                     # stereo to mono
+if sr != 16000:
+    audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
+```
+
+## Loading Fine-tuned and Community Weights
+
+```python
+from kerasformers.models.granite_speech_plus import (
+    GraniteSpeechPlusGenerate, GraniteSpeechPlusProcessor,
+)
+
+model = GraniteSpeechPlusGenerate.from_weights(
+    "hf:ibm-granite/granite-speech-4.1-2b-plus"
+)
+processor = GraniteSpeechPlusProcessor.from_weights(
+    "hf:ibm-granite/granite-speech-4.1-2b-plus"
+)
+
+# Architecture only, randomly initialized
+model = GraniteSpeechPlusGenerate.from_weights(
+    "granite_speech_4_1_2b_plus", load_weights=False
+)
+```
+
+See also [Granite Speech](granite_speech.md) for the full architecture walkthrough.

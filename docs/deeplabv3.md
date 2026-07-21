@@ -1,153 +1,243 @@
 # DeepLabV3
 
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> the pretrained weights for the DeepLabV3 model are hosted on the
+kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/deeplabv3" style="color:#1a5c8a;">deeplabv3</a>
+release tag, and download automatically the first time you call
+<code>from_weights(...)</code>.
+</div>
+<br>
+
+DeepLabV3 does **semantic segmentation**: every pixel gets a class, with no notion of separate object instances. Two dogs side by side are one `dog` region, not two.
+
+Its contribution is **atrous (dilated) convolution**. A plain classification backbone downsamples aggressively, which is fine for a single label but destroys the spatial detail segmentation needs. Dilated convolutions widen the receptive field without downsampling further, and the Atrous Spatial Pyramid Pooling head samples several dilation rates in parallel so one layer sees objects at multiple scales at once.
+
 **Paper**: [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587)
 
-DeepLabV3 is a highly accurate semantic segmentation model that employs atrous (dilated) convolution to capture multi-scale spatial context without losing spatial resolution. It features an Atrous Spatial Pyramid Pooling (ASPP) module that probes convolutional features at multiple scales, making it highly robust for segmenting objects of varying sizes.
+## API
 
-Two classes are exposed:
+### DeepLabV3SemanticSegment
 
-- `DeepLabV3Model`: dilated ResNet backbone (no segmentation head). Returns the 2048-channel C5 feature at ``output_stride=8``.
-- `DeepLabV3SemanticSegment`: full semantic-segmentation model with the ASPP module + classifier head + bilinear upsample.
+```python
+DeepLabV3SemanticSegment(backbone_variant="ResNet50", num_classes=21,
+                         image_size=520, input_tensor=None,
+                         name="DeepLabV3SemanticSegment")
+```
 
-## Architecture Highlights
+The segmentation model: dilated ResNet backbone plus the ASPP head.
+**This is the class for semantic segmentation.**
 
-- **ResNet Backbone:** Leverages deep residual networks (ResNet-50 or ResNet-101) for robust feature extraction.
-- **Atrous Convolution:** Controls the resolution of features computed by Deep CNNs and effectively enlarges the field of view of filters without increasing the number of parameters or the amount of computation.
-- **ASPP Module:** Captures multi-scale information by applying parallel atrous convolutions with different dilation rates (12, 24, 36).
+**Parameters**
 
-## Available Weights
+- **backbone_variant** (`str`, *optional*, defaults to `"ResNet50"`): CNN backbone, `"ResNet50"` or `"ResNet101"`.
+- **num_classes** (`int`, *optional*, defaults to `21`): Pascal VOC's 20 classes plus background.
+- **image_size** (`int`, *optional*, defaults to `520`): input resolution the model is built for.
+- **input_tensor** (`dict`, *optional*): pre-existing input tensors to build on.
+- **name** (`str`, *optional*, defaults to `"DeepLabV3SemanticSegment"`): model name.
 
-Pretrained weights are loaded via `DeepLabV3SemanticSegment.from_weights(variant_id)`. These come from torchvision (COCO + Pascal VOC fine-tune), not HuggingFace.
+**Call** `model(pixel_values, training=False)`. **Returns** a tensor of shape
+`(B, H, W, num_classes)`: per-pixel class logits at the input resolution.
 
-| Variant                           | Backbone   | Dataset       | Classes | Input    |
-|-----------------------------------|------------|---------------|--------:|----------|
-| `deeplabv3_resnet50_coco_voc`     | ResNet-50  | COCO + VOC    |      21 | 520×520  |
-| `deeplabv3_resnet101_coco_voc`    | ResNet-101 | COCO + VOC    |      21 | 520×520  |
+### DeepLabV3Model
 
-*Note: The `coco_voc` weights are pre-trained on the COCO dataset and fine-tuned on the PASCAL VOC segmentation dataset. They output predictions across 21 classes (20 objects + 1 background).*
+```python
+DeepLabV3Model(backbone_variant="ResNet50", image_size=520,
+               input_tensor=None, name="DeepLabV3Model")
+```
 
-## Basic Usage
+The dilated backbone without the segmentation head, for features to attach your own
+head to.
+
+## Preprocessing
+
+### DeepLabV3ImageProcessor
+
+```python
+DeepLabV3ImageProcessor(size=None, resample="bilinear", do_rescale=True,
+                        rescale_factor=1/255, do_normalize=True,
+                        image_mean=None, image_std=None, return_tensor=True,
+                        data_format=None)
+```
+
+Resizes to a fixed square, rescales to `[0, 1]`, and normalizes with ImageNet
+statistics.
+
+**Parameters**
+
+- **size** (`dict`, *optional*, defaults to `{"height": 520, "width": 520}`): target size.
+- **resample** (`str`, *optional*, defaults to `"bilinear"`): resize interpolation.
+- **do_rescale** (`bool`, *optional*, defaults to `True`): scale pixels to `[0, 1]`.
+- **do_normalize** (`bool`, *optional*, defaults to `True`): apply ImageNet normalization.
+- **image_mean** / **image_std** (`tuple`, *optional*): defaults to the ImageNet statistics.
+- **return_tensor** (`bool`, *optional*, defaults to `True`): return backend tensors rather than numpy.
+- **data_format** (`str`, *optional*): `"channels_last"` or `"channels_first"`. Defaults to `keras.config.image_data_format()`.
+
+**post_process_semantic_segmentation**
+
+```python
+processor.post_process_semantic_segmentation(outputs, target_size=None,
+                                             label_names=None, data_format=None)
+```
+
+Takes the per-pixel argmax and resizes the label map to `target_size`.
+
+**Returns** a `dict`:
+
+- **segmentation** (`(H, W)` `uint8`): the class id per pixel.
+- **unique_classes**: the ids actually present.
+- **class_names**: their names, from Pascal VOC unless `label_names` is given.
+
+## Model Variants
+
+| Variant id                     | Backbone   | Classes | Source      |
+|--------------------------------|------------|--------:|-------------|
+| `deeplabv3_resnet50_coco_voc`  | ResNet-50  |      21 | torchvision |
+| `deeplabv3_resnet101_coco_voc` | ResNet-101 |      21 | torchvision |
+
+Both are trained on the COCO subset that covers the Pascal VOC label set, so the
+vocabulary is VOC's 20 classes plus background.
+
+## Basic Usage: Semantic Segmentation
+
+<img src="../assets/deeplabv3_seg_output.jpg" alt="DeepLabV3 on an aeroplane: original and overlay" width="760">
+
+Each figure is the original image beside the predicted segmentation overlaid on it.
+
+
+```python
+import keras
+import numpy as np
+from PIL import Image
+from kerasformers.models.deeplabv3 import (
+    DeepLabV3ImageProcessor, DeepLabV3SemanticSegment,
+)
+
+model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
+processor = DeepLabV3ImageProcessor()
+
+image = Image.open("assets/data/coco_airplane.jpg").convert("RGB")
+output = model(processor(image)["pixel_values"], training=False)
+# output: (1, 520, 520, 21)
+
+result = processor.post_process_semantic_segmentation(
+    output, target_size=(image.height, image.width)
+)
+seg = np.asarray(keras.ops.convert_to_numpy(result["segmentation"]))
+
+for cid, name in zip(result["unique_classes"], result["class_names"]):
+    print(f"{name:14s} {int((seg == int(cid)).sum())} px")
+```
+
+```
+background     181677 px
+aeroplane      41683 px
+```
+
+`segmentation` is a plain `(H, W)` label map, so counting pixels per class is just a
+comparison. There is no per-instance structure here: if two aeroplanes overlapped they
+would share one region.
+
+### Batch Processing Multiple Images
+
+<img src="../assets/deeplabv3_seg_batch_output.jpg" alt="DeepLabV3 on a dog in a yard and a cat on a car: original and overlay" width="760">
+
+The processor accepts a list, and every image is resized to the same square, so
+stacking is always safe. Post-process one image at a time, since each has its own
+target size:
+
+```python
+import keras
+import numpy as np
+from PIL import Image
+from kerasformers.models.deeplabv3 import (
+    DeepLabV3ImageProcessor, DeepLabV3SemanticSegment,
+)
+
+model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
+processor = DeepLabV3ImageProcessor()
+
+paths = ["assets/data/coco_dog_yard.jpg", "assets/data/coco_cat_car.jpg"]
+images = [Image.open(p).convert("RGB") for p in paths]
+
+outputs = model(processor(paths)["pixel_values"], training=False)   # (2, 520, 520, 21)
+
+for path, image, logits in zip(paths, images, outputs):
+    result = processor.post_process_semantic_segmentation(
+        logits[None], target_size=(image.height, image.width)
+    )
+    seg = np.asarray(keras.ops.convert_to_numpy(result["segmentation"]))
+    print(f"\n{path}")
+    for cid, name in zip(result["unique_classes"], result["class_names"]):
+        print(f"  {name:12s} {int((seg == int(cid)).sum())} px")
+```
+
+```
+assets/data/coco_dog_yard.jpg
+  background   170539 px
+  dog          16961 px
+
+assets/data/coco_cat_car.jpg
+  car          120579 px
+  background   92789 px
+  cat          17453 px
+  bottle       219 px
+```
+
+The stray 236-pixel `bottle` on the second image is a good illustration of what a
+semantic model gives you: no confidence score to threshold on, just a label per pixel.
+Filter by region area if small spurious regions matter.
+
+## Data Format
+
+**Both the model and the processor support `channels_last` and `channels_first`.**
+
+| | How it picks the format |
+|---|---|
+| Processors | A `data_format` kwarg, per instance. `None` (the default) resolves to `keras.config.image_data_format()`. |
+| Models | Read `keras.config.image_data_format()` when they are **constructed**. There is no `data_format` argument. |
+
+```python
+import keras
+
+keras.config.set_image_data_format("channels_first")
+
+model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
+processor = DeepLabV3ImageProcessor()
+```
+
+`post_process_semantic_segmentation` also takes `data_format`, since it has to know
+which axis holds the classes before taking the argmax. It always returns `(H, W)`.
+
+## Custom Class Names
+
+A model fine-tuned on your own dataset predicts your class indices, not VOC's:
+
+```python
+result = processor.post_process_semantic_segmentation(
+    output, target_size=(image.height, image.width),
+    label_names=["background", "road", "building"],
+)
+```
+
+Without it the post-processor falls back to the Pascal VOC names.
+
+## Loading Fine-tuned and Community Weights
+
+The release variants come from torchvision rather than the Hub, so there is no
+`hf:` route for the official checkpoints. You can still construct the architecture and
+load your own weights:
 
 ```python
 from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment
 
-# Load model with pre-trained weights
-model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
-
-# Use the ResNet-101 backbone
-model_large = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet101_coco_voc")
-
-# Build an untrained model for fine-tuning (override num_classes etc.)
-custom = DeepLabV3SemanticSegment.from_weights(
-    "deeplabv3_resnet50_coco_voc",
-    load_weights=False,
-    num_classes=10,
-    input_image_shape=(512, 512, 3),
+# Architecture only, randomly initialized
+model = DeepLabV3SemanticSegment.from_weights(
+    "deeplabv3_resnet50_coco_voc", load_weights=False,
 )
+
+# Your own class count for fine-tuning
+model = DeepLabV3SemanticSegment(backbone_variant="ResNet50", num_classes=3)
 ```
 
-## Inference Example
-
-```python
-from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment, DeepLabV3ImageProcessor
-
-model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
-
-processor = DeepLabV3ImageProcessor(size={"height": 520, "width": 520})
-image = processor("image.jpg")
-
-output = model(image["pixel_values"], training=False)  # (1, 520, 520, 21)
-
-result = processor.post_process_semantic_segmentation(output)
-print(f"Detected: {[c for c in result['class_names'] if c != 'background']}")
-
-# Output:
-# Detected: ['person']
-```
-
-### Data format
-
-Every processor and format-sensitive post-processor in this module accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
-
-```python
-# follow the global config (the default)
-processor = DeepLabV3ImageProcessor()
-inputs = processor("photo.jpg")
-
-# force channels_first for this call only
-processor = DeepLabV3ImageProcessor(data_format="channels_first")
-inputs = processor("photo.jpg")
-```
-
-Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
-
-## Full Inference with Visualization
-
-```python
-import os
-os.environ["KERAS_BACKEND"] = "torch"
-
-import numpy as np
-from PIL import Image
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
-from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment, DeepLabV3ImageProcessor
-
-VOC_COLORMAP = np.array([
-    [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
-    [128, 0, 128], [0, 128, 128], [128, 128, 128], [64, 0, 0], [192, 0, 0],
-    [64, 128, 0], [192, 128, 0], [64, 0, 128], [192, 0, 128], [64, 128, 128],
-    [192, 128, 128], [0, 64, 0], [128, 64, 0], [0, 192, 0], [128, 192, 0],
-    [0, 64, 128],
-], dtype=np.uint8)
-
-model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
-
-img = Image.open("image.jpg").convert("RGB")
-original_size = img.size[::-1]  # (H, W)
-
-processor = DeepLabV3ImageProcessor(size={"height": 520, "width": 520})
-inputs = processor(img)
-output = model(inputs["pixel_values"], training=False)
-
-result = processor.post_process_semantic_segmentation(output, target_size=original_size)
-mask_resized = result["segmentation"]
-
-colored_mask = VOC_COLORMAP[mask_resized]
-overlay = np.array(img).copy()
-alpha = 0.5
-mask_pixels = mask_resized > 0
-overlay[mask_pixels] = (overlay[mask_pixels] * (1 - alpha) + colored_mask[mask_pixels] * alpha).astype(np.uint8)
-
-fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-ax.imshow(overlay)
-
-# Add legend
-unique_classes = [c for c in result["unique_classes"] if c > 0]
-legend_patches = [plt.Rectangle((0, 0), 1, 1, fc=VOC_COLORMAP[c] / 255.0) for c in unique_classes]
-if legend_patches:
-    ax.legend(legend_patches, [n for c, n in zip(result["unique_classes"], result["class_names"]) if c > 0],
-              loc="upper right", fontsize=11)
-
-ax.set_title("DeepLabV3 Semantic Segmentation", fontsize=16)
-ax.axis("off")
-plt.tight_layout()
-fig.savefig("deeplabv3_output.jpg", bbox_inches="tight", dpi=120)
-plt.close(fig)
-```
-
-![DeepLabV3 Semantic Segmentation Output](../assets/deeplabv3_output.jpg)
-
-## Custom Dataset Usage
-
-When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
-
-```python
-MY_CLASSES = ["background", "crack", "pothole", "patch"]
-
-result = processor.post_process_semantic_segmentation(output, target_size=original_size, label_names=MY_CLASSES)
-```
-
-If `label_names` is not provided, Pascal VOC class names (21 classes) are used by default.
+See also [SegFormer](segformer.md) for a transformer-based semantic segmenter, and
+[MobileViT](mobilevit.md), which pairs this same DeepLabV3 head with a mobile backbone.

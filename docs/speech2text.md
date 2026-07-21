@@ -1,288 +1,240 @@
-# Speech2Text (S2T)
+# Speech2Text
+
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> the pretrained weights for the Speech2Text models are hosted on the
+kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/speech2text" style="color:#1a5c8a;">speech2text</a>
+release tag, and download automatically the first time you call
+<code>from_weights(...)</code>.
+</div>
+<br>
+
+Speech2Text (S2T) is fairseq's convolution-plus-transformer encoder-decoder for
+end-to-end speech recognition and speech translation. It predates the huge weakly
+supervised models: these checkpoints are trained on LibriSpeech alone, which makes them
+small, fast, and narrowly specialised.
+
+Two details set it apart from [Whisper](whisper.md). The input is **80-channel log-mel
+filterbank features with per-utterance mean/variance normalization**, not a fixed 30-second
+mel window, so the encoder length tracks the audio. And a 1-D convolutional subsampler
+(kernel 5, stride 2, GLU) downsamples time by **4x** before the transformer stack, which is
+what keeps a full utterance affordable.
 
 **Paper**: [fairseq S2T: Fast Speech-to-Text Modeling with fairseq](https://arxiv.org/abs/2010.05171)
 
-Speech2Text is Facebook/fairseq's convolution + Transformer encoder-decoder
-for end-to-end speech recognition (and, in its multilingual variants, speech
-translation). The encoder ingests 80-channel log-mel **filterbank** features
-through a 2-layer 1-D convolutional subsampler (kernel 5, stride 2, GLU) that
-downsamples the time axis by 4x, adds fixed **sinusoidal** positions, and runs
-a stack of pre-LN transformer blocks. The decoder generates SentencePiece token
-ids autoregressively, attending to the encoder output via cross-attention, with
-a separate linear LM head. Token + conv embeddings are scaled by
-`sqrt(d_model)`.
+## API
 
-kerasformers ships a **pure Keras 3** port of the three LibriSpeech ASR
-checkpoints with bit-close parity to HuggingFace's reference implementation.
-The feature extractor, encoder, decoder, and greedy `generate` loop run
-unmodified on TensorFlow / Torch / JAX backends: no `transformers` or `torch`
-runtime dependency.
-
-## Classes
-
-Two classes are exposed, mirroring HF's `Speech2Text*` hierarchy:
-
-| Class | HF equivalent | Purpose |
-|---|---|---|
-| `Speech2TextModel` | `Speech2TextModel` / `Speech2TextForConditionalGeneration` | Encoder + decoder + LM head. Functional graph for teacher-forced training and forward passes. |
-| `Speech2TextSpeechToText` | `Speech2TextForConditionalGeneration` + `.generate()` | Subclass of `Speech2TextModel` that adds an end-to-end `.generate(audio, processor)` method for transcription. |
-
-Both are loaded the same way:
+### Speech2TextSpeechToText
 
 ```python
-from kerasformers.models.speech2text import Speech2TextSpeechToText
-
-# kerasformers release variant
-model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
-
-# Any HF Hub repo whose model_type is "speech_to_text"
-model = Speech2TextSpeechToText.from_weights("hf:facebook/s2t-small-librispeech-asr")
+Speech2TextSpeechToText(hidden_dim=256, encoder_num_layers=12,
+                        decoder_num_layers=6, encoder_attention_heads=4,
+                        decoder_attention_heads=4, encoder_ffn_dim=2048,
+                        decoder_ffn_dim=2048, vocab_size=10000, num_mel_bins=80,
+                        max_source_positions=6000, max_target_positions=1024,
+                        conv_channels=1024, conv_kernel_sizes=(5, 5),
+                        num_conv_layers=2, scale_embedding=True,
+                        activation_function="relu", layer_norm_eps=1e-05,
+                        name="Speech2TextSpeechToText")
 ```
+
+The conv subsampler, encoder, decoder, and LM head, plus a `generate` that runs the whole
+pipeline. **This is the class for speech to text.**
+
+**Parameters**
+
+- **hidden_dim** (`int`, *optional*, defaults to `256`): model width. Filled in by `from_weights` from the variant config.
+- **encoder_num_layers** / **decoder_num_layers** (`int`, *optional*): blocks per stack, the main size lever from small to large.
+- **encoder_attention_heads** / **decoder_attention_heads** (`int`, *optional*): attention heads per stack.
+- **encoder_ffn_dim** / **decoder_ffn_dim** (`int`, *optional*): MLP inner width.
+- **vocab_size** (`int`, *optional*, defaults to `10000`): SentencePiece vocabulary.
+- **num_mel_bins** (`int`, *optional*, defaults to `80`): filterbank channels the encoder expects.
+- **max_source_positions** / **max_target_positions** (`int`, *optional*): encoder and decoder position limits.
+- **conv_channels** / **conv_kernel_sizes** / **num_conv_layers**: the 1-D subsampler that downsamples time by 4x before the transformer stack.
+- **scale_embedding** (`bool`, *optional*, defaults to `True`): scale embeddings by `sqrt(hidden_dim)`.
+- **activation_function** / **layer_norm_eps**: block-level knobs, set from the variant config.
+- **name** (`str`, *optional*, defaults to `"Speech2TextSpeechToText"`): model name.
+
+**Call** `model({"input_features": ..., "decoder_input_ids": ...})` for a teacher-forced
+forward pass. **Returns** a `dict` with **logits** `(B, T, vocab_size)` and
+**encoder_hidden_states** `(B, T', hidden_dim)`. For transcription use `generate`.
+
+**generate**
+
+```python
+model.generate(audio, processor, max_new_tokens=200, sampling_rate=16000,
+               return_ids=False)
+```
+
+- **audio**: a 1-D float32 waveform in `[-1, 1]`, or a list of them for a batch.
+- **processor** (`Speech2TextProcessor`): supplies the feature extractor and tokenizer.
+- **max_new_tokens** (`int`, *optional*, defaults to `200`): decode budget.
+- **sampling_rate** (`int`, *optional*, defaults to `16000`): sample rate of `audio`.
+- **return_ids** (`bool`, *optional*, defaults to `False`): return token ids instead of strings.
+
+**Returns** a list of strings, one per clip.
+
+There is no `language` or `task` argument: unlike Whisper, an S2T checkpoint does exactly
+the one job it was trained for.
+
+### Speech2TextModel
+
+```python
+Speech2TextModel(hidden_dim=256, encoder_num_layers=12, decoder_num_layers=6,
+                 ..., name="Speech2TextModel")
+```
+
+The encoder-decoder without the LM head, for features or a custom head. Same arguments as
+`Speech2TextSpeechToText`.
+
+## Preprocessing
+
+### Speech2TextFeatureExtractor
+
+```python
+Speech2TextFeatureExtractor(sampling_rate=16000, num_mel_bins=80,
+                            frame_length_ms=25.0, frame_shift_ms=10.0,
+                            preemphasis=0.97, normalize_means=True,
+                            normalize_vars=True)
+```
+
+Computes log-mel filterbank features on 25 ms frames every 10 ms, then normalizes each
+utterance.
+
+**Parameters**
+
+- **sampling_rate** (`int`, *optional*, defaults to `16000`): rate the model was trained at. Resample your audio to match; this does not resample for you.
+- **num_mel_bins** (`int`, *optional*, defaults to `80`): filterbank channels.
+- **frame_length_ms** / **frame_shift_ms** (`float`, *optional*, defaults to `25.0` / `10.0`): window and hop.
+- **preemphasis** (`float`, *optional*, defaults to `0.97`): high-pass applied before framing.
+- **normalize_means** / **normalize_vars** (`bool`, *optional*, defaults to `True`): per-utterance mean and variance normalization.
+
+`feat(raw_audio)` **returns** `(B, frames, num_mel_bins)`.
+
+> **Normalization is per utterance, not global.** Each clip is standardized against its own
+> statistics, so a quiet recording and a loud one arrive at the encoder on the same scale
+> without any gain matching from you.
+
+### Speech2TextProcessor
+
+```python
+Speech2TextProcessor(vocab_file=None, spm_file=None, sampling_rate=16000,
+                     num_mel_bins=80, do_upper_case=False, do_lower_case=False,
+                     decoder_start_token_id=2, tokenizer=None,
+                     feature_extractor=None)
+```
+
+Bundles the feature extractor and the SentencePiece tokenizer.
+
+**Call** `processor(audio=..., text=...)`. **Returns** `input_features` and, when text is
+given, `labels`.
+
+> **Prefer `Speech2TextProcessor.from_weights(variant)`.** The SentencePiece vocabulary
+> differs between checkpoints, and `generate` needs the one that matches the model.
 
 ## Model Variants
 
-| Variant id | Params | Layers (enc / dec) | d_model | Heads | Mel bins | Vocab |
-|---|---|---|---|---|---|---|
-| `s2t-small-librispeech-asr` | 30 M | 12 / 6 | 256 | 4 | 80 | 10 000 |
-| `s2t-medium-librispeech-asr` | 71 M | 12 / 6 | 512 | 8 | 80 | 10 000 |
-| `s2t-large-librispeech-asr` | 268 M | 12 / 6 | 1024 | 16 | 80 | 10 000 |
+| Variant id | Params | Trained on |
+|---|---:|---|
+| `s2t-small-librispeech-asr` | 30 M | LibriSpeech 960 h |
+| `s2t-medium-librispeech-asr` | 71 M | LibriSpeech 960 h |
+| `s2t-large-librispeech-asr` | 268 M | LibriSpeech 960 h |
 
-All three are trained on LibriSpeech (English, lowercase) and share the **same
-10k SentencePiece vocabulary**: only the model size differs. The conv
-subsampler (2x kernel-5 / stride-2 + GLU), `scale_embedding`, ReLU FFNs, and
-sinusoidal positions are identical across variants.
+All three are **English ASR only**. They emit lowercase, unpunctuated text, because that is
+how LibriSpeech is transcribed.
 
-## Available Weights
+## Basic Usage: Transcription
 
-Each variant ships one combined `.weights.h5` file (encoder + decoder + LM
-head) converted from the official Facebook checkpoints, hosted under the
-kerasformers
-[`speech2text`](https://github.com/IMvision12/KerasFormers/releases/tag/speech2text)
-release tag and downloaded on first use, then cached locally.
+The sample below is a LibriSpeech clip, 4.82 s of 16 kHz mono, kept in the repo at
+`assets/speech_quilter_manner.wav`:
 
-Variant ids for `Speech2TextModel.from_weights`:
+<audio controls src="../assets/speech_quilter_manner.wav"></audio>
 
-| Variant id | Source |
-|---|---|
-| `s2t-small-librispeech-asr` | `facebook/s2t-small-librispeech-asr` |
-| `s2t-medium-librispeech-asr` | `facebook/s2t-medium-librispeech-asr` |
-| `s2t-large-librispeech-asr` | `facebook/s2t-large-librispeech-asr` |
-
-## Model
-
-`Speech2TextModel` is a `FunctionalBaseModel` (Functional) subclass that wires the encoder
-and decoder into a single graph. Both are exposed as attributes for
-inference / generation paths:
+Its reference transcript is *"NOR IS MISTER QUILTER'S MANNER LESS INTERESTING THAN HIS
+MATTER"*.
 
 ```python
-from kerasformers.models.speech2text import Speech2TextModel
+import os
+os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
 
-# kerasformers release variant
-model = Speech2TextModel.from_weights("s2t-small-librispeech-asr")
-
-# Any HF Hub repo whose model_type is "speech_to_text"
-model = Speech2TextModel.from_weights("hf:facebook/s2t-small-librispeech-asr")
-
-model.encoder        # keras.Model: input_features -> (B, T // 4, hidden_dim)
-model.decoder        # keras.Model: {decoder_input_ids, encoder_hidden_states} -> logits
-model.hidden_dim     # 256
-model.vocab_size     # 10000
-
-# Joint forward pass (teacher-forced training):
-out = model({
-    "input_features":    fbank,  # (B, T, 80)
-    "decoder_input_ids": ids,    # (B, L)
-})
-out["encoder_hidden_states"]     # (B, T // 4, hidden_dim)
-out["logits"]                    # (B, L, vocab_size)
-```
-
-> **Note**: unlike Whisper, the fbank features are laid out
-> `(B, T, num_mel_bins)` (time first), not `(B, num_mel_bins, T)`.
-
-The class is also constructable directly with custom hyperparameters for
-from-scratch training:
-
-```python
-from kerasformers.models.speech2text import Speech2TextModel
-
-model = Speech2TextModel(
-    hidden_dim=256,
-    encoder_num_layers=12, decoder_num_layers=6,
-    encoder_attention_heads=4, decoder_attention_heads=4,
-    encoder_ffn_dim=2048, decoder_ffn_dim=2048,
-    vocab_size=10000, num_mel_bins=80,
-    conv_channels=1024, conv_kernel_sizes=(5, 5), num_conv_layers=2,
-    scale_embedding=True, activation_function="relu",
-)
-```
-
-## Loading HF Fine-tunes
-
-Any HF repo whose `model_type` is `"speech_to_text"` can be loaded directly via
-`Speech2TextModel.from_weights("hf:<repo>")`: the class reads `d_model`, depth,
-head count, conv config, and `scale_embedding` straight from the HF config. The
-converter normalizes both `Speech2TextForConditionalGeneration`
-(`model.encoder.*` prefix) and `Speech2TextModel` (`encoder.*` prefix)
-state-dict layouts, and handles a tied or untied `lm_head`.
-
-## Features and Capabilities
-
-- **End-to-end ASR**: `Speech2TextSpeechToText` extends `Speech2TextModel` and
-  adds an `.generate(audio, processor)` method: mirrors HF's
-  `Speech2TextForConditionalGeneration` (model class + `.generate()`).
-- **Single processor entry point**: `Speech2TextProcessor` bundles the
-  feature extractor + tokenizer behind one object matching the HF API surface.
-- **Pure Keras 3**: the fbank feature extractor uses `keras.ops` (`rfft`,
-  `matmul`, `log`) and runs on any backend; the tokenizer is SentencePiece +
-  `vocab.json` (no `transformers`).
-- **HF passthrough**: `from_weights("hf:org/repo")` works for the original
-  Facebook checkpoints and any community fine-tune whose `model_type` is
-  `"speech_to_text"`, including the bare `Speech2TextModel` (no LM head).
-- **Fine-tunable**: every variable in the encoder + decoder + LM head is
-  trainable.
-
-## Basic Usage
-
-The shortest path is `Speech2TextSpeechToText`: same model graph as
-`Speech2TextModel` plus an end-to-end `.generate(audio, processor)` method
-(audio in, text out).
-
-```python
+import soundfile as sf
 from kerasformers.models.speech2text import (
-    Speech2TextSpeechToText,
-    Speech2TextProcessor,
+    Speech2TextProcessor, Speech2TextSpeechToText,
 )
 
 model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
 processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
 
-# raw_audio: 1-D float32 in [-1, 1] at 16 kHz
-text = model.generate(raw_audio, processor)
-print(text)        # ['mister quilter is the apostle of the middle classes ...']
+audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")   # 16 kHz mono
+text = model.generate(audio, processor)
+print(repr(text[0]))
 ```
 
-LibriSpeech S2T outputs are **lowercase, unpunctuated** (that's how the model
-was trained).
+```
+"nor is mister coleter's manner less interesting than his matter"
+```
 
-## Processor
+Lowercase and unpunctuated, the style the LibriSpeech training transcripts use, and note it
+keeps the apostrophe in the possessive. The one miss is the proper noun: "coleter" for
+"Quilter". Names are exactly where a 30 M model trained on 960 hours struggles, and
+[Whisper](whisper.md), trained on 680,000 hours, gets this one right. Compare its output
+style too: cased and punctuated on the same kind of audio, which is a convention
+difference rather than an accuracy one.
 
-`Speech2TextProcessor` is the recommended top-level entry point: it bundles
-the feature extractor and tokenizer behind a single object that mirrors
-HuggingFace's `transformers.Speech2TextProcessor` API.
+### Batching
+
+Pass a list of waveforms; the extractor pads them to a common length:
 
 ```python
-from kerasformers.models.speech2text import Speech2TextProcessor
-
-processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
-
-# audio path
-out = processor(audio=wave, sampling_rate=16000)
-# {"input_features": (B, T, 80)}
-
-# label path (fine-tuning)
-out = processor(text=["hello world", "foo bar"])
-# {"input_ids": (B, L)}
-
-# decoded text
-text = processor.decode(ids, skip_special_tokens=True)
-texts = processor.batch_decode(ids_batch, skip_special_tokens=True)
-
-# the underlying components are still accessible
-processor.feature_extractor   # Speech2TextFeatureExtractor
-processor.tokenizer           # Speech2TextTokenizer
-processor.decoder_start_token_id  # 2  (</s>, Bart-style seed)
+clips = [audio, audio[: 3 * sr]]
+for line in model.generate(clips, processor):
+    print(repr(line))
 ```
 
-## Feature Extractor
+## Audio Format
 
-`Speech2TextFeatureExtractor` is a **pure Keras 3** Kaldi-style log-mel
-filterbank (fbank) extractor: the spectrogram math goes through `keras.ops`
-(`rfft`, `matmul`, `log`), so the same code runs on TF / Torch / JAX.
+**A 1-D float32 waveform in `[-1, 1]` at 16 kHz.**
 
-Pipeline (matches the reference Kaldi fbank):
-
-1. Scale the waveform to int16 range (`x * 2**15`).
-2. Frame at 25 ms / 10 ms (snip-edges), per-frame DC removal, 0.97
-   pre-emphasis, Povey window.
-3. 512-point power spectrum → 80-channel HTK-mel filterbank → `log`.
-4. Per-utterance cepstral mean-variance normalization (CMVN).
+| | What it expects |
+|---|---|
+| `generate` / processor | A 1-D `float32` array (or a list of them). `sampling_rate` tells it what rate you are handing over; it does not resample. |
+| Models | `input_features`, the `(B, frames, 80)` filterbank tensor from the extractor. |
 
 ```python
-from kerasformers.models.speech2text import Speech2TextFeatureExtractor
+import librosa
+import soundfile as sf
 
-feat = Speech2TextFeatureExtractor(sampling_rate=16000, num_mel_bins=80)
-fbank = feat(raw_audio_or_list_of_waves)   # (B, T, 80)
+audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")
+if audio.ndim > 1:
+    audio = audio.mean(axis=1)                     # stereo to mono
+if sr != 16000:
+    audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
 ```
 
-Verified against HF `Speech2TextFeatureExtractor` to **max diff ~5.4e-5** on
-real audio.
+Because the encoder length follows the audio rather than a fixed window, there is no
+30-second ceiling to work around, but attention still costs quadratic time in the
+subsampled length, so cut very long recordings into utterances.
 
-## Tokenizer
+## Loading Fine-tuned and Community Weights
 
-`Speech2TextTokenizer` is a SentencePiece tokenizer: an SP model turns text
-into subword pieces and a separate `vocab.json` maps pieces to ids. It is used
-mainly to **decode** generated ids back to text (`ids -> pieces -> SP decode`);
-the encode path is provided for label preparation. The LibriSpeech vocabulary
-is lowercase and uses `</s>` (id 2) as both the decoder start token and the
-end-of-sequence token (Bart convention).
+Any Hugging Face repo whose `model_type` is `"speech_to_text"` loads with the `hf:` prefix,
+including the multilingual speech-translation checkpoints.
 
 ```python
-from kerasformers.models.speech2text import Speech2TextTokenizer
+from kerasformers.models.speech2text import (
+    Speech2TextProcessor, Speech2TextSpeechToText,
+)
 
-tok = Speech2TextTokenizer.from_weights("s2t-small-librispeech-asr")  # downloads vocab.json + spm model
-text = tok.decode([10, 42, 2], skip_special_tokens=True)
+model = Speech2TextSpeechToText.from_weights("hf:facebook/s2t-small-librispeech-asr")
+processor = Speech2TextProcessor.from_weights("hf:facebook/s2t-small-librispeech-asr")
+
+# Architecture only, randomly initialized
+model = Speech2TextSpeechToText.from_weights(
+    "s2t-small-librispeech-asr", load_weights=False
+)
 ```
 
-The two files (`vocab.json`, `sentencepiece.bpe.model`) are **shared across all
-three variants** and hosted on the kerasformers `speech2text` release tag,
-downloaded on first use.
+Load the processor from the same source as the model: the SentencePiece vocabulary differs
+between checkpoints.
 
-## Generation
-
-The greedy decoding loop is a method on `Speech2TextSpeechToText`. Decoding is
-seeded with `decoder_start_token_id` (`</s>` = 2) and stops at the next `</s>`.
-
-```python
-text = model.generate(wave, processor, max_new_tokens=200)
-ids = model.generate(wave, processor, return_ids=True)   # List[List[int]]
-```
-
-`model.encoder(fbank)` and `model.decoder({"decoder_input_ids": ids,
-"encoder_hidden_states": enc_out})` are exposed directly for custom decoding
-loops (beam search, prefix scoring, KV-cache, etc.).
-
-## Fine-tuning
-
-All variables in the encoder + decoder + LM head are trainable. The processor's
-text path feeds the label tensor:
-
-```python
-import keras
-from kerasformers.models.speech2text import Speech2TextModel, Speech2TextProcessor
-
-model = Speech2TextModel.from_weights("s2t-small-librispeech-asr")
-encoder, decoder = model.encoder, model.decoder
-processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
-
-inputs = processor(audio=audio_batch, sampling_rate=16000)  # input_features
-labels = processor(text=text_batch)["input_ids"]            # label ids
-
-loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-# drive encoder -> decoder with a teacher-forced decoder_input_ids and
-# optimize against `labels`.
-```
-
-## Citation
-
-```bibtex
-@inproceedings{wang2020fairseqs2t,
-  title={fairseq S2T: Fast Speech-to-Text Modeling with fairseq},
-  author={Wang, Changhan and Tang, Yun and Ma, Xutai and Wu, Anne and
-          Okhonko, Dmytro and Pino, Juan},
-  booktitle={Proceedings of the 2020 Conference of the Asian Chapter of the
-             Association for Computational Linguistics (AACL): System
-             Demonstrations},
-  year={2020}
-}
-```
+See also [Whisper](whisper.md) for multilingual transcription and translation, and
+[Moonshine](moonshine.md) for a latency-oriented alternative.

@@ -2521,31 +2521,6 @@
  },
  "SAMImageProcessor": {
   "large_300x500": {
-   "input_boxes": {
-    "empty": true,
-    "shape": [
-     1,
-     0,
-     4
-    ]
-   },
-   "input_labels": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0
-    ]
-   },
-   "input_points": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0,
-     2
-    ]
-   },
    "original_size": {
     "max": 500.0,
     "mean": 400.0,
@@ -2578,31 +2553,6 @@
    }
   },
   "odd_223x225": {
-   "input_boxes": {
-    "empty": true,
-    "shape": [
-     1,
-     0,
-     4
-    ]
-   },
-   "input_labels": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0
-    ]
-   },
-   "input_points": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0,
-     2
-    ]
-   },
    "original_size": {
     "max": 225.0,
     "mean": 224.0,
@@ -2635,31 +2585,6 @@
    }
   },
   "tall_96x48": {
-   "input_boxes": {
-    "empty": true,
-    "shape": [
-     1,
-     0,
-     4
-    ]
-   },
-   "input_labels": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0
-    ]
-   },
-   "input_points": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0,
-     2
-    ]
-   },
    "original_size": {
     "max": 96.0,
     "mean": 72.0,
@@ -2692,31 +2617,6 @@
    }
   },
   "wide_48x96": {
-   "input_boxes": {
-    "empty": true,
-    "shape": [
-     1,
-     0,
-     4
-    ]
-   },
-   "input_labels": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0
-    ]
-   },
-   "input_points": {
-    "empty": true,
-    "shape": [
-     1,
-     1,
-     0,
-     2
-    ]
-   },
    "original_size": {
     "max": 96.0,
     "mean": 72.0,

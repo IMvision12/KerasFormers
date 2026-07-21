@@ -47,11 +47,13 @@ class SegFormerImageProcessor(BaseImageProcessor):
         image_std: Optional[Union[float, tuple]] = None,
         return_tensor: bool = True,
         data_format: Optional[str] = None,
+        variant: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.variant = variant
         self.do_resize = do_resize
-        self.size = size if size is not None else {"height": 512, "width": 512}
+        self.size = size if size is not None else self.variant_size(variant)
         self.resample = resample
         self.do_rescale = do_rescale
         self.rescale_factor = rescale_factor
@@ -71,6 +73,23 @@ class SegFormerImageProcessor(BaseImageProcessor):
             )
         if self.rescale_factor < 0:
             raise ValueError("Rescale factor must be non-negative")
+
+    @staticmethod
+    def variant_size(variant):
+        """Square target size for a release variant, read from the model config.
+
+        The variants train at 512 (ADE), 640 (b5 ADE), 768 or 1024 (Cityscapes),
+        so a fixed default mismatches the model for most of them and the forward
+        pass raises on shape. Unknown variants fall back to 512.
+        """
+        side = 512
+        if variant is not None:
+            from kerasformers.models.segformer import segformer_config
+
+            entry = segformer_config.SEGFORMER_CONFIG.get(variant)
+            if entry and entry.get("image_size"):
+                side = entry["image_size"]
+        return {"height": side, "width": side}
 
     def __call__(
         self, image: Union[str, np.ndarray, Image.Image, keras.KerasTensor]
@@ -211,14 +230,18 @@ def segformer_post_process_semantic_segmentation(
 
     logits = keras.ops.convert_to_numpy(outputs)
     channel_axis = 0 if get_data_format(data_format) == "channels_first" else -1
-    pred_mask = np.argmax(logits[0], axis=channel_axis)  # (H, W)
-
+    # Upsample the logits, then take the argmax. Doing it the other way round
+    # quantises the decision to the model's output stride and gives visibly
+    # blocky boundaries.
     if target_size is not None:
-        pred_mask = np.array(
-            Image.fromarray(pred_mask.astype(np.uint8)).resize(
-                (target_size[1], target_size[0]), Image.NEAREST
-            )
+        if channel_axis == 0:
+            logits = np.transpose(logits, (0, 2, 3, 1))
+        resized = keras.ops.image.resize(
+            logits, (target_size[0], target_size[1]), interpolation="bilinear"
         )
+        pred_mask = np.argmax(keras.ops.convert_to_numpy(resized)[0], axis=-1)
+    else:
+        pred_mask = np.argmax(logits[0], axis=channel_axis)  # (H, W)
 
     unique_classes = np.unique(pred_mask)
     class_names = [

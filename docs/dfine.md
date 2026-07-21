@@ -134,7 +134,7 @@ from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 model = DFineDetect.from_weights("dfine-nano")
 processor = DFineImageProcessor()
 
-image = Image.open("assets/coco/coco_buffet.jpg").convert("RGB")
+image = Image.open("assets/data/coco_buffet.jpg").convert("RGB")
 inputs = processor(image)
 
 output = model(inputs["pixel_values"], training=False)
@@ -187,7 +187,7 @@ from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 model = DFineDetect.from_weights("dfine-nano")
 processor = DFineImageProcessor()
 
-paths = ["assets/coco/coco_food_bowl.jpg", "assets/coco/coco_kitchen.jpg"]
+paths = ["assets/data/coco_food_bowl.jpg", "assets/data/coco_kitchen.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
 inputs = processor(paths)                                  # (2, 640, 640, 3)
@@ -209,14 +209,14 @@ for path, result in zip(paths, results):
 ```
 
 ```
-assets/coco/coco_food_bowl.jpg
+assets/data/coco_food_bowl.jpg
   bowl         0.867  [15, 6, 607, 581]
   broccoli     0.857  [73, 173, 257, 361]
   broccoli     0.857  [122, 66, 256, 216]
   dining table 0.737  [0, 1, 612, 608]
   carrot       0.518  [284, 106, 315, 150]
 
-assets/coco/coco_kitchen.jpg
+assets/data/coco_kitchen.jpg
   refrigerator 0.803  [0, 166, 103, 417]
   bottle       0.791  [478, 299, 508, 378]
   bottle       0.762  [294, 294, 345, 387]

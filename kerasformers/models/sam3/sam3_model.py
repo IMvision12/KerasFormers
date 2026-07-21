@@ -812,7 +812,6 @@ def sam3_mask_decoder(
     fpn_hidden_size,
     mask_decoder_hidden_size,
     mask_decoder_num_attention_heads,
-    num_upsampling_stages=None,
     data_format="channels_last",
 ):
     """Mask decoder: pixel decoder with skip connections and mask prediction.
@@ -867,11 +866,7 @@ def sam3_mask_decoder(
     if data_format == "channels_first":
         pixel_feat = layers.Permute((3, 1, 2), name="pixel_decoder_to_nchw")(pixel_feat)
 
-    num_up = (
-        num_upsampling_stages
-        if num_upsampling_stages is not None
-        else len(fpn_hidden_states) - 2
-    )
+    num_up = len(fpn_hidden_states) - 2
     for stage_idx in range(num_up):
         pixel_feat = layers.UpSampling2D(
             size=2,
@@ -1177,7 +1172,6 @@ class SAM3Model(FunctionalBaseModel):
             fpn_hidden_size=fpn_hidden_size,
             mask_decoder_hidden_size=mask_decoder_hidden_size,
             mask_decoder_num_attention_heads=mask_decoder_num_attention_heads,
-            num_upsampling_stages=mask_decoder_num_upsampling_stages,
             data_format=data_format,
         )
 
@@ -1256,10 +1250,19 @@ class SAM3Model(FunctionalBaseModel):
         fpn_hidden_size = cfg["fpn_hidden_size"]
         grid_size = cfg["vit_image_size"] // cfg["vit_patch_size"]
 
-        fpn_0_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_0")
-        fpn_1_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_1")
-        fpn_2_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_2")
-        fpn_3_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_3")
+        # encode_image hands these back in the model's own data format, so the
+        # sub-model has to declare them the same way. Hardcoding channels-first
+        # made every vision_embeds call fail the pixel-decoder skip add under
+        # the channels_last default.
+        data_format = self._data_format
+        if data_format == "channels_first":
+            fpn_shape = (fpn_hidden_size, None, None)
+        else:
+            fpn_shape = (None, None, fpn_hidden_size)
+        fpn_0_in = layers.Input(shape=fpn_shape, name="fpn_0")
+        fpn_1_in = layers.Input(shape=fpn_shape, name="fpn_1")
+        fpn_2_in = layers.Input(shape=fpn_shape, name="fpn_2")
+        fpn_3_in = layers.Input(shape=fpn_shape, name="fpn_3")
         text_proj_in = layers.Input(
             shape=(None, cfg["detr_encoder_hidden_size"]),
             name="text_projected",
@@ -1289,6 +1292,7 @@ class SAM3Model(FunctionalBaseModel):
             detr_encoder_num_attention_heads=cfg["detr_encoder_num_attention_heads"],
             detr_encoder_intermediate_size=cfg["detr_encoder_intermediate_size"],
             detr_encoder_dropout=cfg["detr_encoder_dropout"],
+            data_format=data_format,
         )
 
         decoder_hidden, pred_boxes, pred_logits, presence_logits = sam3_detr_decoder(
@@ -1316,7 +1320,7 @@ class SAM3Model(FunctionalBaseModel):
             fpn_hidden_size=fpn_hidden_size,
             mask_decoder_hidden_size=cfg["mask_decoder_hidden_size"],
             mask_decoder_num_attention_heads=cfg["mask_decoder_num_attention_heads"],
-            num_upsampling_stages=cfg["mask_decoder_num_upsampling_stages"],
+            data_format=data_format,
         )
 
         fpn_3_identity = layers.Identity(name="fpn_3_passthrough")(fpn_3_in)

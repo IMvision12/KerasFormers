@@ -1,287 +1,234 @@
 # Moonshine
 
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> the pretrained weights for the Moonshine models are hosted on the
+kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/moonshine" style="color:#1a5c8a;">moonshine</a>
+release tag, and download automatically the first time you call
+<code>from_weights(...)</code>.
+</div>
+<br>
+
+Moonshine is built for live transcription and voice commands, where latency matters more
+than covering 99 languages. Two choices follow from that.
+
+It eats the **raw 16 kHz waveform**: a three-layer Conv1D stem replaces the log-mel front
+end entirely, so there is no spectrogram step. And it has **no fixed input window**, unlike
+[Whisper](whisper.md)'s mandatory 30-second pad. A one-second command costs one second of
+compute, which is the whole point: Whisper pads that same clip to 30 s and pays for the
+silence.
+
+Positions come from GLM-style **partial** rotary embeddings, the decoder MLP is gated
+SiLU, and every LayerNorm is scale-only.
+
 **Paper**: [Moonshine: Speech Recognition for Live Transcription and Voice Commands](https://arxiv.org/abs/2410.15608)
 
-Moonshine is Useful Sensors' encoder-decoder transformer for fast, low-latency
-automatic speech recognition. Unlike Whisper, the encoder consumes the **raw
-16 kHz waveform** directly: a 3-layer Conv1D stem (kernel 127 / stride 64,
-no bias → `tanh` → GroupNorm; kernel 7 / stride 3 → GELU; kernel 3 / stride 2 →
-GELU) replaces the log-mel front end: followed by a stack of pre-LN transformer
-blocks with GLM-style **partial** rotary position embeddings. The decoder
-generates BPE token ids autoregressively, attending to the encoder output via
-cross-attention; its MLP is a gated-SiLU (`fc1` projects to `2 × ffn`, split into
-value/gate). Every LayerNorm is **bias-free** (scale only), and the token
-embedding is tied with the LM head.
+## API
 
-kerasformers ships a **pure Keras 3** port of both official Useful Sensors
-checkpoints with bit-close parity to HuggingFace's reference implementation. The
-processor, encoder, decoder, and greedy `generate` loop run unmodified on
-TensorFlow / Torch / JAX backends: no `transformers` or `torch` runtime
-dependency.
-
-## Classes
-
-Two classes are exposed, mirroring HF's Moonshine hierarchy:
-
-| Class | HF equivalent | Purpose |
-|---|---|---|
-| `MoonshineModel` | `MoonshineModel` / `MoonshineForConditionalGeneration` | Encoder + decoder + tied LM head. Functional graph for teacher-forced training and forward passes. |
-| `MoonshineSpeechToText` | `MoonshineForConditionalGeneration` + `.generate()` | Subclass of `MoonshineModel` that adds an end-to-end `.generate(audio, processor, ...)` method for transcription. |
-
-Both are loaded the same way:
+### MoonshineSpeechToText
 
 ```python
-from kerasformers.models.moonshine import MoonshineSpeechToText
-
-# kerasformers release variant
-model = MoonshineSpeechToText.from_weights("moonshine_tiny")
-
-# Any HF Hub repo whose model_type is "moonshine"
-model = MoonshineSpeechToText.from_weights("hf:UsefulSensors/moonshine-base")
+MoonshineSpeechToText(hidden_dim=288, encoder_num_layers=6,
+                      decoder_num_layers=6, encoder_attention_heads=8,
+                      decoder_attention_heads=8, encoder_num_kv_heads=None,
+                      decoder_num_kv_heads=None, encoder_ffn_dim=1152,
+                      decoder_ffn_dim=1152, vocab_size=32768,
+                      max_position_embeddings=194, partial_rotary_factor=0.9,
+                      rope_theta=10000.0, encoder_activation="gelu",
+                      decoder_activation="silu", layer_norm_eps=1e-05,
+                      name="MoonshineSpeechToText")
 ```
+
+The conv stem, encoder, decoder, and tied LM head, plus a `generate` that runs the whole
+pipeline. **This is the class for speech to text.**
+
+**Parameters**
+
+- **hidden_dim** (`int`, *optional*, defaults to `288`): model width. Filled in by `from_weights` from the variant config.
+- **encoder_num_layers** / **decoder_num_layers** (`int`, *optional*): blocks per stack, the size lever between tiny and base.
+- **encoder_attention_heads** / **decoder_attention_heads** (`int`, *optional*): attention heads per stack.
+- **encoder_num_kv_heads** / **decoder_num_kv_heads** (`int`, *optional*): grouped-query KV heads. `None` means full multi-head.
+- **encoder_ffn_dim** / **decoder_ffn_dim** (`int`, *optional*): MLP inner width. The decoder MLP is gated SiLU, so its `fc1` projects to twice this.
+- **vocab_size** (`int`, *optional*, defaults to `32768`): BPE vocabulary.
+- **partial_rotary_factor** (`float`, *optional*, defaults to `0.9`): fraction of each head rotated by RoPE; the rest passes through.
+- **rope_theta** (`float`, *optional*, defaults to `10000.0`): RoPE base frequency.
+- **max_position_embeddings** (`int`, *optional*, defaults to `194`): size of the stored rotary tables. It does **not** cap the audio you can transcribe, see [Audio Format](#audio-format).
+- **encoder_activation** / **decoder_activation** / **layer_norm_eps**: block-level knobs, set from the variant config.
+- **name** (`str`, *optional*, defaults to `"MoonshineSpeechToText"`): model name.
+
+**Call** `model({"input_values": ..., "decoder_input_ids": ...})` for a teacher-forced
+forward pass. **Returns** a `dict` with **logits** `(B, T, vocab_size)` and
+**encoder_hidden_states** `(B, T', hidden_dim)`. For transcription use `generate`.
+
+**generate**
+
+```python
+model.generate(audio, processor, max_new_tokens=200, sampling_rate=16000,
+               return_ids=False)
+```
+
+- **audio**: a 1-D float32 waveform in `[-1, 1]`, or a list of them for a batch.
+- **processor** (`MoonshineProcessor`): supplies the feature extractor and tokenizer.
+- **max_new_tokens** (`int`, *optional*, defaults to `200`): decode budget.
+- **sampling_rate** (`int`, *optional*, defaults to `16000`): sample rate of `audio`.
+- **return_ids** (`bool`, *optional*, defaults to `False`): return token ids instead of strings.
+
+**Returns** a list of strings, one per clip.
+
+### MoonshineModel
+
+```python
+MoonshineModel(hidden_dim=288, encoder_num_layers=6, decoder_num_layers=6, ...,
+               name="MoonshineModel")
+```
+
+The encoder-decoder without the LM head, for features or a custom head. Same arguments as
+`MoonshineSpeechToText`.
+
+## Preprocessing
+
+### MoonshineFeatureExtractor
+
+```python
+MoonshineFeatureExtractor(sampling_rate=16000, padding_value=0.0)
+```
+
+There is no spectrogram here. The extractor only batches and pads waveforms; the conv stem
+does the rest.
+
+**Parameters**
+
+- **sampling_rate** (`int`, *optional*, defaults to `16000`): rate the model was trained at. Resample your audio to match; this does not resample for you.
+- **padding_value** (`float`, *optional*, defaults to `0.0`): value used to pad a batch to its longest clip.
+
+`feat(raw_audio)` **returns** `(B, num_samples)` float32.
+
+### MoonshineProcessor
+
+```python
+MoonshineProcessor(variant=None, tokenizer_file=None, sampling_rate=16000,
+                   decoder_start_token_id=1, bos_token_id=1, eos_token_id=2,
+                   unk_token_id=0, tokenizer=None, feature_extractor=None)
+```
+
+Bundles the feature extractor and tokenizer.
+
+**Call** `processor(audio=..., text=...)`. **Returns** `input_values` and, when text is
+given, `labels`.
+
+> **Prefer `MoonshineProcessor.from_weights(variant)`.** It fetches the vocabulary that
+> matches the checkpoint, which is what `generate` expects.
 
 ## Model Variants
 
-| Variant id | Params | Layers (enc / dec) | hidden | Heads (q / kv) | FFN | Partial RoPE | Vocab |
-|---|---|---|---|---|---|---|---|
-| `moonshine_tiny` | ~27 M | 6 / 6 | 288 | 8 / 8 | 1152 | 0.9 | 32 768 |
-| `moonshine_base` | ~62 M | 8 / 8 | 416 | 8 / 8 | 1664 | 0.62 | 32 768 |
+| Variant id | Params |
+|---|---:|
+| `moonshine_tiny` | 27 M |
+| `moonshine_base` | 61 M |
 
-Both use `max_position_embeddings = 194`, `rope_theta = 10000`, GELU encoder MLP,
-and a gated-SiLU decoder MLP. The rotary dimension is
-`(hidden // heads) × partial_rotary_factor`: only that fraction of each head is
-rotated (GLM-style partial RoPE).
+Both are **English only**. Even `moonshine_base` is smaller than `whisper_base`, and
+because there is no 30-second pad the gap in wall-clock time on short clips is far larger
+than the parameter counts suggest.
 
-## Available Weights
+## Basic Usage: Transcription
 
-Each variant ships a single `"usefulsensors"` preset converted from the official
-Useful Sensors checkpoints on HuggingFace. One combined `.weights.h5` file per
-variant (encoder + decoder together: the same file serves both `MoonshineModel`
-and `MoonshineSpeechToText`, since the LM head is tied) is hosted under the
-kerasformers
-[`moonshine`](https://github.com/IMvision12/KerasFormers/releases/tag/moonshine)
-release tag and downloaded on first use, then cached locally.
+The sample below is a LibriSpeech clip, 5.12 s of 16 kHz mono, kept in the repo at
+`assets/speech_etchings.wav`:
 
-| Variant id | Params | Source |
-|---|---|---|
-| `moonshine_tiny` | ~27 M | `UsefulSensors/moonshine-tiny` |
-| `moonshine_base` | ~62 M | `UsefulSensors/moonshine-base` |
+<audio controls src="../assets/speech_etchings.wav"></audio>
 
-## Model
-
-`MoonshineModel` is a `FunctionalBaseModel` (Functional) subclass that wires the
-encoder and decoder into a single graph. Both sub-models are exposed as
-attributes for inference / generation paths:
-
-```python
-from kerasformers.models.moonshine import MoonshineModel
-
-model = MoonshineModel.from_weights("moonshine_tiny")
-model = MoonshineModel.from_weights("hf:UsefulSensors/moonshine-tiny")
-
-model.encoder        # keras.Model: input_values (B, audio_len) -> (B, T, hidden)
-model.decoder        # keras.Model: {decoder_input_ids, encoder_hidden_states} -> logits
-model.hidden_dim     # 288
-model.vocab_size     # 32768
-
-# Joint forward pass (teacher-forced training):
-out = model({
-    "input_values":      audio,   # (B, audio_length)  raw 16 kHz waveform
-    "decoder_input_ids": ids,     # (B, L)
-})
-out["encoder_hidden_states"]      # (B, T, hidden_dim)
-out["logits"]                     # (B, L, vocab_size)
-```
-
-The class is also constructable directly with custom hyperparameters for
-from-scratch training:
-
-```python
-from kerasformers.models.moonshine import MoonshineModel
-
-model = MoonshineModel(
-    hidden_dim=288,
-    encoder_num_layers=6, decoder_num_layers=6,
-    encoder_attention_heads=8, decoder_attention_heads=8,
-    encoder_ffn_dim=1152, decoder_ffn_dim=1152,
-    vocab_size=32768,
-    max_position_embeddings=194,
-    partial_rotary_factor=0.9,
-    rope_theta=10000.0,
-    encoder_activation="gelu",     # encoder MLP
-    decoder_activation="silu",     # gated decoder MLP
-    layer_norm_eps=1e-5,
-)
-```
-
-## Loading HF Fine-tunes
-
-Any HF repo whose `model_type` is `"moonshine"` can be loaded directly via
-`from_weights("hf:<repo>")`: the class reads hidden size, depth, head counts,
-GQA kv-head counts, activations, partial-rotary factor, and rope theta straight
-from the HF config (`config_from_hf`), then converts the state dict. This covers
-the original Useful Sensors checkpoints and any community fine-tune sharing the
-same architecture.
-
-```python
-from kerasformers.models.moonshine import MoonshineSpeechToText, MoonshineProcessor
-
-model = MoonshineSpeechToText.from_weights("hf:UsefulSensors/moonshine-base")
-processor = MoonshineProcessor.from_hf("UsefulSensors/moonshine-base")
-text = model.generate(audio, processor)
-```
-
-## Features and Capabilities
-
-- **Raw-waveform input**: the encoder ingests the 16 kHz waveform directly via a
-  Conv1D stem: no mel-spectrogram step, fewer ops, lower latency than Whisper.
-- **Partial rotary embeddings**: GLM-style RoPE over a fraction of each head
-  dimension (`partial_rotary_factor`), applied on self-attention only.
-- **GQA-capable**: separate `encoder_num_kv_heads` / `decoder_num_kv_heads`
-  (default to the query head counts) for grouped-query attention fine-tunes.
-- **Tied LM head**: the decoder token embedding is reused as the output
-  projection (`proj_out`), so one weight file covers both classes.
-- **Generation in the model class**: `MoonshineSpeechToText` extends
-  `MoonshineModel` and adds an end-to-end `.generate(audio, processor, ...)`
-  method: mirrors HF's `MoonshineForConditionalGeneration`.
-- **Pure Keras 3**: the feature extractor (waveform batching) and the model run
-  on any backend; the tokenizer is a Rust-backed `tokenizers.Tokenizer` (no
-  `transformers`).
-- **HF passthrough**: `from_weights("hf:org/repo")` works for any community
-  fine-tune whose `model_type` is `"moonshine"`.
-- **Fine-tunable**: every encoder + decoder variable is trainable; gradients flow
-  through the tied LM head.
-
-## Basic Usage
-
-The shortest path is `MoonshineSpeechToText`: same model graph as
-`MoonshineModel` plus an end-to-end `.generate(audio, processor, ...)` method
-(audio in, text out).
+Its reference transcript is *"AS FOR ETCHINGS THEY ARE OF TWO KINDS BRITISH AND FOREIGN"*.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"
+os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
 
 import soundfile as sf
-from kerasformers.models.moonshine import MoonshineSpeechToText, MoonshineProcessor
+from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToText
 
-model = MoonshineSpeechToText.from_weights("moonshine_base")
-processor = MoonshineProcessor()                  # UsefulSensors moonshine tokenizer
+model = MoonshineSpeechToText.from_weights("moonshine_tiny")
+processor = MoonshineProcessor.from_weights("moonshine_tiny")
 
-# raw_audio: 1-D float32 in [-1, 1] at 16 kHz
-audio, sr = sf.read("assets/librispeech_sample.wav")
-assert sr == 16000
-
-text = model.generate(audio, processor, max_new_tokens=200)
-print(text[0])
+audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")   # 16 kHz mono
+text = model.generate(audio, processor)
+print(repr(text[0]))
 ```
 
-`.generate` runs feature extraction (waveform batching), the encoder, greedy
-decoding, and detokenization in one call. Pass `return_ids=True` to get raw
-token-id lists instead of strings.
+```
+'As for etchings, there are of two kinds, British and foreign.'
+```
 
-### Using the lower-level API directly
+Cased and punctuated, like Whisper and unlike [Speech2Text](speech2text.md). The reference
+reads "they are of two kinds"; tiny hears "there are of", leaving an ungrammatical "are
+of". `moonshine_base` cleans that to `'As for etchings, there are two kinds, British and
+foreign.'`, which reads properly but still swaps "they" for "there".
 
-For custom decoding (beam search, KV-cache, prefix scoring), call `model.encoder`
-and `model.decoder` directly:
+### Short clips are the point
+
+Because nothing is padded to a fixed window, cost scales with the audio you actually have:
 
 ```python
-inputs = processor(audio=wave, sampling_rate=16000)
-enc_out = model.encoder(inputs["input_values"])        # encode once
-
-# then drive decoding however you like: call model.decoder per step with
-# {"decoder_input_ids": ids, "encoder_hidden_states": enc_out}
+command = audio[: 1 * sr]          # one second
+print(repr(model.generate(command, processor)[0]))
 ```
 
-## Processor
+```
+'As for.'
+```
 
-`MoonshineProcessor` is the recommended top-level entry point: it bundles the
-feature extractor and tokenizer and mirrors HF's `MoonshineProcessor` API.
+One second of audio is one second of encoder work; Whisper would pad the same clip to 30 s
+before the encoder ever ran. The transcript is short because one second of this sentence
+really is just "As for", which is the honest answer to what was said.
+
+### Batching
+
+Pass a list of waveforms; the extractor pads them to the longest in the batch:
 
 ```python
-from kerasformers.models.moonshine import MoonshineProcessor
-
-processor = MoonshineProcessor()                                  # default tokenizer
-processor = MoonshineProcessor.from_hf("UsefulSensors/moonshine-base")
-
-# audio path
-out = processor(audio=wave, sampling_rate=16000)   # {"input_values": (B, audio_len)}
-
-# label path (fine-tuning)
-out = processor(text=["hello world", "foo bar"])   # {"input_ids", "attention_mask"}
-
-# decoded text
-text = processor.decode(ids, skip_special_tokens=True)
-texts = processor.batch_decode(ids_batch, skip_special_tokens=True)
-
-processor.feature_extractor       # MoonshineFeatureExtractor
-processor.tokenizer               # MoonshineTokenizer
-processor.decoder_start_token_id  # 1  (<s>): the seed token for generation
+clips = [audio, audio[: 3 * sr]]
+for line in model.generate(clips, processor):
+    print(repr(line))
 ```
 
-> The Moonshine `tokenizer.json` is identical across every Useful Sensors
-> checkpoint, so the default works for all variants; pass `from_hf(repo)` only if
-> you want to pin a specific repo.
+Padding is per batch, so grouping clips of similar length wastes less compute.
 
-## Feature Extractor
+## Audio Format
 
-`MoonshineFeatureExtractor` is intentionally minimal: a `feature_size = 1`,
-`do_normalize = False` extractor that simply stacks a batch of waveforms and
-right-zero-pads shorter clips to a common length. There is **no** mel /
-spectrogram step (the encoder's Conv1D stem learns the front-end features).
+**A 1-D float32 waveform in `[-1, 1]` at 16 kHz, fed to the model as-is.**
+
+| | What it expects |
+|---|---|
+| `generate` / processor | A 1-D `float32` array (or a list of them). `sampling_rate` tells it what rate you are handing over; it does not resample. |
+| Models | `input_values`, the raw `(B, num_samples)` waveform. No spectrogram step. |
 
 ```python
-from kerasformers.models.moonshine import MoonshineFeatureExtractor
+import librosa
+import soundfile as sf
 
-feat = MoonshineFeatureExtractor(sampling_rate=16000, padding_value=0.0)
-values = feat(raw_audio_or_list_of_waves)   # (B, max_audio_len) float32
+audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")
+if audio.ndim > 1:
+    audio = audio.mean(axis=1)                     # stereo to mono
+if sr != 16000:
+    audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
 ```
 
-## Tokenizer
+There is **no duration cap**: the rotary tables are derived for whatever length the encoder
+produces, so `max_position_embeddings` sizes the stored tables but does not limit the
+audio. Attention cost still grows with duration, and Moonshine is aimed at utterances and
+commands, so cut long recordings into segments rather than feeding a whole meeting.
 
-`MoonshineTokenizer` wraps a Rust-backed `tokenizers.Tokenizer` (byte-fallback
-BPE with a `▁` metaspace normalizer). The `tokenizer.json` is downloaded from the
-Useful Sensors Hub repo (`hf_id`, default `UsefulSensors/moonshine-tiny`): no
-runtime `transformers` dependency. Special ids: `<s>` = 1 (bos), `</s>` = 2
-(eos), `<unk>` = 0.
+## Loading Fine-tuned and Community Weights
+
+Any Hugging Face repo whose `model_type` is `"moonshine"` loads with the `hf:` prefix.
 
 ```python
-from kerasformers.models.moonshine import MoonshineTokenizer
+from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToText
 
-tok = MoonshineTokenizer()                                   # default repo
-tok = MoonshineTokenizer(hf_id="UsefulSensors/moonshine-base")
-ids = tok.tokenize("Hello, world!")                          # no special tokens added
-text = tok.decode(ids, skip_special_tokens=True)
+model = MoonshineSpeechToText.from_weights("hf:UsefulSensors/moonshine-tiny")
+processor = MoonshineProcessor.from_weights("hf:UsefulSensors/moonshine-tiny")
+
+# Architecture only, randomly initialized
+model = MoonshineSpeechToText.from_weights("moonshine_tiny", load_weights=False)
 ```
 
-The encode path does **not** add special tokens: `MoonshineSpeechToText` seeds
-decoding with `decoder_start_token_id` (`<s>`) itself.
-
-## Generation
-
-`MoonshineSpeechToText.generate` is a plain greedy decoding loop (matches the
-reference Moonshine generate):
-
-```python
-text = model.generate(
-    audio, processor,
-    max_new_tokens=200,        # decode budget
-    sampling_rate=16000,
-    return_ids=False,          # True -> List[List[int]]
-)
-```
-
-Decoding seeds with `<s>`, then argmax-samples each step against the cross-attended
-encoder output, stopping when every sequence in the batch has emitted `</s>`.
-
-## Citation
-
-```bibtex
-@article{jeffries2024moonshine,
-  title={Moonshine: Speech Recognition for Live Transcription and Voice Commands},
-  author={Jeffries, Nat and King, Evan and Kudlur, Manjunath and Nicholson, Guy
-          and Wang, James and Warden, Pete},
-  journal={arXiv preprint arXiv:2410.15608},
-  year={2024}
-}
-```
+See also [Whisper](whisper.md) for multilingual coverage, and [Speech2Text](speech2text.md)
+for the fairseq lineage.
