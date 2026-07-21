@@ -131,13 +131,12 @@ than the parameter counts suggest.
 
 ## Basic Usage: Transcription
 
-The sample below is the standard LibriSpeech clip, 5.86 s of 16 kHz mono, kept in the repo
-at `assets/librispeech_sample.wav`:
+The sample below is a LibriSpeech clip, 5.12 s of 16 kHz mono, kept in the repo at
+`assets/speech_etchings.wav`:
 
-<audio controls src="../assets/librispeech_sample.wav"></audio>
+<audio controls src="../assets/speech_etchings.wav"></audio>
 
-Its reference transcript is *"MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE
-ARE GLAD TO WELCOME HIS GOSPEL"*.
+Its reference transcript is *"AS FOR ETCHINGS THEY ARE OF TWO KINDS BRITISH AND FOREIGN"*.
 
 ```python
 import os
@@ -149,18 +148,19 @@ from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToT
 model = MoonshineSpeechToText.from_weights("moonshine_tiny")
 processor = MoonshineProcessor.from_weights("moonshine_tiny")
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")   # 16 kHz mono
 text = model.generate(audio, processor)
 print(repr(text[0]))
 ```
 
 ```
-'Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.'
+'As for etchings, there are of two kinds, British and foreign.'
 ```
 
-Cased and punctuated, like Whisper and unlike [Speech2Text](speech2text.md). On this clip
-`moonshine_base` returns exactly the same sentence, so the smaller model is the better
-trade here.
+Cased and punctuated, like Whisper and unlike [Speech2Text](speech2text.md). The reference
+reads "they are of two kinds"; tiny hears "there are of", leaving an ungrammatical "are
+of". `moonshine_base` cleans that to `'As for etchings, there are two kinds, British and
+foreign.'`, which reads properly but still swaps "they" for "there".
 
 ### Short clips are the point
 
@@ -172,12 +172,12 @@ print(repr(model.generate(command, processor)[0]))
 ```
 
 ```
-'Mr. Quoi.'
+'As for.'
 ```
 
 One second of audio is one second of encoder work; Whisper would pad the same clip to 30 s
-before the encoder ever ran. The transcript is garbled here only because a single second of
-this sentence really is just "Mister Qui-", which is the honest answer to what was said.
+before the encoder ever ran. The transcript is short because one second of this sentence
+really is just "As for", which is the honest answer to what was said.
 
 ### Batching
 
@@ -204,7 +204,7 @@ Padding is per batch, so grouping clips of similar length wastes less compute.
 import librosa
 import soundfile as sf
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")
+audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")
 if audio.ndim > 1:
     audio = audio.mean(axis=1)                     # stereo to mono
 if sr != 16000:

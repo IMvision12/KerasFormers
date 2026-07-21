@@ -144,13 +144,13 @@ how LibriSpeech is transcribed.
 
 ## Basic Usage: Transcription
 
-The sample below is the standard LibriSpeech clip, 5.86 s of 16 kHz mono, kept in the repo
-at `assets/librispeech_sample.wav`:
+The sample below is a LibriSpeech clip, 4.82 s of 16 kHz mono, kept in the repo at
+`assets/speech_quilter_manner.wav`:
 
-<audio controls src="../assets/librispeech_sample.wav"></audio>
+<audio controls src="../assets/speech_quilter_manner.wav"></audio>
 
-Its reference transcript is *"MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE
-ARE GLAD TO WELCOME HIS GOSPEL"*.
+Its reference transcript is *"NOR IS MISTER QUILTER'S MANNER LESS INTERESTING THAN HIS
+MATTER"*.
 
 ```python
 import os
@@ -164,19 +164,21 @@ from kerasformers.models.speech2text import (
 model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
 processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")   # 16 kHz mono
 text = model.generate(audio, processor)
 print(repr(text[0]))
 ```
 
 ```
-'mister quilter is the apostle of the middle classes and we are glad to welcome his gospel'
+"nor is mister coleter's manner less interesting than his matter"
 ```
 
-Word-for-word the LibriSpeech reference, in the lowercase unpunctuated style the training
-transcripts use. Compare [Whisper](whisper.md), which writes "Mr." with a comma and a full
-stop because it was trained on cased, punctuated text: same audio, different conventions,
-and neither is a transcription error.
+Lowercase and unpunctuated, the style the LibriSpeech training transcripts use, and note it
+keeps the apostrophe in the possessive. The one miss is the proper noun: "coleter" for
+"Quilter". Names are exactly where a 30 M model trained on 960 hours struggles, and
+[Whisper](whisper.md), trained on 680,000 hours, gets this one right. Compare its output
+style too: cased and punctuated on the same kind of audio, which is a convention
+difference rather than an accuracy one.
 
 ### Batching
 
@@ -201,7 +203,7 @@ for line in model.generate(clips, processor):
 import librosa
 import soundfile as sf
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")
+audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")
 if audio.ndim > 1:
     audio = audio.mean(axis=1)                     # stereo to mono
 if sr != 16000:

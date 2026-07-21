@@ -109,13 +109,13 @@ One variant. Load it in bf16 unless you have room for fp32.
 
 ## Basic Usage: Transcription
 
-The sample below is the standard LibriSpeech clip, 5.86 s of 16 kHz mono, kept in the repo
-at `assets/librispeech_sample.wav`:
+The sample below is a LibriSpeech clip, 9.90 s of 16 kHz mono, kept in the repo at
+`assets/speech_leighton.wav`:
 
-<audio controls src="../assets/librispeech_sample.wav"></audio>
+<audio controls src="../assets/speech_leighton.wav"></audio>
 
-Its reference transcript is *"MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE
-ARE GLAD TO WELCOME HIS GOSPEL"*.
+Its reference transcript is *"HE HAS GRAVE DOUBTS WHETHER SIR FREDERICK LEIGHTON'S WORK IS
+REALLY GREEK AFTER ALL AND CAN DISCOVER IN IT BUT LITTLE OF ROCKY ITHACA"*.
 
 ```python
 import os
@@ -133,7 +133,7 @@ model = GraniteSpeechPlusGenerate.from_weights(
 )
 processor = GraniteSpeechPlusProcessor.from_weights("granite_speech_4_1_2b_plus")
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")   # 16 kHz mono
 
 conversation = [{"role": "user", "content": [
     {"type": "audio"},
@@ -148,12 +148,11 @@ print(repr(processor.tokenizer.decode(ids)))
 ```
 
 ```
-'mister quilted is the apostle of the middle classes and we are glad to welcome his gospel'
+"he has grave doubts whether sir frederick leighton's work is really greek after all and can discover in it but little of rocky ithaca"
 ```
 
-One word off on this clip ("quilted" for "quilter"), where
-[Granite Speech 3.3](granite_speech.md) happens to get it exactly right. A single 6-second
-sample is not a benchmark, so do not read a ranking into it.
+Word-for-word the reference, including the proper nouns "Frederick Leighton" and "Ithaca"
+and the possessive apostrophe, across nearly ten seconds of audio.
 
 > **Audio goes in the `audio=` argument, not inside the conversation**, same as Granite
 > Speech. The `{"type": "audio"}` item only marks the position.
@@ -171,7 +170,7 @@ sample is not a benchmark, so do not read a ranking into it.
 import librosa
 import soundfile as sf
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")
+audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")
 if audio.ndim > 1:
     audio = audio.mean(axis=1)                     # stereo to mono
 if sr != 16000:

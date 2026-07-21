@@ -163,13 +163,14 @@ feature extractor for you. `large_v3_turbo` keeps the v3 encoder but prunes the 
 
 ## Basic Usage: Transcription
 
-The sample below is the standard LibriSpeech clip, 5.86 s of 16 kHz mono, kept in the repo
-at `assets/librispeech_sample.wav`:
+The sample below is a LibriSpeech clip, 12.48 s of 16 kHz mono, kept in the repo at
+`assets/speech_festive_season.wav`:
 
-<audio controls src="../assets/librispeech_sample.wav"></audio>
+<audio controls src="../assets/speech_festive_season.wav"></audio>
 
-Its reference transcript is *"MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE
-ARE GLAD TO WELCOME HIS GOSPEL"*.
+Its reference transcript is *"HE TELLS US THAT AT THIS FESTIVE SEASON OF THE YEAR WITH
+CHRISTMAS AND ROAST BEEF LOOMING BEFORE US SIMILES DRAWN FROM EATING AND ITS RESULTS OCCUR
+MOST READILY TO THE MIND"*.
 
 ```python
 import os
@@ -181,18 +182,20 @@ from kerasformers.models.whisper import WhisperProcessor, WhisperSpeechToText
 model = WhisperSpeechToText.from_weights("whisper_base")
 processor = WhisperProcessor.from_weights("whisper_base")
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_festive_season.wav", dtype="float32")   # 16 kHz mono
 text = model.generate(audio, processor, language="en", task="transcribe")
 print(repr(text[0]))
 ```
 
 ```
-' Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.'
+' He tells us that at this festive season of the year, with Christmas and roast beef looming before us, similarly is drawn from eating and its results occur most readily to the mind.'
 ```
 
-Whisper is trained on cased, punctuated text, so it writes "Mr." and adds the comma and
-full stop that the all-caps LibriSpeech reference lacks. The leading space is Whisper's own
-convention. `whisper_tiny` returns the same sentence without the comma.
+Whisper is trained on cased, punctuated text, so it capitalizes "Christmas" and adds the
+commas and full stop the all-caps LibriSpeech reference lacks. The leading space is
+Whisper's own convention. It does slip once, hearing "similarly is drawn" for the
+reference's "similes drawn", which is the kind of rare-word error a bigger variant tends to
+fix.
 
 ### Batching
 
@@ -240,7 +243,7 @@ Cutting on silence rather than a fixed grid avoids clipping words in half.
 import librosa
 import soundfile as sf
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")   # float32 in [-1, 1]
+audio, sr = sf.read("assets/speech_festive_season.wav", dtype="float32")   # float32 in [-1, 1]
 if audio.ndim > 1:
     audio = audio.mean(axis=1)                     # stereo to mono
 if sr != 16000:

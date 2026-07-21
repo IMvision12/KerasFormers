@@ -133,13 +133,13 @@ fp32. See also [Granite Speech Plus](granite_speech_plus.md).
 
 ## Basic Usage: Transcription
 
-The sample below is the standard LibriSpeech clip, 5.86 s of 16 kHz mono, kept in the repo
-at `assets/librispeech_sample.wav`:
+The sample below is a LibriSpeech clip, 9.01 s of 16 kHz mono, kept in the repo at
+`assets/speech_luminous_criticisms.wav`:
 
-<audio controls src="../assets/librispeech_sample.wav"></audio>
+<audio controls src="../assets/speech_luminous_criticisms.wav"></audio>
 
-Its reference transcript is *"MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE
-ARE GLAD TO WELCOME HIS GOSPEL"*.
+Its reference transcript is *"IT IS OBVIOUSLY UNNECESSARY FOR US TO POINT OUT HOW LUMINOUS
+THESE CRITICISMS ARE HOW DELICATE IN EXPRESSION"*.
 
 ```python
 import os
@@ -157,7 +157,7 @@ model = GraniteSpeechGenerate.from_weights(
 )
 processor = GraniteSpeechProcessor.from_weights("granite_speech_3_3_2b")
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_luminous_criticisms.wav", dtype="float32")   # 16 kHz mono
 
 conversation = [{"role": "user", "content": [
     {"type": "audio"},
@@ -172,11 +172,11 @@ print(repr(processor.tokenizer.decode(ids)))
 ```
 
 ```
-'mister quilter is the apostle of the middle classes and we are glad to welcome his gospel'
+'it is obviously unnecessary for us to point out how luminous these criticisms are how delicate in expression'
 ```
 
-Word-for-word the reference. Note the instruction is ordinary English, not a flag: the
-model is being *asked* to transcribe.
+Word-for-word the reference, across nine seconds. Note the instruction is ordinary English,
+not a flag: the model is being *asked* to transcribe.
 
 ### Asking for something other than a transcript
 
@@ -214,7 +214,7 @@ out = model.generate(**inputs, max_new_tokens=32)
 import librosa
 import soundfile as sf
 
-audio, sr = sf.read("assets/librispeech_sample.wav", dtype="float32")
+audio, sr = sf.read("assets/speech_luminous_criticisms.wav", dtype="float32")
 if audio.ndim > 1:
     audio = audio.mean(axis=1)                     # stereo to mono
 if sr != 16000:
