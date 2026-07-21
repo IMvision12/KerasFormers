@@ -1,3 +1,8 @@
+---
+hide:
+  - navigation
+---
+
 # KerasFormers
 
 Pretrained transformer models built entirely with **Keras 3**, so the same code runs on
@@ -38,10 +43,10 @@ results = processor.post_process_object_detection(
 
     Detection, segmentation, depth, and self-supervised backbones.
 
-    [DETR](detr.md) · [SegFormer](segformer.md) · [SAM](sam.md) ·
+    [DETR](detr.md) · [SegFormer](segformer.md) · [SAM3](sam3.md) ·
     [Depth Anything V2](depth_anything_v2.md) · [DINOv3](dinov3.md)
 
-- **Language**
+- **Text**
 
     Encoders and decoder LLMs, dense and mixture-of-experts.
 
@@ -80,6 +85,10 @@ Each model page follows the same structure, so you can skim any of them the same
 The outputs printed in those examples are **measured, not illustrative**: they come from
 actually running the snippet on the image or audio clip shown beside it.
 
+The pieces every page shares are documented once: [Main Classes](main_classes.md) for the
+model, processor, and generation bases, and [Utilities](utils.md) for image and video
+loading, plotting, and the class-name lists.
+
 ## Loading weights
 
 Two sources, one call:
@@ -96,7 +105,7 @@ model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512", load_weigh
 ```
 
 Large checkpoints load in lower precision or weight-only quantized; see
-[Quantization](quantization.md).
+[Loading Weights](loading_weights.md) and [Quantization](quantization.md).
 
 ```python
 model = Qwen3Generate.from_weights(

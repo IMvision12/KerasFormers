@@ -6,6 +6,17 @@ kerasformers ships its **own** weight-only int8 / int4 / fp8 quantization in
 ~4× (int8 / fp8) or ~8× (int4) so larger checkpoints fit in memory. int8 / int4
 run on TensorFlow / Torch / JAX; fp8 (float8-e4m3) is torch / jax only.
 
+## Choosing a scheme
+
+| Scheme | Size | Cosine | Backends | Pick it when |
+|---|---|---|---|---|
+| [**int8**](quantization_int8.md) | ~3.8× smaller | ~0.9999 | all three | The default. Near-free accuracy, use it whenever it fits. |
+| [**int4**](quantization_int4.md) | ~5.8–8× smaller | ~0.98 | all three | int8 does not fit. Block-wise, `group_size` is the knob. |
+| [**fp8**](quantization_fp8.md) | ~3.8× smaller | ~0.9994 | torch / jax | Same size as int8, better on heavy-tailed weights. Measure both. |
+
+Each page covers that scheme's math, storage layout, measured accuracy, and its own config
+class. The rest of this page is the machinery they share.
+
 ## Quick start
 
 ```python
@@ -88,19 +99,12 @@ the fly** inside each layer's `call`, so the matmul still runs in the activation
 dtype. No special int kernels are needed, which is why it is fully
 backend-agnostic.
 
-- **int8**: per-channel **symmetric absmax** (one float scale per output
-  channel, over the contracting axis). `w_int8 = round(w / scale)`,
-  `scale = max|w| / 127`. This is *vector-wise per-channel int8*, **not**
-  LLM.int8(): there is no activation-outlier fp16 path; on very large models the
-  accuracy lever is keeping outlier-heavy layers in float (`skip_modules`) or
-  going group-wise int4.
-- **int4**: **block-wise** symmetric absmax (the `in` axis is split into blocks
-  of `group_size`, each block × output-channel gets its own scale: the
-  bitsandbytes idea), packed **two values per byte**. `scale = max|w| / 7`.
-- **fp8**: per-output-channel absmax cast into the native `float8_e4m3fn` dtype
-  (1 byte, `scale = max|w| / 448`); the floating-point grid (4 exp / 3 mantissa
-  bits) often tracks wide dynamic range better than uniform int8 at the same
-  size. **torch / jax only**.
+- **[int8](quantization_int8.md)**: per-channel symmetric absmax, one float scale
+  per output channel over the contracting axis, `scale = max|w| / 127`.
+- **[int4](quantization_int4.md)**: block-wise symmetric absmax, `scale = max|w| / 7`
+  per block of `group_size`, packed two values per byte.
+- **[fp8](quantization_fp8.md)**: per-channel absmax cast into the native
+  `float8_e4m3fn` dtype, `scale = max|w| / 448`. torch / jax only.
 - **Embeddings**: int8 with a per-row scale; the lookup gathers int8 rows and
   dequantizes only the gathered slice (for both `int8` and `int4` model modes,
   embeddings stay int8: the 4-bit savings live in the Dense weights).
@@ -145,19 +149,6 @@ class plus one file per scheme:
 A `QuantizedDense` holds an `Int8Quantizer` / `Int4Quantizer` / `Fp8Quantizer`
 (via `get_quantizer(mode, group_size)`) and uses it for `storage_spec` (build),
 `quantize` (from a float `Dense`), and `dequantize` (in `call`).
-
-## Accuracy & size (validated, 3 backends)
-
-On real kerasformers decoders, output cosine vs the float model:
-
-| Mode | Size | cosine |
-|---|---|---|
-| int8 | ~3.8× smaller | ~0.9999 |
-| int4 (group 32) | ~5.8–8× smaller | ~0.98 |
-| fp8 (e4m3) | ~3.8× smaller | ~0.9994 |
-
-int4's ratio depends on `group_size` (bigger blocks → fewer scales → smaller, but
-slightly less accurate).
 
 ## Will it fit? (memory sizing)
 
