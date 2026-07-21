@@ -84,9 +84,24 @@ class MoonshineRotaryEmbedding(keras.layers.Layer):
         super().build(input_shape)
 
     def call(self, inputs):
+        # The stored tables only hold ``max_positions`` rows (194 for the
+        # released variants), but the encoder sequence grows with the audio
+        # duration, so slicing them silently ran out past roughly 4.7 s and
+        # attention raised a shape mismatch. Derive cos/sin for the length
+        # actually being attended instead. The tables stay on the layer so
+        # existing checkpoints keep loading, and the values are identical to
+        # them for every position they do cover.
         seq_len = ops.shape(inputs)[1]
-        cos = self.cos_table[:seq_len][None, None, :, :]
-        sin = self.sin_table[:seq_len][None, None, :, :]
+        inv_freq = 1.0 / (
+            self.base
+            ** (
+                ops.cast(ops.arange(0, self.rotary_dim, 2), "float32") / self.rotary_dim
+            )
+        )
+        positions = ops.cast(ops.arange(seq_len), "float32")[:, None]
+        freqs = positions * inv_freq[None, :]
+        cos = ops.repeat(ops.cos(freqs), 2, axis=-1)[None, None, :, :]
+        sin = ops.repeat(ops.sin(freqs), 2, axis=-1)[None, None, :, :]
         return cos, sin
 
     def compute_output_shape(self, input_shape):
