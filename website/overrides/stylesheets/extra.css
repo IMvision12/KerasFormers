@@ -1,0 +1,53 @@
+/* Dark navy surfaces with blue links, rather than Material's default slate.
+   Material's palette names only get close, so the exact surface and link
+   colours are set here for both schemes. */
+
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #0f131c;
+  --md-default-bg-color--light: #151a26;
+  --md-default-fg-color: #e6edf3;
+  --md-default-fg-color--light: #c2cbd6;
+  --md-default-fg-color--lighter: #8b95a3;
+
+  /* header, tabs and sidebar sit slightly above the page */
+  --md-primary-fg-color: #161b26;
+  --md-primary-bg-color: #e6edf3;
+
+  --md-typeset-a-color: #4a9eff;
+  --md-accent-fg-color: #7cb8ff;
+
+  --md-code-bg-color: #161b26;
+  --md-code-fg-color: #e6edf3;
+
+  --md-typeset-table-color: rgba(230, 237, 243, 0.14);
+  --md-footer-bg-color: #0b0e15;
+  --md-footer-bg-color--dark: #080b11;
+}
+
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #1668dc;
+  --md-accent-fg-color: #0b4fb0;
+  --md-primary-fg-color: #161b26;
+  --md-primary-bg-color: #ffffff;
+}
+
+/* Search field reads as part of the header rather than a light cutout. */
+[data-md-color-scheme="slate"] .md-search__form {
+  background-color: rgba(230, 237, 243, 0.08);
+}
+
+[data-md-color-scheme="slate"] .md-search__form:hover {
+  background-color: rgba(230, 237, 243, 0.14);
+}
+
+/* No logo mark: the header and drawer show the project name on its own. */
+.md-header__button.md-logo,
+.md-nav__button.md-logo {
+  display: none;
+}
+
+/* The weights banners in the model pages are written as inline-styled divs, so
+   they keep their own light background. Round off the code blocks to match. */
+.md-typeset pre > code {
+  border-radius: 0.2rem;
+}

@@ -38,7 +38,25 @@ def find_media_root(start):
 
 
 def on_files(files, config):
-    root = find_media_root(os.path.dirname(os.path.abspath(config["config_file_path"])))
+    config_dir = os.path.dirname(os.path.abspath(config["config_file_path"]))
+
+    # Theme overrides (the stylesheet in extra_css) live beside this hook rather
+    # than in docs/, so register them the same way as the media.
+    overrides = os.path.join(config_dir, "overrides")
+    for dirpath, _, filenames in os.walk(overrides):
+        for filename in filenames:
+            abs_path = os.path.join(dirpath, filename)
+            rel_path = os.path.relpath(abs_path, overrides).replace(os.sep, "/")
+            files.append(
+                File(
+                    rel_path,
+                    src_dir=overrides,
+                    dest_dir=config["site_dir"],
+                    use_directory_urls=False,
+                )
+            )
+
+    root = find_media_root(config_dir)
     if root is None:
         return files
     assets_root = os.path.join(root, ASSETS_DIR)
