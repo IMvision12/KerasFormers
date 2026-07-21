@@ -1,204 +1,324 @@
 # LocateAnything
 
-NVIDIA's LocateAnything-3B grounding model, ported to pure Keras 3. A MoonViT
-native-resolution vision tower and connector feed a Qwen2.5-3B decoder, targeting
-vision-language grounding: object detection, OCR, pointing and referring.
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> the pretrained weights for LocateAnything-3B are hosted on the
+kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/locate" style="color:#1a5c8a;">locate</a>
+release tag, and download automatically the first time you call
+<code>from_weights(...)</code>.
+</div>
+<br>
 
-The learned position grid uses the same spelled-out bicubic interpolation as
-Kimi's MoonViT, for backend-consistent parity.
+LocateAnything-3B is NVIDIA's visual-grounding VLM: a native-resolution **MoonViT**
+vision tower and a small connector feed a **Qwen2.5-3B** decoder, and the model answers
+in **boxes and points** rather than prose. One checkpoint covers a whole family of
+grounding tasks, chosen entirely by the instruction you give it: detection, multi-object
+referring, pointing, layout grounding, GUI/text grounding, and OCR.
 
+Coordinates come out as **quantized `[0, 1000]` tokens**, not spelled-out digits, and the
+model uses **Parallel Box Decoding (PBD)** to emit a whole box in a couple of steps
+instead of one digit at a time. Divide a coordinate by 1000 and multiply by the image
+width or height to get pixels.
 
-See also [kimi_k25.md](kimi_k25.md).
-
-## Variants
-
-Load any of these with `from_weights("<variant>")`.
-
-| Variant | Hub |
-|---|---|
-| `locateanything_3b` | kerasformers release |
+**Model card**: [nvidia/LocateAnything-3B](https://huggingface.co/nvidia/LocateAnything-3B)
 
 ## API
 
-### `LocateAnythingModel`
+| Class | What it is |
+|---|---|
+| `LocateAnythingGenerate` | the full model with the tied LM head and `generate`. **This is the one you want.** |
+| `LocateAnythingModel` | backbone only (no LM head). |
+| `LocateAnythingVisionModel` | the MoonViT tower alone. |
+| `LocateAnythingProcessor` | image + text to model inputs. |
+| `LocateAnythingTokenizer` | Qwen2.5 BPE extended with the grounding tokens, plus `parse_*`. |
+| `LocateAnythingImageProcessor` | the native-resolution MoonViT patch preprocessor. |
 
-LocateAnything-3B backbone (no LM head).
+`from_weights("locateanything_3b")` loads any of them. The 3B decoder is large; load it in
+bf16 (`load_dtype="bfloat16"`) unless you have the memory for fp32.
 
-| Arg | Default | Meaning |
-|---|---|---|
-| `vocab_size` | `152681` | token vocabulary size |
-| `embed_dim` | `2048` | text model width |
-| `mlp_dim` | `11008` | MLP inner width |
-| `num_layers` | `36` | decoder blocks |
-| `num_heads` | `16` | query heads |
-| `num_kv_heads` | `2` | key/value heads (GQA) |
-| `head_dim` | `128` | per-head width |
-| `norm_eps` | `1e-06` | normalization epsilon |
-| `rope_theta` | `1000000.0` | rotary base frequency |
-| `tie_embeddings` | `True` | reuse embeddings as the LM head |
-| `vision_embed_dim` | `1152` | vision tower width |
-| `vision_depth` | `27` | vision tower depth |
-| `vision_num_heads` | `16` | vision attention heads |
-| `vision_mlp_dim` | `4304` | vision MLP width |
-| `vision_patch_size` | `14` | vision patch size |
-| `vision_init_pos_h` | `64` |  |
-| `vision_init_pos_w` | `64` |  |
-| `merge_kernel` | `(2, 2)` | patch-merge kernel |
-| `vision_rope_theta` | `10000.0` | rotary base in the vision tower |
-| `image_token_index` | `151665` |  |
-| `block_size` | `6` |  |
-| `max_position_embeddings` | `32768` | longest position index the model builds |
-
-### `LocateAnythingGenerate`
-
-LocateAnything-3B with the (tied) Qwen2 LM head -> logits.
+### Building an instruction
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+from kerasformers.models.locateanything import locate_prompt
+
+locate_prompt("detection", "car")   # -> "Locate all the instances ...: car."
 ```
 
-Image and video tensors ride along as `**prefill_inputs`; the processor
-produces them for you.
+`locate_prompt(task, text)` returns the verbatim instruction string for each task. The
+tasks are `detection`, `referring`, `phrase_grounding`, `pointing`, `layout`,
+`text_grounding`, and `ocr`; `text` fills the category or phrase (a list is joined with
+the model's `</c>` separator) and is ignored by `ocr`.
 
-### `LocateAnythingVisionModel`
+### Reading the answer
 
-MoonViT-SO-400M: native-resolution packed ViT.
+The tokenizer turns the generated ids into structured results:
 
-| Arg | Default | Meaning |
-|---|---|---|
-| `embed_dim` | `1152` | text model width |
-| `depth` | `27` | vision tower depth |
-| `num_heads` | `16` | query heads |
-| `mlp_dim` | `4304` | MLP inner width |
-| `patch_size` | `14` | patch size |
-| `init_pos_h` | `64` |  |
-| `init_pos_w` | `64` |  |
-| `merge_kernel` | `(2, 2)` | patch-merge kernel |
-| `in_channels` | `3` | input image channels |
-| `rope_theta` | `10000.0` | rotary base frequency |
+- **parse_boxes(ids)** -> `[[x1, y1, x2, y2], ...]` in `[0, 1000]`. Use for detection.
+- **parse_points(ids)** -> `[[x, y], ...]` in `[0, 1000]`. Use for pointing.
+- **parse_grounding(ids)** -> `[{"label": str | None, "box"/"point": [...]}, ...]`, pairing each `<ref>` label with the box or point that follows. Use for referring, layout, text grounding, and OCR.
 
-### `LocateAnythingTokenizer`
+## Shared Setup
 
-Qwen2.5 BPE tokenizer extended with LocateAnything's grounding tokens.
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `variant` | `None` | variant whose tokenizer/processor files to fetch |
-| `hf_id` | `None` | Hub repo to pull tokenizer/processor files from |
-| `tokenizer_file` | `None` | explicit path to a `tokenizer.json` |
-
-### `LocateAnythingImageProcessor`
-
-Native-resolution patch preprocessor for LocateAnything / MoonViT.
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `patch_size` | `14` | patch size |
-| `image_mean` | `(0.5, 0.5, 0.5)` | per-channel normalization mean |
-| `image_std` | `(0.5, 0.5, 0.5)` | per-channel normalization std |
-| `in_token_limit` | `4096` | max patches per image |
-| `merge_kernel_size` | `(2, 2)` | patch-merge kernel |
-
-### `LocateAnythingProcessor`
-
-Image + text -> model inputs for LocateAnything-3B.
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `variant` | `None` | variant whose tokenizer/processor files to fetch |
-| `hf_id` | `None` | Hub repo to pull tokenizer/processor files from |
-| `tokenizer` | `None` | override the default tokenizer |
-| `image_processor` | `None` | override the default image processor |
-| `merge_kernel_size` | `(2, 2)` | patch-merge kernel |
-
-## End-to-end example
-
-### Single input (image + text)
+Every task below reuses one loaded model, processor, and a tiny helper that scales a
+`[0, 1000]` box to pixels for drawing:
 
 ```python
 import os
 os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
 
-from PIL import Image
-from kerasformers.models.locateanything import LocateAnythingGenerate, LocateAnythingProcessor
+import keras
+import numpy as np
+from PIL import Image, ImageDraw
+from kerasformers.models.locateanything import (
+    LocateAnythingGenerate, LocateAnythingProcessor, locate_prompt,
+)
 
-model = LocateAnythingGenerate.from_weights("locateanything_3b")
+model = LocateAnythingGenerate.from_weights("locateanything_3b", load_dtype="bfloat16")
 processor = LocateAnythingProcessor.from_weights("locateanything_3b")
 
-image = Image.open("photo.jpg")
-inputs = processor(conversation=[{
-    "role": "user",
-    "content": [
-        {"type": "image", "image": image},
-        {"type": "text", "text": "Describe this image in one sentence."},
-    ],
-}])
-outputs = model.generate(**inputs, max_new_tokens=64)
+def run(task, image, text="", **gen):
+    prompt = locate_prompt(task, text)
+    inputs = processor(conversation=[{
+        "role": "user",
+        "content": [{"type": "image", "image": image}, {"type": "text", "text": prompt}],
+    }])
+    out = model.generate(**inputs, max_new_tokens=192,
+                         tokenizer=processor.tokenizer, **gen)
+    return np.asarray(keras.ops.convert_to_numpy(out))[0].tolist()   # generated ids
 
-print(processor.decode(outputs[0]))
+def to_px(box, w, h):
+    return [box[0] / 1000 * w, box[1] / 1000 * h, box[2] / 1000 * w, box[3] / 1000 * h]
 ```
 
-### Several images in one conversation
+## Detection
 
-Add one image content item per image. The processor expands each marker to
-that image's own patch count:
+<img src="../assets/locate_detection_output.jpg" alt="LocateAnything detecting every zebra in a herd on the savanna" width="720">
+
+Give a category and get every instance of it. The answer is a flat list of boxes, so read
+it with `parse_boxes`.
 
 ```python
-inputs = processor(conversation=[{
-    "role": "user",
-    "content": [
-        {"type": "image", "image": Image.open("a.jpg")},
-        {"type": "image", "image": Image.open("b.jpg")},
-        {"type": "text", "text": "What differs between these two images?"},
-    ],
-}])
-outputs = model.generate(**inputs, max_new_tokens=64)
+image = Image.open("assets/data/coco_herd_field.jpg").convert("RGB")
+ids = run("detection", image, "zebra")
+
+boxes = processor.tokenizer.parse_boxes(ids)
+print(len(boxes), boxes[0])
 ```
 
-### Batch
+```
+4 [205, 519, 333, 621]
+```
 
-Pass a list of conversations. Each one is rendered separately and takes only
-the images its own markers claim, so the conversations do not need the same
-number of images or images of the same size:
+Four zebras, each box in the `[0, 1000]` grid, and the wildebeest in the same frame are
+left out. Pass a list of categories to detect several at once,
+`locate_prompt("detection", ["zebra", "wildebeest"])`.
+
+## Multi-Object Referring
+
+<img src="../assets/locate_referring_output.jpg" alt="LocateAnything referring: the seven children wearing caps in a group photo, each boxed" width="720">
+
+Referring returns every instance that matches a phrase, each paired with its label, so
+read it with `parse_grounding`. The phrase can describe the instances rather than name a
+category, which is what separates it from plain detection.
 
 ```python
-conversations = [
-    [{"role": "user", "content": [
-        {"type": "image", "image": Image.open("a.jpg")},
-        {"type": "text", "text": "What is in this image?"}]}],
-    [{"role": "user", "content": [
-        {"type": "image", "image": Image.open("b.jpg")},
-        {"type": "image", "image": Image.open("c.jpg")},
-        {"type": "text", "text": "What differs between these?"}]}],
+image = Image.open("assets/data/coco_children_pool.jpg").convert("RGB")
+ids = run("referring", image, "a child wearing a cap")
+
+for r in processor.tokenizer.parse_grounding(ids):
+    print(r["label"], r["box"])
+```
+
+```
+a child wearing a cap [31, 388, 173, 827]
+a child wearing a cap [184, 315, 309, 792]
+a child wearing a cap [325, 362, 481, 871]
+a child wearing a cap [512, 319, 650, 979]
+a child wearing a cap [619, 331, 723, 1000]
+a child wearing a cap [645, 440, 819, 1000]
+a child wearing a cap [788, 398, 1000, 1000]
+```
+
+Seven of the children come back and the bare-headed ones are skipped, out of a group of
+more than a dozen. Use `phrase_grounding` instead when you want a **single** best instance
+rather than all of them.
+
+## Pointing
+
+<img src="../assets/locate_pointing_output.jpg" alt="LocateAnything pointing at each wine glass on a laid table" width="720">
+
+Pointing returns coordinates instead of boxes, a `<box>` carrying two numbers rather than
+four, so read it with `parse_points`.
+
+```python
+image = Image.open("assets/data/coco_buffet.jpg").convert("RGB")
+ids = run("pointing", image, "a wine glass")
+
+points = processor.tokenizer.parse_points(ids)
+print(len(points), points[0])
+```
+
+```
+9 [38, 234]
+```
+
+Nine glasses, one point each, in the `[0, 1000]` grid, picked out of a crowded table
+without touching the cake, plates, or platter. Pointing scales to counts that would be
+tedious to box: `"a strawberry on the cake"` on the same image returns 47 points.
+
+## Layout Grounding
+
+<img src="../assets/locate_layout_output.jpg" alt="LocateAnything locating the first paragraph on the second page of Attention Is All You Need" width="700">
+
+Layout grounding locates the single region that matches a description, which is what you
+use to pick a block out of a document page, a caption, a paragraph, a section. Here it
+finds the first paragraph on the second page of *Attention Is All You Need*.
+
+```python
+image = Image.open("assets/data/attention_paper_p2.jpg").convert("RGB")
+ids = run("layout", image, "the first paragraph")
+
+print(processor.tokenizer.parse_grounding(ids))
+```
+
+```
+[{'label': 'the first paragraph', 'box': [176, 126, 823, 193]}]
+```
+
+Name a section instead, `"the Background section"`, and it returns the tight box around
+that heading (`[176, 460, 309, 474]`) rather than the whole block.
+
+## GUI / Text Grounding
+
+<img src="../assets/locate_text_grounding_output.jpg" alt="LocateAnything grounding the Spokane Falls Blvd street sign on a city street" width="720">
+
+`text_grounding` locates a named piece of text or a named UI element, which is how GUI
+grounding ("select the crop tool") works: point the same call at a screenshot and name
+the control.
+
+```python
+image = Image.open("assets/data/coco_city_bus.jpg").convert("RGB")
+ids = run("text_grounding", image, "the Spokane Falls Blvd street sign")
+
+print(processor.tokenizer.parse_grounding(ids))
+```
+
+```
+[{'label': 'the Spokane Falls Blvd street sign.', 'box': [166, 175, 270, 208]}]
+```
+
+It picks the one named sign out of a street full of text. Asking for `"the DON'T WALK
+sign"` instead returns `[167, 364, 200, 406]`, the signal head below it.
+
+## OCR
+
+<img src="../assets/locate_ocr_output.jpg" alt="LocateAnything reading the text on an upside-down stop sign" width="620">
+
+OCR detects every piece of text and returns each string with its box. The prompt takes no
+argument.
+
+```python
+image = Image.open("assets/data/coco_stop_sign.jpg").convert("RGB")
+ids = run("ocr", image)
+
+for r in processor.tokenizer.parse_grounding(ids):
+    print(repr(r["label"]), r["box"])
+```
+
+```
+'STOP' [348, 235, 660, 364]
+```
+
+The sign is mounted upside down and the model still reads it, returning the one text
+region in the frame with its box. On a scene with more signage it returns one entry per
+piece of text the same way.
+
+## Drawing the Results
+
+The figures above overlay the parsed boxes and points on the original. The box variant:
+
+```python
+def draw(image, results):
+    out = image.convert("RGB").copy()
+    d, (w, h) = ImageDraw.Draw(out), out.size
+    for r in results:
+        if "point" in r:
+            x, y = r["point"][0] / 1000 * w, r["point"][1] / 1000 * h
+            d.ellipse([x - 6, y - 6, x + 6, y + 6], fill=(255, 59, 48))
+        else:
+            d.rectangle(to_px(r["box"], w, h), outline=(255, 59, 48), width=3)
+            if r.get("label"):
+                d.text((r["box"][0] / 1000 * w, r["box"][1] / 1000 * h - 12), r["label"])
+    return out
+
+draw(image, processor.tokenizer.parse_grounding(ids)).save("assets/locate_result.jpg")
+```
+
+## Decoding Modes
+
+LocateAnything emits coordinates as quantized `[0, 1000]` tokens and can decode a box in
+parallel (PBD) instead of one token at a time. `generate` exposes three modes through
+`generation_mode`:
+
+| Mode | What it does |
+|---|---|
+| `"hybrid"` (default) | multi-token box prediction with an autoregressive fallback; the fastest that stays faithful. |
+| `"fast"` | multi-token prediction only. Fewest steps, occasionally coarser. |
+| `"slow"` | pure autoregressive. The reference behaviour, one token per step. |
+
+The `run` helper from the shared setup forwards any extra keyword to `generate`:
+
+```python
+image = Image.open("assets/data/coco_herd_field.jpg").convert("RGB")
+ids = run("detection", image, "zebra", generation_mode="fast")
+boxes = processor.tokenizer.parse_boxes(ids)   # parse exactly as before
+```
+
+The vision tower runs once and is cached across the decoding steps, so the per-box cost is
+dominated by the decoder, which is what the parallel modes cut. The modes trade steps for
+fidelity, so keep the default `hybrid` unless you have measured that `fast` is good enough
+for your inputs.
+
+## Several Images
+
+Because MoonViT keeps every image at its native resolution, the cleanest way to process
+several images is to loop, one grounding call each, which also lets each image carry a
+different task:
+
+```python
+jobs = [
+    ("detection", "coco_herd_field.jpg", "zebra"),
+    ("pointing", "coco_buffet.jpg", "a wine glass"),
 ]
-inputs = processor(conversation=conversations)
-outputs = model.generate(**inputs, max_new_tokens=64)
-
-for text in processor.batch_decode(outputs):
-    print(text)
+for task, name, text in jobs:
+    ids = run(task, Image.open(f"assets/data/{name}").convert("RGB"), text)
+    print(name, processor.tokenizer.parse_grounding(ids))
 ```
 
-Text-only prompts batch the same way: pass `text=[...]` with no `images`.
-
-### Text only
-
-```python
-from kerasformers.models.locateanything import LocateAnythingTokenizer
-
-tokenizer = LocateAnythingTokenizer.from_weights("locateanything_3b")
-inputs = tokenizer([{"role": "user", "content": "Who wrote Dune?"}])
-outputs = model.generate(**inputs, max_new_tokens=32)
-print(tokenizer.decode(outputs[0]))
+```
+coco_herd_field.jpg [{'label': 'zebra', 'box': [205, 519, 333, 621]}, ...]
+coco_buffet.jpg [{'label': 'a wine glass', 'point': [38, 234]}, ...]
 ```
 
-### Lower memory
+> **LocateAnything is a grounding specialist, not a chat model.** Its decoder is trained
+> to emit boxes and points, and free-form questions come back garbled. Keep the prompts to
+> the grounding tasks above; for general vision-language chat use a model built for it,
+> such as [Qwen3-VL](qwen3_vl.md).
 
-Larger checkpoints load in bf16 or weight-only quantized. See
-[quantization.md](quantization.md):
+## Lower Memory
+
+The 3B decoder loads in bf16 or weight-only quantized. See [quantization.md](quantization.md):
 
 ```python
 model = LocateAnythingGenerate.from_weights(
     "locateanything_3b", quantization="int8", low_memory=True, load_dtype="bfloat16"
 )
 ```
+
+## Data Format
+
+Coordinates are always returned in the `[0, 1000]` grid, independent of
+`keras.config.image_data_format()`. The MoonViT tower keeps each image at its native
+resolution (up to `in_token_limit` patches), so images of different sizes batch without
+padding to a common shape.
+
+See also [kimi_k25.md](kimi_k25.md), which shares the MoonViT vision tower.
