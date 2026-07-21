@@ -1,0 +1,180 @@
+site_name: KerasFormers
+site_description: Pretrained transformer models in pure Keras 3, runnable on JAX, PyTorch and TensorFlow.
+site_url: https://imvision12.github.io/KerasFormers/
+repo_url: https://github.com/IMvision12/KerasFormers
+repo_name: IMvision12/KerasFormers
+edit_uri: edit/main/docs/
+
+# This config lives in website/, while the pages and media stay at the repo root.
+docs_dir: ../docs
+site_dir: ../site
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: red
+      accent: red
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: red
+      accent: red
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+
+# Figures and audio live in the repo-root assets/, outside docs/. This registers
+# them with MkDocs so they are copied for `mkdocs serve` as well as `build`.
+hooks:
+  - hooks/copy_assets.py
+
+nav:
+  - Home: index.md
+
+  - Language:
+      - Encoders:
+          - BERT: bert.md
+          - RoBERTa: roberta.md
+          - XLM-RoBERTa: xlm_roberta.md
+          - DeBERTa: deberta.md
+      - GPT family:
+          - GPT: gpt.md
+          - GPT-2: gpt2.md
+          - GPT-OSS: gpt_oss.md
+      - Llama family:
+          - Llama: llama.md
+          - Llama 2: llama2.md
+          - Llama 4: llama4.md
+      - Mistral family:
+          - Mistral: mistral.md
+          - Mixtral: mixtral.md
+      - Gemma family:
+          - Gemma: gemma.md
+          - Gemma 2: gemma2.md
+          - Gemma 3: gemma3.md
+          - Gemma 4: gemma4.md
+      - Qwen family:
+          - Qwen: qwen.md
+          - Qwen2: qwen2.md
+          - Qwen2 MoE: qwen2_moe.md
+          - Qwen3: qwen3.md
+          - Qwen3 MoE: qwen3_moe.md
+          - Qwen3.5: qwen3_5.md
+          - Qwen3.5 MoE: qwen3_5_moe.md
+      - GLM family:
+          - GLM: glm.md
+          - GLM-4: glm4.md
+          - GLM-4 MoE: glm4_moe.md
+          - GLM-5 MoE: glm5_moe.md
+      - DeepSeek family:
+          - DeepSeek-V2: deepseek_v2.md
+          - DeepSeek-V3: deepseek_v3.md
+          - DeepSeek-V4: deepseek_v4.md
+      - Cohere family:
+          - Cohere: cohere.md
+          - Cohere 2: cohere2.md
+          - Cohere 2 MoE: cohere2_moe.md
+      - MiniMax family:
+          - MiniMax: minimax.md
+          - MiniMax M2: minimax_m2.md
+
+  - Vision:
+      - Backbones:
+          - Classification backbones: classification_backbones.md
+          - DINO: dino.md
+          - DINOv2: dinov2.md
+          - DINOv3: dinov3.md
+      - Image + text:
+          - CLIP: clip.md
+          - SigLIP: siglip.md
+          - SigLIP 2: siglip2.md
+          - MetaCLIP 2: metaclip2.md
+      - Object detection:
+          - DETR: detr.md
+          - D-FINE: dfine.md
+          - RT-DETR: rt_detr.md
+          - RT-DETRv2: rt_detr_v2.md
+          - RF-DETR: rf_detr.md
+          - OWL-ViT: owlvit.md
+          - OWLv2: owlv2.md
+          - Grounding DINO: grounding_dino.md
+      - Segmentation:
+          - DeepLabV3: deeplabv3.md
+          - SegFormer: segformer.md
+          - MobileViT: mobilevit.md
+          - MobileViTV2: mobilevitv2.md
+          - MaskFormer: maskformer.md
+          - Mask2Former: mask2former.md
+          - OneFormer: oneformer.md
+          - EoMT: eomt.md
+          - SAM: sam.md
+          - SAM 2: sam2.md
+          - SAM 3: sam3.md
+      - Depth estimation:
+          - Depth Anything V1: depth_anything_v1.md
+          - Depth Anything V2: depth_anything_v2.md
+
+  - Multimodal:
+      - Qwen-VL:
+          - Qwen2-VL: qwen2_vl.md
+          - Qwen2.5-VL: qwen2_5_vl.md
+          - Qwen3-VL: qwen3_vl.md
+      - GLM-V:
+          - GLM-4V: glm4v.md
+          - GLM-4V MoE: glm4v_moe.md
+      - DeepSeek-VL:
+          - DeepSeek-VL: deepseek_vl.md
+          - DeepSeek-VL Hybrid: deepseek_vl_hybrid.md
+          - Janus: janus.md
+      - Others:
+          - InternVL: internvl.md
+          - Mistral 3: mistral3.md
+          - Cohere 2 Vision: cohere2_vision.md
+          - MiniMax M3-VL: minimax_m3_vl.md
+          - Kimi K2.5: kimi_k25.md
+          - LocateAnything: locateanything.md
+
+  - Speech:
+      - Speech to text:
+          - Whisper: whisper.md
+          - Speech2Text: speech2text.md
+          - Moonshine: moonshine.md
+      - Speech LLMs:
+          - Granite Speech: granite_speech.md
+          - Granite Speech Plus: granite_speech_plus.md
+
+  - Guides:
+      - Quantization: quantization.md

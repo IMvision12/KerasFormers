@@ -117,7 +117,7 @@ exact-zero test (handles zero and denormal channels), and `dequantize` takes the
 compute `dtype`, so `mixed_bfloat16` graphs don't upcast through float32.
 
 `quantize_model` walks the layer tree and **swaps** every built `Dense` →
-[`QuantizedDense`](../kerasformers/quantization/quantized_layers.py), `EinsumDense`
+[`QuantizedDense`](https://github.com/IMvision12/KerasFormers/blob/main/kerasformers/quantization/quantized_layers.py), `EinsumDense`
 → `QuantizedEinsumDense`, `Embedding` → `QuantizedEmbedding`, and fused experts →
 `QuantizedExperts`, freeing the float weights, then records the resolved
 `QuantizationConfig` on the model. The swap unlocks the keras layer tracker,
