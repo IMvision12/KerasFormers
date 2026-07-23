@@ -1,5 +1,17 @@
 # Cohere (Command-R)
 
+<div style="background:#fdecea; border:1px solid #f5c6c0; border-radius:3px; padding:12px 16px; color:#4a2626;">
+<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored on the kerasformers
+release page. <code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
+from the Hub and converts them in process on every load, because checkpoints this large are
+impractical to re-host.
+These are <b>gated</b>: accept the license at <a href="https://huggingface.co/CohereForAI/c4ai-command-r-v01" style="color:#1a5c8a;">CohereForAI/c4ai-command-r-v01</a>, then authenticate with
+<code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
+Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
+conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">Loading Weights</a>.
+</div>
+<br>
+
 Cohere's Command-R decoder-only LLM, ported to pure Keras 3. Three things set it
 apart from the Llama-style block: LayerNorm is **mean-centered** rather than
 RMSNorm, attention and the MLP run **in parallel** off the same normed input, and

@@ -1,5 +1,15 @@
 # GLM-4V
 
+<div style="background:#fdecea; border:1px solid #f5c6c0; border-radius:3px; padding:12px 16px; color:#4a2626;">
+<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored on the kerasformers
+release page. <code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
+from the Hub and converts them in process on every load, because checkpoints this large are
+impractical to re-host.
+Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
+conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">Loading Weights</a>.
+</div>
+<br>
+
 Zhipu's GLM-4V vision-language models, ported to pure Keras 3. A ViT tower with
 learned position embeddings (bicubic-interpolated to the native grid) feeds the
 GLM text decoder, which uses M-RoPE across time/height/width.
