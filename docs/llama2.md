@@ -1,5 +1,17 @@
 # Llama 2
 
+<div style="background:#fdecea; border:1px solid #f5c6c0; border-radius:3px; padding:12px 16px; color:#4a2626;">
+<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored on the kerasformers
+release page. <code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
+from the Hub and converts them in process on every load, because checkpoints this large are
+impractical to re-host.
+These are <b>gated</b>: accept the license at <a href="https://huggingface.co/meta-llama/Llama-2-7b-hf" style="color:#1a5c8a;">meta-llama/Llama-2-7b-hf</a>, then authenticate with
+<code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
+Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
+conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">Loading Weights</a>.
+</div>
+<br>
+
 The second Llama generation, ported to pure Keras 3. Same decoder shape as
 Llama (RMSNorm, SwiGLU, rotary embeddings) with grouped-query attention on the
 larger variants and a 4K context window. The `-chat` checkpoints are the
