@@ -1,4 +1,8 @@
-# KerasFormers 🚀
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f096ff6e-25d9-42ae-93f6-943d0252a3f0" width="100">
+</p>
+
+<h1 align="center">KerasFormers</h1>
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Keras](https://img.shields.io/badge/keras-v3.5.0+-success.svg)](https://github.com/keras-team/keras)
