@@ -427,6 +427,13 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     )
                 warn_skipped(skipped)
             elif url:
+                # Subclassed models (LLMs / VLMs) build lazily, so they have no
+                # weights to load into until a forward pass runs. Functional
+                # models are already built at construction and skip this. Lets a
+                # `url` entry point at a pre-converted `.weights.h5` (GitHub
+                # release or an hf.co resolve URL) for any model type.
+                if hasattr(model, "build_for_transfer") and not model.built:
+                    model.build_for_transfer()
                 cls.load_weights_from_url(model, url, skip_mismatch)
             else:
                 raise ValueError(
