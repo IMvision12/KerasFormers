@@ -44,24 +44,41 @@ def split_gated_deltanet_in_proj(layer, qkvz, ba):
 def transfer_qwen3_5_weights(keras_model, hf_state_dict):
     if not keras_model.built or not keras_model.weights:
         keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
+    lm = (
+        "model.language_model."
+        if "model.language_model.norm.weight" in hf_state_dict
+        else "model."
+    )
+    presplit = any(k.endswith("linear_attn.in_proj_qkv.weight") for k in hf_state_dict)
 
     handled = set()
     for i, decoder_layer in enumerate(keras_model.decoder_layers):
         if getattr(decoder_layer, "layer_type", None) == "full_attention":
             continue
         gdn = decoder_layer.linear_attn
-        prefix = f"model.layers.{i}.linear_attn"
-        qkvz = np.asarray(hf_state_dict[f"{prefix}.in_proj_qkvz.weight"])
-        ba = np.asarray(hf_state_dict[f"{prefix}.in_proj_ba.weight"])
-        qkv_w, z_w, b_w, a_w = split_gated_deltanet_in_proj(gdn, qkvz, ba)
-        for dense, packed in (
-            (gdn.in_proj_qkv, qkv_w),
-            (gdn.in_proj_z, z_w),
-            (gdn.in_proj_b, b_w),
-            (gdn.in_proj_a, a_w),
-        ):
-            transfer_weights(dense.kernel.path, dense.kernel, packed)
-            handled.add(dense.kernel.path)
+        prefix = f"{lm}layers.{i}.linear_attn"
+        if presplit:
+            targets = (
+                (gdn.in_proj_qkv, f"{prefix}.in_proj_qkv.weight"),
+                (gdn.in_proj_z, f"{prefix}.in_proj_z.weight"),
+                (gdn.in_proj_b, f"{prefix}.in_proj_b.weight"),
+                (gdn.in_proj_a, f"{prefix}.in_proj_a.weight"),
+            )
+            for dense, key in targets:
+                transfer_weights(dense.kernel.path, dense.kernel, hf_state_dict[key])
+                handled.add(dense.kernel.path)
+        else:
+            qkvz = np.asarray(hf_state_dict[f"{prefix}.in_proj_qkvz.weight"])
+            ba = np.asarray(hf_state_dict[f"{prefix}.in_proj_ba.weight"])
+            qkv_w, z_w, b_w, a_w = split_gated_deltanet_in_proj(gdn, qkvz, ba)
+            for dense, packed in (
+                (gdn.in_proj_qkv, qkv_w),
+                (gdn.in_proj_z, z_w),
+                (gdn.in_proj_b, b_w),
+                (gdn.in_proj_a, a_w),
+            ):
+                transfer_weights(dense.kernel.path, dense.kernel, packed)
+                handled.add(dense.kernel.path)
 
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
         if weight.path in handled:
@@ -69,6 +86,8 @@ def transfer_qwen3_5_weights(keras_model, hf_state_dict):
         name = weight.path.split("/", 1)[1].replace("/", ".")
         for old, new in WEIGHT_NAME_MAPPING.items():
             name = name.replace(old, new)
+        if lm != "model." and name.startswith("model."):
+            name = lm + name[len("model.") :]
         if name not in hf_state_dict:
             raise WeightMappingError(weight.path, name)
         torch_weight = hf_state_dict[name]
