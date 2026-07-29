@@ -4,10 +4,14 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-WEIGHT_NAME_MAPPING = {
-    "token_embedding.embeddings": "model.embed_tokens.weight",
-    "final_norm.weight": "model.norm.weight",
-    "decoder_layer_": "model.layers.",
+# Keras weight paths (top-level model name stripped) -> the text-model-relative
+# HF name. The "language_model." / "model." prefixes are added in transfer once
+# the checkpoint layout is known, so this is shared by the text backbone
+# (Gemma4Model) and the multimodal one (Gemma4MultimodalModel).
+TEXT_MAP = {
+    "token_embedding.embeddings": "embed_tokens.weight",
+    "final_norm.weight": "norm.weight",
+    "decoder_layer_": "layers.",
     "attention.query_norm": "self_attn.q_norm",
     "attention.key_norm": "self_attn.k_norm",
     "attention.query": "self_attn.q_proj",
@@ -21,54 +25,95 @@ WEIGHT_NAME_MAPPING = {
     "pre_feedforward_norm": "pre_feedforward_layernorm",
     "post_feedforward_norm": "post_feedforward_layernorm",
     "attention_norm": "input_layernorm",
-    "router.proj": "router.proj",
-    "router.scale": "router.scale",
-    "router.per_expert_scale": "router.per_expert_scale",
     "mlp.gate": "mlp.gate_proj",
     "mlp.up": "mlp.up_proj",
     "mlp.down": "mlp.down_proj",
+    "router.proj": "router.proj",
+    "router.scale": "router.scale",
+    "router.per_expert_scale": "router.per_expert_scale",
     "kernel": "weight",
 }
 
 
-def normalize_keys(hf_state_dict):
-    # The omnimodal checkpoints nest the decoder under "model.language_model."
-    # (plus audio/vision towers we skip); text-only state dicts use bare
-    # "model.*". Canonicalize to "model.*" + "lm_head.weight".
-    keys = list(hf_state_dict.keys())
-    nested = any(key.startswith("model.language_model.") for key in keys)
-    out = {}
-    for key, value in hf_state_dict.items():
-        if nested:
-            if key.startswith("model.language_model."):
-                key = "model." + key[len("model.language_model.") :]
-            elif key.startswith(
-                (
-                    "model.audio",
-                    "model.vision",
-                    "model.embed_audio",
-                    "model.embed_vision",
-                )
-            ):
-                continue
-        out[key] = value
-    return out
+def resolve_hf_name(keras_path, nested):
+    # Map a Keras weight path to its HF name. Vision uses "vision_tower.encoder.*"
+    # with clippable projections stored as "<name>.linear.weight"; audio uses
+    # "audio_tower.*"; text is bare (embed_tokens / layers.N / norm), placed under
+    # "language_model." when the checkpoint nests the decoder there.
+    path = keras_path.split("/", 1)[1].replace("/", ".")
+    if path.startswith("vision_tower."):
+        path = path.replace("layers_", "encoder.layers.")
+        if "patch_embedder.input_proj.kernel" in path:
+            return path.replace(".kernel", ".weight")
+        if "position_embedding_table" in path:
+            return path
+        if path.endswith(".kernel"):
+            return path[: -len(".kernel")] + ".linear.weight"
+        return path
+    if path.startswith("embed_vision.") or path.startswith("embed_audio."):
+        return path.replace(".kernel", ".weight")
+    if path.startswith("audio_tower."):
+        path = path.replace("layers_", "layers.")
+        if path.endswith("depthwise_conv1d_kernel"):
+            return path.replace("depthwise_conv1d_kernel", "depthwise_conv1d.weight")
+        if path.endswith(".gamma"):
+            return path.replace(".gamma", ".weight")
+        for suffix in (
+            "conv.kernel",
+            "input_proj_linear.kernel",
+            "relative_k_proj.kernel",
+            "output_proj.kernel",
+        ):
+            if path.endswith(suffix):
+                return path.replace(".kernel", ".weight")
+        if path.endswith(".kernel"):
+            return path[: -len(".kernel")] + ".linear.weight"
+        return path
+    for old, new in TEXT_MAP.items():
+        path = path.replace(old, new)
+    return ("language_model." + path) if nested else path
 
 
 def transfer_gemma4_weights(keras_model, hf_state_dict):
-    state = normalize_keys(hf_state_dict)
+    """Transfer Gemma 4 weights, for both the text and the multimodal models.
+
+    Handles text-only checkpoints (``model.embed_tokens.*``), the multimodal /
+    unified checkpoints that nest the decoder under ``model.language_model.*``
+    (alongside vision / audio towers), and the un-prefixed backbone layouts.
+    """
     if not keras_model.built or not keras_model.weights:
-        keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
-    for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
-        name = weight.path.split("/", 1)[1].replace("/", ".")
-        for old, new in WEIGHT_NAME_MAPPING.items():
-            name = name.replace(old, new)
-        if name not in state:
-            raise WeightMappingError(weight.path, name)
-        if ".experts.gate_up_proj" in name or ".experts.down_proj" in name:
-            # Fused expert banks (E, 2I, H) / (E, H, I): direct copy.
-            weight.assign(np.asarray(state[name]))
-        elif name.endswith("router.scale") or name.endswith("router.per_expert_scale"):
-            weight.assign(np.asarray(state[name]))
+        if hasattr(keras_model, "build_for_transfer"):
+            keras_model.build_for_transfer()
         else:
-            transfer_weights(weight.path, weight, state[name])
+            keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
+
+    nested = any(
+        k.startswith(("model.language_model.", "language_model."))
+        for k in hf_state_dict
+    )
+    prefix = "model." if any(k.startswith("model.") for k in hf_state_dict) else ""
+
+    for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
+        name = prefix + resolve_hf_name(weight.path, nested)
+        if name not in hf_state_dict:
+            raise WeightMappingError(weight.path, name)
+        torch_weight = hf_state_dict[name]
+        if weight.path.endswith("depthwise_conv1d_kernel"):
+            # PyTorch depthwise conv1d [C, 1, K] -> Keras [K, C, 1].
+            weight.assign(np.transpose(np.asarray(torch_weight), (2, 0, 1)))
+        elif len(weight.shape) == 0:
+            # Scalar clip bounds (+-inf); transfer_weights rejects empty shapes.
+            weight.assign(np.asarray(torch_weight))
+        elif weight.path.endswith("position_embedding_table"):
+            weight.assign(np.asarray(torch_weight))
+        elif weight.path.endswith("embedding_projection/kernel"):
+            # A Dense whose name trips transfer_weights' "embedding" heuristic
+            # (direct copy, no transpose); assign the transpose ourselves.
+            weight.assign(np.asarray(torch_weight).T)
+        elif ".experts.gate_up_proj" in name or ".experts.down_proj" in name:
+            # Fused expert banks (E, 2I, H) / (E, H, I): direct copy.
+            weight.assign(np.asarray(torch_weight))
+        elif name.endswith("router.scale") or name.endswith("router.per_expert_scale"):
+            weight.assign(np.asarray(torch_weight))
+        else:
+            transfer_weights(weight.path, weight, torch_weight)

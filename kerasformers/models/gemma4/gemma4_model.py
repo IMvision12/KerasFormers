@@ -798,11 +798,9 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_gemma4_multimodal_hf_to_keras import (
-            transfer_gemma4_multimodal_weights,
-        )
+        from .convert_gemma4_hf_to_keras import transfer_gemma4_weights
 
-        transfer_gemma4_multimodal_weights(keras_model, hf_state_dict)
+        transfer_gemma4_weights(keras_model, hf_state_dict)
 
     def get_config(self):
         config = super().get_config()
