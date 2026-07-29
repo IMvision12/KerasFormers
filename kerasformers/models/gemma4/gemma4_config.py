@@ -128,3 +128,26 @@ GEMMA4_MULTIMODAL_WEIGHTS_URLS = {
         "safetensors": True,
     },
 }
+
+# The single Gemma4Generate handles both text-only and multimodal checkpoints
+# (like transformers' Gemma4ForConditionalGeneration): 12B is the gemma4_unified
+# family whose vision/audio towers are not ported, so it loads text-only
+# (vision_config None); 31B and 26B-A4B carry the ported gemma4 vision tower.
+GEMMA4_GENERATE_CONFIG = {
+    "gemma-4-12b": {
+        "text_config": dict(GEMMA4_CONFIG["gemma-4-12b"]),
+        "vision_config": None,
+        "audio_config": None,
+        "use_bidirectional_vision": False,
+    },
+    "gemma-4-12b-it": {
+        "text_config": dict(GEMMA4_CONFIG["gemma-4-12b-it"]),
+        "vision_config": None,
+        "audio_config": None,
+        "use_bidirectional_vision": False,
+    },
+    "gemma-4-31b-it": dict(GEMMA4_MULTIMODAL_CONFIG["gemma-4-31b-it"]),
+    "gemma-4-26b-a4b-it": dict(GEMMA4_MULTIMODAL_CONFIG["gemma-4-26b-a4b-it"]),
+}
+
+GEMMA4_GENERATE_WEIGHTS_URLS = dict(GEMMA4_WEIGHTS_URLS)

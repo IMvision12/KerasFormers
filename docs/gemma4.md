@@ -12,9 +12,10 @@ conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">L
 
 The fourth Gemma generation, ported to pure Keras 3, spanning dense and
 Mixture-of-Experts text models plus vision and audio towers, with a 256K context
-window. The text decoder is `Gemma4Model` / `Gemma4Generate`; the multimodal
-composition (vision + audio + text) is `Gemma4MultimodalModel` /
-`Gemma4MultimodalGenerate`.
+window. A single `Gemma4Generate` drives generation for both text-only and
+multimodal checkpoints, like transformers' `Gemma4ForConditionalGeneration`. The
+backbones are `Gemma4Model` (text decoder) and `Gemma4MultimodalModel` (vision +
+audio + text).
 
 What changed from Gemma 3:
 
@@ -52,9 +53,9 @@ instruction-tuned checkpoints (use the chat template).
 | `gemma-4-31b-it` | [`google/gemma-4-31B-it`](https://huggingface.co/google/gemma-4-31B-it) | dense | yes |
 | `gemma-4-26b-a4b-it` | [`google/gemma-4-26B-A4B-it`](https://huggingface.co/google/gemma-4-26B-A4B-it) | MoE, 26B total / 4B active | yes |
 
-Load the text decoder for any variant with `Gemma4Generate`; load `31b-it` and
-`26b-a4b-it` with `Gemma4MultimodalGenerate` to include the vision tower (they carry
-no audio tower).
+Load any variant with `Gemma4Generate`: it builds the vision tower automatically
+for `31b-it` and `26b-a4b-it` (which carry one, no audio tower) and stays text-only
+for the `12b` checkpoints.
 
 Note that MoE memory is governed by **total** parameters, not active ones: every
 expert is resident, so `gemma-4-26b-a4b-it` needs room for 26B weights even though
@@ -97,13 +98,20 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 
 ### `Gemma4Generate`
 
-`Gemma4Model` plus a (tied) LM head with final-logit softcapping. Returns
-`{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
-arguments as `Gemma4Model`.
+The single generation class, over the `Gemma4MultimodalModel` backbone plus a
+(tied) LM head with final-logit softcapping (like transformers'
+`Gemma4ForConditionalGeneration`). Returns
+`{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. It handles both
+regimes: text-only when the checkpoint has no towers (or when no image/audio tensors
+are passed), and multimodal when it does. The multimodal prefill fuses the soft
+tokens and applies the blockwise vision mask; decoding is always text-only over the
+per-layer KV cache. Constructor args match `Gemma4MultimodalModel` below.
 
 ```python
 generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+         eos_token_id=None, sampler=None, seed=None,
+         pixel_values=None, pixel_position_ids=None,
+         input_features=None, input_features_mask=None)
 ```
 
 | Arg | Default | Meaning |
@@ -114,6 +122,8 @@ generate(input_ids, attention_mask=None, max_new_tokens=None,
 | `eos_token_id` | `None` | stop token (defaults to the tokenizer's) |
 | `sampler` | `None` | sampling strategy; greedy when unset |
 | `seed` | `None` | seed for stochastic samplers |
+| `pixel_values` / `pixel_position_ids` | `None` | image patches + 2-D coords (multimodal only) |
+| `input_features` / `input_features_mask` | `None` | audio frames + mask (multimodal only) |
 
 ### `Gemma4MultimodalModel`
 
@@ -142,20 +152,6 @@ outputs = model({
     "pixel_values": pixel_values,           # (batch, num_patches, 3 * patch_size**2)
     "pixel_position_ids": pixel_position_ids,  # (batch, num_patches, 2), (x, y); (-1, -1) = pad
 })
-```
-
-### `Gemma4MultimodalGenerate`
-
-`Gemma4MultimodalModel` plus a (tied) LM head and `.generate()`. The multimodal
-prefill fuses the soft tokens and applies the blockwise vision mask; decoding
-afterwards is text-only over the per-layer KV cache. Pass the vision/audio tensors as
-keyword prefill inputs to `generate`:
-
-```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None,
-         pixel_values=None, pixel_position_ids=None,
-         input_features=None, input_features_mask=None)
 ```
 
 ### `Gemma4VisionModel` and `Gemma4AudioModel`
@@ -237,15 +233,15 @@ hidden = backbone(inputs)["last_hidden_state"]   # (batch, seq, 3840)
 
 ### Multimodal (vision)
 
-The vision-carrying checkpoints load through `Gemma4MultimodalGenerate`. The vision
+The vision-carrying checkpoints load through the same `Gemma4Generate`. The vision
 tensors (`pixel_values` as flattened patches, `pixel_position_ids` as `(x, y)` patch
 coordinates) are passed as keyword prefill inputs alongside an `input_ids` sequence
 whose image slots hold `image_token_id`:
 
 ```python
-from kerasformers.models.gemma4 import Gemma4MultimodalGenerate, Gemma4Tokenizer
+from kerasformers.models.gemma4 import Gemma4Generate, Gemma4Tokenizer
 
-model = Gemma4MultimodalGenerate.from_weights("gemma-4-31b-it")
+model = Gemma4Generate.from_weights("gemma-4-31b-it")
 
 outputs = model.generate(
     input_ids,                     # image_token_id (258880) at each image slot
@@ -263,7 +259,7 @@ coordinates is not shipped yet, so build those tensors yourself (or through the
 
 ```python
 model = Gemma4Generate.from_weights("hf:google/gemma-4-12B-it")
-model = Gemma4MultimodalGenerate.from_weights("hf:google/gemma-4-31B-it")
+model = Gemma4Generate.from_weights("hf:google/gemma-4-31B-it")
 ```
 
 ### Lower memory
