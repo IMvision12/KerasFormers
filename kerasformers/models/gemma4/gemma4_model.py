@@ -22,9 +22,11 @@ class Gemma4Model(SubclassedBaseModel):
     1e6). Attention scores are unscaled; per-head q/k norms carry the scale.
     Feed-forwards are GeGLU; on the 26B-A4B a parallel 128-expert top-8
     branch (per-expert-scaled router) is added. Each layer's output is
-    multiplied by a learned ``layer_scalar``. The audio and vision towers of
-    the omnimodal checkpoints are not ported: their ``model.*`` text weights
-    load directly. E2B/E4B variants (per-layer inputs, shared KV) are not
+    multiplied by a learned ``layer_scalar``. This is the text tower only; the
+    vision and audio towers of the multimodal checkpoints live in
+    :class:`~kerasformers.models.gemma4.gemma4_multimodal.Gemma4MultimodalModel`
+    (loading a multimodal checkpoint here transfers just its ``model.*`` text
+    weights). E2B/E4B variants (per-layer inputs, shared KV) are not
     supported. Returns raw features; use :class:`Gemma4Generate`.
 
     Args:
@@ -138,11 +140,6 @@ class Gemma4Model(SubclassedBaseModel):
         )
 
     def rope_tables(self, position_ids, local):
-        # Sliding layers: full-width default rope over head_dim, theta 1e4.
-        # Global layers: "proportional" partial rope, frequencies for the
-        # first ``global_rot_dim`` dims (exponent / head_dim), zero-padded to
-        # head_dim // 2 so the padded dims pass through unrotated (HF scheme:
-        # cos(0) = 1, sin(0) = 0).
         if local:
             hd, rot = self.head_dim, self.head_dim
             theta = self.rope_local_theta
@@ -161,21 +158,47 @@ class Gemma4Model(SubclassedBaseModel):
             ops.cast(ops.sin(emb), self.compute_dtype),
         )
 
-    def build_masks(self, seq, attention_mask=None):
+    def compute_position_ids(self, attention_mask, batch, seq):
+        if attention_mask is not None:
+            am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
+            return ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
+        return ops.broadcast_to(ops.arange(seq), (batch, seq))
+
+    def build_masks(self, seq, attention_mask=None, block_ids=None):
         qi = ops.arange(seq)[:, None]
         ki = ops.arange(seq)[None, :]
         causal = ki <= qi
-        full = ops.cast(ops.where(causal, 0.0, MASK_NEG), "float32")[None, None]
-        sliding_keep = ops.logical_and(causal, ki > qi - self.sliding_window)
-        sliding = ops.cast(ops.where(sliding_keep, 0.0, MASK_NEG), "float32")[
-            None, None
-        ]
+        within = ki > qi - self.sliding_window
+        if block_ids is None:
+            full = ops.cast(ops.where(causal, 0.0, MASK_NEG), "float32")[None, None]
+            sliding_keep = ops.logical_and(causal, within)
+            sliding = ops.cast(ops.where(sliding_keep, 0.0, MASK_NEG), "float32")[
+                None, None
+            ]
+        else:
+            q_grp = block_ids[:, :, None]
+            kv_grp = block_ids[:, None, :]
+            block = ops.logical_and(q_grp == kv_grp, q_grp >= 0)
+            full_keep = ops.broadcast_to(causal, ops.shape(block))
+            sliding_keep = ops.logical_and(ops.logical_or(causal, block), within)
+            full = ops.cast(ops.where(full_keep, 0.0, MASK_NEG), "float32")[:, None]
+            sliding = ops.cast(ops.where(sliding_keep, 0.0, MASK_NEG), "float32")[
+                :, None
+            ]
         if attention_mask is not None:
             am = ops.cast(ops.convert_to_tensor(attention_mask), "float32")
             pad = (1.0 - am)[:, None, None, :] * MASK_NEG
             full = full + pad
             sliding = sliding + pad
         return full, sliding
+
+    def run_layers(self, hidden, cos_l, sin_l, cos_g, sin_g, full_mask, sliding_mask):
+        for i, layer in enumerate(self.decoder_layers):
+            if self.is_sliding(i):
+                hidden = layer(hidden, cos_l, sin_l, attention_mask=sliding_mask)
+            else:
+                hidden = layer(hidden, cos_g, sin_g, attention_mask=full_mask)
+        return self.final_norm(hidden)
 
     def call(self, inputs):
         if not isinstance(inputs, dict):
@@ -184,20 +207,14 @@ class Gemma4Model(SubclassedBaseModel):
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         attention_mask = inputs.get("attention_mask")
         hidden = self.embed_scaled(input_ids)
-        if attention_mask is not None:
-            am = ops.cast(ops.convert_to_tensor(attention_mask), "int32")
-            position_ids = ops.where(am == 0, 1, ops.cumsum(am, axis=-1) - 1)
-        else:
-            position_ids = ops.broadcast_to(ops.arange(seq), (batch, seq))
+        position_ids = self.compute_position_ids(attention_mask, batch, seq)
         cos_l, sin_l = self.rope_tables(position_ids, local=True)
         cos_g, sin_g = self.rope_tables(position_ids, local=False)
         full_mask, sliding_mask = self.build_masks(seq, attention_mask)
-        for i, layer in enumerate(self.decoder_layers):
-            if self.is_sliding(i):
-                hidden = layer(hidden, cos_l, sin_l, attention_mask=sliding_mask)
-            else:
-                hidden = layer(hidden, cos_g, sin_g, attention_mask=full_mask)
-        return {"last_hidden_state": self.final_norm(hidden)}
+        hidden = self.run_layers(
+            hidden, cos_l, sin_l, cos_g, sin_g, full_mask, sliding_mask
+        )
+        return {"last_hidden_state": hidden}
 
     @classmethod
     def config_from_hf(cls, hf_config):
