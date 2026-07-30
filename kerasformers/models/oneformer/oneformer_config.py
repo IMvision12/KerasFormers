@@ -35,30 +35,30 @@ ONEFORMER_CONFIG = {
 
 ONEFORMER_WEIGHTS_URLS = {
     "oneformer_ade20k_swin_tiny": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_tiny.weights.h5"
+        "url": "https://huggingface.co/kerasformers/oneformer_ade20k_swin_tiny"
     },
     "oneformer_ade20k_swin_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_large.weights.h5"
+        "url": "https://huggingface.co/kerasformers/oneformer_ade20k_swin_large"
     },
     "oneformer_coco_swin_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_coco_swin_large.weights.h5"
+        "url": "https://huggingface.co/kerasformers/oneformer_coco_swin_large"
     },
     "oneformer_cityscapes_swin_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_cityscapes_swin_large.weights.h5"
+        "url": "https://huggingface.co/kerasformers/oneformer_cityscapes_swin_large"
     },
 }
 
 ONEFORMER_TOKENIZER_URLS = {
     "oneformer_ade20k_swin_tiny": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_tiny_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/oneformer_ade20k_swin_tiny/resolve/main/tokenizer.json"
     },
     "oneformer_ade20k_swin_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_ade20k_swin_large_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/oneformer_ade20k_swin_large/resolve/main/tokenizer.json"
     },
     "oneformer_coco_swin_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_coco_swin_large_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/oneformer_coco_swin_large/resolve/main/tokenizer.json"
     },
     "oneformer_cityscapes_swin_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/oneformer/oneformer_cityscapes_swin_large_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/oneformer_cityscapes_swin_large/resolve/main/tokenizer.json"
     },
 }

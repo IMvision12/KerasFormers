@@ -53,18 +53,18 @@ EOMT_CONFIG = {
 
 EOMT_WEIGHTS_URLS = {
     "eomt_small_coco_panoptic_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_small_coco_panoptic_640.weights.h5",
+        "url": "https://huggingface.co/kerasformers/eomt_small_coco_panoptic_640",
     },
     "eomt_base_coco_panoptic_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_base_coco_panoptic_640.weights.h5",
+        "url": "https://huggingface.co/kerasformers/eomt_base_coco_panoptic_640",
     },
     "eomt_large_coco_panoptic_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_large_coco_panoptic_640.weights.h5",
+        "url": "https://huggingface.co/kerasformers/eomt_large_coco_panoptic_640",
     },
     "eomt_large_coco_instance_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_large_coco_instance_640.weights.h5",
+        "url": "https://huggingface.co/kerasformers/eomt_large_coco_instance_640",
     },
     "eomt_large_ade20k_semantic_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/eomt/eomt_large_ade20k_semantic_512.weights.h5",
+        "url": "https://huggingface.co/kerasformers/eomt_large_ade20k_semantic_512",
     },
 }

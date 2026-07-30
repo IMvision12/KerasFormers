@@ -40,15 +40,15 @@ SAM2_CONFIG = {
 
 SAM2_WEIGHTS_URLS = {
     "sam2_hiera_tiny": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam2/sam2_hiera_tiny.weights.h5",
+        "url": "https://huggingface.co/kerasformers/sam2_hiera_tiny",
     },
     "sam2_hiera_small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam2/sam2_hiera_small.weights.h5",
+        "url": "https://huggingface.co/kerasformers/sam2_hiera_small",
     },
     "sam2_hiera_base_plus": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam2/sam2_hiera_base_plus.weights.h5",
+        "url": "https://huggingface.co/kerasformers/sam2_hiera_base_plus",
     },
     "sam2_hiera_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam2/sam2_hiera_large.weights.h5",
+        "url": "https://huggingface.co/kerasformers/sam2_hiera_large",
     },
 }

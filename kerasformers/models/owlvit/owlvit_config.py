@@ -39,12 +39,12 @@ OWLVIT_CONFIG = {
 
 OWLVIT_WEIGHTS_URLS = {
     "owlvit-base-patch32": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_base_patch32.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlvit-base-patch32",
     },
     "owlvit-base-patch16": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_base_patch16.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlvit-base-patch16",
     },
     "owlvit-large-patch14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlvit/owlvit_large_patch14.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlvit-large-patch14",
     },
 }

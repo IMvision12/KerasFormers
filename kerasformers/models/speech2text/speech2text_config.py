@@ -63,18 +63,18 @@ SPEECH2TEXT_CONFIG = {
 
 SPEECH2TEXT_WEIGHTS_URLS = {
     "s2t-small-librispeech-asr": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_small_librispeech_asr.weights.h5",
+        "url": "https://huggingface.co/kerasformers/s2t-small-librispeech-asr",
     },
     "s2t-medium-librispeech-asr": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_medium_librispeech_asr.weights.h5",
+        "url": "https://huggingface.co/kerasformers/s2t-medium-librispeech-asr",
     },
     "s2t-large-librispeech-asr": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_large_librispeech_asr.weights.h5",
+        "url": "https://huggingface.co/kerasformers/s2t-large-librispeech-asr",
     },
 }
 
 
 SPEECH2TEXT_TOKENIZER_FILES = {
-    "vocab": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_vocab.json",
-    "spm": "https://github.com/IMvision12/KerasFormers/releases/download/speech2text/s2t_spm.model",
+    "vocab": "https://huggingface.co/kerasformers/s2t-small-librispeech-asr/resolve/main/vocab.json",
+    "spm": "https://huggingface.co/kerasformers/s2t-small-librispeech-asr/resolve/main/spm.model",
 }

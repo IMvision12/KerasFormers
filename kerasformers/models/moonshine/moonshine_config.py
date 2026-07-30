@@ -33,20 +33,16 @@ MOONSHINE_CONFIG = {
 
 
 MOONSHINE_WEIGHTS_URLS = {
-    "moonshine_tiny": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_tiny_usefulsensors.weights.h5"
-    },
-    "moonshine_base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_base_usefulsensors.weights.h5"
-    },
+    "moonshine_tiny": {"url": "https://huggingface.co/kerasformers/moonshine_tiny"},
+    "moonshine_base": {"url": "https://huggingface.co/kerasformers/moonshine_base"},
 }
 
 
 MOONSHINE_TOKENIZER_URLS = {
     "moonshine_tiny": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_tiny_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/moonshine_tiny/resolve/main/tokenizer.json"
     },
     "moonshine_base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/moonshine/moonshine_base_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/moonshine_base/resolve/main/tokenizer.json"
     },
 }

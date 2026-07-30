@@ -99,21 +99,21 @@ MASK2FORMER_CONFIG = {
 
 MASK2FORMER_WEIGHTS_URLS = {
     "mask2former-swin-tiny-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-coco-instance.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mask2former-swin-tiny-coco-instance",
     },
     "mask2former-swin-small-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-small-coco-instance.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mask2former-swin-small-coco-instance",
     },
     "mask2former-swin-base-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-base-coco-instance.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mask2former-swin-base-coco-instance",
     },
     "mask2former-swin-large-coco-instance": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-large-coco-instance.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mask2former-swin-large-coco-instance",
     },
     "mask2former-swin-tiny-ade-semantic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-ade-semantic.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mask2former-swin-tiny-ade-semantic",
     },
     "mask2former-swin-tiny-coco-panoptic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mask2former/mask2former-swin-tiny-coco-panoptic.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mask2former-swin-tiny-coco-panoptic",
     },
 }

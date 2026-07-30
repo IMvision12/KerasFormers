@@ -27,16 +27,16 @@ DINO_VIT_CONFIG = {
 
 DINO_VIT_WEIGHTS_URLS = {
     "dino_vits16": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dino_vits16.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dino_vits16",
     },
     "dino_vits8": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dino_vits8.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dino_vits8",
     },
     "dino_vitb16": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dino_vitb16.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dino_vitb16",
     },
     "dino_vitb8": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dino_vitb8.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dino_vitb8",
     },
 }
 
@@ -49,6 +49,6 @@ DINO_RESNET_CONFIG = {
 
 DINO_RESNET_WEIGHTS_URLS = {
     "dino_resnet50": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dino12/dino_resnet50.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dino_resnet50",
     },
 }

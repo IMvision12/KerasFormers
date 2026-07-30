@@ -75,21 +75,21 @@ OWLV2_CONFIG = {
 
 OWLV2_WEIGHTS_URLS = {
     "owlv2-base-patch16": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlv2/owlv2_base_patch16.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlv2-base-patch16",
     },
     "owlv2-base-patch16-ensemble": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlv2/owlv2_base_patch16_ensemble.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlv2-base-patch16-ensemble",
     },
     "owlv2-base-patch16-finetuned": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlv2/owlv2_base_patch16_finetuned.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlv2-base-patch16-finetuned",
     },
     "owlv2-large-patch14": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlv2/owlv2_large_patch14.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlv2-large-patch14",
     },
     "owlv2-large-patch14-ensemble": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlv2/owlv2_large_patch14_ensemble.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlv2-large-patch14-ensemble",
     },
     "owlv2-large-patch14-finetuned": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/owlv2/owlv2_large_patch14_finetuned.weights.h5",
+        "url": "https://huggingface.co/kerasformers/owlv2-large-patch14-finetuned",
     },
 }

@@ -78,18 +78,18 @@ DFINE_CONFIG = {
 
 DFINE_WEIGHTS_URLS = {
     "dfine-nano": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_nano.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dfine-nano",
     },
     "dfine-small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_small.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dfine-small",
     },
     "dfine-medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_medium.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dfine-medium",
     },
     "dfine-large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_large.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dfine-large",
     },
     "dfine-xlarge": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/dfine/dfine_xlarge.weights.h5",
+        "url": "https://huggingface.co/kerasformers/dfine-xlarge",
     },
 }

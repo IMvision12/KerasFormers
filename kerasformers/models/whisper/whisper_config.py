@@ -108,28 +108,28 @@ WHISPER_CONFIG = {
 
 WHISPER_WEIGHTS_URLS = {
     "whisper_tiny": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whispertiny_openai.weights.h5",
+        "url": "https://huggingface.co/kerasformers/whisper_tiny",
     },
     "whisper_base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisperbase_openai.weights.h5",
+        "url": "https://huggingface.co/kerasformers/whisper_base",
     },
     "whisper_small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whispersmall_openai.weights.h5",
+        "url": "https://huggingface.co/kerasformers/whisper_small",
     },
     "whisper_medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whispermedium_openai.weights.json",
+        "url": "https://huggingface.co/kerasformers/whisper_medium",
     },
     "whisper_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisperlarge_openai.weights.json",
+        "url": "https://huggingface.co/kerasformers/whisper_large",
     },
     "whisper_large_v2": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisperlargev2_openai.weights.json",
+        "url": "https://huggingface.co/kerasformers/whisper_large_v2",
     },
     "whisper_large_v3": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisperlargev3_openai.weights.json",
+        "url": "https://huggingface.co/kerasformers/whisper_large_v3",
     },
     "whisper_large_v3_turbo": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisperlargev3turbo_openai.weights.json",
+        "url": "https://huggingface.co/kerasformers/whisper_large_v3_turbo",
     },
 }
 
@@ -231,27 +231,27 @@ WHISPER_BEGIN_SUPPRESS_TOKENS = [220, 50257]
 # own file.
 WHISPER_TOKENIZER_URLS = {
     "whisper_tiny": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_tiny_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_tiny/resolve/main/tokenizer.json"
     },
     "whisper_base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_base_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_base/resolve/main/tokenizer.json"
     },
     "whisper_small": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_small_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_small/resolve/main/tokenizer.json"
     },
     "whisper_medium": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_medium_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_medium/resolve/main/tokenizer.json"
     },
     "whisper_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large/resolve/main/tokenizer.json"
     },
     "whisper_large_v2": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_v2_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large_v2/resolve/main/tokenizer.json"
     },
     "whisper_large_v3": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_v3_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large_v3/resolve/main/tokenizer.json"
     },
     "whisper_large_v3_turbo": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/whisper/whisper_large_v3_turbo_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large_v3_turbo/resolve/main/tokenizer.json"
     },
 }

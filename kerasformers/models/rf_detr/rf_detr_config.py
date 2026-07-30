@@ -43,19 +43,19 @@ RF_DETR_DETECT_CONFIG = {
 
 RF_DETR_DETECT_WEIGHTS_URLS = {
     "rfdetr-nano": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_nano.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-nano",
     },
     "rfdetr-small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_small.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-small",
     },
     "rfdetr-medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_medium.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-medium",
     },
     "rfdetr-base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_base.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-base",
     },
     "rfdetr-large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_large.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-large",
     },
 }
 
@@ -127,24 +127,24 @@ RF_DETR_SEGMENT_CONFIG = {
 
 RF_DETR_SEGMENT_WEIGHTS_URLS = {
     "rfdetr-seg-preview": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_preview.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-seg-preview",
     },
     "rfdetr-seg-nano": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_nano.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-seg-nano",
     },
     "rfdetr-seg-small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_small.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-seg-small",
     },
     "rfdetr-seg-medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_medium.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-seg-medium",
     },
     "rfdetr-seg-large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_large.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-seg-large",
     },
     "rfdetr-seg-xlarge": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_xlarge.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-seg-xlarge",
     },
     "rfdetr-seg-xxlarge": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/rf-detr/rf_detr_seg_xxlarge.weights.h5",
+        "url": "https://huggingface.co/kerasformers/rfdetr-seg-xxlarge",
     },
 }

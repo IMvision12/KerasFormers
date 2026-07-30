@@ -30,12 +30,12 @@ DEPTHANYTHINGV1_CONFIG = {
 
 DEPTHANYTHINGV1_WEIGHTS_URLS = {
     "depth_anything_small": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth_anything/depth_anything_small.weights.h5",
+        "url": "https://huggingface.co/kerasformers/depth_anything_small",
     },
     "depth_anything_base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth_anything/depth_anything_base.weights.h5",
+        "url": "https://huggingface.co/kerasformers/depth_anything_base",
     },
     "depth_anything_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/depth_anything/depth_anything_large.weights.h5",
+        "url": "https://huggingface.co/kerasformers/depth_anything_large",
     },
 }
