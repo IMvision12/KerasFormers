@@ -15,8 +15,8 @@ METACLIP2_MT5_PAD_TOKEN_ID = 1
 METACLIP2_MT5_UNK_TOKEN_ID = 2
 
 DEFAULT_MT5_SENTENCEPIECE_URL = (
-    "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/"
-    "spiece.model"
+    "https://huggingface.co/kerasformers/metaclip2_mt5_worldwide_s16_224/"
+    "resolve/main/spiece.model"
 )
 
 

@@ -138,60 +138,60 @@ SIGLIP_CONFIG = {
 
 SIGLIP_TOKENIZER_URLS = {
     "siglip_base_p16_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_224/resolve/main/tokenizer.json"
     },
     "siglip_base_p16_256": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_256_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_256/resolve/main/tokenizer.json"
     },
     "siglip_base_p16_multilingual_256": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_multilingual_256_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_multilingual_256/resolve/main/tokenizer.json"
     },
     "siglip_base_p16_384": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_384_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_384/resolve/main/tokenizer.json"
     },
     "siglip_base_p16_512": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_512_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_512/resolve/main/tokenizer.json"
     },
     "siglip_large_p16_256": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_large_p16_256_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_large_p16_256/resolve/main/tokenizer.json"
     },
     "siglip_large_p16_384": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_large_p16_384_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_large_p16_384/resolve/main/tokenizer.json"
     },
     "siglip_so400m_p14_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_so400m_p14_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_so400m_p14_224/resolve/main/tokenizer.json"
     },
     "siglip_so400m_p14_384": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_so400m_p14_384_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_so400m_p14_384/resolve/main/tokenizer.json"
     },
 }
 
 SIGLIP_WEIGHTS_URLS = {
     "siglip_base_p16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_224.weights.h5",
+        "url": "https://huggingface.co/kerasformers/siglip_base_p16_224",
     },
     "siglip_base_p16_256": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_256.weights.h5",
+        "url": "https://huggingface.co/kerasformers/siglip_base_p16_256",
     },
     "siglip_base_p16_multilingual_256": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_multilingual_256.weights.h5",
+        "url": "https://huggingface.co/kerasformers/siglip_base_p16_multilingual_256",
     },
     "siglip_base_p16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_384.weights.h5",
+        "url": "https://huggingface.co/kerasformers/siglip_base_p16_384",
     },
     "siglip_base_p16_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_base_p16_512.weights.h5",
+        "url": "https://huggingface.co/kerasformers/siglip_base_p16_512",
     },
     "siglip_large_p16_256": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_large_p16_256.weights.json",
+        "url": "https://huggingface.co/kerasformers/siglip_large_p16_256",
     },
     "siglip_large_p16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_large_p16_384.weights.json",
+        "url": "https://huggingface.co/kerasformers/siglip_large_p16_384",
     },
     "siglip_so400m_p14_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_so400m_p14_224.weights.json",
+        "url": "https://huggingface.co/kerasformers/siglip_so400m_p14_224",
     },
     "siglip_so400m_p14_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/siglip/siglip_so400m_p14_384.weights.json",
+        "url": "https://huggingface.co/kerasformers/siglip_so400m_p14_384",
     },
 }

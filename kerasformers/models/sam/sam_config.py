@@ -27,12 +27,12 @@ SAM_CONFIG = {
 
 SAM_WEIGHTS_URLS = {
     "sam_vit_base": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam/sam_vit_base.weights.h5",
+        "url": "https://huggingface.co/kerasformers/sam_vit_base",
     },
     "sam_vit_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam/sam_vit_large.weights.h5",
+        "url": "https://huggingface.co/kerasformers/sam_vit_large",
     },
     "sam_vit_huge": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/sam/sam_vit_huge.weights.json",
+        "url": "https://huggingface.co/kerasformers/sam_vit_huge",
     },
 }

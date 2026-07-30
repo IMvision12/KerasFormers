@@ -94,42 +94,42 @@ SEGFORMER_CONFIG = {
 
 SEGFORMER_WEIGHTS_URLS = {
     "segformer_b0_cityscapes_1024": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b0_cityscapes_1024.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b0_cityscapes_1024",
     },
     "segformer_b0_cityscapes_768": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b0_cityscapes_768.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b0_cityscapes_768",
     },
     "segformer_b0_ade_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b0_ade_512.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b0_ade_512",
     },
     "segformer_b1_cityscapes_1024": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b1_cityscapes_1024.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b1_cityscapes_1024",
     },
     "segformer_b1_ade_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b1_ade_512.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b1_ade_512",
     },
     "segformer_b2_cityscapes_1024": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b2_cityscapes_1024.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b2_cityscapes_1024",
     },
     "segformer_b2_ade_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b2_ade_512.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b2_ade_512",
     },
     "segformer_b3_cityscapes_1024": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b3_cityscapes_1024.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b3_cityscapes_1024",
     },
     "segformer_b3_ade_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b3_ade_512.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b3_ade_512",
     },
     "segformer_b4_cityscapes_1024": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b4_cityscapes_1024.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b4_cityscapes_1024",
     },
     "segformer_b4_ade_512": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b4_ade_512.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b4_ade_512",
     },
     "segformer_b5_cityscapes_1024": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b5_cityscapes_1024.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b5_cityscapes_1024",
     },
     "segformer_b5_ade_640": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/segformer/segformer_b5_ade_640.weights.h5",
+        "url": "https://huggingface.co/kerasformers/segformer_b5_ade_640",
     },
 }

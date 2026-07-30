@@ -265,97 +265,97 @@ METACLIP2_CONFIG = {
 # into any HF tokenizer.json).
 METACLIP2_TOKENIZER_URLS = {
     "metaclip2_worldwide_s16_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_s16_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_s16_224/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_s16_384": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_s16_384_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_s16_384/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_m16_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_m16_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_m16_224/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_m16_384": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_m16_384_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_m16_384/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_b16_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b16_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_b16_224/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_b16_384": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b16_384_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_b16_384/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_b32_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b32_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_b32_224/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_b32_384": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b32_384_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_b32_384/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_l14_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_l14_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_l14_224/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_huge_quickgelu": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_huge_quickgelu_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_huge_quickgelu/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_huge_378": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_huge_378_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_huge_378/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_giant_224": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_giant_224_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_giant_224/resolve/main/tokenizer.json"
     },
     "metaclip2_worldwide_giant_378": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_giant_378_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/metaclip2_worldwide_giant_378/resolve/main/tokenizer.json"
     },
 }
 
 METACLIP2_WEIGHTS_URLS = {
     "metaclip2_worldwide_s16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_s16_224.weights.h5",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_s16_224",
     },
     "metaclip2_worldwide_s16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_s16_384.weights.h5",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_s16_384",
     },
     "metaclip2_worldwide_m16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_m16_224.weights.json",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_m16_224",
     },
     "metaclip2_worldwide_m16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_m16_384.weights.json",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_m16_384",
     },
     "metaclip2_worldwide_b16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b16_224.weights.json",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_b16_224",
     },
     "metaclip2_worldwide_b16_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b16_384.weights.json",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_b16_384",
     },
     "metaclip2_worldwide_b32_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b32_224.weights.json",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_b32_224",
     },
     "metaclip2_worldwide_b32_384": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_worldwide_b32_384.weights.json",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_b32_384",
     },
     # L14/Huge/Giant: a single token-embedding tensor exceeds GitHub's 2 GiB
     # asset limit, so these are converted from the source checkpoints on the fly via
     # ``load_and_convert_from_hf`` (cached under ~/.cache/kerasformers/).
     # Used through the normal variant name: no "hf:" prefix needed.
     "metaclip2_worldwide_l14_224": {
-        "hf_id": "facebook/metaclip-2-worldwide-l14",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_l14_224",
     },
     "metaclip2_worldwide_huge_quickgelu": {
-        "hf_id": "facebook/metaclip-2-worldwide-huge-quickgelu",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_huge_quickgelu",
     },
     "metaclip2_worldwide_huge_378": {
-        "hf_id": "facebook/metaclip-2-worldwide-huge-378",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_huge_378",
     },
     "metaclip2_worldwide_giant_224": {
-        "hf_id": "facebook/metaclip-2-worldwide-giant",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_giant_224",
     },
     "metaclip2_worldwide_giant_378": {
-        "hf_id": "facebook/metaclip-2-worldwide-giant-378",
+        "url": "https://huggingface.co/kerasformers/metaclip2_worldwide_giant_378",
     },
     "metaclip2_mt5_worldwide_s16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_mt5_worldwide_s16_224.weights.h5",
+        "url": "https://huggingface.co/kerasformers/metaclip2_mt5_worldwide_s16_224",
     },
     "metaclip2_mt5_worldwide_m16_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_mt5_worldwide_m16_224.weights.h5",
+        "url": "https://huggingface.co/kerasformers/metaclip2_mt5_worldwide_m16_224",
     },
     "metaclip2_mt5_worldwide_b32_224": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/metaclip2/metaclip2_mt5_worldwide_b32_224.weights.h5",
+        "url": "https://huggingface.co/kerasformers/metaclip2_mt5_worldwide_b32_224",
     },
 }

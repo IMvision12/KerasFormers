@@ -36,16 +36,13 @@ DINOV3_VIT_CONFIG = {
 
 DINOV3_VIT_WEIGHTS_URLS = {
     "dinov3_vits16": {
-        "hf_id": "facebook/dinov3-vits16-pretrain-lvd1689m",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/dinov3_vits16",
     },
     "dinov3_vitb16": {
-        "hf_id": "facebook/dinov3-vitb16-pretrain-lvd1689m",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/dinov3_vitb16",
     },
     "dinov3_vitl16": {
-        "hf_id": "facebook/dinov3-vitl16-pretrain-lvd1689m",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/dinov3_vitl16",
     },
 }
 
@@ -70,19 +67,15 @@ DINOV3_CONVNEXT_CONFIG = {
 
 DINOV3_CONVNEXT_WEIGHTS_URLS = {
     "dinov3_convnext_tiny": {
-        "hf_id": "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/dinov3_convnext_tiny",
     },
     "dinov3_convnext_small": {
-        "hf_id": "facebook/dinov3-convnext-small-pretrain-lvd1689m",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/dinov3_convnext_small",
     },
     "dinov3_convnext_base": {
-        "hf_id": "facebook/dinov3-convnext-base-pretrain-lvd1689m",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/dinov3_convnext_base",
     },
     "dinov3_convnext_large": {
-        "hf_id": "facebook/dinov3-convnext-large-pretrain-lvd1689m",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/dinov3_convnext_large",
     },
 }

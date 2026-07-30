@@ -79,14 +79,14 @@ MOBILEVIT_SEGMENT_MODEL_CONFIG = {
 MOBILEVIT_SEGMENT_WEIGHTS_URLS = {
     "mobilevit_xxs_deeplabv3": {
         "model": "mobilevit_xxs_deeplabv3",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_xxs_deeplabv3.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mobilevit_xxs_deeplabv3",
     },
     "mobilevit_xs_deeplabv3": {
         "model": "mobilevit_xs_deeplabv3",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_xs_deeplabv3.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mobilevit_xs_deeplabv3",
     },
     "mobilevit_s_deeplabv3": {
         "model": "mobilevit_s_deeplabv3",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevit_s_deeplabv3.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mobilevit_s_deeplabv3",
     },
 }

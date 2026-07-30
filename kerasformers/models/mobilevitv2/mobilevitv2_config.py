@@ -135,10 +135,10 @@ MOBILEVITV2_SEGMENT_MODEL_CONFIG = {
 MOBILEVITV2_SEGMENT_WEIGHTS_URLS = {
     "mobilevitv2_100_deeplabv3": {
         "model": "mobilevitv2_100_deeplabv3",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevitv2_100_deeplabv3.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mobilevitv2_100_deeplabv3",
     },
     "mobilevitv2_150_deeplabv3": {
         "model": "mobilevitv2_150_deeplabv3",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/mobilevit/mobilevitv2_150_deeplabv3.weights.h5",
+        "url": "https://huggingface.co/kerasformers/mobilevitv2_150_deeplabv3",
     },
 }

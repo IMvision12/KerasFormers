@@ -27,12 +27,12 @@ LOCATEANYTHING_CONFIG = {
 
 LOCATEANYTHING_WEIGHTS_URLS = {
     "locateanything_3b": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/locate/locateanything_3b.weights.json"
+        "url": "https://huggingface.co/kerasformers/locateanything_3b"
     },
 }
 
 LOCATEANYTHING_TOKENIZER_URLS = {
     "locateanything_3b": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/locate/locateanything_3b_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/locateanything_3b/resolve/main/tokenizer.json"
     },
 }

@@ -42,7 +42,6 @@ SAM3_CONFIG = {
 
 SAM3_WEIGHTS_URLS = {
     "sam3_saco": {
-        "hf_id": "facebook/sam3",
-        "gated": True,
+        "url": "https://huggingface.co/kerasformers/sam3",
     },
 }

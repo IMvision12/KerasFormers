@@ -164,30 +164,30 @@ GRANITE_SPEECH_CONFIG = {
 
 GRANITE_SPEECH_WEIGHTS_URLS = {
     "granite_speech_3_3_2b": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_3_3_2b.weights.json",
+        "url": "https://huggingface.co/kerasformers/granite_speech_3_3_2b",
     },
     "granite_speech_3_3_8b": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_3_3_8b.weights.json",
+        "url": "https://huggingface.co/kerasformers/granite_speech_3_3_8b",
     },
     "granite_speech_4_1_2b": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_4_1_2b.weights.json",
+        "url": "https://huggingface.co/kerasformers/granite_speech_4_1_2b",
     },
     "granite_4_0_1b_speech": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_4_0_1b_speech.weights.json",
+        "url": "https://huggingface.co/kerasformers/granite_4_0_1b_speech",
     },
 }
 
 GRANITE_SPEECH_TOKENIZER_URLS = {
     "granite_speech_3_3_2b": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_3_3_2b_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/granite_speech_3_3_2b/resolve/main/tokenizer.json"
     },
     "granite_speech_3_3_8b": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_3_3_8b_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/granite_speech_3_3_8b/resolve/main/tokenizer.json"
     },
     "granite_speech_4_1_2b": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_speech_4_1_2b_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/granite_speech_4_1_2b/resolve/main/tokenizer.json"
     },
     "granite_4_0_1b_speech": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/granite/granite_4_0_1b_speech_tokenizer.json"
+        "tokenizer_json": "https://huggingface.co/kerasformers/granite_4_0_1b_speech/resolve/main/tokenizer.json"
     },
 }

@@ -20,18 +20,18 @@ DETR_SEGMENT_CONFIG = {
 
 DETR_WEIGHTS_URLS = {
     "detr-resnet-50": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/detr/detr_resnet50.weights.h5",
+        "url": "https://huggingface.co/kerasformers/detr-resnet-50",
     },
     "detr-resnet-101": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/detr/detr_resnet101.weights.h5",
+        "url": "https://huggingface.co/kerasformers/detr-resnet-101",
     },
 }
 
 DETR_SEGMENT_WEIGHTS_URLS = {
     "detr-resnet-50-panoptic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/detr/detr_resnet50_panoptic.weights.h5",
+        "url": "https://huggingface.co/kerasformers/detr-resnet-50-panoptic",
     },
     "detr-resnet-101-panoptic": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/detr/detr_resnet101_panoptic.weights.h5",
+        "url": "https://huggingface.co/kerasformers/detr-resnet-101-panoptic",
     },
 }

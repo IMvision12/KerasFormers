@@ -1,6 +1,8 @@
 import contextlib
 import inspect
 import json
+import os
+import urllib.request
 
 import keras
 from huggingface_hub import hf_hub_download
@@ -25,6 +27,48 @@ def warn_skipped(skipped):
             f"initialized values due to shape mismatch (e.g. a resized head): "
             f"{skipped}"
         )
+
+
+def _url_exists(url):
+    """True if a range GET on ``url`` succeeds (uses HF_TOKEN for hf.co if set)."""
+    headers = {"User-Agent": "kerasformers", "Range": "bytes=0-0"}
+    token = os.environ.get("HF_TOKEN")
+    if token and "huggingface.co" in url:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(url, headers=headers), timeout=30
+        ) as response:
+            return response.status in (200, 206)
+    except Exception:
+        return False
+
+
+def resolve_weights_url(url):
+    """Expand a bare HF-repo URL to its weights file, else return ``url`` as-is.
+
+    A weights entry may point at either a full release file (GitHub
+    ``.../<name>.weights.h5`` or ``.weights.json``, still used by the backbones)
+    or a bare HF repo (``https://huggingface.co/<org>/<repo>``). The bare form is
+    resolved here to the repo's ``model.weights.h5`` (single) or
+    ``model.weights.json`` (sharded); full file / ``resolve`` URLs pass through.
+    """
+    if not url.startswith("https://huggingface.co/"):
+        return url
+    if (
+        "/resolve/" in url
+        or "/blob/" in url
+        or url.endswith((".weights.h5", ".weights.json"))
+    ):
+        return url
+    repo = url.rstrip("/")
+    for filename in ("model.weights.h5", "model.weights.json"):
+        candidate = f"{repo}/resolve/main/{filename}"
+        if _url_exists(candidate):
+            return candidate
+    raise ValueError(
+        f"No 'model.weights.h5' or 'model.weights.json' found in HF repo '{repo}'."
+    )
 
 
 @contextlib.contextmanager
@@ -324,8 +368,11 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         """Download release weights into an (already built) ``model``.
 
         Handles a single ``.weights.h5`` or a sharded ``.weights.json`` index
-        (downloads each shard listed in ``weight_map`` from the same release).
+        (downloads each shard listed in ``weight_map`` from the same release),
+        and a bare HF-repo URL (``https://huggingface.co/<org>/<repo>``), which is
+        resolved to the repo's ``model.weights.h5`` / ``model.weights.json``.
         """
+        url = resolve_weights_url(url)
         if url.lower().endswith(".json"):
             json_path = download_file(url)
             with open(json_path, "r") as f:
