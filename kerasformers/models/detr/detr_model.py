@@ -14,12 +14,7 @@ from kerasformers.models.detr.detr_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .detr_config import (
-    DETR_CONFIG,
-    DETR_SEGMENT_CONFIG,
-    DETR_SEGMENT_WEIGHTS_URLS,
-    DETR_WEIGHTS_URLS,
-)
+from .detr_config import DetrConfig, DetrSegmentConfig
 
 
 def detr_encoder_layer(
@@ -459,7 +454,7 @@ class DetrModel(FunctionalBaseModel):
             :class:`FunctionalBaseModel` / :class:`keras.Model`.
     """
 
-    BASE_MODEL_CONFIG = DETR_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "detr"
 
@@ -581,8 +576,11 @@ class DETRDetect(FunctionalBaseModel):
     See ``FunctionalBaseModel.from_weights`` for the loading API.
     """
 
-    BASE_MODEL_CONFIG = DETR_CONFIG
-    BASE_WEIGHT_CONFIG = DETR_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = DetrConfig
+    # Weights load by Hub repo id, e.g. from_weights("kerasformers/detr-resnet-50"),
+    # via kf_config.json on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "detr"
 
     def __init__(
@@ -749,8 +747,9 @@ class DETRPanopticSegment(FunctionalBaseModel):
             :class:`FunctionalBaseModel`.
     """
 
-    BASE_MODEL_CONFIG = DETR_SEGMENT_CONFIG
-    BASE_WEIGHT_CONFIG = DETR_SEGMENT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = DetrSegmentConfig
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "detr"
 
     def __init__(

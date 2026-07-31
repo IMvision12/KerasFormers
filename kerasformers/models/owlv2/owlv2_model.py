@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .owlv2_config import OWLV2_CONFIG, OWLV2_WEIGHTS_URLS
+from .owlv2_config import Owlv2Config
 from .owlv2_layers import (
     Owlv2Attention,
     Owlv2SplitBatchQueries,
@@ -450,7 +450,7 @@ class Owlv2VisionModel(FunctionalBaseModel):
           <https://arxiv.org/abs/2306.09683>`_
     """
 
-    BASE_MODEL_CONFIG = OWLV2_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "owlv2"
 
     @classmethod
@@ -583,7 +583,7 @@ class Owlv2TextModel(FunctionalBaseModel):
           <https://arxiv.org/abs/2306.09683>`_
     """
 
-    BASE_MODEL_CONFIG = OWLV2_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "owlv2"
 
     @classmethod
@@ -700,7 +700,7 @@ class Owlv2Model(FunctionalBaseModel):
     - [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683)
     """
 
-    BASE_MODEL_CONFIG = OWLV2_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "owlv2"
 
     def __init__(
@@ -863,8 +863,8 @@ class Owlv2Detect(FunctionalBaseModel):
     - [Scaling Open-Vocabulary Object Detection](https://arxiv.org/abs/2306.09683)
     """
 
-    BASE_MODEL_CONFIG = OWLV2_CONFIG
-    BASE_WEIGHT_CONFIG = OWLV2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = Owlv2Config
     HF_MODEL_TYPE = "owlv2"
 
     def __init__(

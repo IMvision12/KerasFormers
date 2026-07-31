@@ -275,6 +275,118 @@ def transfer_rf_detr_seg_weights(
     keras_model.get_layer("seg_bias").weights[0].assign(sd["segmentation_head.bias"])
 
 
+# Per-variant recipes (relocated from rf_detr_config.py). Models load from the
+# Hub by repo id; these build the arch for conversion + drive the backfill.
+RF_DETR_DETECT_VARIANTS = {
+    "rfdetr-nano": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 16,
+        "num_windows": 2,
+        "positional_encoding_size": 24,
+        "resolution": 384,
+        "dec_layers": 2,
+    },
+    "rfdetr-small": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 16,
+        "num_windows": 2,
+        "positional_encoding_size": 32,
+        "resolution": 512,
+        "dec_layers": 3,
+    },
+    "rfdetr-medium": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 16,
+        "num_windows": 2,
+        "positional_encoding_size": 36,
+        "resolution": 576,
+        "dec_layers": 4,
+    },
+    "rfdetr-base": {
+        "out_feature_indexes": [2, 5, 8, 11],
+        "patch_size": 14,
+        "num_windows": 4,
+        "positional_encoding_size": 37,
+        "resolution": 560,
+        "dec_layers": 3,
+    },
+    "rfdetr-large": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 16,
+        "num_windows": 2,
+        "positional_encoding_size": 44,
+        "resolution": 704,
+        "dec_layers": 4,
+    },
+}
+
+RF_DETR_SEGMENT_VARIANTS = {
+    "rfdetr-seg-preview": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 12,
+        "num_windows": 2,
+        "positional_encoding_size": 36,
+        "resolution": 432,
+        "dec_layers": 4,
+        "num_queries": 200,
+    },
+    "rfdetr-seg-nano": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 12,
+        "num_windows": 1,
+        "positional_encoding_size": 26,
+        "resolution": 312,
+        "dec_layers": 4,
+        "num_queries": 100,
+    },
+    "rfdetr-seg-small": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 12,
+        "num_windows": 2,
+        "positional_encoding_size": 32,
+        "resolution": 384,
+        "dec_layers": 4,
+        "num_queries": 100,
+    },
+    "rfdetr-seg-medium": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 12,
+        "num_windows": 2,
+        "positional_encoding_size": 36,
+        "resolution": 432,
+        "dec_layers": 5,
+        "num_queries": 200,
+    },
+    "rfdetr-seg-large": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 12,
+        "num_windows": 2,
+        "positional_encoding_size": 42,
+        "resolution": 504,
+        "dec_layers": 5,
+        "num_queries": 300,
+    },
+    "rfdetr-seg-xlarge": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 12,
+        "num_windows": 2,
+        "positional_encoding_size": 52,
+        "resolution": 624,
+        "dec_layers": 6,
+        "num_queries": 300,
+    },
+    "rfdetr-seg-xxlarge": {
+        "out_feature_indexes": [3, 6, 9, 12],
+        "patch_size": 12,
+        "num_windows": 2,
+        "positional_encoding_size": 64,
+        "resolution": 768,
+        "dec_layers": 6,
+        "num_queries": 300,
+    },
+}
+
+
 if __name__ == "__main__":
     import keras
     import torch
@@ -282,7 +394,6 @@ if __name__ == "__main__":
     from kerasformers.conversion.hf_download_utils import (
         download_hf_state_dict,
     )
-    from kerasformers.models.rf_detr.rf_detr_config import RF_DETR_DETECT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRDetect
 
     def cosine(a, b):
@@ -290,13 +401,12 @@ if __name__ == "__main__":
         return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
 
     for variant, hf_id in HF_SOURCES.items():
-        config = RF_DETR_DETECT_CONFIG[variant]
+        config = RF_DETR_DETECT_VARIANTS[variant]
         res = config["resolution"]
         print(f"\n{'=' * 60}\nConverting {variant}  <-  {hf_id}\n{'=' * 60}")
 
-        keras_model = RFDETRDetect.from_weights(
-            variant,
-            load_weights=False,
+        keras_model = RFDETRDetect(
+            **config,
             backbone_use_swiglu=False,
             num_register_tokens=0,
             image_size=res,
@@ -354,18 +464,16 @@ if __name__ == "__main__":
         del keras_model, hf_model, state_dict
         keras.backend.clear_session()
 
-    from kerasformers.models.rf_detr.rf_detr_config import RF_DETR_SEGMENT_CONFIG
     from kerasformers.models.rf_detr.rf_detr_model import RFDETRInstanceSegment
 
     print(f"\n\n{'=' * 60}\nSegmentation variants\n{'=' * 60}")
     for variant, hf_id in HF_SEG_SOURCES.items():
-        seg_config = RF_DETR_SEGMENT_CONFIG[variant]
+        seg_config = RF_DETR_SEGMENT_VARIANTS[variant]
         res = seg_config["resolution"]
         print(f"\n{'=' * 60}\nConverting {variant}  <-  {hf_id}\n{'=' * 60}")
 
-        keras_model = RFDETRInstanceSegment.from_weights(
-            variant,
-            load_weights=False,
+        keras_model = RFDETRInstanceSegment(
+            **seg_config,
             backbone_use_swiglu=False,
             num_register_tokens=0,
             image_size=res,

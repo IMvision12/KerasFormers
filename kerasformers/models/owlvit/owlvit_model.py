@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .owlvit_config import OWLVIT_CONFIG, OWLVIT_WEIGHTS_URLS
+from .owlvit_config import OwlViTConfig
 from .owlvit_layers import (
     OwlViTAttention,
     OwlViTSplitBatchQueries,
@@ -430,7 +430,7 @@ class OwlViTVisionModel(FunctionalBaseModel):
           <https://arxiv.org/abs/2205.06230>`_
     """
 
-    BASE_MODEL_CONFIG = OWLVIT_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "owlvit"
 
     @classmethod
@@ -559,7 +559,7 @@ class OwlViTTextModel(FunctionalBaseModel):
           <https://arxiv.org/abs/2205.06230>`_
     """
 
-    BASE_MODEL_CONFIG = OWLVIT_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "owlvit"
 
     @classmethod
@@ -675,7 +675,7 @@ class OwlViTModel(FunctionalBaseModel):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
     """
 
-    BASE_MODEL_CONFIG = OWLVIT_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "owlvit"
 
     def __init__(
@@ -836,8 +836,8 @@ class OwlViTDetect(FunctionalBaseModel):
     - [Simple Open-Vocabulary Object Detection with Vision Transformers](https://arxiv.org/abs/2205.06230)
     """
 
-    BASE_MODEL_CONFIG = OWLVIT_CONFIG
-    BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = OwlViTConfig
     HF_MODEL_TYPE = "owlvit"
 
     def __init__(

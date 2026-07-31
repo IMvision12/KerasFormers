@@ -197,6 +197,48 @@ def transfer_owlvit_detection_weights(keras_model, state_dict):
     )
 
 
+# Per-variant recipes (relocated from owlvit_config.py). Models load from the
+# Hub by repo id; these build the arch for conversion + drive the backfill.
+OWLVIT_VARIANTS = {
+    "owlvit-base-patch32": {
+        "vision_image_size": 768,
+        "vision_patch_size": 32,
+        "vision_hidden_dim": 768,
+        "vision_intermediate_size": 3072,
+        "vision_num_layers": 12,
+        "vision_num_heads": 12,
+        "text_hidden_dim": 512,
+        "text_intermediate_size": 2048,
+        "text_num_heads": 8,
+        "projection_dim": 512,
+    },
+    "owlvit-base-patch16": {
+        "vision_image_size": 768,
+        "vision_patch_size": 16,
+        "vision_hidden_dim": 768,
+        "vision_intermediate_size": 3072,
+        "vision_num_layers": 12,
+        "vision_num_heads": 12,
+        "text_hidden_dim": 512,
+        "text_intermediate_size": 2048,
+        "text_num_heads": 8,
+        "projection_dim": 512,
+    },
+    "owlvit-large-patch14": {
+        "vision_image_size": 840,
+        "vision_patch_size": 14,
+        "vision_hidden_dim": 1024,
+        "vision_intermediate_size": 4096,
+        "vision_num_layers": 24,
+        "vision_num_heads": 16,
+        "text_hidden_dim": 768,
+        "text_intermediate_size": 3072,
+        "text_num_heads": 16,
+        "projection_dim": 768,
+    },
+}
+
+
 if __name__ == "__main__":
     import torch
     from transformers import OwlViTForObjectDetection, OwlViTProcessor
@@ -226,7 +268,7 @@ if __name__ == "__main__":
 
         image_size: int = cfg["image_size"]
 
-        keras_model = OwlViTDetect.from_weights(cfg["variant"], load_weights=False)
+        keras_model = OwlViTDetect(**OWLVIT_VARIANTS[cfg["variant"]])
 
         torch_model: torch.nn.Module = OwlViTForObjectDetection.from_pretrained(
             cfg["hf_model_name"],

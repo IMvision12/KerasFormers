@@ -6,7 +6,7 @@ from kerasformers.base.base_model import hf_num_classes
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .rt_detr_v2_config import RT_DETR_V2_MODEL_CONFIG, RT_DETR_V2_WEIGHTS_URLS
+from .rt_detr_v2_config import RTDetrV2Config
 from .rt_detr_v2_layers import (
     RTDETRV2MultiHeadAttention,
     RTDETRV2MultiScaleDeformableAttention,
@@ -1201,10 +1201,7 @@ class RTDetrV2Model(FunctionalBaseModel):
           <https://arxiv.org/abs/2407.17140>`_
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RT_DETR_V2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RT_DETR_V2_WEIGHTS_URLS.items()
-    }
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rt_detr_v2"
 
@@ -1414,11 +1411,9 @@ class RTDETRV2Detect(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RT_DETR_V2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RT_DETR_V2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RT_DETR_V2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = RTDetrV2Config
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rt_detr_v2"
 
     def __init__(

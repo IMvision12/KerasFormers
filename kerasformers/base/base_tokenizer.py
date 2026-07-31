@@ -39,6 +39,21 @@ class BaseTokenizer(PreprocessorMixin):
     intentionally bakes in no defaults.
     """
 
+    @classmethod
+    def from_hub_repo(cls, repo_id, **kwargs):
+        """Build the tokenizer from a Hub repo id by downloading its tokenizer.json.
+
+        Mirrors model loading by repo id (``from_weights("org/repo")``): the
+        ``tokenizer.json`` is pulled straight from the repo, so no per-variant URL
+        table is needed. Used for ``from_weights("kerasformers/grounding_dino_tiny")``.
+        """
+        from huggingface_hub import hf_hub_download
+
+        path = hf_hub_download(
+            repo_id.rstrip("/"), "tokenizer.json", token=os.environ.get("HF_TOKEN")
+        )
+        return cls(tokenizer_file=path, **kwargs)
+
     def normalize_texts(self, inputs):
         if inputs is None:
             raise ValueError(f"No text inputs provided to {type(self).__name__}.")

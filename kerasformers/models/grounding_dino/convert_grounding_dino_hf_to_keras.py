@@ -199,9 +199,76 @@ def transfer_grounding_dino_weights(keras_model, hf_state_dict):
             transfer_weights(weight.path, weight, value)
 
 
+# Per-variant recipes (relocated from grounding_dino_config.py). Conversion goes
+# through the hf: path; these drive the backfill's kf_config.json.
+GROUNDING_DINO_VARIANTS = {
+    "grounding_dino_tiny": {
+        "d_model": 256,
+        "encoder_layers": 6,
+        "encoder_ffn_dim": 2048,
+        "encoder_attention_heads": 8,
+        "decoder_layers": 6,
+        "decoder_ffn_dim": 2048,
+        "decoder_attention_heads": 8,
+        "num_queries": 900,
+        "num_feature_levels": 4,
+        "encoder_n_points": 4,
+        "decoder_n_points": 4,
+        "max_text_len": 256,
+        "query_dim": 4,
+        "two_stage": True,
+        "positional_embedding_temperature": 20.0,
+        "layer_norm_eps": 1e-5,
+        "activation_function": "relu",
+        "backbone_embed_dim": 96,
+        "backbone_depths": (2, 2, 6, 2),
+        "backbone_num_heads": (3, 6, 12, 24),
+        "backbone_window_size": 7,
+        "backbone_out_indices": (2, 3, 4),
+        "text_vocab_size": 30522,
+        "text_hidden_size": 768,
+        "text_num_layers": 12,
+        "text_num_heads": 12,
+        "text_intermediate_size": 3072,
+        "text_max_position_embeddings": 512,
+        "text_layer_norm_eps": 1e-12,
+    },
+    "grounding_dino_base": {
+        "d_model": 256,
+        "encoder_layers": 6,
+        "encoder_ffn_dim": 2048,
+        "encoder_attention_heads": 8,
+        "decoder_layers": 6,
+        "decoder_ffn_dim": 2048,
+        "decoder_attention_heads": 8,
+        "num_queries": 900,
+        "num_feature_levels": 4,
+        "encoder_n_points": 4,
+        "decoder_n_points": 4,
+        "max_text_len": 256,
+        "query_dim": 4,
+        "two_stage": True,
+        "positional_embedding_temperature": 20.0,
+        "layer_norm_eps": 1e-5,
+        "activation_function": "relu",
+        "backbone_embed_dim": 128,
+        "backbone_depths": (2, 2, 18, 2),
+        "backbone_num_heads": (4, 8, 16, 32),
+        "backbone_window_size": 12,
+        "backbone_out_indices": (2, 3, 4),
+        "text_vocab_size": 30522,
+        "text_hidden_size": 768,
+        "text_num_layers": 12,
+        "text_num_heads": 12,
+        "text_intermediate_size": 3072,
+        "text_max_position_embeddings": 512,
+        "text_layer_norm_eps": 1e-12,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
-    import os
 
     import keras
     import torch
@@ -209,11 +276,8 @@ if __name__ == "__main__":
     from PIL import Image
 
     from kerasformers.models.grounding_dino import (
-        GroundingDinoForObjectDetection,
+        GroundingDinoDetect,
         GroundingDinoProcessor,
-    )
-    from kerasformers.models.grounding_dino.grounding_dino_config import (
-        GROUNDING_DINO_WEIGHTS_URLS,
     )
 
     HF_SOURCES = {
@@ -238,14 +302,13 @@ if __name__ == "__main__":
         order = keep[np.argsort(-scores[keep])]
         return scores[order], boxes[0][order]
 
-    for variant, meta in GROUNDING_DINO_WEIGHTS_URLS.items():
-        hf_id = HF_SOURCES[variant]
-        out_path = os.path.basename(meta["url"])
+    for variant, hf_id in HF_SOURCES.items():
+        out_path = variant
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         # The detection class, not the backbone: the six decoder bbox_embed
         # heads live on it, and a backbone-only export leaves them unsaved.
-        model = GroundingDinoForObjectDetection.from_weights("hf:" + hf_id)
+        model = GroundingDinoDetect.from_weights("hf:" + hf_id)
 
         img = Image.fromarray(rng.integers(0, 255, (480, 480, 3), dtype="uint8"))
         proc = GroundingDinoProcessor.from_weights("hf:" + hf_id)
