@@ -6,7 +6,7 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
 from .sam3_clip_tokenizer import SAM3_VOCAB_SIZE
-from .sam3_config import SAM3_CONFIG, SAM3_WEIGHTS_URLS
+from .sam3_config import Sam3Config
 from .sam3_layers import (
     SAM3AddPositionEmbedding,
     SAM3BoxRPB,
@@ -985,8 +985,9 @@ class SAM3Model(FunctionalBaseModel):
         - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
-    BASE_MODEL_CONFIG = SAM3_CONFIG
-    BASE_WEIGHT_CONFIG = SAM3_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = Sam3Config
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "sam3"
 
     @classmethod

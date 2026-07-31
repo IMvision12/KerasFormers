@@ -268,6 +268,36 @@ SAM_CONVERSION_CONFIG: List[Tuple[str, str]] = [
 ]
 
 
+# Per-variant recipes (relocated from sam_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the backfill.
+SAM_VARIANTS = {
+    "sam_vit_base": {
+        "vision_hidden_size": 768,
+        "vision_num_hidden_layers": 12,
+        "vision_num_attention_heads": 12,
+        "vision_mlp_dim": 3072,
+        "vision_global_attn_indexes": [2, 5, 8, 11],
+        "image_size": 1024,
+    },
+    "sam_vit_large": {
+        "vision_hidden_size": 1024,
+        "vision_num_hidden_layers": 24,
+        "vision_num_attention_heads": 16,
+        "vision_mlp_dim": 4096,
+        "vision_global_attn_indexes": [5, 11, 17, 23],
+        "image_size": 1024,
+    },
+    "sam_vit_huge": {
+        "vision_hidden_size": 1280,
+        "vision_num_hidden_layers": 32,
+        "vision_num_attention_heads": 16,
+        "vision_mlp_dim": 5120,
+        "vision_global_attn_indexes": [7, 15, 23, 31],
+        "image_size": 1024,
+    },
+}
+
+
 if __name__ == "__main__":
     import torch
     from transformers import SamModel
@@ -280,9 +310,7 @@ if __name__ == "__main__":
         hf_model = SamModel.from_pretrained(hf_id).eval()
         hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model: keras.Model = SAMPromptableSegment.from_weights(
-            variant, load_weights=False
-        )
+        keras_model: keras.Model = SAMPromptableSegment(**SAM_VARIANTS[variant])
 
         transfer_sam_weights(keras_model, hf_state_dict)
 

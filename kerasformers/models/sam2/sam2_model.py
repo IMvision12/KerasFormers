@@ -4,7 +4,7 @@ from keras import layers, utils
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .sam2_config import SAM2_CONFIG, SAM2_WEIGHTS_URLS
+from .sam2_config import Sam2Config
 from .sam2_layers import (
     SAM2HieraPositionEmbedding,
     SAM2ImagePositionalEmbeddings,
@@ -317,7 +317,7 @@ class SAM2Model(FunctionalBaseModel):
     IMAGE_SIZE = 1024
     WINDOW_POS_EMBED_BG_SIZE = (7, 7)
 
-    BASE_MODEL_CONFIG = SAM2_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = ("sam2", "sam2_video")
 
@@ -546,8 +546,9 @@ class SAM2PromptableSegment(FunctionalBaseModel):
     DYNAMIC_MULTIMASK_STABILITY_DELTA = 0.05
     DYNAMIC_MULTIMASK_STABILITY_THRESH = 0.98
 
-    BASE_MODEL_CONFIG = SAM2_CONFIG
-    BASE_WEIGHT_CONFIG = SAM2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = Sam2Config
+    BASE_WEIGHT_CONFIG = None
     # The facebook/sam2-hiera-* repos are Sam2VideoModel checkpoints
     # (model_type="sam2_video"); image-only sam2 repos use "sam2".
     # Both share the image-side weights, so we accept either.

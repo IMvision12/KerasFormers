@@ -1,4 +1,5 @@
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
+from .sam3_config import Sam3Config
 from .sam3_model import (
     SAM3Detect,
     SAM3InstanceSegment,
@@ -15,6 +16,7 @@ from .sam3_processor import (
 )
 
 __all__ = [
+    "Sam3Config",
     "SAM3CLIPTokenizer",
     "SAM3Detect",
     "SAM3InstanceSegment",
