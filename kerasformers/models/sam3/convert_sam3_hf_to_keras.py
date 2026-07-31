@@ -352,6 +352,48 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
     pbar.close()
 
 
+# Per-variant recipe (relocated from sam3_config.py). SAM3Model ignores the
+# geometry_* keys (they are legacy); it builds the arch for conversion + the backfill.
+SAM3_VARIANTS = {
+    "sam3_saco": {
+        "vit_hidden_size": 1024,
+        "vit_intermediate_size": 4736,
+        "vit_num_hidden_layers": 32,
+        "vit_num_attention_heads": 16,
+        "vit_image_size": 1008,
+        "vit_patch_size": 14,
+        "vit_window_size": 24,
+        "vit_global_attn_indexes": [7, 15, 23, 31],
+        "vit_rope_theta": 10000.0,
+        "vit_pretrain_image_size": 336,
+        "fpn_hidden_size": 256,
+        "fpn_scale_factors": [4.0, 2.0, 1.0, 0.5],
+        "geometry_hidden_size": 256,
+        "geometry_num_layers": 3,
+        "geometry_num_attention_heads": 8,
+        "geometry_intermediate_size": 2048,
+        "geometry_dropout": 0.1,
+        "geometry_roi_size": 7,
+        "detr_encoder_hidden_size": 256,
+        "detr_encoder_num_layers": 6,
+        "detr_encoder_num_attention_heads": 8,
+        "detr_encoder_intermediate_size": 2048,
+        "detr_encoder_dropout": 0.1,
+        "detr_decoder_hidden_size": 256,
+        "detr_decoder_num_layers": 6,
+        "detr_decoder_num_queries": 200,
+        "detr_decoder_num_attention_heads": 8,
+        "detr_decoder_intermediate_size": 2048,
+        "detr_decoder_dropout": 0.1,
+        "mask_decoder_hidden_size": 256,
+        "mask_decoder_num_upsampling_stages": 3,
+        "mask_decoder_num_attention_heads": 8,
+        "text_hidden_size": 1024,
+        "text_projection_dim": 512,
+    },
+}
+
+
 if __name__ == "__main__":
     from transformers import Sam3Model as HFSam3Model
 
@@ -367,7 +409,7 @@ if __name__ == "__main__":
     del hf_model
 
     print("\nBuilding Keras SAM3Model...")
-    sam3 = SAM3Model.from_weights(variant, load_weights=False)
+    sam3 = SAM3Model(**SAM3_VARIANTS[variant])
 
     print("\nTransferring detector weights...")
     transfer_sam3_weights(sam3, hf)

@@ -246,6 +246,49 @@ def transfer_sam2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
         proj_out.bias.assign(hf_state_dict[f"{head_prefix}.proj_out.bias"])
 
 
+# Per-variant recipes (relocated from sam2_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the backfill.
+SAM2_VARIANTS = {
+    "sam2_hiera_tiny": {
+        "hidden_dim": 96,
+        "blocks_per_stage": [1, 2, 7, 2],
+        "embed_dim_per_stage": [96, 192, 384, 768],
+        "num_attention_heads_per_stage": [1, 2, 4, 8],
+        "window_size_per_stage": [8, 4, 14, 7],
+        "global_attention_blocks": [5, 7, 9],
+        "backbone_channel_list": [768, 384, 192, 96],
+    },
+    "sam2_hiera_small": {
+        "hidden_dim": 96,
+        "blocks_per_stage": [1, 2, 11, 2],
+        "embed_dim_per_stage": [96, 192, 384, 768],
+        "num_attention_heads_per_stage": [1, 2, 4, 8],
+        "window_size_per_stage": [8, 4, 14, 7],
+        "global_attention_blocks": [7, 10, 13],
+        "backbone_channel_list": [768, 384, 192, 96],
+    },
+    "sam2_hiera_base_plus": {
+        "hidden_dim": 112,
+        "blocks_per_stage": [2, 3, 16, 3],
+        "embed_dim_per_stage": [112, 224, 448, 896],
+        "num_attention_heads_per_stage": [2, 4, 8, 16],
+        "window_size_per_stage": [8, 4, 14, 7],
+        "global_attention_blocks": [12, 16, 20],
+        "backbone_channel_list": [896, 448, 224, 112],
+        "window_pos_embed_bg_size": [14, 14],
+    },
+    "sam2_hiera_large": {
+        "hidden_dim": 144,
+        "blocks_per_stage": [2, 6, 36, 4],
+        "embed_dim_per_stage": [144, 288, 576, 1152],
+        "num_attention_heads_per_stage": [2, 4, 8, 16],
+        "window_size_per_stage": [8, 4, 16, 8],
+        "global_attention_blocks": [23, 33, 43],
+        "backbone_channel_list": [1152, 576, 288, 144],
+    },
+}
+
+
 if __name__ == "__main__":
     os.environ.setdefault("KERAS_BACKEND", "torch")
 
@@ -272,7 +315,7 @@ if __name__ == "__main__":
         ).eval()
         state = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = SAM2PromptableSegment.from_weights(variant, load_weights=False)
+        keras_model = SAM2PromptableSegment(**SAM2_VARIANTS[variant])
         transfer_sam2_weights(keras_model, state)
 
         np.random.seed(42)

@@ -3,8 +3,6 @@ import numpy as np
 
 from kerasformers.base import BaseTokenizer
 
-from .oneformer_config import ONEFORMER_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class OneFormerTokenizer(BaseTokenizer):
@@ -13,20 +11,19 @@ class OneFormerTokenizer(BaseTokenizer):
     Renders the chosen ``task`` (``"semantic"`` / ``"instance"`` /
     ``"panoptic"``) as ``"the task is {task}"``, tokenizes it with the CLIP BPE
     vocabulary and pads to ``task_seq_len`` with ``<|endoftext|>``: the float
-    task-id vector the model's task MLP consumes. Loads ``tokenizer.json`` for
-    ``variant`` from the ``oneformer`` release, on the fly from ``hf_id``, or
-    from an explicit ``tokenizer_file``.
+    task-id vector the model's task MLP consumes.
+
+    Loads ``tokenizer.json`` from a Hub repo id
+    (``from_weights("kerasformers/oneformer_ade20k_swin_tiny")``), on the fly
+    from ``hf_id``, or from an explicit ``tokenizer_file``.
 
     Args:
-        variant: Release variant key (default ``"oneformer_ade20k_swin_tiny"``);
-            all variants share the same CLIP tokenizer.
+        variant: Optional variant label, kept for reference; all variants share
+            the same CLIP tokenizer.
         task_seq_len: Padded task-prompt length in tokens (77).
         hf_id: Hub repo to pull ``tokenizer.json`` from (on-the-fly path).
         tokenizer_file: Explicit path to a ``tokenizer.json`` (overrides both).
     """
-
-    TOKENIZER_URLS = ONEFORMER_TOKENIZER_URLS
-    DEFAULT_VARIANT = "oneformer_ade20k_swin_tiny"
 
     def __init__(
         self, variant=None, task_seq_len=77, hf_id=None, tokenizer_file=None, **kwargs
@@ -34,13 +31,10 @@ class OneFormerTokenizer(BaseTokenizer):
         super().__init__(**kwargs)
         from tokenizers import Tokenizer
 
-        self.variant = variant or self.DEFAULT_VARIANT
+        self.variant = variant
         self.task_seq_len = task_seq_len
         self.hf_id = hf_id
-        if hf_id is not None and tokenizer_file is None:
-            tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
-        else:
-            tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
         self.eot_token_id = self._tok.token_to_id("<|endoftext|>")

@@ -7,7 +7,7 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.models.mit.mit_model import MiTModel
 from kerasformers.utils import standardize_input_shape
 
-from .segformer_config import SEGFORMER_CONFIG, SEGFORMER_WEIGHTS_URLS
+from .segformer_config import SegformerConfig
 
 
 def segformer_head(
@@ -125,7 +125,7 @@ class SegFormerModel(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = SEGFORMER_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "segformer"
 
@@ -239,8 +239,11 @@ class SegFormerSemanticSegment(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = SEGFORMER_CONFIG
-    BASE_WEIGHT_CONFIG = SEGFORMER_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = SegformerConfig
+    # Weights load by Hub repo id, e.g. from_weights("kerasformers/segformer_b0_ade_512"),
+    # via kf_config.json on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "segformer"
 
     @classmethod

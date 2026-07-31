@@ -76,20 +76,15 @@ class SegFormerImageProcessor(BaseImageProcessor):
 
     @staticmethod
     def variant_size(variant):
-        """Square target size for a release variant, read from the model config.
+        """Default square target size (512).
 
-        The variants train at 512 (ADE), 640 (b5 ADE), 768 or 1024 (Cityscapes),
-        so a fixed default mismatches the model for most of them and the forward
-        pass raises on shape. Unknown variants fall back to 512.
+        The variants train at 512 (ADE), 640 (b5 ADE), 768 or 1024
+        (Cityscapes). The per-variant resolution is no longer kept in the
+        package: it travels in the repo's ``kf_preprocessor.json`` and is
+        applied when loading via ``from_weights("kerasformers/<variant>")``.
+        Direct construction without an explicit ``size`` falls back to 512.
         """
-        side = 512
-        if variant is not None:
-            from kerasformers.models.segformer import segformer_config
-
-            entry = segformer_config.SEGFORMER_CONFIG.get(variant)
-            if entry and entry.get("image_size"):
-                side = entry["image_size"]
-        return {"height": side, "width": side}
+        return {"height": 512, "width": 512}
 
     def __call__(
         self, image: Union[str, np.ndarray, Image.Image, keras.KerasTensor]

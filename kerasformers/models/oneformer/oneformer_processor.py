@@ -8,7 +8,6 @@ from kerasformers.models.maskformer.maskformer_image_processor import (
 )
 from kerasformers.utils.image_util import get_data_format, load_image
 
-from .oneformer_config import ONEFORMER_CONFIG
 from .oneformer_tokenizer import OneFormerTokenizer
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -128,8 +127,11 @@ class OneFormerProcessor(BaseProcessor):
         super().__init__(**kwargs)
         self.variant = variant
         self.hf_id = hf_id
+        # The per-variant resolution is no longer kept in the package: it
+        # travels in the repo's kf_preprocessor.json and is applied when loading
+        # via from_weights("kerasformers/<variant>"). Bare construction uses 512.
         if target_size is None:
-            target_size = ONEFORMER_CONFIG.get(variant or "", {}).get("image_size", 512)
+            target_size = 512
         self.target_size = target_size
         self.task_seq_len = task_seq_len
         self.image_processor = image_processor or OneFormerImageProcessor(

@@ -48,18 +48,14 @@ class MaskFormerImageProcessor(BaseImageProcessor):
 
     @staticmethod
     def variant_size(variant):
-        """Square side for a release variant, read from the model config.
+        """Default square side (512).
 
-        The COCO checkpoints build at 384 and the ADE ones at 512, so a fixed
-        default mismatches the model for one of the two and the forward pass
-        raises on shape. Unknown variants fall back to 512.
+        The COCO checkpoints build at 384 and the ADE ones at 512. The
+        per-variant resolution is no longer kept in the package: it travels in
+        the repo's ``kf_preprocessor.json`` and is applied when loading via
+        ``from_weights("kerasformers/<variant>")``. Direct construction without
+        an explicit ``target_size`` falls back to 512.
         """
-        if variant is not None:
-            from kerasformers.models.maskformer import maskformer_config
-
-            entry = maskformer_config.MASKFORMER_CONFIG.get(variant)
-            if entry and entry.get("image_size"):
-                return entry["image_size"]
         return 512
 
     def __call__(
