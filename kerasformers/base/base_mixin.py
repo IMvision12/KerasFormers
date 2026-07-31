@@ -148,6 +148,10 @@ class WeightLoadingMixin:
     # When present, a repo's flat kf_config.json is parsed through it, the model
     # accepts a config object (``Model(config)``), and exposes ``self.config``.
     config_class = None
+    # Default generation settings (e.g. Whisper's suppress_tokens) for models with
+    # a ``generate(...)`` method. Written into a repo's kf_config.json under
+    # ``generate_args`` and re-attached to the model on repo-id load.
+    generate_args = None
 
     @classmethod
     def from_weights(
@@ -543,6 +547,17 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
             f"that carries kf_config.json."
         )
 
+    @staticmethod
+    def _apply_generate_args(model, spec):
+        """Attach a repo's kf_config ``generate_args`` to the built model, so its
+        ``generate(...)`` picks up the repo's default generation settings. Merged
+        over the class default, so a repo that overrides only some keys keeps the
+        rest."""
+        if spec is not None and spec.get("generate_args"):
+            merged = dict(getattr(type(model), "generate_args", None) or {})
+            merged.update(spec["generate_args"])
+            model.generate_args = merged
+
     @classmethod
     def build_from_hub_repo(cls, repo_id, **kwargs):
         """Build (unloaded) from a repo's ``kf_config.json``, bypassing the
@@ -552,9 +567,12 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
 
         repo_id = repo_id.rstrip("/")
         variant = repo_id.rsplit("/", 1)[-1]
-        config = cls._config_from_kf_spec(load_kf_config(repo_id), variant)
+        spec = load_kf_config(repo_id)
+        config = cls._config_from_kf_spec(spec, variant)
         config.update(kwargs)
-        return cls(**config)
+        model = cls(**config)
+        cls._apply_generate_args(model, spec)
+        return model
 
     @classmethod
     def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
@@ -592,6 +610,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         config = cls._config_from_kf_spec(spec, variant)
         config.update(kwargs)
         model = cls(**config)
+        cls._apply_generate_args(model, spec)
 
         if load_weights:
             if hasattr(model, "build_for_transfer") and not model.built:

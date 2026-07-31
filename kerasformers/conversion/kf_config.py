@@ -36,6 +36,7 @@ KF_METADATA_KEYS = frozenset(
         "preprocessor_class",
         "variant",
         "weights",
+        "generate_args",
     }
 )
 
@@ -110,12 +111,22 @@ def _write(path, payload):
 
 
 def write_kf_config(
-    dest_dir, model_cls, variant, config, weights_filename="model.weights.h5"
+    dest_dir,
+    model_cls,
+    variant,
+    config,
+    weights_filename="model.weights.h5",
+    generate_args=None,
 ):
     """Write a flat kf_config.json for ``variant`` into ``dest_dir``.
 
     ``config`` is a built :class:`BaseConfig` instance (the per-variant config,
     typically ``model_cls.config_class(**overrides)``).
+
+    ``generate_args`` (a dict of default generation settings, e.g. Whisper's
+    ``suppress_tokens``) is written under a nested ``generate_args`` key so the
+    repo is self-describing for ``model.generate(...)`` too. It defaults to the
+    model class's own ``generate_args`` attribute when not passed explicitly.
     """
     payload = {
         "library_name": "kerasformers",
@@ -126,6 +137,10 @@ def write_kf_config(
         "weights": weights_filename,
     }
     payload.update(model_config_dict(config))
+    if generate_args is None:
+        generate_args = getattr(model_cls, "generate_args", None)
+    if generate_args:
+        payload["generate_args"] = _jsonable(dict(generate_args))
     return _write(os.path.join(dest_dir, CONFIG_FILE), payload)
 
 

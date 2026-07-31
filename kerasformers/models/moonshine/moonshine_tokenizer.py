@@ -5,8 +5,6 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .moonshine_config import MOONSHINE_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class MoonshineTokenizer(BaseTokenizer):
@@ -14,9 +12,11 @@ class MoonshineTokenizer(BaseTokenizer):
 
     Loads the canonical ``tokenizer.json`` shipped with the Useful Sensors
     checkpoints: a byte-fallback BPE with a metaspace (``▁``) normalizer and a
-    template post-processor that prepends ``<s>``. The file for ``variant`` is pulled
-    from the ``moonshine`` release tag unless an explicit ``tokenizer_file`` is given
-    (tiny and base share one vocab).
+    template post-processor that prepends ``<s>``. The file for ``variant`` is
+    downloaded from that variant's kerasformers Hub repo (``kerasformers/<variant>``)
+    unless an explicit ``tokenizer_file`` is given (tiny and base share one vocab).
+    Load by repo id like weights:
+    ``MoonshineTokenizer.from_weights("kerasformers/moonshine_tiny")``.
 
     The encode path (used for label preparation) does **not** add special
     tokens; ``MoonshineSpeechToText`` seeds decoding with
@@ -24,12 +24,12 @@ class MoonshineTokenizer(BaseTokenizer):
     ``<unk>`` specials by default.
 
     Args:
-        variant: Moonshine variant key (default ``"moonshine_tiny"``).
+        variant: Moonshine variant key (default ``"moonshine_tiny"``); resolves to
+            the ``kerasformers/<variant>`` repo's tokenizer.json.
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         bos_token_id / eos_token_id / unk_token_id: Moonshine special ids.
     """
 
-    TOKENIZER_URLS = MOONSHINE_TOKENIZER_URLS
     DEFAULT_VARIANT = "moonshine_tiny"
 
     def __init__(
@@ -43,7 +43,9 @@ class MoonshineTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id

@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 import keras
 import numpy as np
@@ -6,12 +6,14 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .moonshine_config import MOONSHINE_CONFIG, MOONSHINE_WEIGHTS_URLS
+from .moonshine_config import MoonshineConfig
 from .moonshine_layers import (
     MoonshineAttention,
     MoonshineRotaryEmbedding,
     apply_rotary_pos_emb,
 )
+
+MOONSHINE_HUB_SIBLINGS = frozenset({"MoonshineModel", "MoonshineSpeechToText"})
 
 
 def moonshine_encoder_mlp(x, hidden_dim, mlp_dim, activation, prefix):
@@ -318,9 +320,14 @@ class MoonshineModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"MoonshineModel"``.
     """
 
-    BASE_MODEL_CONFIG = MOONSHINE_CONFIG
-    BASE_WEIGHT_CONFIG = MOONSHINE_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MoonshineConfig
+    HUB_REPO_SIBLINGS = MOONSHINE_HUB_SIBLINGS
     HF_MODEL_TYPE = "moonshine"
+    # Default generation settings, written to kf_config.json under generate_args and
+    # re-attached on repo-id load; MoonshineSpeechToText.generate() reads them.
+    generate_args = {"max_new_tokens": 200}
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -521,10 +528,12 @@ class MoonshineSpeechToText(MoonshineModel, BaseSeq2SeqGeneration):
         self,
         audio,
         processor,
-        max_new_tokens: int = 200,
+        max_new_tokens: Optional[int] = None,
         sampling_rate: int = 16000,
         return_ids: bool = False,
     ) -> Union[List[str], List[List[int]]]:
+        if max_new_tokens is None:
+            max_new_tokens = (self.generate_args or {}).get("max_new_tokens", 200)
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
         start_id = processor.decoder_start_token_id
         eos_id = processor.tokenizer.eos_token_id

@@ -24,6 +24,36 @@ HF_CHECKPOINT = {
     "whisper_large_v3_turbo": "openai/whisper-large-v3-turbo",
 }
 
+
+# Per-variant recipes (relocated from whisper_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the kf_config backfill.
+def _w(hidden, el, eh, ef, dl, dh, df, vocab, mel):
+    return {
+        "hidden_dim": hidden,
+        "encoder_num_layers": el,
+        "encoder_attention_heads": eh,
+        "encoder_ffn_dim": ef,
+        "decoder_num_layers": dl,
+        "decoder_attention_heads": dh,
+        "decoder_ffn_dim": df,
+        "vocab_size": vocab,
+        "max_source_positions": 1500,
+        "max_target_positions": 448,
+        "num_mel_bins": mel,
+    }
+
+
+WHISPER_RECIPES = {
+    "whisper_tiny": _w(384, 4, 6, 1536, 4, 6, 1536, 51865, 80),
+    "whisper_base": _w(512, 6, 8, 2048, 6, 8, 2048, 51865, 80),
+    "whisper_small": _w(768, 12, 12, 3072, 12, 12, 3072, 51865, 80),
+    "whisper_medium": _w(1024, 24, 16, 4096, 24, 16, 4096, 51865, 80),
+    "whisper_large": _w(1280, 32, 20, 5120, 32, 20, 5120, 51865, 80),
+    "whisper_large_v2": _w(1280, 32, 20, 5120, 32, 20, 5120, 51865, 80),
+    "whisper_large_v3": _w(1280, 32, 20, 5120, 32, 20, 5120, 51866, 128),
+    "whisper_large_v3_turbo": _w(1280, 32, 20, 5120, 4, 20, 5120, 51866, 128),
+}
+
 DENSE_MAP = {"kernel": "weight"}
 LN_MAP = {"gamma": "weight", "beta": "bias"}
 EMBED_MAP = {"embeddings": "weight"}
@@ -266,7 +296,7 @@ if __name__ == "__main__":
         cfg = torch_model.config
 
         print(f"[2/4] Building Keras {variant}")
-        model = WhisperModel.from_weights(variant, load_weights=False)
+        model = WhisperModel(**WHISPER_RECIPES[variant])
 
         print("[3/4] Transferring weights")
         transfer_whisper_weights(model, state)

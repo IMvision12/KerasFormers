@@ -149,6 +149,42 @@ def transfer_moonshine_weights(
     )
 
 
+# Per-variant recipes (relocated from moonshine_config.py). Models load from the
+# Hub by repo id; these build the arch for conversion + drive the kf_config backfill.
+MOONSHINE_RECIPES = {
+    "moonshine_tiny": {
+        "hidden_dim": 288,
+        "encoder_num_layers": 6,
+        "decoder_num_layers": 6,
+        "encoder_attention_heads": 8,
+        "decoder_attention_heads": 8,
+        "encoder_ffn_dim": 1152,
+        "decoder_ffn_dim": 1152,
+        "vocab_size": 32768,
+        "max_position_embeddings": 194,
+        "partial_rotary_factor": 0.9,
+        "rope_theta": 10000.0,
+        "encoder_activation": "gelu",
+        "decoder_activation": "silu",
+    },
+    "moonshine_base": {
+        "hidden_dim": 416,
+        "encoder_num_layers": 8,
+        "decoder_num_layers": 8,
+        "encoder_attention_heads": 8,
+        "decoder_attention_heads": 8,
+        "encoder_ffn_dim": 1664,
+        "decoder_ffn_dim": 1664,
+        "vocab_size": 32768,
+        "max_position_embeddings": 194,
+        "partial_rotary_factor": 0.62,
+        "rope_theta": 10000.0,
+        "encoder_activation": "gelu",
+        "decoder_activation": "silu",
+    },
+}
+
+
 if __name__ == "__main__":
     import torch
     from keras import ops
@@ -178,7 +214,7 @@ if __name__ == "__main__":
         cfg = torch_model.config
 
         print(f"[2/4] Building Keras {variant}")
-        model = MoonshineModel.from_weights(variant, load_weights=False)
+        model = MoonshineModel(**MOONSHINE_RECIPES[variant])
 
         print("[3/4] Transferring weights")
         transfer_moonshine_weights(model, state)

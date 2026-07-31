@@ -6,27 +6,26 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .whisper_config import WHISPER_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class WhisperTokenizer(BaseTokenizer):
     """Whisper byte-level BPE tokenizer (``tokenizers`` Rust backend).
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``whisper`` release tag (or an explicit ``tokenizer_file``): the byte-level BPE
-    and Whisper's ~1600 special tokens (languages, task, timestamps) are baked into
-    the file. ``added_tokens`` (content -> id) is rebuilt from it for the processor's
-    prompt helpers. ``call`` tokenizes into padded ``{input_ids, attention_mask}``.
+    Downloads the fast-tokenizer ``tokenizer.json`` for ``variant`` from that
+    variant's kerasformers Hub repo (``kerasformers/<variant>``), or takes an
+    explicit ``tokenizer_file``: the byte-level BPE and Whisper's ~1600 special
+    tokens (languages, task, timestamps) are baked into the file. ``added_tokens``
+    (content -> id) is rebuilt from it for the processor's prompt helpers. ``call``
+    tokenizes into padded ``{input_ids, attention_mask}``. Load by repo id like
+    weights: ``WhisperTokenizer.from_weights("kerasformers/whisper_tiny")``.
 
     Args:
-        variant: Whisper variant key (default ``"whisper_tiny"``); picks which
-            checkpoint's tokenizer.json to load (v3 variants have a 51866 vocab).
+        variant: Whisper variant key (default ``"whisper_tiny"``); resolves to the
+            ``kerasformers/<variant>`` repo's tokenizer.json (v3 has a 51866 vocab).
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         bos_token_id / eos_token_id / pad_token_id: Whisper special ids (all 50257).
     """
 
-    TOKENIZER_URLS = WHISPER_TOKENIZER_URLS
     DEFAULT_VARIANT = "whisper_tiny"
 
     def __init__(
@@ -40,7 +39,9 @@ class WhisperTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
