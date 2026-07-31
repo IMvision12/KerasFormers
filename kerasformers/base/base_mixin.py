@@ -105,24 +105,23 @@ class WeightLoadingMixin:
     for why that independence matters). Subclasses share a single entry
     point for loading pretrained weights, regardless of source:
 
-    1. **kerasformers release**: weights hosted on GitHub Releases keyed by
-       a short variant string (e.g. ``"owlvit-base-patch32"``).
-    2. **Hub**: weights pulled from a model-hub repo, identified
-       by an ``"hf:org/repo"`` string. Works for the original checkpoints
-       and for community fine-tunes that share the same architecture.
+    1. **Hub repo (self-describing)**: an ``"org/repo"`` id whose repo carries a
+       ``kf_config.json``. The model is rebuilt from that flat config (via
+       ``config_class``) and its weights are loaded from the same repo. Works for
+       the official weights and for community fine-tunes of the same architecture.
+    2. **Hub (``hf:`` conversion)**: an ``"hf:org/repo"`` id pulls the original
+       ``config.json`` + safetensors and converts them via ``config_from_hf`` /
+       ``transfer_from_hf`` (for repos published in the source library's format).
 
-    Hub loading uses ``huggingface_hub`` (not ``transformers``): it
-    downloads ``config.json`` and the safetensors / pytorch weights
-    directly. Subclasses provide a ``config_from_hf`` method that maps
-    the parsed ``config.json`` dict into ``__init__`` kwargs, and a
-    ``transfer_from_hf`` method that applies the source state-dict to the
-    Keras layers.
+    A model that ships a typed :class:`~kerasformers.base.BaseConfig` sets
+    ``config_class`` (and gets the ``Model(config)`` constructor + ``.config``);
+    an ``hf:`` converter additionally provides ``config_from_hf`` and
+    ``transfer_from_hf``.
 
     .. code-block:: python
 
         class OwlViTDetect(FunctionalBaseModel):
-            BASE_MODEL_CONFIG = OWLVIT_CONFIG
-            BASE_WEIGHT_CONFIG = OWLVIT_WEIGHTS_URLS
+            config_class = OwlViTConfig
 
             @classmethod
             def config_from_hf(cls, hf_config: dict): ...
@@ -134,12 +133,12 @@ class WeightLoadingMixin:
 
     .. code-block:: python
 
-        m = OwlViTDetect.from_weights("owlvit-base-patch32")
+        m = OwlViTDetect.from_weights("kerasformers/owlvit-base-patch32")
 
         m = OwlViTDetect.from_weights("hf:google/owlvit-base-patch32")
         m = OwlViTDetect.from_weights("hf:alice/owlvit-finetune")
 
-        m = OwlViTDetect.from_weights("owlvit-base-patch32", load_weights=False)
+        m = OwlViTDetect(OwlViTConfig())  # build from a config, random weights
     """
 
     BASE_MODEL_CONFIG = None

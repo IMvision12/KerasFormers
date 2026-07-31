@@ -3,8 +3,8 @@ from typing import List, Optional, Sequence, Union
 import keras
 
 from kerasformers.base import BaseProcessor
-from kerasformers.models.clip.clip_tokenizer import CLIPTokenizer
 from kerasformers.models.owlvit.owlvit_image_processor import OwlViTImageProcessor
+from kerasformers.models.owlvit.owlvit_tokenizer import OwlViTTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -37,7 +37,7 @@ class OwlViTProcessor(BaseProcessor):
         pad_token: Padding token. Defaults to ``"!"`` to match the reference.
     """
 
-    TOKENIZER_CLS = CLIPTokenizer
+    TOKENIZER_CLS = OwlViTTokenizer
     IMAGE_PROCESSOR_CLS = OwlViTImageProcessor
 
     def __init__(
@@ -74,7 +74,7 @@ class OwlViTProcessor(BaseProcessor):
             return_tensor=return_tensor,
             data_format=data_format,
         )
-        self.tokenizer = tokenizer or CLIPTokenizer(
+        self.tokenizer = tokenizer or OwlViTTokenizer(
             tokenizer_file=tokenizer_file,
             max_seq_len=max_seq_len,
             unk_token=unk_token,

@@ -46,6 +46,24 @@ class BaseProcessor(PreprocessorMixin):
             parts["feature_extractor"] = cls.FEATURE_EXTRACTOR_CLS.from_hf(repo)
         return cls(**parts, **kwargs)
 
+    @classmethod
+    def from_hub_repo(cls, repo_id, **kwargs):
+        """Load every component from a Hub repo id.
+
+        Mirrors :meth:`from_hf`, but for a self-describing kerasformers repo: each
+        component loads by repo id, so the tokenizer pulls the repo's
+        ``tokenizer.json`` and the image processor / feature extractor its
+        ``kf_preprocessor.json`` (``Processor.from_weights("kerasformers/repo")``).
+        """
+        parts = {}
+        if cls.TOKENIZER_CLS is not None:
+            parts["tokenizer"] = cls.TOKENIZER_CLS.from_weights(repo_id)
+        if cls.IMAGE_PROCESSOR_CLS is not None:
+            parts["image_processor"] = cls.IMAGE_PROCESSOR_CLS.from_weights(repo_id)
+        if cls.FEATURE_EXTRACTOR_CLS is not None:
+            parts["feature_extractor"] = cls.FEATURE_EXTRACTOR_CLS.from_weights(repo_id)
+        return cls(**parts, **kwargs)
+
     def is_conversation_batch(self, conversation):
         """True when ``conversation`` holds several conversations, not one.
 

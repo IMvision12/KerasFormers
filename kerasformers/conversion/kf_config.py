@@ -66,6 +66,8 @@ def _jsonable(value):
         return [_jsonable(item) for item in value]
     if isinstance(value, dict):
         return {str(key): _jsonable(item) for key, item in value.items()}
+    if hasattr(value, "tolist"):  # numpy arrays / scalars -> python list / scalar
+        return _jsonable(value.tolist())
     return value
 
 

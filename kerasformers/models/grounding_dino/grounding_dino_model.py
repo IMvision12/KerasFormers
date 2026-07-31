@@ -7,7 +7,7 @@ from keras import layers, ops
 from kerasformers.base import SubclassedBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .grounding_dino_config import GROUNDING_DINO_CONFIG, GROUNDING_DINO_WEIGHTS_URLS
+from .grounding_dino_config import GroundingDinoConfig
 from .grounding_dino_layers import (
     GroundingDinoContrastiveEmbedding,
     GroundingDinoDecoderLayer,
@@ -60,12 +60,13 @@ class GroundingDinoModel(SubclassedBaseModel):
     picks the top-``num_queries`` encoder proposals (contrastive vision-text
     scoring) as decoder reference points; the 6-layer decoder runs self-attention,
     text cross-attention and image deformable cross-attention. Returns the decoder
-    hidden states; use :class:`GroundingDinoForObjectDetection` for logits / boxes.
+    hidden states; use :class:`GroundingDinoDetect` for logits / boxes.
     """
 
     HF_MODEL_TYPE = "grounding-dino"
-    BASE_MODEL_CONFIG = GROUNDING_DINO_CONFIG
-    BASE_WEIGHT_CONFIG = GROUNDING_DINO_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = GroundingDinoConfig
 
     def __init__(
         self,
@@ -593,7 +594,7 @@ class GroundingDinoModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GroundingDinoForObjectDetection(GroundingDinoModel):
+class GroundingDinoDetect(GroundingDinoModel):
     """Grounding DINO with detection heads (open-set / text-grounded detection).
 
     Adds per-decoder-layer contrastive class heads (vision-text similarity,
@@ -643,3 +644,7 @@ class GroundingDinoForObjectDetection(GroundingDinoModel):
             "pred_boxes": outputs_coords[-1],
             "last_hidden_state": intermediate[:, -1],
         }
+
+
+# Backward-compatible alias for the previous class name.
+GroundingDinoForObjectDetection = GroundingDinoDetect
