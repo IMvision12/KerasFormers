@@ -1,3 +1,4 @@
+import hashlib
 import os
 from pathlib import Path
 from typing import Optional
@@ -42,10 +43,13 @@ def download_file(
         raise ValueError(f"Invalid URL format: {file_url}")
 
     cache_dir = Path(cache_dir or os.path.expanduser("~/.downloads"))
-    cache_dir.mkdir(parents=True, exist_ok=True)
 
     file_name = os.path.basename(file_url)
-    local_file = cache_dir / file_name
+    url_dir = file_url.rsplit("/", 1)[0]
+    subdir = hashlib.sha1(url_dir.encode("utf-8")).hexdigest()[:16]
+    target_dir = cache_dir / subdir
+    target_dir.mkdir(parents=True, exist_ok=True)
+    local_file = target_dir / file_name
 
     if local_file.exists() and not force_download:
         print(f"Found cached file at {local_file}")
@@ -56,7 +60,7 @@ def download_file(
             fname=file_name,
             origin=file_url,
             cache_dir=str(cache_dir),
-            cache_subdir="",
+            cache_subdir=subdir,
             extract=False,
             force_download=force_download,
         )
