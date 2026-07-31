@@ -63,6 +63,37 @@ def transfer_locateanything_weights(keras_model, hf_state_dict):
             transfer_weights(weight.path, weight, value)
 
 
+# Single-variant recipe (relocated from locateanything_config.py). The conversion
+# below builds from the HF config.json via config_from_hf; this recipe drives the
+# kf_config backfill so the repo declares LocateAnythingGenerate.
+LOCATEANYTHING_RECIPES = {
+    "locateanything_3b": {
+        "vocab_size": 152681,
+        "embed_dim": 2048,
+        "mlp_dim": 11008,
+        "num_layers": 36,
+        "num_heads": 16,
+        "num_kv_heads": 2,
+        "head_dim": 128,
+        "norm_eps": 1e-6,
+        "rope_theta": 1000000.0,
+        "max_position_embeddings": 32768,
+        "tie_embeddings": True,
+        "vision_embed_dim": 1152,
+        "vision_depth": 27,
+        "vision_num_heads": 16,
+        "vision_mlp_dim": 4304,
+        "vision_patch_size": 14,
+        "vision_init_pos_h": 64,
+        "vision_init_pos_w": 64,
+        "merge_kernel": (2, 2),
+        "vision_rope_theta": 10000.0,
+        "image_token_index": 151665,
+        "block_size": 6,
+    },
+}
+
+
 def safetensors_state_dict(files):
     from safetensors import safe_open
 
@@ -92,17 +123,15 @@ if __name__ == "__main__":
     from huggingface_hub import snapshot_download
 
     from kerasformers.models.locateanything import LocateAnythingGenerate
-    from kerasformers.models.locateanything.locateanything_config import (
-        LOCATEANYTHING_WEIGHTS_URLS,
-    )
 
     DTYPE = "bfloat16"
     MAX_SHARD_GB = 1.7
     HF_SOURCES = {"locateanything_3b": "nvidia/LocateAnything-3B"}
+    OUTPUTS = {"locateanything_3b": "model.weights.json"}
 
     keras.config.set_dtype_policy(DTYPE)
 
-    for variant, meta in LOCATEANYTHING_WEIGHTS_URLS.items():
+    for variant, weights_path in OUTPUTS.items():
         hf_id = HF_SOURCES[variant]
         print(
             f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}  ({DTYPE})\n{'=' * 60}"
@@ -120,7 +149,6 @@ if __name__ == "__main__":
         shards = sorted(glob.glob(os.path.join(local, "*.safetensors")))
         transfer_locateanything_weights(model, safetensors_state_dict(shards))
 
-        weights_path = os.path.basename(meta["url"])
         if weights_path.endswith(".json"):
             model.save_weights(weights_path, max_shard_size=MAX_SHARD_GB)
         else:

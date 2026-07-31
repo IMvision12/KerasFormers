@@ -10,12 +10,7 @@ from kerasformers.models.vit.vit_model import vit_backbone_feature
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .dino_config import (
-    DINO_RESNET_CONFIG,
-    DINO_RESNET_WEIGHTS_URLS,
-    DINO_VIT_CONFIG,
-    DINO_VIT_WEIGHTS_URLS,
-)
+from .dino_config import DinoResNetConfig, DinoViTConfig
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -63,8 +58,9 @@ class DinoViTModel(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = DINO_VIT_CONFIG
-    BASE_WEIGHT_CONFIG = DINO_VIT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = DinoViTConfig
     HF_MODEL_TYPE = None
 
     def __init__(
@@ -206,8 +202,9 @@ class DinoResNetModel(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = DINO_RESNET_CONFIG
-    BASE_WEIGHT_CONFIG = DINO_RESNET_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = DinoResNetConfig
     HF_MODEL_TYPE = None
 
     def __init__(

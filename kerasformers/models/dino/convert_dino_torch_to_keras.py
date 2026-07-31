@@ -119,6 +119,19 @@ DINO_RESNET_CONVERSION_CONFIG: List[Tuple[str, str]] = [
     ("dino_resnet50", "dino_resnet50"),
 ]
 
+# Per-variant recipes (relocated from dino_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the kf_config backfill.
+DINO_VIT_RECIPES = {
+    "dino_vits16": {"patch_size": 16, "embed_dim": 384, "depth": 12, "num_heads": 6},
+    "dino_vits8": {"patch_size": 8, "embed_dim": 384, "depth": 12, "num_heads": 6},
+    "dino_vitb16": {"patch_size": 16, "embed_dim": 768, "depth": 12, "num_heads": 12},
+    "dino_vitb8": {"patch_size": 8, "embed_dim": 768, "depth": 12, "num_heads": 12},
+}
+
+DINO_RESNET_RECIPES = {
+    "dino_resnet50": {"depths": (3, 4, 6, 3), "filters": (64, 128, 256, 512)},
+}
+
 
 if __name__ == "__main__":
     import torch
@@ -137,9 +150,8 @@ if __name__ == "__main__":
             for k, v in {**trainable_torch, **non_trainable_torch}.items()
         }
 
-        keras_model = DinoViTModel.from_weights(
-            variant,
-            load_weights=False,
+        keras_model = DinoViTModel(
+            **DINO_VIT_RECIPES[variant],
             image_size=224,
             include_normalization=False,
         )
@@ -185,9 +197,8 @@ if __name__ == "__main__":
             for k, v in {**trainable_torch, **non_trainable_torch}.items()
         }
 
-        keras_model = DinoResNetModel.from_weights(
-            variant,
-            load_weights=False,
+        keras_model = DinoResNetModel(
+            **DINO_RESNET_RECIPES[variant],
             image_size=224,
             include_normalization=False,
         )

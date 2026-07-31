@@ -1,197 +1,65 @@
-SIGLIP_CONFIG = {
-    "siglip_base_p16_224": {
-        "image_size": 224,
-        "patch_size": 16,
-        "vision_hidden_dim": 768,
-        "vision_num_layers": 12,
-        "vision_num_heads": 12,
-        "vision_mlp_dim": 3072,
-        "vocab_size": 32000,
-        "embed_dim": 768,
-        "text_hidden_dim": 768,
-        "text_num_layers": 12,
-        "text_num_heads": 12,
-        "text_mlp_dim": 3072,
-        "max_seq_len": 64,
-    },
-    "siglip_base_p16_256": {
-        "image_size": 256,
-        "patch_size": 16,
-        "vision_hidden_dim": 768,
-        "vision_num_layers": 12,
-        "vision_num_heads": 12,
-        "vision_mlp_dim": 3072,
-        "vocab_size": 32000,
-        "embed_dim": 768,
-        "text_hidden_dim": 768,
-        "text_num_layers": 12,
-        "text_num_heads": 12,
-        "text_mlp_dim": 3072,
-        "max_seq_len": 64,
-    },
-    "siglip_base_p16_multilingual_256": {
-        "image_size": 256,
-        "patch_size": 16,
-        "vision_hidden_dim": 768,
-        "vision_num_layers": 12,
-        "vision_num_heads": 12,
-        "vision_mlp_dim": 3072,
-        "vocab_size": 250000,
-        "embed_dim": 768,
-        "text_hidden_dim": 768,
-        "text_num_layers": 12,
-        "text_num_heads": 12,
-        "text_mlp_dim": 3072,
-        "max_seq_len": 64,
-    },
-    "siglip_base_p16_384": {
-        "image_size": 384,
-        "patch_size": 16,
-        "vision_hidden_dim": 768,
-        "vision_num_layers": 12,
-        "vision_num_heads": 12,
-        "vision_mlp_dim": 3072,
-        "vocab_size": 32000,
-        "embed_dim": 768,
-        "text_hidden_dim": 768,
-        "text_num_layers": 12,
-        "text_num_heads": 12,
-        "text_mlp_dim": 3072,
-        "max_seq_len": 64,
-    },
-    "siglip_base_p16_512": {
-        "image_size": 512,
-        "patch_size": 16,
-        "vision_hidden_dim": 768,
-        "vision_num_layers": 12,
-        "vision_num_heads": 12,
-        "vision_mlp_dim": 3072,
-        "vocab_size": 32000,
-        "embed_dim": 768,
-        "text_hidden_dim": 768,
-        "text_num_layers": 12,
-        "text_num_heads": 12,
-        "text_mlp_dim": 3072,
-        "max_seq_len": 64,
-    },
-    "siglip_large_p16_256": {
-        "image_size": 256,
-        "patch_size": 16,
-        "vision_hidden_dim": 1024,
-        "vision_num_layers": 24,
-        "vision_num_heads": 16,
-        "vision_mlp_dim": 4096,
-        "vocab_size": 32000,
-        "embed_dim": 1024,
-        "text_hidden_dim": 1024,
-        "text_num_layers": 24,
-        "text_num_heads": 16,
-        "text_mlp_dim": 4096,
-        "max_seq_len": 64,
-    },
-    "siglip_large_p16_384": {
-        "image_size": 384,
-        "patch_size": 16,
-        "vision_hidden_dim": 1024,
-        "vision_num_layers": 24,
-        "vision_num_heads": 16,
-        "vision_mlp_dim": 4096,
-        "vocab_size": 32000,
-        "embed_dim": 1024,
-        "text_hidden_dim": 1024,
-        "text_num_layers": 24,
-        "text_num_heads": 16,
-        "text_mlp_dim": 4096,
-        "max_seq_len": 64,
-    },
-    "siglip_so400m_p14_224": {
-        "image_size": 224,
-        "patch_size": 14,
-        "vision_hidden_dim": 1152,
-        "vision_num_layers": 27,
-        "vision_num_heads": 16,
-        "vision_mlp_dim": 4304,
-        "vocab_size": 32000,
-        "embed_dim": 1152,
-        "text_hidden_dim": 1152,
-        "text_num_layers": 27,
-        "text_num_heads": 16,
-        "text_mlp_dim": 4304,
-        "max_seq_len": 16,
-    },
-    "siglip_so400m_p14_384": {
-        "image_size": 384,
-        "patch_size": 14,
-        "vision_hidden_dim": 1152,
-        "vision_num_layers": 27,
-        "vision_num_heads": 16,
-        "vision_mlp_dim": 4304,
-        "vocab_size": 32000,
-        "embed_dim": 1152,
-        "text_hidden_dim": 1152,
-        "text_num_layers": 27,
-        "text_num_heads": 16,
-        "text_mlp_dim": 4304,
-        "max_seq_len": 64,
-    },
-}
+from kerasformers.base import BaseConfig
 
-SIGLIP_TOKENIZER_URLS = {
-    "siglip_base_p16_224": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_224/resolve/main/tokenizer.json"
-    },
-    "siglip_base_p16_256": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_256/resolve/main/tokenizer.json"
-    },
-    "siglip_base_p16_multilingual_256": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_multilingual_256/resolve/main/tokenizer.json"
-    },
-    "siglip_base_p16_384": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_384/resolve/main/tokenizer.json"
-    },
-    "siglip_base_p16_512": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_base_p16_512/resolve/main/tokenizer.json"
-    },
-    "siglip_large_p16_256": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_large_p16_256/resolve/main/tokenizer.json"
-    },
-    "siglip_large_p16_384": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_large_p16_384/resolve/main/tokenizer.json"
-    },
-    "siglip_so400m_p14_224": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_so400m_p14_224/resolve/main/tokenizer.json"
-    },
-    "siglip_so400m_p14_384": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/siglip_so400m_p14_384/resolve/main/tokenizer.json"
-    },
-}
 
-SIGLIP_WEIGHTS_URLS = {
-    "siglip_base_p16_224": {
-        "url": "https://huggingface.co/kerasformers/siglip_base_p16_224",
-    },
-    "siglip_base_p16_256": {
-        "url": "https://huggingface.co/kerasformers/siglip_base_p16_256",
-    },
-    "siglip_base_p16_multilingual_256": {
-        "url": "https://huggingface.co/kerasformers/siglip_base_p16_multilingual_256",
-    },
-    "siglip_base_p16_384": {
-        "url": "https://huggingface.co/kerasformers/siglip_base_p16_384",
-    },
-    "siglip_base_p16_512": {
-        "url": "https://huggingface.co/kerasformers/siglip_base_p16_512",
-    },
-    "siglip_large_p16_256": {
-        "url": "https://huggingface.co/kerasformers/siglip_large_p16_256",
-    },
-    "siglip_large_p16_384": {
-        "url": "https://huggingface.co/kerasformers/siglip_large_p16_384",
-    },
-    "siglip_so400m_p14_224": {
-        "url": "https://huggingface.co/kerasformers/siglip_so400m_p14_224",
-    },
-    "siglip_so400m_p14_384": {
-        "url": "https://huggingface.co/kerasformers/siglip_so400m_p14_384",
-    },
-}
+class SigLIPConfig(BaseConfig):
+    r"""Configuration for the SigLIP dual encoder ([`SigLIPModel`] and its heads).
+
+    The defaults describe the SigLIP Base/16 224 model; other variants override the
+    vision / text dimensions, patch size, and vocabulary. One `kf_config.json`
+    (declaring the canonical [`SigLIPZeroShotClassify`]) sits on each variant's
+    repo, and the vision / text / model / zero-shot / classify heads all load from
+    it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the vision tower is built for.
+        patch_size (`int`, *optional*, defaults to 16):
+            Patch size of the vision encoder.
+        vision_hidden_dim (`int`, *optional*, defaults to 768):
+            Hidden size of the vision encoder.
+        vision_num_layers (`int`, *optional*, defaults to 12):
+            Depth of the vision encoder.
+        vision_num_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads in the vision encoder.
+        vision_mlp_dim (`int`, *optional*, defaults to 3072):
+            Feed-forward dimension of the vision encoder.
+        vocab_size (`int`, *optional*, defaults to 32000):
+            Text tokenizer vocabulary size.
+        embed_dim (`int`, *optional*, defaults to 768):
+            Shared image-text projection dimension.
+        text_hidden_dim (`int`, *optional*, defaults to 768):
+            Hidden size of the text encoder.
+        text_num_layers (`int`, *optional*, defaults to 12):
+            Depth of the text encoder.
+        text_num_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads in the text encoder.
+        text_mlp_dim (`int`, *optional*, defaults to 3072):
+            Feed-forward dimension of the text encoder.
+        max_seq_len (`int`, *optional*, defaults to 64):
+            Maximum text sequence length.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.siglip import SigLIPConfig, SigLIPModel
+
+    >>> configuration = SigLIPConfig()
+    >>> model = SigLIPModel(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "siglip"
+
+    image_size: int = 224
+    patch_size: int = 16
+    vision_hidden_dim: int = 768
+    vision_num_layers: int = 12
+    vision_num_heads: int = 12
+    vision_mlp_dim: int = 3072
+    vocab_size: int = 32000
+    embed_dim: int = 768
+    text_hidden_dim: int = 768
+    text_num_layers: int = 12
+    text_num_heads: int = 12
+    text_mlp_dim: int = 3072
+    max_seq_len: int = 64

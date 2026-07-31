@@ -1,7 +1,5 @@
 from kerasformers.models.locateanything.locateanything_config import (
-    LOCATEANYTHING_CONFIG,
-    LOCATEANYTHING_TOKENIZER_URLS,
-    LOCATEANYTHING_WEIGHTS_URLS,
+    LocateAnythingConfig,
 )
 from kerasformers.models.locateanything.locateanything_image_processor import (
     LocateAnythingImageProcessor,
@@ -31,7 +29,5 @@ __all__ = [
     "LocateAnythingProcessor",
     "locate_prompt",
     "TASK_PROMPTS",
-    "LOCATEANYTHING_CONFIG",
-    "LOCATEANYTHING_WEIGHTS_URLS",
-    "LOCATEANYTHING_TOKENIZER_URLS",
+    "LocateAnythingConfig",
 ]

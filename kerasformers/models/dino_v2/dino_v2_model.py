@@ -6,7 +6,7 @@ from kerasformers.models.vit.vit_model import vit_backbone_feature
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .dino_v2_config import DINOV2_CONFIG, DINOV2_WEIGHTS_URLS
+from .dino_v2_config import DinoV2Config
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -56,8 +56,9 @@ class DinoV2Model(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = DINOV2_CONFIG
-    BASE_WEIGHT_CONFIG = DINOV2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = DinoV2Config
     HF_MODEL_TYPE = "dinov2"
 
     @classmethod

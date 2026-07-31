@@ -31,6 +31,38 @@ DINOV3_CONVNEXT_VARIANTS: List[Tuple[str, str]] = [
     ("dinov3_convnext_large", "facebook/dinov3-convnext-large-pretrain-lvd1689m"),
 ]
 
+# Per-variant recipes (relocated from dino_v3_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the kf_config backfill.
+DINOV3_VIT_RECIPES = {
+    "dinov3_vits16": {"patch_size": 16, "embed_dim": 384, "depth": 12, "num_heads": 6},
+    "dinov3_vitb16": {"patch_size": 16, "embed_dim": 768, "depth": 12, "num_heads": 12},
+    "dinov3_vitl16": {
+        "patch_size": 16,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+    },
+}
+
+DINOV3_CONVNEXT_RECIPES = {
+    "dinov3_convnext_tiny": {
+        "depths": (3, 3, 9, 3),
+        "projection_dim": (96, 192, 384, 768),
+    },
+    "dinov3_convnext_small": {
+        "depths": (3, 3, 27, 3),
+        "projection_dim": (96, 192, 384, 768),
+    },
+    "dinov3_convnext_base": {
+        "depths": (3, 3, 27, 3),
+        "projection_dim": (128, 256, 512, 1024),
+    },
+    "dinov3_convnext_large": {
+        "depths": (3, 3, 27, 3),
+        "projection_dim": (192, 384, 768, 1536),
+    },
+}
+
 DINOV3_VIT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "patch.embed": "embeddings.patch_embeddings",
@@ -199,9 +231,8 @@ if __name__ == "__main__":
         hf_model = AutoModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = DinoV3ViTModel.from_weights(
-            variant,
-            load_weights=False,
+        keras_model = DinoV3ViTModel(
+            **DINOV3_VIT_RECIPES[variant],
             image_size=224,
             include_normalization=False,
         )
@@ -242,9 +273,8 @@ if __name__ == "__main__":
         hf_model = AutoModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = DinoV3ConvNeXtModel.from_weights(
-            variant,
-            load_weights=False,
+        keras_model = DinoV3ConvNeXtModel(
+            **DINOV3_CONVNEXT_RECIPES[variant],
             image_size=224,
             include_normalization=False,
         )

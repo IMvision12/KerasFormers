@@ -14,6 +14,46 @@ def transfer_siglip2_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
     transfer_siglip_weights(keras_model, hf_state_dict)
 
 
+# Per-variant recipes (relocated from siglip2_config.py). The kerasformers repos
+# hold a SigLIP2ZeroShotClassify checkpoint; its kf_config.json declares
+# SigLIP2ZeroShotClassify and every SigLIP 2 head loads from it.
+def _s2(
+    image_size, patch_size, vh, vl, vhd, vm, embed, tl, th, tm, vocab=256000, seq=64
+):
+    return {
+        "image_size": image_size,
+        "patch_size": patch_size,
+        "vision_hidden_dim": vh,
+        "vision_num_layers": vl,
+        "vision_num_heads": vhd,
+        "vision_mlp_dim": vm,
+        "vocab_size": vocab,
+        "embed_dim": embed,
+        "text_hidden_dim": embed,
+        "text_num_layers": tl,
+        "text_num_heads": th,
+        "text_mlp_dim": tm,
+        "max_seq_len": seq,
+    }
+
+
+SIGLIP2_RECIPES = {
+    "siglip2_base_p16_224": _s2(224, 16, 768, 12, 12, 3072, 768, 12, 12, 3072),
+    "siglip2_base_p16_256": _s2(256, 16, 768, 12, 12, 3072, 768, 12, 12, 3072),
+    "siglip2_base_p16_384": _s2(384, 16, 768, 12, 12, 3072, 768, 12, 12, 3072),
+    "siglip2_base_p16_512": _s2(512, 16, 768, 12, 12, 3072, 768, 12, 12, 3072),
+    "siglip2_base_p32_256": _s2(256, 32, 768, 12, 12, 3072, 768, 12, 12, 3072),
+    "siglip2_large_p16_256": _s2(256, 16, 1024, 24, 16, 4096, 1024, 24, 16, 4096),
+    "siglip2_large_p16_384": _s2(384, 16, 1024, 24, 16, 4096, 1024, 24, 16, 4096),
+    "siglip2_large_p16_512": _s2(512, 16, 1024, 24, 16, 4096, 1024, 24, 16, 4096),
+    "siglip2_so400m_p14_224": _s2(224, 14, 1152, 27, 16, 4304, 1152, 27, 16, 4304),
+    "siglip2_so400m_p14_384": _s2(384, 14, 1152, 27, 16, 4304, 1152, 27, 16, 4304),
+    "siglip2_so400m_p16_256": _s2(256, 16, 1152, 27, 16, 4304, 1152, 27, 16, 4304),
+    "siglip2_so400m_p16_384": _s2(384, 16, 1152, 27, 16, 4304, 1152, 27, 16, 4304),
+    "siglip2_so400m_p16_512": _s2(512, 16, 1152, 27, 16, 4304, 1152, 27, 16, 4304),
+}
+
+
 if __name__ == "__main__":
     from transformers import SiglipModel
 
@@ -41,7 +81,7 @@ if __name__ == "__main__":
         hf_model = SiglipModel.from_pretrained(hf_id).eval()
         state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = SigLIP2ZeroShotClassify.from_weights(variant, load_weights=False)
+        keras_model = SigLIP2ZeroShotClassify(**SIGLIP2_RECIPES[variant])
         transfer_siglip2_weights(keras_model, state)
 
         total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)

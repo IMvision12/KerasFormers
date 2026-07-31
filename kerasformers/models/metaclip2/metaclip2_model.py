@@ -11,8 +11,22 @@ from kerasformers.models.clip.clip_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .metaclip2_config import METACLIP2_CONFIG, METACLIP2_WEIGHTS_URLS
+from .metaclip2_config import MetaClip2Config
 from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
+
+# The full MetaClip2Model plus its task heads (vision / text / zero-shot /
+# classify) all load from one repo per variant, whose kf_config.json declares the
+# canonical MetaClip2ZeroShotClassify. Listing them as siblings lets any head load
+# that repo.
+METACLIP2_HUB_SIBLINGS = frozenset(
+    {
+        "MetaClip2Model",
+        "MetaClip2VisionModel",
+        "MetaClip2TextModel",
+        "MetaClip2ZeroShotClassify",
+        "MetaClip2ImageClassify",
+    }
+)
 
 
 def quick_gelu(x):
@@ -287,15 +301,19 @@ class MetaClip2VisionModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"MetaClip2VisionModel"``.
     """
 
-    BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MetaClip2Config
+    HUB_REPO_SIBLINGS = METACLIP2_HUB_SIBLINGS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full MetaClip2Model;
+        # build it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = MetaClip2Model.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MetaClip2Model.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -449,15 +467,19 @@ class MetaClip2TextModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"MetaClip2TextModel"``.
     """
 
-    BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MetaClip2Config
+    HUB_REPO_SIBLINGS = METACLIP2_HUB_SIBLINGS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full MetaClip2Model;
+        # build it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = MetaClip2Model.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MetaClip2Model.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -594,8 +616,10 @@ class MetaClip2Model(FunctionalBaseModel):
       - https://huggingface.co/docs/transformers/model_doc/metaclip_2
     """
 
-    BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MetaClip2Config
+    HUB_REPO_SIBLINGS = METACLIP2_HUB_SIBLINGS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -783,8 +807,10 @@ class MetaClip2ZeroShotClassify(FunctionalBaseModel):
     >>> MetaClip2ZeroShotClassify.from_weights("hf:facebook/metaclip-2-worldwide-b32")
     """
 
-    BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MetaClip2Config
+    HUB_REPO_SIBLINGS = METACLIP2_HUB_SIBLINGS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
@@ -913,15 +939,19 @@ class MetaClip2ImageClassify(FunctionalBaseModel):
     ``num_classes`` logits.
     """
 
-    BASE_MODEL_CONFIG = METACLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = METACLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MetaClip2Config
+    HUB_REPO_SIBLINGS = METACLIP2_HUB_SIBLINGS
     HF_MODEL_TYPE = "metaclip_2"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full MetaClip2Model;
+        # build it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = MetaClip2Model.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MetaClip2Model.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model

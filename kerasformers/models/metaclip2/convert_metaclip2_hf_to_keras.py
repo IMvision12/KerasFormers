@@ -15,7 +15,19 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.metaclip2 import MetaClip2ZeroShotClassify
-from kerasformers.models.metaclip2.metaclip2_config import METACLIP2_WEIGHTS_URLS
+
+# l14 / huge / giant weights are not hosted (a single token-embedding tensor
+# exceeds GitHub's 2 GiB asset limit); they convert on the fly via
+# load_and_convert_from_hf, so the converter skips them.
+METACLIP2_ON_THE_FLY = frozenset(
+    {
+        "metaclip2_worldwide_l14_224",
+        "metaclip2_worldwide_huge_quickgelu",
+        "metaclip2_worldwide_huge_378",
+        "metaclip2_worldwide_giant_224",
+        "metaclip2_worldwide_giant_378",
+    }
+)
 
 weight_name_mapping = {
     "_": ".",
@@ -168,16 +180,93 @@ def transfer_metaclip2_image_classify_weights(keras_model, hf_state_dict):
         transfer_weights(keras_weight_name, keras_weight, tw)
 
 
+# Per-variant recipes (relocated from metaclip2_config.py). The kerasformers repos
+# hold a MetaClip2ZeroShotClassify checkpoint; its kf_config.json declares
+# MetaClip2ZeroShotClassify and every MetaCLIP 2 head loads from it.
+def _mc2(embed, image_size, vl, vhd, vp, vh, vocab, th, thn, tl, act, seq=77, eos=None):
+    r = {
+        "embed_dim": embed,
+        "image_size": image_size,
+        "vision_num_layers": vl,
+        "vision_hidden_dim": vhd,
+        "vision_patch_size": vp,
+        "vision_num_heads": vh,
+        "max_seq_len": seq,
+        "vocab_size": vocab,
+        "text_hidden_dim": th,
+        "text_num_heads": thn,
+        "text_num_layers": tl,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
+        "hidden_act": act,
+    }
+    if eos is not None:
+        r["eos_token_id"] = eos
+    return r
+
+
+METACLIP2_RECIPES = {
+    "metaclip2_worldwide_s16_224": _mc2(
+        384, 224, 12, 384, 16, 6, 901629, 384, 6, 12, "gelu"
+    ),
+    "metaclip2_worldwide_s16_384": _mc2(
+        384, 384, 12, 384, 16, 6, 901629, 384, 6, 12, "gelu"
+    ),
+    "metaclip2_worldwide_m16_224": _mc2(
+        512, 224, 12, 512, 16, 8, 901629, 512, 8, 12, "gelu"
+    ),
+    "metaclip2_worldwide_m16_384": _mc2(
+        512, 384, 12, 512, 16, 8, 901629, 512, 8, 12, "gelu"
+    ),
+    "metaclip2_worldwide_b16_224": _mc2(
+        512, 224, 12, 768, 16, 12, 901629, 512, 8, 12, "gelu"
+    ),
+    "metaclip2_worldwide_b16_384": _mc2(
+        512, 384, 12, 768, 16, 12, 901629, 512, 8, 12, "gelu"
+    ),
+    "metaclip2_worldwide_b32_224": _mc2(
+        512, 224, 12, 768, 32, 12, 901629, 512, 8, 12, "gelu"
+    ),
+    "metaclip2_worldwide_b32_384": _mc2(
+        512, 384, 12, 768, 32, 12, 901629, 512, 8, 12, "gelu"
+    ),
+    "metaclip2_worldwide_l14_224": _mc2(
+        768, 224, 24, 1024, 14, 16, 901629, 768, 12, 12, "gelu"
+    ),
+    "metaclip2_worldwide_huge_quickgelu": _mc2(
+        1024, 224, 32, 1280, 14, 16, 901629, 1024, 16, 24, "quick_gelu"
+    ),
+    "metaclip2_worldwide_huge_378": _mc2(
+        1024, 378, 32, 1280, 14, 16, 901629, 1024, 16, 24, "gelu"
+    ),
+    "metaclip2_worldwide_giant_224": {
+        **_mc2(1280, 224, 48, 1664, 14, 16, 901629, 1280, 20, 32, "gelu"),
+        "vision_mlp_ratio": 8192 / 1664,
+        "text_mlp_ratio": 5120 / 1280,
+    },
+    "metaclip2_worldwide_giant_378": {
+        **_mc2(1280, 378, 48, 1664, 14, 16, 901629, 1280, 20, 32, "gelu"),
+        "vision_mlp_ratio": 8192 / 1664,
+        "text_mlp_ratio": 5120 / 1280,
+    },
+    "metaclip2_mt5_worldwide_s16_224": _mc2(
+        384, 224, 12, 384, 16, 6, 250000, 384, 6, 12, "gelu", eos=1
+    ),
+    "metaclip2_mt5_worldwide_m16_224": _mc2(
+        512, 224, 12, 512, 16, 8, 250000, 512, 8, 12, "gelu", eos=1
+    ),
+    "metaclip2_mt5_worldwide_b32_224": _mc2(
+        512, 224, 12, 768, 32, 12, 250000, 512, 8, 12, "gelu", eos=1
+    ),
+}
+
+
 if __name__ == "__main__":
     import torch
     from transformers import AutoModel
 
     for variant, hf_id in HF_REPO.items():
-        # Skip on-the-fly variants (l14 / huge / giant): their weights are not
-        # hosted: a single token-embedding tensor exceeds GitHub's 2 GiB asset
-        # limit, so they're converted at runtime via load_and_convert_from_hf.
-        entry = METACLIP2_WEIGHTS_URLS.get(variant, {})
-        if isinstance(entry, dict) and "hf_id" in entry:
+        if variant in METACLIP2_ON_THE_FLY:
             print(f"\nSkipping {variant} (on-the-fly HF conversion, not hosted)")
             continue
 
@@ -188,9 +277,7 @@ if __name__ == "__main__":
         hf_model = AutoModel.from_pretrained(hf_id).eval()
         state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = MetaClip2ZeroShotClassify.from_weights(
-            variant, load_weights=False
-        )
+        keras_model = MetaClip2ZeroShotClassify(**METACLIP2_RECIPES[variant])
         transfer_metaclip2_weights(keras_model, state)
 
         total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)
