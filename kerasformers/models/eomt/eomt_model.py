@@ -6,7 +6,7 @@ from kerasformers.base.base_model import hf_num_classes
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .eomt_config import EOMT_CONFIG, EOMT_WEIGHTS_URLS
+from .eomt_config import EoMTConfig
 from .eomt_layers import (
     EoMTAttention,
     EoMTEmbeddings,
@@ -393,7 +393,7 @@ class EoMTModel(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = EOMT_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "eomt"
 
@@ -546,8 +546,12 @@ class EoMTUniversalSegment(FunctionalBaseModel):
         See :class:`EoMTModel` for the remaining args.
     """
 
-    BASE_MODEL_CONFIG = EOMT_CONFIG
-    BASE_WEIGHT_CONFIG = EOMT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = EoMTConfig
+    # Weights load by Hub repo id, e.g.
+    # from_weights("kerasformers/eomt_large_coco_panoptic_640"), via kf_config.json
+    # on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "eomt"
 
     @classmethod

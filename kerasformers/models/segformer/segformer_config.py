@@ -1,135 +1,48 @@
-SEGFORMER_CONFIG = {
-    "segformer_b0_cityscapes_1024": {
-        "embed_dim": [32, 64, 160, 256],
-        "depths": [2, 2, 2, 2],
-        "decode_head_dim": 256,
-        "num_classes": 19,
-        "image_size": 1024,
-    },
-    "segformer_b0_cityscapes_768": {
-        "embed_dim": [32, 64, 160, 256],
-        "depths": [2, 2, 2, 2],
-        "decode_head_dim": 256,
-        "num_classes": 19,
-        "image_size": 768,
-    },
-    "segformer_b0_ade_512": {
-        "embed_dim": [32, 64, 160, 256],
-        "depths": [2, 2, 2, 2],
-        "decode_head_dim": 256,
-        "num_classes": 150,
-        "image_size": 512,
-    },
-    "segformer_b1_cityscapes_1024": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [2, 2, 2, 2],
-        "decode_head_dim": 256,
-        "num_classes": 19,
-        "image_size": 1024,
-    },
-    "segformer_b1_ade_512": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [2, 2, 2, 2],
-        "decode_head_dim": 256,
-        "num_classes": 150,
-        "image_size": 512,
-    },
-    "segformer_b2_cityscapes_1024": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 4, 6, 3],
-        "decode_head_dim": 768,
-        "num_classes": 19,
-        "image_size": 1024,
-    },
-    "segformer_b2_ade_512": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 4, 6, 3],
-        "decode_head_dim": 768,
-        "num_classes": 150,
-        "image_size": 512,
-    },
-    "segformer_b3_cityscapes_1024": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 4, 18, 3],
-        "decode_head_dim": 768,
-        "num_classes": 19,
-        "image_size": 1024,
-    },
-    "segformer_b3_ade_512": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 4, 18, 3],
-        "decode_head_dim": 768,
-        "num_classes": 150,
-        "image_size": 512,
-    },
-    "segformer_b4_cityscapes_1024": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 8, 27, 3],
-        "decode_head_dim": 768,
-        "num_classes": 19,
-        "image_size": 1024,
-    },
-    "segformer_b4_ade_512": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 8, 27, 3],
-        "decode_head_dim": 768,
-        "num_classes": 150,
-        "image_size": 512,
-    },
-    "segformer_b5_cityscapes_1024": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 6, 40, 3],
-        "decode_head_dim": 768,
-        "num_classes": 19,
-        "image_size": 1024,
-    },
-    "segformer_b5_ade_640": {
-        "embed_dim": [64, 128, 320, 512],
-        "depths": [3, 6, 40, 3],
-        "decode_head_dim": 768,
-        "num_classes": 150,
-        "image_size": 640,
-    },
-}
+from kerasformers.base import BaseConfig
 
-SEGFORMER_WEIGHTS_URLS = {
-    "segformer_b0_cityscapes_1024": {
-        "url": "https://huggingface.co/kerasformers/segformer_b0_cityscapes_1024",
-    },
-    "segformer_b0_cityscapes_768": {
-        "url": "https://huggingface.co/kerasformers/segformer_b0_cityscapes_768",
-    },
-    "segformer_b0_ade_512": {
-        "url": "https://huggingface.co/kerasformers/segformer_b0_ade_512",
-    },
-    "segformer_b1_cityscapes_1024": {
-        "url": "https://huggingface.co/kerasformers/segformer_b1_cityscapes_1024",
-    },
-    "segformer_b1_ade_512": {
-        "url": "https://huggingface.co/kerasformers/segformer_b1_ade_512",
-    },
-    "segformer_b2_cityscapes_1024": {
-        "url": "https://huggingface.co/kerasformers/segformer_b2_cityscapes_1024",
-    },
-    "segformer_b2_ade_512": {
-        "url": "https://huggingface.co/kerasformers/segformer_b2_ade_512",
-    },
-    "segformer_b3_cityscapes_1024": {
-        "url": "https://huggingface.co/kerasformers/segformer_b3_cityscapes_1024",
-    },
-    "segformer_b3_ade_512": {
-        "url": "https://huggingface.co/kerasformers/segformer_b3_ade_512",
-    },
-    "segformer_b4_cityscapes_1024": {
-        "url": "https://huggingface.co/kerasformers/segformer_b4_cityscapes_1024",
-    },
-    "segformer_b4_ade_512": {
-        "url": "https://huggingface.co/kerasformers/segformer_b4_ade_512",
-    },
-    "segformer_b5_cityscapes_1024": {
-        "url": "https://huggingface.co/kerasformers/segformer_b5_cityscapes_1024",
-    },
-    "segformer_b5_ade_640": {
-        "url": "https://huggingface.co/kerasformers/segformer_b5_ade_640",
-    },
-}
+
+class SegformerConfig(BaseConfig):
+    r"""Configuration for [`SegFormerSemanticSegment`], the SegFormer segmenter.
+
+    Instantiating it with the defaults yields a configuration close to the
+    SegFormer-B0 (ADE20K) style. Fields mirror the model constructor and
+    serialize flat to a repo's `kf_config.json`.
+
+    Args:
+        embed_dim (`tuple`, *optional*, defaults to `(32, 64, 160, 256)`):
+            Per-stage hidden dimensions for the four MiT backbone stages.
+        depths (`tuple`, *optional*, defaults to `(2, 2, 2, 2)`):
+            Per-stage transformer-block counts.
+        decode_head_dim (`int`, *optional*, defaults to 256):
+            Channel width of the all-MLP decode head. `256` for B0/B1,
+            `768` for B2-B5.
+        dropout_rate (`float`, *optional*, defaults to 0.1):
+            Dropout applied before the final classifier.
+        num_classes (`int`, *optional*, defaults to 19):
+            Number of segmentation classes (Cityscapes: 19, ADE20K: 150).
+        image_size (`int`, *optional*, defaults to 512):
+            Square input resolution the model is built for.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.segformer import SegformerConfig, SegFormerSemanticSegment
+
+    >>> # Initializing a SegFormer kerasformers/segformer_b0_ade_512 style configuration
+    >>> configuration = SegformerConfig()
+
+    >>> # Initializing a model (with random weights) from that configuration
+    >>> model = SegFormerSemanticSegment(configuration)
+
+    >>> # Accessing the model configuration
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "segformer"
+
+    embed_dim: tuple = (32, 64, 160, 256)
+    depths: tuple = (2, 2, 2, 2)
+    decode_head_dim: int = 256
+    dropout_rate: float = 0.1
+    num_classes: int = 19
+    image_size: int = 512

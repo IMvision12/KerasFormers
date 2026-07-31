@@ -8,7 +8,65 @@ from tqdm import tqdm
 
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 from kerasformers.models.mask2former import Mask2FormerUniversalSegment
-from kerasformers.models.mask2former.mask2former_config import MASK2FORMER_WEIGHTS_URLS
+
+# Per-variant recipes (relocated from mask2former_config.py). Models load from
+# the Hub by repo id; these build the arch for conversion + drive the backfill.
+MASK2FORMER_VARIANTS = {
+    "mask2former-swin-tiny-coco-instance": {
+        "backbone_embed_dim": 96,
+        "backbone_depths": (2, 2, 6, 2),
+        "backbone_num_heads": (3, 6, 12, 24),
+        "backbone_window_size": 7,
+        "num_queries": 100,
+        "num_classes": 80,
+        "image_size": 384,
+    },
+    "mask2former-swin-small-coco-instance": {
+        "backbone_embed_dim": 96,
+        "backbone_depths": (2, 2, 18, 2),
+        "backbone_num_heads": (3, 6, 12, 24),
+        "backbone_window_size": 7,
+        "num_queries": 100,
+        "num_classes": 80,
+        "image_size": 384,
+    },
+    "mask2former-swin-base-coco-instance": {
+        "backbone_embed_dim": 128,
+        "backbone_depths": (2, 2, 18, 2),
+        "backbone_num_heads": (4, 8, 16, 32),
+        "backbone_window_size": 12,
+        "num_queries": 100,
+        "num_classes": 80,
+        "image_size": 384,
+    },
+    "mask2former-swin-large-coco-instance": {
+        "backbone_embed_dim": 192,
+        "backbone_depths": (2, 2, 18, 2),
+        "backbone_num_heads": (6, 12, 24, 48),
+        "backbone_window_size": 12,
+        "num_queries": 200,
+        "num_classes": 80,
+        "image_size": 384,
+    },
+    "mask2former-swin-tiny-ade-semantic": {
+        "backbone_embed_dim": 96,
+        "backbone_depths": (2, 2, 6, 2),
+        "backbone_num_heads": (3, 6, 12, 24),
+        "backbone_window_size": 7,
+        "num_queries": 100,
+        "num_classes": 150,
+        "image_size": 512,
+    },
+    "mask2former-swin-tiny-coco-panoptic": {
+        "backbone_embed_dim": 96,
+        "backbone_depths": (2, 2, 6, 2),
+        "backbone_num_heads": (3, 6, 12, 24),
+        "backbone_window_size": 7,
+        "num_queries": 100,
+        "num_classes": 133,
+        "image_size": 384,
+    },
+}
 
 
 def transfer_mask2former_weights(keras_model, hf_state_dict):
@@ -313,7 +371,7 @@ def transfer_mask2former_weights(keras_model, hf_state_dict):
 
 MASK2FORMER_CONVERSION_CONFIG: List[Dict[str, Any]] = [
     {"variant": variant, "hf_id": f"facebook/{variant}"}
-    for variant in MASK2FORMER_WEIGHTS_URLS
+    for variant in MASK2FORMER_VARIANTS
 ]
 
 

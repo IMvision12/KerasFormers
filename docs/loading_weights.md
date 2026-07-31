@@ -130,18 +130,21 @@ model = ResNetImageClassify.from_weights("hf:<user>/my-resnet", variant="resnet5
 
 ## 3. Release weights
 
-**Used by the vision, detection, segmentation, and speech models.** These variants carry a
+**Used by the vision and speech models.** These variants carry a
 URL to a `.weights.h5` already converted to Keras format and published on the project's
 GitHub Releases:
 
 ```python
-SEGFORMER_WEIGHTS_URLS["segformer_b0_cityscapes_1024"]
-# {'url': 'https://github.com/IMvision12/KerasFormers/releases/download/segformer/...h5'}
+model = VGGImageClassify.from_weights("vgg16")
 ```
 
-```python
-model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")
-```
+> **Detection and segmentation models load by Hub repo id instead** (see way 1): the
+> repo's `kf_config.json` rebuilds the model and its weights come from the same repo,
+> so nothing about the variant is hardcoded in the package.
+>
+> ```python
+> model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
+> ```
 
 Nothing is converted at load time: the file is downloaded once, cached in `~/.downloads`,
 and handed to Keras's own `load_weights`. That makes this the fastest of the three, which is

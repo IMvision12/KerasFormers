@@ -4,7 +4,7 @@ from keras import layers, ops, utils
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .deeplabv3_config import DEEPLABV3_CONFIG, DEEPLABV3_WEIGHTS_URLS
+from .deeplabv3_config import DeepLabV3Config
 
 
 def deeplabv3_dilated_resnet_backbone(
@@ -343,7 +343,7 @@ class DeepLabV3Model(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = DEEPLABV3_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
@@ -422,8 +422,9 @@ class DeepLabV3SemanticSegment(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = DEEPLABV3_CONFIG
-    BASE_WEIGHT_CONFIG = DEEPLABV3_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = DeepLabV3Config
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
     def __init__(

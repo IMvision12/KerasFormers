@@ -258,7 +258,6 @@ def transfer_oneformer_weights(keras_model, hf_state_dict):
 
 if __name__ == "__main__":
     import gc
-    import os
 
     import keras
     import numpy as np
@@ -267,7 +266,6 @@ if __name__ == "__main__":
     from PIL import Image
 
     from kerasformers.models.oneformer import OneFormerUniversalSegment
-    from kerasformers.models.oneformer.oneformer_config import ONEFORMER_WEIGHTS_URLS
 
     HF_SOURCES = {
         "oneformer_ade20k_swin_tiny": "shi-labs/oneformer_ade20k_swin_tiny",
@@ -282,9 +280,8 @@ if __name__ == "__main__":
         a, b = a.astype("float64").ravel(), b.astype("float64").ravel()
         return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
 
-    for variant, meta in ONEFORMER_WEIGHTS_URLS.items():
-        hf_id = HF_SOURCES[variant]
-        out_path = os.path.basename(meta["url"])
+    for variant, hf_id in HF_SOURCES.items():
+        out_path = variant
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         model = OneFormerUniversalSegment.from_weights("hf:" + hf_id)

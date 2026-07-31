@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .oneformer_config import ONEFORMER_CONFIG, ONEFORMER_WEIGHTS_URLS
+from .oneformer_config import OneFormerConfig
 from .oneformer_layers import (
     OneFormerCrossAttention,
     OneFormerDeformableAttention,
@@ -558,7 +558,7 @@ class OneFormerModel(FunctionalBaseModel):
     - [OneFormer: One Transformer to Rule Universal Image Segmentation](https://arxiv.org/abs/2211.06220)
     """
 
-    BASE_MODEL_CONFIG = ONEFORMER_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "oneformer"
 
     @classmethod
@@ -701,7 +701,11 @@ class OneFormerUniversalSegment(OneFormerModel):
     the other segmentation classes in kerasformers.
     """
 
-    BASE_WEIGHT_CONFIG = ONEFORMER_WEIGHTS_URLS
+    config_class = OneFormerConfig
+    # Weights load by Hub repo id, e.g.
+    # from_weights("kerasformers/oneformer_ade20k_swin_tiny"), via kf_config.json
+    # on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "oneformer"
 
     def __init__(self, name="OneFormerUniversalSegment", **kwargs):

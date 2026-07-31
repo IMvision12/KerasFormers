@@ -5,7 +5,7 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .maskformer_config import MASKFORMER_CONFIG, MASKFORMER_WEIGHTS_URLS
+from .maskformer_config import MaskFormerConfig
 from .maskformer_layers import (
     MaskFormerDetrAttention,
     MaskFormerExpandQueryEmbedding,
@@ -456,7 +456,7 @@ class MaskFormerModel(FunctionalBaseModel):
       Segmentation](https://arxiv.org/abs/2107.06278)
     """
 
-    BASE_MODEL_CONFIG = MASKFORMER_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "maskformer"
 
     @classmethod
@@ -592,8 +592,12 @@ class MaskFormerUniversalSegment(FunctionalBaseModel):
       Segmentation](https://arxiv.org/abs/2107.06278)
     """
 
-    BASE_MODEL_CONFIG = MASKFORMER_CONFIG
-    BASE_WEIGHT_CONFIG = MASKFORMER_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = MaskFormerConfig
+    # Weights load by Hub repo id, e.g.
+    # from_weights("kerasformers/maskformer-swin-tiny-ade"), via kf_config.json
+    # on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "maskformer"
 
     def __init__(

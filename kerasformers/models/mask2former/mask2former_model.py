@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .mask2former_config import MASK2FORMER_CONFIG, MASK2FORMER_WEIGHTS_URLS
+from .mask2former_config import Mask2FormerConfig
 from .mask2former_layers import (
     Mask2FormerCrossAttention,
     Mask2FormerDeformableAttention,
@@ -525,7 +525,7 @@ class Mask2FormerModel(FunctionalBaseModel):
     - [Masked-attention Mask Transformer for Universal Image Segmentation](https://arxiv.org/abs/2112.01527)
     """
 
-    BASE_MODEL_CONFIG = MASK2FORMER_CONFIG
+    BASE_MODEL_CONFIG = None
     HF_MODEL_TYPE = "mask2former"
 
     @classmethod
@@ -673,7 +673,11 @@ class Mask2FormerUniversalSegment(Mask2FormerModel):
     API symmetry with the other segmentation classes in kerasformers.
     """
 
-    BASE_WEIGHT_CONFIG = MASK2FORMER_WEIGHTS_URLS
+    config_class = Mask2FormerConfig
+    # Weights load by Hub repo id, e.g.
+    # from_weights("kerasformers/mask2former-swin-tiny-coco-instance"), via
+    # kf_config.json on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "mask2former"
 
     def __init__(self, name="Mask2FormerUniversalSegment", **kwargs):
