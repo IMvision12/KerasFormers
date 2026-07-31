@@ -10,10 +10,7 @@ from kerasformers.models.vit.vit_layers import (
 )
 from kerasformers.utils import standardize_input_shape
 
-from .depth_anything_v1_config import (
-    DEPTHANYTHINGV1_CONFIG,
-    DEPTHANYTHINGV1_WEIGHTS_URLS,
-)
+from .depth_anything_v1_config import DepthAnythingV1Config
 
 
 def depth_anything_v1_aligned_bilinear_resize(x, target_h, target_w, data_format):
@@ -666,7 +663,7 @@ class DepthAnythingV1Model(FunctionalBaseModel):
           Unlabeled Data <https://arxiv.org/abs/2401.10891>`_
     """
 
-    BASE_MODEL_CONFIG = DEPTHANYTHINGV1_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "depth_anything"
 
@@ -832,8 +829,9 @@ class DepthAnythingV1DepthEstimation(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = DEPTHANYTHINGV1_CONFIG
-    BASE_WEIGHT_CONFIG = DEPTHANYTHINGV1_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = DepthAnythingV1Config
     HF_MODEL_TYPE = "depth_anything"
 
     @classmethod

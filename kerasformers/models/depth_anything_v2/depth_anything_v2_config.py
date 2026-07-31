@@ -1,125 +1,27 @@
-DEPTHANYTHINGV2_CONFIG = {
-    "depth_anything_v2_small": {
-        "backbone_dim": 384,
-        "backbone_depth": 12,
-        "backbone_num_heads": 6,
-        "out_indices": [3, 6, 9, 12],
-        "neck_hidden_sizes": [48, 96, 192, 384],
-        "fusion_hidden_size": 64,
-        "reassemble_factors": [4, 2, 1, 0.5],
-    },
-    "depth_anything_v2_base": {
-        "backbone_dim": 768,
-        "backbone_depth": 12,
-        "backbone_num_heads": 12,
-        "out_indices": [3, 6, 9, 12],
-        "neck_hidden_sizes": [96, 192, 384, 768],
-        "fusion_hidden_size": 128,
-        "reassemble_factors": [4, 2, 1, 0.5],
-    },
-    "depth_anything_v2_large": {
-        "backbone_dim": 1024,
-        "backbone_depth": 24,
-        "backbone_num_heads": 16,
-        "out_indices": [5, 12, 18, 24],
-        "neck_hidden_sizes": [256, 512, 1024, 1024],
-        "fusion_hidden_size": 256,
-        "reassemble_factors": [4, 2, 1, 0.5],
-    },
-    "depth_anything_v2_metric_indoor_small": {
-        "backbone_dim": 384,
-        "backbone_depth": 12,
-        "backbone_num_heads": 6,
-        "out_indices": [3, 6, 9, 12],
-        "neck_hidden_sizes": [48, 96, 192, 384],
-        "fusion_hidden_size": 64,
-        "reassemble_factors": [4, 2, 1, 0.5],
-        "depth_estimation_type": "metric",
-        "max_depth": 20.0,
-    },
-    "depth_anything_v2_metric_indoor_base": {
-        "backbone_dim": 768,
-        "backbone_depth": 12,
-        "backbone_num_heads": 12,
-        "out_indices": [3, 6, 9, 12],
-        "neck_hidden_sizes": [96, 192, 384, 768],
-        "fusion_hidden_size": 128,
-        "reassemble_factors": [4, 2, 1, 0.5],
-        "depth_estimation_type": "metric",
-        "max_depth": 20.0,
-    },
-    "depth_anything_v2_metric_indoor_large": {
-        "backbone_dim": 1024,
-        "backbone_depth": 24,
-        "backbone_num_heads": 16,
-        "out_indices": [5, 12, 18, 24],
-        "neck_hidden_sizes": [256, 512, 1024, 1024],
-        "fusion_hidden_size": 256,
-        "reassemble_factors": [4, 2, 1, 0.5],
-        "depth_estimation_type": "metric",
-        "max_depth": 20.0,
-    },
-    "depth_anything_v2_metric_outdoor_small": {
-        "backbone_dim": 384,
-        "backbone_depth": 12,
-        "backbone_num_heads": 6,
-        "out_indices": [3, 6, 9, 12],
-        "neck_hidden_sizes": [48, 96, 192, 384],
-        "fusion_hidden_size": 64,
-        "reassemble_factors": [4, 2, 1, 0.5],
-        "depth_estimation_type": "metric",
-        "max_depth": 80.0,
-    },
-    "depth_anything_v2_metric_outdoor_base": {
-        "backbone_dim": 768,
-        "backbone_depth": 12,
-        "backbone_num_heads": 12,
-        "out_indices": [3, 6, 9, 12],
-        "neck_hidden_sizes": [96, 192, 384, 768],
-        "fusion_hidden_size": 128,
-        "reassemble_factors": [4, 2, 1, 0.5],
-        "depth_estimation_type": "metric",
-        "max_depth": 80.0,
-    },
-    "depth_anything_v2_metric_outdoor_large": {
-        "backbone_dim": 1024,
-        "backbone_depth": 24,
-        "backbone_num_heads": 16,
-        "out_indices": [5, 12, 18, 24],
-        "neck_hidden_sizes": [256, 512, 1024, 1024],
-        "fusion_hidden_size": 256,
-        "reassemble_factors": [4, 2, 1, 0.5],
-        "depth_estimation_type": "metric",
-        "max_depth": 80.0,
-    },
-}
+from kerasformers.models.depth_anything_v1.depth_anything_v1_config import (
+    DepthAnythingV1Config,
+)
 
-DEPTHANYTHINGV2_WEIGHTS_URLS = {
-    "depth_anything_v2_small": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_small",
-    },
-    "depth_anything_v2_base": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_base",
-    },
-    "depth_anything_v2_large": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_large",
-    },
-    "depth_anything_v2_metric_indoor_small": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_metric_indoor_small",
-    },
-    "depth_anything_v2_metric_indoor_base": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_metric_indoor_base",
-    },
-    "depth_anything_v2_metric_indoor_large": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_metric_indoor_large",
-    },
-    "depth_anything_v2_metric_outdoor_small": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_metric_outdoor_small",
-    },
-    "depth_anything_v2_metric_outdoor_base": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_metric_outdoor_base",
-    },
-    "depth_anything_v2_metric_outdoor_large": {
-        "url": "https://huggingface.co/kerasformers/depth_anything_v2_metric_outdoor_large",
-    },
-}
+
+class DepthAnythingV2Config(DepthAnythingV1Config):
+    r"""Configuration for [`DepthAnythingV2DepthEstimation`], the Depth Anything V2
+    monocular depth estimator.
+
+    V2 reuses the V1 architecture end-to-end (only the training data and weights
+    differ), so this config inherits every field from [`DepthAnythingV1Config`].
+    The defaults describe the V2 Small relative-depth variant; the metric
+    fine-tunes override `depth_estimation_type="metric"` and `max_depth` (`20.0`
+    indoor, `80.0` outdoor). Fields serialize flat to a repo's `kf_config.json`.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.depth_anything_v2 import (
+    ...     DepthAnythingV2Config, DepthAnythingV2DepthEstimation)
+
+    >>> configuration = DepthAnythingV2Config()
+    >>> model = DepthAnythingV2DepthEstimation(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "depth_anything"

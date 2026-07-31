@@ -169,6 +169,32 @@ DINOV2_VARIANTS: List[Tuple[str, str]] = [
     ("dinov2_vitl14", "facebook/dinov2-large"),
 ]
 
+# Per-variant recipes (relocated from dino_v2_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the kf_config backfill.
+DINOV2_RECIPES = {
+    "dinov2_vits14": {
+        "patch_size": 14,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "layer_scale_init": 1.0,
+    },
+    "dinov2_vitb14": {
+        "patch_size": 14,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "layer_scale_init": 1.0,
+    },
+    "dinov2_vitl14": {
+        "patch_size": 14,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "layer_scale_init": 1.0,
+    },
+}
+
 
 if __name__ == "__main__":
     import torch
@@ -184,9 +210,8 @@ if __name__ == "__main__":
         hf_model = Dinov2Model.from_pretrained(hf_id, token=HF_TOKEN).eval()
         hf_state_dict = dict(hf_model.state_dict())
 
-        keras_model = DinoV2Model.from_weights(
-            variant,
-            load_weights=False,
+        keras_model = DinoV2Model(
+            **DINOV2_RECIPES[variant],
             image_size=224,
             include_normalization=False,
         )

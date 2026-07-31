@@ -39,6 +39,60 @@ DEPTH_ANYTHING_V2_VARIANTS: List[Tuple[str, str]] = [
     ),
 ]
 
+# Per-variant recipes (relocated from depth_anything_v2_config.py). Models load
+# from the Hub by repo id; these build the arch for conversion + drive the
+# kf_config backfill. The metric fine-tunes add depth_estimation_type + max_depth.
+_V2_SIZES = {
+    "small": {
+        "backbone_dim": 384,
+        "backbone_depth": 12,
+        "backbone_num_heads": 6,
+        "out_indices": (3, 6, 9, 12),
+        "neck_hidden_sizes": (48, 96, 192, 384),
+        "fusion_hidden_size": 64,
+        "reassemble_factors": (4, 2, 1, 0.5),
+    },
+    "base": {
+        "backbone_dim": 768,
+        "backbone_depth": 12,
+        "backbone_num_heads": 12,
+        "out_indices": (3, 6, 9, 12),
+        "neck_hidden_sizes": (96, 192, 384, 768),
+        "fusion_hidden_size": 128,
+        "reassemble_factors": (4, 2, 1, 0.5),
+    },
+    "large": {
+        "backbone_dim": 1024,
+        "backbone_depth": 24,
+        "backbone_num_heads": 16,
+        "out_indices": (5, 12, 18, 24),
+        "neck_hidden_sizes": (256, 512, 1024, 1024),
+        "fusion_hidden_size": 256,
+        "reassemble_factors": (4, 2, 1, 0.5),
+    },
+}
+
+
+def _v2_recipe(size, depth_estimation_type="relative", max_depth=None):
+    recipe = dict(_V2_SIZES[size])
+    if depth_estimation_type == "metric":
+        recipe["depth_estimation_type"] = "metric"
+        recipe["max_depth"] = max_depth
+    return recipe
+
+
+DEPTH_ANYTHING_V2_RECIPES = {
+    "depth_anything_v2_small": _v2_recipe("small"),
+    "depth_anything_v2_base": _v2_recipe("base"),
+    "depth_anything_v2_large": _v2_recipe("large"),
+    "depth_anything_v2_metric_indoor_small": _v2_recipe("small", "metric", 20.0),
+    "depth_anything_v2_metric_indoor_base": _v2_recipe("base", "metric", 20.0),
+    "depth_anything_v2_metric_indoor_large": _v2_recipe("large", "metric", 20.0),
+    "depth_anything_v2_metric_outdoor_small": _v2_recipe("small", "metric", 80.0),
+    "depth_anything_v2_metric_outdoor_base": _v2_recipe("base", "metric", 80.0),
+    "depth_anything_v2_metric_outdoor_large": _v2_recipe("large", "metric", 80.0),
+}
+
 
 if __name__ == "__main__":
     import torch
@@ -52,8 +106,8 @@ if __name__ == "__main__":
         hf_model = DepthAnythingForDepthEstimation.from_pretrained(hf_id).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model: keras.Model = DepthAnythingV2DepthEstimation.from_weights(
-            variant, load_weights=False, image_size=518
+        keras_model: keras.Model = DepthAnythingV2DepthEstimation(
+            **DEPTH_ANYTHING_V2_RECIPES[variant], image_size=518
         )
 
         transfer_depth_anything_weights(keras_model, hf_sd)

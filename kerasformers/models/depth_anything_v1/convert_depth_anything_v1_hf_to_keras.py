@@ -89,6 +89,39 @@ DEPTH_ANYTHING_V1_VARIANTS: List[Tuple[str, str]] = [
     ("depth_anything_large", "LiheYoung/depth-anything-large-hf"),
 ]
 
+# Per-variant recipes (relocated from depth_anything_v1_config.py). Models load
+# from the Hub by repo id; these build the arch for conversion + drive the
+# kf_config backfill.
+DEPTH_ANYTHING_V1_RECIPES = {
+    "depth_anything_small": {
+        "backbone_dim": 384,
+        "backbone_depth": 12,
+        "backbone_num_heads": 6,
+        "out_indices": (9, 10, 11, 12),
+        "neck_hidden_sizes": (48, 96, 192, 384),
+        "fusion_hidden_size": 64,
+        "reassemble_factors": (4, 2, 1, 0.5),
+    },
+    "depth_anything_base": {
+        "backbone_dim": 768,
+        "backbone_depth": 12,
+        "backbone_num_heads": 12,
+        "out_indices": (9, 10, 11, 12),
+        "neck_hidden_sizes": (96, 192, 384, 768),
+        "fusion_hidden_size": 128,
+        "reassemble_factors": (4, 2, 1, 0.5),
+    },
+    "depth_anything_large": {
+        "backbone_dim": 1024,
+        "backbone_depth": 24,
+        "backbone_num_heads": 16,
+        "out_indices": (21, 22, 23, 24),
+        "neck_hidden_sizes": (256, 512, 1024, 1024),
+        "fusion_hidden_size": 256,
+        "reassemble_factors": (4, 2, 1, 0.5),
+    },
+}
+
 
 if __name__ == "__main__":
     import torch
@@ -102,8 +135,8 @@ if __name__ == "__main__":
         hf_model = DepthAnythingForDepthEstimation.from_pretrained(hf_id).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model: keras.Model = DepthAnythingV1DepthEstimation.from_weights(
-            variant, load_weights=False, image_size=518
+        keras_model: keras.Model = DepthAnythingV1DepthEstimation(
+            **DEPTH_ANYTHING_V1_RECIPES[variant], image_size=518
         )
 
         transfer_depth_anything_weights(keras_model, hf_sd)
