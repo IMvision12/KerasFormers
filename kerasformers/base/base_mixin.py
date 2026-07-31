@@ -145,6 +145,10 @@ class WeightLoadingMixin:
     BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
+    # Typed BaseConfig subclass for this model (set by models that ship one).
+    # When present, a repo's flat kf_config.json is parsed through it, the model
+    # accepts a config object (``Model(config)``), and exposes ``self.config``.
+    config_class = None
 
     @classmethod
     def from_weights(
@@ -277,6 +281,17 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     quantization=quantization,
                     low_memory=low_memory,
                     low_disk=low_disk,
+                    **kwargs,
+                )
+            elif "/" in identifier:
+                # A bare Hub repo id ("kerasformers/detr-resnet-50"): rebuild from
+                # the repo's own kf_config.json and load its weights, no variant
+                # hardcoded in the package. Quantization / caching still run in the
+                # post-build steps below, exactly as for the release path.
+                model = cls.from_hub_repo(
+                    identifier,
+                    load_weights=load_weights,
+                    skip_mismatch=skip_mismatch,
                     **kwargs,
                 )
             else:
@@ -425,8 +440,10 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         if load_weights:
             if cls.BASE_WEIGHT_CONFIG is None or variant not in cls.BASE_WEIGHT_CONFIG:
                 raise ValueError(
-                    f"No release weights configured for variant '{variant}'. "
-                    f"Pass load_weights=False to build an untrained model."
+                    f"No release weights configured for variant '{variant}'. Load "
+                    f"pretrained weights by Hub repo id instead, e.g. "
+                    f"{cls.__name__}.from_weights('kerasformers/{variant}'), or pass "
+                    f"load_weights=False to build an untrained model."
                 )
             entry = cls.BASE_WEIGHT_CONFIG[variant]
             if isinstance(entry, dict):
@@ -488,6 +505,69 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     f"neither 'url' nor 'hf_id'."
                 )
 
+        return model
+
+    @classmethod
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        """Build + load a model from a Hub repo id carrying ``kf_config.json``.
+
+        The repo describes itself: ``kf_config.json`` names the class and the
+        constructor kwargs, and the weights live in the same repo
+        (``model.weights.h5`` / sharded ``model.weights.json``). This is the
+        loading path for ``from_weights("org/repo")``: nothing about the variant
+        is hardcoded in the package, so community fine-tunes of the same
+        architecture load the same way as the official weights.
+
+        Falls back to ``BASE_MODEL_CONFIG[variant]`` (variant = repo basename)
+        when the repo carries no ``kf_config.json`` yet, so a not-yet-backfilled
+        official repo still loads.
+        """
+        from kerasformers.conversion.kf_config import (
+            KF_METADATA_KEYS,
+            load_kf_config,
+            retuple,
+        )
+
+        repo_id = repo_id.rstrip("/")
+        variant = repo_id.rsplit("/", 1)[-1]
+        spec = load_kf_config(repo_id)
+        if spec is not None:
+            declared = spec.get("model_class")
+            if declared and declared != cls.__name__:
+                raise ValueError(
+                    f"'{repo_id}' kf_config.json declares model_class "
+                    f"'{declared}', but {cls.__name__}.from_weights() was called. "
+                    f"Load it with {declared}.from_weights('{repo_id}')."
+                )
+
+        if spec is not None and "config" in spec:
+            # legacy nested format: constructor kwargs under a "config" key.
+            config = retuple(spec["config"])
+        elif spec is not None:
+            # flat format: hyperparameters at the top level (transformers style).
+            fields = {k: v for k, v in spec.items() if k not in KF_METADATA_KEYS}
+            if cls.config_class is not None:
+                config = cls.config_class.from_dict(fields).constructor_kwargs()
+            else:
+                fields.pop("model_type", None)
+                config = retuple(fields)
+        elif cls.BASE_MODEL_CONFIG and variant in cls.BASE_MODEL_CONFIG:
+            config = dict(cls.BASE_MODEL_CONFIG[variant])
+        else:
+            raise ValueError(
+                f"Cannot load '{repo_id}': the repo has no kf_config.json and "
+                f"'{variant}' is not a known variant of {cls.__name__}. Pass a repo "
+                f"that carries kf_config.json."
+            )
+        config.update(kwargs)
+        model = cls(**config)
+
+        if load_weights:
+            if hasattr(model, "build_for_transfer") and not model.built:
+                model.build_for_transfer()
+            cls.load_weights_from_url(
+                model, f"https://huggingface.co/{repo_id}", skip_mismatch
+            )
         return model
 
     @classmethod
@@ -667,7 +747,34 @@ class PreprocessorMixin(keras.layers.Layer):
                     f"'hf:' prefix: {cls.__name__}.from_weights({repo!r})."
                 )
             return cls.from_hf(repo, **kwargs)
+        if "/" in identifier:
+            return cls.from_hub_repo(identifier, **kwargs)
         return cls.from_release(identifier, **kwargs)
+
+    @classmethod
+    def from_hub_repo(cls, repo_id, **kwargs):
+        """Build the preprocessor from a repo's ``kf_preprocessor.json``.
+
+        Mirrors the model's :meth:`WeightLoadingMixin.from_hub_repo`, so a
+        processor loads with the same repo id as its model
+        (``DETRImageProcessor.from_weights("kerasformers/detr-resnet-50")``).
+        When the repo carries no ``kf_preprocessor.json``, fall back to the
+        default-constructed processor.
+        """
+        from kerasformers.conversion.kf_config import (
+            KF_METADATA_KEYS,
+            load_kf_preprocessor,
+        )
+
+        spec = load_kf_preprocessor(repo_id.rstrip("/"))
+        if spec is None:
+            return cls(**kwargs)
+        if "config" in spec:
+            config = dict(spec["config"])  # legacy nested format
+        else:
+            config = {k: v for k, v in spec.items() if k not in KF_METADATA_KEYS}
+        config.update(kwargs)
+        return cls(**config)
 
     @classmethod
     def from_release(cls, variant, /, **kwargs):

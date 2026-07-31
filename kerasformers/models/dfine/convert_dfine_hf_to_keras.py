@@ -401,6 +401,87 @@ def transfer_dfine_weights(keras_model, state_dict):
         )
 
 
+# Per-variant recipes (relocated from dfine_config.py). Models load from the
+# Hub by repo id; these build the arch for conversion + drive the backfill.
+DFINE_VARIANTS = {
+    "dfine-nano": {
+        "stem_channels": (3, 16, 16),
+        "stage_in_channels": (16, 64, 256, 512),
+        "stage_mid_channels": (16, 32, 64, 128),
+        "stage_out_channels": (64, 256, 512, 1024),
+        "stage_num_blocks": (1, 1, 2, 1),
+        "stage_numb_of_layers": (3, 3, 3, 3),
+        "use_lab": True,
+        "encoder_in_channels": (512, 1024),
+        "encoder_hidden_dim": 128,
+        "hidden_dim": 128,
+        "decoder_num_layers": 3,
+        "decoder_n_points": [6, 6],
+        "hidden_expansion": 0.34,
+        "ccfm_num_blocks": 2,
+        "num_feature_levels": 2,
+        "feat_strides": (16, 32),
+        "encode_proj_layers": (1,),
+        "encoder_ffn_dim": 512,
+        "decoder_ffn_dim": 512,
+    },
+    "dfine-small": {
+        "stem_channels": (3, 16, 16),
+        "stage_in_channels": (16, 64, 256, 512),
+        "stage_mid_channels": (16, 32, 64, 128),
+        "stage_out_channels": (64, 256, 512, 1024),
+        "stage_num_blocks": (1, 1, 2, 1),
+        "stage_numb_of_layers": (3, 3, 3, 3),
+        "use_lab": True,
+        "encoder_in_channels": (256, 512, 1024),
+        "decoder_num_layers": 3,
+        "decoder_n_points": [3, 6, 3],
+        "hidden_expansion": 0.5,
+    },
+    "dfine-medium": {
+        "stem_channels": (3, 24, 32),
+        "stage_in_channels": (32, 96, 384, 768),
+        "stage_mid_channels": (32, 64, 128, 256),
+        "stage_out_channels": (96, 384, 768, 1536),
+        "stage_num_blocks": (1, 1, 3, 1),
+        "stage_numb_of_layers": (4, 4, 4, 4),
+        "use_lab": True,
+        "encoder_in_channels": (384, 768, 1536),
+        "ccfm_num_blocks": 2,
+        "decoder_num_layers": 4,
+        "decoder_n_points": [3, 6, 3],
+    },
+    "dfine-large": {
+        "stem_channels": (3, 32, 48),
+        "stage_in_channels": (48, 128, 512, 1024),
+        "stage_mid_channels": (48, 96, 192, 384),
+        "stage_out_channels": (128, 512, 1024, 2048),
+        "stage_num_blocks": (1, 1, 3, 1),
+        "stage_numb_of_layers": (6, 6, 6, 6),
+        "use_lab": False,
+        "encoder_in_channels": (512, 1024, 2048),
+        "ccfm_num_blocks": 3,
+        "decoder_num_layers": 6,
+        "decoder_n_points": [3, 6, 3],
+    },
+    "dfine-xlarge": {
+        "stem_channels": (3, 32, 64),
+        "stage_in_channels": (64, 128, 512, 1024),
+        "stage_mid_channels": (64, 128, 256, 512),
+        "stage_out_channels": (128, 512, 1024, 2048),
+        "stage_num_blocks": (1, 2, 5, 2),
+        "stage_numb_of_layers": (6, 6, 6, 6),
+        "use_lab": False,
+        "encoder_in_channels": (512, 1024, 2048),
+        "encoder_hidden_dim": 384,
+        "ccfm_num_blocks": 3,
+        "decoder_num_layers": 6,
+        "decoder_n_points": [3, 6, 3],
+        "encoder_ffn_dim": 2048,
+    },
+}
+
+
 if __name__ == "__main__":
     os.environ.setdefault("KERAS_BACKEND", "torch")
 
@@ -453,9 +534,8 @@ if __name__ == "__main__":
             k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
         }
 
-        keras_model = DFineDetect.from_weights(
-            cfg["variant"],
-            load_weights=False,
+        keras_model = DFineDetect(
+            **DFINE_VARIANTS[cfg["variant"]],
             image_size=640,
             num_queries=300,
             num_classes=80,

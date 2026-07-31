@@ -5,6 +5,16 @@ from kerasformers.conversion.exceptions import (
 )
 from kerasformers.conversion.file_downloader import download_file, validate_url
 from kerasformers.conversion.hf_download_utils import load_and_convert_from_hf
+from kerasformers.conversion.kf_config import (
+    KF_METADATA_KEYS,
+    load_kf_config,
+    load_kf_preprocessor,
+    model_config_dict,
+    preprocessor_config,
+    retuple,
+    write_kf_config,
+    write_kf_preprocessor,
+)
 from kerasformers.conversion.weight_split_util import split_model_weights
 from kerasformers.conversion.weight_transfer_util import (
     compare_keras_torch_names,

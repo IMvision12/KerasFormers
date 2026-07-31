@@ -269,6 +269,19 @@ def transfer_detr_segment_weights(keras_model, state_dict):
     _assign_conv(mask_head.out_lay, "mask_head.output_conv")
 
 
+# Per-variant recipes (relocated from detr_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the backfill.
+DETR_VARIANTS = {
+    "detr-resnet-50": {"backbone_variant": "ResNet50"},
+    "detr-resnet-101": {"backbone_variant": "ResNet101"},
+}
+
+DETR_SEGMENT_VARIANTS = {
+    "detr-resnet-50-panoptic": {"backbone_variant": "ResNet50", "num_classes": 251},
+    "detr-resnet-101-panoptic": {"backbone_variant": "ResNet101", "num_classes": 251},
+}
+
+
 if __name__ == "__main__":
     import torch
     import torchvision.transforms as T
@@ -277,6 +290,7 @@ if __name__ == "__main__":
     model_configs: List[Dict[str, object]] = [
         {
             "variant": "detr-resnet-50",
+            "backbone_variant": "ResNet50",
             "hf_model_name": "facebook/detr-resnet-50",
             "output": "detr_resnet50.weights.h5",
             "image_size": 800,
@@ -285,6 +299,7 @@ if __name__ == "__main__":
         },
         {
             "variant": "detr-resnet-101",
+            "backbone_variant": "ResNet101",
             "hf_model_name": "facebook/detr-resnet-101",
             "output": "detr_resnet101.weights.h5",
             "image_size": 800,
@@ -298,9 +313,8 @@ if __name__ == "__main__":
         print(f"Converting {cfg['hf_model_name']}...")
         print(f"{'=' * 60}")
 
-        keras_model = DETRDetect.from_weights(
-            cfg["variant"],
-            load_weights=False,
+        keras_model = DETRDetect(
+            backbone_variant=cfg["backbone_variant"],
             image_size=cfg["image_size"],
             num_classes=cfg["num_classes"],
             num_queries=cfg["num_queries"],
@@ -361,6 +375,7 @@ if __name__ == "__main__":
     segment_configs: List[Dict[str, object]] = [
         {
             "variant": "detr-resnet-50-panoptic",
+            "backbone_variant": "ResNet50",
             "hf_model_name": "facebook/detr-resnet-50-panoptic",
             "output": "detr_resnet50_panoptic.weights.h5",
             "image_size": 800,
@@ -369,6 +384,7 @@ if __name__ == "__main__":
         },
         {
             "variant": "detr-resnet-101-panoptic",
+            "backbone_variant": "ResNet101",
             "hf_model_name": "facebook/detr-resnet-101-panoptic",
             "output": "detr_resnet101_panoptic.weights.h5",
             "image_size": 800,
@@ -384,9 +400,8 @@ if __name__ == "__main__":
         print(f"Converting {cfg['hf_model_name']}...")
         print(f"{'=' * 60}")
 
-        keras_model = DETRPanopticSegment.from_weights(
-            cfg["variant"],
-            load_weights=False,
+        keras_model = DETRPanopticSegment(
+            backbone_variant=cfg["backbone_variant"],
             image_size=cfg["image_size"],
             num_classes=cfg["num_classes"],
             num_queries=cfg["num_queries"],

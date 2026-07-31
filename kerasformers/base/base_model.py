@@ -1,6 +1,39 @@
 import keras
 
+from kerasformers.base.base_config import BaseConfig
 from kerasformers.base.base_mixin import WeightLoadingMixin
+
+_KerasModelMeta = type(keras.Model)
+
+
+class _ConfigModelMeta(_KerasModelMeta):
+    """Metaclass giving config-carrying models the transformers ``Model(config)`` API.
+
+    Transforms a :class:`BaseConfig` passed as the first positional into the
+    matching constructor kwargs *before* ``__init__`` runs (so the real
+    ``__init__`` signature stays intact for Keras's own argspec introspection),
+    with explicit kwargs still winning, and records ``self.config`` for both the
+    config-object and the plain-kwargs construction paths. A no-op for models
+    without a ``config_class``.
+    """
+
+    def __call__(cls, *args, **kwargs):
+        config_obj = None
+        overridden = False
+        if args and isinstance(args[0], BaseConfig):
+            config_obj = args[0]
+            overridden = bool(kwargs)
+            merged = dict(config_obj.constructor_kwargs())
+            merged.update(kwargs)
+            args, kwargs = (), merged
+        obj = super().__call__(*args, **kwargs)
+        config_cls = getattr(cls, "config_class", None)
+        if config_cls is not None:
+            if config_obj is not None and not overridden:
+                obj.config = config_obj  # keep identity: model.config is config
+            else:
+                obj.config = config_cls.from_dict(kwargs)
+        return obj
 
 
 def hf_num_classes(hf_config):
@@ -24,12 +57,12 @@ def hf_num_classes(hf_config):
     )
 
 
-class FunctionalBaseModel(WeightLoadingMixin, keras.Model):
+class FunctionalBaseModel(WeightLoadingMixin, keras.Model, metaclass=_ConfigModelMeta):
     """Base for *functional* kerasformers models (CLIP, ViT, detectors, …) that
     build themselves with ``super().__init__(inputs=..., outputs=...)``."""
 
 
-class SubclassedBaseModel(WeightLoadingMixin, keras.Model):
+class SubclassedBaseModel(WeightLoadingMixin, keras.Model, metaclass=_ConfigModelMeta):
     """Base for *imperative / subclassed* kerasformers models (Qwen LLMs & VLMs).
 
     Deliberately a **separate** ``keras.Model`` subclass from :class:`FunctionalBaseModel`,

@@ -300,6 +300,44 @@ def transfer_rt_detr_v2_weights(keras_model, state_dict):
             bbox.weights[1].assign(sd[f"model.decoder.bbox_embed.{i}.layers.{j}.bias"])
 
 
+# Per-variant recipes (relocated from rt_detr_v2_config.py). Models load from the
+# Hub by repo id; these build the arch for conversion + drive the backfill.
+RT_DETR_V2_VARIANTS = {
+    "rtdetr-v2-r18vd": {
+        "backbone_hidden_sizes": (64, 128, 256, 512),
+        "backbone_block_repeats": (2, 2, 2, 2),
+        "backbone_layer_type": "basic",
+        "encoder_in_channels": (128, 256, 512),
+        "hidden_expansion": 0.5,
+        "decoder_num_layers": 3,
+    },
+    "rtdetr-v2-r34vd": {
+        "backbone_hidden_sizes": (64, 128, 256, 512),
+        "backbone_block_repeats": (3, 4, 6, 3),
+        "backbone_layer_type": "basic",
+        "encoder_in_channels": (128, 256, 512),
+        "hidden_expansion": 0.5,
+        "decoder_num_layers": 4,
+    },
+    "rtdetr-v2-r50vd": {
+        "backbone_hidden_sizes": (256, 512, 1024, 2048),
+        "backbone_block_repeats": (3, 4, 6, 3),
+        "backbone_layer_type": "bottleneck",
+        "encoder_in_channels": (512, 1024, 2048),
+        "decoder_num_layers": 6,
+    },
+    "rtdetr-v2-r101vd": {
+        "backbone_hidden_sizes": (256, 512, 1024, 2048),
+        "backbone_block_repeats": (3, 4, 23, 3),
+        "backbone_layer_type": "bottleneck",
+        "encoder_in_channels": (512, 1024, 2048),
+        "encoder_hidden_dim": 384,
+        "encoder_ffn_dim": 2048,
+        "decoder_num_layers": 6,
+    },
+}
+
+
 if __name__ == "__main__":
     import torch
     from transformers import RTDetrV2ForObjectDetection
@@ -343,9 +381,8 @@ if __name__ == "__main__":
             k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
         }
 
-        keras_model = RTDETRV2Detect.from_weights(
-            cfg["variant"],
-            load_weights=False,
+        keras_model = RTDETRV2Detect(
+            **RT_DETR_V2_VARIANTS[cfg["variant"]],
             image_size=640,
             num_queries=300,
             num_classes=80,

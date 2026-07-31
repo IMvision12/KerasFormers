@@ -13,17 +13,18 @@ class RFDETRImageProcessor(BaseImageProcessor):
     """Preprocess images for RF-DETR inference.
 
     Every variant trains at its own resolution, so prefer
-    ``RFDETRImageProcessor.from_weights(variant)``, which reads the right size
-    from the model config. Constructing the class bare gives rfdetr-base's 560,
-    which is wrong for every other variant.
+    ``RFDETRImageProcessor.from_weights("kerasformers/<variant>")``, which reads
+    the right size from the repo's ``kf_preprocessor.json``. Constructing the
+    class bare (or with just ``variant=``) gives rfdetr-base's 560, so pass
+    ``size`` explicitly if you build it directly for a non-base variant.
 
     Args:
-        variant: Release variant whose resolution to adopt, for example
-            ``"rfdetr-nano"``. Ignored when ``size`` is given explicitly.
-        size: Target size as ``{"height": H, "width": W}``. Overrides
-            ``variant``. Defaults to the variant's resolution, or
-            ``{"height": 560, "width": 560}`` (rfdetr-base) when neither is
-            given:
+        variant: Release variant label, kept for reference. Size is NOT derived
+            from it (per-variant resolution lives in the repo's
+            ``kf_preprocessor.json``); pass ``size`` for a specific resolution.
+        size: Target size as ``{"height": H, "width": W}``. Defaults to
+            ``{"height": 560, "width": 560}`` (rfdetr-base) when not given. Each
+            variant's own resolution:
 
             * Detection (``RFDETRDetect``): 384 (nano), 512 (small),
               576 (medium), 560 (base), 704 (large).
@@ -76,22 +77,14 @@ class RFDETRImageProcessor(BaseImageProcessor):
 
     @staticmethod
     def variant_size(variant: Optional[str]) -> Dict[str, int]:
-        """Square target size for a release variant.
+        """Default square target size (rfdetr-base's 560).
 
-        Read from the model config rather than a table kept here, so the
-        processor cannot drift from the resolution the variant was built for.
-        Unknown or missing variants fall back to rfdetr-base's 560.
+        The per-variant resolution is no longer kept in the package: it travels
+        with the weights in the repo's ``kf_preprocessor.json`` and is applied
+        when loading via ``from_weights("kerasformers/<variant>")``. Direct
+        construction without an explicit ``size`` falls back to 560.
         """
-        resolution = 560
-        if variant is not None:
-            from kerasformers.models.rf_detr import rf_detr_config
-
-            for name in ("RF_DETR_DETECT_CONFIG", "RF_DETR_SEGMENT_CONFIG"):
-                entry = getattr(rf_detr_config, name, {}).get(variant)
-                if entry and entry.get("resolution"):
-                    resolution = entry["resolution"]
-                    break
-        return {"height": resolution, "width": resolution}
+        return {"height": 560, "width": 560}
 
     def __call__(
         self, image: Union[str, np.ndarray, Image.Image, List]

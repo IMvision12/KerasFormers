@@ -6,12 +6,7 @@ from keras import layers, ops, utils
 from kerasformers.base import FunctionalBaseModel
 from kerasformers.utils import standardize_input_shape
 
-from .rf_detr_config import (
-    RF_DETR_DETECT_CONFIG,
-    RF_DETR_DETECT_WEIGHTS_URLS,
-    RF_DETR_SEGMENT_CONFIG,
-    RF_DETR_SEGMENT_WEIGHTS_URLS,
-)
+from .rf_detr_config import RFDetrConfig, RFDetrSegmentConfig
 from .rf_detr_layers import (
     RFDETRChannelLayerNorm,
     RFDETRDecoderLayer,
@@ -1329,7 +1324,7 @@ class RFDetrModel(FunctionalBaseModel):
     ``Roboflow/rf-detr-*`` checkpoints from the model Hub.
     """
 
-    BASE_MODEL_CONFIG = RF_DETR_DETECT_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = None
 
@@ -1527,8 +1522,11 @@ class RFDETRDetect(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = RF_DETR_DETECT_CONFIG
-    BASE_WEIGHT_CONFIG = RF_DETR_DETECT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    # Weights load by Hub repo id, e.g. from_weights("kerasformers/rfdetr-nano"),
+    # via kf_config.json on the repo (no url table in the package).
+    config_class = RFDetrConfig
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rf_detr"
 
     @classmethod
@@ -1831,8 +1829,9 @@ class RFDETRInstanceSegment(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = RF_DETR_SEGMENT_CONFIG
-    BASE_WEIGHT_CONFIG = RF_DETR_SEGMENT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = RFDetrSegmentConfig
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "rf_detr"
 
     @classmethod

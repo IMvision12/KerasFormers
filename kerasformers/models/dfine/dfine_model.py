@@ -6,7 +6,7 @@ from kerasformers.base.base_model import hf_num_classes
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .dfine_config import DFINE_CONFIG, DFINE_WEIGHTS_URLS
+from .dfine_config import DFineConfig
 from .dfine_layers import (
     DFineDecoderLayer,
     DFineDecoderParams,
@@ -1600,7 +1600,7 @@ class DFineModel(FunctionalBaseModel):
           Distribution Refinement <https://arxiv.org/abs/2410.13842>`_
     """
 
-    BASE_MODEL_CONFIG = DFINE_CONFIG
+    BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = ("d_fine", "dfine")
 
@@ -1803,8 +1803,11 @@ class DFineDetect(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = DFINE_CONFIG
-    BASE_WEIGHT_CONFIG = DFINE_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    config_class = DFineConfig
+    # Weights load by Hub repo id, e.g. from_weights("kerasformers/dfine-nano"),
+    # via kf_config.json on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = ("d_fine", "dfine")
 
     def __init__(
