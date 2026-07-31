@@ -1,4 +1,5 @@
 from kerasformers.models.siglip2 import siglip2_config
+from kerasformers.models.siglip2.siglip2_config import Siglip2Config
 from kerasformers.models.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
 from kerasformers.models.siglip2.siglip2_model import (
     SigLIP2ImageClassify,
@@ -20,4 +21,5 @@ __all__ = [
     "SigLIP2ImageProcessor",
     "SigLIP2Processor",
     "SigLIP2Tokenizer",
+    "Siglip2Config",
 ]

@@ -2,8 +2,6 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-from .locateanything_config import LOCATEANYTHING_TOKENIZER_URLS
-
 DEFAULT_SYSTEM = "You are a helpful assistant."
 
 
@@ -19,7 +17,6 @@ class LocateAnythingTokenizer(BaseTokenizer):
     coordinate is ``coord_start_token_id + v`` for v in [0, 1000].
     """
 
-    TOKENIZER_URLS = LOCATEANYTHING_TOKENIZER_URLS
     DEFAULT_VARIANT = "locateanything_3b"
 
     def __init__(self, variant=None, hf_id=None, tokenizer_file=None, **kwargs):
@@ -29,8 +26,8 @@ class LocateAnythingTokenizer(BaseTokenizer):
         if tokenizer_file is None and hf_id is not None:
             tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
         else:
-            tokenizer_file = self.resolve_tokenizer_json(
-                variant or self.DEFAULT_VARIANT, tokenizer_file
+            tokenizer_file = self.resolve_tokenizer_json_from_hf(
+                f"kerasformers/{variant or self.DEFAULT_VARIANT}", tokenizer_file
             )
         self.variant = variant
         self.hf_id = hf_id

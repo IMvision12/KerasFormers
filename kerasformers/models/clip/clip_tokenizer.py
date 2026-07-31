@@ -5,27 +5,26 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .clip_config import CLIP_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class CLIPTokenizer(BaseTokenizer):
     """CLIP byte-level BPE tokenizer (``tokenizers`` Rust backend).
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``clip`` release tag (or an explicit ``tokenizer_file``) and re-enables CLIP's
-    truncation + ``<|endoftext|>`` padding to ``max_seq_len`` (77). ``variant``
-    selects which checkpoint's ``tokenizer.json`` to pull (see ``CLIP_WEIGHTS_URLS``); the
-    openai / open_clip CLIP variants tokenize identically.
+    Downloads the fast-tokenizer ``tokenizer.json`` for ``variant`` from that
+    variant's kerasformers Hub repo (``kerasformers/<variant>``), or takes an
+    explicit ``tokenizer_file``, and re-enables CLIP's truncation +
+    ``<|endoftext|>`` padding to ``max_seq_len`` (77). Load by repo id the same way
+    weights load: ``CLIPTokenizer.from_weights("kerasformers/clip_vit_base_16")``.
+    The openai / open_clip CLIP variants tokenize identically.
 
     Args:
-        variant: CLIP variant key (default ``"clip_vit_base_16"``).
+        variant: CLIP variant key (default ``"clip_vit_base_16"``); resolves to the
+            ``kerasformers/<variant>`` repo's ``tokenizer.json``.
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         max_seq_len: Padded / truncated length (default 77).
         unk_token / bos_token / eos_token / pad_token: Special token strings.
     """
 
-    TOKENIZER_URLS = CLIP_TOKENIZER_URLS
     DEFAULT_VARIANT = "clip_vit_base_16"
 
     def __init__(
@@ -41,7 +40,9 @@ class CLIPTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.unk_token = unk_token

@@ -170,6 +170,103 @@ def transfer_clip_image_classify_weights(
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
+# Per-variant recipes (relocated from clip_config.py). The kerasformers repos hold
+# a CLIPZeroShotClassify checkpoint (the superset with logit_scale); its
+# kf_config.json declares CLIPZeroShotClassify and every CLIP head loads from it.
+CLIP_RECIPES = {
+    "clip_vit_base_16": {
+        "embed_dim": 512,
+        "image_size": 224,
+        "vision_num_layers": 12,
+        "vision_hidden_dim": 768,
+        "vision_patch_size": 16,
+        "max_seq_len": 77,
+        "vocab_size": 49408,
+        "text_hidden_dim": 512,
+        "text_num_heads": 8,
+        "text_num_layers": 12,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
+        "hidden_act": "quick_gelu",
+    },
+    "clip_vit_base_32": {
+        "embed_dim": 512,
+        "image_size": 224,
+        "vision_num_layers": 12,
+        "vision_hidden_dim": 768,
+        "vision_patch_size": 32,
+        "max_seq_len": 77,
+        "vocab_size": 49408,
+        "text_hidden_dim": 512,
+        "text_num_heads": 8,
+        "text_num_layers": 12,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
+        "hidden_act": "quick_gelu",
+    },
+    "clip_vit_large_14": {
+        "embed_dim": 768,
+        "image_size": 224,
+        "vision_num_layers": 24,
+        "vision_hidden_dim": 1024,
+        "vision_patch_size": 14,
+        "max_seq_len": 77,
+        "vocab_size": 49408,
+        "text_hidden_dim": 768,
+        "text_num_heads": 12,
+        "text_num_layers": 12,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
+        "hidden_act": "quick_gelu",
+    },
+    "clip_vit_large_14_336": {
+        "embed_dim": 768,
+        "image_size": 336,
+        "vision_num_layers": 24,
+        "vision_hidden_dim": 1024,
+        "vision_patch_size": 14,
+        "max_seq_len": 77,
+        "vocab_size": 49408,
+        "text_hidden_dim": 768,
+        "text_num_heads": 12,
+        "text_num_layers": 12,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
+        "hidden_act": "quick_gelu",
+    },
+    "clip_vit_g_14": {
+        "embed_dim": 1024,
+        "image_size": 224,
+        "vision_num_layers": 40,
+        "vision_hidden_dim": 1408,
+        "vision_patch_size": 14,
+        "max_seq_len": 77,
+        "vocab_size": 49408,
+        "text_hidden_dim": 1024,
+        "text_num_heads": 16,
+        "text_num_layers": 24,
+        "vision_mlp_ratio": 6144 / 1408,
+        "text_mlp_ratio": 4096 / 1024,
+        "hidden_act": "gelu",
+    },
+    "clip_vit_bigg_14": {
+        "embed_dim": 1280,
+        "image_size": 224,
+        "vision_num_layers": 48,
+        "vision_hidden_dim": 1664,
+        "vision_patch_size": 14,
+        "max_seq_len": 77,
+        "vocab_size": 49408,
+        "text_hidden_dim": 1280,
+        "text_num_heads": 20,
+        "text_num_layers": 32,
+        "vision_mlp_ratio": 8192 / 1664,
+        "text_mlp_ratio": 5120 / 1280,
+        "hidden_act": "gelu",
+    },
+}
+
+
 if __name__ == "__main__":
     from transformers import AutoModel
 
@@ -190,7 +287,7 @@ if __name__ == "__main__":
         hf_model = AutoModel.from_pretrained(hf_id).eval()
         state = {k: v.detach().cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-        keras_model = CLIPZeroShotClassify.from_weights(variant, load_weights=False)
+        keras_model = CLIPZeroShotClassify(**CLIP_RECIPES[variant])
         transfer_clip_weights(keras_model, state)
 
         total_params = sum(int(np.prod(w.shape)) for w in keras_model.weights)

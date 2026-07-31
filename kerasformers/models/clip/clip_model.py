@@ -5,12 +5,27 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .clip_config import CLIP_CONFIG, CLIP_WEIGHTS_URLS
+from .clip_config import CLIPConfig
 from .clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
     CLIPTextModelEmbedding,
     CLIPVisionModelEmbedding,
+)
+
+# The full CLIPModel plus its task heads (vision / text / embed / zero-shot /
+# classify) all load from one repo per variant, whose kf_config.json declares the
+# canonical CLIPModel. Listing them as siblings lets any head load that repo.
+CLIP_HUB_SIBLINGS = frozenset(
+    {
+        "CLIPModel",
+        "CLIPVisionModel",
+        "CLIPTextModel",
+        "CLIPImageEmbed",
+        "CLIPTextEmbed",
+        "CLIPZeroShotClassify",
+        "CLIPImageClassify",
+    }
 )
 
 
@@ -281,15 +296,19 @@ class CLIPVisionModel(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = CLIPConfig
+    HUB_REPO_SIBLINGS = CLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full CLIPModel; build
+        # it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = CLIPModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -435,15 +454,19 @@ class CLIPTextModel(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = CLIPConfig
+    HUB_REPO_SIBLINGS = CLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full CLIPModel; build
+        # it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = CLIPModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -598,15 +621,19 @@ class CLIPImageEmbed(FunctionalBaseModel):
         name: Model name. Defaults to ``"CLIPImageEmbed"``.
     """
 
-    BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = CLIPConfig
+    HUB_REPO_SIBLINGS = CLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full CLIPModel; build
+        # it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = CLIPModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -756,15 +783,19 @@ class CLIPTextEmbed(FunctionalBaseModel):
         name: Model name. Defaults to ``"CLIPTextEmbed"``.
     """
 
-    BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = CLIPConfig
+    HUB_REPO_SIBLINGS = CLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full CLIPModel; build
+        # it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = CLIPModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -941,8 +972,10 @@ class CLIPModel(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = CLIPConfig
+    HUB_REPO_SIBLINGS = CLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -1139,8 +1172,10 @@ class CLIPZeroShotClassify(FunctionalBaseModel):
         text_mlp_ratio, hidden_act, layer_norm_eps, input_tensor, name.
     """
 
-    BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = CLIPConfig
+    HUB_REPO_SIBLINGS = CLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
@@ -1283,15 +1318,19 @@ class CLIPImageClassify(FunctionalBaseModel):
         name: Model name.
     """
 
-    BASE_MODEL_CONFIG = CLIP_CONFIG
-    BASE_WEIGHT_CONFIG = CLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = CLIPConfig
+    HUB_REPO_SIBLINGS = CLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "clip"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full CLIPModel; build
+        # it from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = CLIPModel.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = CLIPModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model

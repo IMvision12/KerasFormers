@@ -507,6 +507,56 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         return model
 
     @classmethod
+    def _accepts_hub_class(cls, declared):
+        """Whether a repo whose ``kf_config.json`` declares model_class
+        ``declared`` may be loaded by this class.
+
+        Default: only the exact same class (strict). A family whose several task
+        heads share one weights repo (CLIP / SigLIP: the full model plus its
+        zero-shot / classify / embed / vision / text heads) sets
+        :attr:`HUB_REPO_SIBLINGS` to the set of sibling class names, so any of
+        them can load the repo whose config names the canonical full model.
+        """
+        return declared in getattr(cls, "HUB_REPO_SIBLINGS", frozenset())
+
+    @classmethod
+    def _config_from_kf_spec(cls, spec, variant):
+        """Constructor kwargs from a parsed ``kf_config.json`` (or the legacy
+        BASE_MODEL_CONFIG fallback). No model_class guard, no weight loading."""
+        from kerasformers.conversion.kf_config import KF_METADATA_KEYS, retuple
+
+        if spec is not None and "config" in spec:
+            # legacy nested format: constructor kwargs under a "config" key.
+            return retuple(spec["config"])
+        if spec is not None:
+            # flat format: hyperparameters at the top level (transformers style).
+            fields = {k: v for k, v in spec.items() if k not in KF_METADATA_KEYS}
+            if cls.config_class is not None:
+                return cls.config_class.from_dict(fields).constructor_kwargs()
+            fields.pop("model_type", None)
+            return retuple(fields)
+        if cls.BASE_MODEL_CONFIG and variant in cls.BASE_MODEL_CONFIG:
+            return dict(cls.BASE_MODEL_CONFIG[variant])
+        raise ValueError(
+            f"Cannot load variant '{variant}': the repo has no kf_config.json and "
+            f"'{variant}' is not a known variant of {cls.__name__}. Pass a repo "
+            f"that carries kf_config.json."
+        )
+
+    @classmethod
+    def build_from_hub_repo(cls, repo_id, **kwargs):
+        """Build (unloaded) from a repo's ``kf_config.json``, bypassing the
+        model_class guard. For task heads that share a family's weights repo and
+        load by copying from the full model rather than reading the h5 directly."""
+        from kerasformers.conversion.kf_config import load_kf_config
+
+        repo_id = repo_id.rstrip("/")
+        variant = repo_id.rsplit("/", 1)[-1]
+        config = cls._config_from_kf_spec(load_kf_config(repo_id), variant)
+        config.update(kwargs)
+        return cls(**config)
+
+    @classmethod
     def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
         """Build + load a model from a Hub repo id carrying ``kf_config.json``.
 
@@ -521,43 +571,25 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         when the repo carries no ``kf_config.json`` yet, so a not-yet-backfilled
         official repo still loads.
         """
-        from kerasformers.conversion.kf_config import (
-            KF_METADATA_KEYS,
-            load_kf_config,
-            retuple,
-        )
+        from kerasformers.conversion.kf_config import load_kf_config
 
         repo_id = repo_id.rstrip("/")
         variant = repo_id.rsplit("/", 1)[-1]
         spec = load_kf_config(repo_id)
         if spec is not None:
             declared = spec.get("model_class")
-            if declared and declared != cls.__name__:
+            if (
+                declared
+                and declared != cls.__name__
+                and not cls._accepts_hub_class(declared)
+            ):
                 raise ValueError(
                     f"'{repo_id}' kf_config.json declares model_class "
                     f"'{declared}', but {cls.__name__}.from_weights() was called. "
                     f"Load it with {declared}.from_weights('{repo_id}')."
                 )
 
-        if spec is not None and "config" in spec:
-            # legacy nested format: constructor kwargs under a "config" key.
-            config = retuple(spec["config"])
-        elif spec is not None:
-            # flat format: hyperparameters at the top level (transformers style).
-            fields = {k: v for k, v in spec.items() if k not in KF_METADATA_KEYS}
-            if cls.config_class is not None:
-                config = cls.config_class.from_dict(fields).constructor_kwargs()
-            else:
-                fields.pop("model_type", None)
-                config = retuple(fields)
-        elif cls.BASE_MODEL_CONFIG and variant in cls.BASE_MODEL_CONFIG:
-            config = dict(cls.BASE_MODEL_CONFIG[variant])
-        else:
-            raise ValueError(
-                f"Cannot load '{repo_id}': the repo has no kf_config.json and "
-                f"'{variant}' is not a known variant of {cls.__name__}. Pass a repo "
-                f"that carries kf_config.json."
-            )
+        config = cls._config_from_kf_spec(spec, variant)
         config.update(kwargs)
         model = cls(**config)
 

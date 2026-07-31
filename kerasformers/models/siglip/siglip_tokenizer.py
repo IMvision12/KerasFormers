@@ -7,29 +7,28 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .siglip_config import SIGLIP_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIPTokenizer(BaseTokenizer):
     """SigLIP SentencePiece Unigram tokenizer (``tokenizers`` Rust backend).
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``siglip`` release tag (or an explicit ``tokenizer_file``). The reference
-    canonicalization (lowercase + ASCII-punctuation strip + whitespace collapse) and
-    the trailing ``</s>`` are baked into the file's normalizer / post-processor.
-    ``call`` returns fixed-length (``max_seq_len``) ``input_ids`` padded with ``</s>``
-    (SigLIP's pad == eos), with no attention mask.
+    Downloads the fast-tokenizer ``tokenizer.json`` for ``variant`` from that
+    variant's kerasformers Hub repo (``kerasformers/<variant>``), or takes an
+    explicit ``tokenizer_file``. The reference canonicalization (lowercase +
+    ASCII-punctuation strip + whitespace collapse) and the trailing ``</s>`` are
+    baked into the file's normalizer / post-processor. ``call`` returns fixed-length
+    (``max_seq_len``) ``input_ids`` padded with ``</s>`` (SigLIP's pad == eos), with
+    no attention mask. Load by repo id like weights:
+    ``SigLIPTokenizer.from_weights("kerasformers/siglip_base_p16_224")``.
 
     Args:
-        variant: SigLIP variant key (default ``"siglip_base_p16_224"``); the
-            multilingual checkpoint carries its own tokenizer.json.
+        variant: SigLIP variant key (default ``"siglip_base_p16_224"``); resolves to
+            the ``kerasformers/<variant>`` repo's ``tokenizer.json``.
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         max_seq_len: Fixed sequence length (default 64).
         unk_token / pad_token / eos_token: Special token strings.
     """
 
-    TOKENIZER_URLS = SIGLIP_TOKENIZER_URLS
     DEFAULT_VARIANT = "siglip_base_p16_224"
 
     def __init__(
@@ -44,7 +43,9 @@ class SigLIPTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.unk_token = unk_token

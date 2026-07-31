@@ -5,13 +5,26 @@ from kerasformers.base import FunctionalBaseModel
 from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 
-from .siglip_config import SIGLIP_CONFIG, SIGLIP_WEIGHTS_URLS
+from .siglip_config import SigLIPConfig
 from .siglip_layers import (
     SigLIPAttention,
     SigLIPLogitScaleBias,
     SigLIPPositionEmbedding,
     SigLIPPositionIDs,
     SigLIPProbe,
+)
+
+# The full SigLIPModel plus its task heads (vision / text / zero-shot / classify)
+# all load from one repo per variant, whose kf_config.json declares the canonical
+# SigLIPZeroShotClassify. Listing them as siblings lets any head load that repo.
+SIGLIP_HUB_SIBLINGS = frozenset(
+    {
+        "SigLIPModel",
+        "SigLIPVisionModel",
+        "SigLIPTextModel",
+        "SigLIPZeroShotClassify",
+        "SigLIPImageClassify",
+    }
 )
 
 
@@ -548,8 +561,10 @@ class SigLIPVisionModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"SigLIPVisionModel"``.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = SigLIPConfig
+    HUB_REPO_SIBLINGS = SIGLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -557,11 +572,13 @@ class SigLIPVisionModel(FunctionalBaseModel):
         return SigLIPModel
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full model; build it
+        # from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = cls._release_warm_start_cls().from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -708,8 +725,10 @@ class SigLIPTextModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"SigLIPTextModel"``.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = SigLIPConfig
+    HUB_REPO_SIBLINGS = SIGLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -717,11 +736,13 @@ class SigLIPTextModel(FunctionalBaseModel):
         return SigLIPModel
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full model; build it
+        # from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = cls._release_warm_start_cls().from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -877,8 +898,10 @@ class SigLIPModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"SigLIPModel"``.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = SigLIPConfig
+    HUB_REPO_SIBLINGS = SIGLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -1054,8 +1077,10 @@ class SigLIPZeroShotClassify(FunctionalBaseModel):
         input_tensor, name.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = SigLIPConfig
+    HUB_REPO_SIBLINGS = SIGLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -1201,8 +1226,10 @@ class SigLIPImageClassify(FunctionalBaseModel):
         name: Model name. Defaults to ``"SigLIPImageClassify"``.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = SigLIPConfig
+    HUB_REPO_SIBLINGS = SIGLIP_HUB_SIBLINGS
     HF_MODEL_TYPE = "siglip"
 
     @classmethod
@@ -1215,11 +1242,13 @@ class SigLIPImageClassify(FunctionalBaseModel):
         return SigLIPModel
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # This head shares the variant's weights repo with the full model; build it
+        # from the repo's kf_config, then copy the matching weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = cls._release_warm_start_cls().from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src

@@ -6,8 +6,6 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .metaclip2_config import METACLIP2_TOKENIZER_URLS
-
 METACLIP2_EOS_TOKEN_ID = 2
 METACLIP2_BOS_TOKEN_ID = 0
 METACLIP2_PAD_TOKEN_ID = 1
@@ -19,21 +17,24 @@ METACLIP2_MASK_TOKEN_ID = 901628
 class MetaClip2Tokenizer(BaseTokenizer):
     """XLM-RoBERTa tokenizer for MetaCLIP 2 worldwide variants (``tokenizers`` backend).
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``metaclip2`` release tag (or an explicit ``tokenizer_file``): the Unigram
-    model, the fairseq id offset and the ``<s> A </s>`` post-processing are baked
-    into the file (901629-token multilingual vocab). ``call`` returns fixed-length
-    (``max_seq_len`` = 77) ``token_ids`` + ``padding_mask``. The text backbone pools
-    by an explicit ``token == eos_token_id`` (=2) match (MASK id 901628 > EOS).
+    Downloads the fast-tokenizer ``tokenizer.json`` for ``variant`` from that
+    variant's kerasformers Hub repo (``kerasformers/<variant>``), or takes an
+    explicit ``tokenizer_file``: the Unigram model, the fairseq id offset and the
+    ``<s> A </s>`` post-processing are baked into the file (901629-token
+    multilingual vocab). ``call`` returns fixed-length (``max_seq_len`` = 77)
+    ``token_ids`` + ``padding_mask``. The text backbone pools by an explicit
+    ``token == eos_token_id`` (=2) match (MASK id 901628 > EOS). Load by repo id
+    like weights:
+    ``MetaClip2Tokenizer.from_weights("kerasformers/metaclip2_worldwide_b16_224")``.
 
     Args:
-        variant: MetaCLIP 2 worldwide variant key.
+        variant: MetaCLIP 2 worldwide variant key; resolves to the
+            ``kerasformers/<variant>`` repo's ``tokenizer.json``.
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         max_seq_len: Fixed sequence length (default 77).
         bos_token_id / eos_token_id / pad_token_id / unk_token_id: XLM-R special ids.
     """
 
-    TOKENIZER_URLS = METACLIP2_TOKENIZER_URLS
     DEFAULT_VARIANT = "metaclip2_worldwide_b16_224"
 
     def __init__(
@@ -49,7 +50,9 @@ class MetaClip2Tokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.bos_token_id = bos_token_id

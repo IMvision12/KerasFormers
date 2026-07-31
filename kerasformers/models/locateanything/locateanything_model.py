@@ -4,7 +4,7 @@ from keras import layers, ops
 from kerasformers.base import SubclassedBaseModel
 from kerasformers.models.qwen2.qwen2_layers import Qwen2DecoderLayer, Qwen2RMSNorm
 
-from .locateanything_config import LOCATEANYTHING_CONFIG, LOCATEANYTHING_WEIGHTS_URLS
+from .locateanything_config import LocateAnythingConfig
 from .locateanything_vision import LocateAnythingVisionModel
 
 MASK_NEG = -1e9
@@ -23,8 +23,10 @@ class LocateAnythingModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "locateanything"
-    BASE_MODEL_CONFIG = LOCATEANYTHING_CONFIG
-    BASE_WEIGHT_CONFIG = LOCATEANYTHING_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = LocateAnythingConfig
+    HUB_REPO_SIBLINGS = frozenset({"LocateAnythingModel", "LocateAnythingGenerate"})
 
     def __init__(
         self,
@@ -271,23 +273,19 @@ class LocateAnythingModel(SubclassedBaseModel):
 
         transfer_locateanything_weights(keras_model, hf_state_dict)
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
-        url = entry.get("url") if isinstance(entry, dict) else entry
-        if not (load_weights and url):
-            return super().from_release(
-                variant,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                **kwargs,
-            )
-        from .convert_locateanything_hf_to_keras import build_for_transfer
-
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        build_for_transfer(model)
-        cls.load_weights_from_url(model, url, skip_mismatch)
-        return model
+    def build_for_transfer(self):
+        grid = ops.convert_to_tensor([[2, 2]], dtype="int64")
+        pixel_values = ops.zeros((4, 3, 14, 14), dtype="float32")
+        input_ids = ops.convert_to_tensor(
+            [[self.image_token_index, 0, 0, 0]], dtype="int64"
+        )
+        self(
+            {
+                "input_ids": input_ids,
+                "pixel_values": pixel_values,
+                "image_grid_hws": grid,
+            }
+        )
 
     def get_config(self):
         config = super().get_config()

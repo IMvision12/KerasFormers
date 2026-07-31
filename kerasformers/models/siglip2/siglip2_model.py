@@ -9,7 +9,20 @@ from kerasformers.models.siglip.siglip_model import (
     siglip_head,
 )
 
-from .siglip2_config import SIGLIP2_CONFIG, SIGLIP2_WEIGHTS_URLS
+from .siglip2_config import Siglip2Config
+
+# SigLIP 2 has its own weights repos (separate from SigLIP). The full SigLIP2Model
+# plus its heads all load from one repo per variant, whose kf_config.json declares
+# the canonical SigLIP2ZeroShotClassify.
+SIGLIP2_HUB_SIBLINGS = frozenset(
+    {
+        "SigLIP2Model",
+        "SigLIP2VisionModel",
+        "SigLIP2TextModel",
+        "SigLIP2ZeroShotClassify",
+        "SigLIP2ImageClassify",
+    }
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -17,8 +30,8 @@ class SigLIP2VisionModel(SigLIPVisionModel):
     """SigLIP 2 vision tower as a standalone model.
 
     Thin subclass of :class:`SigLIPVisionModel`, architecture is
-    identical; only the variant registry (``SIGLIP2_CONFIG`` /
-    ``SIGLIP2_WEIGHTS_URLS``) differs, and ``from_release`` warm-starts the
+    identical; only the weights differ (SigLIP 2 has its own repos), and repo-id
+    loading warm-starts the
     encoder from a :class:`SigLIP2Model` checkpoint instead of
     :class:`SigLIPModel`.
 
@@ -46,8 +59,10 @@ class SigLIP2VisionModel(SigLIPVisionModel):
         input_tensor, name.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = Siglip2Config
+    HUB_REPO_SIBLINGS = SIGLIP2_HUB_SIBLINGS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -64,8 +79,8 @@ class SigLIP2TextModel(SigLIPTextModel):
     """SigLIP 2 text tower as a standalone model.
 
     Thin subclass of :class:`SigLIPTextModel`, architecture is
-    identical; differs only in the variant registry (``SIGLIP2_CONFIG``
-    / ``SIGLIP2_WEIGHTS_URLS``) and the Gemma-style ``vocab_size`` of
+    identical; differs only in the weights (SigLIP 2 has its own repos) and the
+    Gemma-style ``vocab_size`` of
     256000 set by the SigLIP 2 config entries. ``from_release``
     warm-starts the encoder from a :class:`SigLIP2Model` checkpoint.
 
@@ -91,8 +106,10 @@ class SigLIP2TextModel(SigLIPTextModel):
         input_tensor, name.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = Siglip2Config
+    HUB_REPO_SIBLINGS = SIGLIP2_HUB_SIBLINGS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -109,7 +126,7 @@ class SigLIP2Model(SigLIPModel):
     """SigLIP 2 dual encoder (no contrastive head).
 
     Thin subclass of :class:`SigLIPModel`, architecture is identical;
-    only the variant registry (``SIGLIP2_CONFIG`` / ``SIGLIP2_WEIGHTS_URLS``)
+    only the weights (SigLIP 2 has its own repos)
     differs. Composes :class:`SigLIP2VisionModel` and
     :class:`SigLIP2TextModel` via the inherited ``__init__``.
 
@@ -137,8 +154,10 @@ class SigLIP2Model(SigLIPModel):
         input_tensor, name.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = Siglip2Config
+    HUB_REPO_SIBLINGS = SIGLIP2_HUB_SIBLINGS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -179,8 +198,10 @@ class SigLIP2ZeroShotClassify(FunctionalBaseModel):
         input_tensor, name.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = Siglip2Config
+    HUB_REPO_SIBLINGS = SIGLIP2_HUB_SIBLINGS
 
     HF_MODEL_TYPE = "siglip"
 
@@ -291,8 +312,8 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
     """SigLIP 2 vision tower + linear image-classification head.
 
     Thin subclass of :class:`SigLIPImageClassify`, architecture is
-    identical; only the variant registry (``SIGLIP2_CONFIG`` /
-    ``SIGLIP2_WEIGHTS_URLS``) differs, and ``from_release`` warm-starts the
+    identical; only the weights differ (SigLIP 2 has its own repos), and repo-id
+    loading warm-starts the
     encoder from a :class:`SigLIP2Model` checkpoint instead of
     :class:`SigLIPModel`.
 
@@ -312,8 +333,10 @@ class SigLIP2ImageClassify(SigLIPImageClassify):
         input_tensor, name.
     """
 
-    BASE_MODEL_CONFIG = SIGLIP2_CONFIG
-    BASE_WEIGHT_CONFIG = SIGLIP2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = Siglip2Config
+    HUB_REPO_SIBLINGS = SIGLIP2_HUB_SIBLINGS
 
     HF_MODEL_TYPE = "siglip"
 

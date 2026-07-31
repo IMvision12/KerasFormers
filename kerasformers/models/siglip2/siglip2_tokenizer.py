@@ -7,27 +7,27 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .siglip2_config import SIGLIP2_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class SigLIP2Tokenizer(BaseTokenizer):
     """SigLIP2 (Gemma) SentencePiece tokenizer (``tokenizers`` Rust backend).
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``siglip`` release tag (or an explicit ``tokenizer_file``). The Gemma tokenizer
-    appends ``<eos>`` via the file's post-processor (no ``<bos>`` for SigLIP2).
-    ``call`` returns fixed-length (``max_seq_len``) ``input_ids`` padded with
-    ``<pad>``, with no attention mask.
+    Downloads the fast-tokenizer ``tokenizer.json`` for ``variant`` from that
+    variant's kerasformers Hub repo (``kerasformers/<variant>``), or takes an
+    explicit ``tokenizer_file``. The Gemma tokenizer appends ``<eos>`` via the
+    file's post-processor (no ``<bos>`` for SigLIP2). ``call`` returns fixed-length
+    (``max_seq_len``) ``input_ids`` padded with ``<pad>``, with no attention mask.
+    Load by repo id like weights:
+    ``SigLIP2Tokenizer.from_weights("kerasformers/siglip2_base_p16_224")``.
 
     Args:
-        variant: SigLIP2 variant key (default ``"siglip2_base_p16_224"``).
+        variant: SigLIP2 variant key (default ``"siglip2_base_p16_224"``); resolves
+            to the ``kerasformers/<variant>`` repo's ``tokenizer.json``.
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         max_seq_len: Fixed sequence length (default 64).
         pad_token / bos_token / eos_token / unk_token: Special token strings.
     """
 
-    TOKENIZER_URLS = SIGLIP2_TOKENIZER_URLS
     DEFAULT_VARIANT = "siglip2_base_p16_224"
 
     def __init__(
@@ -43,7 +43,9 @@ class SigLIP2Tokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.pad_token = pad_token
