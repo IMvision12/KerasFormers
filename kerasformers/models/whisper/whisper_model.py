@@ -398,7 +398,6 @@ class WhisperModel(FunctionalBaseModel):
             50362,
         ],
         "begin_suppress_tokens": [220, 50257],
-        "max_new_tokens": 224,
     }
 
     @classmethod
@@ -578,21 +577,19 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
         suppress_tokens: Optional[List[int]] = None,
         begin_suppress_tokens: Optional[List[int]] = None,
     ) -> Union[List[str], List[List[int]]]:
-        # Defaults come from self.generate_args (the class default, or the repo's
-        # kf_config generate_args when loaded by repo id); explicit args override.
+        # Generation settings come from self.generate_args: the repo's kf_config
+        # generate_args (the OpenAI generation_config, verbatim) when loaded by repo
+        # id, else the class default. Explicit call args override; the processor /
+        # tokenizer are the last-resort fallback. This mirrors how transformers
+        # drives Whisper generation from the generation_config.
         ga = self.generate_args or {}
-        if max_new_tokens is None:
-            max_new_tokens = ga.get("max_new_tokens", 224)
-
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
-        forced = dict(
-            processor.get_decoder_prompt_ids(
-                language=language, task=task, no_timestamps=no_timestamps
-            )
+
+        sot = ga.get("decoder_start_token_id", processor.decoder_start_token_id)
+        eos = ga.get("eos_token_id", processor.tokenizer.eos_token_id)
+        prompt_ids = [sot] + self._decoder_prompt_ids(
+            processor, ga, language, task, no_timestamps
         )
-        sot = processor.decoder_start_token_id
-        eos = processor.tokenizer.eos_token_id
-        prompt_ids = [sot] + [forced[p] for p in sorted(forced)]
 
         suppress = sorted(
             set(
@@ -611,6 +608,16 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
         self._suppress_bias = self._token_bias(suppress)
         self._begin_suppress_bias = self._token_bias(begin)
 
+        # Length: explicit arg > generate_args max_new_tokens > max_length (total
+        # decoded length, minus the prompt already in the sequence) > 224.
+        if max_new_tokens is None:
+            if ga.get("max_new_tokens") is not None:
+                max_new_tokens = ga["max_new_tokens"]
+            elif ga.get("max_length") is not None:
+                max_new_tokens = max(1, ga["max_length"] - len(prompt_ids))
+            else:
+                max_new_tokens = 224
+
         features = ops.convert_to_tensor(inputs["input_features"])
         batch = int(features.shape[0])
         decoder_start_ids = ops.convert_to_tensor([prompt_ids] * batch, dtype="int32")
@@ -622,6 +629,36 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)
+
+    def _decoder_prompt_ids(self, processor, ga, language, task, no_timestamps):
+        """Start-of-transcript prompt after ``<sot>``: ``[<lang>], <task>,
+        [<notimestamps>]``.
+
+        Built from ``generate_args`` ``lang_to_id`` / ``task_to_id`` /
+        ``no_timestamps_token_id`` (the OpenAI generation_config, so its
+        ``forced_decoder_ids`` structure is honored: language at position 1, task at
+        position 2) when present, else from the processor's tokenizer-driven prompt.
+        """
+        lang_to_id = ga.get("lang_to_id")
+        task_to_id = ga.get("task_to_id")
+        if not (lang_to_id and task_to_id):
+            forced = dict(
+                processor.get_decoder_prompt_ids(
+                    language=language, task=task, no_timestamps=no_timestamps
+                )
+            )
+            return [forced[p] for p in sorted(forced)]
+
+        ids = []
+        if language is not None:
+            tok = language if language.startswith("<|") else f"<|{language}|>"
+            ids.append(lang_to_id[tok])
+        ids.append(task_to_id[task])
+        if no_timestamps:
+            no_ts = ga.get("no_timestamps_token_id")
+            if no_ts is not None:
+                ids.append(no_ts)
+        return ids
 
     def encode(self, encoder_inputs):
         return self.encoder(encoder_inputs)

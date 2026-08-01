@@ -325,9 +325,13 @@ class MoonshineModel(FunctionalBaseModel):
     config_class = MoonshineConfig
     HUB_REPO_SIBLINGS = MOONSHINE_HUB_SIBLINGS
     HF_MODEL_TYPE = "moonshine"
-    # Default generation settings, written to kf_config.json under generate_args and
-    # re-attached on repo-id load; MoonshineSpeechToText.generate() reads them.
-    generate_args = {"max_new_tokens": 200}
+    generate_args = {
+        "bos_token_id": 1,
+        "pad_token_id": 2,
+        "decoder_start_token_id": 1,
+        "eos_token_id": 2,
+        "max_length": 194,
+    }
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -532,11 +536,13 @@ class MoonshineSpeechToText(MoonshineModel, BaseSeq2SeqGeneration):
         sampling_rate: int = 16000,
         return_ids: bool = False,
     ) -> Union[List[str], List[List[int]]]:
+        ga = self.generate_args or {}
+        start_id = ga.get("decoder_start_token_id", processor.decoder_start_token_id)
+        eos_id = ga.get("eos_token_id", processor.tokenizer.eos_token_id)
         if max_new_tokens is None:
-            max_new_tokens = (self.generate_args or {}).get("max_new_tokens", 200)
+            max_length = ga.get("max_length")
+            max_new_tokens = (max_length - 1) if max_length else 200
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
-        start_id = processor.decoder_start_token_id
-        eos_id = processor.tokenizer.eos_token_id
 
         features = ops.convert_to_tensor(inputs["input_values"])
         batch = int(features.shape[0])
