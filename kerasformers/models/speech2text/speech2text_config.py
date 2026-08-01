@@ -1,80 +1,80 @@
-# Speech2Text (S2T) - fairseq/Facebook conv-Transformer ASR, encoder-decoder.
-# Architecture knobs shared by all LibriSpeech variants: 80-dim fbank input,
-# 2x Conv1d (k=5, s=2) + GLU subsampler, sinusoidal positions, scaled
-# embeddings, ReLU FFNs, SentencePiece (10k) vocabulary.
-
-SPEECH2TEXT_CONFIG = {
-    "s2t-small-librispeech-asr": {
-        "hidden_dim": 256,
-        "encoder_num_layers": 12,
-        "decoder_num_layers": 6,
-        "encoder_attention_heads": 4,
-        "decoder_attention_heads": 4,
-        "encoder_ffn_dim": 2048,
-        "decoder_ffn_dim": 2048,
-        "vocab_size": 10000,
-        "num_mel_bins": 80,
-        "max_source_positions": 6000,
-        "max_target_positions": 1024,
-        "conv_channels": 1024,
-        "conv_kernel_sizes": (5, 5),
-        "num_conv_layers": 2,
-        "scale_embedding": True,
-        "activation_function": "relu",
-    },
-    "s2t-medium-librispeech-asr": {
-        "hidden_dim": 512,
-        "encoder_num_layers": 12,
-        "decoder_num_layers": 6,
-        "encoder_attention_heads": 8,
-        "decoder_attention_heads": 8,
-        "encoder_ffn_dim": 2048,
-        "decoder_ffn_dim": 2048,
-        "vocab_size": 10000,
-        "num_mel_bins": 80,
-        "max_source_positions": 6000,
-        "max_target_positions": 1024,
-        "conv_channels": 1024,
-        "conv_kernel_sizes": (5, 5),
-        "num_conv_layers": 2,
-        "scale_embedding": True,
-        "activation_function": "relu",
-    },
-    "s2t-large-librispeech-asr": {
-        "hidden_dim": 1024,
-        "encoder_num_layers": 12,
-        "decoder_num_layers": 6,
-        "encoder_attention_heads": 16,
-        "decoder_attention_heads": 16,
-        "encoder_ffn_dim": 4096,
-        "decoder_ffn_dim": 4096,
-        "vocab_size": 10000,
-        "num_mel_bins": 80,
-        "max_source_positions": 6000,
-        "max_target_positions": 1024,
-        "conv_channels": 1024,
-        "conv_kernel_sizes": (5, 5),
-        "num_conv_layers": 2,
-        "scale_embedding": True,
-        "activation_function": "relu",
-    },
-}
+from kerasformers.base import BaseConfig
 
 
-SPEECH2TEXT_WEIGHTS_URLS = {
-    "s2t-small-librispeech-asr": {
-        "url": "https://huggingface.co/kerasformers/s2t-small-librispeech-asr",
-    },
-    "s2t-medium-librispeech-asr": {
-        "url": "https://huggingface.co/kerasformers/s2t-medium-librispeech-asr",
-    },
-    "s2t-large-librispeech-asr": {
-        "url": "https://huggingface.co/kerasformers/s2t-large-librispeech-asr",
-    },
-}
+class Speech2TextConfig(BaseConfig):
+    r"""Configuration for the Speech2Text (S2T) encoder-decoder ASR model.
 
+    The defaults describe the S2T Small LibriSpeech variant; other variants
+    override the encoder / decoder dimensions and head counts. One
+    `kf_config.json` (declaring the canonical [`Speech2TextModel`]) sits on each
+    variant's repo, and both [`Speech2TextModel`] and [`Speech2TextSpeechToText`]
+    load from it. Fields mirror the model constructor and serialize flat.
 
-SPEECH2TEXT_TOKENIZER_FILES = {
-    "vocab": "https://huggingface.co/kerasformers/s2t-small-librispeech-asr/resolve/main/vocab.json",
-    "spm": "https://huggingface.co/kerasformers/s2t-small-librispeech-asr/resolve/main/spm.model",
-}
+    Args:
+        hidden_dim (`int`, *optional*, defaults to 256):
+            Hidden / embedding dimension.
+        encoder_num_layers (`int`, *optional*, defaults to 12):
+            Number of encoder transformer blocks.
+        decoder_num_layers (`int`, *optional*, defaults to 6):
+            Number of decoder transformer blocks.
+        encoder_attention_heads (`int`, *optional*, defaults to 4):
+            Encoder self-attention head count.
+        decoder_attention_heads (`int`, *optional*, defaults to 4):
+            Decoder self-attention / cross-attention head count.
+        encoder_ffn_dim (`int`, *optional*, defaults to 2048):
+            Encoder MLP hidden dimension.
+        decoder_ffn_dim (`int`, *optional*, defaults to 2048):
+            Decoder MLP hidden dimension.
+        vocab_size (`int`, *optional*, defaults to 10000):
+            SentencePiece token vocabulary size.
+        num_mel_bins (`int`, *optional*, defaults to 80):
+            Mel-filterbank channel count of the input features.
+        max_source_positions (`int`, *optional*, defaults to 6000):
+            Maximum encoder position.
+        max_target_positions (`int`, *optional*, defaults to 1024):
+            Maximum decoded length.
+        conv_channels (`int`, *optional*, defaults to 1024):
+            Channel count of the Conv1d subsampler.
+        conv_kernel_sizes (`tuple`, *optional*, defaults to `(5, 5)`):
+            Kernel sizes of the Conv1d subsampler layers.
+        num_conv_layers (`int`, *optional*, defaults to 2):
+            Number of Conv1d subsampler layers.
+        scale_embedding (`bool`, *optional*, defaults to `True`):
+            Whether to scale the token embedding by `sqrt(hidden_dim)`.
+        activation_function (`str`, *optional*, defaults to `"relu"`):
+            MLP activation.
+        layer_norm_eps (`float`, *optional*, defaults to 1e-5):
+            Epsilon for every LayerNorm.
+        pad_token_id (`int`, *optional*, defaults to 1):
+            Padding token id (used by the decoder position embedding).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.speech2text import Speech2TextConfig, Speech2TextModel
+
+    >>> configuration = Speech2TextConfig()
+    >>> model = Speech2TextModel(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "speech_to_text"
+
+    hidden_dim: int = 256
+    encoder_num_layers: int = 12
+    decoder_num_layers: int = 6
+    encoder_attention_heads: int = 4
+    decoder_attention_heads: int = 4
+    encoder_ffn_dim: int = 2048
+    decoder_ffn_dim: int = 2048
+    vocab_size: int = 10000
+    num_mel_bins: int = 80
+    max_source_positions: int = 6000
+    max_target_positions: int = 1024
+    conv_channels: int = 1024
+    conv_kernel_sizes: tuple = (5, 5)
+    num_conv_layers: int = 2
+    scale_embedding: bool = True
+    activation_function: str = "relu"
+    layer_norm_eps: float = 1e-5
+    pad_token_id: int = 1

@@ -5,9 +5,13 @@ from kerasformers.models.granite_speech.granite_speech_model import (
     GraniteSpeechModel,
 )
 
-from .granite_speech_plus_config import (
-    GRANITE_SPEECH_PLUS_CONFIG,
-    GRANITE_SPEECH_PLUS_WEIGHTS_URLS,
+from .granite_speech_plus_config import GraniteSpeechPlusConfig
+
+# GraniteSpeechPlus has its own weights repos (separate from GraniteSpeech). The
+# backbone + generate head both load from the variant's repo, whose kf_config.json
+# declares the canonical GraniteSpeechPlusGenerate.
+GRANITE_SPEECH_PLUS_HUB_SIBLINGS = frozenset(
+    {"GraniteSpeechPlusModel", "GraniteSpeechPlusGenerate"}
 )
 
 
@@ -22,8 +26,10 @@ class GraniteSpeechPlusModel(GraniteSpeechModel):
     variant only points at the Plus config + release weights."""
 
     HF_MODEL_TYPE = "granite_speech_plus"
-    BASE_MODEL_CONFIG = GRANITE_SPEECH_PLUS_CONFIG
-    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_PLUS_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = GraniteSpeechPlusConfig
+    HUB_REPO_SIBLINGS = GRANITE_SPEECH_PLUS_HUB_SIBLINGS
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -32,5 +38,7 @@ class GraniteSpeechPlusGenerate(GraniteSpeechGenerate):
     the Plus variant of :class:`GraniteSpeechGenerate`."""
 
     HF_MODEL_TYPE = "granite_speech_plus"
-    BASE_MODEL_CONFIG = GRANITE_SPEECH_PLUS_CONFIG
-    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_PLUS_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = GraniteSpeechPlusConfig
+    HUB_REPO_SIBLINGS = GRANITE_SPEECH_PLUS_HUB_SIBLINGS

@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 import keras
 import numpy as np
@@ -6,12 +6,14 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .moonshine_config import MOONSHINE_CONFIG, MOONSHINE_WEIGHTS_URLS
+from .moonshine_config import MoonshineConfig
 from .moonshine_layers import (
     MoonshineAttention,
     MoonshineRotaryEmbedding,
     apply_rotary_pos_emb,
 )
+
+MOONSHINE_HUB_SIBLINGS = frozenset({"MoonshineModel", "MoonshineSpeechToText"})
 
 
 def moonshine_encoder_mlp(x, hidden_dim, mlp_dim, activation, prefix):
@@ -318,9 +320,18 @@ class MoonshineModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"MoonshineModel"``.
     """
 
-    BASE_MODEL_CONFIG = MOONSHINE_CONFIG
-    BASE_WEIGHT_CONFIG = MOONSHINE_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MoonshineConfig
+    HUB_REPO_SIBLINGS = MOONSHINE_HUB_SIBLINGS
     HF_MODEL_TYPE = "moonshine"
+    generate_args = {
+        "bos_token_id": 1,
+        "pad_token_id": 2,
+        "decoder_start_token_id": 1,
+        "eos_token_id": 2,
+        "max_length": 194,
+    }
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -521,13 +532,17 @@ class MoonshineSpeechToText(MoonshineModel, BaseSeq2SeqGeneration):
         self,
         audio,
         processor,
-        max_new_tokens: int = 200,
+        max_new_tokens: Optional[int] = None,
         sampling_rate: int = 16000,
         return_ids: bool = False,
     ) -> Union[List[str], List[List[int]]]:
+        ga = self.generate_args or {}
+        start_id = ga.get("decoder_start_token_id", processor.decoder_start_token_id)
+        eos_id = ga.get("eos_token_id", processor.tokenizer.eos_token_id)
+        if max_new_tokens is None:
+            max_length = ga.get("max_length")
+            max_new_tokens = (max_length - 1) if max_length else 200
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
-        start_id = processor.decoder_start_token_id
-        eos_id = processor.tokenizer.eos_token_id
 
         features = ops.convert_to_tensor(inputs["input_values"])
         batch = int(features.shape[0])

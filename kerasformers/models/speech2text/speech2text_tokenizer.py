@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List, Optional, Union
 
 import keras
@@ -6,18 +7,8 @@ import sentencepiece as spm
 from keras import ops
 
 from kerasformers.base import BaseTokenizer
-from kerasformers.conversion import download_file
-
-from .speech2text_config import SPEECH2TEXT_TOKENIZER_FILES
 
 SPIECE_UNDERLINE = "▁"
-
-
-def resolve_tokenizer_files(vocab_file, spm_file):
-    if vocab_file is None and spm_file is None:
-        vocab_file = download_file(SPEECH2TEXT_TOKENIZER_FILES["vocab"])
-        spm_file = download_file(SPEECH2TEXT_TOKENIZER_FILES["spm"])
-    return vocab_file, spm_file
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -32,9 +23,15 @@ class Speech2TextTokenizer(BaseTokenizer):
     ``</s>`` (id 2) as both the decoder start token and the end-of-sequence
     token (Bart convention).
 
+    The tokenizer is a pair of files (``vocab.json`` + ``spm.model``), so it is
+    downloaded by Hub repo id like weights: pass a repo to
+    ``from_weights("kerasformers/s2t-small-librispeech-asr")`` (all S2T variants
+    share one vocab), or explicit ``vocab_file`` / ``spm_file`` paths. With no
+    args it falls back to the default repo below.
+
     Args:
         vocab_file: Path to ``vocab.json`` (token -> id). Downloaded from the
-            HF repo when ``None``.
+            default repo when ``None``.
         spm_file: Path to the SentencePiece ``.model`` file. Downloaded when
             ``None``.
         do_upper_case: Upper-case the decoded text (multilingual ST variants).
@@ -42,6 +39,29 @@ class Speech2TextTokenizer(BaseTokenizer):
         max_seq_len: Maximum target length (used when padding label ids).
         bos_token / eos_token / pad_token / unk_token: Special token strings.
     """
+
+    DEFAULT_REPO = "kerasformers/s2t-small-librispeech-asr"
+
+    @classmethod
+    def _download_pair(cls, repo_id):
+        from huggingface_hub import hf_hub_download
+
+        token = os.environ.get("HF_TOKEN")
+        repo_id = repo_id.rstrip("/")
+        return (
+            hf_hub_download(repo_id, "vocab.json", token=token),
+            hf_hub_download(repo_id, "spm.model", token=token),
+        )
+
+    @classmethod
+    def from_hub_repo(cls, repo_id, **kwargs):
+        """Build from a Hub repo id, downloading its ``vocab.json`` + ``spm.model``.
+
+        Mirrors model loading by repo id, so the tokenizer loads with the same repo
+        id as its model (``from_weights("kerasformers/s2t-small-librispeech-asr")``).
+        """
+        vocab_file, spm_file = cls._download_pair(repo_id)
+        return cls(vocab_file=vocab_file, spm_file=spm_file, **kwargs)
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
@@ -67,7 +87,8 @@ class Speech2TextTokenizer(BaseTokenizer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        vocab_file, spm_file = resolve_tokenizer_files(vocab_file, spm_file)
+        if vocab_file is None and spm_file is None:
+            vocab_file, spm_file = type(self)._download_pair(type(self).DEFAULT_REPO)
         self.vocab_file = vocab_file
         self.spm_file = spm_file
         self.do_upper_case = do_upper_case

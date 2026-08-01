@@ -6,18 +6,17 @@ from keras import layers, ops
 
 from kerasformers.base import BaseSeq2SeqGeneration, FunctionalBaseModel
 
-from .whisper_config import (
-    WHISPER_BEGIN_SUPPRESS_TOKENS,
-    WHISPER_CONFIG,
-    WHISPER_SUPPRESS_TOKENS,
-    WHISPER_WEIGHTS_URLS,
-)
+from .whisper_config import WhisperConfig
 from .whisper_layers import (
     WhisperAttention,
     WhisperLayerWeights,
     WhisperLearnedPositionEmbedding,
     WhisperSinusoidalPositionEmbedding,
 )
+
+# WhisperModel (encoder-decoder) and WhisperSpeechToText (+ .generate) share the
+# variant's weights repo, whose kf_config.json declares the canonical WhisperModel.
+WHISPER_HUB_SIBLINGS = frozenset({"WhisperModel", "WhisperSpeechToText"})
 
 _ACTIVATION_ALIASES = {
     "gelu": lambda x: keras.activations.gelu(x, approximate=False),
@@ -302,9 +301,104 @@ class WhisperModel(FunctionalBaseModel):
         name: Model name. Defaults to ``"WhisperModel"``.
     """
 
-    BASE_MODEL_CONFIG = WHISPER_CONFIG
-    BASE_WEIGHT_CONFIG = WHISPER_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = WhisperConfig
+    HUB_REPO_SIBLINGS = WHISPER_HUB_SIBLINGS
     HF_MODEL_TYPE = "whisper"
+    # Default generation settings, written to kf_config.json under generate_args and
+    # re-attached on repo-id load; WhisperSpeechToText.generate() reads them.
+    generate_args = {
+        "suppress_tokens": [
+            1,
+            2,
+            7,
+            8,
+            9,
+            10,
+            14,
+            25,
+            26,
+            27,
+            28,
+            29,
+            31,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            90,
+            91,
+            92,
+            93,
+            359,
+            503,
+            522,
+            542,
+            873,
+            893,
+            902,
+            918,
+            922,
+            931,
+            1350,
+            1853,
+            1982,
+            2460,
+            2627,
+            3246,
+            3253,
+            3268,
+            3536,
+            3846,
+            3961,
+            4183,
+            4667,
+            6585,
+            6647,
+            7273,
+            9061,
+            9383,
+            10428,
+            10929,
+            11938,
+            12033,
+            12331,
+            12562,
+            13793,
+            14157,
+            14635,
+            15265,
+            15618,
+            16553,
+            16604,
+            18362,
+            18956,
+            20075,
+            21675,
+            22520,
+            26130,
+            26161,
+            26435,
+            28279,
+            29464,
+            31650,
+            32302,
+            32470,
+            36865,
+            42863,
+            47425,
+            49870,
+            50254,
+            50258,
+            50360,
+            50361,
+            50362,
+        ],
+        "begin_suppress_tokens": [220, 50257],
+    }
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -477,38 +571,52 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
         language: Optional[str] = "en",
         task: str = "transcribe",
         no_timestamps: bool = True,
-        max_new_tokens: int = 224,
+        max_new_tokens: Optional[int] = None,
         sampling_rate: int = 16000,
         return_ids: bool = False,
         suppress_tokens: Optional[List[int]] = None,
         begin_suppress_tokens: Optional[List[int]] = None,
     ) -> Union[List[str], List[List[int]]]:
+        # Generation settings come from self.generate_args: the repo's kf_config
+        # generate_args (the OpenAI generation_config, verbatim) when loaded by repo
+        # id, else the class default. Explicit call args override; the processor /
+        # tokenizer are the last-resort fallback. This mirrors how transformers
+        # drives Whisper generation from the generation_config.
+        ga = self.generate_args or {}
         inputs = processor(audio=audio, sampling_rate=sampling_rate)
-        forced = dict(
-            processor.get_decoder_prompt_ids(
-                language=language, task=task, no_timestamps=no_timestamps
-            )
+
+        sot = ga.get("decoder_start_token_id", processor.decoder_start_token_id)
+        eos = ga.get("eos_token_id", processor.tokenizer.eos_token_id)
+        prompt_ids = [sot] + self._decoder_prompt_ids(
+            processor, ga, language, task, no_timestamps
         )
-        sot = processor.decoder_start_token_id
-        eos = processor.tokenizer.eos_token_id
-        prompt_ids = [sot] + [forced[p] for p in sorted(forced)]
 
         suppress = sorted(
             set(
                 suppress_tokens
                 if suppress_tokens is not None
-                else WHISPER_SUPPRESS_TOKENS
+                else ga.get("suppress_tokens", [])
             )
         )
         begin = sorted(
             set(
                 begin_suppress_tokens
                 if begin_suppress_tokens is not None
-                else WHISPER_BEGIN_SUPPRESS_TOKENS
+                else ga.get("begin_suppress_tokens", [])
             )
         )
         self._suppress_bias = self._token_bias(suppress)
         self._begin_suppress_bias = self._token_bias(begin)
+
+        # Length: explicit arg > generate_args max_new_tokens > max_length (total
+        # decoded length, minus the prompt already in the sequence) > 224.
+        if max_new_tokens is None:
+            if ga.get("max_new_tokens") is not None:
+                max_new_tokens = ga["max_new_tokens"]
+            elif ga.get("max_length") is not None:
+                max_new_tokens = max(1, ga["max_length"] - len(prompt_ids))
+            else:
+                max_new_tokens = 224
 
         features = ops.convert_to_tensor(inputs["input_features"])
         batch = int(features.shape[0])
@@ -521,6 +629,36 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
         if return_ids:
             return ids
         return processor.batch_decode(ids, skip_special_tokens=True)
+
+    def _decoder_prompt_ids(self, processor, ga, language, task, no_timestamps):
+        """Start-of-transcript prompt after ``<sot>``: ``[<lang>], <task>,
+        [<notimestamps>]``.
+
+        Built from ``generate_args`` ``lang_to_id`` / ``task_to_id`` /
+        ``no_timestamps_token_id`` (the OpenAI generation_config, so its
+        ``forced_decoder_ids`` structure is honored: language at position 1, task at
+        position 2) when present, else from the processor's tokenizer-driven prompt.
+        """
+        lang_to_id = ga.get("lang_to_id")
+        task_to_id = ga.get("task_to_id")
+        if not (lang_to_id and task_to_id):
+            forced = dict(
+                processor.get_decoder_prompt_ids(
+                    language=language, task=task, no_timestamps=no_timestamps
+                )
+            )
+            return [forced[p] for p in sorted(forced)]
+
+        ids = []
+        if language is not None:
+            tok = language if language.startswith("<|") else f"<|{language}|>"
+            ids.append(lang_to_id[tok])
+        ids.append(task_to_id[task])
+        if no_timestamps:
+            no_ts = ga.get("no_timestamps_token_id")
+            if no_ts is not None:
+                ids.append(no_ts)
+        return ids
 
     def encode(self, encoder_inputs):
         return self.encoder(encoder_inputs)

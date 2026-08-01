@@ -1,257 +1,68 @@
-WHISPER_CONFIG = {
-    "whisper_tiny": {
-        "hidden_dim": 384,
-        "encoder_num_layers": 4,
-        "encoder_attention_heads": 6,
-        "encoder_ffn_dim": 1536,
-        "decoder_num_layers": 4,
-        "decoder_attention_heads": 6,
-        "decoder_ffn_dim": 1536,
-        "vocab_size": 51865,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 80,
-    },
-    "whisper_base": {
-        "hidden_dim": 512,
-        "encoder_num_layers": 6,
-        "encoder_attention_heads": 8,
-        "encoder_ffn_dim": 2048,
-        "decoder_num_layers": 6,
-        "decoder_attention_heads": 8,
-        "decoder_ffn_dim": 2048,
-        "vocab_size": 51865,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 80,
-    },
-    "whisper_small": {
-        "hidden_dim": 768,
-        "encoder_num_layers": 12,
-        "encoder_attention_heads": 12,
-        "encoder_ffn_dim": 3072,
-        "decoder_num_layers": 12,
-        "decoder_attention_heads": 12,
-        "decoder_ffn_dim": 3072,
-        "vocab_size": 51865,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 80,
-    },
-    "whisper_medium": {
-        "hidden_dim": 1024,
-        "encoder_num_layers": 24,
-        "encoder_attention_heads": 16,
-        "encoder_ffn_dim": 4096,
-        "decoder_num_layers": 24,
-        "decoder_attention_heads": 16,
-        "decoder_ffn_dim": 4096,
-        "vocab_size": 51865,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 80,
-    },
-    "whisper_large": {
-        "hidden_dim": 1280,
-        "encoder_num_layers": 32,
-        "encoder_attention_heads": 20,
-        "encoder_ffn_dim": 5120,
-        "decoder_num_layers": 32,
-        "decoder_attention_heads": 20,
-        "decoder_ffn_dim": 5120,
-        "vocab_size": 51865,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 80,
-    },
-    "whisper_large_v2": {
-        "hidden_dim": 1280,
-        "encoder_num_layers": 32,
-        "encoder_attention_heads": 20,
-        "encoder_ffn_dim": 5120,
-        "decoder_num_layers": 32,
-        "decoder_attention_heads": 20,
-        "decoder_ffn_dim": 5120,
-        "vocab_size": 51865,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 80,
-    },
-    "whisper_large_v3": {
-        "hidden_dim": 1280,
-        "encoder_num_layers": 32,
-        "encoder_attention_heads": 20,
-        "encoder_ffn_dim": 5120,
-        "decoder_num_layers": 32,
-        "decoder_attention_heads": 20,
-        "decoder_ffn_dim": 5120,
-        "vocab_size": 51866,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 128,
-    },
-    "whisper_large_v3_turbo": {
-        "hidden_dim": 1280,
-        "encoder_num_layers": 32,
-        "encoder_attention_heads": 20,
-        "encoder_ffn_dim": 5120,
-        "decoder_num_layers": 4,
-        "decoder_attention_heads": 20,
-        "decoder_ffn_dim": 5120,
-        "vocab_size": 51866,
-        "max_source_positions": 1500,
-        "max_target_positions": 448,
-        "num_mel_bins": 128,
-    },
-}
+from kerasformers.base import BaseConfig
 
 
-WHISPER_WEIGHTS_URLS = {
-    "whisper_tiny": {
-        "url": "https://huggingface.co/kerasformers/whisper_tiny",
-    },
-    "whisper_base": {
-        "url": "https://huggingface.co/kerasformers/whisper_base",
-    },
-    "whisper_small": {
-        "url": "https://huggingface.co/kerasformers/whisper_small",
-    },
-    "whisper_medium": {
-        "url": "https://huggingface.co/kerasformers/whisper_medium",
-    },
-    "whisper_large": {
-        "url": "https://huggingface.co/kerasformers/whisper_large",
-    },
-    "whisper_large_v2": {
-        "url": "https://huggingface.co/kerasformers/whisper_large_v2",
-    },
-    "whisper_large_v3": {
-        "url": "https://huggingface.co/kerasformers/whisper_large_v3",
-    },
-    "whisper_large_v3_turbo": {
-        "url": "https://huggingface.co/kerasformers/whisper_large_v3_turbo",
-    },
-}
+class WhisperConfig(BaseConfig):
+    r"""Configuration for the Whisper encoder-decoder ASR model.
 
+    The defaults describe the Whisper Tiny variant; other variants override the
+    encoder / decoder dimensions, vocabulary, and mel-bin count. One
+    `kf_config.json` (declaring the canonical [`WhisperModel`]) sits on each
+    variant's repo, and both [`WhisperModel`] and [`WhisperSpeechToText`] load from
+    it. Fields mirror the model constructor and serialize flat.
 
-# OpenAI Whisper's hard-coded logits processor lists (see
-# `whisper/decoding.py` and the reference `GenerationConfig`).
-WHISPER_SUPPRESS_TOKENS = [
-    1,
-    2,
-    7,
-    8,
-    9,
-    10,
-    14,
-    25,
-    26,
-    27,
-    28,
-    29,
-    31,
-    58,
-    59,
-    60,
-    61,
-    62,
-    63,
-    90,
-    91,
-    92,
-    93,
-    359,
-    503,
-    522,
-    542,
-    873,
-    893,
-    902,
-    918,
-    922,
-    931,
-    1350,
-    1853,
-    1982,
-    2460,
-    2627,
-    3246,
-    3253,
-    3268,
-    3536,
-    3846,
-    3961,
-    4183,
-    4667,
-    6585,
-    6647,
-    7273,
-    9061,
-    9383,
-    10428,
-    10929,
-    11938,
-    12033,
-    12331,
-    12562,
-    13793,
-    14157,
-    14635,
-    15265,
-    15618,
-    16553,
-    16604,
-    18362,
-    18956,
-    20075,
-    21675,
-    22520,
-    26130,
-    26161,
-    26435,
-    28279,
-    29464,
-    31650,
-    32302,
-    32470,
-    36865,
-    42863,
-    47425,
-    49870,
-    50254,
-    50258,
-    50360,
-    50361,
-    50362,
-]
-WHISPER_BEGIN_SUPPRESS_TOKENS = [220, 50257]
+    Args:
+        hidden_dim (`int`, *optional*, defaults to 384):
+            Hidden / embedding dimension.
+        encoder_num_layers (`int`, *optional*, defaults to 4):
+            Number of encoder transformer blocks.
+        decoder_num_layers (`int`, *optional*, defaults to 4):
+            Number of decoder transformer blocks.
+        encoder_attention_heads (`int`, *optional*, defaults to 6):
+            Encoder self-attention head count.
+        decoder_attention_heads (`int`, *optional*, defaults to 6):
+            Decoder self-attention / cross-attention head count.
+        encoder_ffn_dim (`int`, *optional*, defaults to 1536):
+            Encoder MLP hidden dimension.
+        decoder_ffn_dim (`int`, *optional*, defaults to 1536):
+            Decoder MLP hidden dimension.
+        num_mel_bins (`int`, *optional*, defaults to 80):
+            Mel-bin count of the input log-mel spectrogram (128 for large-v3).
+        max_source_positions (`int`, *optional*, defaults to 1500):
+            Maximum encoder position.
+        max_target_positions (`int`, *optional*, defaults to 448):
+            Maximum decoded length.
+        vocab_size (`int`, *optional*, defaults to 51865):
+            Token vocabulary size (51866 for the v3 variants).
+        activation_function (`str`, *optional*, defaults to `"gelu"`):
+            MLP activation (`"gelu"` exact, matches OpenAI).
+        layer_norm_eps (`float`, *optional*, defaults to 1e-5):
+            Epsilon for every LayerNorm.
+        scale_embedding (`bool`, *optional*, defaults to `False`):
+            Whether to scale the decoder token embedding by `sqrt(hidden_dim)`.
 
-# Per-variant tokenizer.json. The v3 variants (large_v3 / large_v3_turbo) have a
-# 51866-token vocab (one extra language) vs 51865 for the rest, so each carries its
-# own file.
-WHISPER_TOKENIZER_URLS = {
-    "whisper_tiny": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_tiny/resolve/main/tokenizer.json"
-    },
-    "whisper_base": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_base/resolve/main/tokenizer.json"
-    },
-    "whisper_small": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_small/resolve/main/tokenizer.json"
-    },
-    "whisper_medium": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_medium/resolve/main/tokenizer.json"
-    },
-    "whisper_large": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large/resolve/main/tokenizer.json"
-    },
-    "whisper_large_v2": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large_v2/resolve/main/tokenizer.json"
-    },
-    "whisper_large_v3": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large_v3/resolve/main/tokenizer.json"
-    },
-    "whisper_large_v3_turbo": {
-        "tokenizer_json": "https://huggingface.co/kerasformers/whisper_large_v3_turbo/resolve/main/tokenizer.json"
-    },
-}
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.whisper import WhisperConfig, WhisperModel
+
+    >>> configuration = WhisperConfig()
+    >>> model = WhisperModel(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "whisper"
+
+    hidden_dim: int = 384
+    encoder_num_layers: int = 4
+    decoder_num_layers: int = 4
+    encoder_attention_heads: int = 6
+    decoder_attention_heads: int = 6
+    encoder_ffn_dim: int = 1536
+    decoder_ffn_dim: int = 1536
+    num_mel_bins: int = 80
+    max_source_positions: int = 1500
+    max_target_positions: int = 448
+    vocab_size: int = 51865
+    activation_function: str = "gelu"
+    layer_norm_eps: float = 1e-5
+    scale_embedding: bool = False

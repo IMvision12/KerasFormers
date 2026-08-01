@@ -137,6 +137,36 @@ def transfer_speech2text_weights(
     lm_head.kernel.assign(np.transpose(np.asarray(lm_w)))
 
 
+# Per-variant recipes (relocated from speech2text_config.py). Models load from the
+# Hub by repo id; these build the arch for conversion + drive the kf_config backfill.
+def _s2t(hidden, eh, dh, ef, df):
+    return {
+        "hidden_dim": hidden,
+        "encoder_num_layers": 12,
+        "decoder_num_layers": 6,
+        "encoder_attention_heads": eh,
+        "decoder_attention_heads": dh,
+        "encoder_ffn_dim": ef,
+        "decoder_ffn_dim": df,
+        "vocab_size": 10000,
+        "num_mel_bins": 80,
+        "max_source_positions": 6000,
+        "max_target_positions": 1024,
+        "conv_channels": 1024,
+        "conv_kernel_sizes": (5, 5),
+        "num_conv_layers": 2,
+        "scale_embedding": True,
+        "activation_function": "relu",
+    }
+
+
+SPEECH2TEXT_RECIPES = {
+    "s2t-small-librispeech-asr": _s2t(256, 4, 4, 2048, 2048),
+    "s2t-medium-librispeech-asr": _s2t(512, 8, 8, 2048, 2048),
+    "s2t-large-librispeech-asr": _s2t(1024, 16, 16, 4096, 4096),
+}
+
+
 if __name__ == "__main__":
     import torch
     from keras import ops
@@ -167,7 +197,7 @@ if __name__ == "__main__":
         cfg = torch_model.config
 
         print(f"[2/4] Building Keras {variant}")
-        model = Speech2TextModel.from_weights(variant, load_weights=False)
+        model = Speech2TextModel(**SPEECH2TEXT_RECIPES[variant])
 
         print("[3/4] Transferring weights")
         transfer_speech2text_weights(model, state)

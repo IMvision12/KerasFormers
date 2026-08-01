@@ -92,6 +92,46 @@ def transfer_granite_speech_weights(keras_model, hf_state_dict):
         transfer_weights(weight.path, weight, torch_weight)
 
 
+# Per-variant recipes (relocated from granite_speech_config.py), as overrides of the
+# GraniteSpeechConfig defaults (which describe granite_speech_3_3_2b). Models load
+# from the Hub by repo id; these build the arch for conversion + drive the backfill.
+GRANITE_SPEECH_RECIPES = {
+    "granite_speech_3_3_2b": {},
+    "granite_speech_3_3_8b": {
+        "embed_dim": 4096,
+        "mlp_dim": 12800,
+        "attention_multiplier": 0.0078125,
+        "logits_scaling": 16.0,
+    },
+    "granite_speech_4_1_2b": {
+        "vocab_size": 100353,
+        "mlp_dim": 4096,
+        "num_heads": 16,
+        "num_kv_heads": 4,
+        "rope_theta": 10000.0,
+        "attention_multiplier": 0.0078125,
+        "tie_embeddings": False,
+        "eos_token_id": 100257,
+        "audio_token_id": 100352,
+        "has_lora_adapter": False,
+        "encoder_output_dim": 348,
+    },
+    "granite_4_0_1b_speech": {
+        "vocab_size": 100353,
+        "mlp_dim": 4096,
+        "num_heads": 16,
+        "num_kv_heads": 4,
+        "rope_theta": 10000.0,
+        "attention_multiplier": 0.0078125,
+        "tie_embeddings": False,
+        "eos_token_id": 100257,
+        "audio_token_id": 100352,
+        "has_lora_adapter": False,
+        "encoder_output_dim": 348,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
     import math
@@ -127,7 +167,7 @@ if __name__ == "__main__":
                 v.to(torch.float32).cpu().numpy()
             )
 
-    model = GraniteSpeechGenerate.from_weights(VARIANT, load_weights=False)
+    model = GraniteSpeechGenerate(**GRANITE_SPEECH_RECIPES[VARIANT])
     transfer_granite_speech_weights(model, state)
 
     frames = 4 * model.window_size

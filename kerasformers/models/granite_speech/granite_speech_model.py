@@ -6,7 +6,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .granite_speech_config import GRANITE_SPEECH_CONFIG, GRANITE_SPEECH_WEIGHTS_URLS
+from .granite_speech_config import GraniteSpeechConfig
 from .granite_speech_layers import (
     GraniteSpeechCTCEncoder,
     GraniteSpeechDecoderLayer,
@@ -15,6 +15,11 @@ from .granite_speech_layers import (
 )
 
 MASK_NEG = -1e9
+
+# GraniteSpeechModel (backbone) and GraniteSpeechGenerate (+ LM head + .generate)
+# share the variant's weights repo, whose kf_config.json declares the canonical
+# GraniteSpeechGenerate. GraniteSpeechPlus has its own repos + sibling set.
+GRANITE_SPEECH_HUB_SIBLINGS = frozenset({"GraniteSpeechModel", "GraniteSpeechGenerate"})
 
 
 def rope_cos_sin(position_ids, head_dim, theta):
@@ -194,8 +199,10 @@ class GraniteSpeechModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "granite_speech"
-    BASE_MODEL_CONFIG = GRANITE_SPEECH_CONFIG
-    BASE_WEIGHT_CONFIG = GRANITE_SPEECH_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = GraniteSpeechConfig
+    HUB_REPO_SIBLINGS = GRANITE_SPEECH_HUB_SIBLINGS
 
     def __init__(
         self,
@@ -478,21 +485,12 @@ class GraniteSpeechModel(SubclassedBaseModel):
             }
         )
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
-        url = entry.get("url") if isinstance(entry, dict) else entry
-        if not (load_weights and url):
-            return super().from_release(
-                variant,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                **kwargs,
-            )
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        model.build_dummy()
-        cls.load_weights_from_url(model, url, skip_mismatch)
-        return model
+    def build_for_transfer(self):
+        # This multimodal model builds lazily; the base (text-only) build_for_transfer
+        # would leave the audio encoder / projector / LoRA weights uncreated. Run the
+        # full audio+text dummy so every weight exists before a stream is loaded (used
+        # by repo-id loading and the converted-weight cache).
+        self.build_dummy()
 
     def get_config(self):
         config = super().get_config()
