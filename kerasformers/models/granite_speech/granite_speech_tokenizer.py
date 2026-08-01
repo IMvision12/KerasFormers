@@ -2,24 +2,24 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-from .granite_speech_config import GRANITE_SPEECH_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GraniteSpeechTokenizer(BaseTokenizer):
     """Granite byte-level BPE tokenizer (``tokenizers`` backend) with ``<|audio|>``.
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``granite_speech`` release tag (or an explicit ``tokenizer_file``); the audio /
-    eos ids are read from the loaded vocab.
+    Downloads the fast-tokenizer ``tokenizer.json`` for ``variant`` from that
+    variant's kerasformers Hub repo (``kerasformers/<variant>``), or takes an
+    explicit ``tokenizer_file``; the audio / eos ids are read from the loaded vocab.
+    Load by repo id like weights:
+    ``GraniteSpeechTokenizer.from_weights("kerasformers/granite_speech_3_3_2b")``.
 
     Args:
-        variant: Granite Speech variant key (default ``"granite_speech_3_3_2b"``).
+        variant: Granite Speech variant key (default ``"granite_speech_3_3_2b"``);
+            resolves to the ``kerasformers/<variant>`` repo's ``tokenizer.json``.
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
         audio_token: The audio placeholder token string.
     """
 
-    TOKENIZER_URLS = GRANITE_SPEECH_TOKENIZER_URLS
     DEFAULT_VARIANT = "granite_speech_3_3_2b"
 
     def __init__(
@@ -29,7 +29,9 @@ class GraniteSpeechTokenizer(BaseTokenizer):
         from tokenizers import Tokenizer
 
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
         self.register_special_ids(audio_token)

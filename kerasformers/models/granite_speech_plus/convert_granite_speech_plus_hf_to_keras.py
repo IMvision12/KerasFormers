@@ -4,6 +4,25 @@ from kerasformers.models.granite_speech.convert_granite_speech_hf_to_keras impor
 
 from .granite_speech_plus_model import GraniteSpeechPlusGenerate
 
+# Per-variant recipe (relocated from granite_speech_plus_config.py), as overrides of
+# the GraniteSpeechConfig defaults. The Plus variant adds cat_hidden_layers.
+GRANITE_SPEECH_PLUS_RECIPES = {
+    "granite_speech_4_1_2b_plus": {
+        "vocab_size": 100353,
+        "mlp_dim": 4096,
+        "num_heads": 16,
+        "num_kv_heads": 4,
+        "rope_theta": 10000.0,
+        "attention_multiplier": 0.0078125,
+        "eos_token_id": 100257,
+        "audio_token_id": 100352,
+        "has_lora_adapter": False,
+        "encoder_output_dim": 348,
+        "cat_hidden_layers": [3],
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
     import math
@@ -33,7 +52,7 @@ if __name__ == "__main__":
                 v.to(torch.float32).cpu().numpy()
             )
 
-    model = GraniteSpeechPlusGenerate.from_weights(VARIANT, load_weights=False)
+    model = GraniteSpeechPlusGenerate(**GRANITE_SPEECH_PLUS_RECIPES[VARIANT])
     transfer_granite_speech_weights(model, state)
 
     frames = 4 * model.window_size
