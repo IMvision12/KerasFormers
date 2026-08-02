@@ -12,7 +12,11 @@ from kerasformers.models.vit.vit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .vit_config import VIT_MODEL_CONFIG, VIT_WEIGHTS_URLS
+from .vit_config import ViTConfig
+
+# The backbone (ViTModel) and classifier (ViTImageClassify) share the variant's
+# weights repo, whose kf_config.json declares ViTImageClassify.
+VIT_HUB_SIBLINGS = frozenset({"ViTModel", "ViTImageClassify"})
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0):
@@ -234,17 +238,18 @@ class ViTModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = VIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ViTConfig
+    HUB_REPO_SIBLINGS = VIT_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with ViTImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = ViTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ViTImageClassify.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -456,10 +461,9 @@ class ViTImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        v: VIT_MODEL_CONFIG[m["model"]] for v, m in VIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = VIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ViTConfig
+    HUB_REPO_SIBLINGS = VIT_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

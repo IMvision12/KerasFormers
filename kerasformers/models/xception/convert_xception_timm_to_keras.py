@@ -18,10 +18,76 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.xception import XceptionImageClassify
-from kerasformers.models.xception.xception_config import (
-    XCEPTION_MODEL_CONFIG,
-    XCEPTION_WEIGHTS_URLS,
-)
+
+# Architecture presets, moved here from xception_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+XCEPTION_MODEL_CONFIG = {
+    "xception41": {
+        "config": "41",
+        "preact": False,
+        "bn_epsilon": 1e-3,
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+    "xception41p": {
+        "config": "41p",
+        "preact": True,
+        "bn_epsilon": 1e-5,
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+    "xception65": {
+        "config": "65",
+        "preact": False,
+        "bn_epsilon": 1e-3,
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+    "xception65p": {
+        "config": "65p",
+        "preact": True,
+        "bn_epsilon": 1e-3,
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+    "xception71": {
+        "config": "71",
+        "preact": False,
+        "bn_epsilon": 1e-3,
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+XCEPTION_VARIANTS = {
+    "xception41_tf_in1k": {
+        "model": "xception41",
+        "timm_id": "xception41.tf_in1k",
+    },
+    "xception41p_ra3_in1k": {
+        "model": "xception41p",
+        "timm_id": "xception41p.ra3_in1k",
+    },
+    "xception65_ra3_in1k": {
+        "model": "xception65",
+        "timm_id": "xception65.ra3_in1k",
+    },
+    "xception65_tf_in1k": {
+        "model": "xception65",
+        "timm_id": "xception65.tf_in1k",
+    },
+    "xception65p_ra3_in1k": {
+        "model": "xception65p",
+        "timm_id": "xception65p.ra3_in1k",
+    },
+    "xception71_tf_in1k": {
+        "model": "xception71",
+        "timm_id": "xception71.tf_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "block.": "blocks.",
@@ -89,7 +155,7 @@ if __name__ == "__main__":
 
     sys.setrecursionlimit(10000)
 
-    for variant, meta in XCEPTION_WEIGHTS_URLS.items():
+    for variant, meta in XCEPTION_VARIANTS.items():
         model_cfg = dict(XCEPTION_MODEL_CONFIG[meta["model"]])
         model_cfg.pop("num_classes", None)
         preact = model_cfg["preact"]

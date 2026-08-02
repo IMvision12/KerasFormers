@@ -1,53 +1,41 @@
-DENSENET_MODEL_CONFIG = {
-    "densenet121": {
-        "depths": [6, 12, 24, 16],
-        "growth_rate": 32,
-        "initial_filter": 64,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "densenet161": {
-        "depths": [6, 12, 36, 24],
-        "growth_rate": 48,
-        "initial_filter": 96,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "densenet169": {
-        "depths": [6, 12, 32, 32],
-        "growth_rate": 32,
-        "initial_filter": 64,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "densenet201": {
-        "depths": [6, 12, 48, 32],
-        "growth_rate": 32,
-        "initial_filter": 64,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-DENSENET_WEIGHTS_URLS = {
-    "densenet121_tv_in1k": {
-        "model": "densenet121",
-        "timm_id": "densenet121.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet121_tv_in1k.weights.h5",
-    },
-    "densenet161_tv_in1k": {
-        "model": "densenet161",
-        "timm_id": "densenet161.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet161_tv_in1k.weights.h5",
-    },
-    "densenet169_tv_in1k": {
-        "model": "densenet169",
-        "timm_id": "densenet169.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet169_tv_in1k.weights.h5",
-    },
-    "densenet201_tv_in1k": {
-        "model": "densenet201",
-        "timm_id": "densenet201.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/densenet201_tv_in1k.weights.h5",
-    },
-}
+
+class DenseNetConfig(BaseConfig):
+    r"""Configuration for [`DenseNetModel`] / [`DenseNetImageClassify`].
+
+    DenseNet connects each layer to every other layer within a dense block, so feature
+    maps are concatenated (not summed), giving strong feature reuse at low parameter
+    count. One `kf_config.json` (declaring the canonical [`DenseNetImageClassify`]) sits
+    on each variant's repo, and both the backbone and classifier load from it. Fields
+    mirror the model constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(6, 12, 24, 16)`):
+            Number of dense layers per block.
+        growth_rate (`int`, *optional*, defaults to 32):
+            Number of feature maps each dense layer adds.
+        initial_filter (`int`, *optional*, defaults to 64):
+            Channel count of the stem convolution.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.densenet import DenseNetConfig, DenseNetImageClassify
+
+    >>> configuration = DenseNetConfig()
+    >>> model = DenseNetImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "densenet"
+
+    depths: tuple = (6, 12, 24, 16)
+    growth_rate: int = 32
+    initial_filter: int = 64
+    image_size: int = 224
+    num_classes: int = 1000

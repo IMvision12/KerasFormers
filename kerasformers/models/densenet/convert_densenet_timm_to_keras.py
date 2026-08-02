@@ -17,7 +17,61 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.densenet import DenseNetImageClassify
-from kerasformers.models.densenet.densenet_config import DENSENET_WEIGHTS_URLS
+
+# Architecture presets, moved here from densenet_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+DENSENET_MODEL_CONFIG = {
+    "densenet121": {
+        "depths": [6, 12, 24, 16],
+        "growth_rate": 32,
+        "initial_filter": 64,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "densenet161": {
+        "depths": [6, 12, 36, 24],
+        "growth_rate": 48,
+        "initial_filter": 96,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "densenet169": {
+        "depths": [6, 12, 32, 32],
+        "growth_rate": 32,
+        "initial_filter": 64,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "densenet201": {
+        "depths": [6, 12, 48, 32],
+        "growth_rate": 32,
+        "initial_filter": 64,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+DENSENET_VARIANTS = {
+    "densenet121_tv_in1k": {
+        "model": "densenet121",
+        "timm_id": "densenet121.tv_in1k",
+    },
+    "densenet161_tv_in1k": {
+        "model": "densenet161",
+        "timm_id": "densenet161.tv_in1k",
+    },
+    "densenet169_tv_in1k": {
+        "model": "densenet169",
+        "timm_id": "densenet169.tv_in1k",
+    },
+    "densenet201_tv_in1k": {
+        "model": "densenet201",
+        "timm_id": "densenet201.tv_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "batchnorm_1": "norm1",
@@ -71,15 +125,15 @@ def transfer_densenet_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in DENSENET_WEIGHTS_URLS.items():
+    for variant, meta in DENSENET_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = DenseNetImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = DenseNetImageClassify(
+            **DENSENET_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_densenet_weights(keras_model, state)
 

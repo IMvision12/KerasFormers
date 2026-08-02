@@ -8,7 +8,12 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .resnet_config import RESNET_MODEL_CONFIG, RESNET_WEIGHTS_URLS
+from .resnet_config import ResNetConfig
+
+# The ResNet backbone (ResNetModel) and classifier (ResNetImageClassify) share the
+# variant's weights repo, whose kf_config.json declares the canonical
+# ResNetImageClassify. Per-variant arch for the timm ``hf:`` path.
+RESNET_HUB_SIBLINGS = frozenset({"ResNetModel", "ResNetImageClassify"})
 
 
 def conv_block(
@@ -367,18 +372,19 @@ class ResNetModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RESNET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNET_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RESNET_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ResNetConfig
+    HUB_REPO_SIBLINGS = RESNET_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # The backbone shares the variant's weights repo with ResNetImageClassify
+        # (which the kf_config declares); build it from the repo's kf_config, then
+        # copy the matching backbone weights across.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = ResNetImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ResNetImageClassify.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -567,11 +573,9 @@ class ResNetImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RESNET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNET_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RESNET_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ResNetConfig
+    HUB_REPO_SIBLINGS = RESNET_HUB_SIBLINGS
     HF_MODEL_TYPE = None  # timm-ported; no HF transformers passthrough.
 
     @classmethod

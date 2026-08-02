@@ -11,7 +11,11 @@ from kerasformers.models.vit.vit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .pit_config import PIT_MODEL_CONFIG, PIT_WEIGHTS_URLS
+from .pit_config import PiTConfig
+
+# The backbone (PiTModel) and classifier (PiTImageClassify) share the variant's
+# weights repo, whose kf_config.json declares PiTImageClassify.
+PIT_HUB_SIBLINGS = frozenset({"PiTModel", "PiTImageClassify"})
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix=None):
@@ -311,17 +315,18 @@ class PiTModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = PIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = PiTConfig
+    HUB_REPO_SIBLINGS = PIT_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with PiTImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = PiTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = PiTImageClassify.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -491,10 +496,9 @@ class PiTImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        v: PIT_MODEL_CONFIG[m["model"]] for v, m in PIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = PIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = PiTConfig
+    HUB_REPO_SIBLINGS = PIT_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

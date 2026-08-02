@@ -12,11 +12,14 @@ from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
 from .mobilevit_config import (
-    MOBILEVIT_MODEL_CONFIG,
     MOBILEVIT_SEGMENT_MODEL_CONFIG,
     MOBILEVIT_SEGMENT_WEIGHTS_URLS,
-    MOBILEVIT_WEIGHTS_URLS,
+    MobileViTConfig,
 )
+
+# The backbone (MobileViTModel) and classifier (MobileViTImageClassify) share the
+# classification variant's repo, whose kf_config.json declares MobileViTImageClassify.
+MOBILEVIT_HUB_SIBLINGS = frozenset({"MobileViTModel", "MobileViTImageClassify"})
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -459,19 +462,19 @@ class MobileViTModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileViTConfig
+    HUB_REPO_SIBLINGS = MOBILEVIT_HUB_SIBLINGS
     HF_MODEL_TYPE = "mobilevit"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with MobileViTImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = MobileViTImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -639,11 +642,9 @@ class MobileViTImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILEVIT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILEVIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileViTConfig
+    HUB_REPO_SIBLINGS = MOBILEVIT_HUB_SIBLINGS
     HF_MODEL_TYPE = "mobilevit"
 
     @classmethod

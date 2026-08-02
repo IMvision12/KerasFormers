@@ -18,9 +18,189 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientnetv2 import EfficientNetV2ImageClassify
-from kerasformers.models.efficientnetv2.efficientnetv2_config import (
-    EFFICIENTNETV2_WEIGHTS_URLS,
-)
+
+# Architecture presets, moved here from efficientnetv2_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+EFFICIENTNETV2_MODEL_CONFIG = {
+    "efficientnetv2_s": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 300,
+        "block_arch": "EfficientNetV2S",
+        "head_filters": 1280,
+        "image_size": 300,
+        "num_classes": 1000,
+    },
+    "efficientnetv2_s_in21k": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 300,
+        "block_arch": "EfficientNetV2S",
+        "head_filters": 1280,
+        "image_size": 300,
+        "num_classes": 21843,
+    },
+    "efficientnetv2_m": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 384,
+        "block_arch": "EfficientNetV2M",
+        "head_filters": 1280,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "efficientnetv2_m_in21k": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 384,
+        "block_arch": "EfficientNetV2M",
+        "head_filters": 1280,
+        "image_size": 384,
+        "num_classes": 21843,
+    },
+    "efficientnetv2_l": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 384,
+        "block_arch": "EfficientNetV2L",
+        "head_filters": 1280,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "efficientnetv2_l_in21k": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 384,
+        "block_arch": "EfficientNetV2L",
+        "head_filters": 1280,
+        "image_size": 384,
+        "num_classes": 21843,
+    },
+    "efficientnetv2_xl": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 384,
+        "block_arch": "EfficientNetV2XL",
+        "head_filters": 1280,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "efficientnetv2_xl_in21k": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 384,
+        "block_arch": "EfficientNetV2XL",
+        "head_filters": 1280,
+        "image_size": 384,
+        "num_classes": 21843,
+    },
+    "efficientnetv2_b0": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "default_size": 192,
+        "block_arch": "EfficientNetV2B",
+        "head_filters": 1280,
+        "image_size": 192,
+        "num_classes": 1000,
+    },
+    "efficientnetv2_b1": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.1,
+        "default_size": 192,
+        "block_arch": "EfficientNetV2B",
+        "head_filters": 1280,
+        "image_size": 192,
+        "num_classes": 1000,
+    },
+    "efficientnetv2_b2": {
+        "width_coefficient": 1.1,
+        "depth_coefficient": 1.2,
+        "default_size": 208,
+        "block_arch": "EfficientNetV2B",
+        "head_filters": 1408,
+        "image_size": 208,
+        "num_classes": 1000,
+    },
+    "efficientnetv2_b3": {
+        "width_coefficient": 1.2,
+        "depth_coefficient": 1.4,
+        "default_size": 240,
+        "block_arch": "EfficientNetV2B",
+        "head_filters": 1536,
+        "image_size": 240,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+EFFICIENTNETV2_VARIANTS = {
+    "tf_efficientnetv2_s_in1k": {
+        "model": "efficientnetv2_s",
+        "timm_id": "tf_efficientnetv2_s.in1k",
+    },
+    "tf_efficientnetv2_s_in21k": {
+        "model": "efficientnetv2_s_in21k",
+        "timm_id": "tf_efficientnetv2_s.in21k",
+    },
+    "tf_efficientnetv2_s_in21k_ft_in1k": {
+        "model": "efficientnetv2_s",
+        "timm_id": "tf_efficientnetv2_s.in21k_ft_in1k",
+    },
+    "tf_efficientnetv2_m_in1k": {
+        "model": "efficientnetv2_m",
+        "timm_id": "tf_efficientnetv2_m.in1k",
+    },
+    "tf_efficientnetv2_m_in21k": {
+        "model": "efficientnetv2_m_in21k",
+        "timm_id": "tf_efficientnetv2_m.in21k",
+    },
+    "tf_efficientnetv2_m_in21k_ft_in1k": {
+        "model": "efficientnetv2_m",
+        "timm_id": "tf_efficientnetv2_m.in21k_ft_in1k",
+    },
+    "tf_efficientnetv2_l_in1k": {
+        "model": "efficientnetv2_l",
+        "timm_id": "tf_efficientnetv2_l.in1k",
+    },
+    "tf_efficientnetv2_l_in21k": {
+        "model": "efficientnetv2_l_in21k",
+        "timm_id": "tf_efficientnetv2_l.in21k",
+    },
+    "tf_efficientnetv2_l_in21k_ft_in1k": {
+        "model": "efficientnetv2_l",
+        "timm_id": "tf_efficientnetv2_l.in21k_ft_in1k",
+    },
+    "tf_efficientnetv2_xl_in21k": {
+        "model": "efficientnetv2_xl_in21k",
+        "timm_id": "tf_efficientnetv2_xl.in21k",
+    },
+    "tf_efficientnetv2_xl_in21k_ft_in1k": {
+        "model": "efficientnetv2_xl",
+        "timm_id": "tf_efficientnetv2_xl.in21k_ft_in1k",
+    },
+    "tf_efficientnetv2_b0_in1k": {
+        "model": "efficientnetv2_b0",
+        "timm_id": "tf_efficientnetv2_b0.in1k",
+    },
+    "tf_efficientnetv2_b1_in1k": {
+        "model": "efficientnetv2_b1",
+        "timm_id": "tf_efficientnetv2_b1.in1k",
+    },
+    "tf_efficientnetv2_b2_in1k": {
+        "model": "efficientnetv2_b2",
+        "timm_id": "tf_efficientnetv2_b2.in1k",
+    },
+    "tf_efficientnetv2_b3_in1k": {
+        "model": "efficientnetv2_b3",
+        "timm_id": "tf_efficientnetv2_b3.in1k",
+    },
+    "tf_efficientnetv2_b3_in21k_ft_in1k": {
+        "model": "efficientnetv2_b3",
+        "timm_id": "tf_efficientnetv2_b3.in21k_ft_in1k",
+    },
+}
 
 _BLOCK0_REMAP = {}
 for j in range(8):
@@ -83,15 +263,15 @@ def transfer_efficientnetv2_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in EFFICIENTNETV2_WEIGHTS_URLS.items():
+    for variant, meta in EFFICIENTNETV2_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientNetV2ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = EfficientNetV2ImageClassify(
+            **EFFICIENTNETV2_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_efficientnetv2_weights(keras_model, state)
 

@@ -7,7 +7,11 @@ from kerasformers.models.convnext.convnext_model import (
     ConvNeXtModel,
 )
 
-from .convnextv2_config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHTS_URLS
+from .convnextv2_config import ConvNeXtV2Config
+
+# The backbone (ConvNeXtV2Model) and classifier (ConvNeXtV2ImageClassify) share the
+# variant's weights repo, whose kf_config.json declares ConvNeXtV2ImageClassify.
+CONVNEXTV2_HUB_SIBLINGS = frozenset({"ConvNeXtV2Model", "ConvNeXtV2ImageClassify"})
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -41,19 +45,19 @@ class ConvNeXtV2Model(ConvNeXtModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: CONVNEXTV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in CONVNEXTV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = CONVNEXTV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ConvNeXtV2Config
+    HUB_REPO_SIBLINGS = CONVNEXTV2_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with ConvNeXtV2ImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = ConvNeXtV2ImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -130,11 +134,9 @@ class ConvNeXtV2ImageClassify(ConvNeXtImageClassify):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: CONVNEXTV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in CONVNEXTV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = CONVNEXTV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ConvNeXtV2Config
+    HUB_REPO_SIBLINGS = CONVNEXTV2_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -11,7 +11,11 @@ from kerasformers.models.convnext.convnext_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .convnext_config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_URLS
+from .convnext_config import ConvNeXtConfig
+
+# The backbone (ConvNeXtModel) and classifier (ConvNeXtImageClassify) share the
+# variant's weights repo, whose kf_config.json declares ConvNeXtImageClassify.
+CONVNEXT_HUB_SIBLINGS = frozenset({"ConvNeXtModel", "ConvNeXtImageClassify"})
 
 
 def spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):
@@ -245,19 +249,19 @@ class ConvNeXtModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: CONVNEXT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in CONVNEXT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = CONVNEXT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ConvNeXtConfig
+    HUB_REPO_SIBLINGS = CONVNEXT_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with ConvNeXtImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = ConvNeXtImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -415,11 +419,9 @@ class ConvNeXtImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: CONVNEXT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in CONVNEXT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = CONVNEXT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ConvNeXtConfig
+    HUB_REPO_SIBLINGS = CONVNEXT_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

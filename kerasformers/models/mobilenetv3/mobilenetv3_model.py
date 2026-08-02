@@ -8,7 +8,11 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .mobilenetv3_config import MOBILENETV3_MODEL_CONFIG, MOBILENETV3_WEIGHTS_URLS
+from .mobilenetv3_config import MobileNetV3Config
+
+# The backbone (MobileNetV3Model) and classifier (MobileNetV3ImageClassify) share the
+# variant's repo, whose kf_config.json declares MobileNetV3ImageClassify.
+MOBILENETV3_HUB_SIBLINGS = frozenset({"MobileNetV3Model", "MobileNetV3ImageClassify"})
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -463,19 +467,19 @@ class MobileNetV3Model(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILENETV3_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileNetV3Config
+    HUB_REPO_SIBLINGS = MOBILENETV3_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with MobileNetV3ImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = MobileNetV3ImageClassify.from_release(
-                variant, skip_mismatch=skip_mismatch
+            src = MobileNetV3ImageClassify.from_weights(
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -513,7 +517,13 @@ class MobileNetV3Model(FunctionalBaseModel):
         name="MobileNetV3Model",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "dropout_rate", "timm_id"):
+        for k in (
+            "num_classes",
+            "classifier_activation",
+            "dropout_rate",
+            "head_use_bias",
+            "timm_id",
+        ):
             kwargs.pop(k, None)
 
         if config not in ("large", "small"):
@@ -664,11 +674,9 @@ class MobileNetV3ImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILENETV3_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILENETV3_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILENETV3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileNetV3Config
+    HUB_REPO_SIBLINGS = MOBILENETV3_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

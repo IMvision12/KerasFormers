@@ -1,235 +1,51 @@
-VGG_MODEL_CONFIG = {
-    "vgg11": {
-        "num_filters": [
-            64,
-            "M",
-            128,
-            "M",
-            256,
-            256,
-            "M",
-            512,
-            512,
-            "M",
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vgg11_bn": {
-        "num_filters": [
-            64,
-            "M",
-            128,
-            "M",
-            256,
-            256,
-            "M",
-            512,
-            512,
-            "M",
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vgg13": {
-        "num_filters": [
-            64,
-            64,
-            "M",
-            128,
-            128,
-            "M",
-            256,
-            256,
-            "M",
-            512,
-            512,
-            "M",
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vgg13_bn": {
-        "num_filters": [
-            64,
-            64,
-            "M",
-            128,
-            128,
-            "M",
-            256,
-            256,
-            "M",
-            512,
-            512,
-            "M",
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vgg16": {
-        "num_filters": [
-            64,
-            64,
-            "M",
-            128,
-            128,
-            "M",
-            256,
-            256,
-            256,
-            "M",
-            512,
-            512,
-            512,
-            "M",
-            512,
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vgg16_bn": {
-        "num_filters": [
-            64,
-            64,
-            "M",
-            128,
-            128,
-            "M",
-            256,
-            256,
-            256,
-            "M",
-            512,
-            512,
-            512,
-            "M",
-            512,
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vgg19": {
-        "num_filters": [
-            64,
-            64,
-            "M",
-            128,
-            128,
-            "M",
-            256,
-            256,
-            256,
-            256,
-            "M",
-            512,
-            512,
-            512,
-            512,
-            "M",
-            512,
-            512,
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vgg19_bn": {
-        "num_filters": [
-            64,
-            64,
-            "M",
-            128,
-            128,
-            "M",
-            256,
-            256,
-            256,
-            256,
-            "M",
-            512,
-            512,
-            512,
-            512,
-            "M",
-            512,
-            512,
-            512,
-            512,
-            "M",
-        ],
-        "batch_norm": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-VGG_WEIGHTS_URLS = {
-    "vgg11_tv_in1k": {
-        "model": "vgg11",
-        "timm_id": "vgg11.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg11_tv_in1k.weights.h5",
-    },
-    "vgg11_bn_tv_in1k": {
-        "model": "vgg11_bn",
-        "timm_id": "vgg11_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg11_bn_tv_in1k.weights.h5",
-    },
-    "vgg13_tv_in1k": {
-        "model": "vgg13",
-        "timm_id": "vgg13.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg13_tv_in1k.weights.h5",
-    },
-    "vgg13_bn_tv_in1k": {
-        "model": "vgg13_bn",
-        "timm_id": "vgg13_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg13_bn_tv_in1k.weights.h5",
-    },
-    "vgg16_tv_in1k": {
-        "model": "vgg16",
-        "timm_id": "vgg16.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg16_tv_in1k.weights.h5",
-    },
-    "vgg16_bn_tv_in1k": {
-        "model": "vgg16_bn",
-        "timm_id": "vgg16_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg16_bn_tv_in1k.weights.h5",
-    },
-    "vgg19_tv_in1k": {
-        "model": "vgg19",
-        "timm_id": "vgg19.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg19_tv_in1k.weights.h5",
-    },
-    "vgg19_bn_tv_in1k": {
-        "model": "vgg19_bn",
-        "timm_id": "vgg19_bn.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/vgg19_bn_tv_in1k.weights.h5",
-    },
-}
+
+class VGGConfig(BaseConfig):
+    r"""Configuration for [`VGGModel`] / [`VGGImageClassify`].
+
+    VGG is a classic deep CNN built from stacks of 3x3 convolutions and max-pooling.
+    One `kf_config.json` (declaring the canonical [`VGGImageClassify`]) sits on each
+    variant's repo, and both the backbone and classifier load from it. Fields mirror
+    the model constructor and serialize flat.
+
+    Args:
+        num_filters (`tuple`, *optional*, defaults to the VGG-16 layout):
+            Per-layer channel counts; the string `"M"` marks a max-pool stage.
+        batch_norm (`bool`, *optional*, defaults to `False`):
+            Whether convolutions are followed by BatchNorm (the ``*_bn`` variants).
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.vgg import VGGConfig, VGGImageClassify
+
+    >>> configuration = VGGConfig()
+    >>> model = VGGImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "vgg"
+
+    num_filters: tuple = (
+        64,
+        "M",
+        128,
+        "M",
+        256,
+        256,
+        "M",
+        512,
+        512,
+        "M",
+        512,
+        512,
+        "M",
+    )
+    batch_norm: bool = False
+    image_size: int = 224
+    num_classes: int = 1000

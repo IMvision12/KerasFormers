@@ -17,7 +17,239 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.vgg import VGGImageClassify
-from kerasformers.models.vgg.vgg_config import VGG_WEIGHTS_URLS
+
+# Architecture presets, moved here from vgg_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+VGG_MODEL_CONFIG = {
+    "vgg11": {
+        "num_filters": [
+            64,
+            "M",
+            128,
+            "M",
+            256,
+            256,
+            "M",
+            512,
+            512,
+            "M",
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vgg11_bn": {
+        "num_filters": [
+            64,
+            "M",
+            128,
+            "M",
+            256,
+            256,
+            "M",
+            512,
+            512,
+            "M",
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vgg13": {
+        "num_filters": [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            "M",
+            512,
+            512,
+            "M",
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vgg13_bn": {
+        "num_filters": [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            "M",
+            512,
+            512,
+            "M",
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vgg16": {
+        "num_filters": [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vgg16_bn": {
+        "num_filters": [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vgg19": {
+        "num_filters": [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vgg19_bn": {
+        "num_filters": [
+            64,
+            64,
+            "M",
+            128,
+            128,
+            "M",
+            256,
+            256,
+            256,
+            256,
+            "M",
+            512,
+            512,
+            512,
+            512,
+            "M",
+            512,
+            512,
+            512,
+            512,
+            "M",
+        ],
+        "batch_norm": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+VGG_VARIANTS = {
+    "vgg11_tv_in1k": {
+        "model": "vgg11",
+        "timm_id": "vgg11.tv_in1k",
+    },
+    "vgg11_bn_tv_in1k": {
+        "model": "vgg11_bn",
+        "timm_id": "vgg11_bn.tv_in1k",
+    },
+    "vgg13_tv_in1k": {
+        "model": "vgg13",
+        "timm_id": "vgg13.tv_in1k",
+    },
+    "vgg13_bn_tv_in1k": {
+        "model": "vgg13_bn",
+        "timm_id": "vgg13_bn.tv_in1k",
+    },
+    "vgg16_tv_in1k": {
+        "model": "vgg16",
+        "timm_id": "vgg16.tv_in1k",
+    },
+    "vgg16_bn_tv_in1k": {
+        "model": "vgg16_bn",
+        "timm_id": "vgg16_bn.tv_in1k",
+    },
+    "vgg19_tv_in1k": {
+        "model": "vgg19",
+        "timm_id": "vgg19.tv_in1k",
+    },
+    "vgg19_bn_tv_in1k": {
+        "model": "vgg19_bn",
+        "timm_id": "vgg19_bn.tv_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -63,15 +295,15 @@ def transfer_vgg_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in VGG_WEIGHTS_URLS.items():
+    for variant, meta in VGG_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = VGGImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = VGGImageClassify(
+            **VGG_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_vgg_weights(keras_model, state)
 

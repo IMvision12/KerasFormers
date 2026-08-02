@@ -18,7 +18,25 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inceptionv4 import InceptionV4ImageClassify
-from kerasformers.models.inceptionv4.inceptionv4_config import INCEPTIONV4_WEIGHTS_URLS
+
+# Architecture presets, moved here from inceptionv4_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+INCEPTIONV4_MODEL_CONFIG = {
+    "inception_v4": {
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+INCEPTIONV4_VARIANTS = {
+    "inception_v4_tf_in1k": {
+        "model": "inception_v4",
+        "timm_id": "inception_v4.tf_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "features_": "features.",
@@ -86,15 +104,15 @@ def transfer_inceptionv4_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in INCEPTIONV4_WEIGHTS_URLS.items():
+    for variant, meta in INCEPTIONV4_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = InceptionV4ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = InceptionV4ImageClassify(
+            **INCEPTIONV4_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_inceptionv4_weights(keras_model, state)
 

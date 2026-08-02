@@ -1,70 +1,47 @@
-EFFICIENTNET_LITE_MODEL_CONFIG = {
-    "efficientnet_lite_b0": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "dropout_rate": 0.2,
-        "default_size": 224,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "efficientnet_lite_b1": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.1,
-        "dropout_rate": 0.2,
-        "default_size": 240,
-        "image_size": 240,
-        "num_classes": 1000,
-    },
-    "efficientnet_lite_b2": {
-        "width_coefficient": 1.1,
-        "depth_coefficient": 1.2,
-        "dropout_rate": 0.3,
-        "default_size": 260,
-        "image_size": 260,
-        "num_classes": 1000,
-    },
-    "efficientnet_lite_b3": {
-        "width_coefficient": 1.2,
-        "depth_coefficient": 1.4,
-        "dropout_rate": 0.3,
-        "default_size": 300,
-        "image_size": 300,
-        "num_classes": 1000,
-    },
-    "efficientnet_lite_b4": {
-        "width_coefficient": 1.4,
-        "depth_coefficient": 1.8,
-        "dropout_rate": 0.3,
-        "default_size": 380,
-        "image_size": 380,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-EFFICIENTNET_LITE_WEIGHTS_URLS = {
-    "tf_efficientnet_lite0_in1k": {
-        "model": "efficientnet_lite_b0",
-        "timm_id": "tf_efficientnet_lite0.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite0_in1k.weights.h5",
-    },
-    "tf_efficientnet_lite1_in1k": {
-        "model": "efficientnet_lite_b1",
-        "timm_id": "tf_efficientnet_lite1.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite1_in1k.weights.h5",
-    },
-    "tf_efficientnet_lite2_in1k": {
-        "model": "efficientnet_lite_b2",
-        "timm_id": "tf_efficientnet_lite2.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite2_in1k.weights.h5",
-    },
-    "tf_efficientnet_lite3_in1k": {
-        "model": "efficientnet_lite_b3",
-        "timm_id": "tf_efficientnet_lite3.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite3_in1k.weights.h5",
-    },
-    "tf_efficientnet_lite4_in1k": {
-        "model": "efficientnet_lite_b4",
-        "timm_id": "tf_efficientnet_lite4.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnet_lite4_in1k.weights.h5",
-    },
-}
+
+class EfficientNetLiteConfig(BaseConfig):
+    r"""Configuration for [`EfficientNetLiteModel`] / [`EfficientNetLiteImageClassify`].
+
+    EfficientNet-Lite is a mobile-friendly EfficientNet variant that drops squeeze-and-
+    excitation and swish (replaced by ReLU6) for edge deployment. One `kf_config.json`
+    (declaring the canonical [`EfficientNetLiteImageClassify`]) sits on each variant's
+    repo, and both the backbone and classifier load from it. Fields mirror the model
+    constructor and serialize flat.
+
+    Args:
+        width_coefficient (`float`, *optional*, defaults to 1.0):
+            Channel-width scaling coefficient.
+        depth_coefficient (`float`, *optional*, defaults to 1.0):
+            Block-repeat (depth) scaling coefficient.
+        dropout_rate (`float`, *optional*, defaults to 0.2):
+            Dropout rate before the classifier head.
+        default_size (`int`, *optional*, defaults to 224):
+            Reference resolution the scaling was defined at.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.efficientnet_lite import (
+    ...     EfficientNetLiteConfig,
+    ...     EfficientNetLiteImageClassify,
+    ... )
+
+    >>> configuration = EfficientNetLiteConfig()
+    >>> model = EfficientNetLiteImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "efficientnet_lite"
+
+    width_coefficient: float = 1.0
+    depth_coefficient: float = 1.0
+    dropout_rate: float = 0.2
+    default_size: int = 224
+    image_size: int = 224
+    num_classes: int = 1000

@@ -1,47 +1,47 @@
-CONVMIXER_MODEL_CONFIG = {
-    "convmixer_1536_20": {
-        "embed_dim": 1536,
-        "depth": 20,
-        "patch_size": 7,
-        "kernel_size": 9,
-        "activation": "gelu",
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convmixer_768_32": {
-        "embed_dim": 768,
-        "depth": 32,
-        "patch_size": 7,
-        "kernel_size": 7,
-        "activation": "relu",
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convmixer_1024_20_ks9_p14": {
-        "embed_dim": 1024,
-        "depth": 20,
-        "patch_size": 14,
-        "kernel_size": 9,
-        "activation": "gelu",
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-CONVMIXER_WEIGHTS_URLS = {
-    "convmixer_1536_20_in1k": {
-        "model": "convmixer_1536_20",
-        "timm_id": "convmixer_1536_20.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convmixer_1536_20_in1k.weights.h5",
-    },
-    "convmixer_768_32_in1k": {
-        "model": "convmixer_768_32",
-        "timm_id": "convmixer_768_32.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convmixer_768_32_in1k.weights.h5",
-    },
-    "convmixer_1024_20_ks9_p14_in1k": {
-        "model": "convmixer_1024_20_ks9_p14",
-        "timm_id": "convmixer_1024_20_ks9_p14.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convmixer_1024_20_ks9_p14_in1k.weights.h5",
-    },
-}
+
+class ConvMixerConfig(BaseConfig):
+    r"""Configuration for [`ConvMixerModel`] / [`ConvMixerImageClassify`].
+
+    ConvMixer patchifies the input, then applies a stack of depthwise + pointwise
+    convolution mixer blocks at a single resolution. One `kf_config.json` (declaring
+    the canonical [`ConvMixerImageClassify`]) sits on each variant's repo, and both the
+    backbone and classifier load from it. Fields mirror the model constructor and
+    serialize flat.
+
+    Args:
+        embed_dim (`int`, *optional*, defaults to 768):
+            Channel width used throughout the network.
+        depth (`int`, *optional*, defaults to 32):
+            Number of mixer blocks.
+        kernel_size (`int`, *optional*, defaults to 7):
+            Depthwise convolution kernel size.
+        patch_size (`int`, *optional*, defaults to 7):
+            Patchify stem stride / kernel size.
+        activation (`str`, *optional*, defaults to `"gelu"`):
+            Activation used inside each block.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.convmixer import ConvMixerConfig, ConvMixerImageClassify
+
+    >>> configuration = ConvMixerConfig()
+    >>> model = ConvMixerImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "convmixer"
+
+    embed_dim: int = 768
+    depth: int = 32
+    kernel_size: int = 7
+    patch_size: int = 7
+    activation: str = "gelu"
+    image_size: int = 224
+    num_classes: int = 1000

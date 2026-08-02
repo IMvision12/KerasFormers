@@ -1,3 +1,6 @@
+from kerasformers.models.efficientformer.efficientformer_config import (
+    EfficientFormerConfig,
+)
 from kerasformers.models.efficientformer.efficientformer_model import (
     EfficientFormerImageClassify,
     EfficientFormerModel,
@@ -6,4 +9,5 @@ from kerasformers.models.efficientformer.efficientformer_model import (
 __all__ = [
     "EfficientFormerImageClassify",
     "EfficientFormerModel",
+    "EfficientFormerConfig",
 ]

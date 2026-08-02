@@ -1,193 +1,50 @@
-EFFICIENTNETV2_MODEL_CONFIG = {
-    "efficientnetv2_s": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 300,
-        "block_arch": "EfficientNetV2S",
-        "head_filters": 1280,
-        "image_size": 300,
-        "num_classes": 1000,
-    },
-    "efficientnetv2_s_in21k": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 300,
-        "block_arch": "EfficientNetV2S",
-        "head_filters": 1280,
-        "image_size": 300,
-        "num_classes": 21843,
-    },
-    "efficientnetv2_m": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-        "block_arch": "EfficientNetV2M",
-        "head_filters": 1280,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "efficientnetv2_m_in21k": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-        "block_arch": "EfficientNetV2M",
-        "head_filters": 1280,
-        "image_size": 384,
-        "num_classes": 21843,
-    },
-    "efficientnetv2_l": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-        "block_arch": "EfficientNetV2L",
-        "head_filters": 1280,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "efficientnetv2_l_in21k": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-        "block_arch": "EfficientNetV2L",
-        "head_filters": 1280,
-        "image_size": 384,
-        "num_classes": 21843,
-    },
-    "efficientnetv2_xl": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-        "block_arch": "EfficientNetV2XL",
-        "head_filters": 1280,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "efficientnetv2_xl_in21k": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 384,
-        "block_arch": "EfficientNetV2XL",
-        "head_filters": 1280,
-        "image_size": 384,
-        "num_classes": 21843,
-    },
-    "efficientnetv2_b0": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.0,
-        "default_size": 192,
-        "block_arch": "EfficientNetV2B",
-        "head_filters": 1280,
-        "image_size": 192,
-        "num_classes": 1000,
-    },
-    "efficientnetv2_b1": {
-        "width_coefficient": 1.0,
-        "depth_coefficient": 1.1,
-        "default_size": 192,
-        "block_arch": "EfficientNetV2B",
-        "head_filters": 1280,
-        "image_size": 192,
-        "num_classes": 1000,
-    },
-    "efficientnetv2_b2": {
-        "width_coefficient": 1.1,
-        "depth_coefficient": 1.2,
-        "default_size": 208,
-        "block_arch": "EfficientNetV2B",
-        "head_filters": 1408,
-        "image_size": 208,
-        "num_classes": 1000,
-    },
-    "efficientnetv2_b3": {
-        "width_coefficient": 1.2,
-        "depth_coefficient": 1.4,
-        "default_size": 240,
-        "block_arch": "EfficientNetV2B",
-        "head_filters": 1536,
-        "image_size": 240,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-EFFICIENTNETV2_WEIGHTS_URLS = {
-    "tf_efficientnetv2_s_in1k": {
-        "model": "efficientnetv2_s",
-        "timm_id": "tf_efficientnetv2_s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_s_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_s_in21k": {
-        "model": "efficientnetv2_s_in21k",
-        "timm_id": "tf_efficientnetv2_s.in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_s_in21k.weights.h5",
-    },
-    "tf_efficientnetv2_s_in21k_ft_in1k": {
-        "model": "efficientnetv2_s",
-        "timm_id": "tf_efficientnetv2_s.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_s_in21k_ft_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_m_in1k": {
-        "model": "efficientnetv2_m",
-        "timm_id": "tf_efficientnetv2_m.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_m_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_m_in21k": {
-        "model": "efficientnetv2_m_in21k",
-        "timm_id": "tf_efficientnetv2_m.in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_m_in21k.weights.h5",
-    },
-    "tf_efficientnetv2_m_in21k_ft_in1k": {
-        "model": "efficientnetv2_m",
-        "timm_id": "tf_efficientnetv2_m.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_m_in21k_ft_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_l_in1k": {
-        "model": "efficientnetv2_l",
-        "timm_id": "tf_efficientnetv2_l.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_l_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_l_in21k": {
-        "model": "efficientnetv2_l_in21k",
-        "timm_id": "tf_efficientnetv2_l.in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_l_in21k.weights.h5",
-    },
-    "tf_efficientnetv2_l_in21k_ft_in1k": {
-        "model": "efficientnetv2_l",
-        "timm_id": "tf_efficientnetv2_l.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_l_in21k_ft_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_xl_in21k": {
-        "model": "efficientnetv2_xl_in21k",
-        "timm_id": "tf_efficientnetv2_xl.in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_xl_in21k.weights.h5",
-    },
-    "tf_efficientnetv2_xl_in21k_ft_in1k": {
-        "model": "efficientnetv2_xl",
-        "timm_id": "tf_efficientnetv2_xl.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_xl_in21k_ft_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_b0_in1k": {
-        "model": "efficientnetv2_b0",
-        "timm_id": "tf_efficientnetv2_b0.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_b0_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_b1_in1k": {
-        "model": "efficientnetv2_b1",
-        "timm_id": "tf_efficientnetv2_b1.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_b1_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_b2_in1k": {
-        "model": "efficientnetv2_b2",
-        "timm_id": "tf_efficientnetv2_b2.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_b2_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_b3_in1k": {
-        "model": "efficientnetv2_b3",
-        "timm_id": "tf_efficientnetv2_b3.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_b3_in1k.weights.h5",
-    },
-    "tf_efficientnetv2_b3_in21k_ft_in1k": {
-        "model": "efficientnetv2_b3",
-        "timm_id": "tf_efficientnetv2_b3.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/tf_efficientnetv2_b3_in21k_ft_in1k.weights.h5",
-    },
-}
+
+class EfficientNetV2Config(BaseConfig):
+    r"""Configuration for [`EfficientNetV2Model`] / [`EfficientNetV2ImageClassify`].
+
+    EfficientNetV2 refines EfficientNet with fused-MBConv blocks in the early stages
+    and a training-aware compound scaling. One `kf_config.json` (declaring the
+    canonical [`EfficientNetV2ImageClassify`]) sits on each variant's repo, and both
+    the backbone and classifier load from it. Fields mirror the model constructor and
+    serialize flat.
+
+    Args:
+        width_coefficient (`float`, *optional*, defaults to 1.0):
+            Channel-width scaling coefficient.
+        depth_coefficient (`float`, *optional*, defaults to 1.0):
+            Block-repeat (depth) scaling coefficient.
+        default_size (`int`, *optional*, defaults to 300):
+            Reference resolution the scaling was defined at.
+        block_arch (`str`, *optional*, defaults to `"EfficientNetV2S"`):
+            Named block-schedule preset (`"EfficientNetV2S/M/L/XL/B"`).
+        head_filters (`int`, *optional*, defaults to 1280):
+            Channel count of the final 1x1 head convolution.
+        image_size (`int`, *optional*, defaults to 300):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.efficientnetv2 import (
+    ...     EfficientNetV2Config,
+    ...     EfficientNetV2ImageClassify,
+    ... )
+
+    >>> configuration = EfficientNetV2Config()
+    >>> model = EfficientNetV2ImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "efficientnetv2"
+
+    width_coefficient: float = 1.0
+    depth_coefficient: float = 1.0
+    default_size: int = 300
+    block_arch: str = "EfficientNetV2S"
+    head_filters: int = 1280
+    image_size: int = 300
+    num_classes: int = 1000

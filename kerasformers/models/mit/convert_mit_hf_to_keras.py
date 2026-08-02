@@ -18,7 +18,49 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mit import MiTImageClassify
-from kerasformers.models.mit.mit_config import MIT_WEIGHTS_URLS
+from kerasformers.models.mit.mit_config import MIT_VARIANTS
+
+# Architecture presets, moved here from mit_config.py: the package config no longer
+# carries arch (models load by Hub repo id / kf_config). Only this converter builds an
+# untrained model to transfer the SegFormer encoder weights into.
+MIT_MODEL_CONFIG = {
+    "mit_b0": {
+        "embed_dim": [32, 64, 160, 256],
+        "depths": [2, 2, 2, 2],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mit_b1": {
+        "embed_dim": [64, 128, 320, 512],
+        "depths": [2, 2, 2, 2],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mit_b2": {
+        "embed_dim": [64, 128, 320, 512],
+        "depths": [3, 4, 6, 3],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mit_b3": {
+        "embed_dim": [64, 128, 320, 512],
+        "depths": [3, 4, 18, 3],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mit_b4": {
+        "embed_dim": [64, 128, 320, 512],
+        "depths": [3, 8, 27, 3],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mit_b5": {
+        "embed_dim": [64, 128, 320, 512],
+        "depths": [3, 6, 40, 3],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -88,15 +130,15 @@ def transfer_mit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
 if __name__ == "__main__":
     import transformers
 
-    for variant, meta in MIT_WEIGHTS_URLS.items():
+    for variant, meta in MIT_VARIANTS.items():
         hf_id = meta["hf_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(hf_id)
-        keras_model = MiTImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = MiTImageClassify(
+            **MIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_mit_weights(keras_model, state)
 

@@ -18,7 +18,72 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.poolformer import PoolFormerImageClassify
-from kerasformers.models.poolformer.poolformer_config import POOLFORMER_WEIGHTS_URLS
+
+# Architecture presets, moved here from poolformer_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+POOLFORMER_MODEL_CONFIG = {
+    "poolformer_s12": {
+        "embed_dim": (64, 128, 320, 512),
+        "depths": (2, 2, 6, 2),
+        "init_scale": 1e-5,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "poolformer_s24": {
+        "embed_dim": (64, 128, 320, 512),
+        "depths": (4, 4, 12, 4),
+        "init_scale": 1e-5,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "poolformer_s36": {
+        "embed_dim": (64, 128, 320, 512),
+        "depths": (6, 6, 18, 6),
+        "init_scale": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "poolformer_m36": {
+        "embed_dim": (96, 192, 384, 768),
+        "depths": (6, 6, 18, 6),
+        "init_scale": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "poolformer_m48": {
+        "embed_dim": (96, 192, 384, 768),
+        "depths": (8, 8, 24, 8),
+        "init_scale": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+POOLFORMER_VARIANTS = {
+    "poolformer_s12_sail_in1k": {
+        "model": "poolformer_s12",
+        "timm_id": "poolformer_s12.sail_in1k",
+    },
+    "poolformer_s24_sail_in1k": {
+        "model": "poolformer_s24",
+        "timm_id": "poolformer_s24.sail_in1k",
+    },
+    "poolformer_s36_sail_in1k": {
+        "model": "poolformer_s36",
+        "timm_id": "poolformer_s36.sail_in1k",
+    },
+    "poolformer_m36_sail_in1k": {
+        "model": "poolformer_m36",
+        "timm_id": "poolformer_m36.sail_in1k",
+    },
+    "poolformer_m48_sail_in1k": {
+        "model": "poolformer_m48",
+        "timm_id": "poolformer_m48.sail_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -71,15 +136,15 @@ def transfer_poolformer_weights(keras_model, state_dict: Dict[str, np.ndarray]) 
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in POOLFORMER_WEIGHTS_URLS.items():
+    for variant, meta in POOLFORMER_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = PoolFormerImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = PoolFormerImageClassify(
+            **POOLFORMER_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_poolformer_weights(keras_model, state)
 

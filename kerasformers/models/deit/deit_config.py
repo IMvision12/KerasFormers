@@ -1,273 +1,54 @@
-DEIT_MODEL_CONFIG = {
-    "deit_tiny_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 192,
-        "depth": 12,
-        "num_heads": 3,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit_small_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit_base_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit_base_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "deit_tiny_distilled_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 192,
-        "depth": 12,
-        "num_heads": 3,
-        "use_distillation": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit_small_distilled_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "use_distillation": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit_base_distilled_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "use_distillation": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit_base_distilled_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "use_distillation": True,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "deit3_small_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit3_small_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "deit3_medium_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 512,
-        "depth": 12,
-        "num_heads": 8,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit3_base_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit3_base_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "deit3_large_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 1024,
-        "depth": 24,
-        "num_heads": 16,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "deit3_large_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 1024,
-        "depth": 24,
-        "num_heads": 16,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "deit3_huge_patch14_224": {
-        "patch_size": 14,
-        "embed_dim": 1280,
-        "depth": 32,
-        "num_heads": 16,
-        "no_embed_class": True,
-        "layer_scale_init": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-DEIT_WEIGHTS_URLS = {
-    "deit_tiny_patch16_224_fb_in1k": {
-        "model": "deit_tiny_patch16_224",
-        "timm_id": "deit_tiny_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_tiny_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit_small_patch16_224_fb_in1k": {
-        "model": "deit_small_patch16_224",
-        "timm_id": "deit_small_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_small_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit_base_patch16_224_fb_in1k": {
-        "model": "deit_base_patch16_224",
-        "timm_id": "deit_base_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_base_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit_base_patch16_384_fb_in1k": {
-        "model": "deit_base_patch16_384",
-        "timm_id": "deit_base_patch16_384.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_base_patch16_384_fb_in1k.weights.h5",
-    },
-    "deit_tiny_distilled_patch16_224_fb_in1k": {
-        "model": "deit_tiny_distilled_patch16_224",
-        "timm_id": "deit_tiny_distilled_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_tiny_distilled_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit_small_distilled_patch16_224_fb_in1k": {
-        "model": "deit_small_distilled_patch16_224",
-        "timm_id": "deit_small_distilled_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_small_distilled_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit_base_distilled_patch16_224_fb_in1k": {
-        "model": "deit_base_distilled_patch16_224",
-        "timm_id": "deit_base_distilled_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_base_distilled_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit_base_distilled_patch16_384_fb_in1k": {
-        "model": "deit_base_distilled_patch16_384",
-        "timm_id": "deit_base_distilled_patch16_384.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit_base_distilled_patch16_384_fb_in1k.weights.h5",
-    },
-    "deit3_small_patch16_224_fb_in1k": {
-        "model": "deit3_small_patch16_224",
-        "timm_id": "deit3_small_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_small_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit3_small_patch16_384_fb_in1k": {
-        "model": "deit3_small_patch16_384",
-        "timm_id": "deit3_small_patch16_384.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_small_patch16_384_fb_in1k.weights.h5",
-    },
-    "deit3_small_patch16_224_fb_in22k_ft_in1k": {
-        "model": "deit3_small_patch16_224",
-        "timm_id": "deit3_small_patch16_224.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_small_patch16_224_fb_in22k_ft_in1k.weights.h5",
-    },
-    "deit3_small_patch16_384_fb_in22k_ft_in1k": {
-        "model": "deit3_small_patch16_384",
-        "timm_id": "deit3_small_patch16_384.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_small_patch16_384_fb_in22k_ft_in1k.weights.h5",
-    },
-    "deit3_medium_patch16_224_fb_in1k": {
-        "model": "deit3_medium_patch16_224",
-        "timm_id": "deit3_medium_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_medium_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit3_medium_patch16_224_fb_in22k_ft_in1k": {
-        "model": "deit3_medium_patch16_224",
-        "timm_id": "deit3_medium_patch16_224.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_medium_patch16_224_fb_in22k_ft_in1k.weights.h5",
-    },
-    "deit3_base_patch16_224_fb_in1k": {
-        "model": "deit3_base_patch16_224",
-        "timm_id": "deit3_base_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_base_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit3_base_patch16_384_fb_in1k": {
-        "model": "deit3_base_patch16_384",
-        "timm_id": "deit3_base_patch16_384.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_base_patch16_384_fb_in1k.weights.h5",
-    },
-    "deit3_base_patch16_224_fb_in22k_ft_in1k": {
-        "model": "deit3_base_patch16_224",
-        "timm_id": "deit3_base_patch16_224.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_base_patch16_224_fb_in22k_ft_in1k.weights.h5",
-    },
-    "deit3_base_patch16_384_fb_in22k_ft_in1k": {
-        "model": "deit3_base_patch16_384",
-        "timm_id": "deit3_base_patch16_384.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_base_patch16_384_fb_in22k_ft_in1k.weights.h5",
-    },
-    "deit3_large_patch16_224_fb_in1k": {
-        "model": "deit3_large_patch16_224",
-        "timm_id": "deit3_large_patch16_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_large_patch16_224_fb_in1k.weights.h5",
-    },
-    "deit3_large_patch16_384_fb_in1k": {
-        "model": "deit3_large_patch16_384",
-        "timm_id": "deit3_large_patch16_384.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_large_patch16_384_fb_in1k.weights.h5",
-    },
-    "deit3_large_patch16_224_fb_in22k_ft_in1k": {
-        "model": "deit3_large_patch16_224",
-        "timm_id": "deit3_large_patch16_224.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_large_patch16_224_fb_in22k_ft_in1k.weights.h5",
-    },
-    "deit3_large_patch16_384_fb_in22k_ft_in1k": {
-        "model": "deit3_large_patch16_384",
-        "timm_id": "deit3_large_patch16_384.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_large_patch16_384_fb_in22k_ft_in1k.weights.h5",
-    },
-    "deit3_huge_patch14_224_fb_in1k": {
-        "model": "deit3_huge_patch14_224",
-        "timm_id": "deit3_huge_patch14_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_huge_patch14_224_fb_in1k.weights.json",
-    },
-    "deit3_huge_patch14_224_fb_in22k_ft_in1k": {
-        "model": "deit3_huge_patch14_224",
-        "timm_id": "deit3_huge_patch14_224.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/deit3_huge_patch14_224_fb_in22k_ft_in1k.weights.json",
-    },
-}
+
+class DeiTConfig(BaseConfig):
+    r"""Configuration for [`DeiTModel`] / [`DeiTImageClassify`].
+
+    DeiT is a ViT trained data-efficiently with an extra distillation token; the
+    distilled variants (`use_distillation=True`) average a CLS head and a distillation
+    head at inference. One `kf_config.json` (declaring the canonical
+    [`DeiTImageClassify`]) sits on each variant's repo, and both the backbone and
+    classifier load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        patch_size (`int`, *optional*, defaults to 16):
+            Side length of each square image patch.
+        embed_dim (`int`, *optional*, defaults to 192):
+            Transformer hidden size.
+        depth (`int`, *optional*, defaults to 12):
+            Number of transformer encoder blocks.
+        num_heads (`int`, *optional*, defaults to 3):
+            Number of attention heads.
+        use_distillation (`bool`, *optional*, defaults to `False`):
+            Whether the checkpoint has a distillation token and second head.
+        no_embed_class (`bool`, *optional*, defaults to `False`):
+            Whether positional embeddings exclude the class/distillation tokens
+            (the DeiT III recipe).
+        layer_scale_init (`float`, *optional*, defaults to `None`):
+            Initial per-channel LayerScale value; `None` disables LayerScale.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.deit import DeiTConfig, DeiTImageClassify
+
+    >>> configuration = DeiTConfig()
+    >>> model = DeiTImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "deit"
+
+    patch_size: int = 16
+    embed_dim: int = 192
+    depth: int = 12
+    num_heads: int = 3
+    use_distillation: bool = False
+    no_embed_class: bool = False
+    layer_scale_init: float = None
+    image_size: int = 224
+    num_classes: int = 1000

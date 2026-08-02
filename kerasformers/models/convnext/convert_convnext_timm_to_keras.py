@@ -18,7 +18,227 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.convnext import ConvNeXtImageClassify
-from kerasformers.models.convnext.convnext_config import CONVNEXT_WEIGHTS_URLS
+
+# Architecture presets, moved here from convnext_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+CONVNEXT_MODEL_CONFIG = {
+    "convnext_atto": {
+        "depths": [2, 2, 6, 2],
+        "projection_dim": [40, 80, 160, 320],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_femto": {
+        "depths": [2, 2, 6, 2],
+        "projection_dim": [48, 96, 192, 384],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_pico": {
+        "depths": [2, 2, 6, 2],
+        "projection_dim": [64, 128, 256, 512],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_nano": {
+        "depths": [2, 2, 8, 2],
+        "projection_dim": [80, 160, 320, 640],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_tiny": {
+        "depths": [3, 3, 9, 3],
+        "projection_dim": [96, 192, 384, 768],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_tiny_in22k": {
+        "depths": [3, 3, 9, 3],
+        "projection_dim": [96, 192, 384, 768],
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "convnext_tiny_384": {
+        "depths": [3, 3, 9, 3],
+        "projection_dim": [96, 192, 384, 768],
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "convnext_small": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [96, 192, 384, 768],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_small_in22k": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [96, 192, 384, 768],
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "convnext_small_384": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [96, 192, 384, 768],
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "convnext_base": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [128, 256, 512, 1024],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_base_in22k": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [128, 256, 512, 1024],
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "convnext_base_384": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [128, 256, 512, 1024],
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "convnext_large": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [192, 384, 768, 1536],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_large_in22k": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [192, 384, 768, 1536],
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "convnext_large_384": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [192, 384, 768, 1536],
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "convnext_xlarge": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [256, 512, 1024, 2048],
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "convnext_xlarge_in22k": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [256, 512, 1024, 2048],
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "convnext_xlarge_384": {
+        "depths": [3, 3, 27, 3],
+        "projection_dim": [256, 512, 1024, 2048],
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+CONVNEXT_VARIANTS = {
+    "convnext_atto_d2_in1k": {
+        "model": "convnext_atto",
+        "timm_id": "convnext_atto.d2_in1k",
+    },
+    "convnext_femto_d1_in1k": {
+        "model": "convnext_femto",
+        "timm_id": "convnext_femto.d1_in1k",
+    },
+    "convnext_pico_d1_in1k": {
+        "model": "convnext_pico",
+        "timm_id": "convnext_pico.d1_in1k",
+    },
+    "convnext_nano_d1h_in1k": {
+        "model": "convnext_nano",
+        "timm_id": "convnext_nano.d1h_in1k",
+    },
+    "convnext_nano_in12k_ft_in1k": {
+        "model": "convnext_nano",
+        "timm_id": "convnext_nano.in12k_ft_in1k",
+    },
+    "convnext_tiny_fb_in1k": {
+        "model": "convnext_tiny",
+        "timm_id": "convnext_tiny.fb_in1k",
+    },
+    "convnext_tiny_fb_in22k": {
+        "model": "convnext_tiny_in22k",
+        "timm_id": "convnext_tiny.fb_in22k",
+    },
+    "convnext_tiny_fb_in22k_ft_in1k": {
+        "model": "convnext_tiny",
+        "timm_id": "convnext_tiny.fb_in22k_ft_in1k",
+    },
+    "convnext_tiny_fb_in22k_ft_in1k_384": {
+        "model": "convnext_tiny_384",
+        "timm_id": "convnext_tiny.fb_in22k_ft_in1k_384",
+    },
+    "convnext_small_fb_in1k": {
+        "model": "convnext_small",
+        "timm_id": "convnext_small.fb_in1k",
+    },
+    "convnext_small_fb_in22k": {
+        "model": "convnext_small_in22k",
+        "timm_id": "convnext_small.fb_in22k",
+    },
+    "convnext_small_fb_in22k_ft_in1k": {
+        "model": "convnext_small",
+        "timm_id": "convnext_small.fb_in22k_ft_in1k",
+    },
+    "convnext_small_fb_in22k_ft_in1k_384": {
+        "model": "convnext_small_384",
+        "timm_id": "convnext_small.fb_in22k_ft_in1k_384",
+    },
+    "convnext_base_fb_in1k": {
+        "model": "convnext_base",
+        "timm_id": "convnext_base.fb_in1k",
+    },
+    "convnext_base_fb_in22k": {
+        "model": "convnext_base_in22k",
+        "timm_id": "convnext_base.fb_in22k",
+    },
+    "convnext_base_fb_in22k_ft_in1k": {
+        "model": "convnext_base",
+        "timm_id": "convnext_base.fb_in22k_ft_in1k",
+    },
+    "convnext_base_fb_in22k_ft_in1k_384": {
+        "model": "convnext_base_384",
+        "timm_id": "convnext_base.fb_in22k_ft_in1k_384",
+    },
+    "convnext_large_fb_in1k": {
+        "model": "convnext_large",
+        "timm_id": "convnext_large.fb_in1k",
+    },
+    "convnext_large_fb_in22k": {
+        "model": "convnext_large_in22k",
+        "timm_id": "convnext_large.fb_in22k",
+    },
+    "convnext_large_fb_in22k_ft_in1k": {
+        "model": "convnext_large",
+        "timm_id": "convnext_large.fb_in22k_ft_in1k",
+    },
+    "convnext_large_fb_in22k_ft_in1k_384": {
+        "model": "convnext_large_384",
+        "timm_id": "convnext_large.fb_in22k_ft_in1k_384",
+    },
+    "convnext_xlarge_fb_in22k": {
+        "model": "convnext_xlarge_in22k",
+        "timm_id": "convnext_xlarge.fb_in22k",
+    },
+    "convnext_xlarge_fb_in22k_ft_in1k": {
+        "model": "convnext_xlarge",
+        "timm_id": "convnext_xlarge.fb_in22k_ft_in1k",
+    },
+    "convnext_xlarge_fb_in22k_ft_in1k_384": {
+        "model": "convnext_xlarge_384",
+        "timm_id": "convnext_xlarge.fb_in22k_ft_in1k_384",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "stem_conv_": "stem.0.",
@@ -75,15 +295,15 @@ def transfer_convnext_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in CONVNEXT_WEIGHTS_URLS.items():
+    for variant, meta in CONVNEXT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ConvNeXtImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = ConvNeXtImageClassify(
+            **CONVNEXT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_convnext_weights(keras_model, state)
 

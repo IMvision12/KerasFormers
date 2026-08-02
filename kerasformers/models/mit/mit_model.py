@@ -10,7 +10,11 @@ from kerasformers.models.mit.mit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .mit_config import MIT_MODEL_CONFIG, MIT_WEIGHTS_URLS
+from .mit_config import MiTConfig
+
+# The backbone (MiTModel) and classifier (MiTImageClassify) share the variant's
+# weights repo, whose kf_config.json declares MiTImageClassify.
+MIT_HUB_SIBLINGS = frozenset({"MiTModel", "MiTImageClassify"})
 
 
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
@@ -317,17 +321,18 @@ class MiTModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MiTConfig
+    HUB_REPO_SIBLINGS = MIT_HUB_SIBLINGS
     HF_MODEL_TYPE = "segformer"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with MiTImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = MiTImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = MiTImageClassify.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -473,10 +478,9 @@ class MiTImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        v: MIT_MODEL_CONFIG[m["model"]] for v, m in MIT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MIT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MiTConfig
+    HUB_REPO_SIBLINGS = MIT_HUB_SIBLINGS
     HF_MODEL_TYPE = "segformer"
 
     @classmethod

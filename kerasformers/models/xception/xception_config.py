@@ -1,71 +1,41 @@
-XCEPTION_MODEL_CONFIG = {
-    "xception41": {
-        "config": "41",
-        "preact": False,
-        "bn_epsilon": 1e-3,
-        "image_size": 299,
-        "num_classes": 1000,
-    },
-    "xception41p": {
-        "config": "41p",
-        "preact": True,
-        "bn_epsilon": 1e-5,
-        "image_size": 299,
-        "num_classes": 1000,
-    },
-    "xception65": {
-        "config": "65",
-        "preact": False,
-        "bn_epsilon": 1e-3,
-        "image_size": 299,
-        "num_classes": 1000,
-    },
-    "xception65p": {
-        "config": "65p",
-        "preact": True,
-        "bn_epsilon": 1e-3,
-        "image_size": 299,
-        "num_classes": 1000,
-    },
-    "xception71": {
-        "config": "71",
-        "preact": False,
-        "bn_epsilon": 1e-3,
-        "image_size": 299,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
 
-XCEPTION_WEIGHTS_URLS = {
-    "xception41_tf_in1k": {
-        "model": "xception41",
-        "timm_id": "xception41.tf_in1k",
-        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception41_tf_in1k.weights.h5",
-    },
-    "xception41p_ra3_in1k": {
-        "model": "xception41p",
-        "timm_id": "xception41p.ra3_in1k",
-        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception41p_ra3_in1k.weights.h5",
-    },
-    "xception65_ra3_in1k": {
-        "model": "xception65",
-        "timm_id": "xception65.ra3_in1k",
-        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception65_ra3_in1k.weights.h5",
-    },
-    "xception65_tf_in1k": {
-        "model": "xception65",
-        "timm_id": "xception65.tf_in1k",
-        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception65_tf_in1k.weights.h5",
-    },
-    "xception65p_ra3_in1k": {
-        "model": "xception65p",
-        "timm_id": "xception65p.ra3_in1k",
-        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception65p_ra3_in1k.weights.h5",
-    },
-    "xception71_tf_in1k": {
-        "model": "xception71",
-        "timm_id": "xception71.tf_in1k",
-        "url": "https://github.com/IMvision12/kerasformers/releases/download/classify2/xception71_tf_in1k.weights.h5",
-    },
-}
+class XceptionConfig(BaseConfig):
+    r"""Configuration for [`XceptionModel`] / [`XceptionImageClassify`].
+
+    Xception replaces Inception modules with depthwise-separable convolutions and
+    residual connections; the timm `41`/`65`/`71` presets differ in depth, with an
+    optional pre-activation variant. One `kf_config.json` (declaring the canonical
+    [`XceptionImageClassify`]) sits on each variant's repo, and both the backbone and
+    classifier load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        config (`str`, *optional*, defaults to `"41"`):
+            Depth preset, one of `"41"`, `"65"`, `"71"`.
+        preact (`bool`, *optional*, defaults to `False`):
+            Whether to use the pre-activation (aligned) Xception variant.
+        bn_epsilon (`float`, *optional*, defaults to 1e-3):
+            BatchNorm epsilon.
+        image_size (`int`, *optional*, defaults to 299):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.xception import XceptionConfig, XceptionImageClassify
+
+    >>> configuration = XceptionConfig()
+    >>> model = XceptionImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "xception"
+
+    config: str = "41"
+    preact: bool = False
+    bn_epsilon: float = 1e-3
+    image_size: int = 299
+    num_classes: int = 1000

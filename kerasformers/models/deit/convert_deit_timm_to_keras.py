@@ -19,7 +19,261 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.deit import DeiTImageClassify
-from kerasformers.models.deit.deit_config import DEIT_WEIGHTS_URLS
+
+# Architecture presets, moved here from deit_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+DEIT_MODEL_CONFIG = {
+    "deit_tiny_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 12,
+        "num_heads": 3,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit_small_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit_base_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit_base_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "deit_tiny_distilled_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 12,
+        "num_heads": 3,
+        "use_distillation": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit_small_distilled_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "use_distillation": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit_base_distilled_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "use_distillation": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit_base_distilled_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "use_distillation": True,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "deit3_small_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit3_small_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "deit3_medium_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 512,
+        "depth": 12,
+        "num_heads": 8,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit3_base_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit3_base_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "deit3_large_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "deit3_large_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "deit3_huge_patch14_224": {
+        "patch_size": 14,
+        "embed_dim": 1280,
+        "depth": 32,
+        "num_heads": 16,
+        "no_embed_class": True,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+DEIT_VARIANTS = {
+    "deit_tiny_patch16_224_fb_in1k": {
+        "model": "deit_tiny_patch16_224",
+        "timm_id": "deit_tiny_patch16_224.fb_in1k",
+    },
+    "deit_small_patch16_224_fb_in1k": {
+        "model": "deit_small_patch16_224",
+        "timm_id": "deit_small_patch16_224.fb_in1k",
+    },
+    "deit_base_patch16_224_fb_in1k": {
+        "model": "deit_base_patch16_224",
+        "timm_id": "deit_base_patch16_224.fb_in1k",
+    },
+    "deit_base_patch16_384_fb_in1k": {
+        "model": "deit_base_patch16_384",
+        "timm_id": "deit_base_patch16_384.fb_in1k",
+    },
+    "deit_tiny_distilled_patch16_224_fb_in1k": {
+        "model": "deit_tiny_distilled_patch16_224",
+        "timm_id": "deit_tiny_distilled_patch16_224.fb_in1k",
+    },
+    "deit_small_distilled_patch16_224_fb_in1k": {
+        "model": "deit_small_distilled_patch16_224",
+        "timm_id": "deit_small_distilled_patch16_224.fb_in1k",
+    },
+    "deit_base_distilled_patch16_224_fb_in1k": {
+        "model": "deit_base_distilled_patch16_224",
+        "timm_id": "deit_base_distilled_patch16_224.fb_in1k",
+    },
+    "deit_base_distilled_patch16_384_fb_in1k": {
+        "model": "deit_base_distilled_patch16_384",
+        "timm_id": "deit_base_distilled_patch16_384.fb_in1k",
+    },
+    "deit3_small_patch16_224_fb_in1k": {
+        "model": "deit3_small_patch16_224",
+        "timm_id": "deit3_small_patch16_224.fb_in1k",
+    },
+    "deit3_small_patch16_384_fb_in1k": {
+        "model": "deit3_small_patch16_384",
+        "timm_id": "deit3_small_patch16_384.fb_in1k",
+    },
+    "deit3_small_patch16_224_fb_in22k_ft_in1k": {
+        "model": "deit3_small_patch16_224",
+        "timm_id": "deit3_small_patch16_224.fb_in22k_ft_in1k",
+    },
+    "deit3_small_patch16_384_fb_in22k_ft_in1k": {
+        "model": "deit3_small_patch16_384",
+        "timm_id": "deit3_small_patch16_384.fb_in22k_ft_in1k",
+    },
+    "deit3_medium_patch16_224_fb_in1k": {
+        "model": "deit3_medium_patch16_224",
+        "timm_id": "deit3_medium_patch16_224.fb_in1k",
+    },
+    "deit3_medium_patch16_224_fb_in22k_ft_in1k": {
+        "model": "deit3_medium_patch16_224",
+        "timm_id": "deit3_medium_patch16_224.fb_in22k_ft_in1k",
+    },
+    "deit3_base_patch16_224_fb_in1k": {
+        "model": "deit3_base_patch16_224",
+        "timm_id": "deit3_base_patch16_224.fb_in1k",
+    },
+    "deit3_base_patch16_384_fb_in1k": {
+        "model": "deit3_base_patch16_384",
+        "timm_id": "deit3_base_patch16_384.fb_in1k",
+    },
+    "deit3_base_patch16_224_fb_in22k_ft_in1k": {
+        "model": "deit3_base_patch16_224",
+        "timm_id": "deit3_base_patch16_224.fb_in22k_ft_in1k",
+    },
+    "deit3_base_patch16_384_fb_in22k_ft_in1k": {
+        "model": "deit3_base_patch16_384",
+        "timm_id": "deit3_base_patch16_384.fb_in22k_ft_in1k",
+    },
+    "deit3_large_patch16_224_fb_in1k": {
+        "model": "deit3_large_patch16_224",
+        "timm_id": "deit3_large_patch16_224.fb_in1k",
+    },
+    "deit3_large_patch16_384_fb_in1k": {
+        "model": "deit3_large_patch16_384",
+        "timm_id": "deit3_large_patch16_384.fb_in1k",
+    },
+    "deit3_large_patch16_224_fb_in22k_ft_in1k": {
+        "model": "deit3_large_patch16_224",
+        "timm_id": "deit3_large_patch16_224.fb_in22k_ft_in1k",
+    },
+    "deit3_large_patch16_384_fb_in22k_ft_in1k": {
+        "model": "deit3_large_patch16_384",
+        "timm_id": "deit3_large_patch16_384.fb_in22k_ft_in1k",
+    },
+    "deit3_huge_patch14_224_fb_in1k": {
+        "model": "deit3_huge_patch14_224",
+        "timm_id": "deit3_huge_patch14_224.fb_in1k",
+    },
+    "deit3_huge_patch14_224_fb_in22k_ft_in1k": {
+        "model": "deit3_huge_patch14_224",
+        "timm_id": "deit3_huge_patch14_224.fb_in22k_ft_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -98,15 +352,15 @@ def transfer_deit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> Non
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in DEIT_WEIGHTS_URLS.items():
+    for variant, meta in DEIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = DeiTImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = DeiTImageClassify(
+            **DEIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_deit_weights(keras_model, state)
 

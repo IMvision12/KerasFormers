@@ -6,7 +6,11 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .poolformer_config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_URLS
+from .poolformer_config import PoolFormerConfig
+
+# The backbone (PoolFormerModel) and classifier (PoolFormerImageClassify) share the
+# variant's repo, whose kf_config.json declares PoolFormerImageClassify.
+POOLFORMER_HUB_SIBLINGS = frozenset({"PoolFormerModel", "PoolFormerImageClassify"})
 
 
 def mlp_block(x, hidden_dim, embed_dim, drop_rate, data_format, name):
@@ -268,19 +272,19 @@ class PoolFormerModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: POOLFORMER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in POOLFORMER_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = PoolFormerConfig
+    HUB_REPO_SIBLINGS = POOLFORMER_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with PoolFormerImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = PoolFormerImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -436,11 +440,9 @@ class PoolFormerImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: POOLFORMER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in POOLFORMER_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = POOLFORMER_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = PoolFormerConfig
+    HUB_REPO_SIBLINGS = POOLFORMER_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

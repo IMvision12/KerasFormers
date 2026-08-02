@@ -9,7 +9,11 @@ from kerasformers.models.resnet.resnet_model import (
 )
 from kerasformers.models.resnext.resnext_model import resnext_block
 
-from .senet_config import SENET_MODEL_CONFIG, SENET_WEIGHTS_URLS
+from .senet_config import SENetConfig
+
+# The backbone (SENetModel) and classifier (SENetImageClassify) share the variant's
+# weights repo, whose kf_config.json declares SENetImageClassify.
+SENET_HUB_SIBLINGS = frozenset({"SENetModel", "SENetImageClassify"})
 
 _BLOCK_FN_LOOKUP = {
     "bottleneck_block": bottleneck_block,
@@ -71,17 +75,17 @@ class SENetModel(ResNetModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: SENET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in SENET_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = SENET_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = SENetConfig
+    HUB_REPO_SIBLINGS = SENET_HUB_SIBLINGS
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with SENetImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = SENetImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = SENetImageClassify.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -102,7 +106,7 @@ class SENetImageClassify(ResNetImageClassify):
     ``classifier_activation`` are head-specific. Both ``seresnet*``
     (bottleneck block) and ``seresnext*`` (grouped block) variants are
     supported: the block function is selected per-variant via the
-    ``block_fn_name`` key in :data:`SENET_MODEL_CONFIG`.
+    ``block_fn_name`` key in the converter's ``SENET_MODEL_CONFIG``.
 
     References:
     - [Squeeze-and-Excitation Networks](https://arxiv.org/abs/1709.01507)
@@ -155,11 +159,9 @@ class SENetImageClassify(ResNetImageClassify):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: SENET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in SENET_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = SENET_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = SENetConfig
+    HUB_REPO_SIBLINGS = SENET_HUB_SIBLINGS
 
     def __init__(
         self,

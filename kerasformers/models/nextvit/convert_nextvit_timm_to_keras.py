@@ -18,7 +18,125 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.nextvit import NextViTImageClassify as NextViT
-from kerasformers.models.nextvit.nextvit_config import NEXTVIT_WEIGHTS_URLS
+
+# Architecture presets, moved here from nextvit_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+NEXTVIT_MODEL_CONFIG = {
+    "nextvit_small": {
+        "depths": [3, 4, 10, 3],
+        "stem_chs": [64, 32, 64],
+        "head_dim": 32,
+        "mix_block_ratio": 0.75,
+        "sr_ratios": [8, 4, 2, 1],
+        "drop_path_rate": 0.1,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "nextvit_small_384": {
+        "depths": [3, 4, 10, 3],
+        "stem_chs": [64, 32, 64],
+        "head_dim": 32,
+        "mix_block_ratio": 0.75,
+        "sr_ratios": [8, 4, 2, 1],
+        "drop_path_rate": 0.1,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "nextvit_base": {
+        "depths": [3, 4, 20, 3],
+        "stem_chs": [64, 32, 64],
+        "head_dim": 32,
+        "mix_block_ratio": 0.75,
+        "sr_ratios": [8, 4, 2, 1],
+        "drop_path_rate": 0.1,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "nextvit_base_384": {
+        "depths": [3, 4, 20, 3],
+        "stem_chs": [64, 32, 64],
+        "head_dim": 32,
+        "mix_block_ratio": 0.75,
+        "sr_ratios": [8, 4, 2, 1],
+        "drop_path_rate": 0.1,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "nextvit_large": {
+        "depths": [3, 4, 30, 3],
+        "stem_chs": [64, 32, 64],
+        "head_dim": 32,
+        "mix_block_ratio": 0.75,
+        "sr_ratios": [8, 4, 2, 1],
+        "drop_path_rate": 0.1,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "nextvit_large_384": {
+        "depths": [3, 4, 30, 3],
+        "stem_chs": [64, 32, 64],
+        "head_dim": 32,
+        "mix_block_ratio": 0.75,
+        "sr_ratios": [8, 4, 2, 1],
+        "drop_path_rate": 0.1,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+NEXTVIT_VARIANTS = {
+    "nextvit_small_bd_in1k": {
+        "model": "nextvit_small",
+        "timm_id": "nextvit_small.bd_in1k",
+    },
+    "nextvit_small_bd_in1k_384": {
+        "model": "nextvit_small_384",
+        "timm_id": "nextvit_small.bd_in1k_384",
+    },
+    "nextvit_small_bd_ssld_6m_in1k": {
+        "model": "nextvit_small",
+        "timm_id": "nextvit_small.bd_ssld_6m_in1k",
+    },
+    "nextvit_small_bd_ssld_6m_in1k_384": {
+        "model": "nextvit_small_384",
+        "timm_id": "nextvit_small.bd_ssld_6m_in1k_384",
+    },
+    "nextvit_base_bd_in1k": {
+        "model": "nextvit_base",
+        "timm_id": "nextvit_base.bd_in1k",
+    },
+    "nextvit_base_bd_in1k_384": {
+        "model": "nextvit_base_384",
+        "timm_id": "nextvit_base.bd_in1k_384",
+    },
+    "nextvit_base_bd_ssld_6m_in1k": {
+        "model": "nextvit_base",
+        "timm_id": "nextvit_base.bd_ssld_6m_in1k",
+    },
+    "nextvit_base_bd_ssld_6m_in1k_384": {
+        "model": "nextvit_base_384",
+        "timm_id": "nextvit_base.bd_ssld_6m_in1k_384",
+    },
+    "nextvit_large_bd_in1k": {
+        "model": "nextvit_large",
+        "timm_id": "nextvit_large.bd_in1k",
+    },
+    "nextvit_large_bd_in1k_384": {
+        "model": "nextvit_large_384",
+        "timm_id": "nextvit_large.bd_in1k_384",
+    },
+    "nextvit_large_bd_ssld_6m_in1k": {
+        "model": "nextvit_large",
+        "timm_id": "nextvit_large.bd_ssld_6m_in1k",
+    },
+    "nextvit_large_bd_ssld_6m_in1k_384": {
+        "model": "nextvit_large_384",
+        "timm_id": "nextvit_large.bd_ssld_6m_in1k_384",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -76,15 +194,15 @@ def transfer_nextvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> 
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in NEXTVIT_WEIGHTS_URLS.items():
+    for variant, meta in NEXTVIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = NextViT.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = NextViT(
+            **NEXTVIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_nextvit_weights(keras_model, state)
 

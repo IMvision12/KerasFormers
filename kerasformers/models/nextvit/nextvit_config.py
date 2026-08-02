@@ -1,125 +1,49 @@
-NEXTVIT_MODEL_CONFIG = {
-    "nextvit_small": {
-        "depths": [3, 4, 10, 3],
-        "stem_chs": [64, 32, 64],
-        "head_dim": 32,
-        "mix_block_ratio": 0.75,
-        "sr_ratios": [8, 4, 2, 1],
-        "drop_path_rate": 0.1,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "nextvit_small_384": {
-        "depths": [3, 4, 10, 3],
-        "stem_chs": [64, 32, 64],
-        "head_dim": 32,
-        "mix_block_ratio": 0.75,
-        "sr_ratios": [8, 4, 2, 1],
-        "drop_path_rate": 0.1,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "nextvit_base": {
-        "depths": [3, 4, 20, 3],
-        "stem_chs": [64, 32, 64],
-        "head_dim": 32,
-        "mix_block_ratio": 0.75,
-        "sr_ratios": [8, 4, 2, 1],
-        "drop_path_rate": 0.1,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "nextvit_base_384": {
-        "depths": [3, 4, 20, 3],
-        "stem_chs": [64, 32, 64],
-        "head_dim": 32,
-        "mix_block_ratio": 0.75,
-        "sr_ratios": [8, 4, 2, 1],
-        "drop_path_rate": 0.1,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "nextvit_large": {
-        "depths": [3, 4, 30, 3],
-        "stem_chs": [64, 32, 64],
-        "head_dim": 32,
-        "mix_block_ratio": 0.75,
-        "sr_ratios": [8, 4, 2, 1],
-        "drop_path_rate": 0.1,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "nextvit_large_384": {
-        "depths": [3, 4, 30, 3],
-        "stem_chs": [64, 32, 64],
-        "head_dim": 32,
-        "mix_block_ratio": 0.75,
-        "sr_ratios": [8, 4, 2, 1],
-        "drop_path_rate": 0.1,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-NEXTVIT_WEIGHTS_URLS = {
-    "nextvit_small_bd_in1k": {
-        "model": "nextvit_small",
-        "timm_id": "nextvit_small.bd_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_in1k.weights.h5",
-    },
-    "nextvit_small_bd_in1k_384": {
-        "model": "nextvit_small_384",
-        "timm_id": "nextvit_small.bd_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_in1k_384.weights.h5",
-    },
-    "nextvit_small_bd_ssld_6m_in1k": {
-        "model": "nextvit_small",
-        "timm_id": "nextvit_small.bd_ssld_6m_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_ssld_6m_in1k.weights.h5",
-    },
-    "nextvit_small_bd_ssld_6m_in1k_384": {
-        "model": "nextvit_small_384",
-        "timm_id": "nextvit_small.bd_ssld_6m_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_small_bd_ssld_6m_in1k_384.weights.h5",
-    },
-    "nextvit_base_bd_in1k": {
-        "model": "nextvit_base",
-        "timm_id": "nextvit_base.bd_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_in1k.weights.h5",
-    },
-    "nextvit_base_bd_in1k_384": {
-        "model": "nextvit_base_384",
-        "timm_id": "nextvit_base.bd_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_in1k_384.weights.h5",
-    },
-    "nextvit_base_bd_ssld_6m_in1k": {
-        "model": "nextvit_base",
-        "timm_id": "nextvit_base.bd_ssld_6m_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_ssld_6m_in1k.weights.h5",
-    },
-    "nextvit_base_bd_ssld_6m_in1k_384": {
-        "model": "nextvit_base_384",
-        "timm_id": "nextvit_base.bd_ssld_6m_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_base_bd_ssld_6m_in1k_384.weights.h5",
-    },
-    "nextvit_large_bd_in1k": {
-        "model": "nextvit_large",
-        "timm_id": "nextvit_large.bd_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_in1k.weights.h5",
-    },
-    "nextvit_large_bd_in1k_384": {
-        "model": "nextvit_large_384",
-        "timm_id": "nextvit_large.bd_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_in1k_384.weights.h5",
-    },
-    "nextvit_large_bd_ssld_6m_in1k": {
-        "model": "nextvit_large",
-        "timm_id": "nextvit_large.bd_ssld_6m_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_ssld_6m_in1k.weights.h5",
-    },
-    "nextvit_large_bd_ssld_6m_in1k_384": {
-        "model": "nextvit_large_384",
-        "timm_id": "nextvit_large.bd_ssld_6m_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/nextvit_large_bd_ssld_6m_in1k_384.weights.h5",
-    },
-}
+
+class NextViTConfig(BaseConfig):
+    r"""Configuration for [`NextViTModel`] / [`NextViTImageClassify`].
+
+    Next-ViT interleaves efficient convolutional (NCB) and transformer (NTB) blocks in
+    a hardware-friendly hybrid backbone. One `kf_config.json` (declaring the canonical
+    [`NextViTImageClassify`]) sits on each variant's repo, and both the backbone and
+    classifier load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(3, 4, 10, 3)`):
+            Number of blocks per stage.
+        stem_chs (`tuple`, *optional*, defaults to `(64, 32, 64)`):
+            Channel widths of the three stem convolutions.
+        head_dim (`int`, *optional*, defaults to 32):
+            Per-head channel dimension in the transformer blocks.
+        mix_block_ratio (`float`, *optional*, defaults to 0.75):
+            Fraction of channels routed through the convolutional path in NTB blocks.
+        sr_ratios (`tuple`, *optional*, defaults to `(8, 4, 2, 1)`):
+            Spatial-reduction ratio for attention per stage.
+        drop_path_rate (`float`, *optional*, defaults to 0.1):
+            Maximum stochastic-depth drop rate.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.nextvit import NextViTConfig, NextViTImageClassify
+
+    >>> configuration = NextViTConfig()
+    >>> model = NextViTImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "nextvit"
+
+    depths: tuple = (3, 4, 10, 3)
+    stem_chs: tuple = (64, 32, 64)
+    head_dim: int = 32
+    mix_block_ratio: float = 0.75
+    sr_ratios: tuple = (8, 4, 2, 1)
+    drop_path_rate: float = 0.1
+    image_size: int = 224
+    num_classes: int = 1000

@@ -1,239 +1,38 @@
-CONVNEXT_MODEL_CONFIG = {
-    "convnext_atto": {
-        "depths": [2, 2, 6, 2],
-        "projection_dim": [40, 80, 160, 320],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_femto": {
-        "depths": [2, 2, 6, 2],
-        "projection_dim": [48, 96, 192, 384],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_pico": {
-        "depths": [2, 2, 6, 2],
-        "projection_dim": [64, 128, 256, 512],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_nano": {
-        "depths": [2, 2, 8, 2],
-        "projection_dim": [80, 160, 320, 640],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_tiny": {
-        "depths": [3, 3, 9, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_tiny_in22k": {
-        "depths": [3, 3, 9, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "convnext_tiny_384": {
-        "depths": [3, 3, 9, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnext_small": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_small_in22k": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "convnext_small_384": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnext_base": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [128, 256, 512, 1024],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_base_in22k": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [128, 256, 512, 1024],
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "convnext_base_384": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [128, 256, 512, 1024],
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnext_large": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [192, 384, 768, 1536],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_large_in22k": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [192, 384, 768, 1536],
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "convnext_large_384": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [192, 384, 768, 1536],
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnext_xlarge": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [256, 512, 1024, 2048],
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnext_xlarge_in22k": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [256, 512, 1024, 2048],
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "convnext_xlarge_384": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [256, 512, 1024, 2048],
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-CONVNEXT_WEIGHTS_URLS = {
-    "convnext_atto_d2_in1k": {
-        "model": "convnext_atto",
-        "timm_id": "convnext_atto.d2_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_atto_d2_in1k.weights.h5",
-    },
-    "convnext_femto_d1_in1k": {
-        "model": "convnext_femto",
-        "timm_id": "convnext_femto.d1_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_femto_d1_in1k.weights.h5",
-    },
-    "convnext_pico_d1_in1k": {
-        "model": "convnext_pico",
-        "timm_id": "convnext_pico.d1_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_pico_d1_in1k.weights.h5",
-    },
-    "convnext_nano_d1h_in1k": {
-        "model": "convnext_nano",
-        "timm_id": "convnext_nano.d1h_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_nano_d1h_in1k.weights.h5",
-    },
-    "convnext_nano_in12k_ft_in1k": {
-        "model": "convnext_nano",
-        "timm_id": "convnext_nano.in12k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_nano_in12k_ft_in1k.weights.h5",
-    },
-    "convnext_tiny_fb_in1k": {
-        "model": "convnext_tiny",
-        "timm_id": "convnext_tiny.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_tiny_fb_in1k.weights.h5",
-    },
-    "convnext_tiny_fb_in22k": {
-        "model": "convnext_tiny_in22k",
-        "timm_id": "convnext_tiny.fb_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_tiny_fb_in22k.weights.h5",
-    },
-    "convnext_tiny_fb_in22k_ft_in1k": {
-        "model": "convnext_tiny",
-        "timm_id": "convnext_tiny.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_tiny_fb_in22k_ft_in1k.weights.h5",
-    },
-    "convnext_tiny_fb_in22k_ft_in1k_384": {
-        "model": "convnext_tiny_384",
-        "timm_id": "convnext_tiny.fb_in22k_ft_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_tiny_fb_in22k_ft_in1k_384.weights.h5",
-    },
-    "convnext_small_fb_in1k": {
-        "model": "convnext_small",
-        "timm_id": "convnext_small.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_small_fb_in1k.weights.h5",
-    },
-    "convnext_small_fb_in22k": {
-        "model": "convnext_small_in22k",
-        "timm_id": "convnext_small.fb_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_small_fb_in22k.weights.h5",
-    },
-    "convnext_small_fb_in22k_ft_in1k": {
-        "model": "convnext_small",
-        "timm_id": "convnext_small.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_small_fb_in22k_ft_in1k.weights.h5",
-    },
-    "convnext_small_fb_in22k_ft_in1k_384": {
-        "model": "convnext_small_384",
-        "timm_id": "convnext_small.fb_in22k_ft_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_small_fb_in22k_ft_in1k_384.weights.h5",
-    },
-    "convnext_base_fb_in1k": {
-        "model": "convnext_base",
-        "timm_id": "convnext_base.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_base_fb_in1k.weights.h5",
-    },
-    "convnext_base_fb_in22k": {
-        "model": "convnext_base_in22k",
-        "timm_id": "convnext_base.fb_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_base_fb_in22k.weights.h5",
-    },
-    "convnext_base_fb_in22k_ft_in1k": {
-        "model": "convnext_base",
-        "timm_id": "convnext_base.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_base_fb_in22k_ft_in1k.weights.h5",
-    },
-    "convnext_base_fb_in22k_ft_in1k_384": {
-        "model": "convnext_base_384",
-        "timm_id": "convnext_base.fb_in22k_ft_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_base_fb_in22k_ft_in1k_384.weights.h5",
-    },
-    "convnext_large_fb_in1k": {
-        "model": "convnext_large",
-        "timm_id": "convnext_large.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_large_fb_in1k.weights.h5",
-    },
-    "convnext_large_fb_in22k": {
-        "model": "convnext_large_in22k",
-        "timm_id": "convnext_large.fb_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_large_fb_in22k.weights.h5",
-    },
-    "convnext_large_fb_in22k_ft_in1k": {
-        "model": "convnext_large",
-        "timm_id": "convnext_large.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_large_fb_in22k_ft_in1k.weights.h5",
-    },
-    "convnext_large_fb_in22k_ft_in1k_384": {
-        "model": "convnext_large_384",
-        "timm_id": "convnext_large.fb_in22k_ft_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_large_fb_in22k_ft_in1k_384.weights.h5",
-    },
-    "convnext_xlarge_fb_in22k": {
-        "model": "convnext_xlarge_in22k",
-        "timm_id": "convnext_xlarge.fb_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_xlarge_fb_in22k.weights.h5",
-    },
-    "convnext_xlarge_fb_in22k_ft_in1k": {
-        "model": "convnext_xlarge",
-        "timm_id": "convnext_xlarge.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_xlarge_fb_in22k_ft_in1k.weights.h5",
-    },
-    "convnext_xlarge_fb_in22k_ft_in1k_384": {
-        "model": "convnext_xlarge_384",
-        "timm_id": "convnext_xlarge.fb_in22k_ft_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnext_xlarge_fb_in22k_ft_in1k_384.weights.h5",
-    },
-}
+
+class ConvNeXtConfig(BaseConfig):
+    r"""Configuration for [`ConvNeXtModel`] / [`ConvNeXtImageClassify`].
+
+    ConvNeXt is a pure-convolutional network that modernizes a ResNet with a
+    patchify stem, depthwise 7x7 convolutions, inverted bottlenecks, LayerNorm, and
+    per-channel layer scaling. One `kf_config.json` (declaring the canonical
+    [`ConvNeXtImageClassify`]) sits on each variant's repo, and both the backbone and
+    classifier load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(3, 3, 9, 3)`):
+            Number of ConvNeXt blocks per stage.
+        projection_dim (`tuple`, *optional*, defaults to `(96, 192, 384, 768)`):
+            Channel width per stage.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.convnext import ConvNeXtConfig, ConvNeXtImageClassify
+
+    >>> configuration = ConvNeXtConfig()
+    >>> model = ConvNeXtImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "convnext"
+
+    depths: tuple = (3, 3, 9, 3)
+    projection_dim: tuple = (96, 192, 384, 768)
+    image_size: int = 224
+    num_classes: int = 1000

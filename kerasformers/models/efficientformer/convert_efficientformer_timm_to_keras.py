@@ -18,9 +18,50 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientformer import EfficientFormerImageClassify
-from kerasformers.models.efficientformer.efficientformer_config import (
-    EFFICIENTFORMER_WEIGHTS_URLS,
-)
+
+# Architecture presets, moved here from efficientformer_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+EFFICIENTFORMER_MODEL_CONFIG = {
+    "efficientformer_l1": {
+        "depths": [3, 2, 6, 4],
+        "embed_dim": [48, 96, 224, 448],
+        "num_vit": 1,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "efficientformer_l3": {
+        "depths": [4, 4, 12, 6],
+        "embed_dim": [64, 128, 320, 512],
+        "num_vit": 4,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "efficientformer_l7": {
+        "depths": [6, 6, 18, 8],
+        "embed_dim": [96, 192, 384, 768],
+        "num_vit": 8,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+EFFICIENTFORMER_VARIANTS = {
+    "efficientformer_l1_snap_dist_in1k": {
+        "model": "efficientformer_l1",
+        "timm_id": "efficientformer_l1.snap_dist_in1k",
+    },
+    "efficientformer_l3_snap_dist_in1k": {
+        "model": "efficientformer_l3",
+        "timm_id": "efficientformer_l3.snap_dist_in1k",
+    },
+    "efficientformer_l7_snap_dist_in1k": {
+        "model": "efficientformer_l7",
+        "timm_id": "efficientformer_l7.snap_dist_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -123,15 +164,15 @@ def transfer_efficientformer_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in EFFICIENTFORMER_WEIGHTS_URLS.items():
+    for variant, meta in EFFICIENTFORMER_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientFormerImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = EfficientFormerImageClassify(
+            **EFFICIENTFORMER_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_efficientformer_weights(keras_model, state)
 

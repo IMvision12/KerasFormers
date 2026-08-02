@@ -5,26 +5,112 @@ import keras
 from kerasformers.conversion import verify_cls_model_equivalence
 from kerasformers.conversion.hf_download_utils import download_hf_state_dict
 from kerasformers.models.flexivit import FlexiViTImageClassify
-from kerasformers.models.flexivit.flexivit_config import FLEXIVIT_WEIGHTS_URLS
 from kerasformers.models.vit.convert_vit_timm_to_keras import (
     transfer_vit_weights as transfer_flexivit_weights,
 )
 
 __all__ = ["transfer_flexivit_weights"]
 
+# Architecture presets, moved here from flexivit_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+FLEXIVIT_MODEL_CONFIG = {
+    "flexivit_small": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "no_embed_class": True,
+        "image_size": 240,
+        "num_classes": 1000,
+    },
+    "flexivit_base": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "no_embed_class": True,
+        "image_size": 240,
+        "num_classes": 1000,
+    },
+    "flexivit_base_in21k": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "no_embed_class": True,
+        "image_size": 240,
+        "num_classes": 21843,
+    },
+    "flexivit_large": {
+        "patch_size": 16,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "no_embed_class": True,
+        "image_size": 240,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+FLEXIVIT_VARIANTS = {
+    "flexivit_small_1200ep_in1k": {
+        "model": "flexivit_small",
+        "timm_id": "flexivit_small.1200ep_in1k",
+    },
+    "flexivit_small_600ep_in1k": {
+        "model": "flexivit_small",
+        "timm_id": "flexivit_small.600ep_in1k",
+    },
+    "flexivit_small_300ep_in1k": {
+        "model": "flexivit_small",
+        "timm_id": "flexivit_small.300ep_in1k",
+    },
+    "flexivit_base_1200ep_in1k": {
+        "model": "flexivit_base",
+        "timm_id": "flexivit_base.1200ep_in1k",
+    },
+    "flexivit_base_300ep_in1k": {
+        "model": "flexivit_base",
+        "timm_id": "flexivit_base.300ep_in1k",
+    },
+    "flexivit_base_1000ep_in21k": {
+        "model": "flexivit_base_in21k",
+        "timm_id": "flexivit_base.1000ep_in21k",
+    },
+    "flexivit_base_300ep_in21k": {
+        "model": "flexivit_base_in21k",
+        "timm_id": "flexivit_base.300ep_in21k",
+    },
+    "flexivit_large_1200ep_in1k": {
+        "model": "flexivit_large",
+        "timm_id": "flexivit_large.1200ep_in1k",
+    },
+    "flexivit_large_600ep_in1k": {
+        "model": "flexivit_large",
+        "timm_id": "flexivit_large.600ep_in1k",
+    },
+    "flexivit_large_300ep_in1k": {
+        "model": "flexivit_large",
+        "timm_id": "flexivit_large.300ep_in1k",
+    },
+}
+
 
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in FLEXIVIT_WEIGHTS_URLS.items():
+    for variant, meta in FLEXIVIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = FlexiViTImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = FlexiViTImageClassify(
+            **FLEXIVIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_flexivit_weights(keras_model, state)
 

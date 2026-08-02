@@ -16,7 +16,254 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.maxvit import MaxViTImageClassify as MaxViT
-from kerasformers.models.maxvit.maxvit_config import MAXVIT_WEIGHTS_URLS
+
+# Architecture presets, moved here from maxvit_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+MAXVIT_MODEL_CONFIG = {
+    "maxvit_tiny_224": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [64, 128, 256, 512],
+        "num_heads": [2, 4, 8, 16],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_tiny_384": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [64, 128, 256, 512],
+        "num_heads": [2, 4, 8, 16],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_tiny_512": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [64, 128, 256, 512],
+        "num_heads": [2, 4, 8, 16],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_small_224": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_small_384": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_small_512": {
+        "stem_width": 64,
+        "depths": [2, 2, 5, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_base_224": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_base_384": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_base_512": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_base_224_in21k": {
+        "stem_width": 64,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [96, 192, 384, 768],
+        "num_heads": [3, 6, 12, 24],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "maxvit_large_224": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "maxvit_large_384": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_large_512": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+    "maxvit_large_224_in21k": {
+        "stem_width": 128,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [128, 256, 512, 1024],
+        "num_heads": [4, 8, 16, 32],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "maxvit_xlarge_224_in21k": {
+        "stem_width": 192,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [192, 384, 768, 1536],
+        "num_heads": [6, 12, 24, 48],
+        "window_size": 7,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "maxvit_xlarge_384": {
+        "stem_width": 192,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [192, 384, 768, 1536],
+        "num_heads": [6, 12, 24, 48],
+        "window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "maxvit_xlarge_512": {
+        "stem_width": 192,
+        "depths": [2, 6, 14, 2],
+        "embed_dim": [192, 384, 768, 1536],
+        "num_heads": [6, 12, 24, 48],
+        "window_size": 16,
+        "image_size": 512,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+MAXVIT_VARIANTS = {
+    "maxvit_tiny_tf_224_in1k": {
+        "model": "maxvit_tiny_224",
+        "timm_id": "maxvit_tiny_tf_224.in1k",
+    },
+    "maxvit_tiny_tf_384_in1k": {
+        "model": "maxvit_tiny_384",
+        "timm_id": "maxvit_tiny_tf_384.in1k",
+    },
+    "maxvit_tiny_tf_512_in1k": {
+        "model": "maxvit_tiny_512",
+        "timm_id": "maxvit_tiny_tf_512.in1k",
+    },
+    "maxvit_small_tf_224_in1k": {
+        "model": "maxvit_small_224",
+        "timm_id": "maxvit_small_tf_224.in1k",
+    },
+    "maxvit_small_tf_384_in1k": {
+        "model": "maxvit_small_384",
+        "timm_id": "maxvit_small_tf_384.in1k",
+    },
+    "maxvit_small_tf_512_in1k": {
+        "model": "maxvit_small_512",
+        "timm_id": "maxvit_small_tf_512.in1k",
+    },
+    "maxvit_base_tf_224_in1k": {
+        "model": "maxvit_base_224",
+        "timm_id": "maxvit_base_tf_224.in1k",
+    },
+    "maxvit_base_tf_384_in1k": {
+        "model": "maxvit_base_384",
+        "timm_id": "maxvit_base_tf_384.in1k",
+    },
+    "maxvit_base_tf_512_in1k": {
+        "model": "maxvit_base_512",
+        "timm_id": "maxvit_base_tf_512.in1k",
+    },
+    "maxvit_base_tf_224_in21k": {
+        "model": "maxvit_base_224_in21k",
+        "timm_id": "maxvit_base_tf_224.in21k",
+    },
+    "maxvit_base_tf_384_in21k_ft_in1k": {
+        "model": "maxvit_base_384",
+        "timm_id": "maxvit_base_tf_384.in21k_ft_in1k",
+    },
+    "maxvit_base_tf_512_in21k_ft_in1k": {
+        "model": "maxvit_base_512",
+        "timm_id": "maxvit_base_tf_512.in21k_ft_in1k",
+    },
+    "maxvit_large_tf_224_in1k": {
+        "model": "maxvit_large_224",
+        "timm_id": "maxvit_large_tf_224.in1k",
+    },
+    "maxvit_large_tf_384_in1k": {
+        "model": "maxvit_large_384",
+        "timm_id": "maxvit_large_tf_384.in1k",
+    },
+    "maxvit_large_tf_512_in1k": {
+        "model": "maxvit_large_512",
+        "timm_id": "maxvit_large_tf_512.in1k",
+    },
+    "maxvit_large_tf_224_in21k": {
+        "model": "maxvit_large_224_in21k",
+        "timm_id": "maxvit_large_tf_224.in21k",
+    },
+    "maxvit_large_tf_384_in21k_ft_in1k": {
+        "model": "maxvit_large_384",
+        "timm_id": "maxvit_large_tf_384.in21k_ft_in1k",
+    },
+    "maxvit_large_tf_512_in21k_ft_in1k": {
+        "model": "maxvit_large_512",
+        "timm_id": "maxvit_large_tf_512.in21k_ft_in1k",
+    },
+    "maxvit_xlarge_tf_224_in21k": {
+        "model": "maxvit_xlarge_224_in21k",
+        "timm_id": "maxvit_xlarge_tf_224.in21k",
+    },
+    "maxvit_xlarge_tf_384_in21k_ft_in1k": {
+        "model": "maxvit_xlarge_384",
+        "timm_id": "maxvit_xlarge_tf_384.in21k_ft_in1k",
+    },
+    "maxvit_xlarge_tf_512_in21k_ft_in1k": {
+        "model": "maxvit_xlarge_512",
+        "timm_id": "maxvit_xlarge_tf_512.in21k_ft_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "relative_position_bias_table": "RPBT",
@@ -101,15 +348,15 @@ def transfer_maxvit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in MAXVIT_WEIGHTS_URLS.items():
+    for variant, meta in MAXVIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = MaxViT.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = MaxViT(
+            **MAXVIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_maxvit_weights(keras_model, state)
 

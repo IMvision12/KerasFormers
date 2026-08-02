@@ -19,7 +19,137 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.pit import PiTImageClassify
-from kerasformers.models.pit.pit_config import PIT_WEIGHTS_URLS
+
+# Architecture presets, moved here from pit_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+PIT_MODEL_CONFIG = {
+    "pit_xs": {
+        "patch_size": 16,
+        "stride": 8,
+        "embed_dim": [96, 192, 384],
+        "depth": [2, 6, 4],
+        "heads": [2, 4, 8],
+        "mlp_ratio": 4,
+        "distilled": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "pit_xs_distilled": {
+        "patch_size": 16,
+        "stride": 8,
+        "embed_dim": [96, 192, 384],
+        "depth": [2, 6, 4],
+        "heads": [2, 4, 8],
+        "mlp_ratio": 4,
+        "distilled": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "pit_ti": {
+        "patch_size": 16,
+        "stride": 8,
+        "embed_dim": [64, 128, 256],
+        "depth": [2, 6, 4],
+        "heads": [2, 4, 8],
+        "mlp_ratio": 4,
+        "distilled": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "pit_ti_distilled": {
+        "patch_size": 16,
+        "stride": 8,
+        "embed_dim": [64, 128, 256],
+        "depth": [2, 6, 4],
+        "heads": [2, 4, 8],
+        "mlp_ratio": 4,
+        "distilled": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "pit_s": {
+        "patch_size": 16,
+        "stride": 8,
+        "embed_dim": [144, 288, 576],
+        "depth": [2, 6, 4],
+        "heads": [3, 6, 12],
+        "mlp_ratio": 4,
+        "distilled": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "pit_s_distilled": {
+        "patch_size": 16,
+        "stride": 8,
+        "embed_dim": [144, 288, 576],
+        "depth": [2, 6, 4],
+        "heads": [3, 6, 12],
+        "mlp_ratio": 4,
+        "distilled": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "pit_b": {
+        "patch_size": 14,
+        "stride": 7,
+        "embed_dim": [256, 512, 1024],
+        "depth": [3, 6, 4],
+        "heads": [4, 8, 16],
+        "mlp_ratio": 4,
+        "distilled": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "pit_b_distilled": {
+        "patch_size": 14,
+        "stride": 7,
+        "embed_dim": [256, 512, 1024],
+        "depth": [3, 6, 4],
+        "heads": [4, 8, 16],
+        "mlp_ratio": 4,
+        "distilled": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+PIT_VARIANTS = {
+    "pit_xs_224_in1k": {
+        "model": "pit_xs",
+        "timm_id": "pit_xs_224.in1k",
+    },
+    "pit_xs_distilled_224_in1k": {
+        "model": "pit_xs_distilled",
+        "timm_id": "pit_xs_distilled_224.in1k",
+    },
+    "pit_ti_224_in1k": {
+        "model": "pit_ti",
+        "timm_id": "pit_ti_224.in1k",
+    },
+    "pit_ti_distilled_224_in1k": {
+        "model": "pit_ti_distilled",
+        "timm_id": "pit_ti_distilled_224.in1k",
+    },
+    "pit_s_224_in1k": {
+        "model": "pit_s",
+        "timm_id": "pit_s_224.in1k",
+    },
+    "pit_s_distilled_224_in1k": {
+        "model": "pit_s_distilled",
+        "timm_id": "pit_s_distilled_224.in1k",
+    },
+    "pit_b_224_in1k": {
+        "model": "pit_b",
+        "timm_id": "pit_b_224.in1k",
+    },
+    "pit_b_distilled_224_in1k": {
+        "model": "pit_b_distilled",
+        "timm_id": "pit_b_distilled_224.in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -100,15 +230,15 @@ def transfer_pit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in PIT_WEIGHTS_URLS.items():
+    for variant, meta in PIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = PiTImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = PiTImageClassify(
+            **PIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_pit_weights(keras_model, state)
 

@@ -12,7 +12,11 @@ from kerasformers.models.swinv2.swinv2_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .swinv2_config import SWINV2_MODEL_CONFIG, SWINV2_WEIGHTS_URLS
+from .swinv2_config import SwinV2Config
+
+# The backbone (SwinV2Model) and classifier (SwinV2ImageClassify) share the variant's
+# weights repo, whose kf_config.json declares SwinV2ImageClassify.
+SWINV2_HUB_SIBLINGS = frozenset({"SwinV2Model", "SwinV2ImageClassify"})
 
 
 def spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
@@ -524,18 +528,18 @@ class SwinV2Model(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: SWINV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in SWINV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = SWINV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = SwinV2Config
+    HUB_REPO_SIBLINGS = SWINV2_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with SwinV2ImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = SwinV2ImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = SwinV2ImageClassify.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -705,11 +709,9 @@ class SwinV2ImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: SWINV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in SWINV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = SWINV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = SwinV2Config
+    HUB_REPO_SIBLINGS = SWINV2_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

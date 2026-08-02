@@ -7,7 +7,11 @@ from kerasformers.models.resmlp.resmlp_layers import ResMLPAffine, ResMLPLayerSc
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .resmlp_config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHTS_URLS
+from .resmlp_config import ResMLPConfig
+
+# The backbone (ResMLPModel) and classifier (ResMLPImageClassify) share the variant's
+# weights repo, whose kf_config.json declares ResMLPImageClassify.
+RESMLP_HUB_SIBLINGS = frozenset({"ResMLPModel", "ResMLPImageClassify"})
 
 
 def resmlp_block(
@@ -205,18 +209,18 @@ class ResMLPModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RESMLP_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESMLP_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RESMLP_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ResMLPConfig
+    HUB_REPO_SIBLINGS = RESMLP_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with ResMLPImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
-            src = ResMLPImageClassify.from_weights(variant, skip_mismatch=skip_mismatch)
+            src = ResMLPImageClassify.from_weights(repo_id, skip_mismatch=skip_mismatch)
             copy_weights_by_path_suffix(src, model)
             del src
         return model
@@ -373,11 +377,9 @@ class ResMLPImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RESMLP_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESMLP_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RESMLP_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ResMLPConfig
+    HUB_REPO_SIBLINGS = RESMLP_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

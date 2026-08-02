@@ -18,7 +18,72 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilenetv2 import MobileNetV2ImageClassify
-from kerasformers.models.mobilenetv2.mobilenetv2_config import MOBILENETV2_WEIGHTS_URLS
+
+# Architecture presets, moved here from mobilenetv2_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+MOBILENETV2_MODEL_CONFIG = {
+    "mobilenetv2_050": {
+        "width_multiplier": 0.5,
+        "depth_multiplier": 1.0,
+        "fix_channels": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mobilenetv2_100": {
+        "width_multiplier": 1.0,
+        "depth_multiplier": 1.0,
+        "fix_channels": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mobilenetv2_110d": {
+        "width_multiplier": 1.1,
+        "depth_multiplier": 1.2,
+        "fix_channels": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mobilenetv2_120d": {
+        "width_multiplier": 1.2,
+        "depth_multiplier": 1.4,
+        "fix_channels": True,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "mobilenetv2_140": {
+        "width_multiplier": 1.4,
+        "depth_multiplier": 1.0,
+        "fix_channels": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+MOBILENETV2_VARIANTS = {
+    "mobilenetv2_050_lamb_in1k": {
+        "model": "mobilenetv2_050",
+        "timm_id": "mobilenetv2_050.lamb_in1k",
+    },
+    "mobilenetv2_100_ra_in1k": {
+        "model": "mobilenetv2_100",
+        "timm_id": "mobilenetv2_100.ra_in1k",
+    },
+    "mobilenetv2_110d_ra_in1k": {
+        "model": "mobilenetv2_110d",
+        "timm_id": "mobilenetv2_110d.ra_in1k",
+    },
+    "mobilenetv2_120d_ra_in1k": {
+        "model": "mobilenetv2_120d",
+        "timm_id": "mobilenetv2_120d.ra_in1k",
+    },
+    "mobilenetv2_140_ra_in1k": {
+        "model": "mobilenetv2_140",
+        "timm_id": "mobilenetv2_140.ra_in1k",
+    },
+}
 
 _BLOCK_00 = {
     "blocks.0.0.batchnorm.2": "blocks.0.0.bn1",
@@ -83,15 +148,15 @@ def transfer_mobilenetv2_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in MOBILENETV2_WEIGHTS_URLS.items():
+    for variant, meta in MOBILENETV2_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = MobileNetV2ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = MobileNetV2ImageClassify(
+            **MOBILENETV2_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_mobilenetv2_weights(keras_model, state)
 

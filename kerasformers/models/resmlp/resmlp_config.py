@@ -1,86 +1,47 @@
-RESMLP_MODEL_CONFIG = {
-    "resmlp_12": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "mlp_ratio": 4,
-        "layer_scale_init": 1e-4,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "resmlp_24": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 24,
-        "mlp_ratio": 4,
-        "layer_scale_init": 1e-5,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "resmlp_36": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 36,
-        "mlp_ratio": 4,
-        "layer_scale_init": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "resmlp_big_24": {
-        "patch_size": 8,
-        "embed_dim": 768,
-        "depth": 24,
-        "mlp_ratio": 4,
-        "layer_scale_init": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-RESMLP_WEIGHTS_URLS = {
-    "resmlp_12_224_fb_in1k": {
-        "model": "resmlp_12",
-        "timm_id": "resmlp_12_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_12_224_fb_in1k.weights.h5",
-    },
-    "resmlp_12_224_fb_distilled_in1k": {
-        "model": "resmlp_12",
-        "timm_id": "resmlp_12_224.fb_distilled_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_12_224_fb_distilled_in1k.weights.h5",
-    },
-    "resmlp_24_224_fb_in1k": {
-        "model": "resmlp_24",
-        "timm_id": "resmlp_24_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_24_224_fb_in1k.weights.h5",
-    },
-    "resmlp_24_224_fb_distilled_in1k": {
-        "model": "resmlp_24",
-        "timm_id": "resmlp_24_224.fb_distilled_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_24_224_fb_distilled_in1k.weights.h5",
-    },
-    "resmlp_36_224_fb_in1k": {
-        "model": "resmlp_36",
-        "timm_id": "resmlp_36_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_36_224_fb_in1k.weights.h5",
-    },
-    "resmlp_36_224_fb_distilled_in1k": {
-        "model": "resmlp_36",
-        "timm_id": "resmlp_36_224.fb_distilled_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_36_224_fb_distilled_in1k.weights.h5",
-    },
-    "resmlp_big_24_224_fb_in1k": {
-        "model": "resmlp_big_24",
-        "timm_id": "resmlp_big_24_224.fb_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_big_24_224_fb_in1k.weights.h5",
-    },
-    "resmlp_big_24_224_fb_distilled_in1k": {
-        "model": "resmlp_big_24",
-        "timm_id": "resmlp_big_24_224.fb_distilled_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_big_24_224_fb_distilled_in1k.weights.h5",
-    },
-    "resmlp_big_24_224_fb_in22k_ft_in1k": {
-        "model": "resmlp_big_24",
-        "timm_id": "resmlp_big_24_224.fb_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/resmlp_big_24_224_fb_in22k_ft_in1k.weights.h5",
-    },
-}
+
+class ResMLPConfig(BaseConfig):
+    r"""Configuration for [`ResMLPModel`] / [`ResMLPImageClassify`].
+
+    ResMLP is an all-MLP image classifier that swaps LayerNorm for a learned affine
+    (Aff) transform and mixes patches with a single linear layer plus residual
+    connections. One `kf_config.json` (declaring the canonical [`ResMLPImageClassify`])
+    sits on each variant's repo, and both the backbone and classifier load from it.
+    Fields mirror the model constructor and serialize flat.
+
+    Args:
+        patch_size (`int`, *optional*, defaults to 16):
+            Side length of each square image patch.
+        embed_dim (`int`, *optional*, defaults to 384):
+            Patch embedding (hidden) size.
+        depth (`int`, *optional*, defaults to 12):
+            Number of ResMLP blocks.
+        mlp_ratio (`int`, *optional*, defaults to 4):
+            Channel-MLP expansion ratio.
+        layer_scale_init (`float`, *optional*, defaults to 1e-4):
+            Initial value for the per-channel LayerScale.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.resmlp import ResMLPConfig, ResMLPImageClassify
+
+    >>> configuration = ResMLPConfig()
+    >>> model = ResMLPImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "resmlp"
+
+    patch_size: int = 16
+    embed_dim: int = 384
+    depth: int = 12
+    mlp_ratio: int = 4
+    layer_scale_init: float = 1e-4
+    image_size: int = 224
+    num_classes: int = 1000
