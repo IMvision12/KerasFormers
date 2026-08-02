@@ -89,6 +89,39 @@ def transfer_deberta_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
         transfer_weights(weight.path, weight, hf[hf_name])
 
 
+# Architecture per variant, moved here from deberta_config.py: the package config no longer
+# carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer the HF weights into.
+DEBERTA_MODEL_CONFIG = {
+    "deberta_base": {
+        "vocab_size": 50265,
+        "embed_dim": 768,
+        "num_layers": 12,
+        "num_heads": 12,
+        "mlp_dim": 3072,
+        "max_position_embeddings": 512,
+        "max_relative_positions": 512,
+        "pos_att_type": ["c2p", "p2c"],
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-7,
+        "pad_token_id": 0,
+    },
+    "deberta_large": {
+        "vocab_size": 50265,
+        "embed_dim": 1024,
+        "num_layers": 24,
+        "num_heads": 16,
+        "mlp_dim": 4096,
+        "max_position_embeddings": 512,
+        "max_relative_positions": 512,
+        "pos_att_type": ["c2p", "p2c"],
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-7,
+        "pad_token_id": 0,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
     import os
@@ -100,10 +133,6 @@ if __name__ == "__main__":
     from transformers import DebertaModel as HFDebertaModel
 
     from kerasformers.models.deberta import DebertaMaskedLM, DebertaModel
-    from kerasformers.models.deberta.deberta_config import (
-        DEBERTA_MODEL_CONFIG,
-        DEBERTA_WEIGHTS_URLS,
-    )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
     HF_SOURCES = {
@@ -124,8 +153,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in DEBERTA_WEIGHTS_URLS.items():
-        arch = DEBERTA_MODEL_CONFIG[meta["model"]]
+    for variant, arch in DEBERTA_MODEL_CONFIG.items():
         hf_id = HF_SOURCES[variant]
         eps = arch["layer_norm_eps"]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")

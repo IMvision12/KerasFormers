@@ -99,6 +99,37 @@ def transfer_roberta_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) 
         transfer_weights(weight.path, weight, hf[hf_name])
 
 
+# Architecture per variant, moved here from roberta_config.py: the package config no longer
+# carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer the HF weights into.
+ROBERTA_MODEL_CONFIG = {
+    "roberta_base": {
+        "vocab_size": 50265,
+        "embed_dim": 768,
+        "num_layers": 12,
+        "num_heads": 12,
+        "mlp_dim": 3072,
+        "max_position_embeddings": 514,
+        "type_vocab_size": 1,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-5,
+        "pad_token_id": 1,
+    },
+    "roberta_large": {
+        "vocab_size": 50265,
+        "embed_dim": 1024,
+        "num_layers": 24,
+        "num_heads": 16,
+        "mlp_dim": 4096,
+        "max_position_embeddings": 514,
+        "type_vocab_size": 1,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-5,
+        "pad_token_id": 1,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
     import os
@@ -109,10 +140,6 @@ if __name__ == "__main__":
     from transformers import RobertaModel as HFRobertaModel
 
     from kerasformers.models.roberta import RobertaMaskedLM, RobertaModel
-    from kerasformers.models.roberta.roberta_config import (
-        ROBERTA_MODEL_CONFIG,
-        ROBERTA_WEIGHTS_URLS,
-    )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
@@ -123,8 +150,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in ROBERTA_WEIGHTS_URLS.items():
-        arch = ROBERTA_MODEL_CONFIG[meta["model"]]
+    for variant, arch in ROBERTA_MODEL_CONFIG.items():
         hf_id = HF_SOURCES[variant]
         pad = arch["pad_token_id"]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")

@@ -5,8 +5,6 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .deberta_v2_config import DEBERTA_V2_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class DebertaV2Tokenizer(BaseTokenizer):
@@ -26,7 +24,6 @@ class DebertaV2Tokenizer(BaseTokenizer):
         cls_token / sep_token / pad_token / unk_token / mask_token: Special tokens.
     """
 
-    TOKENIZER_URLS = DEBERTA_V2_TOKENIZER_URLS
     DEFAULT_VARIANT = "deberta_v2_xlarge"
 
     def __init__(
@@ -43,7 +40,9 @@ class DebertaV2Tokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.cls_token = cls_token

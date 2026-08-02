@@ -1,48 +1,56 @@
-ROBERTA_MODEL_CONFIG = {
-    "roberta_base": {
-        "vocab_size": 50265,
-        "embed_dim": 768,
-        "num_layers": 12,
-        "num_heads": 12,
-        "mlp_dim": 3072,
-        "max_position_embeddings": 514,
-        "type_vocab_size": 1,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-5,
-        "pad_token_id": 1,
-    },
-    "roberta_large": {
-        "vocab_size": 50265,
-        "embed_dim": 1024,
-        "num_layers": 24,
-        "num_heads": 16,
-        "mlp_dim": 4096,
-        "max_position_embeddings": 514,
-        "type_vocab_size": 1,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-5,
-        "pad_token_id": 1,
-    },
-}
+from kerasformers.base import BaseConfig
 
-ROBERTA_WEIGHTS_URLS = {
-    "roberta_base": {
-        "model": "roberta_base",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_base.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_base_mlm.weights.h5",
-    },
-    "roberta_large": {
-        "model": "roberta_large",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_large.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_large_mlm.weights.h5",
-    },
-}
 
-ROBERTA_TOKENIZER_URLS = {
-    "roberta_base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_base_tokenizer.json"
-    },
-    "roberta_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/roberta_large_tokenizer.json"
-    },
-}
+class RobertaConfig(BaseConfig):
+    r"""Configuration for the RoBERTa encoder ([`RobertaModel`]) and its task heads.
+
+    RoBERTa is a BERT-style encoder trained with a robust, longer masked-LM recipe (no
+    next-sentence objective, byte-level BPE, a single token type). One `kf_config.json`
+    (declaring the canonical [`RobertaModel`]) sits on each variant's repo; the encoder,
+    masked-LM, and task-head classes all load from it. Fields mirror the model
+    constructor and serialize flat.
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 50265):
+            Token vocabulary size.
+        embed_dim (`int`, *optional*, defaults to 768):
+            Hidden size.
+        num_layers (`int`, *optional*, defaults to 12):
+            Number of transformer encoder layers.
+        num_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads.
+        mlp_dim (`int`, *optional*, defaults to 3072):
+            Feed-forward intermediate size.
+        max_position_embeddings (`int`, *optional*, defaults to 514):
+            Maximum sequence length supported by the positional embeddings.
+        type_vocab_size (`int`, *optional*, defaults to 1):
+            Number of token-type (segment) embeddings.
+        hidden_act (`str`, *optional*, defaults to `"gelu"`):
+            Activation used in the feed-forward blocks.
+        layer_norm_eps (`float`, *optional*, defaults to 1e-5):
+            LayerNorm epsilon.
+        pad_token_id (`int`, *optional*, defaults to 1):
+            Padding token id (positions are offset past it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.roberta import RobertaConfig, RobertaModel
+
+    >>> configuration = RobertaConfig()
+    >>> model = RobertaModel(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "roberta"
+
+    vocab_size: int = 50265
+    embed_dim: int = 768
+    num_layers: int = 12
+    num_heads: int = 12
+    mlp_dim: int = 3072
+    max_position_embeddings: int = 514
+    type_vocab_size: int = 1
+    hidden_act: str = "gelu"
+    layer_norm_eps: float = 1e-5
+    pad_token_id: int = 1

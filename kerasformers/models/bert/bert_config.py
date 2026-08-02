@@ -1,88 +1,55 @@
-BERT_MODEL_CONFIG = {
-    "bert_base_uncased": {
-        "vocab_size": 30522,
-        "embed_dim": 768,
-        "num_layers": 12,
-        "num_heads": 12,
-        "mlp_dim": 3072,
-        "max_position_embeddings": 512,
-        "type_vocab_size": 2,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-12,
-        "pad_token_id": 0,
-    },
-    "bert_large_uncased": {
-        "vocab_size": 30522,
-        "embed_dim": 1024,
-        "num_layers": 24,
-        "num_heads": 16,
-        "mlp_dim": 4096,
-        "max_position_embeddings": 512,
-        "type_vocab_size": 2,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-12,
-        "pad_token_id": 0,
-    },
-    "bert_base_cased": {
-        "vocab_size": 28996,
-        "embed_dim": 768,
-        "num_layers": 12,
-        "num_heads": 12,
-        "mlp_dim": 3072,
-        "max_position_embeddings": 512,
-        "type_vocab_size": 2,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-12,
-        "pad_token_id": 0,
-    },
-    "bert_large_cased": {
-        "vocab_size": 28996,
-        "embed_dim": 1024,
-        "num_layers": 24,
-        "num_heads": 16,
-        "mlp_dim": 4096,
-        "max_position_embeddings": 512,
-        "type_vocab_size": 2,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-12,
-        "pad_token_id": 0,
-    },
-}
+from kerasformers.base import BaseConfig
 
-BERT_WEIGHTS_URLS = {
-    "bert_base_uncased": {
-        "model": "bert_base_uncased",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased_mlm.weights.h5",
-    },
-    "bert_large_uncased": {
-        "model": "bert_large_uncased",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased_mlm.weights.h5",
-    },
-    "bert_base_cased": {
-        "model": "bert_base_cased",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased_mlm.weights.h5",
-    },
-    "bert_large_cased": {
-        "model": "bert_large_cased",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased_mlm.weights.h5",
-    },
-}
 
-BERT_TOKENIZER_URLS = {
-    "bert_base_uncased": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_uncased_tokenizer.json"
-    },
-    "bert_large_uncased": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_uncased_tokenizer.json"
-    },
-    "bert_base_cased": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_base_cased_tokenizer.json"
-    },
-    "bert_large_cased": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/bert/bert_large_cased_tokenizer.json"
-    },
-}
+class BertConfig(BaseConfig):
+    r"""Configuration for the BERT encoder ([`BertModel`]) and its task heads.
+
+    BERT is a bidirectional transformer encoder pre-trained with masked-language and
+    next-sentence objectives. One `kf_config.json` (declaring the canonical
+    [`BertModel`]) sits on each variant's repo; the encoder, masked-LM, and task-head
+    classes all load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 30522):
+            Token vocabulary size.
+        embed_dim (`int`, *optional*, defaults to 768):
+            Hidden size.
+        num_layers (`int`, *optional*, defaults to 12):
+            Number of transformer encoder layers.
+        num_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads.
+        mlp_dim (`int`, *optional*, defaults to 3072):
+            Feed-forward intermediate size.
+        max_position_embeddings (`int`, *optional*, defaults to 512):
+            Maximum sequence length supported by the positional embeddings.
+        type_vocab_size (`int`, *optional*, defaults to 2):
+            Number of token-type (segment) embeddings.
+        hidden_act (`str`, *optional*, defaults to `"gelu"`):
+            Activation used in the feed-forward blocks.
+        layer_norm_eps (`float`, *optional*, defaults to 1e-12):
+            LayerNorm epsilon.
+        pad_token_id (`int`, *optional*, defaults to 0):
+            Padding token id.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.bert import BertConfig, BertModel
+
+    >>> configuration = BertConfig()
+    >>> model = BertModel(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "bert"
+
+    vocab_size: int = 30522
+    embed_dim: int = 768
+    num_layers: int = 12
+    num_heads: int = 12
+    mlp_dim: int = 3072
+    max_position_embeddings: int = 512
+    type_vocab_size: int = 2
+    hidden_act: str = "gelu"
+    layer_norm_eps: float = 1e-12
+    pad_token_id: int = 0

@@ -1,104 +1,29 @@
-DEBERTA_V3_MODEL_CONFIG = {
-    "deberta_v3_xsmall": {
-        "vocab_size": 128100,
-        "embed_dim": 384,
-        "num_layers": 12,
-        "num_heads": 6,
-        "mlp_dim": 1536,
-        "max_position_embeddings": 512,
-        "max_relative_positions": 512,
-        "position_buckets": 256,
-        "pos_att_type": ["p2c", "c2p"],
-        "norm_rel_ebd": True,
-        "conv_kernel_size": 0,
-        "conv_act": "gelu",
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-7,
-        "pad_token_id": 0,
-    },
-    "deberta_v3_small": {
-        "vocab_size": 128100,
-        "embed_dim": 768,
-        "num_layers": 6,
-        "num_heads": 12,
-        "mlp_dim": 3072,
-        "max_position_embeddings": 512,
-        "max_relative_positions": 512,
-        "position_buckets": 256,
-        "pos_att_type": ["p2c", "c2p"],
-        "norm_rel_ebd": True,
-        "conv_kernel_size": 0,
-        "conv_act": "gelu",
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-7,
-        "pad_token_id": 0,
-    },
-    "deberta_v3_base": {
-        "vocab_size": 128100,
-        "embed_dim": 768,
-        "num_layers": 12,
-        "num_heads": 12,
-        "mlp_dim": 3072,
-        "max_position_embeddings": 512,
-        "max_relative_positions": 512,
-        "position_buckets": 256,
-        "pos_att_type": ["p2c", "c2p"],
-        "norm_rel_ebd": True,
-        "conv_kernel_size": 0,
-        "conv_act": "gelu",
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-7,
-        "pad_token_id": 0,
-    },
-    "deberta_v3_large": {
-        "vocab_size": 128100,
-        "embed_dim": 1024,
-        "num_layers": 24,
-        "num_heads": 16,
-        "mlp_dim": 4096,
-        "max_position_embeddings": 512,
-        "max_relative_positions": 512,
-        "position_buckets": 256,
-        "pos_att_type": ["p2c", "c2p"],
-        "norm_rel_ebd": True,
-        "conv_kernel_size": 0,
-        "conv_act": "gelu",
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-7,
-        "pad_token_id": 0,
-    },
-}
+from kerasformers.models.deberta_v2.deberta_v2_config import DebertaV2Config
 
-DEBERTA_V3_WEIGHTS_URLS = {
-    "deberta_v3_xsmall": {
-        "model": "deberta_v3_xsmall",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_xsmall.weights.h5",
-    },
-    "deberta_v3_small": {
-        "model": "deberta_v3_small",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_small.weights.h5",
-    },
-    "deberta_v3_base": {
-        "model": "deberta_v3_base",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_base.weights.h5",
-    },
-    "deberta_v3_large": {
-        "model": "deberta_v3_large",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_large.weights.h5",
-    },
-}
 
-DEBERTA_V3_TOKENIZER_URLS = {
-    "deberta_v3_xsmall": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_xsmall_tokenizer.json"
-    },
-    "deberta_v3_small": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_small_tokenizer.json"
-    },
-    "deberta_v3_base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_base_tokenizer.json"
-    },
-    "deberta_v3_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/deberta/deberta_v3_large_tokenizer.json"
-    },
-}
+class DebertaV3Config(DebertaV2Config):
+    r"""Configuration for the DeBERTa-v3 encoder ([`DebertaV3Model`]) and its heads.
+
+    DeBERTa-v3 keeps the DeBERTa-v2 architecture but is pre-trained ELECTRA-style
+    (replaced-token detection with gradient-disentangled embedding sharing); the shipped
+    variants use no input convolution (`conv_kernel_size=0`). One `kf_config.json`
+    (declaring the canonical [`DebertaV3Model`]) sits on each variant's repo. Defaults
+    below are the `deberta-v3-base` values; see [`DebertaV2Config`] for field docs.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.deberta_v3 import DebertaV3Config, DebertaV3Model
+
+    >>> configuration = DebertaV3Config()
+    >>> model = DebertaV3Model(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "deberta_v3"
+
+    embed_dim: int = 768
+    num_layers: int = 12
+    num_heads: int = 12
+    mlp_dim: int = 3072
+    conv_kernel_size: int = 0
