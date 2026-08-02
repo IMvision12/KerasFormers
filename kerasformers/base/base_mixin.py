@@ -45,16 +45,14 @@ def _url_exists(url):
 
 
 def resolve_weights_url(url):
-    """Expand a bare HF-repo URL to its weights file, else return ``url`` as-is.
+    """Resolve an HF-repo weights URL to a downloadable file URL.
 
-    A weights entry may point at either a full release file (GitHub
-    ``.../<name>.weights.h5`` or ``.weights.json``, still used by the backbones)
-    or a bare HF repo (``https://huggingface.co/<org>/<repo>``). The bare form is
-    resolved here to the repo's ``model.weights.h5`` (single) or
-    ``model.weights.json`` (sharded); full file / ``resolve`` URLs pass through.
+    A weights entry points at an HF repo: a bare repo
+    (``https://huggingface.co/<org>/<repo>``) is resolved here to its
+    ``model.weights.h5`` (single) or ``model.weights.json`` (sharded); a full
+    file / ``resolve`` URL (e.g. ``.../resolve/main/model.weights.h5``) passes
+    through unchanged.
     """
-    if not url.startswith("https://huggingface.co/"):
-        return url
     if (
         "/resolve/" in url
         or "/blob/" in url
@@ -189,9 +187,9 @@ class WeightLoadingMixin:
                 load and left at their default initialization. Useful for
                 fine-tuning: pass ``num_classes=N, skip_mismatch=True`` to
                 swap in a new classifier head while loading the rest of the
-                backbone. Applied on both the kerasformers-release path
-                (``.h5`` / ``.json`` ``load_weights``) and the ``hf:`` /
-                converter transfer path (mismatched targets left at init).
+                backbone. Applied on both the repo-id ``kf_config.json`` load
+                path and the ``hf:`` / variant converter transfer path
+                (mismatched targets left at init).
             attn_implementation: ``"sdpa"`` (portable manual math, the default)
                 or ``"flash"`` (``keras.ops.dot_product_attention`` with the
                 flash kernel; needs a flash-capable GPU/TPU and fp16/bf16). Set
@@ -290,7 +288,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 # A bare Hub repo id ("kerasformers/detr-resnet-50"): rebuild from
                 # the repo's own kf_config.json and load its weights, no variant
                 # hardcoded in the package. Quantization / caching still run in the
-                # post-build steps below, exactly as for the release path.
+                # post-build steps below, exactly as for the variant path.
                 model = cls.from_hub_repo(
                     identifier,
                     load_weights=load_weights,
@@ -298,7 +296,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     **kwargs,
                 )
             else:
-                model = cls.from_release(
+                model = cls.from_variant(
                     identifier,
                     load_weights=load_weights,
                     skip_mismatch=skip_mismatch,
@@ -415,7 +413,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
             model.load_weights(download_file(url), skip_mismatch=skip_mismatch)
 
     @classmethod
-    def from_release(
+    def from_variant(
         cls,
         variant,
         load_weights=True,
@@ -425,6 +423,16 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         low_disk=False,
         **kwargs,
     ):
+        """Build a packaged variant and convert its weights from the source Hub.
+
+        The variant is looked up in ``BASE_MODEL_CONFIG`` (architecture) and
+        ``BASE_WEIGHT_CONFIG`` (an ``{"hf_id": ..., "safetensors": ...}`` entry
+        naming the upstream checkpoint to convert on the fly). This is the
+        bare-variant branch of :meth:`from_weights` (e.g.
+        ``from_weights("qwen2-0.5b")``). Pre-converted kerasformers weights are
+        loaded by Hub repo id instead (``from_weights("org/repo")`` ->
+        :meth:`from_hub_repo`), not from here.
+        """
         if cls.BASE_MODEL_CONFIG is None:
             raise NotImplementedError(
                 f"{cls.__name__} must set BASE_MODEL_CONFIG to use from_weights()."
@@ -443,24 +451,24 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         if load_weights:
             if cls.BASE_WEIGHT_CONFIG is None or variant not in cls.BASE_WEIGHT_CONFIG:
                 raise ValueError(
-                    f"No release weights configured for variant '{variant}'. Load "
+                    f"No weights configured for variant '{variant}'. Load "
                     f"pretrained weights by Hub repo id instead, e.g. "
                     f"{cls.__name__}.from_weights('kerasformers/{variant}'), or pass "
                     f"load_weights=False to build an untrained model."
                 )
             entry = cls.BASE_WEIGHT_CONFIG[variant]
-            if isinstance(entry, dict):
-                hf_id = entry.get("hf_id")
-                gated = entry.get("gated", False)
-                url = entry.get("url")
-                use_safetensors = entry.get("safetensors", False)
-            else:
-                hf_id = None
-                gated = False
-                url = entry
-                use_safetensors = False
+            if not isinstance(entry, dict) or not entry.get("hf_id"):
+                raise ValueError(
+                    f"Weights entry for variant '{variant}' must be a dict with an "
+                    f"'hf_id' (the upstream checkpoint to convert). Pre-converted "
+                    f"kerasformers weights load by Hub repo id, e.g. "
+                    f"{cls.__name__}.from_weights('kerasformers/{variant}')."
+                )
+            hf_id = entry["hf_id"]
+            gated = entry.get("gated", False)
+            use_safetensors = entry.get("safetensors", False)
 
-            if hf_id and use_safetensors:
+            if use_safetensors:
                 # Read raw safetensors and run the model's hand-mapped transfer
                 # (the same path as `hf:`): lighter than instantiating the HF
                 # model, gives the exact checkpoint key layout the transfer
@@ -479,7 +487,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     if callable(close):
                         close(completed=completed)
                 warn_skipped(skipped)
-            elif hf_id:
+            else:
                 from kerasformers.conversion.hf_download_utils import (
                     load_and_convert_from_hf,
                 )
@@ -493,20 +501,6 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                         is_gated=gated,
                     )
                 warn_skipped(skipped)
-            elif url:
-                # Subclassed models (LLMs / VLMs) build lazily, so they have no
-                # weights to load into until a forward pass runs. Functional
-                # models are already built at construction and skip this. Lets a
-                # `url` entry point at a pre-converted `.weights.h5` (GitHub
-                # release or an hf.co resolve URL) for any model type.
-                if hasattr(model, "build_for_transfer") and not model.built:
-                    model.build_for_transfer()
-                cls.load_weights_from_url(model, url, skip_mismatch)
-            else:
-                raise ValueError(
-                    f"Release weights entry for variant '{variant}' has "
-                    f"neither 'url' nor 'hf_id'."
-                )
 
         return model
 
@@ -676,7 +670,7 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                         f"'{hf_id}'. Pass `variant=` explicitly. Available "
                         f"variants: {sorted(cls.BASE_MODEL_CONFIG or {})}"
                     )
-            model = cls.from_release(variant, load_weights=False, **kwargs)
+            model = cls.from_variant(variant, load_weights=False, **kwargs)
             if load_weights:
                 state_dict = download_hf_state_dict(hf_id, low_disk=low_disk)
                 completed = False
@@ -769,10 +763,10 @@ class PreprocessorMixin(keras.layers.Layer):
     passed positionally (Keras's ``Layer.__call__`` rejects non-tensor positional
     args).
 
-    The loading API, ``from_weights`` / ``from_release`` / ``from_hf``, mirrors
+    The loading API, ``from_weights`` / ``from_variant`` / ``from_hf``, mirrors
     the model-side :class:`WeightLoadingMixin`, so a preprocessor loads with the
-    *same* identifier as its model and can pull its files from a kerasformers
-    release (a variant id) or from the HF Hub (an ``"hf:org/repo"`` id)::
+    *same* identifier as its model and can pull its files from a packaged
+    variant id or from the HF Hub (an ``"hf:org/repo"`` id)::
 
         gen = Qwen2Generate.from_weights("qwen2-7b-instruct")
         tok = Qwen2Tokenizer.from_weights("qwen2-7b-instruct")
@@ -799,7 +793,7 @@ class PreprocessorMixin(keras.layers.Layer):
             return cls.from_hf(repo, **kwargs)
         if "/" in identifier:
             return cls.from_hub_repo(identifier, **kwargs)
-        return cls.from_release(identifier, **kwargs)
+        return cls.from_variant(identifier, **kwargs)
 
     @classmethod
     def from_hub_repo(cls, repo_id, **kwargs):
@@ -827,7 +821,7 @@ class PreprocessorMixin(keras.layers.Layer):
         return cls(**config)
 
     @classmethod
-    def from_release(cls, variant, /, **kwargs):
+    def from_variant(cls, variant, /, **kwargs):
         params = inspect.signature(cls).parameters
         if "variant" in params and "variant" not in kwargs:
             kwargs["variant"] = variant
@@ -836,7 +830,7 @@ class PreprocessorMixin(keras.layers.Layer):
             and "hf_id" not in kwargs
             and "tokenizer_file" not in kwargs
         ):
-            # Gated preprocessors take `hf_id`, not `variant`; map the release
+            # Gated preprocessors take `hf_id`, not `variant`; map the packaged
             # variant to its gated Hub repo so `from_weights(variant)` works like
             # the model's own `from_weights(variant)`.
             hf_id = cls.release_variant_hf_id(variant)

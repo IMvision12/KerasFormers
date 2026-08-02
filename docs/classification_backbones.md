@@ -73,7 +73,7 @@ ResNetModel.from_weights("resnet50_a1_in1k")            # same weights, no Dense
 ResNetModel.from_weights("hf:timm/resnet50.a1_in1k")    # any timm variant via the hf: prefix
 ```
 
-Under the hood `XModel.from_release` warm-starts from `XImageClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
+Under the hood `XModel.from_variant` warm-starts from `XImageClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
 
 ## Custom heads / transfer learning
 

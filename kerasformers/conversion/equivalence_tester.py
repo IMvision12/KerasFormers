@@ -111,6 +111,8 @@ import numpy as np
 from keras import ops, utils
 from keras.src.applications.imagenet_utils import decode_predictions
 
+from kerasformers.conversion.file_downloader import download_file
+
 if TYPE_CHECKING:
     import torch
     import transformers
@@ -252,9 +254,7 @@ def verify_cls_model_equivalence(
             try:
                 print(f"\nTesting {test_case['name']} image:")
 
-                image_path = keras.utils.get_file(
-                    test_case["file_name"], test_case["url"]
-                )
+                image_path = download_file(test_case["url"])
 
                 if not os.path.exists(image_path):
                     raise ValueError(

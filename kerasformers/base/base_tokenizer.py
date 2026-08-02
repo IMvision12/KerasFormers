@@ -11,7 +11,7 @@ class BaseTokenizer(PreprocessorMixin):
 
     Subclasses implement ``call`` (text -> ids) and ``decode`` (ids -> text);
     ``batch_decode`` is a pure-Python loop over ``decode``. The loading API
-    (``from_weights`` / ``from_release`` / ``from_hf``) and the ``__call__`` ->
+    (``from_weights`` / ``from_variant`` / ``from_hf``) and the ``__call__`` ->
     ``call`` forwarder are inherited from :class:`PreprocessorMixin`.
 
     Shared ``call`` / ``decode`` plumbing is provided as helpers so concrete

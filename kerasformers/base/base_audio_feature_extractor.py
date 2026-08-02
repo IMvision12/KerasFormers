@@ -7,7 +7,7 @@ class BaseAudioFeatureExtractor(PreprocessorMixin):
     """Abstract base for kerasformers audio feature extractors.
 
     Subclasses implement ``call(raw_speech, ...)`` returning the spectrogram /
-    feature tensor. The loading API (``from_weights`` / ``from_release``) and
+    feature tensor. The loading API (``from_weights`` / ``from_variant``) and
     the ``__call__`` -> ``call`` forwarder are inherited from
     :class:`PreprocessorMixin`; ``from_hf`` is overridden here to map the
     repo's ``preprocessor_config.json`` scalars (``sampling_rate``, ``n_fft``,
