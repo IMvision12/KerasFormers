@@ -19,7 +19,137 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.cait import CaiTImageClassify
-from kerasformers.models.cait.cait_config import CAIT_WEIGHTS_URLS
+
+# Architecture presets, moved here from cait_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+CAIT_MODEL_CONFIG = {
+    "cait_xxs24_224": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 24,
+        "num_heads": 4,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "cait_xxs24_384": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 24,
+        "num_heads": 4,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "cait_xxs36_224": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 36,
+        "num_heads": 4,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "cait_xxs36_384": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 36,
+        "num_heads": 4,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "cait_xs24_384": {
+        "patch_size": 16,
+        "embed_dim": 288,
+        "depth": 24,
+        "num_heads": 6,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "cait_s24_224": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 24,
+        "num_heads": 8,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "cait_s24_384": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 24,
+        "num_heads": 8,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "cait_s36_384": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 36,
+        "num_heads": 8,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "cait_m36_384": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 36,
+        "num_heads": 16,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "cait_m48_448": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 48,
+        "num_heads": 16,
+        "image_size": 448,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+CAIT_VARIANTS = {
+    "cait_xxs24_224_fb_dist_in1k": {
+        "model": "cait_xxs24_224",
+        "timm_id": "cait_xxs24_224.fb_dist_in1k",
+    },
+    "cait_xxs24_384_fb_dist_in1k": {
+        "model": "cait_xxs24_384",
+        "timm_id": "cait_xxs24_384.fb_dist_in1k",
+    },
+    "cait_xxs36_224_fb_dist_in1k": {
+        "model": "cait_xxs36_224",
+        "timm_id": "cait_xxs36_224.fb_dist_in1k",
+    },
+    "cait_xxs36_384_fb_dist_in1k": {
+        "model": "cait_xxs36_384",
+        "timm_id": "cait_xxs36_384.fb_dist_in1k",
+    },
+    "cait_xs24_384_fb_dist_in1k": {
+        "model": "cait_xs24_384",
+        "timm_id": "cait_xs24_384.fb_dist_in1k",
+    },
+    "cait_s24_224_fb_dist_in1k": {
+        "model": "cait_s24_224",
+        "timm_id": "cait_s24_224.fb_dist_in1k",
+    },
+    "cait_s24_384_fb_dist_in1k": {
+        "model": "cait_s24_384",
+        "timm_id": "cait_s24_384.fb_dist_in1k",
+    },
+    "cait_s36_384_fb_dist_in1k": {
+        "model": "cait_s36_384",
+        "timm_id": "cait_s36_384.fb_dist_in1k",
+    },
+    "cait_m36_384_fb_dist_in1k": {
+        "model": "cait_m36_384",
+        "timm_id": "cait_m36_384.fb_dist_in1k",
+    },
+    "cait_m48_448_fb_dist_in1k": {
+        "model": "cait_m48_448",
+        "timm_id": "cait_m48_448.fb_dist_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -90,15 +220,15 @@ def transfer_cait_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> Non
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in CAIT_WEIGHTS_URLS.items():
+    for variant, meta in CAIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = CaiTImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = CaiTImageClassify(
+            **CAIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_cait_weights(keras_model, state)
 

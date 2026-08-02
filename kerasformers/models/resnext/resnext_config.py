@@ -1,105 +1,41 @@
-RESNEXT_MODEL_CONFIG = {
-    "resnext50_32x4d": {
-        "depths": [3, 4, 6, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 2,
-    },
-    "resnext101_32x4d": {
-        "depths": [3, 4, 23, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 2,
-    },
-    "resnext101_32x8d": {
-        "depths": [3, 4, 23, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 4,
-    },
-    "resnext101_32x16d": {
-        "depths": [3, 4, 23, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 8,
-    },
-    "resnext101_32x32d": {
-        "depths": [3, 4, 23, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 16,
-    },
-}
+from kerasformers.base import BaseConfig
 
-RESNEXT_WEIGHTS_URLS = {
-    "resnext50_32x4d_a1_in1k": {
-        "model": "resnext50_32x4d",
-        "timm_id": "resnext50_32x4d.a1_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext50_32x4d_a1_in1k.weights.h5",
-    },
-    "resnext50_32x4d_tv_in1k": {
-        "model": "resnext50_32x4d",
-        "timm_id": "resnext50_32x4d.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext50_32x4d_tv_in1k.weights.h5",
-    },
-    "resnext50_32x4d_gluon_in1k": {
-        "model": "resnext50_32x4d",
-        "timm_id": "resnext50_32x4d.gluon_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext50_32x4d_gluon_in1k.weights.h5",
-    },
-    "resnext101_32x4d_gluon_in1k": {
-        "model": "resnext101_32x4d",
-        "timm_id": "resnext101_32x4d.gluon_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x4d_gluon_in1k.weights.h5",
-    },
-    "resnext101_32x4d_fb_ssl_yfcc100m_ft_in1k": {
-        "model": "resnext101_32x4d",
-        "timm_id": "resnext101_32x4d.fb_ssl_yfcc100m_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x4d_fb_ssl_yfcc100m_ft_in1k.weights.h5",
-    },
-    "resnext101_32x4d_fb_swsl_ig1b_ft_in1k": {
-        "model": "resnext101_32x4d",
-        "timm_id": "resnext101_32x4d.fb_swsl_ig1b_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x4d_fb_swsl_ig1b_ft_in1k.weights.h5",
-    },
-    "resnext101_32x8d_tv_in1k": {
-        "model": "resnext101_32x8d",
-        "timm_id": "resnext101_32x8d.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x8d_tv_in1k.weights.h5",
-    },
-    "resnext101_32x8d_fb_wsl_ig1b_ft_in1k": {
-        "model": "resnext101_32x8d",
-        "timm_id": "resnext101_32x8d.fb_wsl_ig1b_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x8d_fb_wsl_ig1b_ft_in1k.weights.h5",
-    },
-    "resnext101_32x8d_fb_ssl_yfcc100m_ft_in1k": {
-        "model": "resnext101_32x8d",
-        "timm_id": "resnext101_32x8d.fb_ssl_yfcc100m_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x8d_fb_ssl_yfcc100m_ft_in1k.weights.h5",
-    },
-    "resnext101_32x8d_fb_swsl_ig1b_ft_in1k": {
-        "model": "resnext101_32x8d",
-        "timm_id": "resnext101_32x8d.fb_swsl_ig1b_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x8d_fb_swsl_ig1b_ft_in1k.weights.h5",
-    },
-    "resnext101_32x16d_fb_wsl_ig1b_ft_in1k": {
-        "model": "resnext101_32x16d",
-        "timm_id": "resnext101_32x16d.fb_wsl_ig1b_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x16d_fb_wsl_ig1b_ft_in1k.weights.h5",
-    },
-    "resnext101_32x16d_fb_ssl_yfcc100m_ft_in1k": {
-        "model": "resnext101_32x16d",
-        "timm_id": "resnext101_32x16d.fb_ssl_yfcc100m_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x16d_fb_ssl_yfcc100m_ft_in1k.weights.h5",
-    },
-    "resnext101_32x16d_fb_swsl_ig1b_ft_in1k": {
-        "model": "resnext101_32x16d",
-        "timm_id": "resnext101_32x16d.fb_swsl_ig1b_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x16d_fb_swsl_ig1b_ft_in1k.weights.h5",
-    },
-    "resnext101_32x32d_fb_wsl_ig1b_ft_in1k": {
-        "model": "resnext101_32x32d",
-        "timm_id": "resnext101_32x32d.fb_wsl_ig1b_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnext101_32x32d_fb_wsl_ig1b_ft_in1k.weights.h5",
-    },
-}
+
+class ResNeXtConfig(BaseConfig):
+    r"""Configuration for [`ResNeXtModel`] / [`ResNeXtImageClassify`].
+
+    ResNeXt replaces ResNet's bottleneck with grouped ("cardinality") convolutions.
+    The hosted variants override `depths` / `width_factor` (32x4d / 32x8d / 32x16d /
+    32x32d). One `kf_config.json` (declaring the canonical
+    [`ResNeXtImageClassify`]) sits on each variant's repo, and both the backbone and
+    classifier load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(3, 4, 6, 3)`):
+            Number of residual blocks per stage.
+        filters (`tuple`, *optional*, defaults to `(64, 128, 256, 512)`):
+            Base filter counts per stage.
+        groups (`int`, *optional*, defaults to 32):
+            Number of groups (cardinality) in the grouped convolutions.
+        width_factor (`int`, *optional*, defaults to 2):
+            Bottleneck width multiplier (32x`4`d = width_factor 2, 32x8d = 4, ...).
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.resnext import ResNeXtConfig, ResNeXtImageClassify
+
+    >>> configuration = ResNeXtConfig()
+    >>> model = ResNeXtImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "resnext"
+
+    depths: tuple = (3, 4, 6, 3)
+    filters: tuple = (64, 128, 256, 512)
+    groups: int = 32
+    width_factor: int = 2
+    num_classes: int = 1000

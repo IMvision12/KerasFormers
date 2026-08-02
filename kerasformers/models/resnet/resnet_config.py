@@ -1,62 +1,38 @@
-RESNET_MODEL_CONFIG = {
-    "resnet50": {
-        "depths": [3, 4, 6, 3],
-        "filters": [64, 128, 256, 512],
-    },
-    "resnet101": {
-        "depths": [3, 4, 23, 3],
-        "filters": [64, 128, 256, 512],
-    },
-    "resnet152": {
-        "depths": [3, 8, 36, 3],
-        "filters": [64, 128, 256, 512],
-    },
-}
+from kerasformers.base import BaseConfig
 
-RESNET_WEIGHTS_URLS = {
-    "resnet50_tv_in1k": {
-        "model": "resnet50",
-        "timm_id": "resnet50.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet50_tv_in1k.weights.h5",
-    },
-    "resnet50_a1_in1k": {
-        "model": "resnet50",
-        "timm_id": "resnet50.a1_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet50_a1_in1k.weights.h5",
-    },
-    "resnet50_gluon_in1k": {
-        "model": "resnet50",
-        "timm_id": "resnet50.gluon_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet50_gluon_in1k.weights.h5",
-    },
-    "resnet101_tv_in1k": {
-        "model": "resnet101",
-        "timm_id": "resnet101.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet101_tv_in1k.weights.h5",
-    },
-    "resnet101_a1_in1k": {
-        "model": "resnet101",
-        "timm_id": "resnet101.a1_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet101_a1_in1k.weights.h5",
-    },
-    "resnet101_gluon_in1k": {
-        "model": "resnet101",
-        "timm_id": "resnet101.gluon_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet101_gluon_in1k.weights.h5",
-    },
-    "resnet152_tv_in1k": {
-        "model": "resnet152",
-        "timm_id": "resnet152.tv_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet152_tv_in1k.weights.h5",
-    },
-    "resnet152_a1_in1k": {
-        "model": "resnet152",
-        "timm_id": "resnet152.a1_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet152_a1_in1k.weights.h5",
-    },
-    "resnet152_gluon_in1k": {
-        "model": "resnet152",
-        "timm_id": "resnet152.gluon_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/resnet152_gluon_in1k.weights.h5",
-    },
-}
+
+class ResNetConfig(BaseConfig):
+    r"""Configuration for [`ResNetModel`] / [`ResNetImageClassify`].
+
+    A ResNet stacks four stages of residual bottleneck blocks. The defaults
+    describe an 18-block-style layout; the hosted variants override `depths` /
+    `filters` (resnet50 / resnet101 / resnet152). One `kf_config.json` (declaring
+    the canonical [`ResNetImageClassify`]) sits on each variant's repo, and both the
+    backbone and the classifier load from it. Fields mirror the model constructor
+    and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(2, 2, 2, 2)`):
+            Number of residual blocks per stage.
+        filters (`tuple`, *optional*, defaults to `(64, 128, 256, 512)`):
+            Base filter counts per stage (the output width is `filters[i] *
+            expansion`).
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (used by
+            [`ResNetImageClassify`]; the backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.resnet import ResNetConfig, ResNetImageClassify
+
+    >>> configuration = ResNetConfig()
+    >>> model = ResNetImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "resnet"
+
+    depths: tuple = (2, 2, 2, 2)
+    filters: tuple = (64, 128, 256, 512)
+    num_classes: int = 1000

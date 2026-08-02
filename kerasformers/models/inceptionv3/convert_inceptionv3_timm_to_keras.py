@@ -18,7 +18,33 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inceptionv3 import InceptionV3ImageClassify
-from kerasformers.models.inceptionv3.inceptionv3_config import INCEPTIONV3_WEIGHTS_URLS
+
+# Architecture presets, moved here from inceptionv3_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+INCEPTIONV3_MODEL_CONFIG = {
+    "inception_v3": {
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+INCEPTIONV3_VARIANTS = {
+    "inception_v3_tf_in1k": {
+        "model": "inception_v3",
+        "timm_id": "inception_v3.tf_in1k",
+    },
+    "inception_v3_tf_adv_in1k": {
+        "model": "inception_v3",
+        "timm_id": "inception_v3.tf_adv_in1k",
+    },
+    "inception_v3_gluon_in1k": {
+        "model": "inception_v3",
+        "timm_id": "inception_v3.gluon_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_conv2d_kernel": ".conv.weight",
@@ -71,15 +97,15 @@ def transfer_inceptionv3_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in INCEPTIONV3_WEIGHTS_URLS.items():
+    for variant, meta in INCEPTIONV3_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = InceptionV3ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = InceptionV3ImageClassify(
+            **INCEPTIONV3_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_inceptionv3_weights(keras_model, state)
 

@@ -18,7 +18,185 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.swinv2 import SwinV2ImageClassify
-from kerasformers.models.swinv2.swinv2_config import SWINV2_WEIGHTS_URLS
+
+# Architecture presets, moved here from swinv2_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+SWINV2_MODEL_CONFIG = {
+    "swinv2_tiny_window8_256": {
+        "embed_dim": 96,
+        "depths": (2, 2, 6, 2),
+        "num_heads": (3, 6, 12, 24),
+        "window_size": 8,
+        "pretrain_size": 256,
+        "pretrained_window_size": 0,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_tiny_window16_256": {
+        "embed_dim": 96,
+        "depths": (2, 2, 6, 2),
+        "num_heads": (3, 6, 12, 24),
+        "window_size": 16,
+        "pretrain_size": 256,
+        "pretrained_window_size": 0,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_small_window8_256": {
+        "embed_dim": 96,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (3, 6, 12, 24),
+        "window_size": 8,
+        "pretrain_size": 256,
+        "pretrained_window_size": 0,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_small_window16_256": {
+        "embed_dim": 96,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (3, 6, 12, 24),
+        "window_size": 16,
+        "pretrain_size": 256,
+        "pretrained_window_size": 0,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_base_window8_256": {
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "window_size": 8,
+        "pretrain_size": 256,
+        "pretrained_window_size": 0,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_base_window12_192": {
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "window_size": 12,
+        "pretrain_size": 192,
+        "pretrained_window_size": 0,
+        "image_size": 192,
+        "num_classes": 21841,
+    },
+    "swinv2_base_window12to16_192to256": {
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "window_size": 16,
+        "pretrain_size": 192,
+        "pretrained_window_size": 12,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_base_window12to24_192to384": {
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "window_size": 24,
+        "pretrain_size": 192,
+        "pretrained_window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "swinv2_base_window16_256": {
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "window_size": 16,
+        "pretrain_size": 256,
+        "pretrained_window_size": 0,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_large_window12_192": {
+        "embed_dim": 192,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (6, 12, 24, 48),
+        "window_size": 12,
+        "pretrain_size": 192,
+        "pretrained_window_size": 0,
+        "image_size": 192,
+        "num_classes": 21841,
+    },
+    "swinv2_large_window12to16_192to256": {
+        "embed_dim": 192,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (6, 12, 24, 48),
+        "window_size": 16,
+        "pretrain_size": 192,
+        "pretrained_window_size": 12,
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "swinv2_large_window12to24_192to384": {
+        "embed_dim": 192,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (6, 12, 24, 48),
+        "window_size": 24,
+        "pretrain_size": 192,
+        "pretrained_window_size": 12,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+SWINV2_VARIANTS = {
+    "swinv2_tiny_window8_256_ms_in1k": {
+        "model": "swinv2_tiny_window8_256",
+        "timm_id": "swinv2_tiny_window8_256.ms_in1k",
+    },
+    "swinv2_tiny_window16_256_ms_in1k": {
+        "model": "swinv2_tiny_window16_256",
+        "timm_id": "swinv2_tiny_window16_256.ms_in1k",
+    },
+    "swinv2_small_window8_256_ms_in1k": {
+        "model": "swinv2_small_window8_256",
+        "timm_id": "swinv2_small_window8_256.ms_in1k",
+    },
+    "swinv2_small_window16_256_ms_in1k": {
+        "model": "swinv2_small_window16_256",
+        "timm_id": "swinv2_small_window16_256.ms_in1k",
+    },
+    "swinv2_base_window8_256_ms_in1k": {
+        "model": "swinv2_base_window8_256",
+        "timm_id": "swinv2_base_window8_256.ms_in1k",
+    },
+    "swinv2_base_window12_192_ms_in22k": {
+        "model": "swinv2_base_window12_192",
+        "timm_id": "swinv2_base_window12_192.ms_in22k",
+    },
+    "swinv2_base_window12to16_192to256_ms_in22k_ft_in1k": {
+        "model": "swinv2_base_window12to16_192to256",
+        "timm_id": "swinv2_base_window12to16_192to256.ms_in22k_ft_in1k",
+    },
+    "swinv2_base_window12to24_192to384_ms_in22k_ft_in1k": {
+        "model": "swinv2_base_window12to24_192to384",
+        "timm_id": "swinv2_base_window12to24_192to384.ms_in22k_ft_in1k",
+    },
+    "swinv2_base_window16_256_ms_in1k": {
+        "model": "swinv2_base_window16_256",
+        "timm_id": "swinv2_base_window16_256.ms_in1k",
+    },
+    "swinv2_large_window12_192_ms_in22k": {
+        "model": "swinv2_large_window12_192",
+        "timm_id": "swinv2_large_window12_192.ms_in22k",
+    },
+    "swinv2_large_window12to16_192to256_ms_in22k_ft_in1k": {
+        "model": "swinv2_large_window12to16_192to256",
+        "timm_id": "swinv2_large_window12to16_192to256.ms_in22k_ft_in1k",
+    },
+    "swinv2_large_window12to24_192to384_ms_in22k_ft_in1k": {
+        "model": "swinv2_large_window12to24_192to384",
+        "timm_id": "swinv2_large_window12to24_192to384.ms_in22k_ft_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "moving_variance": "MOVVAR",
@@ -109,15 +287,15 @@ def transfer_swinv2_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in SWINV2_WEIGHTS_URLS.items():
+    for variant, meta in SWINV2_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = SwinV2ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = SwinV2ImageClassify(
+            **SWINV2_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_swinv2_weights(keras_model, state)
 

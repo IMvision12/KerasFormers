@@ -1,75 +1,50 @@
-INCEPTION_NEXT_MODEL_CONFIG = {
-    "inception_next_atto": {
-        "depths": [2, 2, 6, 2],
-        "num_filters": [40, 80, 160, 320],
-        "mlp_ratios": [4, 4, 4, 3],
-        "band_kernel_size": 9,
-        "branch_ratio": 0.25,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "inception_next_tiny": {
-        "depths": [3, 3, 9, 3],
-        "num_filters": [96, 192, 384, 768],
-        "mlp_ratios": [4, 4, 4, 3],
-        "band_kernel_size": 11,
-        "branch_ratio": 0.125,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "inception_next_small": {
-        "depths": [3, 3, 27, 3],
-        "num_filters": [96, 192, 384, 768],
-        "mlp_ratios": [4, 4, 4, 3],
-        "band_kernel_size": 11,
-        "branch_ratio": 0.125,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "inception_next_base": {
-        "depths": [3, 3, 27, 3],
-        "num_filters": [128, 256, 512, 1024],
-        "mlp_ratios": [4, 4, 4, 3],
-        "band_kernel_size": 11,
-        "branch_ratio": 0.125,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "inception_next_base_384": {
-        "depths": [3, 3, 27, 3],
-        "num_filters": [128, 256, 512, 1024],
-        "mlp_ratios": [4, 4, 4, 3],
-        "band_kernel_size": 11,
-        "branch_ratio": 0.125,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-INCEPTION_NEXT_WEIGHTS_URLS = {
-    "inception_next_atto_sail_in1k": {
-        "model": "inception_next_atto",
-        "timm_id": "inception_next_atto.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_atto_sail_in1k.weights.h5",
-    },
-    "inception_next_tiny_sail_in1k": {
-        "model": "inception_next_tiny",
-        "timm_id": "inception_next_tiny.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_tiny_sail_in1k.weights.h5",
-    },
-    "inception_next_small_sail_in1k": {
-        "model": "inception_next_small",
-        "timm_id": "inception_next_small.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_small_sail_in1k.weights.h5",
-    },
-    "inception_next_base_sail_in1k": {
-        "model": "inception_next_base",
-        "timm_id": "inception_next_base.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_base_sail_in1k.weights.h5",
-    },
-    "inception_next_base_sail_in1k_384": {
-        "model": "inception_next_base_384",
-        "timm_id": "inception_next_base.sail_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/inception_next_base_sail_in1k_384.weights.h5",
-    },
-}
+
+class InceptionNextConfig(BaseConfig):
+    r"""Configuration for [`InceptionNextModel`] / [`InceptionNextImageClassify`].
+
+    InceptionNeXt reworks the ConvNeXt block with an Inception-style depthwise mixer
+    (split into small square, wide band, and identity branches) for higher throughput.
+    One `kf_config.json` (declaring the canonical [`InceptionNextImageClassify`]) sits
+    on each variant's repo, and both the backbone and classifier load from it. Fields
+    mirror the model constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(2, 2, 6, 2)`):
+            Number of blocks per stage.
+        num_filters (`tuple`, *optional*, defaults to `(40, 80, 160, 320)`):
+            Channel width per stage.
+        mlp_ratios (`tuple`, *optional*, defaults to `(4, 4, 4, 3)`):
+            MLP expansion ratio per stage.
+        band_kernel_size (`int`, *optional*, defaults to 9):
+            Kernel length of the wide 1xk / kx1 band branches.
+        branch_ratio (`float`, *optional*, defaults to 0.25):
+            Fraction of channels routed to each Inception mixer branch.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.inception_next import (
+    ...     InceptionNextConfig,
+    ...     InceptionNextImageClassify,
+    ... )
+
+    >>> configuration = InceptionNextConfig()
+    >>> model = InceptionNextImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "inception_next"
+
+    depths: tuple = (2, 2, 6, 2)
+    num_filters: tuple = (40, 80, 160, 320)
+    mlp_ratios: tuple = (4, 4, 4, 3)
+    band_kernel_size: int = 9
+    branch_ratio: float = 0.25
+    image_size: int = 224
+    num_classes: int = 1000

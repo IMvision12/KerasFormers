@@ -1,263 +1,47 @@
-MAXVIT_MODEL_CONFIG = {
-    "maxvit_tiny_224": {
-        "stem_width": 64,
-        "depths": [2, 2, 5, 2],
-        "embed_dim": [64, 128, 256, 512],
-        "num_heads": [2, 4, 8, 16],
-        "window_size": 7,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "maxvit_tiny_384": {
-        "stem_width": 64,
-        "depths": [2, 2, 5, 2],
-        "embed_dim": [64, 128, 256, 512],
-        "num_heads": [2, 4, 8, 16],
-        "window_size": 12,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "maxvit_tiny_512": {
-        "stem_width": 64,
-        "depths": [2, 2, 5, 2],
-        "embed_dim": [64, 128, 256, 512],
-        "num_heads": [2, 4, 8, 16],
-        "window_size": 16,
-        "image_size": 512,
-        "num_classes": 1000,
-    },
-    "maxvit_small_224": {
-        "stem_width": 64,
-        "depths": [2, 2, 5, 2],
-        "embed_dim": [96, 192, 384, 768],
-        "num_heads": [3, 6, 12, 24],
-        "window_size": 7,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "maxvit_small_384": {
-        "stem_width": 64,
-        "depths": [2, 2, 5, 2],
-        "embed_dim": [96, 192, 384, 768],
-        "num_heads": [3, 6, 12, 24],
-        "window_size": 12,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "maxvit_small_512": {
-        "stem_width": 64,
-        "depths": [2, 2, 5, 2],
-        "embed_dim": [96, 192, 384, 768],
-        "num_heads": [3, 6, 12, 24],
-        "window_size": 16,
-        "image_size": 512,
-        "num_classes": 1000,
-    },
-    "maxvit_base_224": {
-        "stem_width": 64,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [96, 192, 384, 768],
-        "num_heads": [3, 6, 12, 24],
-        "window_size": 7,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "maxvit_base_384": {
-        "stem_width": 64,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [96, 192, 384, 768],
-        "num_heads": [3, 6, 12, 24],
-        "window_size": 12,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "maxvit_base_512": {
-        "stem_width": 64,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [96, 192, 384, 768],
-        "num_heads": [3, 6, 12, 24],
-        "window_size": 16,
-        "image_size": 512,
-        "num_classes": 1000,
-    },
-    "maxvit_base_224_in21k": {
-        "stem_width": 64,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [96, 192, 384, 768],
-        "num_heads": [3, 6, 12, 24],
-        "window_size": 7,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "maxvit_large_224": {
-        "stem_width": 128,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [128, 256, 512, 1024],
-        "num_heads": [4, 8, 16, 32],
-        "window_size": 7,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "maxvit_large_384": {
-        "stem_width": 128,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [128, 256, 512, 1024],
-        "num_heads": [4, 8, 16, 32],
-        "window_size": 12,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "maxvit_large_512": {
-        "stem_width": 128,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [128, 256, 512, 1024],
-        "num_heads": [4, 8, 16, 32],
-        "window_size": 16,
-        "image_size": 512,
-        "num_classes": 1000,
-    },
-    "maxvit_large_224_in21k": {
-        "stem_width": 128,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [128, 256, 512, 1024],
-        "num_heads": [4, 8, 16, 32],
-        "window_size": 7,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "maxvit_xlarge_224_in21k": {
-        "stem_width": 192,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [192, 384, 768, 1536],
-        "num_heads": [6, 12, 24, 48],
-        "window_size": 7,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "maxvit_xlarge_384": {
-        "stem_width": 192,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [192, 384, 768, 1536],
-        "num_heads": [6, 12, 24, 48],
-        "window_size": 12,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "maxvit_xlarge_512": {
-        "stem_width": 192,
-        "depths": [2, 6, 14, 2],
-        "embed_dim": [192, 384, 768, 1536],
-        "num_heads": [6, 12, 24, 48],
-        "window_size": 16,
-        "image_size": 512,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-MAXVIT_WEIGHTS_URLS = {
-    "maxvit_tiny_tf_224_in1k": {
-        "model": "maxvit_tiny_224",
-        "timm_id": "maxvit_tiny_tf_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_tiny_tf_224_in1k.weights.h5",
-    },
-    "maxvit_tiny_tf_384_in1k": {
-        "model": "maxvit_tiny_384",
-        "timm_id": "maxvit_tiny_tf_384.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_tiny_tf_384_in1k.weights.h5",
-    },
-    "maxvit_tiny_tf_512_in1k": {
-        "model": "maxvit_tiny_512",
-        "timm_id": "maxvit_tiny_tf_512.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_tiny_tf_512_in1k.weights.h5",
-    },
-    "maxvit_small_tf_224_in1k": {
-        "model": "maxvit_small_224",
-        "timm_id": "maxvit_small_tf_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_small_tf_224_in1k.weights.h5",
-    },
-    "maxvit_small_tf_384_in1k": {
-        "model": "maxvit_small_384",
-        "timm_id": "maxvit_small_tf_384.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_small_tf_384_in1k.weights.h5",
-    },
-    "maxvit_small_tf_512_in1k": {
-        "model": "maxvit_small_512",
-        "timm_id": "maxvit_small_tf_512.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_small_tf_512_in1k.weights.h5",
-    },
-    "maxvit_base_tf_224_in1k": {
-        "model": "maxvit_base_224",
-        "timm_id": "maxvit_base_tf_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_base_tf_224_in1k.weights.h5",
-    },
-    "maxvit_base_tf_384_in1k": {
-        "model": "maxvit_base_384",
-        "timm_id": "maxvit_base_tf_384.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_base_tf_384_in1k.weights.h5",
-    },
-    "maxvit_base_tf_512_in1k": {
-        "model": "maxvit_base_512",
-        "timm_id": "maxvit_base_tf_512.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_base_tf_512_in1k.weights.h5",
-    },
-    "maxvit_base_tf_224_in21k": {
-        "model": "maxvit_base_224_in21k",
-        "timm_id": "maxvit_base_tf_224.in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_base_tf_224_in21k.weights.h5",
-    },
-    "maxvit_base_tf_384_in21k_ft_in1k": {
-        "model": "maxvit_base_384",
-        "timm_id": "maxvit_base_tf_384.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_base_tf_384_in21k_ft_in1k.weights.h5",
-    },
-    "maxvit_base_tf_512_in21k_ft_in1k": {
-        "model": "maxvit_base_512",
-        "timm_id": "maxvit_base_tf_512.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_base_tf_512_in21k_ft_in1k.weights.h5",
-    },
-    "maxvit_large_tf_224_in1k": {
-        "model": "maxvit_large_224",
-        "timm_id": "maxvit_large_tf_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_large_tf_224_in1k.weights.h5",
-    },
-    "maxvit_large_tf_384_in1k": {
-        "model": "maxvit_large_384",
-        "timm_id": "maxvit_large_tf_384.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_large_tf_384_in1k.weights.h5",
-    },
-    "maxvit_large_tf_512_in1k": {
-        "model": "maxvit_large_512",
-        "timm_id": "maxvit_large_tf_512.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_large_tf_512_in1k.weights.h5",
-    },
-    "maxvit_large_tf_224_in21k": {
-        "model": "maxvit_large_224_in21k",
-        "timm_id": "maxvit_large_tf_224.in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_large_tf_224_in21k.weights.h5",
-    },
-    "maxvit_large_tf_384_in21k_ft_in1k": {
-        "model": "maxvit_large_384",
-        "timm_id": "maxvit_large_tf_384.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_large_tf_384_in21k_ft_in1k.weights.h5",
-    },
-    "maxvit_large_tf_512_in21k_ft_in1k": {
-        "model": "maxvit_large_512",
-        "timm_id": "maxvit_large_tf_512.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_large_tf_512_in21k_ft_in1k.weights.h5",
-    },
-    "maxvit_xlarge_tf_224_in21k": {
-        "model": "maxvit_xlarge_224_in21k",
-        "timm_id": "maxvit_xlarge_tf_224.in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_xlarge_tf_224_in21k.weights.h5",
-    },
-    "maxvit_xlarge_tf_384_in21k_ft_in1k": {
-        "model": "maxvit_xlarge_384",
-        "timm_id": "maxvit_xlarge_tf_384.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_xlarge_tf_384_in21k_ft_in1k.weights.h5",
-    },
-    "maxvit_xlarge_tf_512_in21k_ft_in1k": {
-        "model": "maxvit_xlarge_512",
-        "timm_id": "maxvit_xlarge_tf_512.in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/maxvit_xlarge_tf_512_in21k_ft_in1k.weights.h5",
-    },
-}
+
+class MaxViTConfig(BaseConfig):
+    r"""Configuration for [`MaxViTModel`] / [`MaxViTImageClassify`].
+
+    MaxViT stacks MBConv blocks with block (local window) and grid (dilated) attention,
+    giving a multi-axis hybrid backbone with global receptive field at linear cost. One
+    `kf_config.json` (declaring the canonical [`MaxViTImageClassify`]) sits on each
+    variant's repo, and both the backbone and classifier load from it. Fields mirror
+    the model constructor and serialize flat.
+
+    Args:
+        stem_width (`int`, *optional*, defaults to 64):
+            Channel width of the convolutional stem.
+        depths (`tuple`, *optional*, defaults to `(2, 2, 5, 2)`):
+            Number of MaxViT blocks per stage.
+        embed_dim (`tuple`, *optional*, defaults to `(64, 128, 256, 512)`):
+            Channel width per stage.
+        num_heads (`tuple`, *optional*, defaults to `(2, 4, 8, 16)`):
+            Number of attention heads per stage.
+        window_size (`int`, *optional*, defaults to 7):
+            Side length of the block/grid attention window.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.maxvit import MaxViTConfig, MaxViTImageClassify
+
+    >>> configuration = MaxViTConfig()
+    >>> model = MaxViTImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "maxvit"
+
+    stem_width: int = 64
+    depths: tuple = (2, 2, 5, 2)
+    embed_dim: tuple = (64, 128, 256, 512)
+    num_heads: tuple = (2, 4, 8, 16)
+    window_size: int = 7
+    image_size: int = 224
+    num_classes: int = 1000

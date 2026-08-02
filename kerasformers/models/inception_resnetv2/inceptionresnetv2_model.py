@@ -7,9 +7,13 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .inception_resnetv2_config import (
-    INCEPTION_RESNETV2_MODEL_CONFIG,
-    INCEPTION_RESNETV2_WEIGHTS_URLS,
+from .inception_resnetv2_config import InceptionResNetV2Config
+
+# The backbone (InceptionResNetV2Model) and classifier
+# (InceptionResNetV2ImageClassify) share the variant's repo, whose kf_config.json
+# declares InceptionResNetV2ImageClassify.
+INCEPTION_RESNETV2_HUB_SIBLINGS = frozenset(
+    {"InceptionResNetV2Model", "InceptionResNetV2ImageClassify"}
 )
 
 
@@ -452,19 +456,19 @@ class InceptionResNetV2Model(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: INCEPTION_RESNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in INCEPTION_RESNETV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = InceptionResNetV2Config
+    HUB_REPO_SIBLINGS = INCEPTION_RESNETV2_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with InceptionResNetV2ImageClassify (which
+        # the kf_config declares); build from kf_config, then copy backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = InceptionResNetV2ImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -583,11 +587,9 @@ class InceptionResNetV2ImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: INCEPTION_RESNETV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in INCEPTION_RESNETV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = INCEPTION_RESNETV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = InceptionResNetV2Config
+    HUB_REPO_SIBLINGS = INCEPTION_RESNETV2_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

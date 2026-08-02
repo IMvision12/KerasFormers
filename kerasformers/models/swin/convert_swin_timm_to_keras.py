@@ -18,7 +18,185 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.swin import SwinImageClassify
-from kerasformers.models.swin.swin_config import SWIN_WEIGHTS_URLS
+
+# Architecture presets, moved here from swin_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+SWIN_MODEL_CONFIG = {
+    "swin_tiny": {
+        "window_size": 7,
+        "embed_dim": 96,
+        "depths": (2, 2, 6, 2),
+        "num_heads": (3, 6, 12, 24),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "swin_tiny_in22k": {
+        "window_size": 7,
+        "embed_dim": 96,
+        "depths": (2, 2, 6, 2),
+        "num_heads": (3, 6, 12, 24),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "swin_small": {
+        "window_size": 7,
+        "embed_dim": 96,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (3, 6, 12, 24),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "swin_small_in22k": {
+        "window_size": 7,
+        "embed_dim": 96,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (3, 6, 12, 24),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "swin_base_224": {
+        "window_size": 7,
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "swin_base_224_in22k": {
+        "window_size": 7,
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "swin_base_384": {
+        "window_size": 12,
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "pretrain_size": 384,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "swin_base_384_in22k": {
+        "window_size": 12,
+        "embed_dim": 128,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (4, 8, 16, 32),
+        "pretrain_size": 384,
+        "image_size": 384,
+        "num_classes": 21841,
+    },
+    "swin_large_224": {
+        "window_size": 7,
+        "embed_dim": 192,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (6, 12, 24, 48),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "swin_large_224_in22k": {
+        "window_size": 7,
+        "embed_dim": 192,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (6, 12, 24, 48),
+        "pretrain_size": 224,
+        "image_size": 224,
+        "num_classes": 21841,
+    },
+    "swin_large_384": {
+        "window_size": 12,
+        "embed_dim": 192,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (6, 12, 24, 48),
+        "pretrain_size": 384,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "swin_large_384_in22k": {
+        "window_size": 12,
+        "embed_dim": 192,
+        "depths": (2, 2, 18, 2),
+        "num_heads": (6, 12, 24, 48),
+        "pretrain_size": 384,
+        "image_size": 384,
+        "num_classes": 21841,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+SWIN_VARIANTS = {
+    "swin_tiny_patch4_window7_224_ms_in1k": {
+        "model": "swin_tiny",
+        "timm_id": "swin_tiny_patch4_window7_224.ms_in1k",
+    },
+    "swin_tiny_patch4_window7_224_ms_in22k": {
+        "model": "swin_tiny_in22k",
+        "timm_id": "swin_tiny_patch4_window7_224.ms_in22k",
+    },
+    "swin_small_patch4_window7_224_ms_in1k": {
+        "model": "swin_small",
+        "timm_id": "swin_small_patch4_window7_224.ms_in1k",
+    },
+    "swin_small_patch4_window7_224_ms_in22k": {
+        "model": "swin_small_in22k",
+        "timm_id": "swin_small_patch4_window7_224.ms_in22k",
+    },
+    "swin_small_patch4_window7_224_ms_in22k_ft_in1k": {
+        "model": "swin_small",
+        "timm_id": "swin_small_patch4_window7_224.ms_in22k_ft_in1k",
+    },
+    "swin_base_patch4_window7_224_ms_in1k": {
+        "model": "swin_base_224",
+        "timm_id": "swin_base_patch4_window7_224.ms_in1k",
+    },
+    "swin_base_patch4_window7_224_ms_in22k": {
+        "model": "swin_base_224_in22k",
+        "timm_id": "swin_base_patch4_window7_224.ms_in22k",
+    },
+    "swin_base_patch4_window7_224_ms_in22k_ft_in1k": {
+        "model": "swin_base_224",
+        "timm_id": "swin_base_patch4_window7_224.ms_in22k_ft_in1k",
+    },
+    "swin_base_patch4_window12_384_ms_in1k": {
+        "model": "swin_base_384",
+        "timm_id": "swin_base_patch4_window12_384.ms_in1k",
+    },
+    "swin_base_patch4_window12_384_ms_in22k": {
+        "model": "swin_base_384_in22k",
+        "timm_id": "swin_base_patch4_window12_384.ms_in22k",
+    },
+    "swin_base_patch4_window12_384_ms_in22k_ft_in1k": {
+        "model": "swin_base_384",
+        "timm_id": "swin_base_patch4_window12_384.ms_in22k_ft_in1k",
+    },
+    "swin_large_patch4_window7_224_ms_in22k": {
+        "model": "swin_large_224_in22k",
+        "timm_id": "swin_large_patch4_window7_224.ms_in22k",
+    },
+    "swin_large_patch4_window7_224_ms_in22k_ft_in1k": {
+        "model": "swin_large_224",
+        "timm_id": "swin_large_patch4_window7_224.ms_in22k_ft_in1k",
+    },
+    "swin_large_patch4_window12_384_ms_in22k": {
+        "model": "swin_large_384_in22k",
+        "timm_id": "swin_large_patch4_window12_384.ms_in22k",
+    },
+    "swin_large_patch4_window12_384_ms_in22k_ft_in1k": {
+        "model": "swin_large_384",
+        "timm_id": "swin_large_patch4_window12_384.ms_in22k_ft_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -81,15 +259,15 @@ def transfer_swin_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> Non
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in SWIN_WEIGHTS_URLS.items():
+    for variant, meta in SWIN_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = SwinImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = SwinImageClassify(
+            **SWIN_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_swin_weights(keras_model, state)
 

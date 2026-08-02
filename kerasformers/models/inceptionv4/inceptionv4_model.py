@@ -7,7 +7,11 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .inceptionv4_config import INCEPTIONV4_MODEL_CONFIG, INCEPTIONV4_WEIGHTS_URLS
+from .inceptionv4_config import InceptionV4Config
+
+# The backbone (InceptionV4Model) and classifier (InceptionV4ImageClassify) share the
+# variant's repo, whose kf_config.json declares InceptionV4ImageClassify.
+INCEPTIONV4_HUB_SIBLINGS = frozenset({"InceptionV4Model", "InceptionV4ImageClassify"})
 
 
 def conv_block(
@@ -644,19 +648,19 @@ class InceptionV4Model(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: INCEPTIONV4_MODEL_CONFIG[meta["model"]]
-        for variant, meta in INCEPTIONV4_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = INCEPTIONV4_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = InceptionV4Config
+    HUB_REPO_SIBLINGS = INCEPTIONV4_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with InceptionV4ImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = InceptionV4ImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -772,11 +776,9 @@ class InceptionV4ImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: INCEPTIONV4_MODEL_CONFIG[meta["model"]]
-        for variant, meta in INCEPTIONV4_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = INCEPTIONV4_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = InceptionV4Config
+    HUB_REPO_SIBLINGS = INCEPTIONV4_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -17,7 +17,137 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.resnetv2 import ResNetV2ImageClassify
-from kerasformers.models.resnetv2.resnetv2_config import RESNETV2_WEIGHTS_URLS
+
+# Architecture presets, moved here from resnetv2_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+RESNETV2_MODEL_CONFIG = {
+    "resnetv2_50x1_in21k": {
+        "depths": [3, 4, 6, 3],
+        "width_factor": 1,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "resnetv2_50x1_in1k": {
+        "depths": [3, 4, 6, 3],
+        "width_factor": 1,
+        "image_size": 448,
+        "num_classes": 1000,
+    },
+    "resnetv2_50x3_in21k": {
+        "depths": [3, 4, 6, 3],
+        "width_factor": 3,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "resnetv2_50x3_in1k": {
+        "depths": [3, 4, 6, 3],
+        "width_factor": 3,
+        "image_size": 448,
+        "num_classes": 1000,
+    },
+    "resnetv2_101x1_in21k": {
+        "depths": [3, 4, 23, 3],
+        "width_factor": 1,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "resnetv2_101x1_in1k": {
+        "depths": [3, 4, 23, 3],
+        "width_factor": 1,
+        "image_size": 448,
+        "num_classes": 1000,
+    },
+    "resnetv2_101x3_in21k": {
+        "depths": [3, 4, 23, 3],
+        "width_factor": 3,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "resnetv2_101x3_in1k": {
+        "depths": [3, 4, 23, 3],
+        "width_factor": 3,
+        "image_size": 448,
+        "num_classes": 1000,
+    },
+    "resnetv2_152x2_in21k": {
+        "depths": [3, 8, 36, 3],
+        "width_factor": 2,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "resnetv2_152x2_in1k": {
+        "depths": [3, 8, 36, 3],
+        "width_factor": 2,
+        "image_size": 448,
+        "num_classes": 1000,
+    },
+    "resnetv2_152x4_in21k": {
+        "depths": [3, 8, 36, 3],
+        "width_factor": 4,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "resnetv2_152x4_in1k": {
+        "depths": [3, 8, 36, 3],
+        "width_factor": 4,
+        "image_size": 480,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+RESNETV2_VARIANTS = {
+    "resnetv2_50x1_bit_goog_in21k": {
+        "model": "resnetv2_50x1_in21k",
+        "timm_id": "resnetv2_50x1_bit.goog_in21k",
+    },
+    "resnetv2_50x1_bit_goog_in21k_ft_in1k": {
+        "model": "resnetv2_50x1_in1k",
+        "timm_id": "resnetv2_50x1_bit.goog_in21k_ft_in1k",
+    },
+    "resnetv2_50x3_bit_goog_in21k": {
+        "model": "resnetv2_50x3_in21k",
+        "timm_id": "resnetv2_50x3_bit.goog_in21k",
+    },
+    "resnetv2_50x3_bit_goog_in21k_ft_in1k": {
+        "model": "resnetv2_50x3_in1k",
+        "timm_id": "resnetv2_50x3_bit.goog_in21k_ft_in1k",
+    },
+    "resnetv2_101x1_bit_goog_in21k": {
+        "model": "resnetv2_101x1_in21k",
+        "timm_id": "resnetv2_101x1_bit.goog_in21k",
+    },
+    "resnetv2_101x1_bit_goog_in21k_ft_in1k": {
+        "model": "resnetv2_101x1_in1k",
+        "timm_id": "resnetv2_101x1_bit.goog_in21k_ft_in1k",
+    },
+    "resnetv2_101x3_bit_goog_in21k": {
+        "model": "resnetv2_101x3_in21k",
+        "timm_id": "resnetv2_101x3_bit.goog_in21k",
+    },
+    "resnetv2_101x3_bit_goog_in21k_ft_in1k": {
+        "model": "resnetv2_101x3_in1k",
+        "timm_id": "resnetv2_101x3_bit.goog_in21k_ft_in1k",
+    },
+    "resnetv2_152x2_bit_goog_in21k": {
+        "model": "resnetv2_152x2_in21k",
+        "timm_id": "resnetv2_152x2_bit.goog_in21k",
+    },
+    "resnetv2_152x2_bit_goog_in21k_ft_in1k": {
+        "model": "resnetv2_152x2_in1k",
+        "timm_id": "resnetv2_152x2_bit.goog_in21k_ft_in1k",
+    },
+    "resnetv2_152x4_bit_goog_in21k": {
+        "model": "resnetv2_152x4_in21k",
+        "timm_id": "resnetv2_152x4_bit.goog_in21k",
+    },
+    "resnetv2_152x4_bit_goog_in21k_ft_in1k": {
+        "model": "resnetv2_152x4_in1k",
+        "timm_id": "resnetv2_152x4_bit.goog_in21k_ft_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -74,15 +204,15 @@ def transfer_resnetv2_weights(keras_model, state_dict: Dict[str, np.ndarray]) ->
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in RESNETV2_WEIGHTS_URLS.items():
+    for variant, meta in RESNETV2_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ResNetV2ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = ResNetV2ImageClassify(
+            **RESNETV2_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_resnetv2_weights(keras_model, state)
 

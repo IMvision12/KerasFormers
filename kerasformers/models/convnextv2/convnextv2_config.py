@@ -1,212 +1,52 @@
-CONVNEXTV2_MODEL_CONFIG = {
-    "convnextv2_atto": {
-        "depths": [2, 2, 6, 2],
-        "projection_dim": [40, 80, 160, 320],
-        "use_conv": True,
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_femto": {
-        "depths": [2, 2, 6, 2],
-        "projection_dim": [48, 96, 192, 384],
-        "use_conv": True,
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_pico": {
-        "depths": [2, 2, 6, 2],
-        "projection_dim": [64, 128, 256, 512],
-        "use_conv": True,
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_nano": {
-        "depths": [2, 2, 8, 2],
-        "projection_dim": [80, 160, 320, 640],
-        "use_conv": True,
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_nano_384": {
-        "depths": [2, 2, 8, 2],
-        "projection_dim": [80, 160, 320, 640],
-        "use_conv": True,
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnextv2_tiny": {
-        "depths": [3, 3, 9, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_tiny_384": {
-        "depths": [3, 3, 9, 3],
-        "projection_dim": [96, 192, 384, 768],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnextv2_base": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [128, 256, 512, 1024],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_base_384": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [128, 256, 512, 1024],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnextv2_large": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [192, 384, 768, 1536],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_large_384": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [192, 384, 768, 1536],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnextv2_huge": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [352, 704, 1408, 2816],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "convnextv2_huge_384": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [352, 704, 1408, 2816],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "convnextv2_huge_512": {
-        "depths": [3, 3, 27, 3],
-        "projection_dim": [352, 704, 1408, 2816],
-        "use_grn": True,
-        "layer_scale_init": None,
-        "image_size": 512,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-CONVNEXTV2_WEIGHTS_URLS = {
-    "convnextv2_atto_fcmae_ft_in1k": {
-        "model": "convnextv2_atto",
-        "timm_id": "convnextv2_atto.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_atto_fcmae_ft_in1k.weights.h5",
-    },
-    "convnextv2_femto_fcmae_ft_in1k": {
-        "model": "convnextv2_femto",
-        "timm_id": "convnextv2_femto.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_femto_fcmae_ft_in1k.weights.h5",
-    },
-    "convnextv2_pico_fcmae_ft_in1k": {
-        "model": "convnextv2_pico",
-        "timm_id": "convnextv2_pico.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_pico_fcmae_ft_in1k.weights.h5",
-    },
-    "convnextv2_nano_fcmae_ft_in1k": {
-        "model": "convnextv2_nano",
-        "timm_id": "convnextv2_nano.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_nano_fcmae_ft_in1k.weights.h5",
-    },
-    "convnextv2_nano_fcmae_ft_in22k_in1k": {
-        "model": "convnextv2_nano",
-        "timm_id": "convnextv2_nano.fcmae_ft_in22k_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_nano_fcmae_ft_in22k_in1k.weights.h5",
-    },
-    "convnextv2_nano_fcmae_ft_in22k_in1k_384": {
-        "model": "convnextv2_nano_384",
-        "timm_id": "convnextv2_nano.fcmae_ft_in22k_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_nano_fcmae_ft_in22k_in1k_384.weights.h5",
-    },
-    "convnextv2_tiny_fcmae_ft_in1k": {
-        "model": "convnextv2_tiny",
-        "timm_id": "convnextv2_tiny.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_tiny_fcmae_ft_in1k.weights.h5",
-    },
-    "convnextv2_tiny_fcmae_ft_in22k_in1k": {
-        "model": "convnextv2_tiny",
-        "timm_id": "convnextv2_tiny.fcmae_ft_in22k_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_tiny_fcmae_ft_in22k_in1k.weights.h5",
-    },
-    "convnextv2_tiny_fcmae_ft_in22k_in1k_384": {
-        "model": "convnextv2_tiny_384",
-        "timm_id": "convnextv2_tiny.fcmae_ft_in22k_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_tiny_fcmae_ft_in22k_in1k_384.weights.h5",
-    },
-    "convnextv2_base_fcmae_ft_in1k": {
-        "model": "convnextv2_base",
-        "timm_id": "convnextv2_base.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_base_fcmae_ft_in1k.weights.h5",
-    },
-    "convnextv2_base_fcmae_ft_in22k_in1k": {
-        "model": "convnextv2_base",
-        "timm_id": "convnextv2_base.fcmae_ft_in22k_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_base_fcmae_ft_in22k_in1k.weights.h5",
-    },
-    "convnextv2_base_fcmae_ft_in22k_in1k_384": {
-        "model": "convnextv2_base_384",
-        "timm_id": "convnextv2_base.fcmae_ft_in22k_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_base_fcmae_ft_in22k_in1k_384.weights.h5",
-    },
-    "convnextv2_large_fcmae_ft_in1k": {
-        "model": "convnextv2_large",
-        "timm_id": "convnextv2_large.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_large_fcmae_ft_in1k.weights.h5",
-    },
-    "convnextv2_large_fcmae_ft_in22k_in1k": {
-        "model": "convnextv2_large",
-        "timm_id": "convnextv2_large.fcmae_ft_in22k_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_large_fcmae_ft_in22k_in1k.weights.h5",
-    },
-    "convnextv2_large_fcmae_ft_in22k_in1k_384": {
-        "model": "convnextv2_large_384",
-        "timm_id": "convnextv2_large.fcmae_ft_in22k_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_large_fcmae_ft_in22k_in1k_384.weights.h5",
-    },
-    "convnextv2_huge_fcmae_ft_in1k": {
-        "model": "convnextv2_huge",
-        "timm_id": "convnextv2_huge.fcmae_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_huge_fcmae_ft_in1k.weights.json",
-    },
-    "convnextv2_huge_fcmae_ft_in22k_in1k_384": {
-        "model": "convnextv2_huge_384",
-        "timm_id": "convnextv2_huge.fcmae_ft_in22k_in1k_384",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_huge_fcmae_ft_in22k_in1k_384.weights.json",
-    },
-    "convnextv2_huge_fcmae_ft_in22k_in1k_512": {
-        "model": "convnextv2_huge_512",
-        "timm_id": "convnextv2_huge.fcmae_ft_in22k_in1k_512",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/convnextv2_huge_fcmae_ft_in22k_in1k_512.weights.json",
-    },
-}
+
+class ConvNeXtV2Config(BaseConfig):
+    r"""Configuration for [`ConvNeXtV2Model`] / [`ConvNeXtV2ImageClassify`].
+
+    ConvNeXtV2 augments ConvNeXt with Global Response Normalization (GRN) inside each
+    block and is pre-trained with the Fully Convolutional Masked Autoencoder (FCMAE)
+    recipe. LayerScale is disabled (`layer_scale_init=None`). One `kf_config.json`
+    (declaring the canonical [`ConvNeXtV2ImageClassify`]) sits on each variant's repo,
+    and both the backbone and classifier load from it. Fields mirror the model
+    constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(3, 3, 9, 3)`):
+            Number of ConvNeXt blocks per stage.
+        projection_dim (`tuple`, *optional*, defaults to `(96, 192, 384, 768)`):
+            Channel width per stage.
+        use_conv (`bool`, *optional*, defaults to `False`):
+            Use 1x1 Conv2D layers inside each block's MLP instead of Dense (the small
+            atto/femto/pico/nano variants set this to `True`).
+        use_grn (`bool`, *optional*, defaults to `True`):
+            Apply Global Response Normalization inside each block (the V2 recipe).
+        layer_scale_init (`float`, *optional*, defaults to `None`):
+            Initial per-channel LayerScale value; `None` disables LayerScale (V2 default).
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.convnextv2 import (
+    ...     ConvNeXtV2Config,
+    ...     ConvNeXtV2ImageClassify,
+    ... )
+
+    >>> configuration = ConvNeXtV2Config()
+    >>> model = ConvNeXtV2ImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "convnextv2"
+
+    depths: tuple = (3, 3, 9, 3)
+    projection_dim: tuple = (96, 192, 384, 768)
+    use_conv: bool = False
+    use_grn: bool = True
+    layer_scale_init: float = None
+    image_size: int = 224
+    num_classes: int = 1000

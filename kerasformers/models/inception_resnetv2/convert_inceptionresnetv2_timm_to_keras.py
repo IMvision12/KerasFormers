@@ -17,9 +17,29 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.inception_resnetv2 import InceptionResNetV2ImageClassify
-from kerasformers.models.inception_resnetv2.inception_resnetv2_config import (
-    INCEPTION_RESNETV2_WEIGHTS_URLS,
-)
+
+# Architecture presets, moved here from inception_resnetv2_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+INCEPTION_RESNETV2_MODEL_CONFIG = {
+    "inception_resnet_v2": {
+        "image_size": 299,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+INCEPTION_RESNETV2_VARIANTS = {
+    "inception_resnet_v2_tf_in1k": {
+        "model": "inception_resnet_v2",
+        "timm_id": "inception_resnet_v2.tf_in1k",
+    },
+    "inception_resnet_v2_tf_ens_adv_in1k": {
+        "model": "inception_resnet_v2",
+        "timm_id": "inception_resnet_v2.tf_ens_adv_in1k",
+    },
+}
 
 
 def base_mappings() -> Dict[str, str]:
@@ -116,15 +136,16 @@ def transfer_inception_resnet_v2_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in INCEPTION_RESNETV2_WEIGHTS_URLS.items():
+    for variant, meta in INCEPTION_RESNETV2_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = InceptionResNetV2ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = InceptionResNetV2ImageClassify(
+            **INCEPTION_RESNETV2_MODEL_CONFIG[meta["model"]],
+            include_normalization=False,
         )
         transfer_inception_resnet_v2_weights(keras_model, state)
 

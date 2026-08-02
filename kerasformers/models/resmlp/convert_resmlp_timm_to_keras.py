@@ -18,7 +18,89 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.resmlp import ResMLPImageClassify
-from kerasformers.models.resmlp.resmlp_config import RESMLP_WEIGHTS_URLS
+
+# Architecture presets, moved here from resmlp_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+RESMLP_MODEL_CONFIG = {
+    "resmlp_12": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "mlp_ratio": 4,
+        "layer_scale_init": 1e-4,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "resmlp_24": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 24,
+        "mlp_ratio": 4,
+        "layer_scale_init": 1e-5,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "resmlp_36": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 36,
+        "mlp_ratio": 4,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "resmlp_big_24": {
+        "patch_size": 8,
+        "embed_dim": 768,
+        "depth": 24,
+        "mlp_ratio": 4,
+        "layer_scale_init": 1e-6,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+RESMLP_VARIANTS = {
+    "resmlp_12_224_fb_in1k": {
+        "model": "resmlp_12",
+        "timm_id": "resmlp_12_224.fb_in1k",
+    },
+    "resmlp_12_224_fb_distilled_in1k": {
+        "model": "resmlp_12",
+        "timm_id": "resmlp_12_224.fb_distilled_in1k",
+    },
+    "resmlp_24_224_fb_in1k": {
+        "model": "resmlp_24",
+        "timm_id": "resmlp_24_224.fb_in1k",
+    },
+    "resmlp_24_224_fb_distilled_in1k": {
+        "model": "resmlp_24",
+        "timm_id": "resmlp_24_224.fb_distilled_in1k",
+    },
+    "resmlp_36_224_fb_in1k": {
+        "model": "resmlp_36",
+        "timm_id": "resmlp_36_224.fb_in1k",
+    },
+    "resmlp_36_224_fb_distilled_in1k": {
+        "model": "resmlp_36",
+        "timm_id": "resmlp_36_224.fb_distilled_in1k",
+    },
+    "resmlp_big_24_224_fb_in1k": {
+        "model": "resmlp_big_24",
+        "timm_id": "resmlp_big_24_224.fb_in1k",
+    },
+    "resmlp_big_24_224_fb_distilled_in1k": {
+        "model": "resmlp_big_24",
+        "timm_id": "resmlp_big_24_224.fb_distilled_in1k",
+    },
+    "resmlp_big_24_224_fb_in22k_ft_in1k": {
+        "model": "resmlp_big_24",
+        "timm_id": "resmlp_big_24_224.fb_in22k_ft_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -80,15 +162,15 @@ def transfer_resmlp_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in RESMLP_WEIGHTS_URLS.items():
+    for variant, meta in RESMLP_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ResMLPImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = ResMLPImageClassify(
+            **RESMLP_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_resmlp_weights(keras_model, state)
 

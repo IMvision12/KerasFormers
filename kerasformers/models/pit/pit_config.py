@@ -1,133 +1,53 @@
-PIT_MODEL_CONFIG = {
-    "pit_xs": {
-        "patch_size": 16,
-        "stride": 8,
-        "embed_dim": [96, 192, 384],
-        "depth": [2, 6, 4],
-        "heads": [2, 4, 8],
-        "mlp_ratio": 4,
-        "distilled": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "pit_xs_distilled": {
-        "patch_size": 16,
-        "stride": 8,
-        "embed_dim": [96, 192, 384],
-        "depth": [2, 6, 4],
-        "heads": [2, 4, 8],
-        "mlp_ratio": 4,
-        "distilled": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "pit_ti": {
-        "patch_size": 16,
-        "stride": 8,
-        "embed_dim": [64, 128, 256],
-        "depth": [2, 6, 4],
-        "heads": [2, 4, 8],
-        "mlp_ratio": 4,
-        "distilled": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "pit_ti_distilled": {
-        "patch_size": 16,
-        "stride": 8,
-        "embed_dim": [64, 128, 256],
-        "depth": [2, 6, 4],
-        "heads": [2, 4, 8],
-        "mlp_ratio": 4,
-        "distilled": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "pit_s": {
-        "patch_size": 16,
-        "stride": 8,
-        "embed_dim": [144, 288, 576],
-        "depth": [2, 6, 4],
-        "heads": [3, 6, 12],
-        "mlp_ratio": 4,
-        "distilled": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "pit_s_distilled": {
-        "patch_size": 16,
-        "stride": 8,
-        "embed_dim": [144, 288, 576],
-        "depth": [2, 6, 4],
-        "heads": [3, 6, 12],
-        "mlp_ratio": 4,
-        "distilled": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "pit_b": {
-        "patch_size": 14,
-        "stride": 7,
-        "embed_dim": [256, 512, 1024],
-        "depth": [3, 6, 4],
-        "heads": [4, 8, 16],
-        "mlp_ratio": 4,
-        "distilled": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "pit_b_distilled": {
-        "patch_size": 14,
-        "stride": 7,
-        "embed_dim": [256, 512, 1024],
-        "depth": [3, 6, 4],
-        "heads": [4, 8, 16],
-        "mlp_ratio": 4,
-        "distilled": True,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-PIT_WEIGHTS_URLS = {
-    "pit_xs_224_in1k": {
-        "model": "pit_xs",
-        "timm_id": "pit_xs_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_xs_224_in1k.weights.h5",
-    },
-    "pit_xs_distilled_224_in1k": {
-        "model": "pit_xs_distilled",
-        "timm_id": "pit_xs_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_xs_distilled_224_in1k.weights.h5",
-    },
-    "pit_ti_224_in1k": {
-        "model": "pit_ti",
-        "timm_id": "pit_ti_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_ti_224_in1k.weights.h5",
-    },
-    "pit_ti_distilled_224_in1k": {
-        "model": "pit_ti_distilled",
-        "timm_id": "pit_ti_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_ti_distilled_224_in1k.weights.h5",
-    },
-    "pit_s_224_in1k": {
-        "model": "pit_s",
-        "timm_id": "pit_s_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_s_224_in1k.weights.h5",
-    },
-    "pit_s_distilled_224_in1k": {
-        "model": "pit_s_distilled",
-        "timm_id": "pit_s_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_s_distilled_224_in1k.weights.h5",
-    },
-    "pit_b_224_in1k": {
-        "model": "pit_b",
-        "timm_id": "pit_b_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_b_224_in1k.weights.h5",
-    },
-    "pit_b_distilled_224_in1k": {
-        "model": "pit_b_distilled",
-        "timm_id": "pit_b_distilled_224.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/pit_b_distilled_224_in1k.weights.h5",
-    },
-}
+
+class PiTConfig(BaseConfig):
+    r"""Configuration for [`PiTModel`] / [`PiTImageClassify`].
+
+    PiT (Pooling-based Vision Transformer) introduces spatial pooling between three
+    transformer stages so the token count shrinks while channels grow, ResNet-style.
+    One `kf_config.json` (declaring the canonical [`PiTImageClassify`]) sits on each
+    variant's repo, and both the backbone and classifier load from it. Fields mirror
+    the model constructor and serialize flat.
+
+    Args:
+        patch_size (`int`, *optional*, defaults to 16):
+            Side length of the initial conv patch embedding.
+        stride (`int`, *optional*, defaults to 8):
+            Stride of the patch embedding conv.
+        embed_dim (`tuple`, *optional*, defaults to `(64, 128, 256)`):
+            Channel width per stage.
+        depth (`tuple`, *optional*, defaults to `(2, 6, 4)`):
+            Number of transformer blocks per stage.
+        heads (`tuple`, *optional*, defaults to `(2, 4, 8)`):
+            Number of attention heads per stage.
+        mlp_ratio (`int`, *optional*, defaults to 4):
+            MLP hidden-dim expansion ratio.
+        distilled (`bool`, *optional*, defaults to `False`):
+            Whether the checkpoint has a distillation token and second head.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.pit import PiTConfig, PiTImageClassify
+
+    >>> configuration = PiTConfig()
+    >>> model = PiTImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "pit"
+
+    patch_size: int = 16
+    stride: int = 8
+    embed_dim: tuple = (64, 128, 256)
+    depth: tuple = (2, 6, 4)
+    heads: tuple = (2, 4, 8)
+    mlp_ratio: int = 4
+    distilled: bool = False
+    image_size: int = 224
+    num_classes: int = 1000

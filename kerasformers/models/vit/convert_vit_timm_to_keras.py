@@ -19,7 +19,334 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.vit import ViTImageClassify
-from kerasformers.models.vit.vit_config import VIT_WEIGHTS_URLS
+
+# Architecture presets, moved here from vit_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+VIT_MODEL_CONFIG = {
+    "vit_tiny_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 12,
+        "num_heads": 3,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vit_tiny_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 12,
+        "num_heads": 3,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "vit_tiny_patch16_224_in21k": {
+        "patch_size": 16,
+        "embed_dim": 192,
+        "depth": 12,
+        "num_heads": 3,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "vit_small_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vit_small_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "vit_small_patch16_224_in21k": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "vit_small_patch32_224": {
+        "patch_size": 32,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vit_small_patch32_384": {
+        "patch_size": 32,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "vit_small_patch32_224_in21k": {
+        "patch_size": 32,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "vit_base_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vit_base_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "vit_base_patch16_224_in21k": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "vit_base_patch32_224": {
+        "patch_size": 32,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vit_base_patch32_384": {
+        "patch_size": 32,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "vit_base_patch32_224_in21k": {
+        "patch_size": 32,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "vit_large_patch16_224": {
+        "patch_size": 16,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "vit_large_patch16_384": {
+        "patch_size": 16,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+    "vit_large_patch16_224_in21k": {
+        "patch_size": 16,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 224,
+        "num_classes": 21843,
+    },
+    "vit_large_patch32_384": {
+        "patch_size": 32,
+        "embed_dim": 1024,
+        "depth": 24,
+        "num_heads": 16,
+        "mlp_ratio": 4.0,
+        "qkv_bias": True,
+        "qk_norm": False,
+        "image_size": 384,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+VIT_VARIANTS = {
+    "vit_tiny_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_tiny_patch16_224",
+        "timm_id": "vit_tiny_patch16_224.augreg_in21k_ft_in1k",
+    },
+    "vit_tiny_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_tiny_patch16_384",
+        "timm_id": "vit_tiny_patch16_384.augreg_in21k_ft_in1k",
+    },
+    "vit_tiny_patch16_224_augreg_in21k": {
+        "model": "vit_tiny_patch16_224_in21k",
+        "timm_id": "vit_tiny_patch16_224.augreg_in21k",
+    },
+    "vit_small_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch16_224",
+        "timm_id": "vit_small_patch16_224.augreg_in21k_ft_in1k",
+    },
+    "vit_small_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch16_384",
+        "timm_id": "vit_small_patch16_384.augreg_in21k_ft_in1k",
+    },
+    "vit_small_patch16_224_augreg_in1k": {
+        "model": "vit_small_patch16_224",
+        "timm_id": "vit_small_patch16_224.augreg_in1k",
+    },
+    "vit_small_patch16_384_augreg_in1k": {
+        "model": "vit_small_patch16_384",
+        "timm_id": "vit_small_patch16_384.augreg_in1k",
+    },
+    "vit_small_patch16_224_augreg_in21k": {
+        "model": "vit_small_patch16_224_in21k",
+        "timm_id": "vit_small_patch16_224.augreg_in21k",
+    },
+    "vit_small_patch32_224_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch32_224",
+        "timm_id": "vit_small_patch32_224.augreg_in21k_ft_in1k",
+    },
+    "vit_small_patch32_384_augreg_in21k_ft_in1k": {
+        "model": "vit_small_patch32_384",
+        "timm_id": "vit_small_patch32_384.augreg_in21k_ft_in1k",
+    },
+    "vit_small_patch32_224_augreg_in21k": {
+        "model": "vit_small_patch32_224_in21k",
+        "timm_id": "vit_small_patch32_224.augreg_in21k",
+    },
+    "vit_base_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch16_224",
+        "timm_id": "vit_base_patch16_224.augreg_in21k_ft_in1k",
+    },
+    "vit_base_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch16_384",
+        "timm_id": "vit_base_patch16_384.augreg_in21k_ft_in1k",
+    },
+    "vit_base_patch16_224_orig_in21k_ft_in1k": {
+        "model": "vit_base_patch16_224",
+        "timm_id": "vit_base_patch16_224.orig_in21k_ft_in1k",
+    },
+    "vit_base_patch16_384_orig_in21k_ft_in1k": {
+        "model": "vit_base_patch16_384",
+        "timm_id": "vit_base_patch16_384.orig_in21k_ft_in1k",
+    },
+    "vit_base_patch16_224_augreg_in1k": {
+        "model": "vit_base_patch16_224",
+        "timm_id": "vit_base_patch16_224.augreg_in1k",
+    },
+    "vit_base_patch16_384_augreg_in1k": {
+        "model": "vit_base_patch16_384",
+        "timm_id": "vit_base_patch16_384.augreg_in1k",
+    },
+    "vit_base_patch16_224_augreg_in21k": {
+        "model": "vit_base_patch16_224_in21k",
+        "timm_id": "vit_base_patch16_224.augreg_in21k",
+    },
+    "vit_base_patch32_224_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch32_224",
+        "timm_id": "vit_base_patch32_224.augreg_in21k_ft_in1k",
+    },
+    "vit_base_patch32_384_augreg_in21k_ft_in1k": {
+        "model": "vit_base_patch32_384",
+        "timm_id": "vit_base_patch32_384.augreg_in21k_ft_in1k",
+    },
+    "vit_base_patch32_224_augreg_in1k": {
+        "model": "vit_base_patch32_224",
+        "timm_id": "vit_base_patch32_224.augreg_in1k",
+    },
+    "vit_base_patch32_384_augreg_in1k": {
+        "model": "vit_base_patch32_384",
+        "timm_id": "vit_base_patch32_384.augreg_in1k",
+    },
+    "vit_base_patch32_224_augreg_in21k": {
+        "model": "vit_base_patch32_224_in21k",
+        "timm_id": "vit_base_patch32_224.augreg_in21k",
+    },
+    "vit_large_patch16_224_augreg_in21k_ft_in1k": {
+        "model": "vit_large_patch16_224",
+        "timm_id": "vit_large_patch16_224.augreg_in21k_ft_in1k",
+    },
+    "vit_large_patch16_384_augreg_in21k_ft_in1k": {
+        "model": "vit_large_patch16_384",
+        "timm_id": "vit_large_patch16_384.augreg_in21k_ft_in1k",
+    },
+    "vit_large_patch16_224_augreg_in21k": {
+        "model": "vit_large_patch16_224_in21k",
+        "timm_id": "vit_large_patch16_224.augreg_in21k",
+    },
+    "vit_large_patch32_384_orig_in21k_ft_in1k": {
+        "model": "vit_large_patch32_384",
+        "timm_id": "vit_large_patch32_384.orig_in21k_ft_in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -91,15 +418,15 @@ def transfer_vit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> None
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in VIT_WEIGHTS_URLS.items():
+    for variant, meta in VIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ViTImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = ViTImageClassify(
+            **VIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_vit_weights(keras_model, state)
 

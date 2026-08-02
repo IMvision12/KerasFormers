@@ -1,91 +1,47 @@
-FLEXIVIT_MODEL_CONFIG = {
-    "flexivit_small": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "no_embed_class": True,
-        "image_size": 240,
-        "num_classes": 1000,
-    },
-    "flexivit_base": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "no_embed_class": True,
-        "image_size": 240,
-        "num_classes": 1000,
-    },
-    "flexivit_base_in21k": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "no_embed_class": True,
-        "image_size": 240,
-        "num_classes": 21843,
-    },
-    "flexivit_large": {
-        "patch_size": 16,
-        "embed_dim": 1024,
-        "depth": 24,
-        "num_heads": 16,
-        "no_embed_class": True,
-        "image_size": 240,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-FLEXIVIT_WEIGHTS_URLS = {
-    "flexivit_small_1200ep_in1k": {
-        "model": "flexivit_small",
-        "timm_id": "flexivit_small.1200ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_small_1200ep_in1k.weights.h5",
-    },
-    "flexivit_small_600ep_in1k": {
-        "model": "flexivit_small",
-        "timm_id": "flexivit_small.600ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_small_600ep_in1k.weights.h5",
-    },
-    "flexivit_small_300ep_in1k": {
-        "model": "flexivit_small",
-        "timm_id": "flexivit_small.300ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_small_300ep_in1k.weights.h5",
-    },
-    "flexivit_base_1200ep_in1k": {
-        "model": "flexivit_base",
-        "timm_id": "flexivit_base.1200ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_base_1200ep_in1k.weights.h5",
-    },
-    "flexivit_base_300ep_in1k": {
-        "model": "flexivit_base",
-        "timm_id": "flexivit_base.300ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_base_300ep_in1k.weights.h5",
-    },
-    "flexivit_base_1000ep_in21k": {
-        "model": "flexivit_base_in21k",
-        "timm_id": "flexivit_base.1000ep_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_base_1000ep_in21k.weights.h5",
-    },
-    "flexivit_base_300ep_in21k": {
-        "model": "flexivit_base_in21k",
-        "timm_id": "flexivit_base.300ep_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_base_300ep_in21k.weights.h5",
-    },
-    "flexivit_large_1200ep_in1k": {
-        "model": "flexivit_large",
-        "timm_id": "flexivit_large.1200ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_large_1200ep_in1k.weights.h5",
-    },
-    "flexivit_large_600ep_in1k": {
-        "model": "flexivit_large",
-        "timm_id": "flexivit_large.600ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_large_600ep_in1k.weights.h5",
-    },
-    "flexivit_large_300ep_in1k": {
-        "model": "flexivit_large",
-        "timm_id": "flexivit_large.300ep_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/flexivit_large_300ep_in1k.weights.h5",
-    },
-}
+
+class FlexiViTConfig(BaseConfig):
+    r"""Configuration for [`FlexiViTModel`] / [`FlexiViTImageClassify`].
+
+    FlexiViT is a ViT trained across a range of patch sizes so a single checkpoint can
+    run at different patch resolutions; the released weights use `no_embed_class=True`.
+    One `kf_config.json` (declaring the canonical [`FlexiViTImageClassify`]) sits on
+    each variant's repo, and both the backbone and classifier load from it. Fields
+    mirror the model constructor and serialize flat.
+
+    Args:
+        patch_size (`int`, *optional*, defaults to 16):
+            Side length of each square image patch.
+        embed_dim (`int`, *optional*, defaults to 384):
+            Transformer hidden size.
+        depth (`int`, *optional*, defaults to 12):
+            Number of transformer encoder blocks.
+        num_heads (`int`, *optional*, defaults to 6):
+            Number of attention heads.
+        no_embed_class (`bool`, *optional*, defaults to `True`):
+            Whether positional embeddings exclude the class token (FlexiViT recipe).
+        image_size (`int`, *optional*, defaults to 240):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.flexivit import FlexiViTConfig, FlexiViTImageClassify
+
+    >>> configuration = FlexiViTConfig()
+    >>> model = FlexiViTImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "flexivit"
+
+    patch_size: int = 16
+    embed_dim: int = 384
+    depth: int = 12
+    num_heads: int = 6
+    no_embed_class: bool = True
+    image_size: int = 240
+    num_classes: int = 1000

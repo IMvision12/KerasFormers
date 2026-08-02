@@ -6,7 +6,11 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .res2net_config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHTS_URLS
+from .res2net_config import Res2NetConfig
+
+# The backbone (Res2NetModel) and classifier (Res2NetImageClassify) share the
+# variant's weights repo, whose kf_config.json declares Res2NetImageClassify.
+RES2NET_HUB_SIBLINGS = frozenset({"Res2NetModel", "Res2NetImageClassify"})
 
 
 def conv_block(
@@ -327,19 +331,19 @@ class Res2NetModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RES2NET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RES2NET_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RES2NET_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = Res2NetConfig
+    HUB_REPO_SIBLINGS = RES2NET_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with Res2NetImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = Res2NetImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -484,11 +488,9 @@ class Res2NetImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RES2NET_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RES2NET_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RES2NET_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = Res2NetConfig
+    HUB_REPO_SIBLINGS = RES2NET_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

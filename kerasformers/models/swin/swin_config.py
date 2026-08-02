@@ -1,188 +1,47 @@
-SWIN_MODEL_CONFIG = {
-    "swin_tiny": {
-        "window_size": 7,
-        "embed_dim": 96,
-        "depths": (2, 2, 6, 2),
-        "num_heads": (3, 6, 12, 24),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "swin_tiny_in22k": {
-        "window_size": 7,
-        "embed_dim": 96,
-        "depths": (2, 2, 6, 2),
-        "num_heads": (3, 6, 12, 24),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "swin_small": {
-        "window_size": 7,
-        "embed_dim": 96,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (3, 6, 12, 24),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "swin_small_in22k": {
-        "window_size": 7,
-        "embed_dim": 96,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (3, 6, 12, 24),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "swin_base_224": {
-        "window_size": 7,
-        "embed_dim": 128,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (4, 8, 16, 32),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "swin_base_224_in22k": {
-        "window_size": 7,
-        "embed_dim": 128,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (4, 8, 16, 32),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "swin_base_384": {
-        "window_size": 12,
-        "embed_dim": 128,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (4, 8, 16, 32),
-        "pretrain_size": 384,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "swin_base_384_in22k": {
-        "window_size": 12,
-        "embed_dim": 128,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (4, 8, 16, 32),
-        "pretrain_size": 384,
-        "image_size": 384,
-        "num_classes": 21841,
-    },
-    "swin_large_224": {
-        "window_size": 7,
-        "embed_dim": 192,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (6, 12, 24, 48),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "swin_large_224_in22k": {
-        "window_size": 7,
-        "embed_dim": 192,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (6, 12, 24, 48),
-        "pretrain_size": 224,
-        "image_size": 224,
-        "num_classes": 21841,
-    },
-    "swin_large_384": {
-        "window_size": 12,
-        "embed_dim": 192,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (6, 12, 24, 48),
-        "pretrain_size": 384,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "swin_large_384_in22k": {
-        "window_size": 12,
-        "embed_dim": 192,
-        "depths": (2, 2, 18, 2),
-        "num_heads": (6, 12, 24, 48),
-        "pretrain_size": 384,
-        "image_size": 384,
-        "num_classes": 21841,
-    },
-}
+from kerasformers.base import BaseConfig
 
-SWIN_WEIGHTS_URLS = {
-    "swin_tiny_patch4_window7_224_ms_in1k": {
-        "model": "swin_tiny",
-        "timm_id": "swin_tiny_patch4_window7_224.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_tiny_patch4_window7_224_ms_in1k.weights.h5",
-    },
-    "swin_tiny_patch4_window7_224_ms_in22k": {
-        "model": "swin_tiny_in22k",
-        "timm_id": "swin_tiny_patch4_window7_224.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_tiny_patch4_window7_224_ms_in22k.weights.h5",
-    },
-    "swin_small_patch4_window7_224_ms_in1k": {
-        "model": "swin_small",
-        "timm_id": "swin_small_patch4_window7_224.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_small_patch4_window7_224_ms_in1k.weights.h5",
-    },
-    "swin_small_patch4_window7_224_ms_in22k": {
-        "model": "swin_small_in22k",
-        "timm_id": "swin_small_patch4_window7_224.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_small_patch4_window7_224_ms_in22k.weights.h5",
-    },
-    "swin_small_patch4_window7_224_ms_in22k_ft_in1k": {
-        "model": "swin_small",
-        "timm_id": "swin_small_patch4_window7_224.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_small_patch4_window7_224_ms_in22k_ft_in1k.weights.h5",
-    },
-    "swin_base_patch4_window7_224_ms_in1k": {
-        "model": "swin_base_224",
-        "timm_id": "swin_base_patch4_window7_224.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_base_patch4_window7_224_ms_in1k.weights.h5",
-    },
-    "swin_base_patch4_window7_224_ms_in22k": {
-        "model": "swin_base_224_in22k",
-        "timm_id": "swin_base_patch4_window7_224.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_base_patch4_window7_224_ms_in22k.weights.h5",
-    },
-    "swin_base_patch4_window7_224_ms_in22k_ft_in1k": {
-        "model": "swin_base_224",
-        "timm_id": "swin_base_patch4_window7_224.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_base_patch4_window7_224_ms_in22k_ft_in1k.weights.h5",
-    },
-    "swin_base_patch4_window12_384_ms_in1k": {
-        "model": "swin_base_384",
-        "timm_id": "swin_base_patch4_window12_384.ms_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_base_patch4_window12_384_ms_in1k.weights.h5",
-    },
-    "swin_base_patch4_window12_384_ms_in22k": {
-        "model": "swin_base_384_in22k",
-        "timm_id": "swin_base_patch4_window12_384.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_base_patch4_window12_384_ms_in22k.weights.h5",
-    },
-    "swin_base_patch4_window12_384_ms_in22k_ft_in1k": {
-        "model": "swin_base_384",
-        "timm_id": "swin_base_patch4_window12_384.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_base_patch4_window12_384_ms_in22k_ft_in1k.weights.h5",
-    },
-    "swin_large_patch4_window7_224_ms_in22k": {
-        "model": "swin_large_224_in22k",
-        "timm_id": "swin_large_patch4_window7_224.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_large_patch4_window7_224_ms_in22k.weights.h5",
-    },
-    "swin_large_patch4_window7_224_ms_in22k_ft_in1k": {
-        "model": "swin_large_224",
-        "timm_id": "swin_large_patch4_window7_224.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_large_patch4_window7_224_ms_in22k_ft_in1k.weights.h5",
-    },
-    "swin_large_patch4_window12_384_ms_in22k": {
-        "model": "swin_large_384_in22k",
-        "timm_id": "swin_large_patch4_window12_384.ms_in22k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_large_patch4_window12_384_ms_in22k.weights.h5",
-    },
-    "swin_large_patch4_window12_384_ms_in22k_ft_in1k": {
-        "model": "swin_large_384",
-        "timm_id": "swin_large_patch4_window12_384.ms_in22k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/swin_large_patch4_window12_384_ms_in22k_ft_in1k.weights.h5",
-    },
-}
+
+class SwinConfig(BaseConfig):
+    r"""Configuration for [`SwinModel`] / [`SwinImageClassify`].
+
+    The Swin Transformer computes self-attention inside shifted local windows and
+    merges patches between stages to build a hierarchical feature pyramid. One
+    `kf_config.json` (declaring the canonical [`SwinImageClassify`]) sits on each
+    variant's repo, and both the backbone and classifier load from it. Fields mirror
+    the model constructor and serialize flat.
+
+    Args:
+        window_size (`int`, *optional*, defaults to 7):
+            Side length of the local attention window.
+        embed_dim (`int`, *optional*, defaults to 96):
+            Channel width of the first stage (doubles each stage).
+        depths (`tuple`, *optional*, defaults to `(2, 2, 6, 2)`):
+            Number of Swin blocks per stage.
+        num_heads (`tuple`, *optional*, defaults to `(3, 6, 12, 24)`):
+            Number of attention heads per stage.
+        pretrain_size (`int`, *optional*, defaults to 224):
+            Resolution the relative-position bias was trained at.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.swin import SwinConfig, SwinImageClassify
+
+    >>> configuration = SwinConfig()
+    >>> model = SwinImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "swin"
+
+    window_size: int = 7
+    embed_dim: int = 96
+    depths: tuple = (2, 2, 6, 2)
+    num_heads: tuple = (3, 6, 12, 24)
+    pretrain_size: int = 224
+    image_size: int = 224
+    num_classes: int = 1000

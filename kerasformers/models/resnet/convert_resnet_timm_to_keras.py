@@ -17,7 +17,39 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.resnet import ResNetImageClassify
-from kerasformers.models.resnet.resnet_config import RESNET_WEIGHTS_URLS
+
+# Architecture presets, moved here from resnet_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+RESNET_MODEL_CONFIG = {
+    "resnet50": {
+        "depths": [3, 4, 6, 3],
+        "filters": [64, 128, 256, 512],
+    },
+    "resnet101": {
+        "depths": [3, 4, 23, 3],
+        "filters": [64, 128, 256, 512],
+    },
+    "resnet152": {
+        "depths": [3, 8, 36, 3],
+        "filters": [64, 128, 256, 512],
+    },
+}
+
+# Hosted variants -> (base model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed. ``timm_id`` is the
+# conversion source used by the converter + the ``hf:timm/...`` path.
+RESNET_VARIANTS = {
+    "resnet50_tv_in1k": {"model": "resnet50", "timm_id": "resnet50.tv_in1k"},
+    "resnet50_a1_in1k": {"model": "resnet50", "timm_id": "resnet50.a1_in1k"},
+    "resnet50_gluon_in1k": {"model": "resnet50", "timm_id": "resnet50.gluon_in1k"},
+    "resnet101_tv_in1k": {"model": "resnet101", "timm_id": "resnet101.tv_in1k"},
+    "resnet101_a1_in1k": {"model": "resnet101", "timm_id": "resnet101.a1_in1k"},
+    "resnet101_gluon_in1k": {"model": "resnet101", "timm_id": "resnet101.gluon_in1k"},
+    "resnet152_tv_in1k": {"model": "resnet152", "timm_id": "resnet152.tv_in1k"},
+    "resnet152_a1_in1k": {"model": "resnet152", "timm_id": "resnet152.a1_in1k"},
+    "resnet152_gluon_in1k": {"model": "resnet152", "timm_id": "resnet152.gluon_in1k"},
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "resnet_layer": "layer",
@@ -67,15 +99,15 @@ def transfer_resnet_weights(keras_model, state_dict: Dict[str, np.ndarray]) -> N
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in RESNET_WEIGHTS_URLS.items():
+    for variant, meta in RESNET_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = ResNetImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = ResNetImageClassify(
+            **RESNET_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_resnet_weights(keras_model, state)
 

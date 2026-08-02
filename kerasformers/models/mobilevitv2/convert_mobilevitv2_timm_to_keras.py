@@ -17,7 +17,23 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilevitv2 import MobileViTV2ImageClassify
-from kerasformers.models.mobilevitv2.mobilevitv2_config import MOBILEVITV2_WEIGHTS_URLS
+from kerasformers.models.mobilevitv2.mobilevitv2_config import MOBILEVITV2_VARIANTS
+
+# Architecture presets, moved here from mobilevitv2_config.py: the package config no
+# longer carries classification arch (models load by Hub repo id / kf_config). Only
+# this converter builds an untrained model to transfer timm weights into.
+MOBILEVITV2_MODEL_CONFIG = {
+    "mobilevitv2_050": {"multiplier": 0.5, "image_size": 256, "num_classes": 1000},
+    "mobilevitv2_075": {"multiplier": 0.75, "image_size": 256, "num_classes": 1000},
+    "mobilevitv2_100": {"multiplier": 1.0, "image_size": 256, "num_classes": 1000},
+    "mobilevitv2_125": {"multiplier": 1.25, "image_size": 256, "num_classes": 1000},
+    "mobilevitv2_150": {"multiplier": 1.5, "image_size": 256, "num_classes": 1000},
+    "mobilevitv2_150_384": {"multiplier": 1.5, "image_size": 384, "num_classes": 1000},
+    "mobilevitv2_175": {"multiplier": 1.75, "image_size": 256, "num_classes": 1000},
+    "mobilevitv2_175_384": {"multiplier": 1.75, "image_size": 384, "num_classes": 1000},
+    "mobilevitv2_200": {"multiplier": 2.0, "image_size": 256, "num_classes": 1000},
+    "mobilevitv2_200_384": {"multiplier": 2.0, "image_size": 384, "num_classes": 1000},
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -80,15 +96,15 @@ def transfer_mobilevitv2_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in MOBILEVITV2_WEIGHTS_URLS.items():
+    for variant, meta in MOBILEVITV2_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = MobileViTV2ImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = MobileViTV2ImageClassify(
+            **MOBILEVITV2_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_mobilevitv2_weights(keras_model, state)
 

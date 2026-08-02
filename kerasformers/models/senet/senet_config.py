@@ -1,59 +1,48 @@
-SENET_MODEL_CONFIG = {
-    "seresnet50": {
-        "depths": [3, 4, 6, 3],
-        "filters": [64, 128, 256, 512],
-        "senet": True,
-    },
-    "seresnext50_32x4d": {
-        "depths": [3, 4, 6, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 2,
-        "senet": True,
-        "block_fn_name": "resnext_block",
-    },
-    "seresnext101_32x4d": {
-        "depths": [3, 4, 23, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 2,
-        "senet": True,
-        "block_fn_name": "resnext_block",
-    },
-    "seresnext101_32x8d": {
-        "depths": [3, 4, 23, 3],
-        "filters": [64, 128, 256, 512],
-        "groups": 32,
-        "width_factor": 4,
-        "senet": True,
-        "block_fn_name": "resnext_block",
-    },
-}
+from kerasformers.base import BaseConfig
 
-SENET_WEIGHTS_URLS = {
-    "seresnet50_a1_in1k": {
-        "model": "seresnet50",
-        "timm_id": "seresnet50.a1_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/seresnet50_a1_in1k.weights.h5",
-    },
-    "seresnext50_32x4d_racm_in1k": {
-        "model": "seresnext50_32x4d",
-        "timm_id": "seresnext50_32x4d.racm_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/seresnext50_32x4d_racm_in1k.weights.h5",
-    },
-    "seresnext50_32x4d_gluon_in1k": {
-        "model": "seresnext50_32x4d",
-        "timm_id": "seresnext50_32x4d.gluon_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/seresnext50_32x4d_gluon_in1k.weights.h5",
-    },
-    "seresnext101_32x4d_gluon_in1k": {
-        "model": "seresnext101_32x4d",
-        "timm_id": "seresnext101_32x4d.gluon_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/seresnext101_32x4d_gluon_in1k.weights.h5",
-    },
-    "seresnext101_32x8d_ah_in1k": {
-        "model": "seresnext101_32x8d",
-        "timm_id": "seresnext101_32x8d.ah_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/seresnext101_32x8d_ah_in1k.weights.h5",
-    },
-}
+
+class SENetConfig(BaseConfig):
+    r"""Configuration for [`SENetModel`] / [`SENetImageClassify`].
+
+    SENet augments a ResNet (`bottleneck`) or ResNeXt (`resnext_block`, selected by
+    `block_fn_name`) trunk with Squeeze-and-Excitation channel attention. One
+    `kf_config.json` (declaring the canonical [`SENetImageClassify`]) sits on each
+    variant's repo, and both the backbone and classifier load from it. Fields mirror
+    the model constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(2, 2, 2, 2)`):
+            Number of residual blocks per stage.
+        filters (`tuple`, *optional*, defaults to `(64, 128, 256, 512)`):
+            Base filter counts per stage.
+        groups (`int`, *optional*, defaults to 32):
+            Grouped-conv groups (used by the SE-ResNeXt variants).
+        width_factor (`int`, *optional*, defaults to 2):
+            Bottleneck width multiplier (SE-ResNeXt).
+        senet (`bool`, *optional*, defaults to `True`):
+            Whether to apply Squeeze-and-Excitation inside each block.
+        block_fn_name (`str`, *optional*, defaults to `None`):
+            Block builder: `None` -> bottleneck (SE-ResNet), `"resnext_block"` ->
+            grouped (SE-ResNeXt).
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.senet import SENetConfig, SENetImageClassify
+
+    >>> configuration = SENetConfig()
+    >>> model = SENetImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "senet"
+
+    depths: tuple = (2, 2, 2, 2)
+    filters: tuple = (64, 128, 256, 512)
+    groups: int = 32
+    width_factor: int = 2
+    senet: bool = True
+    block_fn_name: str = None
+    num_classes: int = 1000

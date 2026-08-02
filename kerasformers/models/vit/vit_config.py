@@ -1,349 +1,53 @@
-VIT_MODEL_CONFIG = {
-    "vit_tiny_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 192,
-        "depth": 12,
-        "num_heads": 3,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_tiny_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 192,
-        "depth": 12,
-        "num_heads": 3,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_tiny_patch16_224_in21k": {
-        "patch_size": 16,
-        "embed_dim": 192,
-        "depth": 12,
-        "num_heads": 3,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "vit_small_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_small_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_small_patch16_224_in21k": {
-        "patch_size": 16,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "vit_small_patch32_224": {
-        "patch_size": 32,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_small_patch32_384": {
-        "patch_size": 32,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_small_patch32_224_in21k": {
-        "patch_size": 32,
-        "embed_dim": 384,
-        "depth": 12,
-        "num_heads": 6,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "vit_base_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_base_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_base_patch16_224_in21k": {
-        "patch_size": 16,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "vit_base_patch32_224": {
-        "patch_size": 32,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_base_patch32_384": {
-        "patch_size": 32,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_base_patch32_224_in21k": {
-        "patch_size": 32,
-        "embed_dim": 768,
-        "depth": 12,
-        "num_heads": 12,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "vit_large_patch16_224": {
-        "patch_size": 16,
-        "embed_dim": 1024,
-        "depth": 24,
-        "num_heads": 16,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "vit_large_patch16_384": {
-        "patch_size": 16,
-        "embed_dim": 1024,
-        "depth": 24,
-        "num_heads": 16,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-    "vit_large_patch16_224_in21k": {
-        "patch_size": 16,
-        "embed_dim": 1024,
-        "depth": 24,
-        "num_heads": 16,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 224,
-        "num_classes": 21843,
-    },
-    "vit_large_patch32_384": {
-        "patch_size": 32,
-        "embed_dim": 1024,
-        "depth": 24,
-        "num_heads": 16,
-        "mlp_ratio": 4.0,
-        "qkv_bias": True,
-        "qk_norm": False,
-        "image_size": 384,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-VIT_WEIGHTS_URLS = {
-    "vit_tiny_patch16_224_augreg_in21k_ft_in1k": {
-        "model": "vit_tiny_patch16_224",
-        "timm_id": "vit_tiny_patch16_224.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_tiny_patch16_224_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_tiny_patch16_384_augreg_in21k_ft_in1k": {
-        "model": "vit_tiny_patch16_384",
-        "timm_id": "vit_tiny_patch16_384.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_tiny_patch16_384_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_tiny_patch16_224_augreg_in21k": {
-        "model": "vit_tiny_patch16_224_in21k",
-        "timm_id": "vit_tiny_patch16_224.augreg_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_tiny_patch16_224_augreg_in21k.weights.h5",
-    },
-    "vit_small_patch16_224_augreg_in21k_ft_in1k": {
-        "model": "vit_small_patch16_224",
-        "timm_id": "vit_small_patch16_224.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch16_224_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_small_patch16_384_augreg_in21k_ft_in1k": {
-        "model": "vit_small_patch16_384",
-        "timm_id": "vit_small_patch16_384.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch16_384_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_small_patch16_224_augreg_in1k": {
-        "model": "vit_small_patch16_224",
-        "timm_id": "vit_small_patch16_224.augreg_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch16_224_augreg_in1k.weights.h5",
-    },
-    "vit_small_patch16_384_augreg_in1k": {
-        "model": "vit_small_patch16_384",
-        "timm_id": "vit_small_patch16_384.augreg_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch16_384_augreg_in1k.weights.h5",
-    },
-    "vit_small_patch16_224_augreg_in21k": {
-        "model": "vit_small_patch16_224_in21k",
-        "timm_id": "vit_small_patch16_224.augreg_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch16_224_augreg_in21k.weights.h5",
-    },
-    "vit_small_patch32_224_augreg_in21k_ft_in1k": {
-        "model": "vit_small_patch32_224",
-        "timm_id": "vit_small_patch32_224.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch32_224_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_small_patch32_384_augreg_in21k_ft_in1k": {
-        "model": "vit_small_patch32_384",
-        "timm_id": "vit_small_patch32_384.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch32_384_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_small_patch32_224_augreg_in21k": {
-        "model": "vit_small_patch32_224_in21k",
-        "timm_id": "vit_small_patch32_224.augreg_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_small_patch32_224_augreg_in21k.weights.h5",
-    },
-    "vit_base_patch16_224_augreg_in21k_ft_in1k": {
-        "model": "vit_base_patch16_224",
-        "timm_id": "vit_base_patch16_224.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch16_224_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_base_patch16_384_augreg_in21k_ft_in1k": {
-        "model": "vit_base_patch16_384",
-        "timm_id": "vit_base_patch16_384.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch16_384_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_base_patch16_224_orig_in21k_ft_in1k": {
-        "model": "vit_base_patch16_224",
-        "timm_id": "vit_base_patch16_224.orig_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch16_224_orig_in21k_ft_in1k.weights.h5",
-    },
-    "vit_base_patch16_384_orig_in21k_ft_in1k": {
-        "model": "vit_base_patch16_384",
-        "timm_id": "vit_base_patch16_384.orig_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch16_384_orig_in21k_ft_in1k.weights.h5",
-    },
-    "vit_base_patch16_224_augreg_in1k": {
-        "model": "vit_base_patch16_224",
-        "timm_id": "vit_base_patch16_224.augreg_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch16_224_augreg_in1k.weights.h5",
-    },
-    "vit_base_patch16_384_augreg_in1k": {
-        "model": "vit_base_patch16_384",
-        "timm_id": "vit_base_patch16_384.augreg_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch16_384_augreg_in1k.weights.h5",
-    },
-    "vit_base_patch16_224_augreg_in21k": {
-        "model": "vit_base_patch16_224_in21k",
-        "timm_id": "vit_base_patch16_224.augreg_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch16_224_augreg_in21k.weights.h5",
-    },
-    "vit_base_patch32_224_augreg_in21k_ft_in1k": {
-        "model": "vit_base_patch32_224",
-        "timm_id": "vit_base_patch32_224.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch32_224_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_base_patch32_384_augreg_in21k_ft_in1k": {
-        "model": "vit_base_patch32_384",
-        "timm_id": "vit_base_patch32_384.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch32_384_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_base_patch32_224_augreg_in1k": {
-        "model": "vit_base_patch32_224",
-        "timm_id": "vit_base_patch32_224.augreg_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch32_224_augreg_in1k.weights.h5",
-    },
-    "vit_base_patch32_384_augreg_in1k": {
-        "model": "vit_base_patch32_384",
-        "timm_id": "vit_base_patch32_384.augreg_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch32_384_augreg_in1k.weights.h5",
-    },
-    "vit_base_patch32_224_augreg_in21k": {
-        "model": "vit_base_patch32_224_in21k",
-        "timm_id": "vit_base_patch32_224.augreg_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_base_patch32_224_augreg_in21k.weights.h5",
-    },
-    "vit_large_patch16_224_augreg_in21k_ft_in1k": {
-        "model": "vit_large_patch16_224",
-        "timm_id": "vit_large_patch16_224.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_large_patch16_224_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_large_patch16_384_augreg_in21k_ft_in1k": {
-        "model": "vit_large_patch16_384",
-        "timm_id": "vit_large_patch16_384.augreg_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_large_patch16_384_augreg_in21k_ft_in1k.weights.h5",
-    },
-    "vit_large_patch16_224_augreg_in21k": {
-        "model": "vit_large_patch16_224_in21k",
-        "timm_id": "vit_large_patch16_224.augreg_in21k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_large_patch16_224_augreg_in21k.weights.h5",
-    },
-    "vit_large_patch32_384_orig_in21k_ft_in1k": {
-        "model": "vit_large_patch32_384",
-        "timm_id": "vit_large_patch32_384.orig_in21k_ft_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/vit_large_patch32_384_orig_in21k_ft_in1k.weights.h5",
-    },
-}
+
+class ViTConfig(BaseConfig):
+    r"""Configuration for [`ViTModel`] / [`ViTImageClassify`].
+
+    The Vision Transformer splits an image into patches, linearly embeds them with an
+    added class token and positional embeddings, and applies a standard transformer
+    encoder. One `kf_config.json` (declaring the canonical [`ViTImageClassify`]) sits
+    on each variant's repo, and both the backbone and classifier load from it. Fields
+    mirror the model constructor and serialize flat.
+
+    Args:
+        patch_size (`int`, *optional*, defaults to 16):
+            Side length of each square image patch.
+        embed_dim (`int`, *optional*, defaults to 768):
+            Transformer hidden size.
+        depth (`int`, *optional*, defaults to 12):
+            Number of transformer encoder blocks.
+        num_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads.
+        mlp_ratio (`float`, *optional*, defaults to 4.0):
+            MLP hidden-dim expansion ratio.
+        qkv_bias (`bool`, *optional*, defaults to `True`):
+            Whether the qkv projection uses a bias.
+        qk_norm (`bool`, *optional*, defaults to `False`):
+            Whether to apply LayerNorm to queries and keys.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.vit import ViTConfig, ViTImageClassify
+
+    >>> configuration = ViTConfig()
+    >>> model = ViTImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "vit"
+
+    patch_size: int = 16
+    embed_dim: int = 768
+    depth: int = 12
+    num_heads: int = 12
+    mlp_ratio: float = 4.0
+    qkv_bias: bool = True
+    qk_norm: bool = False
+    image_size: int = 224
+    num_classes: int = 1000

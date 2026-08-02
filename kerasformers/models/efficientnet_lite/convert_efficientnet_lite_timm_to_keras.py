@@ -17,9 +17,77 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientnet_lite import EfficientNetLiteImageClassify
-from kerasformers.models.efficientnet_lite.efficientnet_lite_config import (
-    EFFICIENTNET_LITE_WEIGHTS_URLS,
-)
+
+# Architecture presets, moved here from efficientnet_lite_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+EFFICIENTNET_LITE_MODEL_CONFIG = {
+    "efficientnet_lite_b0": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "dropout_rate": 0.2,
+        "default_size": 224,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "efficientnet_lite_b1": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.1,
+        "dropout_rate": 0.2,
+        "default_size": 240,
+        "image_size": 240,
+        "num_classes": 1000,
+    },
+    "efficientnet_lite_b2": {
+        "width_coefficient": 1.1,
+        "depth_coefficient": 1.2,
+        "dropout_rate": 0.3,
+        "default_size": 260,
+        "image_size": 260,
+        "num_classes": 1000,
+    },
+    "efficientnet_lite_b3": {
+        "width_coefficient": 1.2,
+        "depth_coefficient": 1.4,
+        "dropout_rate": 0.3,
+        "default_size": 300,
+        "image_size": 300,
+        "num_classes": 1000,
+    },
+    "efficientnet_lite_b4": {
+        "width_coefficient": 1.4,
+        "depth_coefficient": 1.8,
+        "dropout_rate": 0.3,
+        "default_size": 380,
+        "image_size": 380,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+EFFICIENTNET_LITE_VARIANTS = {
+    "tf_efficientnet_lite0_in1k": {
+        "model": "efficientnet_lite_b0",
+        "timm_id": "tf_efficientnet_lite0.in1k",
+    },
+    "tf_efficientnet_lite1_in1k": {
+        "model": "efficientnet_lite_b1",
+        "timm_id": "tf_efficientnet_lite1.in1k",
+    },
+    "tf_efficientnet_lite2_in1k": {
+        "model": "efficientnet_lite_b2",
+        "timm_id": "tf_efficientnet_lite2.in1k",
+    },
+    "tf_efficientnet_lite3_in1k": {
+        "model": "efficientnet_lite_b3",
+        "timm_id": "tf_efficientnet_lite3.in1k",
+    },
+    "tf_efficientnet_lite4_in1k": {
+        "model": "efficientnet_lite_b4",
+        "timm_id": "tf_efficientnet_lite4.in1k",
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -75,15 +143,15 @@ def transfer_efficientnet_lite_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in EFFICIENTNET_LITE_WEIGHTS_URLS.items():
+    for variant, meta in EFFICIENTNET_LITE_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientNetLiteImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = EfficientNetLiteImageClassify(
+            **EFFICIENTNET_LITE_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_efficientnet_lite_weights(keras_model, state)
 

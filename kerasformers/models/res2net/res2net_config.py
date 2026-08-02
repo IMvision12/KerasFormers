@@ -1,82 +1,41 @@
-RES2NET_MODEL_CONFIG = {
-    "res2net50_26w_4s": {
-        "depth": [3, 4, 6, 3],
-        "base_width": 26,
-        "scale": 4,
-        "cardinality": 1,
-    },
-    "res2net101_26w_4s": {
-        "depth": [3, 4, 23, 3],
-        "base_width": 26,
-        "scale": 4,
-        "cardinality": 1,
-    },
-    "res2net50_26w_6s": {
-        "depth": [3, 4, 6, 3],
-        "base_width": 26,
-        "scale": 6,
-        "cardinality": 1,
-    },
-    "res2net50_26w_8s": {
-        "depth": [3, 4, 6, 3],
-        "base_width": 26,
-        "scale": 8,
-        "cardinality": 1,
-    },
-    "res2net50_48w_2s": {
-        "depth": [3, 4, 6, 3],
-        "base_width": 48,
-        "scale": 2,
-        "cardinality": 1,
-    },
-    "res2net50_14w_8s": {
-        "depth": [3, 4, 6, 3],
-        "base_width": 14,
-        "scale": 8,
-        "cardinality": 1,
-    },
-    "res2next50": {
-        "depth": [3, 4, 6, 3],
-        "base_width": 4,
-        "scale": 4,
-        "cardinality": 8,
-    },
-}
+from kerasformers.base import BaseConfig
 
-RES2NET_WEIGHTS_URLS = {
-    "res2net50_26w_4s_in1k": {
-        "model": "res2net50_26w_4s",
-        "timm_id": "res2net50_26w_4s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_26w_4s_in1k.weights.h5",
-    },
-    "res2net101_26w_4s_in1k": {
-        "model": "res2net101_26w_4s",
-        "timm_id": "res2net101_26w_4s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net101_26w_4s_in1k.weights.h5",
-    },
-    "res2net50_26w_6s_in1k": {
-        "model": "res2net50_26w_6s",
-        "timm_id": "res2net50_26w_6s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_26w_6s_in1k.weights.h5",
-    },
-    "res2net50_26w_8s_in1k": {
-        "model": "res2net50_26w_8s",
-        "timm_id": "res2net50_26w_8s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_26w_8s_in1k.weights.h5",
-    },
-    "res2net50_48w_2s_in1k": {
-        "model": "res2net50_48w_2s",
-        "timm_id": "res2net50_48w_2s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_48w_2s_in1k.weights.h5",
-    },
-    "res2net50_14w_8s_in1k": {
-        "model": "res2net50_14w_8s",
-        "timm_id": "res2net50_14w_8s.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2net50_14w_8s_in1k.weights.h5",
-    },
-    "res2next50_in1k": {
-        "model": "res2next50",
-        "timm_id": "res2next50.in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify2/res2next50_in1k.weights.h5",
-    },
-}
+
+class Res2NetConfig(BaseConfig):
+    r"""Configuration for [`Res2NetModel`] / [`Res2NetImageClassify`].
+
+    Res2Net adds multi-scale residual connections inside the bottleneck via a
+    `scale` split. The hosted variants override `depth` / `base_width` / `scale` /
+    `cardinality`. One `kf_config.json` (declaring the canonical
+    [`Res2NetImageClassify`]) sits on each variant's repo, and both the backbone and
+    classifier load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        depth (`tuple`, *optional*, defaults to `(3, 4, 6, 3)`):
+            Number of Res2Net blocks per stage.
+        base_width (`int`, *optional*, defaults to 26):
+            Base channel width of each scale split.
+        scale (`int`, *optional*, defaults to 4):
+            Number of feature-map scales inside the bottleneck.
+        cardinality (`int`, *optional*, defaults to 1):
+            Number of grouped-conv groups (>1 for the res2next variant).
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.res2net import Res2NetConfig, Res2NetImageClassify
+
+    >>> configuration = Res2NetConfig()
+    >>> model = Res2NetImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "res2net"
+
+    depth: tuple = (3, 4, 6, 3)
+    base_width: int = 26
+    scale: int = 4
+    cardinality: int = 1
+    num_classes: int = 1000

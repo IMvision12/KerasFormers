@@ -18,7 +18,40 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilevit import MobileViTImageClassify
-from kerasformers.models.mobilevit.mobilevit_config import MOBILEVIT_WEIGHTS_URLS
+from kerasformers.models.mobilevit.mobilevit_config import MOBILEVIT_VARIANTS
+
+# Architecture presets, moved here from mobilevit_config.py: the package config no
+# longer carries classification arch (models load by Hub repo id / kf_config). Only
+# this converter builds an untrained model to transfer timm weights into.
+MOBILEVIT_MODEL_CONFIG = {
+    "mobilevit_xxs": {
+        "initial_dims": 16,
+        "head_dims": 320,
+        "block_dims": [16, 24, 48, 64, 80],
+        "expansion_ratio": [2.0, 2.0, 2.0, 2.0, 2.0],
+        "attention_dims": [None, None, 64, 80, 96],
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "mobilevit_xs": {
+        "initial_dims": 16,
+        "head_dims": 384,
+        "block_dims": [32, 48, 64, 80, 96],
+        "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
+        "attention_dims": [None, None, 96, 120, 144],
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+    "mobilevit_s": {
+        "initial_dims": 16,
+        "head_dims": 640,
+        "block_dims": [32, 64, 96, 128, 160],
+        "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
+        "attention_dims": [None, None, 144, 192, 240],
+        "image_size": 256,
+        "num_classes": 1000,
+    },
+}
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -93,15 +126,15 @@ def transfer_mobilevit_weights(keras_model, state_dict: Dict[str, np.ndarray]) -
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in MOBILEVIT_WEIGHTS_URLS.items():
+    for variant, meta in MOBILEVIT_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = MobileViTImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = MobileViTImageClassify(
+            **MOBILEVIT_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_mobilevit_weights(keras_model, state)
 

@@ -1,41 +1,44 @@
-EFFICIENTFORMER_MODEL_CONFIG = {
-    "efficientformer_l1": {
-        "depths": [3, 2, 6, 4],
-        "embed_dim": [48, 96, 224, 448],
-        "num_vit": 1,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "efficientformer_l3": {
-        "depths": [4, 4, 12, 6],
-        "embed_dim": [64, 128, 320, 512],
-        "num_vit": 4,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "efficientformer_l7": {
-        "depths": [6, 6, 18, 8],
-        "embed_dim": [96, 192, 384, 768],
-        "num_vit": 8,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-EFFICIENTFORMER_WEIGHTS_URLS = {
-    "efficientformer_l1_snap_dist_in1k": {
-        "model": "efficientformer_l1",
-        "timm_id": "efficientformer_l1.snap_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/efficientformer_l1_snap_dist_in1k.weights.h5",
-    },
-    "efficientformer_l3_snap_dist_in1k": {
-        "model": "efficientformer_l3",
-        "timm_id": "efficientformer_l3.snap_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/efficientformer_l3_snap_dist_in1k.weights.h5",
-    },
-    "efficientformer_l7_snap_dist_in1k": {
-        "model": "efficientformer_l7",
-        "timm_id": "efficientformer_l7.snap_dist_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify1/efficientformer_l7_snap_dist_in1k.weights.h5",
-    },
-}
+
+class EfficientFormerConfig(BaseConfig):
+    r"""Configuration for [`EfficientFormerModel`] / [`EfficientFormerImageClassify`].
+
+    EfficientFormer is a hybrid conv/transformer network: convolutional MetaBlocks in
+    the early stages and attention-based (`num_vit`) blocks in the last stage. One
+    `kf_config.json` (declaring the canonical [`EfficientFormerImageClassify`]) sits on
+    each variant's repo, and both the backbone and classifier load from it. Fields
+    mirror the model constructor and serialize flat.
+
+    Args:
+        depths (`tuple`, *optional*, defaults to `(3, 2, 6, 4)`):
+            Number of blocks per stage.
+        embed_dim (`tuple`, *optional*, defaults to `(48, 96, 224, 448)`):
+            Channel width per stage.
+        num_vit (`int`, *optional*, defaults to 1):
+            Number of attention blocks at the end of the last stage.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.efficientformer import (
+    ...     EfficientFormerConfig,
+    ...     EfficientFormerImageClassify,
+    ... )
+
+    >>> configuration = EfficientFormerConfig()
+    >>> model = EfficientFormerImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "efficientformer"
+
+    depths: tuple = (3, 2, 6, 4)
+    embed_dim: tuple = (48, 96, 224, 448)
+    num_vit: int = 1
+    image_size: int = 224
+    num_classes: int = 1000

@@ -1,65 +1,44 @@
-POOLFORMER_MODEL_CONFIG = {
-    "poolformer_s12": {
-        "embed_dim": (64, 128, 320, 512),
-        "depths": (2, 2, 6, 2),
-        "init_scale": 1e-5,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "poolformer_s24": {
-        "embed_dim": (64, 128, 320, 512),
-        "depths": (4, 4, 12, 4),
-        "init_scale": 1e-5,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "poolformer_s36": {
-        "embed_dim": (64, 128, 320, 512),
-        "depths": (6, 6, 18, 6),
-        "init_scale": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "poolformer_m36": {
-        "embed_dim": (96, 192, 384, 768),
-        "depths": (6, 6, 18, 6),
-        "init_scale": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-    "poolformer_m48": {
-        "embed_dim": (96, 192, 384, 768),
-        "depths": (8, 8, 24, 8),
-        "init_scale": 1e-6,
-        "image_size": 224,
-        "num_classes": 1000,
-    },
-}
+from kerasformers.base import BaseConfig
 
-POOLFORMER_WEIGHTS_URLS = {
-    "poolformer_s12_sail_in1k": {
-        "model": "poolformer_s12",
-        "timm_id": "poolformer_s12.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_s12_sail_in1k.weights.h5",
-    },
-    "poolformer_s24_sail_in1k": {
-        "model": "poolformer_s24",
-        "timm_id": "poolformer_s24.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_s24_sail_in1k.weights.h5",
-    },
-    "poolformer_s36_sail_in1k": {
-        "model": "poolformer_s36",
-        "timm_id": "poolformer_s36.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_s36_sail_in1k.weights.h5",
-    },
-    "poolformer_m36_sail_in1k": {
-        "model": "poolformer_m36",
-        "timm_id": "poolformer_m36.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_m36_sail_in1k.weights.h5",
-    },
-    "poolformer_m48_sail_in1k": {
-        "model": "poolformer_m48",
-        "timm_id": "poolformer_m48.sail_in1k",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/classify3/poolformer_m48_sail_in1k.weights.h5",
-    },
-}
+
+class PoolFormerConfig(BaseConfig):
+    r"""Configuration for [`PoolFormerModel`] / [`PoolFormerImageClassify`].
+
+    PoolFormer instantiates the MetaFormer template with a parameter-free average-
+    pooling token mixer, showing the general architecture, not attention, drives much
+    of the performance. One `kf_config.json` (declaring the canonical
+    [`PoolFormerImageClassify`]) sits on each variant's repo, and both the backbone and
+    classifier load from it. Fields mirror the model constructor and serialize flat.
+
+    Args:
+        embed_dim (`tuple`, *optional*, defaults to `(64, 128, 320, 512)`):
+            Channel width per stage.
+        depths (`tuple`, *optional*, defaults to `(2, 2, 6, 2)`):
+            Number of blocks per stage.
+        init_scale (`float`, *optional*, defaults to 1e-5):
+            Initial value for the per-channel LayerScale.
+        image_size (`int`, *optional*, defaults to 224):
+            Square input resolution the weights were trained at.
+        num_classes (`int`, *optional*, defaults to 1000):
+            Number of classifier output classes (backbone ignores it).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.poolformer import (
+    ...     PoolFormerConfig,
+    ...     PoolFormerImageClassify,
+    ... )
+
+    >>> configuration = PoolFormerConfig()
+    >>> model = PoolFormerImageClassify(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "poolformer"
+
+    embed_dim: tuple = (64, 128, 320, 512)
+    depths: tuple = (2, 2, 6, 2)
+    init_scale: float = 1e-5
+    image_size: int = 224
+    num_classes: int = 1000

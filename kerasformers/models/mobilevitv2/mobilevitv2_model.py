@@ -12,11 +12,15 @@ from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
 from .mobilevitv2_config import (
-    MOBILEVITV2_MODEL_CONFIG,
     MOBILEVITV2_SEGMENT_MODEL_CONFIG,
     MOBILEVITV2_SEGMENT_WEIGHTS_URLS,
-    MOBILEVITV2_WEIGHTS_URLS,
+    MobileViTV2Config,
 )
+
+# The backbone (MobileViTV2Model) and classifier (MobileViTV2ImageClassify) share the
+# classification variant's repo, whose kf_config.json declares
+# MobileViTV2ImageClassify.
+MOBILEVITV2_HUB_SIBLINGS = frozenset({"MobileViTV2Model", "MobileViTV2ImageClassify"})
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -480,19 +484,19 @@ class MobileViTV2Model(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVITV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileViTV2Config
+    HUB_REPO_SIBLINGS = MOBILEVITV2_HUB_SIBLINGS
     HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with MobileViTV2ImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = MobileViTV2ImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -631,11 +635,9 @@ class MobileViTV2ImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILEVITV2_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVITV2_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILEVITV2_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileViTV2Config
+    HUB_REPO_SIBLINGS = MOBILEVITV2_HUB_SIBLINGS
     HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod

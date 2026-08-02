@@ -6,7 +6,11 @@ from kerasformers.conversion import copy_weights_by_path_suffix
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .mlp_mixer_config import MLP_MIXER_MODEL_CONFIG, MLP_MIXER_WEIGHTS_URLS
+from .mlp_mixer_config import MLPMixerConfig
+
+# The backbone (MLPMixerModel) and classifier (MLPMixerImageClassify) share the
+# variant's repo, whose kf_config.json declares MLPMixerImageClassify.
+MLP_MIXER_HUB_SIBLINGS = frozenset({"MLPMixerModel", "MLPMixerImageClassify"})
 
 
 def mixer_block(
@@ -215,19 +219,19 @@ class MLPMixerModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MLP_MIXER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MLP_MIXER_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MLP_MIXER_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MLPMixerConfig
+    HUB_REPO_SIBLINGS = MLP_MIXER_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with MLPMixerImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = MLPMixerImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -384,11 +388,9 @@ class MLPMixerImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MLP_MIXER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MLP_MIXER_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MLP_MIXER_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = MLPMixerConfig
+    HUB_REPO_SIBLINGS = MLP_MIXER_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

@@ -11,9 +11,13 @@ from kerasformers.models.efficientformer.efficientformer_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .efficientformer_config import (
-    EFFICIENTFORMER_MODEL_CONFIG,
-    EFFICIENTFORMER_WEIGHTS_URLS,
+from .efficientformer_config import EfficientFormerConfig
+
+# The backbone (EfficientFormerModel) and classifier (EfficientFormerImageClassify)
+# share the variant's repo, whose kf_config.json declares
+# EfficientFormerImageClassify.
+EFFICIENTFORMER_HUB_SIBLINGS = frozenset(
+    {"EfficientFormerModel", "EfficientFormerImageClassify"}
 )
 
 
@@ -415,19 +419,19 @@ class EfficientFormerModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: EFFICIENTFORMER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in EFFICIENTFORMER_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = EFFICIENTFORMER_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = EfficientFormerConfig
+    HUB_REPO_SIBLINGS = EFFICIENTFORMER_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with EfficientFormerImageClassify (which
+        # the kf_config declares); build from kf_config, then copy backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = EfficientFormerImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -608,11 +612,9 @@ class EfficientFormerImageClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: EFFICIENTFORMER_MODEL_CONFIG[meta["model"]]
-        for variant, meta in EFFICIENTFORMER_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = EFFICIENTFORMER_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = EfficientFormerConfig
+    HUB_REPO_SIBLINGS = EFFICIENTFORMER_HUB_SIBLINGS
     HF_MODEL_TYPE = None
 
     @classmethod

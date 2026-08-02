@@ -11,7 +11,11 @@ from kerasformers.models.resnet.resnet_model import (
     squeeze_excitation_block,
 )
 
-from .resnext_config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHTS_URLS
+from .resnext_config import ResNeXtConfig
+
+# The backbone (ResNeXtModel) and classifier (ResNeXtImageClassify) share the
+# variant's weights repo, whose kf_config.json declares ResNeXtImageClassify.
+RESNEXT_HUB_SIBLINGS = frozenset({"ResNeXtModel", "ResNeXtImageClassify"})
 
 
 def resnext_block(
@@ -151,18 +155,18 @@ class ResNeXtModel(ResNetModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RESNEXT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNEXT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RESNEXT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ResNeXtConfig
+    HUB_REPO_SIBLINGS = RESNEXT_HUB_SIBLINGS
 
     @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
+    def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
+        # Backbone shares the variant's repo with ResNeXtImageClassify (which the
+        # kf_config declares); build from kf_config, then copy the backbone weights.
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
         if load_weights:
             src = ResNeXtImageClassify.from_weights(
-                variant, skip_mismatch=skip_mismatch
+                repo_id, skip_mismatch=skip_mismatch
             )
             copy_weights_by_path_suffix(src, model)
             del src
@@ -250,11 +254,9 @@ class ResNeXtImageClassify(ResNetImageClassify):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: RESNEXT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in RESNEXT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = RESNEXT_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
+    config_class = ResNeXtConfig
+    HUB_REPO_SIBLINGS = RESNEXT_HUB_SIBLINGS
 
     def __init__(
         self,

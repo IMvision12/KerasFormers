@@ -18,9 +18,237 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.efficientnet import EfficientNetImageClassify
-from kerasformers.models.efficientnet.efficientnet_config import (
-    EFFICIENTNET_WEIGHTS_URLS,
-)
+
+# Architecture presets, moved here from efficientnet_config.py: the package config no
+# longer carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer timm weights into.
+EFFICIENTNET_MODEL_CONFIG = {
+    "efficientnet_b0": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.0,
+        "dropout_rate": 0.2,
+        "default_size": 224,
+        "image_size": 224,
+        "num_classes": 1000,
+    },
+    "efficientnet_b1": {
+        "width_coefficient": 1.0,
+        "depth_coefficient": 1.1,
+        "dropout_rate": 0.2,
+        "default_size": 240,
+        "image_size": 240,
+        "num_classes": 1000,
+    },
+    "efficientnet_b2": {
+        "width_coefficient": 1.1,
+        "depth_coefficient": 1.2,
+        "dropout_rate": 0.3,
+        "default_size": 260,
+        "image_size": 260,
+        "num_classes": 1000,
+    },
+    "efficientnet_b3": {
+        "width_coefficient": 1.2,
+        "depth_coefficient": 1.4,
+        "dropout_rate": 0.3,
+        "default_size": 300,
+        "image_size": 300,
+        "num_classes": 1000,
+    },
+    "efficientnet_b4": {
+        "width_coefficient": 1.4,
+        "depth_coefficient": 1.8,
+        "dropout_rate": 0.4,
+        "default_size": 380,
+        "image_size": 380,
+        "num_classes": 1000,
+    },
+    "efficientnet_b5": {
+        "width_coefficient": 1.6,
+        "depth_coefficient": 2.2,
+        "dropout_rate": 0.4,
+        "default_size": 456,
+        "image_size": 456,
+        "num_classes": 1000,
+    },
+    "efficientnet_b6": {
+        "width_coefficient": 1.8,
+        "depth_coefficient": 2.6,
+        "dropout_rate": 0.5,
+        "default_size": 528,
+        "image_size": 528,
+        "num_classes": 1000,
+    },
+    "efficientnet_b7": {
+        "width_coefficient": 2.0,
+        "depth_coefficient": 3.1,
+        "dropout_rate": 0.5,
+        "default_size": 600,
+        "image_size": 600,
+        "num_classes": 1000,
+    },
+    "efficientnet_b8": {
+        "width_coefficient": 2.2,
+        "depth_coefficient": 3.6,
+        "dropout_rate": 0.5,
+        "default_size": 672,
+        "image_size": 672,
+        "num_classes": 1000,
+    },
+    "efficientnet_l2_800": {
+        "width_coefficient": 4.3,
+        "depth_coefficient": 5.3,
+        "dropout_rate": 0.5,
+        "default_size": 800,
+        "image_size": 800,
+        "num_classes": 1000,
+    },
+    "efficientnet_l2_475": {
+        "width_coefficient": 4.3,
+        "depth_coefficient": 5.3,
+        "dropout_rate": 0.5,
+        "default_size": 800,
+        "image_size": 475,
+        "num_classes": 1000,
+    },
+}
+
+# Hosted variants -> (model arch key, timm id). Weights load by Hub repo id
+# (kf_config.json); the github release urls have been removed.
+EFFICIENTNET_VARIANTS = {
+    "tf_efficientnet_b0_ns_jft_in1k": {
+        "model": "efficientnet_b0",
+        "timm_id": "tf_efficientnet_b0.ns_jft_in1k",
+    },
+    "tf_efficientnet_b0_ap_in1k": {
+        "model": "efficientnet_b0",
+        "timm_id": "tf_efficientnet_b0.ap_in1k",
+    },
+    "tf_efficientnet_b0_aa_in1k": {
+        "model": "efficientnet_b0",
+        "timm_id": "tf_efficientnet_b0.aa_in1k",
+    },
+    "tf_efficientnet_b0_in1k": {
+        "model": "efficientnet_b0",
+        "timm_id": "tf_efficientnet_b0.in1k",
+    },
+    "tf_efficientnet_b1_ns_jft_in1k": {
+        "model": "efficientnet_b1",
+        "timm_id": "tf_efficientnet_b1.ns_jft_in1k",
+    },
+    "tf_efficientnet_b1_ap_in1k": {
+        "model": "efficientnet_b1",
+        "timm_id": "tf_efficientnet_b1.ap_in1k",
+    },
+    "tf_efficientnet_b1_aa_in1k": {
+        "model": "efficientnet_b1",
+        "timm_id": "tf_efficientnet_b1.aa_in1k",
+    },
+    "tf_efficientnet_b1_in1k": {
+        "model": "efficientnet_b1",
+        "timm_id": "tf_efficientnet_b1.in1k",
+    },
+    "tf_efficientnet_b2_ns_jft_in1k": {
+        "model": "efficientnet_b2",
+        "timm_id": "tf_efficientnet_b2.ns_jft_in1k",
+    },
+    "tf_efficientnet_b2_ap_in1k": {
+        "model": "efficientnet_b2",
+        "timm_id": "tf_efficientnet_b2.ap_in1k",
+    },
+    "tf_efficientnet_b2_aa_in1k": {
+        "model": "efficientnet_b2",
+        "timm_id": "tf_efficientnet_b2.aa_in1k",
+    },
+    "tf_efficientnet_b2_in1k": {
+        "model": "efficientnet_b2",
+        "timm_id": "tf_efficientnet_b2.in1k",
+    },
+    "tf_efficientnet_b3_ns_jft_in1k": {
+        "model": "efficientnet_b3",
+        "timm_id": "tf_efficientnet_b3.ns_jft_in1k",
+    },
+    "tf_efficientnet_b3_ap_in1k": {
+        "model": "efficientnet_b3",
+        "timm_id": "tf_efficientnet_b3.ap_in1k",
+    },
+    "tf_efficientnet_b3_aa_in1k": {
+        "model": "efficientnet_b3",
+        "timm_id": "tf_efficientnet_b3.aa_in1k",
+    },
+    "tf_efficientnet_b3_in1k": {
+        "model": "efficientnet_b3",
+        "timm_id": "tf_efficientnet_b3.in1k",
+    },
+    "tf_efficientnet_b4_ns_jft_in1k": {
+        "model": "efficientnet_b4",
+        "timm_id": "tf_efficientnet_b4.ns_jft_in1k",
+    },
+    "tf_efficientnet_b4_ap_in1k": {
+        "model": "efficientnet_b4",
+        "timm_id": "tf_efficientnet_b4.ap_in1k",
+    },
+    "tf_efficientnet_b4_aa_in1k": {
+        "model": "efficientnet_b4",
+        "timm_id": "tf_efficientnet_b4.aa_in1k",
+    },
+    "tf_efficientnet_b4_in1k": {
+        "model": "efficientnet_b4",
+        "timm_id": "tf_efficientnet_b4.in1k",
+    },
+    "tf_efficientnet_b5_ns_jft_in1k": {
+        "model": "efficientnet_b5",
+        "timm_id": "tf_efficientnet_b5.ns_jft_in1k",
+    },
+    "tf_efficientnet_b5_ap_in1k": {
+        "model": "efficientnet_b5",
+        "timm_id": "tf_efficientnet_b5.ap_in1k",
+    },
+    "tf_efficientnet_b5_aa_in1k": {
+        "model": "efficientnet_b5",
+        "timm_id": "tf_efficientnet_b5.aa_in1k",
+    },
+    "tf_efficientnet_b5_in1k": {
+        "model": "efficientnet_b5",
+        "timm_id": "tf_efficientnet_b5.in1k",
+    },
+    "tf_efficientnet_b6_ns_jft_in1k": {
+        "model": "efficientnet_b6",
+        "timm_id": "tf_efficientnet_b6.ns_jft_in1k",
+    },
+    "tf_efficientnet_b6_ap_in1k": {
+        "model": "efficientnet_b6",
+        "timm_id": "tf_efficientnet_b6.ap_in1k",
+    },
+    "tf_efficientnet_b6_aa_in1k": {
+        "model": "efficientnet_b6",
+        "timm_id": "tf_efficientnet_b6.aa_in1k",
+    },
+    "tf_efficientnet_b7_ns_jft_in1k": {
+        "model": "efficientnet_b7",
+        "timm_id": "tf_efficientnet_b7.ns_jft_in1k",
+    },
+    "tf_efficientnet_b7_ap_in1k": {
+        "model": "efficientnet_b7",
+        "timm_id": "tf_efficientnet_b7.ap_in1k",
+    },
+    "tf_efficientnet_b7_aa_in1k": {
+        "model": "efficientnet_b7",
+        "timm_id": "tf_efficientnet_b7.aa_in1k",
+    },
+    "tf_efficientnet_b8_ap_in1k": {
+        "model": "efficientnet_b8",
+        "timm_id": "tf_efficientnet_b8.ap_in1k",
+    },
+    "tf_efficientnet_l2_ns_jft_in1k": {
+        "model": "efficientnet_l2_800",
+        "timm_id": "tf_efficientnet_l2.ns_jft_in1k",
+    },
+    "tf_efficientnet_l2_ns_jft_in1k_475": {
+        "model": "efficientnet_l2_475",
+        "timm_id": "tf_efficientnet_l2.ns_jft_in1k_475",
+    },
+}
 
 _BLOCK_MAPPINGS = {}
 for i in range(6):
@@ -85,15 +313,15 @@ def transfer_efficientnet_weights(
 if __name__ == "__main__":
     import timm
 
-    for variant, meta in EFFICIENTNET_WEIGHTS_URLS.items():
+    for variant, meta in EFFICIENTNET_VARIANTS.items():
         timm_id = meta["timm_id"]
         print(f"\n{'=' * 60}")
         print(f"Converting: {variant}  <-  timm/{timm_id}")
         print(f"{'=' * 60}")
 
         state = download_hf_state_dict(f"timm/{timm_id}")
-        keras_model = EfficientNetImageClassify.from_weights(
-            variant, load_weights=False, include_normalization=False
+        keras_model = EfficientNetImageClassify(
+            **EFFICIENTNET_MODEL_CONFIG[meta["model"]], include_normalization=False
         )
         transfer_efficientnet_weights(keras_model, state)
 
