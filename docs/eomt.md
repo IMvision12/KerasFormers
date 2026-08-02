@@ -57,8 +57,7 @@ The ViT trunk without the segmentation heads.
 ### EoMTImageProcessor
 
 ```python
-EoMTImageProcessor(target_size=640, image_mean=None, image_std=None,
-                   data_format=None)
+EoMTImageProcessor(target_size=640, image_mean=None, image_std=None, data_format=None)
 ```
 
 Resizes the longest edge to `target_size` preserving aspect ratio, pads to a square
@@ -75,11 +74,18 @@ here:
 
 ```python
 processor.post_process_semantic_segmentation(outputs, target_size, label_names=None)
-processor.post_process_instance_segmentation(outputs, target_size, threshold=0.5, label_names=None)
-processor.post_process_panoptic_segmentation(outputs, target_size, threshold=0.8,
-                                             mask_threshold=0.5,
-                                             overlap_mask_area_threshold=0.8,
-                                             stuff_classes=None, label_names=None)
+processor.post_process_instance_segmentation(
+    outputs, target_size, threshold=0.5, label_names=None
+)
+processor.post_process_panoptic_segmentation(
+    outputs,
+    target_size,
+    threshold=0.8,
+    mask_threshold=0.5,
+    overlap_mask_area_threshold=0.8,
+    stuff_classes=None,
+    label_names=None,
+)
 ```
 
 All three take singular `target_size`. Semantic returns a `dict` with **segmentation**
@@ -194,12 +200,15 @@ The same output works for instance and semantic segmentation:
 ```python
 # Instance: things only, one segment per object
 result = processor.post_process_instance_segmentation(
-    output, target_size=(image.height, image.width), threshold=0.5,
+    output,
+    target_size=(image.height, image.width),
+    threshold=0.5,
 )
 
 # Semantic: one region per class, instances merged
 result = processor.post_process_semantic_segmentation(
-    output, target_size=(image.height, image.width),
+    output,
+    target_size=(image.height, image.width),
 )
 ```
 
@@ -230,7 +239,8 @@ model = EoMTUniversalSegment.from_weights("hf:<user>/eomt-finetuned")
 
 # Architecture only, randomly initialized
 model = EoMTUniversalSegment.from_weights(
-    "eomt_small_coco_panoptic_640", load_weights=False,
+    "eomt_small_coco_panoptic_640",
+    load_weights=False,
 )
 ```
 

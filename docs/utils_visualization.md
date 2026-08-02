@@ -5,7 +5,10 @@ pages was drawn with these.
 
 ```python
 from kerasformers.utils import (
-    plot_detections, plot_segmentation, plot_depth, plot_sam_masks,
+    plot_detections,
+    plot_segmentation,
+    plot_depth,
+    plot_sam_masks,
 )
 ```
 
@@ -17,8 +20,18 @@ and JAX outputs can go in directly without a manual `.cpu().numpy()`.
 ## plot_detections
 
 ```python
-plot_detections(image, boxes, labels=None, scores=None, ax=None, color="red",
-                linewidth=2.0, fontsize=9, title=None, figsize=(10, 7))
+plot_detections(
+    image,
+    boxes,
+    labels=None,
+    scores=None,
+    ax=None,
+    color="red",
+    linewidth=2.0,
+    fontsize=9,
+    title=None,
+    figsize=(10, 7),
+)
 ```
 
 Boxes in `(x0, y0, x1, y1)` **pixel** coordinates, each labeled with its class and score.
@@ -49,9 +62,19 @@ touching the top edge keeps its label visible.
 ## plot_segmentation
 
 ```python
-plot_segmentation(image, segmentation, class_names=None, ax=None, alpha=0.55,
-                  cmap="tab20", show_legend=True, legend_top_k=8, title=None,
-                  figsize=(10, 7), seed=42)
+plot_segmentation(
+    image,
+    segmentation,
+    class_names=None,
+    ax=None,
+    alpha=0.55,
+    cmap="tab20",
+    show_legend=True,
+    legend_top_k=8,
+    title=None,
+    figsize=(10, 7),
+    seed=42,
+)
 ```
 
 Overlays a `(H, W)` **integer label map** on the image. Semantic, instance, and panoptic all
@@ -85,8 +108,16 @@ rather than as a class 0 blanket.
 ## plot_depth
 
 ```python
-plot_depth(image, depth, side_by_side=True, cmap="inferno", ax=None, alpha=0.55,
-           title=None, figsize=(12, 6))
+plot_depth(
+    image,
+    depth,
+    side_by_side=True,
+    cmap="inferno",
+    ax=None,
+    alpha=0.55,
+    title=None,
+    figsize=(12, 6),
+)
 ```
 
 Image and depth map side by side, or overlaid when `side_by_side=False`.
@@ -112,9 +143,19 @@ creates two, so it returns `(fig, axes)`. Overlaid, it returns the single axis.
 ## plot_sam_masks
 
 ```python
-plot_sam_masks(image, masks, scores=None, points=None, point_labels=None,
-               boxes=None, ax=None, alpha=0.55, colors=None, title=None,
-               figsize=(10, 7))
+plot_sam_masks(
+    image,
+    masks,
+    scores=None,
+    points=None,
+    point_labels=None,
+    boxes=None,
+    ax=None,
+    alpha=0.55,
+    colors=None,
+    title=None,
+    figsize=(10, 7),
+)
 ```
 
 Binary masks plus, optionally, the prompts that produced them, so you can see where you
@@ -131,8 +172,9 @@ clicked and what came back. Covers SAM, SAM 2, and SAM 3.
 ```python
 from kerasformers.utils import plot_sam_masks
 
-plot_sam_masks(image, masks[0], scores=scores[0],
-               points=input_points, point_labels=input_labels)
+plot_sam_masks(
+    image, masks[0], scores=scores[0], points=input_points, point_labels=input_labels
+)
 ```
 
 <img src="../assets/sam_points_output.jpg" alt="SAM masks and point prompts drawn with plot_sam_masks" width="820">

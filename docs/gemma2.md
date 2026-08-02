@@ -74,8 +74,15 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 arguments as `Gemma2Model`.
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 | Arg | Default | Meaning |
@@ -110,14 +117,17 @@ routed through `apply_chat_template` automatically.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.gemma2 import Gemma2Generate, Gemma2Tokenizer
 
 model = Gemma2Generate.from_weights("gemma-2-2b-it")
 tokenizer = Gemma2Tokenizer.from_weights("gemma-2-2b-it")
 
-inputs = tokenizer([{"role": "user", "content": "Explain rotary embeddings in one sentence."}])
+inputs = tokenizer(
+    [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
+)
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 print(tokenizer.decode(outputs[0]))
@@ -131,7 +141,7 @@ prompts = [
     "In one sentence, what is a transformer?",
     "Write a haiku about GPUs.",
 ]
-inputs = tokenizer(prompts)              # {"input_ids": (3, seq), "attention_mask": (3, seq)}
+inputs = tokenizer(prompts)  # {"input_ids": (3, seq), "attention_mask": (3, seq)}
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 for text in tokenizer.batch_decode(outputs):
@@ -144,7 +154,7 @@ for text in tokenizer.batch_decode(outputs):
 from kerasformers.models.gemma2 import Gemma2Model
 
 backbone = Gemma2Model.from_weights("gemma-2-2b")
-hidden = backbone(inputs)["last_hidden_state"]   # (batch, seq, 2304)
+hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 2304)
 ```
 
 ### Loading from the Hub

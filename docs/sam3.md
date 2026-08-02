@@ -38,19 +38,28 @@ backbone** rather than paying for a second copy:
 
 ```python
 from kerasformers.models.sam3 import (
-    SAM3Detect, SAM3InstanceSegment, SAM3SemanticSegment,
+    SAM3Detect,
+    SAM3InstanceSegment,
+    SAM3SemanticSegment,
 )
 
 segmenter = SAM3InstanceSegment()
-detector = SAM3Detect(model=segmenter.model)          # same weights, no reload
+detector = SAM3Detect(model=segmenter.model)  # same weights, no reload
 semantic = SAM3SemanticSegment(model=segmenter.model)
 ```
 
 **predict**
 
 ```python
-task.predict(images=None, text=None, input_boxes=None, input_boxes_labels=None,
-             threshold=0.3, vision_embeds=None, text_embeds=None)
+task.predict(
+    images=None,
+    text=None,
+    input_boxes=None,
+    input_boxes_labels=None,
+    threshold=0.3,
+    vision_embeds=None,
+    text_embeds=None,
+)
 ```
 
 `SAM3InstanceSegment.predict` also takes `mask_threshold=0.5`. All three return a **list
@@ -178,7 +187,7 @@ with torch.no_grad():
         images="assets/data/coco_cat_tv.jpg",
         text="cat",
         input_boxes=[[CAT]],
-        input_boxes_labels=[[0]],      # 0 = negative, 1 = positive
+        input_boxes_labels=[[0]],  # 0 = negative, 1 = positive
     )[0]
 ```
 
@@ -294,10 +303,11 @@ positionally.
 images = ["a.jpg", "b.jpg"]
 
 with torch.no_grad():
-    rs = segmenter.predict(images=images, text="animal")              # shared
-    rs = segmenter.predict(images=images, text=["elephant", "bus"])   # per image
-    rs = segmenter.predict(images=images, text=["elephant", None],
-                           input_boxes=[[], [[200, 150, 400, 330]]])  # mixed
+    rs = segmenter.predict(images=images, text="animal")  # shared
+    rs = segmenter.predict(images=images, text=["elephant", "bus"])  # per image
+    rs = segmenter.predict(
+        images=images, text=["elephant", None], input_boxes=[[], [[200, 150, 400, 330]]]
+    )  # mixed
 ```
 
 In the mixed form, `None` text with boxes falls back to `"visual"`, and `[]` means that
@@ -317,9 +327,11 @@ verified against the same image duplicated.
 
 ```python
 import keras
+
 keras.config.set_image_data_format("channels_first")
 
 from kerasformers.models.sam3 import SAM3InstanceSegment
+
 segmenter = SAM3InstanceSegment()
 ```
 
@@ -331,7 +343,9 @@ Returned masks and boxes are in original-image pixel space either way.
 
 ```python
 from kerasformers.models.sam3.sam3_utils import (
-    draw_detections, draw_instance_masks, draw_semantic_mask,
+    draw_detections,
+    draw_instance_masks,
+    draw_semantic_mask,
 )
 
 draw_instance_masks(image, result, title="balloons").save("out.jpg")

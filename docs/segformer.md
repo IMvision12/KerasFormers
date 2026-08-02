@@ -19,9 +19,16 @@ Two design choices make it efficient. The encoder uses **sequence-reduction atte
 ### SegFormerSemanticSegment
 
 ```python
-SegFormerSemanticSegment(embed_dim=None, depths=None, decode_head_dim=256,
-                         dropout_rate=0.1, num_classes=19, image_size=512,
-                         input_tensor=None, name="SegFormerSemanticSegment")
+SegFormerSemanticSegment(
+    embed_dim=None,
+    depths=None,
+    decode_head_dim=256,
+    dropout_rate=0.1,
+    num_classes=19,
+    image_size=512,
+    input_tensor=None,
+    name="SegFormerSemanticSegment",
+)
 ```
 
 The MiT encoder plus the all-MLP decode head. **This is the class for semantic
@@ -44,8 +51,13 @@ segmentation.**
 ### SegFormerModel
 
 ```python
-SegFormerModel(embed_dim=None, depths=None, image_size=512,
-               input_tensor=None, name="SegFormerModel")
+SegFormerModel(
+    embed_dim=None,
+    depths=None,
+    image_size=512,
+    input_tensor=None,
+    name="SegFormerModel",
+)
 ```
 
 The MiT encoder alone, for its multi-scale features.
@@ -55,10 +67,19 @@ The MiT encoder alone, for its multi-scale features.
 ### SegFormerImageProcessor
 
 ```python
-SegFormerImageProcessor(do_resize=True, size=None, resample="bilinear",
-                        do_rescale=True, rescale_factor=1/255,
-                        do_normalize=True, image_mean=None, image_std=None,
-                        return_tensor=True, data_format=None, variant=None)
+SegFormerImageProcessor(
+    do_resize=True,
+    size=None,
+    resample="bilinear",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_normalize=True,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+    variant=None,
+)
 ```
 
 Resizes to a fixed square, rescales to `[0, 1]`, and normalizes with ImageNet
@@ -83,8 +104,9 @@ statistics.
 **post_process_semantic_segmentation**
 
 ```python
-processor.post_process_semantic_segmentation(outputs, target_size=None,
-                                             label_names=None, data_format=None)
+processor.post_process_semantic_segmentation(
+    outputs, target_size=None, label_names=None, data_format=None
+)
 ```
 
 Takes the per-pixel argmax and resizes the label map to `target_size`. **Returns** a
@@ -127,7 +149,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.segformer import (
-    SegFormerImageProcessor, SegFormerSemanticSegment,
+    SegFormerImageProcessor,
+    SegFormerSemanticSegment,
 )
 
 model = SegFormerSemanticSegment.from_weights("segformer_b5_ade_640")
@@ -142,8 +165,10 @@ result = processor.post_process_semantic_segmentation(
 )
 seg = np.asarray(keras.ops.convert_to_numpy(result["segmentation"]))
 
-areas = [(int((seg == int(c)).sum()), n)
-         for c, n in zip(result["unique_classes"], result["class_names"])]
+areas = [
+    (int((seg == int(c)).sum()), n)
+    for c, n in zip(result["unique_classes"], result["class_names"])
+]
 for area, name in sorted(areas, reverse=True):
     print(f"{name:14s} {area} px")
 ```
@@ -177,7 +202,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.segformer import (
-    SegFormerImageProcessor, SegFormerSemanticSegment,
+    SegFormerImageProcessor,
+    SegFormerSemanticSegment,
 )
 
 model = SegFormerSemanticSegment.from_weights("segformer_b5_ade_640")
@@ -193,8 +219,10 @@ for path, image, logits in zip(paths, images, outputs):
         logits[None], target_size=(image.height, image.width)
     )
     seg = np.asarray(keras.ops.convert_to_numpy(result["segmentation"]))
-    areas = [(int((seg == int(c)).sum()), n)
-             for c, n in zip(result["unique_classes"], result["class_names"])]
+    areas = [
+        (int((seg == int(c)).sum()), n)
+        for c, n in zip(result["unique_classes"], result["class_names"])
+    ]
     print(f"\n{path}")
     for area, name in sorted(areas, reverse=True)[:6]:
         print(f"  {name:12s} {area} px")
@@ -248,7 +276,8 @@ which axis holds the classes. It always returns `(H, W)`.
 
 ```python
 result = processor.post_process_semantic_segmentation(
-    output, target_size=(image.height, image.width),
+    output,
+    target_size=(image.height, image.width),
     label_names=["background", "road", "building"],
 )
 ```
@@ -265,10 +294,14 @@ from kerasformers.models.segformer import SegFormerSemanticSegment
 model = SegFormerSemanticSegment.from_weights(
     "hf:nvidia/segformer-b0-finetuned-ade-512-512"
 )
-model = SegFormerSemanticSegment.from_weights("hf:<user>/segformer-finetuned-on-my-data")
+model = SegFormerSemanticSegment.from_weights(
+    "hf:<user>/segformer-finetuned-on-my-data"
+)
 
 # Architecture only, randomly initialized
-model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512", load_weights=False)
+model = SegFormerSemanticSegment.from_weights(
+    "segformer_b0_ade_512", load_weights=False
+)
 ```
 
 The architecture is read from the repo's `config.json`, including the class count, so a

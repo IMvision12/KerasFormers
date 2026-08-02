@@ -24,12 +24,25 @@ as `MetaClip2Mt5Tokenizer`.
 ### MetaClip2Model
 
 ```python
-MetaClip2Model(embed_dim=512, image_size=224, vision_num_layers=12,
-               vision_hidden_dim=768, vision_patch_size=32,
-               vision_num_heads=None, max_seq_len=77, vocab_size=901629,
-               text_hidden_dim=512, text_num_heads=8, text_num_layers=12,
-               vision_mlp_ratio=4.0, text_mlp_ratio=4.0, hidden_act='gelu',
-               eos_token_id=2, input_tensor=None, name='MetaClip2Model')
+MetaClip2Model(
+    embed_dim=512,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=32,
+    vision_num_heads=None,
+    max_seq_len=77,
+    vocab_size=901629,
+    text_hidden_dim=512,
+    text_num_heads=8,
+    text_num_layers=12,
+    vision_mlp_ratio=4.0,
+    text_mlp_ratio=4.0,
+    hidden_act="gelu",
+    eos_token_id=2,
+    input_tensor=None,
+    name="MetaClip2Model",
+)
 ```
 
 MetaCLIP 2 (multilingual / worldwide) contrastive vision-language model.
@@ -57,15 +70,25 @@ MetaCLIP 2 (multilingual / worldwide) contrastive vision-language model.
 ### MetaClip2ZeroShotClassify
 
 ```python
-MetaClip2ZeroShotClassify(embed_dim=512, image_size=224,
-                          vision_num_layers=12, vision_hidden_dim=768,
-                          vision_patch_size=32, vision_num_heads=None,
-                          max_seq_len=77, vocab_size=901629,
-                          text_hidden_dim=512, text_num_heads=8,
-                          text_num_layers=12, vision_mlp_ratio=4.0,
-                          text_mlp_ratio=4.0, hidden_act='gelu',
-                          eos_token_id=2, input_tensor=None,
-                          name='MetaClip2ZeroShotClassify')
+MetaClip2ZeroShotClassify(
+    embed_dim=512,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=32,
+    vision_num_heads=None,
+    max_seq_len=77,
+    vocab_size=901629,
+    text_hidden_dim=512,
+    text_num_heads=8,
+    text_num_layers=12,
+    vision_mlp_ratio=4.0,
+    text_mlp_ratio=4.0,
+    hidden_act="gelu",
+    eos_token_id=2,
+    input_tensor=None,
+    name="MetaClip2ZeroShotClassify",
+)
 ```
 
 MetaCLIP 2 + contrastive similarity head for zero-shot classification / retrieval.
@@ -93,11 +116,18 @@ MetaCLIP 2 + contrastive similarity head for zero-shot classification / retrieva
 ### MetaClip2ImageClassify
 
 ```python
-MetaClip2ImageClassify(num_classes=1000, image_size=224,
-                       vision_num_layers=12, vision_hidden_dim=768,
-                       vision_patch_size=16, vision_num_heads=None,
-                       vision_mlp_ratio=4.0, hidden_act='gelu',
-                       input_tensor=None, name='MetaClip2ImageClassify')
+MetaClip2ImageClassify(
+    num_classes=1000,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=16,
+    vision_num_heads=None,
+    vision_mlp_ratio=4.0,
+    hidden_act="gelu",
+    input_tensor=None,
+    name="MetaClip2ImageClassify",
+)
 ```
 
 MetaCLIP 2 vision encoder + linear image-classification head.
@@ -118,11 +148,17 @@ MetaCLIP 2 vision encoder + linear image-classification head.
 ### MetaClip2VisionModel
 
 ```python
-MetaClip2VisionModel(image_size=224, vision_num_layers=12,
-                     vision_hidden_dim=768, vision_patch_size=32,
-                     vision_num_heads=None, vision_mlp_ratio=4.0,
-                     hidden_act='gelu', input_tensor=None,
-                     name='MetaClip2VisionModel')
+MetaClip2VisionModel(
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=32,
+    vision_num_heads=None,
+    vision_mlp_ratio=4.0,
+    hidden_act="gelu",
+    input_tensor=None,
+    name="MetaClip2VisionModel",
+)
 ```
 
 MetaCLIP 2 vision tower as a standalone model: no text encoder, no projection.
@@ -142,10 +178,18 @@ MetaCLIP 2 vision tower as a standalone model: no text encoder, no projection.
 ### MetaClip2TextModel
 
 ```python
-MetaClip2TextModel(max_seq_len=77, vocab_size=901629, text_hidden_dim=512,
-                   text_num_heads=8, text_num_layers=12, text_mlp_ratio=4.0,
-                   hidden_act='gelu', eos_token_id=2, input_tensor=None,
-                   name='MetaClip2TextModel')
+MetaClip2TextModel(
+    max_seq_len=77,
+    vocab_size=901629,
+    text_hidden_dim=512,
+    text_num_heads=8,
+    text_num_layers=12,
+    text_mlp_ratio=4.0,
+    hidden_act="gelu",
+    eos_token_id=2,
+    input_tensor=None,
+    name="MetaClip2TextModel",
+)
 ```
 
 MetaCLIP 2 text tower as a standalone model: no vision encoder, no projection.
@@ -171,11 +215,16 @@ MetaCLIP 2 text tower as a standalone model: no vision encoder, no projection.
 ### MetaClip2ImageProcessor
 
 ```python
-MetaClip2ImageProcessor(image_resolution=224,
-                        mean=(0.48145466, 0.4578275, 0.40821073),
-                        std=(0.26862954, 0.26130258, 0.27577711),
-                        do_center_crop=True, do_normalize=True,
-                        do_resize=True, square_resize=True, data_format=None)
+MetaClip2ImageProcessor(
+    image_resolution=224,
+    mean=(0.48145466, 0.4578275, 0.40821073),
+    std=(0.26862954, 0.26130258, 0.27577711),
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    square_resize=True,
+    data_format=None,
+)
 ```
 
 Image processor for MetaCLIP 2: direct square bicubic resize.
@@ -198,9 +247,15 @@ Resize geometry is not uniform across variants: most publish a square
 ### MetaClip2Tokenizer
 
 ```python
-MetaClip2Tokenizer(variant=None, tokenizer_file=None, max_seq_len=77,
-                   bos_token_id=0, eos_token_id=2, pad_token_id=1,
-                   unk_token_id=3)
+MetaClip2Tokenizer(
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=77,
+    bos_token_id=0,
+    eos_token_id=2,
+    pad_token_id=1,
+    unk_token_id=3,
+)
 ```
 
 XLM-RoBERTa tokenizer for MetaCLIP 2 worldwide variants (``tokenizers`` backend).
@@ -218,8 +273,13 @@ XLM-RoBERTa tokenizer for MetaCLIP 2 worldwide variants (``tokenizers`` backend)
 ### MetaClip2Mt5Tokenizer
 
 ```python
-MetaClip2Mt5Tokenizer(sentencepiece_model_file=None, max_seq_len=77,
-                      eos_token_id=1, pad_token_id=1, unk_token_id=2)
+MetaClip2Mt5Tokenizer(
+    sentencepiece_model_file=None,
+    max_seq_len=77,
+    eos_token_id=1,
+    pad_token_id=1,
+    unk_token_id=2,
+)
 ```
 
 SigLIP-style SentencePiece tokenizer for the MetaCLIP 2 mT5 variants.
@@ -238,12 +298,20 @@ based and has no `tokenizer.json`, so it is fetched as `spiece.model`.
 ### MetaClip2Processor
 
 ```python
-MetaClip2Processor(image_resolution=224,
-                   mean=(0.48145466, 0.4578275, 0.40821073),
-                   std=(0.26862954, 0.26130258, 0.27577711),
-                   do_center_crop=True, do_normalize=True, do_resize=True,
-                   data_format=None, variant=None, tokenizer_file=None,
-                   max_seq_len=77, tokenizer=None, image_processor=None)
+MetaClip2Processor(
+    image_resolution=224,
+    mean=(0.48145466, 0.4578275, 0.40821073),
+    std=(0.26862954, 0.26130258, 0.27577711),
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    data_format=None,
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=77,
+    tokenizer=None,
+    image_processor=None,
+)
 ```
 
 Combined image + text processor for MetaCLIP 2.
@@ -322,11 +390,13 @@ labels = [
     "a photo of a living room",
 ]
 inputs = processor(text=labels, image_paths="assets/data/coco_teddy_bears.jpg")
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["token_ids"],
-    "padding_mask": inputs["padding_mask"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["token_ids"],
+        "padding_mask": inputs["padding_mask"],
+    }
+)
 
 # (1, 4): one image, four class prompts.
 probs = keras.ops.convert_to_numpy(
@@ -366,15 +436,17 @@ labels = [
 ]
 
 inputs = processor(text=labels, image_paths=image_paths)
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["token_ids"],
-    "padding_mask": inputs["padding_mask"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["token_ids"],
+        "padding_mask": inputs["padding_mask"],
+    }
+)
 
 probs = keras.ops.convert_to_numpy(
     keras.ops.softmax(output["image_logits"], axis=-1)
-)                                        # (2, 4)
+)  # (2, 4)
 for path, row in zip(image_paths, probs):
     print(f"\n{path}")
     for label, p in zip(labels, row):
@@ -402,18 +474,20 @@ Scoring the same concept in four languages against one distractor:
 
 ```python
 labels = [
-    "a photo of teddy bears",           # English
-    "une photo d'ours en peluche",      # French
-    "una foto de ositos de peluche",    # Spanish
-    "ein Foto von Teddybären",          # German
-    "a photo of a truck",               # English distractor
+    "a photo of teddy bears",  # English
+    "une photo d'ours en peluche",  # French
+    "una foto de ositos de peluche",  # Spanish
+    "ein Foto von Teddybären",  # German
+    "a photo of a truck",  # English distractor
 ]
 inputs = processor(text=labels, image_paths="assets/data/coco_teddy_bears.jpg")
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["token_ids"],
-    "padding_mask": inputs["padding_mask"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["token_ids"],
+        "padding_mask": inputs["padding_mask"],
+    }
+)
 probs = keras.ops.convert_to_numpy(
     keras.ops.softmax(output["image_logits"], axis=-1)
 ).squeeze()

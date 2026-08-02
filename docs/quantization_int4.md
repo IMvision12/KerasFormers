@@ -37,8 +37,9 @@ automatically for anything else, so it is always safe to pass.
 ## Int4Config
 
 ```python
-Int4Config(group_size=32, skip_modules=("lm_head",), quantize_embeddings=True,
-           overrides=None)
+Int4Config(
+    group_size=32, skip_modules=("lm_head",), quantize_embeddings=True, overrides=None
+)
 ```
 
 The declarative recipe for int4. It is `QuantizationConfig` with `mode="int4"` fixed;

@@ -19,11 +19,24 @@ CLIP's similarity-matrix output makes it useful for many downstream tasks: zero-
 ### CLIPModel
 
 ```python
-CLIPModel(embed_dim=512, image_size=224, vision_num_layers=12, vision_hidden_dim=768,
-          vision_patch_size=32, max_seq_len=77, vocab_size=49408, text_hidden_dim=512,
-          text_num_heads=8, text_num_layers=12, vision_mlp_ratio=4.0,
-          text_mlp_ratio=4.0, hidden_act="quick_gelu", layer_norm_eps=1e-5,
-          input_tensor=None, name="CLIPModel")
+CLIPModel(
+    embed_dim=512,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=32,
+    max_seq_len=77,
+    vocab_size=49408,
+    text_hidden_dim=512,
+    text_num_heads=8,
+    text_num_layers=12,
+    vision_mlp_ratio=4.0,
+    text_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    input_tensor=None,
+    name="CLIPModel",
+)
 ```
 
 The dual encoder itself, and the base the other two classes build on. Returns
@@ -57,12 +70,24 @@ frozen features.
 ### CLIPZeroShotClassify
 
 ```python
-CLIPZeroShotClassify(embed_dim=512, image_size=224, vision_num_layers=12,
-                     vision_hidden_dim=768, vision_patch_size=32, max_seq_len=77,
-                     vocab_size=49408, text_hidden_dim=512, text_num_heads=8,
-                     text_num_layers=12, vision_mlp_ratio=4.0, text_mlp_ratio=4.0,
-                     hidden_act="quick_gelu", layer_norm_eps=1e-5,
-                     input_tensor=None, name="CLIPZeroShotClassify")
+CLIPZeroShotClassify(
+    embed_dim=512,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=32,
+    max_seq_len=77,
+    vocab_size=49408,
+    text_hidden_dim=512,
+    text_num_heads=8,
+    text_num_layers=12,
+    vision_mlp_ratio=4.0,
+    text_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    input_tensor=None,
+    name="CLIPZeroShotClassify",
+)
 ```
 
 `CLIPModel` plus the contrastive head: L2-normalize both sides, then scale the cosine
@@ -79,10 +104,18 @@ similarities by `logit_scale`. **This is the class for zero-shot classification.
 ### CLIPImageClassify
 
 ```python
-CLIPImageClassify(num_classes=1000, image_size=224, vision_num_layers=12,
-                  vision_hidden_dim=768, vision_patch_size=16, vision_mlp_ratio=4.0,
-                  hidden_act="quick_gelu", layer_norm_eps=1e-5, input_tensor=None,
-                  name="CLIPImageClassify")
+CLIPImageClassify(
+    num_classes=1000,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=16,
+    vision_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    input_tensor=None,
+    name="CLIPImageClassify",
+)
 ```
 
 The vision tower only (mean-pooled patches, no text side) with a linear head. Needs a
@@ -111,9 +144,17 @@ checkpoint whose head was actually trained, which no release variant has. See
 ### CLIPVisionModel
 
 ```python
-CLIPVisionModel(image_size=224, vision_num_layers=12, vision_hidden_dim=768,
-                vision_patch_size=32, vision_mlp_ratio=4.0, hidden_act="quick_gelu",
-                layer_norm_eps=1e-5, input_tensor=None, name="CLIPVisionModel")
+CLIPVisionModel(
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=32,
+    vision_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    input_tensor=None,
+    name="CLIPVisionModel",
+)
 ```
 
 The vision tower on its own: patch embedding plus the transformer stack, ending at the
@@ -140,9 +181,18 @@ only want image features.
 ### CLIPTextModel
 
 ```python
-CLIPTextModel(max_seq_len=77, vocab_size=49408, text_hidden_dim=512, text_num_heads=8,
-              text_num_layers=12, text_mlp_ratio=4.0, hidden_act="quick_gelu",
-              layer_norm_eps=1e-5, input_tensor=None, name="CLIPTextModel")
+CLIPTextModel(
+    max_seq_len=77,
+    vocab_size=49408,
+    text_hidden_dim=512,
+    text_num_heads=8,
+    text_num_layers=12,
+    text_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    input_tensor=None,
+    name="CLIPTextModel",
+)
 ```
 
 The text tower on its own: token and positional embedding, a causal-masked transformer
@@ -170,10 +220,18 @@ stack, the post-encoder LayerNorm, and the EOT-position pluck. No vision tower a
 ### CLIPImageEmbed
 
 ```python
-CLIPImageEmbed(embed_dim=512, image_size=224, vision_num_layers=12,
-               vision_hidden_dim=768, vision_patch_size=32, vision_mlp_ratio=4.0,
-               hidden_act="quick_gelu", layer_norm_eps=1e-5, input_tensor=None,
-               name="CLIPImageEmbed")
+CLIPImageEmbed(
+    embed_dim=512,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=32,
+    vision_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    input_tensor=None,
+    name="CLIPImageEmbed",
+)
 ```
 
 `CLIPVisionModel` plus the bias-free `visual_projection`, producing the same image side
@@ -191,10 +249,19 @@ as `CLIPModel` without instantiating the text tower or `logit_scale`.
 ### CLIPTextEmbed
 
 ```python
-CLIPTextEmbed(embed_dim=512, max_seq_len=77, vocab_size=49408, text_hidden_dim=512,
-              text_num_heads=8, text_num_layers=12, text_mlp_ratio=4.0,
-              hidden_act="quick_gelu", layer_norm_eps=1e-5, input_tensor=None,
-              name="CLIPTextEmbed")
+CLIPTextEmbed(
+    embed_dim=512,
+    max_seq_len=77,
+    vocab_size=49408,
+    text_hidden_dim=512,
+    text_num_heads=8,
+    text_num_layers=12,
+    text_mlp_ratio=4.0,
+    hidden_act="quick_gelu",
+    layer_norm_eps=1e-5,
+    input_tensor=None,
+    name="CLIPTextEmbed",
+)
 ```
 
 `CLIPTextModel` plus the bias-free `text_projection`, producing the same text side as
@@ -217,9 +284,15 @@ CLIPTextEmbed(embed_dim=512, max_seq_len=77, vocab_size=49408, text_hidden_dim=5
 ### CLIPImageProcessor
 
 ```python
-CLIPImageProcessor(image_resolution=224, mean=(0.48145466, 0.4578275, 0.40821073),
-                   std=(0.26862954, 0.26130258, 0.27577711), do_center_crop=True,
-                   do_normalize=True, do_resize=True, data_format=None)
+CLIPImageProcessor(
+    image_resolution=224,
+    mean=(0.48145466, 0.4578275, 0.40821073),
+    std=(0.26862954, 0.26130258, 0.27577711),
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    data_format=None,
+)
 ```
 
 Resizes the shortest edge to `image_resolution` with PIL bicubic, center-crops to a
@@ -243,9 +316,15 @@ an array. **Returns** a `dict`:
 ### CLIPTokenizer
 
 ```python
-CLIPTokenizer(variant=None, tokenizer_file=None, max_seq_len=77,
-              unk_token="<|endoftext|>", bos_token="<|startoftext|>",
-              eos_token="<|endoftext|>", pad_token="<|endoftext|>")
+CLIPTokenizer(
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=77,
+    unk_token="<|endoftext|>",
+    bos_token="<|startoftext|>",
+    eos_token="<|endoftext|>",
+    pad_token="<|endoftext|>",
+)
 ```
 
 Byte-level BPE on the `tokenizers` Rust backend. Loads the variant's `tokenizer.json`
@@ -266,11 +345,23 @@ from the `clip` release tag and applies CLIP's truncation and `<|endoftext|>` pa
 ### CLIPProcessor
 
 ```python
-CLIPProcessor(image_resolution=224, mean=..., std=..., do_center_crop=True,
-              do_normalize=True, do_resize=True, variant=None, tokenizer_file=None,
-              max_seq_len=77, unk_token="<|endoftext|>", bos_token="<|startoftext|>",
-              eos_token="<|endoftext|>", pad_token="<|endoftext|>", tokenizer=None,
-              image_processor=None)
+CLIPProcessor(
+    image_resolution=224,
+    mean=...,
+    std=...,
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=77,
+    unk_token="<|endoftext|>",
+    bos_token="<|startoftext|>",
+    eos_token="<|endoftext|>",
+    pad_token="<|endoftext|>",
+    tokenizer=None,
+    image_processor=None,
+)
 ```
 
 A `CLIPImageProcessor` and a `CLIPTokenizer` behind one callable. Takes the union of
@@ -321,11 +412,13 @@ labels = [
     "a photo of green apples",
 ]
 inputs = processor(text=labels, image_paths="assets/data/coco_cats.jpg")
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["input_ids"],
-    "padding_mask": inputs["attention_mask"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["input_ids"],
+        "padding_mask": inputs["attention_mask"],
+    }
+)
 
 # (1, 4): one image, four class prompts. Softmax over the text axis.
 probs = keras.ops.convert_to_numpy(
@@ -371,15 +464,17 @@ labels = [
 ]
 
 inputs = processor(text=labels, image_paths=image_paths)
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["input_ids"],
-    "padding_mask": inputs["attention_mask"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["input_ids"],
+        "padding_mask": inputs["attention_mask"],
+    }
+)
 
 probs = keras.ops.convert_to_numpy(
     keras.ops.softmax(output["image_logits"], axis=-1)
-)                                        # (2, 4)
+)  # (2, 4)
 for path, row in zip(image_paths, probs):
     print(f"\n{path}")
     for label, p in zip(labels, row):
@@ -419,8 +514,8 @@ from kerasformers.models.clip import CLIPImageClassify, CLIPImageProcessor
 model = CLIPImageClassify.from_weights("hf:<user>/clip-finetuned-imagenet")
 image_processor = CLIPImageProcessor()
 
-inputs = image_processor("cat.jpg")          # {"pixel_values": (1, 224, 224, 3)}
-logits = model(inputs["pixel_values"])       # (B, num_classes)
+inputs = image_processor("cat.jpg")  # {"pixel_values": (1, 224, 224, 3)}
+logits = model(inputs["pixel_values"])  # (B, num_classes)
 pred = keras.ops.argmax(logits, axis=-1)
 ```
 
@@ -431,16 +526,16 @@ Construct from scratch for fine-tuning on a new dataset:
 
 ```python
 model = CLIPImageClassify(
-    num_classes=10,                  # your class count
+    num_classes=10,  # your class count
     image_size=224,
     vision_num_layers=12,
     vision_hidden_dim=768,
     vision_patch_size=16,
     vision_mlp_ratio=4.0,
-    hidden_act="quick_gelu",         # or "gelu" / "gelu_new"
+    hidden_act="quick_gelu",  # or "gelu" / "gelu_new"
     layer_norm_eps=1e-5,
 )
-model.output_shape                   # (None, 10)
+model.output_shape  # (None, 10)
 ```
 
 Mind the argument names. Keras forwards unrecognized keywords up to `Model`, so a
@@ -452,8 +547,12 @@ You can also warm-start the vision encoder from a `CLIPModel` checkpoint (the en
 ```python
 src = CLIPModel.from_weights("clip_vit_base_16")
 ac = CLIPImageClassify(
-    num_classes=10, image_size=224, vision_num_layers=12,
-    vision_hidden_dim=768, vision_patch_size=16, vision_mlp_ratio=4.0,
+    num_classes=10,
+    image_size=224,
+    vision_num_layers=12,
+    vision_hidden_dim=768,
+    vision_patch_size=16,
+    vision_mlp_ratio=4.0,
 )
 # Transfer the vision encoder weights; leave the classifier random
 for src_layer, dst_layer in zip(src.layers, ac.layers):
@@ -500,11 +599,13 @@ model = CLIPZeroShotClassify.from_weights("clip_vit_base_16")
 
 inputs = processor(text=labels, image_paths="assets/data/coco_cats.jpg")
 # inputs["images"] is (1, 3, 224, 224)
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["input_ids"],
-    "padding_mask": inputs["attention_mask"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["input_ids"],
+        "padding_mask": inputs["attention_mask"],
+    }
+)
 ```
 
 The probabilities are the same under either layout. Only the tensor shape changes.

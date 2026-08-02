@@ -42,8 +42,8 @@ model = XLMRobertaModel.from_weights("xlm_roberta_base")
 tokenizer = XLMRobertaTokenizer.from_weights("xlm_roberta_base")
 
 out = model(tokenizer(["Hello, world.", "Bonjour le monde."]))
-out["last_hidden_state"]   # (2, L, 768)
-out["pooler_output"]       # (2, 768)
+out["last_hidden_state"]  # (2, L, 768)
+out["pooler_output"]  # (2, 768)
 ```
 
 ### Available variants
@@ -75,7 +75,7 @@ what `XLMRobertaTokenizer` returns (segment ids are always `0`):
 
 ```python
 inputs = {
-    "input_ids":      input_ids,       # (B, L) int
+    "input_ids": input_ids,  # (B, L) int
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: all 0
 }
@@ -94,16 +94,17 @@ mlm = XLMRobertaMaskedLM.from_weights("xlm_roberta_base")
 tokenizer = XLMRobertaTokenizer.from_weights("xlm_roberta_base")
 
 inputs = tokenizer("La capitale de la France est <mask>.")
-logits = mlm(inputs)                                  # (1, L, vocab_size)
+logits = mlm(inputs)  # (1, L, vocab_size)
 mask = int((inputs["input_ids"][0] == tokenizer.mask_token_id).argmax())
-print(tokenizer.decode([int(logits[0, mask].argmax())]))   # -> "Paris"
+print(tokenizer.decode([int(logits[0, mask].argmax())]))  # -> "Paris"
 ```
 
 ### Classification (community fine-tunes)
 
 ```python
 from kerasformers.models.xlm_roberta import (
-    XLMRobertaSequenceClassify, XLMRobertaTokenClassify,
+    XLMRobertaSequenceClassify,
+    XLMRobertaTokenClassify,
 )
 
 # multilingual sentiment

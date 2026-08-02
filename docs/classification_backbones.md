@@ -16,11 +16,11 @@ from kerasformers.models.resnet import ResNetImageClassify, ResNetModel
 
 # Full classifier - 1000-class logits
 classifier = ResNetImageClassify.from_weights("resnet50_a1_in1k")
-logits = classifier(images)                                 # (B, 1000)
+logits = classifier(images)  # (B, 1000)
 
 # Just the backbone - last-stage feature map, no head
 backbone = ResNetModel.from_weights("resnet50_a1_in1k")
-feature_map = backbone(images)                              # (B, H/32, W/32, 2048)
+feature_map = backbone(images)  # (B, H/32, W/32, 2048)
 ```
 
 The same pattern works for every classification arch - swap `ResNet` for `CaiT`, `ViT`, `ConvNeXt`, `EfficientNet`, `Swin`, `MobileNetV3`, etc.
@@ -69,8 +69,10 @@ Both classes use the same variant registry, so any string you can pass to one wo
 
 ```python
 ResNetImageClassify.from_weights("resnet50_a1_in1k")
-ResNetModel.from_weights("resnet50_a1_in1k")            # same weights, no Dense head
-ResNetModel.from_weights("hf:timm/resnet50.a1_in1k")    # any timm variant via the hf: prefix
+ResNetModel.from_weights("resnet50_a1_in1k")  # same weights, no Dense head
+ResNetModel.from_weights(
+    "hf:timm/resnet50.a1_in1k"
+)  # any timm variant via the hf: prefix
 ```
 
 Under the hood `XModel.from_variant` warm-starts from `XImageClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
@@ -87,22 +89,24 @@ from kerasformers.models.convnext import ConvNeXtModel
 backbone = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k")
 
 # Option 1: Sequential with a custom head
-model = keras.Sequential([
-    backbone,
-    layers.GlobalAveragePooling2D(),
-    layers.Dense(num_classes, name="predictions"),
-])
+model = keras.Sequential(
+    [
+        backbone,
+        layers.GlobalAveragePooling2D(),
+        layers.Dense(num_classes, name="predictions"),
+    ]
+)
 
 # Option 2: Functional API with intermediate fan-out
 inputs = backbone.input
-features = backbone.output                                # (B, H/32, W/32, 1024)
+features = backbone.output  # (B, H/32, W/32, 1024)
 pooled = layers.GlobalAveragePooling2D()(features)
 logits = layers.Dense(num_classes)(pooled)
 model = keras.Model(inputs, logits)
 
 # Option 3: Reach into the per-stage outputs for FPN / segmentation
 multi = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k", as_backbone=True)
-c2, c3, c4, c5 = multi.output                              # 4 stages
+c2, c3, c4, c5 = multi.output  # 4 stages
 # ...feed c2..c5 into an FPN
 ```
 
@@ -119,12 +123,14 @@ import keras
 from keras import layers
 from kerasformers.models.resnet import ResNetModel
 
-backbone = ResNetModel.from_weights("resnet50_a1_in1k")     # strict load, no skip
-classifier = keras.Sequential([
-    backbone,
-    layers.GlobalAveragePooling2D(),
-    layers.Dense(10, activation="softmax"),                 # new head, randomly init
-])
+backbone = ResNetModel.from_weights("resnet50_a1_in1k")  # strict load, no skip
+classifier = keras.Sequential(
+    [
+        backbone,
+        layers.GlobalAveragePooling2D(),
+        layers.Dense(10, activation="softmax"),  # new head, randomly init
+    ]
+)
 ```
 
 ### Path B: `XImageClassify` + `skip_mismatch=True` (convenient)
@@ -137,7 +143,7 @@ from kerasformers.models.resnet import ResNetImageClassify
 model = ResNetImageClassify.from_weights(
     "resnet50_a1_in1k",
     num_classes=10,
-    skip_mismatch=True,    # head Dense reshaped (1000→10), reset to random init
+    skip_mismatch=True,  # head Dense reshaped (1000→10), reset to random init
 )
 ```
 
@@ -151,20 +157,22 @@ Either path supports `trainable = False`:
 
 ```python
 backbone = ResNetModel.from_weights("resnet50_a1_in1k")
-backbone.trainable = False     # whole backbone frozen
+backbone.trainable = False  # whole backbone frozen
 
-model = keras.Sequential([
-    backbone,
-    layers.GlobalAveragePooling2D(),
-    layers.Dense(10, activation="softmax"),
-])
+model = keras.Sequential(
+    [
+        backbone,
+        layers.GlobalAveragePooling2D(),
+        layers.Dense(10, activation="softmax"),
+    ]
+)
 ```
 
 Or partial:
 
 ```python
 backbone = ResNetModel.from_weights("resnet50_a1_in1k")
-for layer in backbone.layers[:-30]:    # freeze all but last 30 layers
+for layer in backbone.layers[:-30]:  # freeze all but last 30 layers
     layer.trainable = False
 ```
 

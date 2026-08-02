@@ -58,8 +58,9 @@ once and prompt many times without paying for the ViT again.
 ### SAMImageProcessorWithPrompts
 
 ```python
-SAMImageProcessorWithPrompts(target_length=1024, image_mean=None,
-                             image_std=None, data_format=None)
+SAMImageProcessorWithPrompts(
+    target_length=1024, image_mean=None, image_std=None, data_format=None
+)
 ```
 
 Resizes the long edge to `target_length`, pads to a square, normalizes, and rescales
@@ -89,8 +90,9 @@ rescale to 1024, so you never convert by hand.
 **post_process_masks**
 
 ```python
-processor.post_process_masks(pred_masks, original_size, reshaped_size,
-                             target_length=None)
+processor.post_process_masks(
+    pred_masks, original_size, reshaped_size, target_length=None
+)
 ```
 
 Removes the padding, upsamples the 256×256 decoder output back to the original
@@ -124,7 +126,8 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam import (
-    SAMImageProcessorWithPrompts, SAMPromptableSegment,
+    SAMImageProcessorWithPrompts,
+    SAMPromptableSegment,
 )
 
 model = SAMPromptableSegment.from_weights("sam_vit_base")
@@ -188,7 +191,7 @@ Add a **negative** point (label `0`) to carve a region out:
 inputs = processor(
     image,
     input_points=np.array([[[[450, 200], [150, 250]]]], dtype="float32"),
-    input_labels=np.array([[[1, 0]]], dtype="int32"),   # 1 = keep, 0 = exclude
+    input_labels=np.array([[[1, 0]]], dtype="int32"),  # 1 = keep, 0 = exclude
 )
 ```
 
@@ -216,8 +219,11 @@ agreement with your prompt. Filter first, then rank:
 
 ```python
 neg = [(x, y) for (x, y), lab in zip(points, labels) if lab == 0]
-valid = [i for i in range(masks.shape[2])
-         if not any((masks[0, 0, i] > 0)[y, x] for x, y in neg)]
+valid = [
+    i
+    for i in range(masks.shape[2])
+    if not any((masks[0, 0, i] > 0)[y, x] for x, y in neg)
+]
 best = max(valid, key=lambda i: iou[i]) if valid else int(np.argmax(iou))
 ```
 
@@ -234,7 +240,8 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam import (
-    SAMImageProcessorWithPrompts, SAMPromptableSegment,
+    SAMImageProcessorWithPrompts,
+    SAMPromptableSegment,
 )
 
 # enable_boxes adds input_boxes and has_boxes_input to the graph
@@ -278,10 +285,11 @@ model = SAMPromptableSegment.from_weights("sam_vit_base")
 
 with torch.no_grad():
     result = SAMGenerateMasks(
-        model, "assets/data/coco_cats.jpg",
-        points_per_side=12,             # 12 x 12 = 144 candidate clicks
+        model,
+        "assets/data/coco_cats.jpg",
+        points_per_side=12,  # 12 x 12 = 144 candidate clicks
         points_per_batch=8,
-        stability_score_thresh=0.85,    # the default 0.95 drops the cats
+        stability_score_thresh=0.85,  # the default 0.95 drops the cats
     )
 
 print(sorted(result))
@@ -355,15 +363,19 @@ with torch.no_grad():
 
 # Then pay only for the decoder on each new click.
 for x, y in [(450, 200), (150, 250)]:
-    inputs = processor(image,
-                       input_points=np.array([[[[x, y]]]], "float32"),
-                       input_labels=np.array([[[1]]], "int32"))
+    inputs = processor(
+        image,
+        input_points=np.array([[[[x, y]]]], "float32"),
+        input_labels=np.array([[[1]]], "int32"),
+    )
     with torch.no_grad():
-        output = model.prompt_decoder_model({
-            "image_embeddings": embedding,
-            "input_points": inputs["input_points"],
-            "input_labels": inputs["input_labels"],
-        })
+        output = model.prompt_decoder_model(
+            {
+                "image_embeddings": embedding,
+                "input_points": inputs["input_points"],
+                "input_labels": inputs["input_labels"],
+            }
+        )
     masks = processor.post_process_masks(
         output["pred_masks"],
         original_size=inputs["original_size"],

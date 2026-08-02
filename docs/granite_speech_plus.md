@@ -69,8 +69,15 @@ the table above; `from_weights` fills them in.
 **generate**
 
 ```python
-model.generate(input_ids, attention_mask=None, max_new_tokens=None,
-               eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+model.generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 Call it as `model.generate(**inputs, max_new_tokens=...)` with the processor's output; the
@@ -91,8 +98,14 @@ with `processor.tokenizer.decode`.
 `GraniteSpeechPlusProcessor` takes the same call as Granite Speech's:
 
 ```python
-processor(text=None, audio=None, conversation=None, messages=None,
-          sampling_rate=16000, add_generation_prompt=True)
+processor(
+    text=None,
+    audio=None,
+    conversation=None,
+    messages=None,
+    sampling_rate=16000,
+    add_generation_prompt=True,
+)
 ```
 
 **Returns** `input_ids`, `attention_mask`, `input_features`, and `input_features_mask`.
@@ -119,13 +132,15 @@ REALLY GREEK AFTER ALL AND CAN DISCOVER IN IT BUT LITTLE OF ROCKY ITHACA"*.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import keras
 import numpy as np
 import soundfile as sf
 from kerasformers.models.granite_speech_plus import (
-    GraniteSpeechPlusGenerate, GraniteSpeechPlusProcessor,
+    GraniteSpeechPlusGenerate,
+    GraniteSpeechPlusProcessor,
 )
 
 model = GraniteSpeechPlusGenerate.from_weights(
@@ -133,12 +148,20 @@ model = GraniteSpeechPlusGenerate.from_weights(
 )
 processor = GraniteSpeechPlusProcessor.from_weights("granite_speech_4_1_2b_plus")
 
-audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")  # 16 kHz mono
 
-conversation = [{"role": "user", "content": [
-    {"type": "audio"},
-    {"type": "text", "text": "can you transcribe the speech into a written format?"},
-]}]
+conversation = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "audio"},
+            {
+                "type": "text",
+                "text": "can you transcribe the speech into a written format?",
+            },
+        ],
+    }
+]
 
 inputs = processor(conversation=conversation, audio=audio, sampling_rate=sr)
 out = model.generate(**inputs, max_new_tokens=64)
@@ -172,7 +195,7 @@ import soundfile as sf
 
 audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")
 if audio.ndim > 1:
-    audio = audio.mean(axis=1)                     # stereo to mono
+    audio = audio.mean(axis=1)  # stereo to mono
 if sr != 16000:
     audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
 ```
@@ -181,7 +204,8 @@ if sr != 16000:
 
 ```python
 from kerasformers.models.granite_speech_plus import (
-    GraniteSpeechPlusGenerate, GraniteSpeechPlusProcessor,
+    GraniteSpeechPlusGenerate,
+    GraniteSpeechPlusProcessor,
 )
 
 model = GraniteSpeechPlusGenerate.from_weights(

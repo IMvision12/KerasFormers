@@ -45,8 +45,8 @@ model = RobertaModel.from_weights("roberta_base")
 tokenizer = RobertaTokenizer.from_weights("roberta_base")
 
 out = model(tokenizer("Hello, world."))
-out["last_hidden_state"]   # (1, L, 768)
-out["pooler_output"]       # (1, 768)
+out["last_hidden_state"]  # (1, L, 768)
+out["pooler_output"]  # (1, 768)
 ```
 
 ### Available variants
@@ -80,7 +80,7 @@ what `RobertaTokenizer` returns (segment ids are always `0` for RoBERTa):
 
 ```python
 inputs = {
-    "input_ids":      input_ids,       # (B, L) int
+    "input_ids": input_ids,  # (B, L) int
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: all 0
 }
@@ -99,9 +99,9 @@ mlm = RobertaMaskedLM.from_weights("roberta_base")
 tokenizer = RobertaTokenizer.from_weights("roberta_base")
 
 inputs = tokenizer("The capital of France is <mask>.")
-logits = mlm(inputs)                                  # (1, L, vocab_size)
+logits = mlm(inputs)  # (1, L, vocab_size)
 mask = int((inputs["input_ids"][0] == tokenizer.mask_token_id).argmax())
-print(tokenizer.decode([int(logits[0, mask].argmax())]))   # -> " Paris"
+print(tokenizer.decode([int(logits[0, mask].argmax())]))  # -> " Paris"
 ```
 
 ### Classification (community fine-tunes)

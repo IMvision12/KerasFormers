@@ -19,13 +19,20 @@ The output is **relative inverse depth**: a bigger value means closer, and the u
 ### DepthAnythingV1DepthEstimation
 
 ```python
-DepthAnythingV1DepthEstimation(backbone_dim=384, backbone_depth=12,
-                               backbone_num_heads=6, out_indices=None,
-                               neck_hidden_sizes=None, fusion_hidden_size=64,
-                               reassemble_factors=None,
-                               depth_estimation_type="relative", max_depth=1.0,
-                               image_size=518, input_tensor=None,
-                               name="DepthAnythingV1DepthEstimation")
+DepthAnythingV1DepthEstimation(
+    backbone_dim=384,
+    backbone_depth=12,
+    backbone_num_heads=6,
+    out_indices=None,
+    neck_hidden_sizes=None,
+    fusion_hidden_size=64,
+    reassemble_factors=None,
+    depth_estimation_type="relative",
+    max_depth=1.0,
+    image_size=518,
+    input_tensor=None,
+    name="DepthAnythingV1DepthEstimation",
+)
 ```
 
 The DINOv2 backbone, DPT neck, and depth head. **This is the class for depth
@@ -52,10 +59,18 @@ estimation.**
 ### DepthAnythingV1Model
 
 ```python
-DepthAnythingV1Model(backbone_dim=384, backbone_depth=12, backbone_num_heads=6,
-                     out_indices=None, neck_hidden_sizes=None,
-                     fusion_hidden_size=64, reassemble_factors=None,
-                     image_size=518, input_tensor=None, name="DepthAnythingV1Model")
+DepthAnythingV1Model(
+    backbone_dim=384,
+    backbone_depth=12,
+    backbone_num_heads=6,
+    out_indices=None,
+    neck_hidden_sizes=None,
+    fusion_hidden_size=64,
+    reassemble_factors=None,
+    image_size=518,
+    input_tensor=None,
+    name="DepthAnythingV1Model",
+)
 ```
 
 The backbone and DPT neck alone, without the head, returning the fused pyramid at quarter
@@ -71,8 +86,9 @@ resolution (`(B, 296, 296, 64)` for a 518 input). Use it as a feature extractor.
 ### DepthAnythingV1ImageProcessor
 
 ```python
-DepthAnythingV1ImageProcessor(target_size=518, image_mean=None, image_std=None,
-                              data_format=None)
+DepthAnythingV1ImageProcessor(
+    target_size=518, image_mean=None, image_std=None, data_format=None
+)
 ```
 
 Stretches the image to a square `target_size` and normalizes with ImageNet statistics.
@@ -89,7 +105,9 @@ Stretches the image to a square `target_size` and normalizes with ImageNet stati
 **post_process_depth_estimation**
 
 ```python
-processor.post_process_depth_estimation(predicted_depth, original_size, data_format=None)
+processor.post_process_depth_estimation(
+    predicted_depth, original_size, data_format=None
+)
 ```
 
 Resamples the prediction back to `original_size`, given as `(height, width)`, and
@@ -118,7 +136,8 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.depth_anything_v1 import (
-    DepthAnythingV1DepthEstimation, DepthAnythingV1ImageProcessor,
+    DepthAnythingV1DepthEstimation,
+    DepthAnythingV1ImageProcessor,
 )
 
 model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_large")
@@ -166,7 +185,8 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.depth_anything_v1 import (
-    DepthAnythingV1DepthEstimation, DepthAnythingV1ImageProcessor,
+    DepthAnythingV1DepthEstimation,
+    DepthAnythingV1ImageProcessor,
 )
 
 model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_large")
@@ -176,11 +196,14 @@ paths = ["assets/data/coco_dog_woods.jpg", "assets/data/ade_val_1.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
 pixel_values = np.concatenate(
-    [np.asarray(keras.ops.convert_to_numpy(processor(p)["pixel_values"])) for p in paths],
+    [
+        np.asarray(keras.ops.convert_to_numpy(processor(p)["pixel_values"]))
+        for p in paths
+    ],
     axis=0,
-)   # (2, 518, 518, 3)
+)  # (2, 518, 518, 3)
 with torch.no_grad():
-    output = model(pixel_values, training=False)   # (2, 518, 518, 1)
+    output = model(pixel_values, training=False)  # (2, 518, 518, 1)
 
 for path, image, logits in zip(paths, images, output):
     depth = processor.post_process_depth_estimation(
@@ -267,7 +290,9 @@ from kerasformers.models.depth_anything_v1 import DepthAnythingV1DepthEstimation
 model = DepthAnythingV1DepthEstimation.from_weights(
     "hf:LiheYoung/depth-anything-large-hf"
 )
-model = DepthAnythingV1DepthEstimation.from_weights("hf:<user>/depth-anything-finetuned")
+model = DepthAnythingV1DepthEstimation.from_weights(
+    "hf:<user>/depth-anything-finetuned"
+)
 
 # Architecture only, randomly initialized
 model = DepthAnythingV1DepthEstimation.from_weights(

@@ -26,11 +26,23 @@ mapping the top three components to RGB.
 ### DinoViTModel
 
 ```python
-DinoViTModel(as_backbone=False, patch_size=16, embed_dim=384, depth=12,
-             num_heads=6, mlp_ratio=4.0, qkv_bias=True, qk_norm=False,
-             drop_rate=0.0, attn_drop_rate=0.0, include_normalization=True,
-             normalization_mode="imagenet", image_size=224,
-             input_tensor=None, name="DinoViTModel")
+DinoViTModel(
+    as_backbone=False,
+    patch_size=16,
+    embed_dim=384,
+    depth=12,
+    num_heads=6,
+    mlp_ratio=4.0,
+    qkv_bias=True,
+    qk_norm=False,
+    drop_rate=0.0,
+    attn_drop_rate=0.0,
+    include_normalization=True,
+    normalization_mode="imagenet",
+    image_size=224,
+    input_tensor=None,
+    name="DinoViTModel",
+)
 ```
 
 The DINO Vision Transformer. **This is the main backbone class.**
@@ -54,9 +66,16 @@ token sequence `(B, 1 + num_patches, embed_dim)`, the leading token being `[CLS]
 ### DinoResNetModel
 
 ```python
-DinoResNetModel(as_backbone=False, depths=None, filters=None,
-                include_normalization=True, normalization_mode="imagenet",
-                image_size=224, input_tensor=None, name="DinoResNetModel")
+DinoResNetModel(
+    as_backbone=False,
+    depths=None,
+    filters=None,
+    include_normalization=True,
+    normalization_mode="imagenet",
+    image_size=224,
+    input_tensor=None,
+    name="DinoResNetModel",
+)
 ```
 
 The DINO ResNet-50 backbone, for a convolutional alternative. **Returns** the final
@@ -101,12 +120,12 @@ size, patch = 448, 16
 model = DinoViTModel.from_weights("dino_vits16", image_size=size)
 
 image = Image.open("assets/data/coco_bear.jpg").convert("RGB")
-x = np.asarray(image.resize((size, size)))[None].astype("float32")   # raw [0, 255]
+x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
 
 with torch.no_grad():
     tokens = model(x, training=False)
 tokens = np.asarray(keras.ops.convert_to_numpy(tokens))[0]
-print(tokens.shape)   # (1 + num_patches, embed_dim)
+print(tokens.shape)  # (1 + num_patches, embed_dim)
 
 # PCA the patch tokens (drop the CLS token) to RGB.
 grid = size // patch
@@ -150,13 +169,15 @@ model = DinoViTModel.from_weights("dino_vits16", image_size=size)
 
 paths = ["assets/data/coco_elephants.jpg", "assets/data/coco_horse_jump.jpg"]
 batch = np.stack(
-    [np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
-     for p in paths]
-)   # (2, 448, 448, 3)
+    [
+        np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
+        for p in paths
+    ]
+)  # (2, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)
-print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)   # (2, 785, 384)
+print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 785, 384)
 ```
 
 ```
@@ -173,8 +194,8 @@ DPT-style neck or an FPN:
 
 ```python
 model = DinoViTModel.from_weights("dino_vits16", as_backbone=True, image_size=size)
-features = model(x, training=False)   # x from above, at 448
-print(len(features), features[-1].shape)   # 13  (1, 785, 384)
+features = model(x, training=False)  # x from above, at 448
+print(len(features), features[-1].shape)  # 13  (1, 785, 384)
 ```
 
 `DinoResNetModel(as_backbone=True)` gives the four convolutional stage maps instead.
@@ -187,8 +208,9 @@ The ViT works in token space, so it is layout-agnostic. `DinoResNetModel` reads
 
 ```python
 import keras
+
 keras.config.set_image_data_format("channels_first")
-model = DinoResNetModel.from_weights("dino_resnet50")   # output (B, 2048, 7, 7)
+model = DinoResNetModel.from_weights("dino_resnet50")  # output (B, 2048, 7, 7)
 ```
 
 ## Input Resolution

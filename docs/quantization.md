@@ -23,15 +23,16 @@ class. The rest of this page is the machinery they share.
 from kerasformers.models.qwen3 import Qwen3Generate
 
 # load + quantize in one call
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int8")   # ~4x smaller
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")   # ~8x smaller
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="fp8")    # ~4x (torch/jax)
+model = Qwen3Generate.from_weights("qwen3-4b", quantization="int8")  # ~4x smaller
+model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")  # ~8x smaller
+model = Qwen3Generate.from_weights("qwen3-4b", quantization="fp8")  # ~4x (torch/jax)
 
 # or quantize a model you already built/loaded
 from kerasformers.quantization import quantize_model
-quantize_model(model, "int8")                 # in place
+
+quantize_model(model, "int8")  # in place
 quantize_model(model, "int4", group_size=64)  # int4 block size (default 32)
-quantize_model(model, "fp8")                  # float8 e4m3 (torch / jax)
+quantize_model(model, "fp8")  # float8 e4m3 (torch / jax)
 ```
 
 `quantization=` is wired through `from_weights` for every model (release variants
@@ -59,13 +60,14 @@ and skipping accuracy-sensitive layers:
 from kerasformers.quantization import quantize_model, QuantizationConfig
 
 cfg = QuantizationConfig(
-    mode="int4", group_size=128,
-    skip_modules=("lm_head",),               # keep these layers in float
+    mode="int4",
+    group_size=128,
+    skip_modules=("lm_head",),  # keep these layers in float
     quantize_embeddings=True,
-    overrides={"decoder_layer_0": "int8"},   # per-layer precision
+    overrides={"decoder_layer_0": "int8"},  # per-layer precision
 )
 quantize_model(model, cfg)
-quantize_model(model, "int4-g128")           # or a named scheme
+quantize_model(model, "int4-g128")  # or a named scheme
 ```
 
 **Save / load / revert:**
@@ -73,13 +75,13 @@ quantize_model(model, "int4-g128")           # or a named scheme
 ```python
 from kerasformers.quantization import save_quantized, load_quantized, dequantize_model
 
-save_quantized(model, "model.weights.h5")    # int weights + ".quant.json" sidecar
+save_quantized(model, "model.weights.h5")  # int weights + ".quant.json" sidecar
 
 skeleton = Qwen3Generate.from_weights("qwen3-4b", load_weights=False)
-skeleton(dummy_inputs)                        # build the float architecture
+skeleton(dummy_inputs)  # build the float architecture
 load_quantized(skeleton, "model.weights.h5")  # replay config + load int weights
 
-dequantize_model(model)                       # revert to float layers
+dequantize_model(model)  # revert to float layers
 ```
 
 **MoE and functional models:** `quantize_model` also quantizes **fused MoE
@@ -89,7 +91,7 @@ functional graph can't be mutated in place, so it is **cloned**: use the
 returned model:
 
 ```python
-qmodel = quantize_model(vit_model, "int8")    # functional -> returns a NEW model
+qmodel = quantize_model(vit_model, "int8")  # functional -> returns a NEW model
 ```
 
 ## How it works

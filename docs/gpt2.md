@@ -26,7 +26,7 @@ approximation (`gelu_new`), and the blocks are pre-LayerNorm with a final `ln_f`
 ```python
 from kerasformers.models.gpt2 import GPT2Generate, GPT2Tokenizer
 
-model = GPT2Generate.from_weights("gpt2")        # or "gpt2_medium" / "_large" / "_xl"
+model = GPT2Generate.from_weights("gpt2")  # or "gpt2_medium" / "_large" / "_xl"
 tok = GPT2Tokenizer()
 ids = model.generate(tok("The meaning of life is")["input_ids"], max_new_tokens=40)
 print(tok.decode(ids[0]))

@@ -25,13 +25,23 @@ padded, longer ones need chunking.
 ### WhisperSpeechToText
 
 ```python
-WhisperSpeechToText(hidden_dim=384, encoder_num_layers=4, decoder_num_layers=4,
-                    encoder_attention_heads=6, decoder_attention_heads=6,
-                    encoder_ffn_dim=1536, decoder_ffn_dim=1536, num_mel_bins=80,
-                    max_source_positions=1500, max_target_positions=448,
-                    vocab_size=51865, activation_function="gelu",
-                    layer_norm_eps=1e-05, scale_embedding=False,
-                    name="WhisperSpeechToText")
+WhisperSpeechToText(
+    hidden_dim=384,
+    encoder_num_layers=4,
+    decoder_num_layers=4,
+    encoder_attention_heads=6,
+    decoder_attention_heads=6,
+    encoder_ffn_dim=1536,
+    decoder_ffn_dim=1536,
+    num_mel_bins=80,
+    max_source_positions=1500,
+    max_target_positions=448,
+    vocab_size=51865,
+    activation_function="gelu",
+    layer_norm_eps=1e-05,
+    scale_embedding=False,
+    name="WhisperSpeechToText",
+)
 ```
 
 The encoder, decoder, and tied LM head, plus a `generate` that owns the whole
@@ -58,9 +68,18 @@ instead, which runs the whole loop.
 **generate**
 
 ```python
-model.generate(audio, processor, language="en", task="transcribe",
-               no_timestamps=True, max_new_tokens=224, sampling_rate=16000,
-               return_ids=False, suppress_tokens=None, begin_suppress_tokens=None)
+model.generate(
+    audio,
+    processor,
+    language="en",
+    task="transcribe",
+    no_timestamps=True,
+    max_new_tokens=224,
+    sampling_rate=16000,
+    return_ids=False,
+    suppress_tokens=None,
+    begin_suppress_tokens=None,
+)
 ```
 
 - **audio**: a 1-D float32 waveform in `[-1, 1]`, or a list of them for a batch.
@@ -88,12 +107,20 @@ The encoder-decoder without the LM head, for features or a custom head. Same arg
 ### WhisperAudioClassify
 
 ```python
-WhisperAudioClassify(hidden_dim=384, encoder_num_layers=4,
-                     encoder_attention_heads=6, encoder_ffn_dim=1536,
-                     num_mel_bins=80, max_source_positions=1500, num_classes=2,
-                     classifier_proj_size=256, use_weighted_layer_sum=False,
-                     activation_function="gelu", layer_norm_eps=1e-05,
-                     name="WhisperAudioClassify")
+WhisperAudioClassify(
+    hidden_dim=384,
+    encoder_num_layers=4,
+    encoder_attention_heads=6,
+    encoder_ffn_dim=1536,
+    num_mel_bins=80,
+    max_source_positions=1500,
+    num_classes=2,
+    classifier_proj_size=256,
+    use_weighted_layer_sum=False,
+    activation_function="gelu",
+    layer_norm_eps=1e-05,
+    name="WhisperAudioClassify",
+)
 ```
 
 The encoder plus a pooling classification head, for tasks like language ID.
@@ -110,8 +137,9 @@ The encoder plus a pooling classification head, for tasks like language ID.
 ### WhisperFeatureExtractor
 
 ```python
-WhisperFeatureExtractor(sampling_rate=16000, n_fft=400, hop_length=160,
-                        n_mels=80, chunk_length=30)
+WhisperFeatureExtractor(
+    sampling_rate=16000, n_fft=400, hop_length=160, n_mels=80, chunk_length=30
+)
 ```
 
 Pads or trims the waveform to `chunk_length` seconds and computes a log-mel spectrogram.
@@ -129,10 +157,20 @@ Pads or trims the waveform to `chunk_length` seconds and computes a log-mel spec
 ### WhisperProcessor
 
 ```python
-WhisperProcessor(variant="whisper_tiny", n_mels=80, sampling_rate=16000,
-                 n_fft=400, hop_length=160, chunk_length=30,
-                 tokenizer_file=None, bos_token_id=50257, eos_token_id=50257,
-                 pad_token_id=50257, tokenizer=None, feature_extractor=None)
+WhisperProcessor(
+    variant="whisper_tiny",
+    n_mels=80,
+    sampling_rate=16000,
+    n_fft=400,
+    hop_length=160,
+    chunk_length=30,
+    tokenizer_file=None,
+    bos_token_id=50257,
+    eos_token_id=50257,
+    pad_token_id=50257,
+    tokenizer=None,
+    feature_extractor=None,
+)
 ```
 
 Bundles the feature extractor and tokenizer.
@@ -174,7 +212,8 @@ MOST READILY TO THE MIND"*.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import soundfile as sf
 from kerasformers.models.whisper import WhisperProcessor, WhisperSpeechToText
@@ -182,7 +221,7 @@ from kerasformers.models.whisper import WhisperProcessor, WhisperSpeechToText
 model = WhisperSpeechToText.from_weights("whisper_base")
 processor = WhisperProcessor.from_weights("whisper_base")
 
-audio, sr = sf.read("assets/speech_festive_season.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_festive_season.wav", dtype="float32")  # 16 kHz mono
 text = model.generate(audio, processor, language="en", task="transcribe")
 print(repr(text[0]))
 ```
@@ -243,9 +282,11 @@ Cutting on silence rather than a fixed grid avoids clipping words in half.
 import librosa
 import soundfile as sf
 
-audio, sr = sf.read("assets/speech_festive_season.wav", dtype="float32")   # float32 in [-1, 1]
+audio, sr = sf.read(
+    "assets/speech_festive_season.wav", dtype="float32"
+)  # float32 in [-1, 1]
 if audio.ndim > 1:
-    audio = audio.mean(axis=1)                     # stereo to mono
+    audio = audio.mean(axis=1)  # stereo to mono
 if sr != 16000:
     audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
 ```

@@ -66,8 +66,15 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 arguments as `Qwen2MoeModel`.
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 | Arg | Default | Meaning |
@@ -103,14 +110,17 @@ sequence or `.batch_decode(ids)` for a batch.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.qwen2_moe import Qwen2MoeGenerate, Qwen2MoeTokenizer
 
 model = Qwen2MoeGenerate.from_weights("qwen1.5-moe-a2.7b")
 tokenizer = Qwen2MoeTokenizer.from_weights("qwen1.5-moe-a2.7b")
 
-inputs = tokenizer([{"role": "user", "content": "Explain rotary embeddings in one sentence."}])
+inputs = tokenizer(
+    [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
+)
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 print(tokenizer.decode(outputs[0]))
@@ -127,7 +137,7 @@ prompts = [
     "In one sentence, what is a transformer?",
     "Write a haiku about GPUs.",
 ]
-inputs = tokenizer(prompts)              # {"input_ids": (3, seq), "attention_mask": (3, seq)}
+inputs = tokenizer(prompts)  # {"input_ids": (3, seq), "attention_mask": (3, seq)}
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 for text in tokenizer.batch_decode(outputs):
@@ -140,7 +150,7 @@ for text in tokenizer.batch_decode(outputs):
 from kerasformers.models.qwen2_moe import Qwen2MoeModel
 
 backbone = Qwen2MoeModel.from_weights("qwen1.5-moe-a2.7b")
-hidden = backbone(inputs)["last_hidden_state"]   # (batch, seq, embed_dim)
+hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
 ### Loading from the Hub

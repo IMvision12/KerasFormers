@@ -49,9 +49,15 @@ The backbone and pixel decoder without the query heads.
 ### OneFormerProcessor
 
 ```python
-OneFormerProcessor(variant=None, target_size=None, task_seq_len=77,
-                   tokenizer=None, hf_id=None, tokenizer_file=None,
-                   image_processor=None)
+OneFormerProcessor(
+    variant=None,
+    target_size=None,
+    task_seq_len=77,
+    tokenizer=None,
+    hf_id=None,
+    tokenizer_file=None,
+    image_processor=None,
+)
 ```
 
 An `OneFormerImageProcessor` and an `OneFormerTokenizer` behind one callable. The
@@ -112,7 +118,8 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.oneformer import (
-    OneFormerProcessor, OneFormerUniversalSegment,
+    OneFormerProcessor,
+    OneFormerUniversalSegment,
 )
 
 model = OneFormerUniversalSegment.from_weights("oneformer_ade20k_swin_tiny")
@@ -134,7 +141,9 @@ result = processor.post_process_panoptic_segmentation(
 seg = np.asarray(keras.ops.convert_to_numpy(result["segmentation"]))
 
 for s in result["segments_info"]:
-    print(f"{s['label_name']:16s} {int((seg == s['id']).sum())} px  score {s['score']:.3f}")
+    print(
+        f"{s['label_name']:16s} {int((seg == s['id']).sum())} px  score {s['score']:.3f}"
+    )
 ```
 
 ```
@@ -165,7 +174,8 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.oneformer import (
-    OneFormerProcessor, OneFormerUniversalSegment,
+    OneFormerProcessor,
+    OneFormerUniversalSegment,
 )
 
 model = OneFormerUniversalSegment.from_weights("oneformer_ade20k_swin_tiny")
@@ -232,7 +242,8 @@ model = OneFormerUniversalSegment.from_weights("hf:<user>/oneformer-finetuned")
 
 # Architecture only, randomly initialized
 model = OneFormerUniversalSegment.from_weights(
-    "oneformer_ade20k_swin_tiny", load_weights=False,
+    "oneformer_ade20k_swin_tiny",
+    load_weights=False,
 )
 ```
 

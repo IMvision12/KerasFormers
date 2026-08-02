@@ -86,7 +86,8 @@ that split without parsing strings:
 
 ```python
 from kerasformers.utils.labels_util import (
-    COCO_PANOPTIC_THING_IDS, COCO_PANOPTIC_STUFF_IDS,
+    COCO_PANOPTIC_THING_IDS,
+    COCO_PANOPTIC_STUFF_IDS,
 )
 
 print(COCO_PANOPTIC_THING_IDS[:5])

@@ -24,11 +24,23 @@ the text side is a transformer whose pooled feature is the last token.
 ### SigLIPModel
 
 ```python
-SigLIPModel(image_size=224, patch_size=16, vision_hidden_dim=768,
-            vision_num_layers=12, vision_num_heads=12, vision_mlp_dim=3072,
-            vocab_size=32000, embed_dim=768, text_hidden_dim=768,
-            text_num_layers=12, text_num_heads=12, text_mlp_dim=3072,
-            max_seq_len=64, input_tensor=None, name='SigLIPModel')
+SigLIPModel(
+    image_size=224,
+    patch_size=16,
+    vision_hidden_dim=768,
+    vision_num_layers=12,
+    vision_num_heads=12,
+    vision_mlp_dim=3072,
+    vocab_size=32000,
+    embed_dim=768,
+    text_hidden_dim=768,
+    text_num_layers=12,
+    text_num_heads=12,
+    text_mlp_dim=3072,
+    max_seq_len=64,
+    input_tensor=None,
+    name="SigLIPModel",
+)
 ```
 
 SigLIP dual encoder (no contrastive head).
@@ -54,12 +66,23 @@ SigLIP dual encoder (no contrastive head).
 ### SigLIPZeroShotClassify
 
 ```python
-SigLIPZeroShotClassify(image_size=224, patch_size=16, vision_hidden_dim=768,
-                       vision_num_layers=12, vision_num_heads=12,
-                       vision_mlp_dim=3072, vocab_size=32000, embed_dim=768,
-                       text_hidden_dim=768, text_num_layers=12,
-                       text_num_heads=12, text_mlp_dim=3072, max_seq_len=64,
-                       input_tensor=None, name='SigLIPZeroShotClassify')
+SigLIPZeroShotClassify(
+    image_size=224,
+    patch_size=16,
+    vision_hidden_dim=768,
+    vision_num_layers=12,
+    vision_num_heads=12,
+    vision_mlp_dim=3072,
+    vocab_size=32000,
+    embed_dim=768,
+    text_hidden_dim=768,
+    text_num_layers=12,
+    text_num_heads=12,
+    text_mlp_dim=3072,
+    max_seq_len=64,
+    input_tensor=None,
+    name="SigLIPZeroShotClassify",
+)
 ```
 
 SigLIP + sigmoid-similarity head for zero-shot classification / retrieval.
@@ -85,10 +108,17 @@ SigLIP + sigmoid-similarity head for zero-shot classification / retrieval.
 ### SigLIPImageClassify
 
 ```python
-SigLIPImageClassify(num_classes=1000, image_size=224, patch_size=16,
-                    vision_hidden_dim=768, vision_num_layers=12,
-                    vision_num_heads=12, vision_mlp_dim=3072,
-                    input_tensor=None, name='SigLIPImageClassify')
+SigLIPImageClassify(
+    num_classes=1000,
+    image_size=224,
+    patch_size=16,
+    vision_hidden_dim=768,
+    vision_num_layers=12,
+    vision_num_heads=12,
+    vision_mlp_dim=3072,
+    input_tensor=None,
+    name="SigLIPImageClassify",
+)
 ```
 
 SigLIP vision tower + linear image-classification head.
@@ -108,10 +138,16 @@ SigLIP vision tower + linear image-classification head.
 ### SigLIPVisionModel
 
 ```python
-SigLIPVisionModel(image_size=224, patch_size=16, vision_hidden_dim=768,
-                  vision_num_layers=12, vision_num_heads=12,
-                  vision_mlp_dim=3072, input_tensor=None,
-                  name='SigLIPVisionModel')
+SigLIPVisionModel(
+    image_size=224,
+    patch_size=16,
+    vision_hidden_dim=768,
+    vision_num_layers=12,
+    vision_num_heads=12,
+    vision_mlp_dim=3072,
+    input_tensor=None,
+    name="SigLIPVisionModel",
+)
 ```
 
 SigLIP vision tower as a standalone model.
@@ -130,9 +166,17 @@ SigLIP vision tower as a standalone model.
 ### SigLIPTextModel
 
 ```python
-SigLIPTextModel(vocab_size=32000, embed_dim=768, text_hidden_dim=768,
-                text_num_layers=12, text_num_heads=12, text_mlp_dim=3072,
-                max_seq_len=64, input_tensor=None, name='SigLIPTextModel')
+SigLIPTextModel(
+    vocab_size=32000,
+    embed_dim=768,
+    text_hidden_dim=768,
+    text_num_layers=12,
+    text_num_heads=12,
+    text_mlp_dim=3072,
+    max_seq_len=64,
+    input_tensor=None,
+    name="SigLIPTextModel",
+)
 ```
 
 SigLIP text tower as a standalone model.
@@ -158,9 +202,15 @@ SigLIP text tower as a standalone model.
 ### SigLIPImageProcessor
 
 ```python
-SigLIPImageProcessor(image_resolution=224, mean=(0.5, 0.5, 0.5),
-                     std=(0.5, 0.5, 0.5), do_center_crop=True,
-                     do_normalize=True, do_resize=True, data_format=None)
+SigLIPImageProcessor(
+    image_resolution=224,
+    mean=(0.5, 0.5, 0.5),
+    std=(0.5, 0.5, 0.5),
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    data_format=None,
+)
 ```
 
 Image processor for SigLIP (Sigmoid Loss for Language Image Pre-training) models. This processor handles various preprocessing steps for images to be used with SigLIP models, including resizing, center cropping, and normalization.
@@ -178,8 +228,14 @@ Image processor for SigLIP (Sigmoid Loss for Language Image Pre-training) models
 ### SigLIPTokenizer
 
 ```python
-SigLIPTokenizer(variant=None, tokenizer_file=None, max_seq_len=64,
-                unk_token='<unk>', pad_token='</s>', eos_token='</s>')
+SigLIPTokenizer(
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=64,
+    unk_token="<unk>",
+    pad_token="</s>",
+    eos_token="</s>",
+)
 ```
 
 SigLIP SentencePiece Unigram tokenizer (``tokenizers`` Rust backend).
@@ -199,11 +255,22 @@ region cannot be found by mask. Compare full fixed-length id arrays instead.
 ### SigLIPProcessor
 
 ```python
-SigLIPProcessor(image_resolution=224, mean=(0.5, 0.5, 0.5),
-                std=(0.5, 0.5, 0.5), do_center_crop=True, do_normalize=True,
-                do_resize=True, variant=None, tokenizer_file=None,
-                max_seq_len=64, unk_token='<unk>', pad_token='</s>',
-                eos_token='</s>', tokenizer=None, image_processor=None)
+SigLIPProcessor(
+    image_resolution=224,
+    mean=(0.5, 0.5, 0.5),
+    std=(0.5, 0.5, 0.5),
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=64,
+    unk_token="<unk>",
+    pad_token="</s>",
+    eos_token="</s>",
+    tokenizer=None,
+    image_processor=None,
+)
 ```
 
 Combined image + text processor for SigLIP.
@@ -259,10 +326,12 @@ labels = [
     "a photo of a living room",
 ]
 inputs = processor(text=labels, image_paths="assets/data/coco_skier.jpg")
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["input_ids"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["input_ids"],
+    }
+)
 
 # (1, 4): one image, four class prompts.
 probs = keras.ops.convert_to_numpy(
@@ -302,14 +371,16 @@ labels = [
 ]
 
 inputs = processor(text=labels, image_paths=image_paths)
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["input_ids"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["input_ids"],
+    }
+)
 
 probs = keras.ops.convert_to_numpy(
     keras.ops.softmax(output["image_logits"], axis=-1)
-)                                        # (2, 4)
+)  # (2, 4)
 for path, row in zip(image_paths, probs):
     print(f"\n{path}")
     for label, p in zip(labels, row):

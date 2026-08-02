@@ -19,9 +19,14 @@ Unlike [OWL-ViT](owlvit.md) and [OWLv2](owlv2.md), which score each patch indepe
 ### GroundingDinoForObjectDetection
 
 ```python
-GroundingDinoForObjectDetection(..., d_model=256, decoder_layers=6,
-                                num_queries=900, max_text_len=256,
-                                name="GroundingDinoForObjectDetection")
+GroundingDinoForObjectDetection(
+    ...,
+    d_model=256,
+    decoder_layers=6,
+    num_queries=900,
+    max_text_len=256,
+    name="GroundingDinoForObjectDetection",
+)
 ```
 
 The detector: backbone, cross-modality encoder, decoder, and the contrastive class and
@@ -67,8 +72,14 @@ need the text side.
 ### GroundingDinoProcessor
 
 ```python
-GroundingDinoProcessor(hf_id=None, shortest_edge=800, longest_edge=1333,
-                       tokenizer=None, image_processor=None, variant=None)
+GroundingDinoProcessor(
+    hf_id=None,
+    shortest_edge=800,
+    longest_edge=1333,
+    tokenizer=None,
+    image_processor=None,
+    variant=None,
+)
 ```
 
 Tokenizer and image processor behind one callable.
@@ -90,8 +101,9 @@ the convention the model was trained on.
 **post_process_object_detection**
 
 ```python
-processor.post_process_object_detection(outputs, threshold=0.3,
-                                        target_sizes=None, input_ids=None)
+processor.post_process_object_detection(
+    outputs, threshold=0.3, target_sizes=None, input_ids=None
+)
 ```
 
 Sigmoids the token scores, keeps queries above `threshold`, and converts boxes to pixel
@@ -139,7 +151,8 @@ Both use the same BERT text encoder and a 6-layer decoder with 900 queries.
 import torch
 from PIL import Image
 from kerasformers.models.grounding_dino import (
-    GroundingDinoForObjectDetection, GroundingDinoProcessor,
+    GroundingDinoForObjectDetection,
+    GroundingDinoProcessor,
 )
 
 model = GroundingDinoForObjectDetection.from_weights("grounding_dino_tiny")
@@ -150,13 +163,14 @@ image = Image.open("assets/data/coco_paddleboard.jpg").convert("RGB")
 # No articles: in "a paddle" the "a" can outscore the noun.
 inputs = processor(images=image, text=["person", "paddle", "board"])
 
-with torch.no_grad():          # see the memory note above
+with torch.no_grad():  # see the memory note above
     output = model(inputs)
 # output["logits"]:     (1, 900, 256)
 # output["pred_boxes"]: (1, 900, 4)
 
 results = processor.post_process_object_detection(
-    output, threshold=0.3,
+    output,
+    threshold=0.3,
     target_sizes=[(image.height, image.width)],
     input_ids=inputs["input_ids"],
 )[0]
@@ -190,14 +204,17 @@ across images:
 import torch
 from PIL import Image
 from kerasformers.models.grounding_dino import (
-    GroundingDinoForObjectDetection, GroundingDinoProcessor,
+    GroundingDinoForObjectDetection,
+    GroundingDinoProcessor,
 )
 
 model = GroundingDinoForObjectDetection.from_weights("grounding_dino_tiny")
 # Batching a portrait with a landscape pads to the union of both. At the default
 # 800/1333 that is ~29k tokens per image, enough to exhaust an 8 GB card.
 processor = GroundingDinoProcessor.from_weights(
-    "grounding_dino_tiny", shortest_edge=600, longest_edge=1000,
+    "grounding_dino_tiny",
+    shortest_edge=600,
+    longest_edge=1000,
 )
 
 paths = ["assets/data/coco_bathroom.jpg", "assets/data/coco_motorcycle.jpg"]
@@ -210,7 +227,8 @@ with torch.no_grad():
     output = model(inputs)
 
 results = processor.post_process_object_detection(
-    output, threshold=0.3,
+    output,
+    threshold=0.3,
     target_sizes=[(im.height, im.width) for im in images],
     input_ids=inputs["input_ids"],
 )
@@ -260,7 +278,9 @@ size. Change the resolution on the processor alone:
 
 ```python
 processor = GroundingDinoProcessor.from_weights(
-    "grounding_dino_tiny", shortest_edge=480, longest_edge=800,
+    "grounding_dino_tiny",
+    shortest_edge=480,
+    longest_edge=800,
 )
 ```
 
@@ -301,10 +321,14 @@ Any Hugging Face repo whose `model_type` is `"grounding-dino"` loads directly wi
 from kerasformers.models.grounding_dino import GroundingDinoForObjectDetection
 
 # The original IDEA-Research checkpoints
-model = GroundingDinoForObjectDetection.from_weights("hf:IDEA-Research/grounding-dino-tiny")
+model = GroundingDinoForObjectDetection.from_weights(
+    "hf:IDEA-Research/grounding-dino-tiny"
+)
 
 # Somebody's fine-tune
-model = GroundingDinoForObjectDetection.from_weights("hf:<user>/grounding-dino-finetune")
+model = GroundingDinoForObjectDetection.from_weights(
+    "hf:<user>/grounding-dino-finetune"
+)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`.

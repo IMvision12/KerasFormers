@@ -27,15 +27,25 @@ SiLU, and every LayerNorm is scale-only.
 ### MoonshineSpeechToText
 
 ```python
-MoonshineSpeechToText(hidden_dim=288, encoder_num_layers=6,
-                      decoder_num_layers=6, encoder_attention_heads=8,
-                      decoder_attention_heads=8, encoder_num_kv_heads=None,
-                      decoder_num_kv_heads=None, encoder_ffn_dim=1152,
-                      decoder_ffn_dim=1152, vocab_size=32768,
-                      max_position_embeddings=194, partial_rotary_factor=0.9,
-                      rope_theta=10000.0, encoder_activation="gelu",
-                      decoder_activation="silu", layer_norm_eps=1e-05,
-                      name="MoonshineSpeechToText")
+MoonshineSpeechToText(
+    hidden_dim=288,
+    encoder_num_layers=6,
+    decoder_num_layers=6,
+    encoder_attention_heads=8,
+    decoder_attention_heads=8,
+    encoder_num_kv_heads=None,
+    decoder_num_kv_heads=None,
+    encoder_ffn_dim=1152,
+    decoder_ffn_dim=1152,
+    vocab_size=32768,
+    max_position_embeddings=194,
+    partial_rotary_factor=0.9,
+    rope_theta=10000.0,
+    encoder_activation="gelu",
+    decoder_activation="silu",
+    layer_norm_eps=1e-05,
+    name="MoonshineSpeechToText",
+)
 ```
 
 The conv stem, encoder, decoder, and tied LM head, plus a `generate` that runs the whole
@@ -62,8 +72,9 @@ forward pass. **Returns** a `dict` with **logits** `(B, T, vocab_size)` and
 **generate**
 
 ```python
-model.generate(audio, processor, max_new_tokens=200, sampling_rate=16000,
-               return_ids=False)
+model.generate(
+    audio, processor, max_new_tokens=200, sampling_rate=16000, return_ids=False
+)
 ```
 
 - **audio**: a 1-D float32 waveform in `[-1, 1]`, or a list of them for a batch.
@@ -105,9 +116,17 @@ does the rest.
 ### MoonshineProcessor
 
 ```python
-MoonshineProcessor(variant=None, tokenizer_file=None, sampling_rate=16000,
-                   decoder_start_token_id=1, bos_token_id=1, eos_token_id=2,
-                   unk_token_id=0, tokenizer=None, feature_extractor=None)
+MoonshineProcessor(
+    variant=None,
+    tokenizer_file=None,
+    sampling_rate=16000,
+    decoder_start_token_id=1,
+    bos_token_id=1,
+    eos_token_id=2,
+    unk_token_id=0,
+    tokenizer=None,
+    feature_extractor=None,
+)
 ```
 
 Bundles the feature extractor and tokenizer.
@@ -140,7 +159,8 @@ Its reference transcript is *"AS FOR ETCHINGS THEY ARE OF TWO KINDS BRITISH AND 
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import soundfile as sf
 from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToText
@@ -148,7 +168,7 @@ from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToT
 model = MoonshineSpeechToText.from_weights("moonshine_tiny")
 processor = MoonshineProcessor.from_weights("moonshine_tiny")
 
-audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")  # 16 kHz mono
 text = model.generate(audio, processor)
 print(repr(text[0]))
 ```
@@ -167,7 +187,7 @@ foreign.'`, which reads properly but still swaps "they" for "there".
 Because nothing is padded to a fixed window, cost scales with the audio you actually have:
 
 ```python
-command = audio[: 1 * sr]          # one second
+command = audio[: 1 * sr]  # one second
 print(repr(model.generate(command, processor)[0]))
 ```
 
@@ -206,7 +226,7 @@ import soundfile as sf
 
 audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")
 if audio.ndim > 1:
-    audio = audio.mean(axis=1)                     # stereo to mono
+    audio = audio.mean(axis=1)  # stereo to mono
 if sr != 16000:
     audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
 ```

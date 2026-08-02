@@ -49,14 +49,29 @@ The vision and text encoders without detection heads, returning `image_embeds` a
 ### Owlv2VisionModel / Owlv2TextModel
 
 ```python
-Owlv2VisionModel(vision_image_size, vision_patch_size, vision_hidden_dim,
-                 vision_intermediate_size, vision_num_layers, vision_num_heads,
-                 image_size=None, input_tensor=None, name="Owlv2VisionModel")
+Owlv2VisionModel(
+    vision_image_size,
+    vision_patch_size,
+    vision_hidden_dim,
+    vision_intermediate_size,
+    vision_num_layers,
+    vision_num_heads,
+    image_size=None,
+    input_tensor=None,
+    name="Owlv2VisionModel",
+)
 
-Owlv2TextModel(text_hidden_dim, text_intermediate_size, text_num_heads,
-               text_num_layers=12, text_max_position_embeddings=16,
-               text_vocab_size=49408, text_input_shape=None,
-               input_tensor=None, name="Owlv2TextModel")
+Owlv2TextModel(
+    text_hidden_dim,
+    text_intermediate_size,
+    text_num_heads,
+    text_num_layers=12,
+    text_max_position_embeddings=16,
+    text_vocab_size=49408,
+    text_input_shape=None,
+    input_tensor=None,
+    name="Owlv2TextModel",
+)
 ```
 
 Either tower on its own.
@@ -79,10 +94,18 @@ Tokenizer and image processor behind one callable. **Call**
 ### Owlv2ImageProcessor
 
 ```python
-Owlv2ImageProcessor(size=None, resample="bicubic", do_rescale=True,
-                    rescale_factor=1/255, do_pad=True, do_normalize=True,
-                    image_mean=None, image_std=None, return_tensor=True,
-                    data_format=None)
+Owlv2ImageProcessor(
+    size=None,
+    resample="bicubic",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_pad=True,
+    do_normalize=True,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+)
 ```
 
 Pads to a square, resizes to the variant's resolution, rescales, and normalizes with
@@ -93,8 +116,9 @@ CLIP statistics.
 **post_process_object_detection**
 
 ```python
-image_processor.post_process_object_detection(outputs, threshold=0.1,
-                                              target_sizes=None, text_labels=None)
+image_processor.post_process_object_detection(
+    outputs, threshold=0.1, target_sizes=None, text_labels=None
+)
 ```
 
 Sigmoids the similarity scores, keeps candidates above `threshold`, and scales boxes to
@@ -112,7 +136,10 @@ Pass `max(h, w)` for both dimensions instead:
 ```python
 side = max(image.height, image.width)
 results = image_processor.post_process_object_detection(
-    output, threshold=0.15, target_sizes=[(side, side)], text_labels=[prompts],
+    output,
+    threshold=0.15,
+    target_sizes=[(side, side)],
+    text_labels=[prompts],
 )[0]
 ```
 
@@ -151,7 +178,9 @@ fixed across variants: 12 layers, vocab 49408, max query length 16.
 ```python
 from PIL import Image
 from kerasformers.models.owlv2 import (
-    Owlv2Detect, Owlv2ImageProcessor, Owlv2Processor,
+    Owlv2Detect,
+    Owlv2ImageProcessor,
+    Owlv2Processor,
 )
 
 model = Owlv2Detect.from_weights("owlv2-base-patch16")
@@ -166,15 +195,18 @@ prompts = [
 ]
 
 inputs = processor(text=[prompts], images=image)
-output = model({
-    "input_ids": inputs["input_ids"],
-    "pixel_values": inputs["pixel_values"],
-})
+output = model(
+    {
+        "input_ids": inputs["input_ids"],
+        "pixel_values": inputs["pixel_values"],
+    }
+)
 
 # OWLv2 pads to a square, so scale by max(h, w), not (h, w).
 side = max(image.height, image.width)
 results = image_processor.post_process_object_detection(
-    output, threshold=0.15,
+    output,
+    threshold=0.15,
     target_sizes=[(side, side)],
     text_labels=[prompts],
 )[0]
@@ -211,7 +243,9 @@ Pass one query list per image, and one `target_sizes` entry per image, each squa
 ```python
 from PIL import Image
 from kerasformers.models.owlv2 import (
-    Owlv2Detect, Owlv2ImageProcessor, Owlv2Processor,
+    Owlv2Detect,
+    Owlv2ImageProcessor,
+    Owlv2Processor,
 )
 
 model = Owlv2Detect.from_weights("owlv2-base-patch16")
@@ -220,19 +254,26 @@ image_processor = Owlv2ImageProcessor()
 
 paths = ["assets/data/coco_bear.jpg", "assets/data/coco_girl_umbrella.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
-prompts = [["a photo of a real bear", "a photo of a teddy bear"],
-           ["a photo of an umbrella", "a photo of a person"]]
+prompts = [
+    ["a photo of a real bear", "a photo of a teddy bear"],
+    ["a photo of an umbrella", "a photo of a person"],
+]
 
 inputs = processor(text=prompts, images=images)
 # input_ids (4, 16) -> 2 images x 2 queries;  pixel_values (2, 960, 960, 3)
-output = model({
-    "input_ids": inputs["input_ids"],
-    "pixel_values": inputs["pixel_values"],
-})
+output = model(
+    {
+        "input_ids": inputs["input_ids"],
+        "pixel_values": inputs["pixel_values"],
+    }
+)
 
 sizes = [(max(im.height, im.width),) * 2 for im in images]
 results = image_processor.post_process_object_detection(
-    output, threshold=0.15, target_sizes=sizes, text_labels=prompts,
+    output,
+    threshold=0.15,
+    target_sizes=sizes,
+    text_labels=prompts,
 )
 
 for path, result in zip(paths, results):

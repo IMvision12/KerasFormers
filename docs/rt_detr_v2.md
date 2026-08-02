@@ -19,17 +19,34 @@ The API surface is identical to v1, and so is the inference pipeline. The weight
 ### RTDETRV2Detect
 
 ```python
-RTDETRV2Detect(backbone_hidden_sizes=(256, 512, 1024, 2048),
-               backbone_block_repeats=(3, 4, 6, 3), backbone_embedding_size=64,
-               backbone_layer_type="bottleneck", encoder_in_channels=(512, 1024, 2048),
-               encoder_hidden_dim=256, encoder_num_layers=1, encoder_ffn_dim=1024,
-               encoder_num_heads=8, encode_proj_layers=(2,),
-               encoder_activation_function="gelu", activation_function="silu",
-               hidden_expansion=1.0, hidden_dim=256, decoder_num_layers=6,
-               decoder_ffn_dim=1024, decoder_num_heads=8, decoder_n_points=4,
-               decoder_activation_function="relu", num_feature_levels=3,
-               feat_strides=(8, 16, 32), num_queries=300, num_classes=80,
-               image_size=640, input_tensor=None, name="RTDETRV2Detect")
+RTDETRV2Detect(
+    backbone_hidden_sizes=(256, 512, 1024, 2048),
+    backbone_block_repeats=(3, 4, 6, 3),
+    backbone_embedding_size=64,
+    backbone_layer_type="bottleneck",
+    encoder_in_channels=(512, 1024, 2048),
+    encoder_hidden_dim=256,
+    encoder_num_layers=1,
+    encoder_ffn_dim=1024,
+    encoder_num_heads=8,
+    encode_proj_layers=(2,),
+    encoder_activation_function="gelu",
+    activation_function="silu",
+    hidden_expansion=1.0,
+    hidden_dim=256,
+    decoder_num_layers=6,
+    decoder_ffn_dim=1024,
+    decoder_num_heads=8,
+    decoder_n_points=4,
+    decoder_activation_function="relu",
+    num_feature_levels=3,
+    feat_strides=(8, 16, 32),
+    num_queries=300,
+    num_classes=80,
+    image_size=640,
+    input_tensor=None,
+    name="RTDETRV2Detect",
+)
 ```
 
 The detector: ResNet-vd backbone, hybrid encoder, and the selective multi-scale
@@ -69,9 +86,17 @@ The backbone and hybrid encoder without detection heads. **Parameters** match
 ### RTDETRV2ImageProcessor
 
 ```python
-RTDETRV2ImageProcessor(size=None, resample="bilinear", do_rescale=True,
-                       rescale_factor=1/255, do_normalize=False, image_mean=None,
-                       image_std=None, return_tensor=True, data_format=None)
+RTDETRV2ImageProcessor(
+    size=None,
+    resample="bilinear",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_normalize=False,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+)
 ```
 
 Resizes to a fixed square and rescales to `[0, 1]`. Identical to v1's processor.
@@ -100,9 +125,9 @@ mix of those. **Returns** a `dict`:
 **post_process_object_detection**
 
 ```python
-processor.post_process_object_detection(outputs, threshold=0.5,
-                                        num_top_queries=300, target_sizes=None,
-                                        label_names=None)
+processor.post_process_object_detection(
+    outputs, threshold=0.5, num_top_queries=300, target_sizes=None, label_names=None
+)
 ```
 
 Applies sigmoid, takes the top scoring query/class pairs, converts boxes to pixel
@@ -179,11 +204,12 @@ processor = RTDETRV2ImageProcessor()
 paths = ["assets/data/coco_woman_phone.jpg", "assets/data/coco_waterfront.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
-inputs = processor(paths)                                  # (2, 640, 640, 3)
+inputs = processor(paths)  # (2, 640, 640, 3)
 output = model(inputs["pixel_values"], training=False)
 
 results = processor.post_process_object_detection(
-    output, threshold=0.5,
+    output,
+    threshold=0.5,
     target_sizes=[(im.height, im.width) for im in images],
 )
 
@@ -256,7 +282,9 @@ the names so `label_names` reads correctly:
 MY_CLASSES = ["cat", "dog", "bird"]
 
 results = processor.post_process_object_detection(
-    output, threshold=0.5, target_sizes=[(image.height, image.width)],
+    output,
+    threshold=0.5,
+    target_sizes=[(image.height, image.width)],
     label_names=MY_CLASSES,
 )
 ```

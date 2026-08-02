@@ -22,14 +22,20 @@ For the second-generation model with separable self-attention, see
 ### MobileViTSemanticSegment
 
 ```python
-MobileViTSemanticSegment(initial_dims=16, head_dims=320,
-                         block_dims=(16, 24, 48, 64, 80),
-                         expansion_ratio=(2.0, 2.0, 2.0, 2.0, 2.0),
-                         attention_dims=(None, None, 64, 80, 96),
-                         image_size=512, output_stride=16,
-                         atrous_rates=(6, 12, 18), aspp_out_channels=512,
-                         num_classes=21, input_tensor=None,
-                         name="MobileViTSemanticSegment")
+MobileViTSemanticSegment(
+    initial_dims=16,
+    head_dims=320,
+    block_dims=(16, 24, 48, 64, 80),
+    expansion_ratio=(2.0, 2.0, 2.0, 2.0, 2.0),
+    attention_dims=(None, None, 64, 80, 96),
+    image_size=512,
+    output_stride=16,
+    atrous_rates=(6, 12, 18),
+    aspp_out_channels=512,
+    num_classes=21,
+    input_tensor=None,
+    name="MobileViTSemanticSegment",
+)
 ```
 
 The MobileViT backbone plus a DeepLabV3 ASPP head. **This is the class for semantic
@@ -52,11 +58,16 @@ by the post-processor.
 ### MobileViTImageClassify
 
 ```python
-MobileViTImageClassify(initial_dims=16, head_dims=640,
-                       block_dims=(32, 64, 96, 128, 160), image_size=256,
-                       include_normalization=True,
-                       normalization_mode="zero_to_one", num_classes=1000,
-                       name="MobileViTImageClassify")
+MobileViTImageClassify(
+    initial_dims=16,
+    head_dims=640,
+    block_dims=(32, 64, 96, 128, 160),
+    image_size=256,
+    include_normalization=True,
+    normalization_mode="zero_to_one",
+    num_classes=1000,
+    name="MobileViTImageClassify",
+)
 ```
 
 The classification head, at 256. `include_normalization=True` means the model expects
@@ -71,10 +82,19 @@ The backbone alone, for features.
 ### MobileViTImageProcessor
 
 ```python
-MobileViTImageProcessor(size=None, crop_size=None, resample="bilinear",
-                        do_resize=True, do_center_crop=True, do_rescale=True,
-                        rescale_factor=1/255, do_flip_channel_order=True,
-                        return_tensor=True, data_format=None, variant=None)
+MobileViTImageProcessor(
+    size=None,
+    crop_size=None,
+    resample="bilinear",
+    do_resize=True,
+    do_center_crop=True,
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_flip_channel_order=True,
+    return_tensor=True,
+    data_format=None,
+    variant=None,
+)
 ```
 
 Resizes the shortest edge, center-crops, rescales, and flips RGB to BGR.
@@ -99,8 +119,9 @@ BGR input.
 **post_process_semantic_segmentation**
 
 ```python
-processor.post_process_semantic_segmentation(outputs, target_size=None,
-                                             label_names=None, data_format=None)
+processor.post_process_semantic_segmentation(
+    outputs, target_size=None, label_names=None, data_format=None
+)
 ```
 
 Takes the per-pixel argmax and upsamples the label map to `target_size`. **Returns** a
@@ -137,7 +158,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.mobilevit import (
-    MobileViTImageProcessor, MobileViTSemanticSegment,
+    MobileViTImageProcessor,
+    MobileViTSemanticSegment,
 )
 
 model = MobileViTSemanticSegment.from_weights("mobilevit_s_deeplabv3")
@@ -151,8 +173,12 @@ w, h = image.size
 scale = processor.size["shortest_edge"] / min(w, h)
 cw, ch = processor.crop_size["width"], processor.crop_size["height"]
 left, top = (round(w * scale) - cw) // 2, (round(h * scale) - ch) // 2
-box = (round(left / scale), round(top / scale),
-       round((left + cw) / scale), round((top + ch) / scale))
+box = (
+    round(left / scale),
+    round(top / scale),
+    round((left + cw) / scale),
+    round((top + ch) / scale),
+)
 seen = image.crop(box)
 
 output = model(processor(image)["pixel_values"], training=False)
@@ -196,7 +222,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.mobilevit import (
-    MobileViTImageProcessor, MobileViTSemanticSegment,
+    MobileViTImageProcessor,
+    MobileViTSemanticSegment,
 )
 
 model = MobileViTSemanticSegment.from_weights("mobilevit_s_deeplabv3")
@@ -209,14 +236,18 @@ def seen_box(image):
     scale = processor.size["shortest_edge"] / min(w, h)
     cw, ch = processor.crop_size["width"], processor.crop_size["height"]
     left, top = (round(w * scale) - cw) // 2, (round(h * scale) - ch) // 2
-    return (round(left / scale), round(top / scale),
-            round((left + cw) / scale), round((top + ch) / scale))
+    return (
+        round(left / scale),
+        round(top / scale),
+        round((left + cw) / scale),
+        round((top + ch) / scale),
+    )
 
 
 paths = ["assets/data/coco_bicycles.jpg", "assets/data/coco_horse_jump.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
-outputs = model(processor(paths)["pixel_values"], training=False)   # (2, 32, 32, 21)
+outputs = model(processor(paths)["pixel_values"], training=False)  # (2, 32, 32, 21)
 
 for path, image, logits in zip(paths, images, outputs):
     seen = image.crop(seen_box(image))
@@ -262,7 +293,8 @@ run at another size, set it on both:
 ```python
 model = MobileViTSemanticSegment.from_weights("mobilevit_s_deeplabv3", image_size=384)
 processor = MobileViTImageProcessor(
-    size={"shortest_edge": 416}, crop_size={"height": 384, "width": 384},
+    size={"shortest_edge": 416},
+    crop_size={"height": 384, "width": 384},
 )
 ```
 
@@ -286,10 +318,14 @@ Any Hugging Face repo whose `model_type` is `"mobilevit"` loads with the `hf:` p
 from kerasformers.models.mobilevit import MobileViTSemanticSegment
 
 model = MobileViTSemanticSegment.from_weights("hf:apple/deeplabv3-mobilevit-small")
-model = MobileViTSemanticSegment.from_weights("hf:<user>/mobilevit-finetuned-on-my-data")
+model = MobileViTSemanticSegment.from_weights(
+    "hf:<user>/mobilevit-finetuned-on-my-data"
+)
 
 # Architecture only, randomly initialized
-model = MobileViTSemanticSegment.from_weights("mobilevit_s_deeplabv3", load_weights=False)
+model = MobileViTSemanticSegment.from_weights(
+    "mobilevit_s_deeplabv3", load_weights=False
+)
 ```
 
 All four model classes accept `hf:`, as does `MobileViTImageProcessor`.

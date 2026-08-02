@@ -55,7 +55,7 @@ from kerasformers.models.gpt_oss import GptOssGenerate, GptOssTokenizer
 
 # Downloads + converts openai/gpt-oss-20b once, then caches under
 # ~/.cache/kerasformers/. (Accept the model license + set HF_TOKEN if needed.)
-model = GptOssGenerate.from_weights("gpt-oss-20b")        # or "hf:openai/gpt-oss-20b"
+model = GptOssGenerate.from_weights("gpt-oss-20b")  # or "hf:openai/gpt-oss-20b"
 tok = GptOssTokenizer()
 
 inputs = tok([{"role": "user", "content": "Hello!"}])

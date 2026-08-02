@@ -55,8 +55,15 @@ class for audio-plus-text to text.**
 **generate**
 
 ```python
-model.generate(input_ids, attention_mask=None, max_new_tokens=None,
-               eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+model.generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 The processor produces every tensor it needs, so the call is normally
@@ -85,10 +92,15 @@ The Granite decoder alone, for text-only use, with the audio branch and LoRA lef
 ### GraniteSpeechFeatureExtractor
 
 ```python
-GraniteSpeechFeatureExtractor(sampling_rate=16000, n_fft=512, win_length=400,
-                              hop_length=160, n_mels=80,
-                              projector_window_size=15,
-                              projector_downsample_rate=5)
+GraniteSpeechFeatureExtractor(
+    sampling_rate=16000,
+    n_fft=512,
+    win_length=400,
+    hop_length=160,
+    n_mels=80,
+    projector_window_size=15,
+    projector_downsample_rate=5,
+)
 ```
 
 Computes 80-bin mel features and reports how many audio embeddings the projector will
@@ -107,8 +119,14 @@ produce, which is what decides how far each `<|audio|>` placeholder is expanded.
 ### GraniteSpeechProcessor
 
 ```python
-processor(text=None, audio=None, conversation=None, messages=None,
-          sampling_rate=16000, add_generation_prompt=True)
+processor(
+    text=None,
+    audio=None,
+    conversation=None,
+    messages=None,
+    sampling_rate=16000,
+    add_generation_prompt=True,
+)
 ```
 
 Renders the chat template and expands the audio placeholders. **Returns** `input_ids`,
@@ -143,13 +161,15 @@ THESE CRITICISMS ARE HOW DELICATE IN EXPRESSION"*.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import keras
 import numpy as np
 import soundfile as sf
 from kerasformers.models.granite_speech import (
-    GraniteSpeechGenerate, GraniteSpeechProcessor,
+    GraniteSpeechGenerate,
+    GraniteSpeechProcessor,
 )
 
 model = GraniteSpeechGenerate.from_weights(
@@ -157,12 +177,22 @@ model = GraniteSpeechGenerate.from_weights(
 )
 processor = GraniteSpeechProcessor.from_weights("granite_speech_3_3_2b")
 
-audio, sr = sf.read("assets/speech_luminous_criticisms.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read(
+    "assets/speech_luminous_criticisms.wav", dtype="float32"
+)  # 16 kHz mono
 
-conversation = [{"role": "user", "content": [
-    {"type": "audio"},
-    {"type": "text", "text": "can you transcribe the speech into a written format?"},
-]}]
+conversation = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "audio"},
+            {
+                "type": "text",
+                "text": "can you transcribe the speech into a written format?",
+            },
+        ],
+    }
+]
 
 inputs = processor(conversation=conversation, audio=audio, sampling_rate=sr)
 out = model.generate(**inputs, max_new_tokens=64)
@@ -184,10 +214,18 @@ The same audio with a different instruction gives a different answer, which is w
 separates a speech LLM from an ASR model:
 
 ```python
-conversation = [{"role": "user", "content": [
-    {"type": "audio"},
-    {"type": "text", "text": "What is the speaker talking about? Answer in one sentence."},
-]}]
+conversation = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "audio"},
+            {
+                "type": "text",
+                "text": "What is the speaker talking about? Answer in one sentence.",
+            },
+        ],
+    }
+]
 inputs = processor(conversation=conversation, audio=audio, sampling_rate=sr)
 out = model.generate(**inputs, max_new_tokens=64)
 ```
@@ -216,7 +254,7 @@ import soundfile as sf
 
 audio, sr = sf.read("assets/speech_luminous_criticisms.wav", dtype="float32")
 if audio.ndim > 1:
-    audio = audio.mean(axis=1)                     # stereo to mono
+    audio = audio.mean(axis=1)  # stereo to mono
 if sr != 16000:
     audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
 ```
@@ -230,7 +268,8 @@ Any Hugging Face repo whose `model_type` is `"granite_speech"` loads with the `h
 
 ```python
 from kerasformers.models.granite_speech import (
-    GraniteSpeechGenerate, GraniteSpeechProcessor,
+    GraniteSpeechGenerate,
+    GraniteSpeechProcessor,
 )
 
 model = GraniteSpeechGenerate.from_weights("hf:ibm-granite/granite-speech-3.3-2b")
