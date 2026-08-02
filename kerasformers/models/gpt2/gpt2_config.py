@@ -1,72 +1,51 @@
-GPT2_CONFIG = {
-    "gpt2": {
-        "vocab_size": 50257,
-        "embed_dim": 768,
-        "mlp_dim": 3072,
-        "num_layers": 12,
-        "num_heads": 12,
-        "max_position_embeddings": 1024,
-        "norm_eps": 1e-5,
-        "tie_embeddings": True,
-    },
-    "gpt2_medium": {
-        "vocab_size": 50257,
-        "embed_dim": 1024,
-        "mlp_dim": 4096,
-        "num_layers": 24,
-        "num_heads": 16,
-        "max_position_embeddings": 1024,
-        "norm_eps": 1e-5,
-        "tie_embeddings": True,
-    },
-    "gpt2_large": {
-        "vocab_size": 50257,
-        "embed_dim": 1280,
-        "mlp_dim": 5120,
-        "num_layers": 36,
-        "num_heads": 20,
-        "max_position_embeddings": 1024,
-        "norm_eps": 1e-5,
-        "tie_embeddings": True,
-    },
-    "gpt2_xl": {
-        "vocab_size": 50257,
-        "embed_dim": 1600,
-        "mlp_dim": 6400,
-        "num_layers": 48,
-        "num_heads": 25,
-        "max_position_embeddings": 1024,
-        "norm_eps": 1e-5,
-        "tie_embeddings": True,
-    },
-}
+from kerasformers.base import BaseConfig
 
-GPT2_WEIGHTS_URLS = {
-    "gpt2": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2.weights.h5"
-    },
-    "gpt2_medium": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_medium.weights.h5"
-    },
-    "gpt2_large": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_large.weights.json"
-    },
-    "gpt2_xl": {
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_xl.weights.json"
-    },
-}
 
-GPT2_TOKENIZER_URLS = {
-    "gpt2": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_tokenizer.json"
-    },
-    "gpt2_medium": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_medium_tokenizer.json"
-    },
-    "gpt2_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_large_tokenizer.json"
-    },
-    "gpt2_xl": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/gpt/gpt2_xl_tokenizer.json"
-    },
-}
+class GPT2Config(BaseConfig):
+    r"""Configuration for the GPT-2 backbone ([`GPT2Model`]) and its generative
+    head ([`GPT2Generate`]).
+
+    GPT-2 is a decoder-only transformer with learned token and absolute-position
+    embeddings, pre-LayerNorm blocks, and a final LayerNorm. One `kf_config.json`
+    (declaring the canonical [`GPT2Model`]) sits on each variant's repo; both the
+    backbone and the generative head load from it. Fields mirror the model
+    constructor and serialize flat.
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 50257):
+            Token vocabulary size.
+        embed_dim (`int`, *optional*, defaults to 768):
+            Model / residual-stream width.
+        mlp_dim (`int`, *optional*, defaults to 3072):
+            Feed-forward hidden width per block.
+        num_layers (`int`, *optional*, defaults to 12):
+            Number of decoder blocks.
+        num_heads (`int`, *optional*, defaults to 12):
+            Attention heads per block.
+        max_position_embeddings (`int`, *optional*, defaults to 1024):
+            Size of the learned position table.
+        norm_eps (`float`, *optional*, defaults to 1e-5):
+            LayerNorm epsilon.
+        tie_embeddings (`bool`, *optional*, defaults to `True`):
+            Whether [`GPT2Generate`] ties the LM head to the token embeddings.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.gpt2 import GPT2Config, GPT2Model
+
+    >>> configuration = GPT2Config()
+    >>> model = GPT2Model(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "gpt2"
+
+    vocab_size: int = 50257
+    embed_dim: int = 768
+    mlp_dim: int = 3072
+    num_layers: int = 12
+    num_heads: int = 12
+    max_position_embeddings: int = 1024
+    norm_eps: float = 1e-5
+    tie_embeddings: bool = True

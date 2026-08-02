@@ -3,30 +3,41 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .gpt_config import GPT_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GptTokenizer(BaseTokenizer):
     """Original GPT BPE tokenizer (``tokenizers`` backend).
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``gpt`` release tag (or an explicit ``tokenizer_file``). ``call`` pads batches to
-    the longest sequence. GPT is a base LM with no end-of-text token.
+    Loads the model's ``tokenizer.json`` from a Hub repo (``kerasformers/<variant>``
+    by default, or an explicit ``hf_id`` / ``tokenizer_file``). ``call`` pads batches
+    to the longest sequence. GPT is a base LM with no end-of-text token. Load by repo
+    id like weights: ``GptTokenizer.from_weights("kerasformers/gpt")``.
 
     Args:
-        variant: GPT variant key (default ``"gpt"``).
-        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        variant: GPT variant key (default ``"gpt"``); resolves to the
+            ``kerasformers/<variant>`` repo's tokenizer.json.
+        hf_id: Explicit Hub repo to pull ``tokenizer.json`` from (overrides the
+            variant default).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides the
+            download).
         unk_token: Unknown-token string (default ``"<unk>"``).
     """
 
-    TOKENIZER_URLS = GPT_TOKENIZER_URLS
     DEFAULT_VARIANT = "gpt"
 
-    def __init__(self, variant=None, tokenizer_file=None, unk_token="<unk>", **kwargs):
+    def __init__(
+        self,
+        variant=None,
+        hf_id=None,
+        tokenizer_file=None,
+        unk_token="<unk>",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.hf_id = hf_id
+        repo = hf_id if hf_id is not None else f"kerasformers/{self.variant}"
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(repo, tokenizer_file)
         self.tokenizer_file = tokenizer_file
         self.unk_token = unk_token
         self._tok = Tokenizer.from_file(tokenizer_file)
@@ -60,6 +71,7 @@ class GptTokenizer(BaseTokenizer):
         config.update(
             {
                 "variant": self.variant,
+                "hf_id": self.hf_id,
                 "tokenizer_file": self.tokenizer_file,
                 "unk_token": self.unk_token,
             }

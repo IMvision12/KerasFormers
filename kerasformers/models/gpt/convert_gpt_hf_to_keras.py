@@ -37,9 +37,24 @@ def transfer_gpt_weights(keras_model, hf_state_dict):
             transfer_weights(weight.path, weight, hf_state_dict[name])
 
 
+# Per-variant recipes (relocated from gpt_config.py). Models load from the Hub by
+# repo id; these build the arch for conversion.
+GPT_VARIANTS = {
+    "gpt": {
+        "vocab_size": 40478,
+        "embed_dim": 768,
+        "mlp_dim": 3072,
+        "num_layers": 12,
+        "num_heads": 12,
+        "max_position_embeddings": 512,
+        "norm_eps": 1e-5,
+        "tie_embeddings": True,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
-    import os
 
     import keras
     import torch
@@ -48,13 +63,11 @@ if __name__ == "__main__":
     from transformers import OpenAIGPTLMHeadModel
 
     from kerasformers.models.gpt import GptGenerate
-    from kerasformers.models.gpt.gpt_config import GPT_CONFIG, GPT_WEIGHTS_URLS
 
     HF_SOURCES = {"gpt": "openai-community/openai-gpt"}
     rng = np.random.default_rng(0)
 
-    for variant, meta in GPT_WEIGHTS_URLS.items():
-        arch = GPT_CONFIG[variant]
+    for variant, arch in GPT_VARIANTS.items():
         hf_id = HF_SOURCES[variant]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
@@ -78,7 +91,7 @@ if __name__ == "__main__":
         if d > 1e-3:
             raise ValueError(f"{variant}: GPT parity failed ({d:.3e})")
 
-        out_path = os.path.basename(meta["url"])
+        out_path = f"{variant}.weights.h5"
         model.save_weights(out_path)
         print(f"  Saved -> {out_path}")
 

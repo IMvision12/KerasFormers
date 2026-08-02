@@ -3,33 +3,42 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .gpt2_config import GPT2_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class GPT2Tokenizer(BaseTokenizer):
     """GPT-2 byte-level BPE tokenizer (``tokenizers`` backend).
 
-    Loads the HuggingFace fast-tokenizer ``tokenizer.json`` for ``variant`` from the
-    ``gpt`` release tag (or an explicit ``tokenizer_file``). ``<|endoftext|>`` is the
-    single special token; ``call`` pads batches to the longest sequence. GPT-2 is a
-    base LM with no chat template.
+    Loads the model's ``tokenizer.json`` from a Hub repo (``kerasformers/<variant>``
+    by default, or an explicit ``hf_id`` / ``tokenizer_file``). ``<|endoftext|>`` is
+    the single special token; ``call`` pads batches to the longest sequence. GPT-2 is
+    a base LM with no chat template. Load by repo id like weights:
+    ``GPT2Tokenizer.from_weights("kerasformers/gpt2")``.
 
     Args:
-        variant: GPT-2 variant key (default ``"gpt2"``).
-        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides variant).
+        variant: GPT-2 variant key (default ``"gpt2"``); resolves to the
+            ``kerasformers/<variant>`` repo's tokenizer.json.
+        hf_id: Explicit Hub repo to pull ``tokenizer.json`` from (overrides the
+            variant default).
+        tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides the
+            download).
         eos_token: End-of-text token string (default ``"<|endoftext|>"``).
     """
 
-    TOKENIZER_URLS = GPT2_TOKENIZER_URLS
     DEFAULT_VARIANT = "gpt2"
 
     def __init__(
-        self, variant=None, tokenizer_file=None, eos_token="<|endoftext|>", **kwargs
+        self,
+        variant=None,
+        hf_id=None,
+        tokenizer_file=None,
+        eos_token="<|endoftext|>",
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        self.hf_id = hf_id
+        repo = hf_id if hf_id is not None else f"kerasformers/{self.variant}"
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(repo, tokenizer_file)
         self.tokenizer_file = tokenizer_file
         self.eos_token = eos_token
         self._tok = Tokenizer.from_file(tokenizer_file)
@@ -63,6 +72,7 @@ class GPT2Tokenizer(BaseTokenizer):
         config.update(
             {
                 "variant": self.variant,
+                "hf_id": self.hf_id,
                 "tokenizer_file": self.tokenizer_file,
                 "eos_token": self.eos_token,
             }
