@@ -11,15 +11,14 @@ from kerasformers.models.mobilevit.mobilevit_layers import (
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .mobilevit_config import (
-    MOBILEVIT_SEGMENT_MODEL_CONFIG,
-    MOBILEVIT_SEGMENT_WEIGHTS_URLS,
-    MobileViTConfig,
-)
+from .mobilevit_config import MobileViTConfig
 
 # The backbone (MobileViTModel) and classifier (MobileViTImageClassify) share the
 # classification variant's repo, whose kf_config.json declares MobileViTImageClassify.
 MOBILEVIT_HUB_SIBLINGS = frozenset({"MobileViTModel", "MobileViTImageClassify"})
+
+# Each *_deeplabv3 repo carries its own kf_config.json declaring the segment model.
+MOBILEVIT_SEGMENT_HUB_SIBLINGS = frozenset({"MobileViTSemanticSegment"})
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -516,7 +515,15 @@ class MobileViTModel(FunctionalBaseModel):
         name="MobileViTModel",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
+        # Shared MobileViTConfig also carries classifier / segmentation-head fields.
+        for k in (
+            "num_classes",
+            "classifier_activation",
+            "atrous_rates",
+            "aspp_out_channels",
+            "aspp_dropout_prob",
+            "timm_id",
+        ):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
@@ -686,7 +693,16 @@ class MobileViTImageClassify(FunctionalBaseModel):
         name="MobileViTImageClassify",
         **kwargs,
     ):
-        kwargs.pop("timm_id", None)
+        # Shared MobileViTConfig also carries segmentation-head fields (and
+        # output_stride, which the classifier always runs at 32); drop them.
+        for k in (
+            "output_stride",
+            "atrous_rates",
+            "aspp_out_channels",
+            "aspp_dropout_prob",
+            "timm_id",
+        ):
+            kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
@@ -894,11 +910,10 @@ class MobileViTSemanticSegment(FunctionalBaseModel):
     - [DeepLabV3](https://arxiv.org/abs/1706.05587)
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILEVIT_SEGMENT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVIT_SEGMENT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILEVIT_SEGMENT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileViTConfig
+    HUB_REPO_SIBLINGS = MOBILEVIT_SEGMENT_HUB_SIBLINGS
     HF_MODEL_TYPE = "mobilevit"
 
     @classmethod

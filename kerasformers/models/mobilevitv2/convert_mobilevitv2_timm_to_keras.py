@@ -17,7 +17,6 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilevitv2 import MobileViTV2ImageClassify
-from kerasformers.models.mobilevitv2.mobilevitv2_config import MOBILEVITV2_VARIANTS
 
 # Architecture presets, moved here from mobilevitv2_config.py: the package config no
 # longer carries classification arch (models load by Hub repo id / kf_config). Only
@@ -33,6 +32,64 @@ MOBILEVITV2_MODEL_CONFIG = {
     "mobilevitv2_175_384": {"multiplier": 1.75, "image_size": 384, "num_classes": 1000},
     "mobilevitv2_200": {"multiplier": 2.0, "image_size": 256, "num_classes": 1000},
     "mobilevitv2_200_384": {"multiplier": 2.0, "image_size": 384, "num_classes": 1000},
+}
+
+# Hosted classification variants -> (model arch key, timm id). Weights load by Hub
+# repo id (kf_config.json); this converter builds an untrained model from the arch
+# key above and transfers the matching timm weights.
+MOBILEVITV2_VARIANTS = {
+    "mobilevitv2_050_cvnets_in1k": {
+        "model": "mobilevitv2_050",
+        "timm_id": "mobilevitv2_050.cvnets_in1k",
+    },
+    "mobilevitv2_075_cvnets_in1k": {
+        "model": "mobilevitv2_075",
+        "timm_id": "mobilevitv2_075.cvnets_in1k",
+    },
+    "mobilevitv2_100_cvnets_in1k": {
+        "model": "mobilevitv2_100",
+        "timm_id": "mobilevitv2_100.cvnets_in1k",
+    },
+    "mobilevitv2_125_cvnets_in1k": {
+        "model": "mobilevitv2_125",
+        "timm_id": "mobilevitv2_125.cvnets_in1k",
+    },
+    "mobilevitv2_150_cvnets_in1k": {
+        "model": "mobilevitv2_150",
+        "timm_id": "mobilevitv2_150.cvnets_in1k",
+    },
+    "mobilevitv2_150_cvnets_in22k_ft_in1k": {
+        "model": "mobilevitv2_150",
+        "timm_id": "mobilevitv2_150.cvnets_in22k_ft_in1k",
+    },
+    "mobilevitv2_150_cvnets_in22k_ft_in1k_384": {
+        "model": "mobilevitv2_150_384",
+        "timm_id": "mobilevitv2_150.cvnets_in22k_ft_in1k_384",
+    },
+    "mobilevitv2_175_cvnets_in1k": {
+        "model": "mobilevitv2_175",
+        "timm_id": "mobilevitv2_175.cvnets_in1k",
+    },
+    "mobilevitv2_175_cvnets_in22k_ft_in1k": {
+        "model": "mobilevitv2_175",
+        "timm_id": "mobilevitv2_175.cvnets_in22k_ft_in1k",
+    },
+    "mobilevitv2_175_cvnets_in22k_ft_in1k_384": {
+        "model": "mobilevitv2_175_384",
+        "timm_id": "mobilevitv2_175.cvnets_in22k_ft_in1k_384",
+    },
+    "mobilevitv2_200_cvnets_in1k": {
+        "model": "mobilevitv2_200",
+        "timm_id": "mobilevitv2_200.cvnets_in1k",
+    },
+    "mobilevitv2_200_cvnets_in22k_ft_in1k": {
+        "model": "mobilevitv2_200",
+        "timm_id": "mobilevitv2_200.cvnets_in22k_ft_in1k",
+    },
+    "mobilevitv2_200_cvnets_in22k_ft_in1k_384": {
+        "model": "mobilevitv2_200_384",
+        "timm_id": "mobilevitv2_200.cvnets_in22k_ft_in1k_384",
+    },
 }
 
 WEIGHT_NAME_MAPPING: Dict[str, str] = {
