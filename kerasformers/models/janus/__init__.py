@@ -1,3 +1,4 @@
+from kerasformers.models.janus.janus_config import JanusConfig
 from kerasformers.models.janus.janus_image_processor import JanusImageProcessor
 from kerasformers.models.janus.janus_model import (
     JanusGenerate,
@@ -8,6 +9,7 @@ from kerasformers.models.janus.janus_processor import JanusProcessor
 from kerasformers.models.janus.janus_tokenizer import JanusTokenizer
 
 __all__ = [
+    "JanusConfig",
     "JanusModel",
     "JanusGenerate",
     "JanusVisionModel",

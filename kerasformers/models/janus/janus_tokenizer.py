@@ -2,41 +2,38 @@ import keras
 
 from kerasformers.base import BaseTokenizer
 
-from .janus_config import JANUS_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class JanusTokenizer(BaseTokenizer):
     """Janus-Pro BPE tokenizer (``tokenizers`` backend).
 
-    Loads the model's ``tokenizer.json`` (downloaded on the fly from ``hf_id``
-    when no explicit file is given) and exposes ``encode`` / ``decode`` plus
+    Loads the model's ``tokenizer.json`` from a Hub repo (``kerasformers/<variant>``
+    by default, or an explicit ``hf_id``) and exposes ``encode`` / ``decode`` plus
     the image special tokens (``<image_placeholder>`` / ``<begin_of_image>`` /
     ``<end_of_image>``). ``encode`` prepends the BOS id (the checkpoints use
     ``add_bos_token=True``); ``call`` returns unpadded id lists: the
-    :class:`JanusProcessor` expands image placeholders and pads.
+    :class:`JanusProcessor` expands image placeholders and pads. Load by repo
+    id like weights: ``JanusTokenizer.from_weights("kerasformers/janus_pro_1b")``.
 
     Args:
-        hf_id: Hub repo to pull ``tokenizer.json`` from.
+        variant: Janus variant key (default ``"janus_pro_1b"``); resolves to the
+            ``kerasformers/<variant>`` repo's tokenizer.json.
+        hf_id: Explicit Hub repo to pull ``tokenizer.json`` from (overrides
+            the variant default).
         tokenizer_file: Explicit path to a ``tokenizer.json`` (overrides the
             download).
     """
 
-    TOKENIZER_URLS = JANUS_TOKENIZER_URLS
     DEFAULT_VARIANT = "janus_pro_1b"
 
     def __init__(self, variant=None, hf_id=None, tokenizer_file=None, **kwargs):
         super().__init__(**kwargs)
         from tokenizers import Tokenizer
 
-        if tokenizer_file is None and hf_id is not None:
-            tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
-        else:
-            tokenizer_file = self.resolve_tokenizer_json(
-                variant or self.DEFAULT_VARIANT, tokenizer_file
-            )
-        self.variant = variant
+        self.variant = variant or self.DEFAULT_VARIANT
         self.hf_id = hf_id
+        repo = hf_id if hf_id is not None else f"kerasformers/{self.variant}"
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(repo, tokenizer_file)
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
         self.image_token = "<image_placeholder>"
@@ -47,6 +44,12 @@ class JanusTokenizer(BaseTokenizer):
         self.image_token_id = self._tok.token_to_id(self.image_token)
         self.bos_token_id = self._tok.token_to_id(self.bos_token)
         self.eos_token_id = self._tok.token_to_id(self.eos_token)
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        from huggingface_hub import hf_hub_download
+
+        return cls(tokenizer_file=hf_hub_download(repo, "tokenizer.json"), **kwargs)
 
     @property
     def vocab_size(self):

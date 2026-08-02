@@ -86,9 +86,30 @@ def transfer_janus_weights(keras_model, hf_state_dict):
             transfer_weights(weight.path, weight, state[name])
 
 
+# Per-variant recipes (relocated from janus_config.py). Models load from the Hub
+# by repo id; these build the arch for conversion + drive the backfill.
+JANUS_VARIANTS = {
+    "janus_pro_1b": {
+        "embed_dim": 2048,
+        "mlp_dim": 5632,
+        "num_layers": 24,
+        "num_heads": 16,
+        "num_kv_heads": 16,
+        "image_token_id": 100581,
+    },
+    "janus_pro_7b": {
+        "embed_dim": 4096,
+        "mlp_dim": 11008,
+        "num_layers": 30,
+        "num_heads": 32,
+        "num_kv_heads": 32,
+        "image_token_id": 100594,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
-    import os
 
     import keras
     import torch
@@ -96,7 +117,6 @@ if __name__ == "__main__":
     from PIL import Image
 
     from kerasformers.models.janus import JanusModel, JanusProcessor
-    from kerasformers.models.janus.janus_config import JANUS_WEIGHTS_URLS
 
     HF_SOURCES = {
         "janus_pro_1b": "deepseek-community/Janus-Pro-1B",
@@ -109,9 +129,9 @@ if __name__ == "__main__":
         a, b = a.astype("float64").ravel(), b.astype("float64").ravel()
         return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
 
-    for variant, meta in JANUS_WEIGHTS_URLS.items():
+    for variant in JANUS_VARIANTS:
         hf_id = HF_SOURCES[variant]
-        out_path = os.path.basename(meta["url"])
+        out_path = f"{variant}.weights.json"
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         model = JanusModel.from_weights("hf:" + hf_id)
@@ -143,15 +163,7 @@ if __name__ == "__main__":
             raise ValueError(f"{variant}: Janus parity failed (cos={cos:.4f})")
 
         n_bytes = sum(int(np.prod(w.shape)) * 4 for w in model.weights)
-        if out_path.endswith(".json"):
-            model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
-        elif n_bytes > 2 * 1024**3:
-            raise ValueError(
-                f"{variant} is {n_bytes / 1024**3:.2f} GB (> 2 GB); set its config "
-                f"URL extension to .weights.json so it shards."
-            )
-        else:
-            model.save_weights(out_path)
+        model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
         print(f"  Saved -> {out_path}  ({n_bytes / 1024**3:.2f} GB)")
 
         del hf_model, model

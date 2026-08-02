@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .janus_config import JANUS_CONFIG, JANUS_WEIGHTS_URLS
+from .janus_config import JanusConfig
 from .janus_layers import (
     JanusTextDecoderLayer,
     JanusTextRMSNorm,
@@ -11,6 +11,10 @@ from .janus_layers import (
 )
 
 MASK_NEG = -1e9
+
+# The backbone (JanusModel) and generative head (JanusGenerate) share the
+# variant's weights repo, whose kf_config.json declares JanusModel.
+JANUS_HUB_SIBLINGS = frozenset({"JanusModel", "JanusGenerate"})
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -137,8 +141,12 @@ class JanusModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "janus"
-    BASE_MODEL_CONFIG = JANUS_CONFIG
-    BASE_WEIGHT_CONFIG = JANUS_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    # Weights load by Hub repo id, e.g. from_weights("kerasformers/janus_pro_1b"),
+    # via kf_config.json on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
+    config_class = JanusConfig
+    HUB_REPO_SIBLINGS = JANUS_HUB_SIBLINGS
 
     def __init__(
         self,
@@ -280,35 +288,24 @@ class JanusModel(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self.forward_features(inputs)}
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        # Subclassed model: weights are created on the first call, so build the
-        # graph with a dummy forward (one image's worth of patch tokens scattered
-        # into image-placeholder slots) before loading the released sharded
-        # .weights.json -- Janus exceeds the 2 GB single-asset cap in float32.
-        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
-        url = entry.get("url") if isinstance(entry, dict) else entry
-        if not (load_weights and url):
-            return super().from_release(
-                variant,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                **kwargs,
-            )
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        num_patches = (model.image_size // model.patch_size) ** 2
-        model(
+    def build_for_transfer(self):
+        # Multimodal lazy build: the base (text-only) build_for_transfer would
+        # never call the vision tower + aligner (no pixel_values), so their
+        # weights would stay uncreated before a weight stream. Feed one image's
+        # worth of patch tokens scattered into the image-placeholder slots plus a
+        # dummy image so every sublayer exists. Used by from_hub_repo
+        # (kf_config.json + repo weights).
+        num_patches = (self.image_size // self.patch_size) ** 2
+        self(
             {
                 "input_ids": ops.full(
-                    (1, num_patches), model.image_token_id, dtype="int32"
+                    (1, num_patches), self.image_token_id, dtype="int32"
                 ),
                 "pixel_values": ops.zeros(
-                    (1, model.image_size, model.image_size, 3), dtype="float32"
+                    (1, self.image_size, self.image_size, 3), dtype="float32"
                 ),
             }
         )
-        cls.load_weights_from_url(model, url, skip_mismatch)
-        return model
 
     @classmethod
     def config_from_hf(cls, hf_config):
