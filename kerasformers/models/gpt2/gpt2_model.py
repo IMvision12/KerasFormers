@@ -3,10 +3,14 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .gpt2_config import GPT2_CONFIG, GPT2_WEIGHTS_URLS
+from .gpt2_config import GPT2Config
 from .gpt2_layers import GPT2Block
 
 MASK_NEG = -1e9
+
+# The backbone (GPT2Model) and generative head (GPT2Generate) share the variant's
+# weights repo, whose kf_config.json declares GPT2Model.
+GPT2_HUB_SIBLINGS = frozenset({"GPT2Model", "GPT2Generate"})
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -30,8 +34,12 @@ class GPT2Model(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "gpt2"
-    BASE_MODEL_CONFIG = GPT2_CONFIG
-    BASE_WEIGHT_CONFIG = GPT2_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    # Weights load by Hub repo id, e.g. from_weights("kerasformers/gpt2"), via
+    # kf_config.json on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
+    config_class = GPT2Config
+    HUB_REPO_SIBLINGS = GPT2_HUB_SIBLINGS
 
     def __init__(
         self,
@@ -103,24 +111,6 @@ class GPT2Model(SubclassedBaseModel):
         from .convert_gpt2_hf_to_keras import transfer_gpt2_weights
 
         transfer_gpt2_weights(keras_model, hf_state_dict)
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        # Subclassed model: build it (weights are created on first call) before
-        # loading the released .weights.h5 / sharded .weights.json.
-        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
-        url = entry.get("url") if isinstance(entry, dict) else entry
-        if not (load_weights and url):
-            return super().from_release(
-                variant,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                **kwargs,
-            )
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        model({"input_ids": ops.zeros((1, 8), dtype="int32")})
-        cls.load_weights_from_url(model, url, skip_mismatch)
-        return model
 
     def get_config(self):
         config = super().get_config()

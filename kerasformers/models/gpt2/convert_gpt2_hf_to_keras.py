@@ -38,9 +38,58 @@ def transfer_gpt2_weights(keras_model, hf_state_dict):
             transfer_weights(weight.path, weight, hf_state_dict[name])
 
 
+# Per-variant recipes (relocated from gpt2_config.py). Models load from the Hub by
+# repo id; these build the arch for conversion.
+GPT2_VARIANTS = {
+    "gpt2": {
+        "vocab_size": 50257,
+        "embed_dim": 768,
+        "mlp_dim": 3072,
+        "num_layers": 12,
+        "num_heads": 12,
+        "max_position_embeddings": 1024,
+        "norm_eps": 1e-5,
+        "tie_embeddings": True,
+    },
+    "gpt2_medium": {
+        "vocab_size": 50257,
+        "embed_dim": 1024,
+        "mlp_dim": 4096,
+        "num_layers": 24,
+        "num_heads": 16,
+        "max_position_embeddings": 1024,
+        "norm_eps": 1e-5,
+        "tie_embeddings": True,
+    },
+    "gpt2_large": {
+        "vocab_size": 50257,
+        "embed_dim": 1280,
+        "mlp_dim": 5120,
+        "num_layers": 36,
+        "num_heads": 20,
+        "max_position_embeddings": 1024,
+        "norm_eps": 1e-5,
+        "tie_embeddings": True,
+    },
+    "gpt2_xl": {
+        "vocab_size": 50257,
+        "embed_dim": 1600,
+        "mlp_dim": 6400,
+        "num_layers": 48,
+        "num_heads": 25,
+        "max_position_embeddings": 1024,
+        "norm_eps": 1e-5,
+        "tie_embeddings": True,
+    },
+}
+
+# large / xl exceed GitHub's 2 GB release-asset cap, so they save as a sharded
+# .weights.json index; the smaller two save as a single .weights.h5.
+_SHARDED = {"gpt2_large", "gpt2_xl"}
+
+
 if __name__ == "__main__":
     import gc
-    import os
 
     import keras
     import torch
@@ -49,7 +98,6 @@ if __name__ == "__main__":
     from transformers import GPT2LMHeadModel
 
     from kerasformers.models.gpt2 import GPT2Generate
-    from kerasformers.models.gpt2.gpt2_config import GPT2_CONFIG, GPT2_WEIGHTS_URLS
 
     HF_SOURCES = {
         "gpt2": "openai-community/gpt2",
@@ -60,8 +108,7 @@ if __name__ == "__main__":
     MAX_SHARD_GB = 1.7  # GitHub caps release assets at 2 GB; large/xl get sharded
     rng = np.random.default_rng(0)
 
-    for variant, meta in GPT2_WEIGHTS_URLS.items():
-        arch = GPT2_CONFIG[variant]
+    for variant, arch in GPT2_VARIANTS.items():
         hf_id = HF_SOURCES[variant]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
@@ -85,10 +132,11 @@ if __name__ == "__main__":
         if d > 1e-3:
             raise ValueError(f"{variant}: GPT2 parity failed ({d:.3e})")
 
-        out_path = os.path.basename(meta["url"])
-        if out_path.endswith(".json"):
+        if variant in _SHARDED:
+            out_path = f"{variant}.weights.json"
             model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
         else:
+            out_path = f"{variant}.weights.h5"
             model.save_weights(out_path)
         print(f"  Saved -> {out_path}")
 
