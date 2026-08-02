@@ -8,10 +8,7 @@ from kerasformers.models.deepseek_vl.deepseek_vl_layers import (
 )
 from kerasformers.models.deepseek_vl.deepseek_vl_model import DeepseekVLVisionModel
 
-from .deepseek_vl_hybrid_config import (
-    DEEPSEEK_VL_HYBRID_CONFIG,
-    DEEPSEEK_VL_HYBRID_WEIGHTS_URLS,
-)
+from .deepseek_vl_hybrid_config import DeepseekVLHybridConfig
 from .deepseek_vl_hybrid_layers import (
     DeepseekVLHybridAligner,
     DeepseekVLHybridSamEncoder,
@@ -20,6 +17,13 @@ from .deepseek_vl_hybrid_layers import (
 )
 
 MASK_NEG = -1e9
+
+# The backbone (DeepseekVLHybridModel) and generative head
+# (DeepseekVLHybridGenerate) share the variant's weights repo, whose
+# kf_config.json declares DeepseekVLHybridModel.
+DEEPSEEK_VL_HYBRID_HUB_SIBLINGS = frozenset(
+    {"DeepseekVLHybridModel", "DeepseekVLHybridGenerate"}
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -38,8 +42,12 @@ class DeepseekVLHybridModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "deepseek_vl_hybrid"
-    BASE_MODEL_CONFIG = DEEPSEEK_VL_HYBRID_CONFIG
-    BASE_WEIGHT_CONFIG = DEEPSEEK_VL_HYBRID_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    # Weights load by Hub repo id, e.g. from_weights("kerasformers/deepseek_vl_7b_chat"),
+    # via kf_config.json on the repo (no url table in the package).
+    BASE_WEIGHT_CONFIG = None
+    config_class = DeepseekVLHybridConfig
+    HUB_REPO_SIBLINGS = DEEPSEEK_VL_HYBRID_HUB_SIBLINGS
 
     def __init__(
         self,
@@ -240,38 +248,28 @@ class DeepseekVLHybridModel(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self.forward_features(inputs)}
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        # Subclassed model: build the graph with a dummy dual-resolution forward
-        # (image-placeholder tokens + 384 low-res + 1024 high-res zeros) before
-        # loading the released sharded .weights.json (7B float32 > 2 GB).
-        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
-        url = entry.get("url") if isinstance(entry, dict) else entry
-        if not (load_weights and url):
-            return super().from_release(
-                variant,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                **kwargs,
-            )
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        num_patches = (model.image_size // model.patch_size) ** 2
-        model(
+    def build_for_transfer(self):
+        # Multimodal lazy build: the base (text-only) build_for_transfer would
+        # never call the dual vision towers + aligner (no pixel_values), so their
+        # weights would stay uncreated before a weight stream. Feed one image's
+        # worth of patch tokens plus a 384 low-res and a 1024 high-res dummy image
+        # so every sublayer exists. Used by from_hub_repo (kf_config.json +
+        # repo weights).
+        num_patches = (self.image_size // self.patch_size) ** 2
+        self(
             {
                 "input_ids": ops.full(
-                    (1, num_patches), model.image_token_id, dtype="int32"
+                    (1, num_patches), self.image_token_id, dtype="int32"
                 ),
                 "pixel_values": ops.zeros(
-                    (1, model.image_size, model.image_size, 3), dtype="float32"
+                    (1, self.image_size, self.image_size, 3), dtype="float32"
                 ),
                 "high_res_pixel_values": ops.zeros(
-                    (1, model.high_res_image_size, model.high_res_image_size, 3),
+                    (1, self.high_res_image_size, self.high_res_image_size, 3),
                     dtype="float32",
                 ),
             }
         )
-        cls.load_weights_from_url(model, url, skip_mismatch)
-        return model
 
     @classmethod
     def config_from_hf(cls, hf_config):

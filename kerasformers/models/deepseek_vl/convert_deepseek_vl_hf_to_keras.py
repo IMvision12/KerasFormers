@@ -86,43 +86,77 @@ def transfer_deepseek_vl_weights(keras_model, hf_state_dict):
             transfer_weights(weight.path, weight, state[name])
 
 
+# Per-variant recipes (relocated from deepseek_vl_config.py). Models load from
+# the Hub by repo id; these build the arch for conversion + drive the backfill.
+# Only the model_type "deepseek_vl" repos (the 1.3B chat/base) are loadable
+# here. The 7B repos are "deepseek_vl_hybrid" (SAM branch) -- a different
+# architecture -- and are intentionally absent.
+DEEPSEEK_VL_VARIANTS = {
+    "deepseek_vl_1.3b_chat": {
+        "vocab_size": 102400,
+        "embed_dim": 2048,
+        "mlp_dim": 5632,
+        "num_layers": 24,
+        "num_heads": 16,
+        "num_kv_heads": 16,
+        "head_dim": 128,
+        "norm_eps": 1e-6,
+        "rope_theta": 10000.0,
+        "tie_embeddings": False,
+        "vision_embed_dim": 1024,
+        "vision_mlp_dim": 4096,
+        "vision_num_layers": 24,
+        "vision_num_heads": 16,
+        "image_size": 384,
+        "patch_size": 16,
+        "vision_norm_eps": 1e-6,
+        "image_token_id": 100015,
+    },
+    "deepseek_vl_1.3b_base": {
+        "vocab_size": 102400,
+        "embed_dim": 2048,
+        "mlp_dim": 5632,
+        "num_layers": 24,
+        "num_heads": 16,
+        "num_kv_heads": 16,
+        "head_dim": 128,
+        "norm_eps": 1e-6,
+        "rope_theta": 10000.0,
+        "tie_embeddings": False,
+        "vision_embed_dim": 1024,
+        "vision_mlp_dim": 4096,
+        "vision_num_layers": 24,
+        "vision_num_heads": 16,
+        "image_size": 384,
+        "patch_size": 16,
+        "vision_norm_eps": 1e-6,
+        "image_token_id": 100015,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
-    import os
 
     import keras
 
     from kerasformers.models.deepseek_vl import DeepseekVLModel
-    from kerasformers.models.deepseek_vl.deepseek_vl_config import (
-        DEEPSEEK_VL_WEIGHTS_URLS,
-    )
 
-    # Only the model_type "deepseek_vl" repos (the 1.3B chat/base) are loadable
-    # here. The 7B repos are "deepseek_vl_hybrid" (SAM branch) -- a different
-    # architecture -- and are intentionally absent from the config.
     HF_SOURCES = {
         "deepseek_vl_1.3b_chat": "deepseek-community/deepseek-vl-1.3b-chat",
         "deepseek_vl_1.3b_base": "deepseek-community/deepseek-vl-1.3b-base",
     }
     MAX_SHARD_GB = 1.7
 
-    for variant, meta in DEEPSEEK_VL_WEIGHTS_URLS.items():
+    for variant in DEEPSEEK_VL_VARIANTS:
         hf_id = HF_SOURCES[variant]
-        out_path = os.path.basename(meta["url"])
+        out_path = f"{variant}.weights.json"
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         model = DeepseekVLModel.from_weights("hf:" + hf_id)
 
         n_bytes = sum(int(np.prod(w.shape)) * 4 for w in model.weights)
-        if out_path.endswith(".json"):
-            model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
-        elif n_bytes > 2 * 1024**3:
-            raise ValueError(
-                f"{variant} is {n_bytes / 1024**3:.2f} GB (> 2 GB); set its config "
-                f"URL extension to .weights.json so it shards."
-            )
-        else:
-            model.save_weights(out_path)
+        model.save_weights(out_path, max_shard_size=MAX_SHARD_GB)
         print(f"  Saved -> {out_path}  ({n_bytes / 1024**3:.2f} GB)")
 
         del model
