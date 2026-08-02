@@ -4,8 +4,6 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
-from keras import utils
-
 
 def validate_url(url: str) -> bool:
     """Validate if the provided URL is well-formed.
@@ -27,6 +25,13 @@ def download_file(
     file_url: str, cache_dir: Optional[str] = None, force_download: bool = False
 ) -> str:
     """Download file from the specified URL.
+
+    Streams the response to disk with a tqdm progress bar (via
+    ``huggingface_hub``'s ``http_get``, the same downloader transformers uses),
+    so no Keras / ``keras.utils.get_file`` dependency is involved. For
+    ``huggingface.co`` URLs an ``HF_TOKEN`` in the environment is sent as a
+    bearer token so gated / private repos resolve.
+
     Args:
         file_url: URL to download file from
         cache_dir: Directory to cache files (default: ~/.downloads)
@@ -55,16 +60,27 @@ def download_file(
         print(f"Found cached file at {local_file}")
         return str(local_file)
 
+    headers = {"User-Agent": "kerasformers"}
+    token = os.environ.get("HF_TOKEN")
+    if token and "huggingface.co" in file_url:
+        headers["Authorization"] = f"Bearer {token}"
+
+    # Stream to a sibling ``.incomplete`` file, then atomically move it into
+    # place, so an interrupted download never leaves a truncated file that a
+    # later call would treat as cached.
+    tmp_file = target_dir / f"{file_name}.incomplete"
     try:
-        file_path = utils.get_file(
-            fname=file_name,
-            origin=file_url,
-            cache_dir=str(cache_dir),
-            cache_subdir=subdir,
-            extract=False,
-            force_download=force_download,
-        )
-        return file_path
+        from huggingface_hub.file_download import http_get
+
+        with open(tmp_file, "wb") as f:
+            http_get(file_url, f, headers=headers)
+        os.replace(tmp_file, local_file)
+        return str(local_file)
     except Exception as e:
+        if tmp_file.exists():
+            try:
+                tmp_file.unlink()
+            except OSError:
+                pass
         print(f"Failed to download file: {str(e)}")
         raise

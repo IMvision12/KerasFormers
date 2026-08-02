@@ -77,10 +77,10 @@ model = SegFormerSemanticSegment.from_weights("hf:<user>/my-finetune")
 model = Qwen3Generate.from_weights("qwen3_8b", load_dtype="bfloat16", low_memory=True)
 ```
 
-### from_release and from_hf
+### from_variant and from_hf
 
 ```python
-Model.from_release(variant, load_weights=True, skip_mismatch=False, quantization=None,
+Model.from_variant(variant, load_weights=True, skip_mismatch=False, quantization=None,
                    low_memory=False, low_disk=False, **kwargs)
 
 Model.from_hf(hf_id, load_weights=True, variant=None, skip_mismatch=False,
@@ -146,7 +146,7 @@ the whole pipeline; see their pages.
 ## Preprocessing
 
 All preprocessors share `PreprocessorMixin`, so they also get `from_weights`,
-`from_release`, and `from_hf`.
+`from_variant`, and `from_hf`.
 
 ### BaseTokenizer
 

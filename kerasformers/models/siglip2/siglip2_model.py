@@ -81,7 +81,7 @@ class SigLIP2TextModel(SigLIPTextModel):
     Thin subclass of :class:`SigLIPTextModel`, architecture is
     identical; differs only in the weights (SigLIP 2 has its own repos) and the
     Gemma-style ``vocab_size`` of
-    256000 set by the SigLIP 2 config entries. ``from_release``
+    256000 set by the SigLIP 2 config entries. ``from_weights``
     warm-starts the encoder from a :class:`SigLIP2Model` checkpoint.
 
     Output dict:

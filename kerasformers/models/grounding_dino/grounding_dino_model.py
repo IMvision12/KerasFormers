@@ -5,7 +5,6 @@ import numpy as np
 from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
-from kerasformers.utils import standardize_input_shape
 
 from .grounding_dino_config import GroundingDinoConfig
 from .grounding_dino_layers import (
@@ -484,33 +483,6 @@ class GroundingDinoModel(SubclassedBaseModel):
             "intermediate_hidden_states": intermediate,
             "encoder_last_hidden_state_text": enc["text"],
         }
-
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        entry = cls.BASE_WEIGHT_CONFIG.get(variant, {})
-        url = entry.get("url") if isinstance(entry, dict) else entry
-        if not (load_weights and url):
-            return super().from_release(
-                variant,
-                load_weights=load_weights,
-                skip_mismatch=skip_mismatch,
-                **kwargs,
-            )
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        # 384 (not 224) keeps Swin-B's window-12 last stage >= window; build in
-        # the active data format so backbone_features sees the expected layout.
-        shape = standardize_input_shape(384, keras.config.image_data_format())
-        model(
-            {
-                "pixel_values": ops.zeros((1, *shape), dtype="float32"),
-                "input_ids": ops.convert_to_tensor(
-                    np.array([[101, 3000, 102]], dtype="int32")
-                ),
-                "attention_mask": ops.ones((1, 3), dtype="int32"),
-            }
-        )
-        cls.load_weights_from_url(model, url, skip_mismatch)
-        return model
 
     @classmethod
     def config_from_hf(cls, hf_config):

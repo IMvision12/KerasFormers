@@ -23,7 +23,7 @@ class BaseImageProcessor(PreprocessorMixin):
 
     Subclasses implement ``call(images)`` returning the model-ready pixel tensor
     (or a dict that includes one). The loading API (``from_weights`` /
-    ``from_release``) and the ``__call__`` -> ``call`` forwarder are inherited
+    ``from_variant``) and the ``__call__`` -> ``call`` forwarder are inherited
     from :class:`PreprocessorMixin`; ``from_hf`` is overridden here to map the
     repo's ``preprocessor_config.json`` onto whatever constructor params the
     subclass exposes: ``image_mean`` / ``image_std`` (also as ``mean`` / ``std``),

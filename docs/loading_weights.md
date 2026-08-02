@@ -269,7 +269,7 @@ untrained.
 rather the source be visible at the call site than encoded in a prefix:
 
 ```python
-model = SegFormerSemanticSegment.from_release("segformer_b0_ade_512")
+model = SegFormerSemanticSegment.from_variant("segformer_b0_ade_512")
 model = SegFormerSemanticSegment.from_hf("nvidia/segformer-b0-finetuned-ade-512-512")
 ```
 
