@@ -18,7 +18,6 @@ from kerasformers.conversion.weight_transfer_util import (
     transfer_weights,
 )
 from kerasformers.models.mobilevit import MobileViTImageClassify
-from kerasformers.models.mobilevit.mobilevit_config import MOBILEVIT_VARIANTS
 
 # Architecture presets, moved here from mobilevit_config.py: the package config no
 # longer carries classification arch (models load by Hub repo id / kf_config). Only
@@ -50,6 +49,24 @@ MOBILEVIT_MODEL_CONFIG = {
         "attention_dims": [None, None, 144, 192, 240],
         "image_size": 256,
         "num_classes": 1000,
+    },
+}
+
+# Hosted classification variants -> (model arch key, timm id). Weights load by Hub
+# repo id (kf_config.json); this converter builds an untrained model from the arch
+# key above and transfers the matching timm weights.
+MOBILEVIT_VARIANTS = {
+    "mobilevit_xxs_cvnets_in1k": {
+        "model": "mobilevit_xxs",
+        "timm_id": "mobilevit_xxs.cvnets_in1k",
+    },
+    "mobilevit_xs_cvnets_in1k": {
+        "model": "mobilevit_xs",
+        "timm_id": "mobilevit_xs.cvnets_in1k",
+    },
+    "mobilevit_s_cvnets_in1k": {
+        "model": "mobilevit_s",
+        "timm_id": "mobilevit_s.cvnets_in1k",
     },
 }
 

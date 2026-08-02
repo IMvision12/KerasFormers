@@ -2,21 +2,36 @@ from kerasformers.base import BaseConfig
 
 
 class MobileViTV2Config(BaseConfig):
-    r"""Configuration for [`MobileViTV2Model`] / [`MobileViTV2ImageClassify`].
+    r"""Configuration for MobileViTV2: [`MobileViTV2Model`],
+    [`MobileViTV2ImageClassify`] and [`MobileViTV2SemanticSegment`].
 
     MobileViTV2 replaces MobileViT's multi-head attention with separable self-attention
     (linear in token count) and scales the whole network by a single width multiplier.
-    One `kf_config.json` (declaring the canonical [`MobileViTV2ImageClassify`]) sits on
-    each classification variant's repo, and both the backbone and classifier load from
-    it. Fields mirror the model constructor and serialize flat.
+    A single config serves the whole family: the backbone/classifier read `multiplier`
+    / `image_size` / `num_classes`, and the DeepLabV3 segmentation head additionally
+    reads the `output_stride` / `atrous_rates` / `aspp_*` fields (the classifier ignores
+    them). One `kf_config.json` sits on each variant's repo and fields serialize flat.
 
     Args:
         multiplier (`float`, *optional*, defaults to 1.0):
             Width multiplier scaling all channel counts.
         image_size (`int`, *optional*, defaults to 256):
-            Square input resolution the weights were trained at.
+            Square input resolution the weights were trained at (512 for the
+            segmentation checkpoints).
         num_classes (`int`, *optional*, defaults to 1000):
-            Number of classifier output classes (backbone ignores it).
+            Number of output classes (backbone ignores it; 21 for the PASCAL VOC
+            segmentation checkpoints).
+        output_stride (`int`, *optional*, defaults to 32):
+            Segmentation only. Ratio of input to backbone-output spatial resolution;
+            the last stage uses atrous convolutions to hold this stride (16 for the
+            DeepLabV3 heads). Ignored by the classifier, which always uses 32.
+        atrous_rates (`tuple`, *optional*, defaults to `(6, 12, 18)`):
+            Segmentation only. Dilation rates of the ASPP parallel branches.
+        aspp_out_channels (`int`, *optional*, defaults to 512):
+            Segmentation only. Channel count of each ASPP branch and the fused
+            projection.
+        aspp_dropout_prob (`float`, *optional*, defaults to 0.1):
+            Segmentation only. Dropout probability before the final classifier conv.
 
     Examples:
 
@@ -36,85 +51,8 @@ class MobileViTV2Config(BaseConfig):
     multiplier: float = 1.0
     image_size: int = 256
     num_classes: int = 1000
-
-
-# Hosted classification variants -> (model arch key, timm id). Weights load by Hub
-# repo id (kf_config.json); the github release urls have been removed.
-MOBILEVITV2_VARIANTS = {
-    "mobilevitv2_050_cvnets_in1k": {
-        "model": "mobilevitv2_050",
-        "timm_id": "mobilevitv2_050.cvnets_in1k",
-    },
-    "mobilevitv2_075_cvnets_in1k": {
-        "model": "mobilevitv2_075",
-        "timm_id": "mobilevitv2_075.cvnets_in1k",
-    },
-    "mobilevitv2_100_cvnets_in1k": {
-        "model": "mobilevitv2_100",
-        "timm_id": "mobilevitv2_100.cvnets_in1k",
-    },
-    "mobilevitv2_125_cvnets_in1k": {
-        "model": "mobilevitv2_125",
-        "timm_id": "mobilevitv2_125.cvnets_in1k",
-    },
-    "mobilevitv2_150_cvnets_in1k": {
-        "model": "mobilevitv2_150",
-        "timm_id": "mobilevitv2_150.cvnets_in1k",
-    },
-    "mobilevitv2_150_cvnets_in22k_ft_in1k": {
-        "model": "mobilevitv2_150",
-        "timm_id": "mobilevitv2_150.cvnets_in22k_ft_in1k",
-    },
-    "mobilevitv2_150_cvnets_in22k_ft_in1k_384": {
-        "model": "mobilevitv2_150_384",
-        "timm_id": "mobilevitv2_150.cvnets_in22k_ft_in1k_384",
-    },
-    "mobilevitv2_175_cvnets_in1k": {
-        "model": "mobilevitv2_175",
-        "timm_id": "mobilevitv2_175.cvnets_in1k",
-    },
-    "mobilevitv2_175_cvnets_in22k_ft_in1k": {
-        "model": "mobilevitv2_175",
-        "timm_id": "mobilevitv2_175.cvnets_in22k_ft_in1k",
-    },
-    "mobilevitv2_175_cvnets_in22k_ft_in1k_384": {
-        "model": "mobilevitv2_175_384",
-        "timm_id": "mobilevitv2_175.cvnets_in22k_ft_in1k_384",
-    },
-    "mobilevitv2_200_cvnets_in1k": {
-        "model": "mobilevitv2_200",
-        "timm_id": "mobilevitv2_200.cvnets_in1k",
-    },
-    "mobilevitv2_200_cvnets_in22k_ft_in1k": {
-        "model": "mobilevitv2_200",
-        "timm_id": "mobilevitv2_200.cvnets_in22k_ft_in1k",
-    },
-    "mobilevitv2_200_cvnets_in22k_ft_in1k_384": {
-        "model": "mobilevitv2_200_384",
-        "timm_id": "mobilevitv2_200.cvnets_in22k_ft_in1k_384",
-    },
-}
-
-MOBILEVITV2_SEGMENT_MODEL_CONFIG = {
-    "mobilevitv2_100_deeplabv3": {
-        "multiplier": 1.0,
-        "image_size": 512,
-        "num_classes": 21,
-    },
-    "mobilevitv2_150_deeplabv3": {
-        "multiplier": 1.5,
-        "image_size": 512,
-        "num_classes": 21,
-    },
-}
-
-MOBILEVITV2_SEGMENT_WEIGHTS_URLS = {
-    "mobilevitv2_100_deeplabv3": {
-        "model": "mobilevitv2_100_deeplabv3",
-        "url": "https://huggingface.co/kerasformers/mobilevitv2_100_deeplabv3",
-    },
-    "mobilevitv2_150_deeplabv3": {
-        "model": "mobilevitv2_150_deeplabv3",
-        "url": "https://huggingface.co/kerasformers/mobilevitv2_150_deeplabv3",
-    },
-}
+    # DeepLabV3 segmentation head (ignored by the backbone / classifier).
+    output_stride: int = 32
+    atrous_rates: tuple = (6, 12, 18)
+    aspp_out_channels: int = 512
+    aspp_dropout_prob: float = 0.1

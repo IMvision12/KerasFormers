@@ -2,13 +2,15 @@ from kerasformers.base import BaseConfig
 
 
 class MobileViTConfig(BaseConfig):
-    r"""Configuration for [`MobileViTModel`] / [`MobileViTImageClassify`].
+    r"""Configuration for MobileViT: [`MobileViTModel`], [`MobileViTImageClassify`]
+    and [`MobileViTSemanticSegment`].
 
     MobileViT interleaves MobileNetV2 blocks with lightweight transformer blocks that
     apply global attention over unfolded patches, giving a compact conv/transformer
-    hybrid. One `kf_config.json` (declaring the canonical [`MobileViTImageClassify`])
-    sits on each classification variant's repo, and both the backbone and classifier
-    load from it. Fields mirror the model constructor and serialize flat.
+    hybrid. A single config serves the whole family: the backbone/classifier read the
+    architecture fields, and the DeepLabV3 segmentation head additionally reads the
+    `output_stride` / `atrous_rates` / `aspp_*` fields (the classifier ignores them).
+    One `kf_config.json` sits on each variant's repo and fields serialize flat.
 
     Args:
         initial_dims (`int`, *optional*, defaults to 16):
@@ -23,9 +25,22 @@ class MobileViTConfig(BaseConfig):
             Transformer hidden size per stage; `None` marks the purely convolutional
             early stages.
         image_size (`int`, *optional*, defaults to 256):
-            Square input resolution the weights were trained at.
+            Square input resolution the weights were trained at (512 for the
+            segmentation checkpoints).
         num_classes (`int`, *optional*, defaults to 1000):
-            Number of classifier output classes (backbone ignores it).
+            Number of output classes (backbone ignores it; 21 for the PASCAL VOC
+            segmentation checkpoints).
+        output_stride (`int`, *optional*, defaults to 32):
+            Segmentation only. Ratio of input to backbone-output spatial resolution;
+            the last stage uses atrous convolutions to hold this stride (16 for the
+            DeepLabV3 heads). Ignored by the classifier, which always uses 32.
+        atrous_rates (`tuple`, *optional*, defaults to `(6, 12, 18)`):
+            Segmentation only. Dilation rates of the ASPP parallel branches.
+        aspp_out_channels (`int`, *optional*, defaults to 256):
+            Segmentation only. Channel count of each ASPP branch and the fused
+            projection.
+        aspp_dropout_prob (`float`, *optional*, defaults to 0.1):
+            Segmentation only. Dropout probability before the final classifier conv.
 
     Examples:
 
@@ -49,66 +64,8 @@ class MobileViTConfig(BaseConfig):
     attention_dims: tuple = (None, None, 144, 192, 240)
     image_size: int = 256
     num_classes: int = 1000
-
-
-# Hosted classification variants -> (model arch key, timm id). Weights load by Hub
-# repo id (kf_config.json); the github release urls have been removed.
-MOBILEVIT_VARIANTS = {
-    "mobilevit_xxs_cvnets_in1k": {
-        "model": "mobilevit_xxs",
-        "timm_id": "mobilevit_xxs.cvnets_in1k",
-    },
-    "mobilevit_xs_cvnets_in1k": {
-        "model": "mobilevit_xs",
-        "timm_id": "mobilevit_xs.cvnets_in1k",
-    },
-    "mobilevit_s_cvnets_in1k": {
-        "model": "mobilevit_s",
-        "timm_id": "mobilevit_s.cvnets_in1k",
-    },
-}
-
-MOBILEVIT_SEGMENT_MODEL_CONFIG = {
-    "mobilevit_xxs_deeplabv3": {
-        "initial_dims": 16,
-        "head_dims": 320,
-        "block_dims": [16, 24, 48, 64, 80],
-        "expansion_ratio": [2.0, 2.0, 2.0, 2.0, 2.0],
-        "attention_dims": [None, None, 64, 80, 96],
-        "image_size": 512,
-        "num_classes": 21,
-    },
-    "mobilevit_xs_deeplabv3": {
-        "initial_dims": 16,
-        "head_dims": 384,
-        "block_dims": [32, 48, 64, 80, 96],
-        "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
-        "attention_dims": [None, None, 96, 120, 144],
-        "image_size": 512,
-        "num_classes": 21,
-    },
-    "mobilevit_s_deeplabv3": {
-        "initial_dims": 16,
-        "head_dims": 640,
-        "block_dims": [32, 64, 96, 128, 160],
-        "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
-        "attention_dims": [None, None, 144, 192, 240],
-        "image_size": 512,
-        "num_classes": 21,
-    },
-}
-
-MOBILEVIT_SEGMENT_WEIGHTS_URLS = {
-    "mobilevit_xxs_deeplabv3": {
-        "model": "mobilevit_xxs_deeplabv3",
-        "url": "https://huggingface.co/kerasformers/mobilevit_xxs_deeplabv3",
-    },
-    "mobilevit_xs_deeplabv3": {
-        "model": "mobilevit_xs_deeplabv3",
-        "url": "https://huggingface.co/kerasformers/mobilevit_xs_deeplabv3",
-    },
-    "mobilevit_s_deeplabv3": {
-        "model": "mobilevit_s_deeplabv3",
-        "url": "https://huggingface.co/kerasformers/mobilevit_s_deeplabv3",
-    },
-}
+    # DeepLabV3 segmentation head (ignored by the backbone / classifier).
+    output_stride: int = 32
+    atrous_rates: tuple = (6, 12, 18)
+    aspp_out_channels: int = 256
+    aspp_dropout_prob: float = 0.1

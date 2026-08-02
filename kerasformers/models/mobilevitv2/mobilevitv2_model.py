@@ -11,16 +11,15 @@ from kerasformers.models.mobilevit.mobilevit_model import mobilevit_aspp_head
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
 
-from .mobilevitv2_config import (
-    MOBILEVITV2_SEGMENT_MODEL_CONFIG,
-    MOBILEVITV2_SEGMENT_WEIGHTS_URLS,
-    MobileViTV2Config,
-)
+from .mobilevitv2_config import MobileViTV2Config
 
 # The backbone (MobileViTV2Model) and classifier (MobileViTV2ImageClassify) share the
 # classification variant's repo, whose kf_config.json declares
 # MobileViTV2ImageClassify.
 MOBILEVITV2_HUB_SIBLINGS = frozenset({"MobileViTV2Model", "MobileViTV2ImageClassify"})
+
+# Each *_deeplabv3 repo carries its own kf_config.json declaring the segment model.
+MOBILEVITV2_SEGMENT_HUB_SIBLINGS = frozenset({"MobileViTV2SemanticSegment"})
 
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
@@ -528,7 +527,15 @@ class MobileViTV2Model(FunctionalBaseModel):
         name="MobileViTV2Model",
         **kwargs,
     ):
-        for k in ("num_classes", "classifier_activation", "timm_id"):
+        # Shared MobileViTV2Config also carries classifier / segmentation-head fields.
+        for k in (
+            "num_classes",
+            "classifier_activation",
+            "atrous_rates",
+            "aspp_out_channels",
+            "aspp_dropout_prob",
+            "timm_id",
+        ):
             kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
@@ -669,7 +676,16 @@ class MobileViTV2ImageClassify(FunctionalBaseModel):
         name="MobileViTV2ImageClassify",
         **kwargs,
     ):
-        kwargs.pop("timm_id", None)
+        # Shared MobileViTV2Config also carries segmentation-head fields (and
+        # output_stride, which the classifier always runs at 32); drop them.
+        for k in (
+            "output_stride",
+            "atrous_rates",
+            "aspp_out_channels",
+            "aspp_dropout_prob",
+            "timm_id",
+        ):
+            kwargs.pop(k, None)
 
         data_format = keras.config.image_data_format()
 
@@ -738,11 +754,10 @@ class MobileViTV2SemanticSegment(FunctionalBaseModel):
     - [DeepLabV3](https://arxiv.org/abs/1706.05587)
     """
 
-    BASE_MODEL_CONFIG = {
-        variant: MOBILEVITV2_SEGMENT_MODEL_CONFIG[meta["model"]]
-        for variant, meta in MOBILEVITV2_SEGMENT_WEIGHTS_URLS.items()
-    }
-    BASE_WEIGHT_CONFIG = MOBILEVITV2_SEGMENT_WEIGHTS_URLS
+    BASE_MODEL_CONFIG = None
+    BASE_WEIGHT_CONFIG = None
+    config_class = MobileViTV2Config
+    HUB_REPO_SIBLINGS = MOBILEVITV2_SEGMENT_HUB_SIBLINGS
     HF_MODEL_TYPE = "mobilevitv2"
 
     @classmethod
