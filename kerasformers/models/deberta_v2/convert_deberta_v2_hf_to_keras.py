@@ -101,6 +101,47 @@ def transfer_deberta_v2_weights(
         transfer_weights(weight.path, weight, value)
 
 
+# Architecture per variant, moved here from deberta_v2_config.py: the package config no longer
+# carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer the HF weights into.
+DEBERTA_V2_MODEL_CONFIG = {
+    "deberta_v2_xlarge": {
+        "vocab_size": 128100,
+        "embed_dim": 1536,
+        "num_layers": 24,
+        "num_heads": 24,
+        "mlp_dim": 6144,
+        "max_position_embeddings": 512,
+        "max_relative_positions": 512,
+        "position_buckets": 256,
+        "pos_att_type": ["p2c", "c2p"],
+        "norm_rel_ebd": True,
+        "conv_kernel_size": 3,
+        "conv_act": "gelu",
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-7,
+        "pad_token_id": 0,
+    },
+    "deberta_v2_xxlarge": {
+        "vocab_size": 128100,
+        "embed_dim": 1536,
+        "num_layers": 48,
+        "num_heads": 24,
+        "mlp_dim": 6144,
+        "max_position_embeddings": 512,
+        "max_relative_positions": 512,
+        "position_buckets": 256,
+        "pos_att_type": ["p2c", "c2p"],
+        "norm_rel_ebd": True,
+        "conv_kernel_size": 3,
+        "conv_act": "gelu",
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-7,
+        "pad_token_id": 0,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
     import os
@@ -112,10 +153,6 @@ if __name__ == "__main__":
     from transformers import DebertaV2Model as HFDebertaV2Model
 
     from kerasformers.models.deberta_v2 import DebertaV2MaskedLM, DebertaV2Model
-    from kerasformers.models.deberta_v2.deberta_v2_config import (
-        DEBERTA_V2_MODEL_CONFIG,
-        DEBERTA_V2_WEIGHTS_URLS,
-    )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
     HF_SOURCES = {
@@ -141,8 +178,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in DEBERTA_V2_WEIGHTS_URLS.items():
-        arch = DEBERTA_V2_MODEL_CONFIG[meta["model"]]
+    for variant, arch in DEBERTA_V2_MODEL_CONFIG.items():
         hf_id = HF_SOURCES[variant]
         eps = arch["layer_norm_eps"]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")

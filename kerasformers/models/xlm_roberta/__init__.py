@@ -1,3 +1,4 @@
+from .xlm_roberta_config import XLMRobertaConfig
 from .xlm_roberta_model import (
     XLMRobertaMaskedLM,
     XLMRobertaModel,
@@ -9,6 +10,7 @@ from .xlm_roberta_model import (
 from .xlm_roberta_tokenizer import XLMRobertaTokenizer
 
 __all__ = [
+    "XLMRobertaConfig",
     "XLMRobertaModel",
     "XLMRobertaMaskedLM",
     "XLMRobertaSequenceClassify",

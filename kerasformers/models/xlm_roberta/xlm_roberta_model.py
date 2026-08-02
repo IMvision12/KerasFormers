@@ -11,14 +11,63 @@ from kerasformers.models.roberta.roberta_layers import (
 )
 from kerasformers.models.roberta.roberta_model import roberta_backbone
 
-from .xlm_roberta_config import XLM_ROBERTA_MODEL_CONFIG, XLM_ROBERTA_WEIGHTS_URLS
+from .xlm_roberta_config import (
+    XLMRobertaConfig,
+)
 
-BASE_MODEL_CONFIG = {
-    v: XLM_ROBERTA_MODEL_CONFIG[m["model"]] for v, m in XLM_ROBERTA_WEIGHTS_URLS.items()
-}
-MLM_WEIGHTS_URLS = {
-    v: {**m, "url": m["mlm_url"]} for v, m in XLM_ROBERTA_WEIGHTS_URLS.items()
-}
+# All classes (encoder + masked-LM + task heads) share the variant's weights repo,
+# whose kf_config.json declares the canonical XLMRobertaModel encoder (model.weights.h5).
+XLM_ROBERTA_HUB_SIBLINGS = frozenset(
+    {
+        "XLMRobertaModel",
+        "XLMRobertaMaskedLM",
+        "XLMRobertaSequenceClassify",
+        "XLMRobertaTokenClassify",
+        "XLMRobertaQnA",
+        "XLMRobertaMultipleChoice",
+    }
+)
+
+
+def _xlm_roberta_mlm_from_hub_repo(
+    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
+):
+    # Masked-LM weights sit in the same repo under model_mlm.weights.* (the encoder
+    # kf_config declares model.weights.*); build from kf_config, then load that file.
+    from kerasformers.conversion.kf_config import load_kf_config
+
+    model = cls.build_from_hub_repo(repo_id, **kwargs)
+    if load_weights:
+        spec = load_kf_config(repo_id) or {}
+        mlm_weights = spec.get("weights", "model.weights.h5").replace(
+            "model.weights", "model_mlm.weights"
+        )
+        cls.load_weights_from_url(
+            model,
+            f"https://huggingface.co/{repo_id}/resolve/main/{mlm_weights}",
+            skip_mismatch,
+        )
+    return model
+
+
+def _xlm_roberta_head_from_hub_repo(
+    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
+):
+    # Task heads warm-start: build from the encoder kf_config, then copy the encoder
+    # weights from XLMRobertaModel's repo; the head layer(s) stay randomly initialized.
+    model = cls.build_from_hub_repo(repo_id, **kwargs)
+    if load_weights:
+        src = XLMRobertaModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
+        skipped = copy_weights_by_path_suffix(src, model)
+        del src
+        if skipped:
+            warnings.warn(
+                f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are randomly "
+                f"initialized: the loaded checkpoint has no weights for them. "
+                f"Fine-tune before use.",
+                stacklevel=2,
+            )
+    return model
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -63,9 +112,10 @@ class XLMRobertaModel(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "xlm-roberta"
+    config_class = XLMRobertaConfig
+    HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -206,9 +256,11 @@ class XLMRobertaMaskedLM(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = MLM_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "xlm-roberta"
+    config_class = XLMRobertaConfig
+    HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
+    from_hub_repo = classmethod(_xlm_roberta_mlm_from_hub_repo)
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -333,9 +385,10 @@ class XLMRobertaSequenceClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "xlm-roberta"
+    config_class = XLMRobertaConfig
+    HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -353,21 +406,7 @@ class XLMRobertaSequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_xlm_roberta_head_from_hub_repo)
 
     def __init__(
         self,
@@ -488,9 +527,10 @@ class XLMRobertaTokenClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "xlm-roberta"
+    config_class = XLMRobertaConfig
+    HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -508,21 +548,7 @@ class XLMRobertaTokenClassify(FunctionalBaseModel):
         )
         return config
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_xlm_roberta_head_from_hub_repo)
 
     def __init__(
         self,
@@ -639,9 +665,10 @@ class XLMRobertaQnA(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "xlm-roberta"
+    config_class = XLMRobertaConfig
+    HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -653,21 +680,7 @@ class XLMRobertaQnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return XLMRobertaModel.config_from_hf(hf_config)
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_xlm_roberta_head_from_hub_repo)
 
     def __init__(
         self,
@@ -775,9 +788,10 @@ class XLMRobertaMultipleChoice(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = XLM_ROBERTA_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "xlm-roberta"
+    config_class = XLMRobertaConfig
+    HUB_REPO_SIBLINGS = XLM_ROBERTA_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -789,21 +803,7 @@ class XLMRobertaMultipleChoice(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return XLMRobertaModel.config_from_hf(hf_config)
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = XLMRobertaModel.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_xlm_roberta_head_from_hub_repo)
 
     def __init__(
         self,

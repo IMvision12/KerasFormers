@@ -14,11 +14,42 @@ from kerasformers.models.deberta_v2.deberta_v2_model import (
     deberta_v2_backbone,
 )
 
-from .deberta_v3_config import DEBERTA_V3_MODEL_CONFIG, DEBERTA_V3_WEIGHTS_URLS
+from .deberta_v3_config import (
+    DebertaV3Config,
+)
 
-BASE_MODEL_CONFIG = {
-    v: DEBERTA_V3_MODEL_CONFIG[m["model"]] for v, m in DEBERTA_V3_WEIGHTS_URLS.items()
-}
+# All classes (encoder + masked-LM + task heads) share the variant's weights repo,
+# whose kf_config.json declares the canonical DebertaV3Model encoder (model.weights.h5).
+DEBERTA_V3_HUB_SIBLINGS = frozenset(
+    {
+        "DebertaV3Model",
+        "DebertaV3MaskedLM",
+        "DebertaV3SequenceClassify",
+        "DebertaV3TokenClassify",
+        "DebertaV3QnA",
+        "DebertaV3MultipleChoice",
+    }
+)
+
+
+def _deberta_v3_head_from_hub_repo(
+    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
+):
+    # Task heads warm-start: build from the encoder kf_config, then copy the encoder
+    # weights from DebertaV3Model's repo; the head layer(s) stay randomly initialized.
+    model = cls.build_from_hub_repo(repo_id, **kwargs)
+    if load_weights:
+        src = DebertaV3Model.from_weights(repo_id, skip_mismatch=skip_mismatch)
+        skipped = copy_weights_by_path_suffix(src, model)
+        del src
+        if skipped:
+            warnings.warn(
+                f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are randomly "
+                f"initialized: the loaded checkpoint has no weights for them. "
+                f"Fine-tune before use.",
+                stacklevel=2,
+            )
+    return model
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -62,9 +93,10 @@ class DebertaV3Model(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "deberta-v2"
+    config_class = DebertaV3Config
+    HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -219,9 +251,10 @@ class DebertaV3MaskedLM(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "deberta-v2"
+    config_class = DebertaV3Config
+    HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -235,21 +268,7 @@ class DebertaV3MaskedLM(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(self, name="DebertaV3MaskedLM", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
@@ -322,9 +341,10 @@ class DebertaV3SequenceClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "deberta-v2"
+    config_class = DebertaV3Config
+    HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -344,21 +364,7 @@ class DebertaV3SequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(
         self,
@@ -452,9 +458,10 @@ class DebertaV3TokenClassify(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "deberta-v2"
+    config_class = DebertaV3Config
+    HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -474,21 +481,7 @@ class DebertaV3TokenClassify(FunctionalBaseModel):
         )
         return config
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(
         self,
@@ -572,9 +565,10 @@ class DebertaV3QnA(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "deberta-v2"
+    config_class = DebertaV3Config
+    HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -588,21 +582,7 @@ class DebertaV3QnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(self, name="DebertaV3QnA", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
@@ -668,9 +648,10 @@ class DebertaV3MultipleChoice(FunctionalBaseModel):
         A Keras `Model` instance.
     """
 
-    BASE_MODEL_CONFIG = BASE_MODEL_CONFIG
-    BASE_WEIGHT_CONFIG = DEBERTA_V3_WEIGHTS_URLS
+    BASE_WEIGHT_CONFIG = None
     HF_MODEL_TYPE = "deberta-v2"
+    config_class = DebertaV3Config
+    HUB_REPO_SIBLINGS = DEBERTA_V3_HUB_SIBLINGS
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -684,21 +665,7 @@ class DebertaV3MultipleChoice(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    @classmethod
-    def from_release(cls, variant, load_weights=True, skip_mismatch=False, **kwargs):
-        model = super().from_release(variant, load_weights=False, **kwargs)
-        if load_weights:
-            src = DebertaV3Model.from_weights(variant, skip_mismatch=skip_mismatch)
-            skipped = copy_weights_by_path_suffix(src, model)
-            del src
-            if skipped:
-                warnings.warn(
-                    f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are "
-                    f"randomly initialized: the loaded checkpoint has no "
-                    f"weights for them. Fine-tune before use.",
-                    stacklevel=2,
-                )
-        return model
+    from_hub_repo = classmethod(_deberta_v3_head_from_hub_repo)
 
     def __init__(
         self,

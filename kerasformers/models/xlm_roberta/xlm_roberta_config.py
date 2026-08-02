@@ -1,48 +1,31 @@
-XLM_ROBERTA_MODEL_CONFIG = {
-    "xlm_roberta_base": {
-        "vocab_size": 250002,
-        "embed_dim": 768,
-        "num_layers": 12,
-        "num_heads": 12,
-        "mlp_dim": 3072,
-        "max_position_embeddings": 514,
-        "type_vocab_size": 1,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-5,
-        "pad_token_id": 1,
-    },
-    "xlm_roberta_large": {
-        "vocab_size": 250002,
-        "embed_dim": 1024,
-        "num_layers": 24,
-        "num_heads": 16,
-        "mlp_dim": 4096,
-        "max_position_embeddings": 514,
-        "type_vocab_size": 1,
-        "hidden_act": "gelu",
-        "layer_norm_eps": 1e-5,
-        "pad_token_id": 1,
-    },
-}
+from kerasformers.models.roberta.roberta_config import RobertaConfig
 
-XLM_ROBERTA_WEIGHTS_URLS = {
-    "xlm_roberta_base": {
-        "model": "xlm_roberta_base",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base.weights.h5",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base_mlm.weights.h5",
-    },
-    "xlm_roberta_large": {
-        "model": "xlm_roberta_large",
-        "url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_large.weights.json",
-        "mlm_url": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_large_mlm.weights.json",
-    },
-}
 
-XLM_ROBERTA_TOKENIZER_URLS = {
-    "xlm_roberta_base": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_base_tokenizer.json"
-    },
-    "xlm_roberta_large": {
-        "tokenizer_json": "https://github.com/IMvision12/KerasFormers/releases/download/roberta/xlm_roberta_large_tokenizer.json"
-    },
-}
+class XLMRobertaConfig(RobertaConfig):
+    r"""Configuration for the XLM-RoBERTa encoder ([`XLMRobertaModel`]) and heads.
+
+    XLM-RoBERTa is RoBERTa trained on 100 languages of CommonCrawl; architecturally it
+    is RoBERTa with a much larger multilingual vocabulary. One `kf_config.json`
+    (declaring the canonical [`XLMRobertaModel`]) sits on each variant's repo. Fields
+    mirror the model constructor and serialize flat.
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 250002):
+            Multilingual token vocabulary size.
+
+    See [`RobertaConfig`] for the remaining fields (defaults are identical apart from
+    `vocab_size`).
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.xlm_roberta import XLMRobertaConfig, XLMRobertaModel
+
+    >>> configuration = XLMRobertaConfig()
+    >>> model = XLMRobertaModel(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "xlm_roberta"
+
+    vocab_size: int = 250002

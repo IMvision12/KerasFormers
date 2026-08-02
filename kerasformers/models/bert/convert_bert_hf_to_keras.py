@@ -97,6 +97,61 @@ def transfer_bert_weights(keras_model, hf_state_dict: Dict[str, np.ndarray]) -> 
         transfer_weights(weight.path, weight, hf[hf_name])
 
 
+# Architecture per variant, moved here from bert_config.py: the package config no longer
+# carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer the HF weights into.
+BERT_MODEL_CONFIG = {
+    "bert_base_uncased": {
+        "vocab_size": 30522,
+        "embed_dim": 768,
+        "num_layers": 12,
+        "num_heads": 12,
+        "mlp_dim": 3072,
+        "max_position_embeddings": 512,
+        "type_vocab_size": 2,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-12,
+        "pad_token_id": 0,
+    },
+    "bert_large_uncased": {
+        "vocab_size": 30522,
+        "embed_dim": 1024,
+        "num_layers": 24,
+        "num_heads": 16,
+        "mlp_dim": 4096,
+        "max_position_embeddings": 512,
+        "type_vocab_size": 2,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-12,
+        "pad_token_id": 0,
+    },
+    "bert_base_cased": {
+        "vocab_size": 28996,
+        "embed_dim": 768,
+        "num_layers": 12,
+        "num_heads": 12,
+        "mlp_dim": 3072,
+        "max_position_embeddings": 512,
+        "type_vocab_size": 2,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-12,
+        "pad_token_id": 0,
+    },
+    "bert_large_cased": {
+        "vocab_size": 28996,
+        "embed_dim": 1024,
+        "num_layers": 24,
+        "num_heads": 16,
+        "mlp_dim": 4096,
+        "max_position_embeddings": 512,
+        "type_vocab_size": 2,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-12,
+        "pad_token_id": 0,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
     import os
@@ -107,10 +162,6 @@ if __name__ == "__main__":
     from transformers import BertModel as HFBertModel
 
     from kerasformers.models.bert import BertMaskedLM, BertModel
-    from kerasformers.models.bert.bert_config import (
-        BERT_MODEL_CONFIG,
-        BERT_WEIGHTS_URLS,
-    )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
@@ -123,8 +174,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in BERT_WEIGHTS_URLS.items():
-        arch = BERT_MODEL_CONFIG[meta["model"]]
+    for variant, arch in BERT_MODEL_CONFIG.items():
         hf_id = HF_SOURCES[variant]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 

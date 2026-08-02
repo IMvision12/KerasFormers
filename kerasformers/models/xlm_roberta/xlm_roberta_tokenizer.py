@@ -5,8 +5,6 @@ from tokenizers import Tokenizer
 
 from kerasformers.base import BaseTokenizer
 
-from .xlm_roberta_config import XLM_ROBERTA_TOKENIZER_URLS
-
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class XLMRobertaTokenizer(BaseTokenizer):
@@ -26,7 +24,6 @@ class XLMRobertaTokenizer(BaseTokenizer):
         bos_token / eos_token / unk_token / pad_token / mask_token: Special tokens.
     """
 
-    TOKENIZER_URLS = XLM_ROBERTA_TOKENIZER_URLS
     DEFAULT_VARIANT = "xlm_roberta_base"
 
     def __init__(
@@ -43,7 +40,9 @@ class XLMRobertaTokenizer(BaseTokenizer):
     ):
         super().__init__(**kwargs)
         self.variant = variant or self.DEFAULT_VARIANT
-        tokenizer_file = self.resolve_tokenizer_json(self.variant, tokenizer_file)
+        tokenizer_file = self.resolve_tokenizer_json_from_hf(
+            f"kerasformers/{self.variant}", tokenizer_file
+        )
         self.tokenizer_file = tokenizer_file
         self.max_seq_len = max_seq_len
         self.bos_token = bos_token

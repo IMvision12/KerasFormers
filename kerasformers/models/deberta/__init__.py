@@ -1,3 +1,4 @@
+from .deberta_config import DebertaConfig
 from .deberta_model import (
     DebertaMaskedLM,
     DebertaModel,
@@ -8,6 +9,7 @@ from .deberta_model import (
 from .deberta_tokenizer import DebertaTokenizer
 
 __all__ = [
+    "DebertaConfig",
     "DebertaModel",
     "DebertaMaskedLM",
     "DebertaSequenceClassify",

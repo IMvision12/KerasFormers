@@ -13,6 +13,37 @@ def transfer_xlm_roberta_weights(
     transfer_roberta_weights(keras_model, hf_state_dict)
 
 
+# Architecture per variant, moved here from xlm_roberta_config.py: the package config no longer
+# carries arch (models load by Hub repo id / kf_config). Only this converter
+# builds an untrained model to transfer the HF weights into.
+XLM_ROBERTA_MODEL_CONFIG = {
+    "xlm_roberta_base": {
+        "vocab_size": 250002,
+        "embed_dim": 768,
+        "num_layers": 12,
+        "num_heads": 12,
+        "mlp_dim": 3072,
+        "max_position_embeddings": 514,
+        "type_vocab_size": 1,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-5,
+        "pad_token_id": 1,
+    },
+    "xlm_roberta_large": {
+        "vocab_size": 250002,
+        "embed_dim": 1024,
+        "num_layers": 24,
+        "num_heads": 16,
+        "mlp_dim": 4096,
+        "max_position_embeddings": 514,
+        "type_vocab_size": 1,
+        "hidden_act": "gelu",
+        "layer_norm_eps": 1e-5,
+        "pad_token_id": 1,
+    },
+}
+
+
 if __name__ == "__main__":
     import gc
     import os
@@ -23,10 +54,6 @@ if __name__ == "__main__":
     from transformers import XLMRobertaModel as HFXLMRobertaModel
 
     from kerasformers.models.xlm_roberta import XLMRobertaMaskedLM, XLMRobertaModel
-    from kerasformers.models.xlm_roberta.xlm_roberta_config import (
-        XLM_ROBERTA_MODEL_CONFIG,
-        XLM_ROBERTA_WEIGHTS_URLS,
-    )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
@@ -38,8 +65,7 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(0)
 
-    for variant, meta in XLM_ROBERTA_WEIGHTS_URLS.items():
-        arch = XLM_ROBERTA_MODEL_CONFIG[meta["model"]]
+    for variant, arch in XLM_ROBERTA_MODEL_CONFIG.items():
         hf_id = HF_SOURCES[variant]
         pad = arch["pad_token_id"]
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")

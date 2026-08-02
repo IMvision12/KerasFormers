@@ -1,3 +1,4 @@
+from .bert_config import BertConfig
 from .bert_model import (
     BertMaskedLM,
     BertModel,
@@ -10,6 +11,7 @@ from .bert_model import (
 from .bert_tokenizer import BertTokenizer
 
 __all__ = [
+    "BertConfig",
     "BertModel",
     "BertMaskedLM",
     "BertSequenceClassify",
