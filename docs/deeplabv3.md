@@ -19,9 +19,13 @@ Its contribution is **atrous (dilated) convolution**. A plain classification bac
 ### DeepLabV3SemanticSegment
 
 ```python
-DeepLabV3SemanticSegment(backbone_variant="ResNet50", num_classes=21,
-                         image_size=520, input_tensor=None,
-                         name="DeepLabV3SemanticSegment")
+DeepLabV3SemanticSegment(
+    backbone_variant="ResNet50",
+    num_classes=21,
+    image_size=520,
+    input_tensor=None,
+    name="DeepLabV3SemanticSegment",
+)
 ```
 
 The segmentation model: dilated ResNet backbone plus the ASPP head.
@@ -41,8 +45,12 @@ The segmentation model: dilated ResNet backbone plus the ASPP head.
 ### DeepLabV3Model
 
 ```python
-DeepLabV3Model(backbone_variant="ResNet50", image_size=520,
-               input_tensor=None, name="DeepLabV3Model")
+DeepLabV3Model(
+    backbone_variant="ResNet50",
+    image_size=520,
+    input_tensor=None,
+    name="DeepLabV3Model",
+)
 ```
 
 The dilated backbone without the segmentation head, for features to attach your own
@@ -53,10 +61,17 @@ head to.
 ### DeepLabV3ImageProcessor
 
 ```python
-DeepLabV3ImageProcessor(size=None, resample="bilinear", do_rescale=True,
-                        rescale_factor=1/255, do_normalize=True,
-                        image_mean=None, image_std=None, return_tensor=True,
-                        data_format=None)
+DeepLabV3ImageProcessor(
+    size=None,
+    resample="bilinear",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_normalize=True,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+)
 ```
 
 Resizes to a fixed square, rescales to `[0, 1]`, and normalizes with ImageNet
@@ -75,8 +90,9 @@ statistics.
 **post_process_semantic_segmentation**
 
 ```python
-processor.post_process_semantic_segmentation(outputs, target_size=None,
-                                             label_names=None, data_format=None)
+processor.post_process_semantic_segmentation(
+    outputs, target_size=None, label_names=None, data_format=None
+)
 ```
 
 Takes the per-pixel argmax and resizes the label map to `target_size`.
@@ -109,7 +125,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.deeplabv3 import (
-    DeepLabV3ImageProcessor, DeepLabV3SemanticSegment,
+    DeepLabV3ImageProcessor,
+    DeepLabV3SemanticSegment,
 )
 
 model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
@@ -150,7 +167,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.deeplabv3 import (
-    DeepLabV3ImageProcessor, DeepLabV3SemanticSegment,
+    DeepLabV3ImageProcessor,
+    DeepLabV3SemanticSegment,
 )
 
 model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
@@ -159,7 +177,7 @@ processor = DeepLabV3ImageProcessor()
 paths = ["assets/data/coco_dog_yard.jpg", "assets/data/coco_cat_car.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
-outputs = model(processor(paths)["pixel_values"], training=False)   # (2, 520, 520, 21)
+outputs = model(processor(paths)["pixel_values"], training=False)  # (2, 520, 520, 21)
 
 for path, image, logits in zip(paths, images, outputs):
     result = processor.post_process_semantic_segmentation(
@@ -214,7 +232,8 @@ A model fine-tuned on your own dataset predicts your class indices, not VOC's:
 
 ```python
 result = processor.post_process_semantic_segmentation(
-    output, target_size=(image.height, image.width),
+    output,
+    target_size=(image.height, image.width),
     label_names=["background", "road", "building"],
 )
 ```
@@ -232,7 +251,8 @@ from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment
 
 # Architecture only, randomly initialized
 model = DeepLabV3SemanticSegment.from_weights(
-    "deeplabv3_resnet50_coco_voc", load_weights=False,
+    "deeplabv3_resnet50_coco_voc",
+    load_weights=False,
 )
 
 # Your own class count for fine-tuning

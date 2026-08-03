@@ -19,10 +19,20 @@ That framing removes the hand-tuned pieces conventional detectors need: no ancho
 ### DETRDetect
 
 ```python
-DETRDetect(backbone_variant="ResNet50", hidden_dim=256, num_heads=8,
-           num_encoder_layers=6, num_decoder_layers=6, dim_feedforward=2048,
-           dropout_rate=0.1, num_queries=100, num_classes=92, image_size=800,
-           input_tensor=None, name="DETRDetect")
+DETRDetect(
+    backbone_variant="ResNet50",
+    hidden_dim=256,
+    num_heads=8,
+    num_encoder_layers=6,
+    num_decoder_layers=6,
+    dim_feedforward=2048,
+    dropout_rate=0.1,
+    num_queries=100,
+    num_classes=92,
+    image_size=800,
+    input_tensor=None,
+    name="DETRDetect",
+)
 ```
 
 The detection model: backbone, transformer, and the class and box heads. **This is the
@@ -54,10 +64,19 @@ through `post_process_object_detection` to get scored, pixel-space boxes.
 ### DetrModel
 
 ```python
-DetrModel(backbone_variant="ResNet50", hidden_dim=256, num_heads=8,
-          num_encoder_layers=6, num_decoder_layers=6, dim_feedforward=2048,
-          dropout_rate=0.1, num_queries=100, image_size=800,
-          input_tensor=None, name="DetrModel")
+DetrModel(
+    backbone_variant="ResNet50",
+    hidden_dim=256,
+    num_heads=8,
+    num_encoder_layers=6,
+    num_decoder_layers=6,
+    dim_feedforward=2048,
+    dropout_rate=0.1,
+    num_queries=100,
+    image_size=800,
+    input_tensor=None,
+    name="DetrModel",
+)
 ```
 
 The backbone and transformer without detection heads, ending at the decoder hidden
@@ -71,11 +90,20 @@ states. Use it when you want DETR features to attach your own head to.
 ### DETRPanopticSegment
 
 ```python
-DETRPanopticSegment(backbone_variant="ResNet50", hidden_dim=256, num_heads=8,
-                    num_encoder_layers=6, num_decoder_layers=6,
-                    dim_feedforward=2048, dropout_rate=0.1, num_queries=100,
-                    num_classes=250, image_size=800, input_tensor=None,
-                    name="DETRPanopticSegment")
+DETRPanopticSegment(
+    backbone_variant="ResNet50",
+    hidden_dim=256,
+    num_heads=8,
+    num_encoder_layers=6,
+    num_decoder_layers=6,
+    dim_feedforward=2048,
+    dropout_rate=0.1,
+    num_queries=100,
+    num_classes=250,
+    image_size=800,
+    input_tensor=None,
+    name="DETRPanopticSegment",
+)
 ```
 
 Adds a mask head for panoptic segmentation, predicting a per-query mask alongside the
@@ -90,9 +118,17 @@ class and box. Needs a panoptic checkpoint: see the panoptic variants below.
 ### DETRImageProcessor
 
 ```python
-DETRImageProcessor(size=None, resample="bilinear", do_rescale=True,
-                   rescale_factor=1/255, do_normalize=True, image_mean=None,
-                   image_std=None, return_tensor=True, data_format=None)
+DETRImageProcessor(
+    size=None,
+    resample="bilinear",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_normalize=True,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+)
 ```
 
 Resizes to a fixed square, rescales to `[0, 1]`, and normalizes with ImageNet
@@ -122,8 +158,9 @@ every image is resized to the same square. See
 **post_process_object_detection**
 
 ```python
-processor.post_process_object_detection(outputs, threshold=0.7, target_sizes=None,
-                                        label_names=None)
+processor.post_process_object_detection(
+    outputs, threshold=0.7, target_sizes=None, label_names=None
+)
 ```
 
 Softmaxes the logits, drops the "no object" class, keeps whatever clears `threshold`,
@@ -222,11 +259,12 @@ processor = DETRImageProcessor()
 paths = ["assets/data/coco_desk.jpg", "assets/data/coco_cats.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
-inputs = processor(paths)                      # (2, 800, 800, 3)
-output = model(inputs["pixel_values"], training=False)   # (2, 100, 92) and (2, 100, 4)
+inputs = processor(paths)  # (2, 800, 800, 3)
+output = model(inputs["pixel_values"], training=False)  # (2, 100, 92) and (2, 100, 4)
 
 results = processor.post_process_object_detection(
-    output, threshold=0.9,
+    output,
+    threshold=0.9,
     target_sizes=[(im.height, im.width) for im in images],
 )
 
@@ -296,29 +334,42 @@ import numpy as np
 from PIL import Image
 from kerasformers.utils.labels_util import COCO_91_CLASSES
 
-PALETTE = [(255, 59, 48), (52, 199, 89), (0, 122, 255), (255, 149, 0),
-           (175, 82, 222), (255, 204, 0), (0, 199, 190), (255, 45, 85)]
+PALETTE = [
+    (255, 59, 48),
+    (52, 199, 89),
+    (0, 122, 255),
+    (255, 149, 0),
+    (175, 82, 222),
+    (255, 204, 0),
+    (0, 199, 190),
+    (255, 45, 85),
+]
 
-logits = np.asarray(keras.ops.convert_to_numpy(output["logits"]))[0]     # (100, 251)
-masks = np.asarray(keras.ops.convert_to_numpy(output["pred_masks"]))[0]  # (100, 200, 200)
+logits = np.asarray(keras.ops.convert_to_numpy(output["logits"]))[0]  # (100, 251)
+masks = np.asarray(keras.ops.convert_to_numpy(output["pred_masks"]))[
+    0
+]  # (100, 200, 200)
 
 probs = np.exp(logits - logits.max(-1, keepdims=True))
 probs /= probs.sum(-1, keepdims=True)
-probs = probs[:, :-1]                       # drop the "no object" column
+probs = probs[:, :-1]  # drop the "no object" column
 scores, labels = probs.max(-1), probs.argmax(-1)
 
 keep = np.where(scores > 0.85)[0]
 keep = keep[np.argsort(-scores[keep])][:8]
 
 W, H = image.size
-binary = {q: np.asarray(Image.fromarray(masks[q]).resize((W, H), Image.BILINEAR)) > 0.0
-          for q in keep}
+binary = {
+    q: np.asarray(Image.fromarray(masks[q]).resize((W, H), Image.BILINEAR)) > 0.0
+    for q in keep
+}
 
 canvas = np.asarray(image, dtype="float32").copy()
-for q in sorted(keep, key=lambda q: -int(binary[q].sum())):   # largest first
+for q in sorted(keep, key=lambda q: -int(binary[q].sum())):  # largest first
     m = binary[q]
-    canvas[m] = 0.6 * canvas[m] + 0.4 * np.array(PALETTE[list(keep).index(q) % 8],
-                                                 dtype="float32")
+    canvas[m] = 0.6 * canvas[m] + 0.4 * np.array(
+        PALETTE[list(keep).index(q) % 8], dtype="float32"
+    )
 
 Image.fromarray(canvas.astype("uint8")).save("panoptic.jpg")
 
@@ -368,7 +419,9 @@ the names through `label_names` so `label_names` in the result reads correctly:
 MY_CLASSES = ["background", "cat", "dog", "bird"]
 
 results = processor.post_process_object_detection(
-    output, threshold=0.7, target_sizes=[(image.height, image.width)],
+    output,
+    threshold=0.7,
+    target_sizes=[(image.height, image.width)],
     label_names=MY_CLASSES,
 )
 ```

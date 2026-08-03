@@ -26,9 +26,9 @@ model, set per variant in its `BASE_WEIGHT_CONFIG`. Way 2 is the one you opt int
 prefixing `hf:`.
 
 ```python
-model = Qwen3Generate.from_weights("qwen3-4b")                                # 1: on the fly
-model = SegFormerSemanticSegment.from_weights("hf:<user>/my-finetune")        # 2: hf:
-model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")         # 3: release
+model = Qwen3Generate.from_weights("qwen3-4b")  # 1: on the fly
+model = SegFormerSemanticSegment.from_weights("hf:<user>/my-finetune")  # 2: hf:
+model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")  # 3: release
 ```
 
 ## 1. On-the-fly conversion
@@ -189,7 +189,7 @@ the converted result under `$KERASFORMERS_HOME/converted` (default
 conversion:
 
 ```python
-model = Qwen3Generate.from_weights("qwen3-4b", cache_converted=True)          # way 1
+model = Qwen3Generate.from_weights("qwen3-4b", cache_converted=True)  # way 1
 model = Qwen3Generate.from_weights("hf:Qwen/Qwen3-8B", cache_converted=True)  # way 2
 ```
 
@@ -232,7 +232,9 @@ particular dequantizes on the fly, so it buys footprint, not throughput.
 the config is still fetched to size the model, but the weight files are not downloaded.
 
 ```python
-model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512", load_weights=False)
+model = SegFormerSemanticSegment.from_weights(
+    "segformer_b0_ade_512", load_weights=False
+)
 ```
 
 `skip_mismatch=True` loads everything whose shape agrees and leaves the rest at its

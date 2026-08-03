@@ -7,10 +7,16 @@ call, the same `generate`.
 
 ```python
 from kerasformers.base import (
-    FunctionalBaseModel, SubclassedBaseModel,
-    BaseGeneration, BaseSeq2SeqGeneration,
-    BaseTokenizer, BaseImageProcessor, BaseAudioFeatureExtractor, BaseProcessor,
-    Quantizer, fused_attention,
+    FunctionalBaseModel,
+    SubclassedBaseModel,
+    BaseGeneration,
+    BaseSeq2SeqGeneration,
+    BaseTokenizer,
+    BaseImageProcessor,
+    BaseAudioFeatureExtractor,
+    BaseProcessor,
+    Quantizer,
+    fused_attention,
 )
 ```
 
@@ -50,9 +56,18 @@ does, release variants, `hf:` on-the-fly conversion, and caching, is covered in
 ### from_weights
 
 ```python
-Model.from_weights(identifier, load_weights=True, skip_mismatch=False,
-                   attn_implementation=None, quantization=None, low_memory=False,
-                   load_dtype=None, cache_converted=False, low_disk=False, **kwargs)
+Model.from_weights(
+    identifier,
+    load_weights=True,
+    skip_mismatch=False,
+    attn_implementation=None,
+    quantization=None,
+    low_memory=False,
+    load_dtype=None,
+    cache_converted=False,
+    low_disk=False,
+    **kwargs,
+)
 ```
 
 The one entry point you normally use. It dispatches on `identifier`: a bare string is a
@@ -80,11 +95,26 @@ model = Qwen3Generate.from_weights("qwen3_8b", load_dtype="bfloat16", low_memory
 ### from_variant and from_hf
 
 ```python
-Model.from_variant(variant, load_weights=True, skip_mismatch=False, quantization=None,
-                   low_memory=False, low_disk=False, **kwargs)
+Model.from_variant(
+    variant,
+    load_weights=True,
+    skip_mismatch=False,
+    quantization=None,
+    low_memory=False,
+    low_disk=False,
+    **kwargs,
+)
 
-Model.from_hf(hf_id, load_weights=True, variant=None, skip_mismatch=False,
-              quantization=None, low_memory=False, low_disk=False, **kwargs)
+Model.from_hf(
+    hf_id,
+    load_weights=True,
+    variant=None,
+    skip_mismatch=False,
+    quantization=None,
+    low_memory=False,
+    low_disk=False,
+    **kwargs,
+)
 ```
 
 The two halves `from_weights` dispatches to. Call them directly only when you want to be
@@ -110,8 +140,15 @@ usually better, since it avoids materializing float weights first. See
 ### BaseGeneration
 
 ```python
-model.generate(input_ids, attention_mask=None, max_new_tokens=None,
-               eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+model.generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 Backend-agnostic autoregressive decoding for **decoder-only** models, the counterpart to
@@ -131,8 +168,14 @@ or audio features, ride along in `**prefill_inputs`, which is why a VLM call loo
 ### BaseSeq2SeqGeneration
 
 ```python
-model.generate(encoder_inputs, decoder_input_ids, max_new_tokens=None,
-               eos_token_id=None, sampler=None, seed=None)
+model.generate(
+    encoder_inputs,
+    decoder_input_ids,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+)
 model.encode(encoder_inputs)
 ```
 
@@ -219,8 +262,17 @@ the `quantize_model` / `save_quantized` / `quantize_and_load` entry points are c
 ### fused_attention
 
 ```python
-fused_attention(query, key, value, scale, attention_mask=None, soft_cap=None,
-                dropout=None, training=None, attn_implementation=None)
+fused_attention(
+    query,
+    key,
+    value,
+    scale,
+    attention_mask=None,
+    soft_cap=None,
+    dropout=None,
+    training=None,
+    attn_implementation=None,
+)
 ```
 
 Scaled dot-product attention with a selectable backend kernel, used by every attention

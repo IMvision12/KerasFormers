@@ -21,7 +21,7 @@ bank for its quantized counterpart and frees the float weights. Functional model
 mutated in place, so those are **cloned**: use the returned model.
 
 ```python
-qmodel = quantize_model(vit_model, "int8")   # functional -> returns a NEW model
+qmodel = quantize_model(vit_model, "int8")  # functional -> returns a NEW model
 ```
 
 ## Int8Config

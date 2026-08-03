@@ -108,10 +108,18 @@ tokens and applies the blockwise vision mask; decoding is always text-only over 
 per-layer KV cache. Constructor args match `Gemma4MultimodalModel` below.
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None,
-         pixel_values=None, pixel_position_ids=None,
-         input_features=None, input_features_mask=None)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    pixel_values=None,
+    pixel_position_ids=None,
+    input_features=None,
+    input_features_mask=None,
+)
 ```
 
 | Arg | Default | Meaning |
@@ -147,11 +155,13 @@ scattered onto their placeholder positions in `input_ids` before the decoder run
 Call it with a dict:
 
 ```python
-outputs = model({
-    "input_ids": input_ids,                 # (batch, seq), image_token_id at image slots
-    "pixel_values": pixel_values,           # (batch, num_patches, 3 * patch_size**2)
-    "pixel_position_ids": pixel_position_ids,  # (batch, num_patches, 2), (x, y); (-1, -1) = pad
-})
+outputs = model(
+    {
+        "input_ids": input_ids,  # (batch, seq), image_token_id at image slots
+        "pixel_values": pixel_values,  # (batch, num_patches, 3 * patch_size**2)
+        "pixel_position_ids": pixel_position_ids,  # (batch, num_patches, 2), (x, y); (-1, -1) = pad
+    }
+)
 ```
 
 ### `Gemma4VisionModel` and `Gemma4AudioModel`
@@ -185,14 +195,17 @@ routed through `apply_chat_template` automatically.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.gemma4 import Gemma4Generate, Gemma4Tokenizer
 
 model = Gemma4Generate.from_weights("gemma-4-12b-it")
 tokenizer = Gemma4Tokenizer.from_weights("gemma-4-12b-it")
 
-inputs = tokenizer([{"role": "user", "content": "Explain rotary embeddings in one sentence."}])
+inputs = tokenizer(
+    [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
+)
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 print(tokenizer.decode(outputs[0]))
@@ -206,7 +219,7 @@ prompts = [
     "In one sentence, what is a transformer?",
     "Write a haiku about GPUs.",
 ]
-inputs = tokenizer(prompts)              # {"input_ids": (3, seq), "attention_mask": (3, seq)}
+inputs = tokenizer(prompts)  # {"input_ids": (3, seq), "attention_mask": (3, seq)}
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 for text in tokenizer.batch_decode(outputs):
@@ -228,7 +241,7 @@ tokenizer = Gemma4Tokenizer.from_weights("gemma-4-26b-a4b-it")
 from kerasformers.models.gemma4 import Gemma4Model
 
 backbone = Gemma4Model.from_weights("gemma-4-12b")
-hidden = backbone(inputs)["last_hidden_state"]   # (batch, seq, 3840)
+hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 3840)
 ```
 
 ### Multimodal (vision)
@@ -244,8 +257,8 @@ from kerasformers.models.gemma4 import Gemma4Generate, Gemma4Tokenizer
 model = Gemma4Generate.from_weights("gemma-4-31b-it")
 
 outputs = model.generate(
-    input_ids,                     # image_token_id (258880) at each image slot
-    pixel_values=pixel_values,     # (batch, num_patches, 3 * patch_size**2)
+    input_ids,  # image_token_id (258880) at each image slot
+    pixel_values=pixel_values,  # (batch, num_patches, 3 * patch_size**2)
     pixel_position_ids=pixel_position_ids,
     max_new_tokens=64,
 )

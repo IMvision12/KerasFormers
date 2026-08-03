@@ -86,8 +86,15 @@ Kimi K2.5 / K2.6 / K2.7-Code: MoonViT + DeepSeek-V3 MoE decoder.
 Kimi K2.5 with an LM head + fast ``.generate()`` (image/video+text -> text).
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 Image and video tensors ride along as `**prefill_inputs`; the processor
@@ -179,7 +186,8 @@ into the right number of patch tokens.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
 from kerasformers.models.kimi_k25 import KimiK25Generate, KimiK25Processor
@@ -219,8 +227,11 @@ def build_prompt(question):
         "<|im_assistant|>assistant<|im_middle|>"
     )
 
-prompts = [build_prompt("What is in this image?"),
-           build_prompt("Describe the colours.")]
+
+prompts = [
+    build_prompt("What is in this image?"),
+    build_prompt("Describe the colours."),
+]
 images = [Image.open("a.jpg"), Image.open("b.jpg")]
 inputs = processor(text=prompts, images=images)
 outputs = model.generate(**inputs, max_new_tokens=64)

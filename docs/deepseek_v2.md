@@ -80,8 +80,15 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 arguments as `DeepseekV2Model`.
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 | Arg | Default | Meaning |
@@ -117,7 +124,8 @@ Decode with `.decode(ids)` for one sequence or `.batch_decode(ids)` for a batch.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.deepseek_v2 import DeepseekV2Generate, DeepseekV2Tokenizer
 
@@ -141,7 +149,7 @@ prompts = [
     "In one sentence, what is a transformer?",
     "Write a haiku about GPUs.",
 ]
-inputs = tokenizer(prompts)              # {"input_ids": (3, seq), "attention_mask": (3, seq)}
+inputs = tokenizer(prompts)  # {"input_ids": (3, seq), "attention_mask": (3, seq)}
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 for text in tokenizer.batch_decode(outputs):
@@ -154,7 +162,7 @@ for text in tokenizer.batch_decode(outputs):
 from kerasformers.models.deepseek_v2 import DeepseekV2Model
 
 backbone = DeepseekV2Model.from_weights("deepseek-v2-lite")
-hidden = backbone(inputs)["last_hidden_state"]   # (batch, seq, embed_dim)
+hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
 ### Loading from the Hub

@@ -40,7 +40,7 @@ bf16 (`load_dtype="bfloat16"`) unless you have the memory for fp32.
 ```python
 from kerasformers.models.locateanything import locate_prompt
 
-locate_prompt("detection", "car")   # -> "Locate all the instances ...: car."
+locate_prompt("detection", "car")  # -> "Locate all the instances ...: car."
 ```
 
 `locate_prompt(task, text)` returns the verbatim instruction string for each task. The
@@ -63,27 +63,40 @@ Every task below reuses one loaded model, processor, and a tiny helper that scal
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import keras
 import numpy as np
 from PIL import Image, ImageDraw
 from kerasformers.models.locateanything import (
-    LocateAnythingGenerate, LocateAnythingProcessor, locate_prompt,
+    LocateAnythingGenerate,
+    LocateAnythingProcessor,
+    locate_prompt,
 )
 
 model = LocateAnythingGenerate.from_weights("locateanything_3b", load_dtype="bfloat16")
 processor = LocateAnythingProcessor.from_weights("locateanything_3b")
 
+
 def run(task, image, text="", **gen):
     prompt = locate_prompt(task, text)
-    inputs = processor(conversation=[{
-        "role": "user",
-        "content": [{"type": "image", "image": image}, {"type": "text", "text": prompt}],
-    }])
-    out = model.generate(**inputs, max_new_tokens=192,
-                         tokenizer=processor.tokenizer, **gen)
-    return np.asarray(keras.ops.convert_to_numpy(out))[0].tolist()   # generated ids
+    inputs = processor(
+        conversation=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+    )
+    out = model.generate(
+        **inputs, max_new_tokens=192, tokenizer=processor.tokenizer, **gen
+    )
+    return np.asarray(keras.ops.convert_to_numpy(out))[0].tolist()  # generated ids
+
 
 def to_px(box, w, h):
     return [box[0] / 1000 * w, box[1] / 1000 * h, box[2] / 1000 * w, box[3] / 1000 * h]
@@ -247,8 +260,11 @@ def draw(image, results):
         else:
             d.rectangle(to_px(r["box"], w, h), outline=(255, 59, 48), width=3)
             if r.get("label"):
-                d.text((r["box"][0] / 1000 * w, r["box"][1] / 1000 * h - 12), r["label"])
+                d.text(
+                    (r["box"][0] / 1000 * w, r["box"][1] / 1000 * h - 12), r["label"]
+                )
     return out
+
 
 draw(image, processor.tokenizer.parse_grounding(ids)).save("assets/locate_result.jpg")
 ```
@@ -270,7 +286,7 @@ The `run` helper from the shared setup forwards any extra keyword to `generate`:
 ```python
 image = Image.open("assets/data/coco_herd_field.jpg").convert("RGB")
 ids = run("detection", image, "zebra", generation_mode="fast")
-boxes = processor.tokenizer.parse_boxes(ids)   # parse exactly as before
+boxes = processor.tokenizer.parse_boxes(ids)  # parse exactly as before
 ```
 
 The vision tower runs once and is cached across the decoding steps, so the per-box cost is

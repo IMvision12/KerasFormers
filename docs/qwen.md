@@ -46,8 +46,8 @@ name**; a raw `hf:` id also works for any matching `model_type`:
 from kerasformers.models.qwen3 import Qwen3Generate
 from kerasformers.models.qwen2_vl import Qwen2VLGenerate
 
-gen = Qwen3Generate.from_weights("qwen3-4b")                 # text
-gen = Qwen2VLGenerate.from_weights("qwen2-vl-7b-instruct")   # multimodal
+gen = Qwen3Generate.from_weights("qwen3-4b")  # text
+gen = Qwen2VLGenerate.from_weights("qwen2-vl-7b-instruct")  # multimodal
 # raw hf: ids still work:
 gen = Qwen3Generate.from_weights("hf:Qwen/Qwen3-4B")
 ```
@@ -109,17 +109,17 @@ VL adds pre-patchified pixels:
 
 ```python
 # text
-gen({"input_ids": input_ids})["logits"]            # (B, L, vocab_size)
+gen({"input_ids": input_ids})["logits"]  # (B, L, vocab_size)
 
 # vision-language: images and/or video; placeholders sit inside input_ids
 inputs = {
-    "input_ids":           input_ids,            # (B, L) int, image/video placeholders
-    "pixel_values":        pixel_values,         # (num_patches, patch_dim) image patches
-    "image_grid_thw":      image_grid_thw,       # (num_images, 3) per-image (t, h, w)
+    "input_ids": input_ids,  # (B, L) int, image/video placeholders
+    "pixel_values": pixel_values,  # (num_patches, patch_dim) image patches
+    "image_grid_thw": image_grid_thw,  # (num_images, 3) per-image (t, h, w)
     "pixel_values_videos": pixel_values_videos,  # (num_patches, patch_dim) video patches
-    "video_grid_thw":      video_grid_thw,       # (num_videos, 3) per-video (t, h, w)
+    "video_grid_thw": video_grid_thw,  # (num_videos, 3) per-video (t, h, w)
 }
-gen(inputs)["logits"]                              # (B, L, vocab_size)
+gen(inputs)["logits"]  # (B, L, vocab_size)
 ```
 
 The image and video blocks are each optional. Video patches use the **same
@@ -157,6 +157,7 @@ repo.
 ```python
 # text LLM: tokenizer takes the chat messages
 from kerasformers.models.qwen3 import Qwen3Generate, Qwen3Tokenizer
+
 model = Qwen3Generate.from_weights("qwen3-0.6b")
 tokenizer = Qwen3Tokenizer.from_weights("qwen3-0.6b")
 
@@ -170,14 +171,18 @@ print(tokenizer.decode(outputs[0]))
 
 # vision-language: processor takes the conversation (images inline)
 from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLProcessor
+
 model = Qwen2VLGenerate.from_weights("qwen2-vl-2b-instruct")
 processor = Qwen2VLProcessor.from_weights("qwen2-vl-2b-instruct")
 
 conversation = [
-    {"role": "user", "content": [
-        {"type": "image", "path": "/path/to/image.jpg"},
-        {"type": "text", "text": "What happened in the image?"},
-    ]},
+    {
+        "role": "user",
+        "content": [
+            {"type": "image", "path": "/path/to/image.jpg"},
+            {"type": "text", "text": "What happened in the image?"},
+        ],
+    },
 ]
 inputs = processor(conversation)
 outputs = model.generate(**inputs, max_new_tokens=128)
@@ -194,7 +199,8 @@ HF exactly; pixels match to a small bicubic tolerance.
 
 ```python
 from kerasformers.models.qwen2_vl.qwen2_vl_image_processor import Qwen2VLImageProcessor
-feat = Qwen2VLImageProcessor()(pil_image)   # {"pixel_values", "image_grid_thw"}
+
+feat = Qwen2VLImageProcessor()(pil_image)  # {"pixel_values", "image_grid_thw"}
 ```
 
 ## Video processor (VL)
@@ -217,7 +223,7 @@ import numpy as np
 from kerasformers.models.qwen2_vl import Qwen2VLVideoProcessor
 
 frames = np.random.randint(0, 256, (8, 224, 224, 3), dtype="uint8")  # (T, H, W, C)
-feat = Qwen2VLVideoProcessor()(frames)   # {"pixel_values_videos", "video_grid_thw"}
+feat = Qwen2VLVideoProcessor()(frames)  # {"pixel_values_videos", "video_grid_thw"}
 ```
 
 The processor wires this in automatically: like HF, you just point at the file. A
@@ -230,10 +236,16 @@ frame); inline `frames` are also accepted. It produces `pixel_values_videos` /
 
 ```python
 conversation = [
-    {"role": "user", "content": [
-        {"type": "video", "path": "/path/to/video.mp4"},  # or "url", or inline "video": frames
-        {"type": "text", "text": "What happens in the video?"},
-    ]},
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "video",
+                "path": "/path/to/video.mp4",
+            },  # or "url", or inline "video": frames
+            {"type": "text", "text": "What happens in the video?"},
+        ],
+    },
 ]
 inputs = processor(conversation)
 outputs = model.generate(**inputs, max_new_tokens=128)

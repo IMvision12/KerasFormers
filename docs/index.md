@@ -19,7 +19,8 @@ whatever its processor produces.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
@@ -98,10 +99,14 @@ Two sources, one call:
 model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")
 
 # Any Hugging Face repo with a matching model_type
-model = SegFormerSemanticSegment.from_weights("hf:nvidia/segformer-b0-finetuned-ade-512-512")
+model = SegFormerSemanticSegment.from_weights(
+    "hf:nvidia/segformer-b0-finetuned-ade-512-512"
+)
 
 # Architecture only, randomly initialized
-model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512", load_weights=False)
+model = SegFormerSemanticSegment.from_weights(
+    "segformer_b0_ade_512", load_weights=False
+)
 ```
 
 Large checkpoints load in lower precision or weight-only quantized; see
@@ -121,9 +126,11 @@ you want `channels_first`.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "jax"      # or "torch" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "jax"  # or "torch" / "tensorflow"
 
 import keras
+
 keras.config.set_image_data_format("channels_first")
 ```
 

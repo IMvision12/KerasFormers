@@ -51,8 +51,9 @@ The backbone and pixel decoder without the query heads.
 ### Mask2FormerImageProcessor
 
 ```python
-Mask2FormerImageProcessor(target_size=384, image_mean=None, image_std=None,
-                          data_format=None)
+Mask2FormerImageProcessor(
+    target_size=384, image_mean=None, image_std=None, data_format=None
+)
 ```
 
 Resizes the longest edge to `target_size` preserving aspect ratio, pads to a square
@@ -67,11 +68,15 @@ canvas, rescales, and normalizes with ImageNet statistics.
 **post_process_panoptic_segmentation**
 
 ```python
-processor.post_process_panoptic_segmentation(outputs, target_size,
-                                             threshold=0.8, mask_threshold=0.5,
-                                             overlap_mask_area_threshold=0.8,
-                                             stuff_classes=None,
-                                             label_names=None)
+processor.post_process_panoptic_segmentation(
+    outputs,
+    target_size,
+    threshold=0.8,
+    mask_threshold=0.5,
+    overlap_mask_area_threshold=0.8,
+    stuff_classes=None,
+    label_names=None,
+)
 ```
 
 Resolves the queries into one non-overlapping map. **Returns** a `dict` with
@@ -81,8 +86,9 @@ entries carrying `id`, `label_id`, `label_name`, and `score`.
 **post_process_semantic_segmentation**
 
 ```python
-processor.post_process_semantic_segmentation(outputs, target_sizes=None,
-                                             label_names=None)
+processor.post_process_semantic_segmentation(
+    outputs, target_sizes=None, label_names=None
+)
 ```
 
 Fuses queries by class. Takes **`target_sizes`** (a list) and returns a list of
@@ -118,7 +124,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.mask2former import (
-    Mask2FormerImageProcessor, Mask2FormerUniversalSegment,
+    Mask2FormerImageProcessor,
+    Mask2FormerUniversalSegment,
 )
 
 model = Mask2FormerUniversalSegment.from_weights("mask2former-swin-tiny-coco-panoptic")
@@ -135,7 +142,9 @@ result = processor.post_process_panoptic_segmentation(
 seg = np.asarray(keras.ops.convert_to_numpy(result["segmentation"]))
 
 for s in result["segments_info"]:
-    print(f"{s['label_name']:28s} {int((seg == s['id']).sum())} px  score {s['score']:.3f}")
+    print(
+        f"{s['label_name']:28s} {int((seg == s['id']).sum())} px  score {s['score']:.3f}"
+    )
 ```
 
 ```
@@ -161,7 +170,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.mask2former import (
-    Mask2FormerImageProcessor, Mask2FormerUniversalSegment,
+    Mask2FormerImageProcessor,
+    Mask2FormerUniversalSegment,
 )
 
 model = Mask2FormerUniversalSegment.from_weights("mask2former-swin-tiny-coco-panoptic")
@@ -226,7 +236,8 @@ model = Mask2FormerUniversalSegment.from_weights("hf:<user>/mask2former-finetune
 
 # Architecture only, randomly initialized
 model = Mask2FormerUniversalSegment.from_weights(
-    "mask2former-swin-tiny-coco-panoptic", load_weights=False,
+    "mask2former-swin-tiny-coco-panoptic",
+    load_weights=False,
 )
 ```
 

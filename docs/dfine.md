@@ -19,16 +19,32 @@ Its contribution is how boxes are regressed. Rather than predicting four coordin
 ### DFineDetect
 
 ```python
-DFineDetect(stem_channels=(3, 16, 16), stage_in_channels=(16, 64, 256, 512),
-            stage_mid_channels=(16, 32, 64, 128),
-            stage_out_channels=(64, 256, 512, 1024), stage_num_blocks=(1, 1, 2, 1),
-            stage_numb_of_layers=(3, 3, 3, 3), use_lab=True,
-            encoder_in_channels=(256, 512, 1024), encoder_hidden_dim=256,
-            encoder_ffn_dim=1024, encode_proj_layers=(2,), hidden_expansion=1.0,
-            ccfm_num_blocks=1, hidden_dim=256, decoder_num_layers=6,
-            decoder_ffn_dim=1024, decoder_n_points=None, num_feature_levels=3,
-            feat_strides=(8, 16, 32), num_classes=80, num_queries=300,
-            image_size=640, input_tensor=None, name="DFineDetect")
+DFineDetect(
+    stem_channels=(3, 16, 16),
+    stage_in_channels=(16, 64, 256, 512),
+    stage_mid_channels=(16, 32, 64, 128),
+    stage_out_channels=(64, 256, 512, 1024),
+    stage_num_blocks=(1, 1, 2, 1),
+    stage_numb_of_layers=(3, 3, 3, 3),
+    use_lab=True,
+    encoder_in_channels=(256, 512, 1024),
+    encoder_hidden_dim=256,
+    encoder_ffn_dim=1024,
+    encode_proj_layers=(2,),
+    hidden_expansion=1.0,
+    ccfm_num_blocks=1,
+    hidden_dim=256,
+    decoder_num_layers=6,
+    decoder_ffn_dim=1024,
+    decoder_n_points=None,
+    num_feature_levels=3,
+    feat_strides=(8, 16, 32),
+    num_classes=80,
+    num_queries=300,
+    image_size=640,
+    input_tensor=None,
+    name="DFineDetect",
+)
 ```
 
 The detector: backbone, hybrid encoder, and the distribution-refinement decoder.
@@ -69,9 +85,17 @@ The backbone and encoder without detection heads. **Parameters** match
 ### DFineImageProcessor
 
 ```python
-DFineImageProcessor(size=None, resample="bilinear", do_rescale=True,
-                    rescale_factor=1/255, do_normalize=False, image_mean=None,
-                    image_std=None, return_tensor=True, data_format=None)
+DFineImageProcessor(
+    size=None,
+    resample="bilinear",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_normalize=False,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+)
 ```
 
 Resizes to a fixed square and rescales to `[0, 1]`.
@@ -100,8 +124,9 @@ mix of those. **Returns** a `dict`:
 **post_process_object_detection**
 
 ```python
-processor.post_process_object_detection(outputs, threshold=0.5, target_sizes=None,
-                                        num_top_queries=300, label_names=None)
+processor.post_process_object_detection(
+    outputs, threshold=0.5, target_sizes=None, num_top_queries=300, label_names=None
+)
 ```
 
 Applies sigmoid (not softmax, since there is no background class), takes the top
@@ -190,11 +215,12 @@ processor = DFineImageProcessor()
 paths = ["assets/data/coco_food_bowl.jpg", "assets/data/coco_kitchen.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
-inputs = processor(paths)                                  # (2, 640, 640, 3)
+inputs = processor(paths)  # (2, 640, 640, 3)
 output = model(inputs["pixel_values"], training=False)
 
 results = processor.post_process_object_detection(
-    output, threshold=0.5,
+    output,
+    threshold=0.5,
     target_sizes=[(im.height, im.width) for im in images],
 )
 
@@ -269,7 +295,9 @@ the names so `label_names` reads correctly:
 MY_CLASSES = ["cat", "dog", "bird"]
 
 results = processor.post_process_object_detection(
-    output, threshold=0.5, target_sizes=[(image.height, image.width)],
+    output,
+    threshold=0.5,
+    target_sizes=[(image.height, image.width)],
     label_names=MY_CLASSES,
 )
 ```

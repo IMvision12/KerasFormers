@@ -19,13 +19,19 @@ The paper's headline is video, where a memory bank carries object identity acros
 ### SAM2PromptableSegment
 
 ```python
-SAM2PromptableSegment(hidden_dim=96, blocks_per_stage=(1, 2, 7, 2),
-                      embed_dim_per_stage=(96, 192, 384, 768),
-                      num_attention_heads_per_stage=(1, 2, 4, 8),
-                      window_size_per_stage=..., num_multimask_outputs=3,
-                      include_box_input=False, include_mask_input=False,
-                      multimask_output=True, image_size=1024,
-                      name="SAM2PromptableSegment")
+SAM2PromptableSegment(
+    hidden_dim=96,
+    blocks_per_stage=(1, 2, 7, 2),
+    embed_dim_per_stage=(96, 192, 384, 768),
+    num_attention_heads_per_stage=(1, 2, 4, 8),
+    window_size_per_stage=...,
+    num_multimask_outputs=3,
+    include_box_input=False,
+    include_mask_input=False,
+    multimask_output=True,
+    image_size=1024,
+    name="SAM2PromptableSegment",
+)
 ```
 
 Hiera image encoder, FPN neck, prompt encoder and mask decoder. **This is the class for
@@ -63,8 +69,9 @@ encode once and prompt repeatedly.
 ### SAM2ImageProcessorWithPrompts
 
 ```python
-SAM2ImageProcessorWithPrompts(target_length=1024, image_mean=None,
-                              image_std=None, data_format=None)
+SAM2ImageProcessorWithPrompts(
+    target_length=1024, image_mean=None, image_std=None, data_format=None
+)
 ```
 
 Stretches the image to a square `target_length`, normalizes, and rescales prompt
@@ -129,7 +136,8 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam2 import (
-    SAM2ImageProcessorWithPrompts, SAM2PromptableSegment,
+    SAM2ImageProcessorWithPrompts,
+    SAM2PromptableSegment,
 )
 
 model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
@@ -191,7 +199,7 @@ A negative point (label `0`) carves a region out:
 inputs = processor(
     image,
     input_points=np.array([[[[450, 200], [150, 250]]]], dtype="float32"),
-    input_labels=np.array([[[1, 0]]], dtype="int32"),   # 1 = keep, 0 = exclude
+    input_labels=np.array([[[1, 0]]], dtype="int32"),  # 1 = keep, 0 = exclude
 )
 ```
 
@@ -208,8 +216,11 @@ Filter first, then rank:
 
 ```python
 neg = [(x, y) for (x, y), lab in zip(points, labels) if lab == 0]
-valid = [i for i in range(masks.shape[2])
-         if not any((masks[0, 0, i] > 0)[y, x] for x, y in neg)]
+valid = [
+    i
+    for i in range(masks.shape[2])
+    if not any((masks[0, 0, i] > 0)[y, x] for x, y in neg)
+]
 best = max(valid, key=lambda i: iou[i]) if valid else int(np.argmax(iou))
 ```
 
@@ -226,12 +237,11 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam2 import (
-    SAM2ImageProcessorWithPrompts, SAM2PromptableSegment,
+    SAM2ImageProcessorWithPrompts,
+    SAM2PromptableSegment,
 )
 
-model = SAM2PromptableSegment.from_weights(
-    "sam2_hiera_tiny", include_box_input=True
-)
+model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny", include_box_input=True)
 processor = SAM2ImageProcessorWithPrompts()
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
@@ -249,7 +259,9 @@ masks = np.asarray(keras.ops.convert_to_numpy(masks))
 iou = np.asarray(keras.ops.convert_to_numpy(output["iou_scores"])).ravel()
 
 best = int(np.argmax(iou))
-print(f"iou {[round(float(v), 3) for v in iou]}  best={best}  {int((masks[0, 0, best] > 0).sum())} px")
+print(
+    f"iou {[round(float(v), 3) for v in iou]}  best={best}  {int((masks[0, 0, best] > 0).sum())} px"
+)
 ```
 
 ```
@@ -284,10 +296,11 @@ model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
 
 with torch.no_grad():
     result = SAM2GenerateMasks(
-        model, "assets/data/coco_cats.jpg",
-        points_per_side=12,             # 12 x 12 = 144 candidate clicks
+        model,
+        "assets/data/coco_cats.jpg",
+        points_per_side=12,  # 12 x 12 = 144 candidate clicks
         points_per_batch=8,
-        stability_score_thresh=0.85,    # the default 0.95 drops soft-edged objects
+        stability_score_thresh=0.85,  # the default 0.95 drops soft-edged objects
     )
 
 print(sorted(result))
@@ -323,7 +336,10 @@ import keras
 import numpy as np
 import torch
 from PIL import Image
-from kerasformers.models.sam2 import SAM2ImageProcessorWithPrompts, SAM2PromptableSegment
+from kerasformers.models.sam2 import (
+    SAM2ImageProcessorWithPrompts,
+    SAM2PromptableSegment,
+)
 
 model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
 processor = SAM2ImageProcessorWithPrompts()
@@ -335,15 +351,19 @@ with torch.no_grad():
 
 # Then pay only for the decoder on each new click.
 for x, y in [(450, 200), (150, 250)]:
-    inputs = processor(image,
-                       input_points=np.array([[[[x, y]]]], "float32"),
-                       input_labels=np.array([[[1]]], "int32"))
+    inputs = processor(
+        image,
+        input_points=np.array([[[[x, y]]]], "float32"),
+        input_labels=np.array([[[1]]], "int32"),
+    )
     with torch.no_grad():
-        output = model.prompt_decoder_model({
-            **features,
-            "input_points": inputs["input_points"],
-            "input_labels": inputs["input_labels"],
-        })
+        output = model.prompt_decoder_model(
+            {
+                **features,
+                "input_points": inputs["input_points"],
+                "input_labels": inputs["input_labels"],
+            }
+        )
     masks = processor.post_process_masks(
         output["pred_masks"], original_size=inputs["original_size"]
     )

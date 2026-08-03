@@ -5,8 +5,11 @@ video-capable VLMs such as [Qwen2.5-VL](qwen2_5_vl.md).
 
 ```python
 from kerasformers.utils import (
-    load_video, sample_frames, default_sample_indices_fn,
-    VideoMetadata, VIDEO_DECODERS,
+    load_video,
+    sample_frames,
+    default_sample_indices_fn,
+    VideoMetadata,
+    VIDEO_DECODERS,
 )
 ```
 
@@ -69,8 +72,15 @@ passed through as already-decoded frames.
 ## VideoMetadata
 
 ```python
-VideoMetadata(total_num_frames, fps=None, width=None, height=None,
-              duration=None, video_backend=None, frames_indices=None)
+VideoMetadata(
+    total_num_frames,
+    fps=None,
+    width=None,
+    height=None,
+    duration=None,
+    video_backend=None,
+    frames_indices=None,
+)
 ```
 
 What the decoder learned about the source, returned alongside the frames.
@@ -129,9 +139,11 @@ Wrap it when you want the default behavior with one adjustment, such as skipping
 ```python
 from kerasformers.utils import default_sample_indices_fn, load_video
 
+
 def skip_intro(metadata, **kwargs):
     indices = default_sample_indices_fn(metadata, num_frames=16, **kwargs)
     return indices[indices > int(metadata.fps * 5)]
+
 
 frames, meta = load_video("clip.mp4", sample_indices_fn=skip_intro)
 ```

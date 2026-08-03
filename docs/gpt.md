@@ -25,7 +25,7 @@ final LayerNorm**.
 ```python
 from kerasformers.models.gpt import GptGenerate, GptTokenizer
 
-model = GptGenerate.from_weights("gpt")          # openai-community/openai-gpt
+model = GptGenerate.from_weights("gpt")  # openai-community/openai-gpt
 tok = GptTokenizer()
 ids = model.generate(tok("the meaning of life is")["input_ids"], max_new_tokens=40)
 print(tok.decode(ids[0]))

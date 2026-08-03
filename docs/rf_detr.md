@@ -19,15 +19,34 @@ Two things distinguish it from the RT-DETR family: it uses a **pretrained ViT ba
 ### RFDETRDetect
 
 ```python
-RFDETRDetect(hidden_dim=256, backbone_hidden_size=384, backbone_num_heads=6,
-             backbone_num_layers=12, backbone_mlp_ratio=4,
-             backbone_use_swiglu=False, num_register_tokens=0,
-             out_feature_indexes=None, patch_size=14, num_windows=4,
-             positional_encoding_size=37, resolution=560, dec_layers=3,
-             sa_nheads=8, ca_nheads=16, dec_n_points=2, num_queries=300,
-             num_classes=91, two_stage=True, bbox_reparam=True,
-             lite_refpoint_refine=True, group_detr=13, dim_feedforward=2048,
-             image_size=None, input_tensor=None, name="RFDETRDetect")
+RFDETRDetect(
+    hidden_dim=256,
+    backbone_hidden_size=384,
+    backbone_num_heads=6,
+    backbone_num_layers=12,
+    backbone_mlp_ratio=4,
+    backbone_use_swiglu=False,
+    num_register_tokens=0,
+    out_feature_indexes=None,
+    patch_size=14,
+    num_windows=4,
+    positional_encoding_size=37,
+    resolution=560,
+    dec_layers=3,
+    sa_nheads=8,
+    ca_nheads=16,
+    dec_n_points=2,
+    num_queries=300,
+    num_classes=91,
+    two_stage=True,
+    bbox_reparam=True,
+    lite_refpoint_refine=True,
+    group_detr=13,
+    dim_feedforward=2048,
+    image_size=None,
+    input_tensor=None,
+    name="RFDETRDetect",
+)
 ```
 
 The detector: DINOv2 backbone, deformable decoder, and class and box heads.
@@ -58,11 +77,19 @@ variant config. The ones worth knowing:
 ### RFDETRInstanceSegment
 
 ```python
-RFDETRInstanceSegment(..., patch_size=12, num_windows=2,
-                      positional_encoding_size=32, resolution=384, dec_layers=4,
-                      num_queries=100, mask_downsample_ratio=4,
-                      intermediate_size=1024, seg_activation="gelu",
-                      name="RFDETRInstanceSegment")
+RFDETRInstanceSegment(
+    ...,
+    patch_size=12,
+    num_windows=2,
+    positional_encoding_size=32,
+    resolution=384,
+    dec_layers=4,
+    num_queries=100,
+    mask_downsample_ratio=4,
+    intermediate_size=1024,
+    seg_activation="gelu",
+    name="RFDETRInstanceSegment",
+)
 ```
 
 Adds a mask head to the same backbone and decoder, predicting one mask per query.
@@ -89,10 +116,18 @@ The backbone and decoder without heads. **Parameters** match
 ### RFDETRImageProcessor
 
 ```python
-RFDETRImageProcessor(size=None, resample="bilinear", do_rescale=True,
-                     rescale_factor=1/255, do_normalize=True, image_mean=None,
-                     image_std=None, return_tensor=True, data_format=None,
-                     variant=None)
+RFDETRImageProcessor(
+    size=None,
+    resample="bilinear",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_normalize=True,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+    variant=None,
+)
 ```
 
 Resizes to a fixed square, rescales to `[0, 1]`, and normalizes with ImageNet
@@ -126,9 +161,9 @@ the target size and the post-processor differ.
 **post_process_object_detection**
 
 ```python
-processor.post_process_object_detection(outputs, threshold=0.5,
-                                        num_top_queries=300, target_sizes=None,
-                                        label_names=None)
+processor.post_process_object_detection(
+    outputs, threshold=0.5, num_top_queries=300, target_sizes=None, label_names=None
+)
 ```
 
 Applies sigmoid, takes the top scoring query/class pairs, converts boxes to pixel
@@ -138,11 +173,14 @@ image holding **scores**, **labels**, **label_names**, and **boxes**.
 **post_process_instance_segmentation**
 
 ```python
-processor.post_process_instance_segmentation(outputs, threshold=0.5,
-                                             num_top_queries=300,
-                                             target_sizes=None,
-                                             label_names=None,
-                                             mask_threshold=0.5)
+processor.post_process_instance_segmentation(
+    outputs,
+    threshold=0.5,
+    num_top_queries=300,
+    target_sizes=None,
+    label_names=None,
+    mask_threshold=0.5,
+)
 ```
 
 As above, plus **masks**: boolean masks upsampled to each `target_sizes` entry and
@@ -182,7 +220,7 @@ from PIL import Image
 from kerasformers.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 
 model = RFDETRDetect.from_weights("rfdetr-nano")
-processor = RFDETRImageProcessor.from_weights("rfdetr-nano")   # resolves 384
+processor = RFDETRImageProcessor.from_weights("rfdetr-nano")  # resolves 384
 
 image = Image.open("assets/data/coco_fairground_ride.jpg").convert("RGB")
 inputs = processor(image)
@@ -233,11 +271,12 @@ processor = RFDETRImageProcessor.from_weights("rfdetr-nano")
 paths = ["assets/data/coco_sandwich.jpg", "assets/data/coco_baseball.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
 
-inputs = processor(paths)                                  # (2, 384, 384, 3)
+inputs = processor(paths)  # (2, 384, 384, 3)
 output = model(inputs["pixel_values"], training=False)
 
 results = processor.post_process_object_detection(
-    output, threshold=0.5,
+    output,
+    threshold=0.5,
     target_sizes=[(im.height, im.width) for im in images],
 )
 
@@ -286,7 +325,7 @@ from PIL import Image
 from kerasformers.models.rf_detr import RFDETRImageProcessor, RFDETRInstanceSegment
 
 model = RFDETRInstanceSegment.from_weights("rfdetr-seg-small")
-processor = RFDETRImageProcessor.from_weights("rfdetr-seg-small")   # resolves 384
+processor = RFDETRImageProcessor.from_weights("rfdetr-seg-small")  # resolves 384
 
 image = Image.open("assets/data/coco_bus.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -302,8 +341,10 @@ result = processor.post_process_instance_segmentation(
 scores = np.asarray(result["scores"])
 masks = np.asarray(result["masks"])
 for i in np.argsort(-scores):
-    print(f"{result['label_names'][i]:14s} {float(scores[i]):.3f}  "
-          f"area {int(masks[i].sum())}")
+    print(
+        f"{result['label_names'][i]:14s} {float(scores[i]):.3f}  "
+        f"area {int(masks[i].sum())}"
+    )
 print("masks:", masks.shape)
 ```
 
@@ -368,7 +409,9 @@ A model fine-tuned on your own dataset predicts your class indices, not COCO's:
 MY_CLASSES = ["cat", "dog", "bird"]
 
 results = processor.post_process_object_detection(
-    output, threshold=0.5, target_sizes=[(image.height, image.width)],
+    output,
+    threshold=0.5,
+    target_sizes=[(image.height, image.width)],
     label_names=MY_CLASSES,
 )
 ```

@@ -26,15 +26,26 @@ what keeps a full utterance affordable.
 ### Speech2TextSpeechToText
 
 ```python
-Speech2TextSpeechToText(hidden_dim=256, encoder_num_layers=12,
-                        decoder_num_layers=6, encoder_attention_heads=4,
-                        decoder_attention_heads=4, encoder_ffn_dim=2048,
-                        decoder_ffn_dim=2048, vocab_size=10000, num_mel_bins=80,
-                        max_source_positions=6000, max_target_positions=1024,
-                        conv_channels=1024, conv_kernel_sizes=(5, 5),
-                        num_conv_layers=2, scale_embedding=True,
-                        activation_function="relu", layer_norm_eps=1e-05,
-                        name="Speech2TextSpeechToText")
+Speech2TextSpeechToText(
+    hidden_dim=256,
+    encoder_num_layers=12,
+    decoder_num_layers=6,
+    encoder_attention_heads=4,
+    decoder_attention_heads=4,
+    encoder_ffn_dim=2048,
+    decoder_ffn_dim=2048,
+    vocab_size=10000,
+    num_mel_bins=80,
+    max_source_positions=6000,
+    max_target_positions=1024,
+    conv_channels=1024,
+    conv_kernel_sizes=(5, 5),
+    num_conv_layers=2,
+    scale_embedding=True,
+    activation_function="relu",
+    layer_norm_eps=1e-05,
+    name="Speech2TextSpeechToText",
+)
 ```
 
 The conv subsampler, encoder, decoder, and LM head, plus a `generate` that runs the whole
@@ -61,8 +72,9 @@ forward pass. **Returns** a `dict` with **logits** `(B, T, vocab_size)` and
 **generate**
 
 ```python
-model.generate(audio, processor, max_new_tokens=200, sampling_rate=16000,
-               return_ids=False)
+model.generate(
+    audio, processor, max_new_tokens=200, sampling_rate=16000, return_ids=False
+)
 ```
 
 - **audio**: a 1-D float32 waveform in `[-1, 1]`, or a list of them for a batch.
@@ -91,10 +103,15 @@ The encoder-decoder without the LM head, for features or a custom head. Same arg
 ### Speech2TextFeatureExtractor
 
 ```python
-Speech2TextFeatureExtractor(sampling_rate=16000, num_mel_bins=80,
-                            frame_length_ms=25.0, frame_shift_ms=10.0,
-                            preemphasis=0.97, normalize_means=True,
-                            normalize_vars=True)
+Speech2TextFeatureExtractor(
+    sampling_rate=16000,
+    num_mel_bins=80,
+    frame_length_ms=25.0,
+    frame_shift_ms=10.0,
+    preemphasis=0.97,
+    normalize_means=True,
+    normalize_vars=True,
+)
 ```
 
 Computes log-mel filterbank features on 25 ms frames every 10 ms, then normalizes each
@@ -117,10 +134,17 @@ utterance.
 ### Speech2TextProcessor
 
 ```python
-Speech2TextProcessor(vocab_file=None, spm_file=None, sampling_rate=16000,
-                     num_mel_bins=80, do_upper_case=False, do_lower_case=False,
-                     decoder_start_token_id=2, tokenizer=None,
-                     feature_extractor=None)
+Speech2TextProcessor(
+    vocab_file=None,
+    spm_file=None,
+    sampling_rate=16000,
+    num_mel_bins=80,
+    do_upper_case=False,
+    do_lower_case=False,
+    decoder_start_token_id=2,
+    tokenizer=None,
+    feature_extractor=None,
+)
 ```
 
 Bundles the feature extractor and the SentencePiece tokenizer.
@@ -154,17 +178,19 @@ MATTER"*.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import soundfile as sf
 from kerasformers.models.speech2text import (
-    Speech2TextProcessor, Speech2TextSpeechToText,
+    Speech2TextProcessor,
+    Speech2TextSpeechToText,
 )
 
 model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
 processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
 
-audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")   # 16 kHz mono
+audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")  # 16 kHz mono
 text = model.generate(audio, processor)
 print(repr(text[0]))
 ```
@@ -205,7 +231,7 @@ import soundfile as sf
 
 audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")
 if audio.ndim > 1:
-    audio = audio.mean(axis=1)                     # stereo to mono
+    audio = audio.mean(axis=1)  # stereo to mono
 if sr != 16000:
     audio, sr = librosa.resample(audio, orig_sr=sr, target_sr=16000), 16000
 ```
@@ -221,7 +247,8 @@ including the multilingual speech-translation checkpoints.
 
 ```python
 from kerasformers.models.speech2text import (
-    Speech2TextProcessor, Speech2TextSpeechToText,
+    Speech2TextProcessor,
+    Speech2TextSpeechToText,
 )
 
 model = Speech2TextSpeechToText.from_weights("hf:facebook/s2t-small-librispeech-asr")

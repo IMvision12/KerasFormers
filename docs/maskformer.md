@@ -53,8 +53,9 @@ The backbone and pixel decoder without the query heads.
 ### MaskFormerImageProcessor
 
 ```python
-MaskFormerImageProcessor(target_size=None, image_mean=None, image_std=None,
-                         data_format=None, variant=None)
+MaskFormerImageProcessor(
+    target_size=None, image_mean=None, image_std=None, data_format=None, variant=None
+)
 ```
 
 Resizes the longest edge to `target_size` preserving aspect ratio, pads to a square
@@ -74,11 +75,15 @@ canvas, rescales, and normalizes with ImageNet statistics.
 **post_process_panoptic_segmentation**
 
 ```python
-processor.post_process_panoptic_segmentation(outputs, target_size,
-                                             threshold=0.8, mask_threshold=0.5,
-                                             overlap_mask_area_threshold=0.8,
-                                             stuff_classes=None,
-                                             label_names=None)
+processor.post_process_panoptic_segmentation(
+    outputs,
+    target_size,
+    threshold=0.8,
+    mask_threshold=0.5,
+    overlap_mask_area_threshold=0.8,
+    stuff_classes=None,
+    label_names=None,
+)
 ```
 
 Resolves the 100 queries into one non-overlapping map. **Returns** a `dict`:
@@ -92,8 +97,9 @@ classes resolve automatically.
 **post_process_semantic_segmentation**
 
 ```python
-processor.post_process_semantic_segmentation(outputs, target_sizes=None,
-                                             label_names=None)
+processor.post_process_semantic_segmentation(
+    outputs, target_sizes=None, label_names=None
+)
 ```
 
 Fuses queries by class instead. Note this one takes **`target_sizes`** (a list) and
@@ -124,7 +130,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.maskformer import (
-    MaskFormerImageProcessor, MaskFormerUniversalSegment,
+    MaskFormerImageProcessor,
+    MaskFormerUniversalSegment,
 )
 
 model = MaskFormerUniversalSegment.from_weights("maskformer-swin-tiny-coco")
@@ -167,7 +174,8 @@ import keras
 import numpy as np
 from PIL import Image
 from kerasformers.models.maskformer import (
-    MaskFormerImageProcessor, MaskFormerUniversalSegment,
+    MaskFormerImageProcessor,
+    MaskFormerUniversalSegment,
 )
 
 model = MaskFormerUniversalSegment.from_weights("maskformer-swin-tiny-coco")
@@ -227,7 +235,8 @@ A model fine-tuned on your own dataset predicts your class indices:
 
 ```python
 result = processor.post_process_panoptic_segmentation(
-    output, target_size=(image.height, image.width),
+    output,
+    target_size=(image.height, image.width),
     label_names=["background", "road", "building"],
 )
 ```
@@ -248,7 +257,8 @@ model = MaskFormerUniversalSegment.from_weights("hf:<user>/maskformer-finetuned"
 
 # Architecture only, randomly initialized
 model = MaskFormerUniversalSegment.from_weights(
-    "maskformer-swin-tiny-coco", load_weights=False,
+    "maskformer-swin-tiny-coco",
+    load_weights=False,
 )
 ```
 

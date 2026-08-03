@@ -50,7 +50,7 @@ model = DebertaV3Model.from_weights("deberta_v3_base")
 tokenizer = DebertaV3Tokenizer.from_weights("deberta_v3_base")
 
 out = model(tokenizer("Hello, world."))
-out["last_hidden_state"]   # (1, L, 768)
+out["last_hidden_state"]  # (1, L, 768)
 ```
 
 ### Available variants
@@ -93,7 +93,7 @@ embeddings and ignores them, they are accepted for API parity):
 
 ```python
 inputs = {
-    "input_ids":      input_ids,       # (B, L) int
+    "input_ids": input_ids,  # (B, L) int
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: all 0 (unused)
 }
@@ -112,7 +112,7 @@ mlm = DebertaV3MaskedLM.from_weights("deberta_v3_base")
 tokenizer = DebertaV3Tokenizer.from_weights("deberta_v3_base")
 
 inputs = tokenizer("The capital of France is [MASK].")
-logits = mlm(inputs)                                  # (1, L, vocab_size)
+logits = mlm(inputs)  # (1, L, vocab_size)
 mask = int((inputs["input_ids"][0] == tokenizer.mask_token_id).argmax())
 print(tokenizer.decode([int(logits[0, mask].argmax())]))
 ```
@@ -126,7 +126,9 @@ from kerasformers.models.deberta_v3 import (
 )
 
 # natural-language inference / zero-shot (3 labels)
-nli = DebertaV3SequenceClassify.from_weights("hf:microsoft/deberta-v3-base")  # + a fine-tune
+nli = DebertaV3SequenceClassify.from_weights(
+    "hf:microsoft/deberta-v3-base"
+)  # + a fine-tune
 # named-entity recognition
 ner = DebertaV3TokenClassify.from_weights("hf:org/deberta-v3-ner")
 ```

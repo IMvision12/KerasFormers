@@ -25,11 +25,24 @@ out of the background and its parts take on consistent colours.
 ### DinoV2Model
 
 ```python
-DinoV2Model(as_backbone=False, patch_size=14, embed_dim=384, depth=12,
-            num_heads=6, mlp_ratio=4.0, qkv_bias=True, qk_norm=False,
-            drop_rate=0.0, attn_drop_rate=0.0, layer_scale_init=1.0,
-            include_normalization=True, normalization_mode="imagenet",
-            image_size=224, input_tensor=None, name="DinoV2Model")
+DinoV2Model(
+    as_backbone=False,
+    patch_size=14,
+    embed_dim=384,
+    depth=12,
+    num_heads=6,
+    mlp_ratio=4.0,
+    qkv_bias=True,
+    qk_norm=False,
+    drop_rate=0.0,
+    attn_drop_rate=0.0,
+    layer_scale_init=1.0,
+    include_normalization=True,
+    normalization_mode="imagenet",
+    image_size=224,
+    input_tensor=None,
+    name="DinoV2Model",
+)
 ```
 
 The DINOv2 Vision Transformer. **This is the backbone class.**
@@ -83,12 +96,12 @@ size, patch = 448, 14
 model = DinoV2Model.from_weights("dinov2_vits14", image_size=size)
 
 image = Image.open("assets/data/coco_motorcycle.jpg").convert("RGB")
-x = np.asarray(image.resize((size, size)))[None].astype("float32")   # raw [0, 255]
+x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
 
 with torch.no_grad():
     tokens = model(x, training=False)
 tokens = np.asarray(keras.ops.convert_to_numpy(tokens))[0]
-print(tokens.shape)   # (1 + num_patches, embed_dim)
+print(tokens.shape)  # (1 + num_patches, embed_dim)
 
 # PCA the patch tokens (drop the CLS token) to RGB.
 grid = size // patch
@@ -132,13 +145,15 @@ model = DinoV2Model.from_weights("dinov2_vits14", image_size=size)
 
 paths = ["assets/data/coco_cats.jpg", "assets/data/coco_bicycles.jpg"]
 batch = np.stack(
-    [np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
-     for p in paths]
-)   # (2, 448, 448, 3)
+    [
+        np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
+        for p in paths
+    ]
+)  # (2, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)
-print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)   # (2, 1025, 384)
+print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 1025, 384)
 ```
 
 ```
@@ -156,8 +171,8 @@ prediction:
 
 ```python
 model = DinoV2Model.from_weights("dinov2_vits14", as_backbone=True, image_size=size)
-features = model(x, training=False)   # x from above, at 448
-print(len(features), features[-1].shape)   # 13  (1, 1025, 384)
+features = model(x, training=False)  # x from above, at 448
+print(len(features), features[-1].shape)  # 13  (1, 1025, 384)
 ```
 
 ## Data Format

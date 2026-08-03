@@ -42,8 +42,8 @@ model = BertModel.from_weights("bert_base_uncased")
 tokenizer = BertTokenizer.from_weights("bert_base_uncased")
 
 out = model(tokenizer("Hello, world."))
-out["last_hidden_state"]   # (1, L, 768)
-out["pooler_output"]       # (1, 768)
+out["last_hidden_state"]  # (1, L, 768)
+out["pooler_output"]  # (1, 768)
 ```
 
 ### Available variants
@@ -87,7 +87,7 @@ what `BertTokenizer` returns:
 
 ```python
 inputs = {
-    "input_ids":      input_ids,       # (B, L) int
+    "input_ids": input_ids,  # (B, L) int
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: segment (0 / 1)
 }
@@ -106,9 +106,9 @@ mlm = BertMaskedLM.from_weights("bert_base_uncased")
 tokenizer = BertTokenizer.from_weights("bert_base_uncased")
 
 inputs = tokenizer("the capital of france is [MASK].")
-logits = mlm(inputs)                                  # (1, L, vocab_size)
+logits = mlm(inputs)  # (1, L, vocab_size)
 mask = int((inputs["input_ids"][0] == tokenizer.mask_token_id).argmax())
-print(tokenizer.ids_to_tokens[int(logits[0, mask].argmax())])   # -> "paris"
+print(tokenizer.ids_to_tokens[int(logits[0, mask].argmax())])  # -> "paris"
 ```
 
 ### Classification (community fine-tunes)
@@ -128,7 +128,9 @@ ner = BertTokenClassify.from_weights("hf:dslim/bert-base-NER")
 
 ```python
 from kerasformers.models.bert import (
-    BertNextSentencePredict, BertQnA, BertMultipleChoice,
+    BertNextSentencePredict,
+    BertQnA,
+    BertMultipleChoice,
 )
 
 # next-sentence prediction: head is pretrained, so a base checkpoint works

@@ -53,14 +53,29 @@ The vision and text encoders without detection heads, returning `image_embeds` a
 ### OwlViTVisionModel / OwlViTTextModel
 
 ```python
-OwlViTVisionModel(vision_image_size, vision_patch_size, vision_hidden_dim,
-                  vision_intermediate_size, vision_num_layers, vision_num_heads,
-                  image_size=None, input_tensor=None, name="OwlViTVisionModel")
+OwlViTVisionModel(
+    vision_image_size,
+    vision_patch_size,
+    vision_hidden_dim,
+    vision_intermediate_size,
+    vision_num_layers,
+    vision_num_heads,
+    image_size=None,
+    input_tensor=None,
+    name="OwlViTVisionModel",
+)
 
-OwlViTTextModel(text_hidden_dim, text_intermediate_size, text_num_heads,
-                text_num_layers=12, text_max_position_embeddings=16,
-                text_vocab_size=49408, text_input_shape=None,
-                input_tensor=None, name="OwlViTTextModel")
+OwlViTTextModel(
+    text_hidden_dim,
+    text_intermediate_size,
+    text_num_heads,
+    text_num_layers=12,
+    text_max_position_embeddings=16,
+    text_vocab_size=49408,
+    text_input_shape=None,
+    input_tensor=None,
+    name="OwlViTTextModel",
+)
 ```
 
 Either tower on its own, when you only need one side.
@@ -83,9 +98,17 @@ Tokenizer and image processor behind one callable. **Call**
 ### OwlViTImageProcessor
 
 ```python
-OwlViTImageProcessor(size=None, resample="bicubic", do_rescale=True,
-                     rescale_factor=1/255, do_normalize=True, image_mean=None,
-                     image_std=None, return_tensor=True, data_format=None)
+OwlViTImageProcessor(
+    size=None,
+    resample="bicubic",
+    do_rescale=True,
+    rescale_factor=1 / 255,
+    do_normalize=True,
+    image_mean=None,
+    image_std=None,
+    return_tensor=True,
+    data_format=None,
+)
 ```
 
 Resizes to the variant's square resolution, rescales, and normalizes with CLIP
@@ -94,8 +117,9 @@ statistics. **Call** `processor(images)` with a path, PIL image, array, or list.
 **post_process_object_detection**
 
 ```python
-image_processor.post_process_object_detection(outputs, threshold=0.1,
-                                              target_sizes=None, text_labels=None)
+image_processor.post_process_object_detection(
+    outputs, threshold=0.1, target_sizes=None, text_labels=None
+)
 ```
 
 Sigmoids the similarity scores, keeps candidates above `threshold`, and converts boxes
@@ -128,7 +152,9 @@ Smaller patches mean more candidates and better small-object recall, at more com
 ```python
 from PIL import Image
 from kerasformers.models.owlvit import (
-    OwlViTDetect, OwlViTImageProcessor, OwlViTProcessor,
+    OwlViTDetect,
+    OwlViTImageProcessor,
+    OwlViTProcessor,
 )
 
 model = OwlViTDetect.from_weights("owlvit-base-patch32")
@@ -139,13 +165,16 @@ image = Image.open("assets/data/coco_mug_knife.jpg").convert("RGB")
 prompts = ["a photo of a mug", "a photo of a knife", "a photo of an apple"]
 
 inputs = processor(text=[prompts], images=image)
-output = model({
-    "input_ids": inputs["input_ids"],
-    "pixel_values": inputs["pixel_values"],
-})
+output = model(
+    {
+        "input_ids": inputs["input_ids"],
+        "pixel_values": inputs["pixel_values"],
+    }
+)
 
 results = image_processor.post_process_object_detection(
-    output, threshold=0.1,
+    output,
+    threshold=0.1,
     target_sizes=[(image.height, image.width)],
     text_labels=[prompts],
 )[0]
@@ -181,7 +210,9 @@ Pass one query list per image. The prompts do not have to match across images:
 ```python
 from PIL import Image
 from kerasformers.models.owlvit import (
-    OwlViTDetect, OwlViTImageProcessor, OwlViTProcessor,
+    OwlViTDetect,
+    OwlViTImageProcessor,
+    OwlViTProcessor,
 )
 
 model = OwlViTDetect.from_weights("owlvit-base-patch32")
@@ -190,18 +221,23 @@ image_processor = OwlViTImageProcessor()
 
 paths = ["assets/data/coco_apples.jpg", "assets/data/coco_bananas.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
-prompts = [["a photo of an apple", "a photo of a banana"],
-           ["a photo of a banana", "a photo of an apple"]]
+prompts = [
+    ["a photo of an apple", "a photo of a banana"],
+    ["a photo of a banana", "a photo of an apple"],
+]
 
 inputs = processor(text=prompts, images=images)
 # input_ids (4, 16) -> 2 images x 2 queries;  pixel_values (2, 768, 768, 3)
-output = model({
-    "input_ids": inputs["input_ids"],
-    "pixel_values": inputs["pixel_values"],
-})
+output = model(
+    {
+        "input_ids": inputs["input_ids"],
+        "pixel_values": inputs["pixel_values"],
+    }
+)
 
 results = image_processor.post_process_object_detection(
-    output, threshold=0.25,
+    output,
+    threshold=0.25,
     target_sizes=[(im.height, im.width) for im in images],
     text_labels=prompts,
 )

@@ -24,7 +24,7 @@ code is shared and only the vocabulary, variants and weights differ.
 ### SigLIP2Model
 
 ```python
-SigLIP2Model(name='SigLIP2Model')
+SigLIP2Model(name="SigLIP2Model")
 ```
 
 SigLIP 2 dual encoder (no contrastive head).
@@ -41,13 +41,23 @@ changes the default `name`.
 ### SigLIP2ZeroShotClassify
 
 ```python
-SigLIP2ZeroShotClassify(image_size=224, patch_size=16, vision_hidden_dim=768,
-                        vision_num_layers=12, vision_num_heads=12,
-                        vision_mlp_dim=3072, vocab_size=256000,
-                        embed_dim=768, text_hidden_dim=768,
-                        text_num_layers=12, text_num_heads=12,
-                        text_mlp_dim=3072, max_seq_len=64, input_tensor=None,
-                        name='SigLIP2ZeroShotClassify')
+SigLIP2ZeroShotClassify(
+    image_size=224,
+    patch_size=16,
+    vision_hidden_dim=768,
+    vision_num_layers=12,
+    vision_num_heads=12,
+    vision_mlp_dim=3072,
+    vocab_size=256000,
+    embed_dim=768,
+    text_hidden_dim=768,
+    text_num_layers=12,
+    text_num_heads=12,
+    text_mlp_dim=3072,
+    max_seq_len=64,
+    input_tensor=None,
+    name="SigLIP2ZeroShotClassify",
+)
 ```
 
 SigLIP 2 + sigmoid-similarity head for zero-shot classification.
@@ -73,10 +83,17 @@ SigLIP 2 + sigmoid-similarity head for zero-shot classification.
 ### SigLIP2ImageClassify
 
 ```python
-SigLIP2ImageClassify(num_classes=1000, image_size=224, patch_size=16,
-                     vision_hidden_dim=768, vision_num_layers=12,
-                     vision_num_heads=12, vision_mlp_dim=3072,
-                     input_tensor=None, name='SigLIPImageClassify')
+SigLIP2ImageClassify(
+    num_classes=1000,
+    image_size=224,
+    patch_size=16,
+    vision_hidden_dim=768,
+    vision_num_layers=12,
+    vision_num_heads=12,
+    vision_mlp_dim=3072,
+    input_tensor=None,
+    name="SigLIPImageClassify",
+)
 ```
 
 SigLIP 2 vision tower + linear image-classification head.
@@ -98,7 +115,7 @@ SigLIP 2 vision tower + linear image-classification head.
 ### SigLIP2VisionModel
 
 ```python
-SigLIP2VisionModel(name='SigLIP2VisionModel')
+SigLIP2VisionModel(name="SigLIP2VisionModel")
 ```
 
 SigLIP 2 vision tower as a standalone model.
@@ -112,7 +129,7 @@ SigLIP 2 vision tower as a standalone model.
 ### SigLIP2TextModel
 
 ```python
-SigLIP2TextModel(name='SigLIP2TextModel')
+SigLIP2TextModel(name="SigLIP2TextModel")
 ```
 
 SigLIP 2 text tower as a standalone model.
@@ -131,9 +148,15 @@ SigLIP 2 text tower as a standalone model.
 ### SigLIP2ImageProcessor
 
 ```python
-SigLIP2ImageProcessor(image_resolution=224, mean=(0.5, 0.5, 0.5),
-                      std=(0.5, 0.5, 0.5), do_center_crop=True,
-                      do_normalize=True, do_resize=True, data_format=None)
+SigLIP2ImageProcessor(
+    image_resolution=224,
+    mean=(0.5, 0.5, 0.5),
+    std=(0.5, 0.5, 0.5),
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    data_format=None,
+)
 ```
 
 Image processor for SigLIP 2 models.
@@ -151,9 +174,15 @@ Image processor for SigLIP 2 models.
 ### SigLIP2Tokenizer
 
 ```python
-SigLIP2Tokenizer(variant=None, tokenizer_file=None, max_seq_len=64,
-                 pad_token='<pad>', bos_token='<bos>', eos_token='<eos>',
-                 unk_token='<unk>')
+SigLIP2Tokenizer(
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=64,
+    pad_token="<pad>",
+    bos_token="<bos>",
+    eos_token="<eos>",
+    unk_token="<unk>",
+)
 ```
 
 SigLIP2 (Gemma) SentencePiece tokenizer (``tokenizers`` Rust backend).
@@ -171,12 +200,23 @@ SigLIP2 (Gemma) SentencePiece tokenizer (``tokenizers`` Rust backend).
 ### SigLIP2Processor
 
 ```python
-SigLIP2Processor(image_resolution=224, mean=(0.5, 0.5, 0.5),
-                 std=(0.5, 0.5, 0.5), do_center_crop=True, do_normalize=True,
-                 do_resize=True, variant=None, tokenizer_file=None,
-                 max_seq_len=64, pad_token='<pad>', bos_token='<bos>',
-                 eos_token='<eos>', unk_token='<unk>', tokenizer=None,
-                 image_processor=None)
+SigLIP2Processor(
+    image_resolution=224,
+    mean=(0.5, 0.5, 0.5),
+    std=(0.5, 0.5, 0.5),
+    do_center_crop=True,
+    do_normalize=True,
+    do_resize=True,
+    variant=None,
+    tokenizer_file=None,
+    max_seq_len=64,
+    pad_token="<pad>",
+    bos_token="<bos>",
+    eos_token="<eos>",
+    unk_token="<unk>",
+    tokenizer=None,
+    image_processor=None,
+)
 ```
 
 Combined processor for SigLIP 2 models: image + Gemma text.
@@ -237,10 +277,12 @@ labels = [
     "a photo of green apples",
 ]
 inputs = processor(text=labels, image_paths="assets/data/coco_living_room.jpg")
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["input_ids"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["input_ids"],
+    }
+)
 
 # (1, 4): one image, four class prompts.
 probs = keras.ops.convert_to_numpy(
@@ -280,14 +322,16 @@ labels = [
 ]
 
 inputs = processor(text=labels, image_paths=image_paths)
-output = model({
-    "images": inputs["images"],
-    "token_ids": inputs["input_ids"],
-})
+output = model(
+    {
+        "images": inputs["images"],
+        "token_ids": inputs["input_ids"],
+    }
+)
 
 probs = keras.ops.convert_to_numpy(
     keras.ops.softmax(output["image_logits"], axis=-1)
-)                                        # (2, 4)
+)  # (2, 4)
 for path, row in zip(image_paths, probs):
     print(f"\n{path}")
     for label, p in zip(labels, row):

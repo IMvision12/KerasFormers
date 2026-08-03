@@ -13,9 +13,17 @@ into words. One page per module in `kerasformers/utils/`.
 
 ```python
 from kerasformers.utils import (
-    load_image, get_data_format, standardize_input_shape,
-    load_video, sample_frames, VideoMetadata, VIDEO_DECODERS,
-    plot_detections, plot_segmentation, plot_depth, plot_sam_masks,
+    load_image,
+    get_data_format,
+    standardize_input_shape,
+    load_video,
+    sample_frames,
+    VideoMetadata,
+    VIDEO_DECODERS,
+    plot_detections,
+    plot_segmentation,
+    plot_depth,
+    plot_sam_masks,
 )
 from kerasformers.utils.labels_util import COCO_80_CLASSES, ADE20K_150_CLASSES
 ```

@@ -68,8 +68,15 @@ Cohere2-Vision (Command-A Vision) multimodal backbone.
 Cohere2-Vision (Command-A Vision) with an LM head + fast ``.generate()`` (image+text -> text).
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 Image and video tensors ride along as `**prefill_inputs`; the processor
@@ -114,10 +121,14 @@ into the right number of patch tokens.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.cohere2_vision import Cohere2VisionGenerate, Cohere2VisionProcessor
+from kerasformers.models.cohere2_vision import (
+    Cohere2VisionGenerate,
+    Cohere2VisionProcessor,
+)
 
 model = Cohere2VisionGenerate.from_weights("command-a-vision-07-2025")
 processor = Cohere2VisionProcessor.from_weights("command-a-vision-07-2025")
@@ -157,6 +168,9 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Cohere2VisionGenerate.from_weights(
-    "command-a-vision-07-2025", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "command-a-vision-07-2025",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```

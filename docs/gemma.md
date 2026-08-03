@@ -63,8 +63,15 @@ Use it for feature extraction or as the base for a custom head.
 adds `.generate()`. Takes the same constructor arguments as `GemmaModel`.
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 | Arg | Default | Meaning |
@@ -100,14 +107,17 @@ sequence or `.batch_decode(ids)` for a batch.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.gemma import GemmaGenerate, GemmaTokenizer
 
 model = GemmaGenerate.from_weights("gemma-2b-it")
 tokenizer = GemmaTokenizer.from_weights("gemma-2b-it")
 
-inputs = tokenizer([{"role": "user", "content": "Explain rotary embeddings in one sentence."}])
+inputs = tokenizer(
+    [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
+)
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 print(tokenizer.decode(outputs[0]))
@@ -123,7 +133,7 @@ prompts = [
     "In one sentence, what is a transformer?",
     "Write a haiku about GPUs.",
 ]
-inputs = tokenizer(prompts)              # {"input_ids": (3, seq), "attention_mask": (3, seq)}
+inputs = tokenizer(prompts)  # {"input_ids": (3, seq), "attention_mask": (3, seq)}
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 for text in tokenizer.batch_decode(outputs):
@@ -136,7 +146,7 @@ for text in tokenizer.batch_decode(outputs):
 from kerasformers.models.gemma import GemmaModel
 
 backbone = GemmaModel.from_weights("gemma-2b")
-hidden = backbone(inputs)["last_hidden_state"]   # (batch, seq, 2048)
+hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 2048)
 ```
 
 ### Loading from the Hub

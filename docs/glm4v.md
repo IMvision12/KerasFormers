@@ -76,8 +76,15 @@ GLM-4V multimodal backbone: vision tower + GLM-4 decoder fused by M-RoPE.
 GLM-4V with an LM head + fast ``.generate()`` (image+text -> text).
 
 ```python
-generate(input_ids, attention_mask=None, max_new_tokens=None,
-         eos_token_id=None, sampler=None, seed=None, **prefill_inputs)
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    **prefill_inputs,
+)
 ```
 
 Image and video tensors ride along as `**prefill_inputs`; the processor
@@ -158,7 +165,8 @@ Image + text -> model inputs for GLM-4V.
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"   # or "jax" / "tensorflow"
+
+os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
 from kerasformers.models.glm4v import Glm4vGenerate, Glm4vProcessor
@@ -167,13 +175,17 @@ model = Glm4vGenerate.from_weights("glm-4.1v-9b-thinking")
 processor = Glm4vProcessor.from_weights("glm-4.1v-9b-thinking")
 
 image = Image.open("photo.jpg")
-inputs = processor(conversation=[{
-    "role": "user",
-    "content": [
-        {"type": "image", "image": image},
-        {"type": "text", "text": "Describe this image in one sentence."},
-    ],
-}])
+inputs = processor(
+    conversation=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": image},
+                {"type": "text", "text": "Describe this image in one sentence."},
+            ],
+        }
+    ]
+)
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 print(processor.decode(outputs[0]))
@@ -185,14 +197,18 @@ Add one image content item per image. The processor expands each marker to
 that image's own patch count:
 
 ```python
-inputs = processor(conversation=[{
-    "role": "user",
-    "content": [
-        {"type": "image", "image": Image.open("a.jpg")},
-        {"type": "image", "image": Image.open("b.jpg")},
-        {"type": "text", "text": "What differs between these two images?"},
-    ],
-}])
+inputs = processor(
+    conversation=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": Image.open("a.jpg")},
+                {"type": "image", "image": Image.open("b.jpg")},
+                {"type": "text", "text": "What differs between these two images?"},
+            ],
+        }
+    ]
+)
 outputs = model.generate(**inputs, max_new_tokens=64)
 ```
 
@@ -204,13 +220,25 @@ number of images or images of the same size:
 
 ```python
 conversations = [
-    [{"role": "user", "content": [
-        {"type": "image", "image": Image.open("a.jpg")},
-        {"type": "text", "text": "What is in this image?"}]}],
-    [{"role": "user", "content": [
-        {"type": "image", "image": Image.open("b.jpg")},
-        {"type": "image", "image": Image.open("c.jpg")},
-        {"type": "text", "text": "What differs between these?"}]}],
+    [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": Image.open("a.jpg")},
+                {"type": "text", "text": "What is in this image?"},
+            ],
+        }
+    ],
+    [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": Image.open("b.jpg")},
+                {"type": "image", "image": Image.open("c.jpg")},
+                {"type": "text", "text": "What differs between these?"},
+            ],
+        }
+    ],
 ]
 inputs = processor(conversation=conversations)
 outputs = model.generate(**inputs, max_new_tokens=64)

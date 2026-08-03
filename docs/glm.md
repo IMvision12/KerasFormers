@@ -46,8 +46,8 @@ checkpoints dequantized). Use the friendly variant name, or a raw `hf:` id:
 from kerasformers.models.glm import GlmGenerate
 from kerasformers.models.glm4_moe import Glm4MoeGenerate
 
-gen = GlmGenerate.from_weights("glm-4-9b-chat")          # text
-gen = Glm4MoeGenerate.from_weights("glm-4.5-air")        # text MoE
+gen = GlmGenerate.from_weights("glm-4-9b-chat")  # text
+gen = Glm4MoeGenerate.from_weights("glm-4.5-air")  # text MoE
 # raw hf: ids work too
 gen = GlmGenerate.from_weights("hf:THUDM/glm-4-9b-chat-hf")
 ```
@@ -80,6 +80,7 @@ identifier you give the model.
 ```python
 # text LLM
 from kerasformers.models.glm import GlmGenerate, GlmTokenizer
+
 model = GlmGenerate.from_weights("glm-4-9b-chat")
 tokenizer = GlmTokenizer.from_weights("glm-4-9b-chat")
 
@@ -90,14 +91,18 @@ print(tokenizer.decode(outputs[0]))
 
 # vision-language (GLM-4.1V)
 from kerasformers.models.glm4v import Glm4vGenerate, Glm4vProcessor
+
 model = Glm4vGenerate.from_weights("glm-4.1v-9b-thinking")
 processor = Glm4vProcessor.from_weights("glm-4.1v-9b-thinking")
 
 conversation = [
-    {"role": "user", "content": [
-        {"type": "image", "path": "/path/to/image.jpg"},
-        {"type": "text", "text": "What is in the image?"},
-    ]},
+    {
+        "role": "user",
+        "content": [
+            {"type": "image", "path": "/path/to/image.jpg"},
+            {"type": "text", "text": "What is in the image?"},
+        ],
+    },
 ]
 inputs = processor(conversation)
 outputs = model.generate(**inputs, max_new_tokens=128)

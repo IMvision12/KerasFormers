@@ -27,13 +27,29 @@ noticeably cleaner than DINOv2's.
 ### DinoV3ViTModel
 
 ```python
-DinoV3ViTModel(as_backbone=False, patch_size=16, embed_dim=768, depth=12,
-               num_heads=12, mlp_ratio=4.0, use_swiglu=False,
-               num_register_tokens=4, layer_scale_init=1.0, rope_theta=100.0,
-               query_bias=True, key_bias=False, value_bias=True,
-               hidden_act="gelu", mlp_bias=True, layer_norm_eps=1e-5,
-               include_normalization=True, normalization_mode="imagenet",
-               image_size=224, input_tensor=None, name="DinoV3ViTModel")
+DinoV3ViTModel(
+    as_backbone=False,
+    patch_size=16,
+    embed_dim=768,
+    depth=12,
+    num_heads=12,
+    mlp_ratio=4.0,
+    use_swiglu=False,
+    num_register_tokens=4,
+    layer_scale_init=1.0,
+    rope_theta=100.0,
+    query_bias=True,
+    key_bias=False,
+    value_bias=True,
+    hidden_act="gelu",
+    mlp_bias=True,
+    layer_norm_eps=1e-5,
+    include_normalization=True,
+    normalization_mode="imagenet",
+    image_size=224,
+    input_tensor=None,
+    name="DinoV3ViTModel",
+)
 ```
 
 The DINOv3 Vision Transformer with RoPE and register tokens. **This is the main backbone
@@ -60,9 +76,16 @@ token sequence `(B, 1 + num_register_tokens + num_patches, embed_dim)`. With
 ### DinoV3ConvNeXtModel
 
 ```python
-DinoV3ConvNeXtModel(as_backbone=False, depths=None, projection_dim=None,
-                    include_normalization=True, normalization_mode="imagenet",
-                    image_size=224, input_tensor=None, name="DinoV3ConvNeXtModel")
+DinoV3ConvNeXtModel(
+    as_backbone=False,
+    depths=None,
+    projection_dim=None,
+    include_normalization=True,
+    normalization_mode="imagenet",
+    image_size=224,
+    input_tensor=None,
+    name="DinoV3ConvNeXtModel",
+)
 ```
 
 The DINOv3 ConvNeXt backbone, a convolutional alternative. **Returns** the final spatial
@@ -106,17 +129,19 @@ size, patch, registers = 448, 16, 4
 model = DinoV3ViTModel.from_weights("dinov3_vits16", image_size=size)
 
 image = Image.open("assets/data/coco_dog_yard.jpg").convert("RGB")
-x = np.asarray(image.resize((size, size)))[None].astype("float32")   # raw [0, 255]
+x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
 
 with torch.no_grad():
     tokens = model(x, training=False)
 tokens = np.asarray(keras.ops.convert_to_numpy(tokens))[0]
-print(tokens.shape)   # (1 + registers + num_patches, embed_dim)
+print(tokens.shape)  # (1 + registers + num_patches, embed_dim)
 
 # PCA the patch tokens (drop the CLS token and the register tokens) to RGB.
 grid = size // patch
 prefix = 1 + registers
-patches = tokens[prefix:prefix + grid * grid].reshape(grid * grid, -1).astype("float64")
+patches = (
+    tokens[prefix : prefix + grid * grid].reshape(grid * grid, -1).astype("float64")
+)
 patches -= patches.mean(0, keepdims=True)
 proj = patches @ np.linalg.svd(patches, full_matrices=False)[2][:3].T
 proj = proj.reshape(grid, grid, 3)
@@ -156,13 +181,15 @@ model = DinoV3ViTModel.from_weights("dinov3_vits16", image_size=size)
 
 paths = ["assets/data/coco_bear_cub.jpg", "assets/data/coco_surfer.jpg"]
 batch = np.stack(
-    [np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
-     for p in paths]
-)   # (2, 448, 448, 3)
+    [
+        np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
+        for p in paths
+    ]
+)  # (2, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)
-print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)   # (2, 789, 384)
+print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 789, 384)
 ```
 
 ```
@@ -179,8 +206,8 @@ segmentation head:
 
 ```python
 model = DinoV3ViTModel.from_weights("dinov3_vits16", as_backbone=True, image_size=size)
-features = model(x, training=False)   # x from above, at 448
-print(len(features), features[-1].shape)   # (1, 789, 384) per map
+features = model(x, training=False)  # x from above, at 448
+print(len(features), features[-1].shape)  # (1, 789, 384) per map
 ```
 
 `DinoV3ConvNeXtModel(as_backbone=True)` gives the convolutional stage maps instead.
