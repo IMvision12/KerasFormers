@@ -1,11 +1,12 @@
 # Speech2Text
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the Speech2Text models are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/speech2text" style="color:#1a5c8a;">speech2text</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 Speech2Text (S2T) is fairseq's convolution-plus-transformer encoder-decoder for
@@ -187,8 +188,8 @@ from kerasformers.models.speech2text import (
     Speech2TextSpeechToText,
 )
 
-model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
-processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
+model = Speech2TextSpeechToText.from_weights("kerasformers/s2t-small-librispeech-asr")
+processor = Speech2TextProcessor.from_weights("kerasformers/s2t-small-librispeech-asr")
 
 audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")  # 16 kHz mono
 text = model.generate(audio, processor)
@@ -256,7 +257,7 @@ processor = Speech2TextProcessor.from_weights("hf:facebook/s2t-small-librispeech
 
 # Architecture only, randomly initialized
 model = Speech2TextSpeechToText.from_weights(
-    "s2t-small-librispeech-asr", load_weights=False
+    "kerasformers/s2t-small-librispeech-asr", load_weights=False
 )
 ```
 

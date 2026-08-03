@@ -1,11 +1,12 @@
 # D-FINE
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the D-FINE model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/dfine" style="color:#1a5c8a;">dfine</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 D-FINE is a real-time detector built on the RT-DETR recipe: an HGNetV2 backbone, a hybrid encoder that mixes attention-based intra-scale interaction (AIFI) with cross-scale feature merging (CCFM), and a deformable decoder with 300 queries. Like RT-DETR it is NMS-free, so one forward pass is the whole pipeline.
@@ -156,7 +157,7 @@ All are 640×640 COCO models. `dfine-nano` also narrows `hidden_dim` to 128.
 from PIL import Image
 from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 
-model = DFineDetect.from_weights("dfine-nano")
+model = DFineDetect.from_weights("kerasformers/dfine-nano")
 processor = DFineImageProcessor()
 
 image = Image.open("assets/data/coco_buffet.jpg").convert("RGB")
@@ -209,7 +210,7 @@ Pass a list of images and one `target_sizes` entry per image:
 from PIL import Image
 from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 
-model = DFineDetect.from_weights("dfine-nano")
+model = DFineDetect.from_weights("kerasformers/dfine-nano")
 processor = DFineImageProcessor()
 
 paths = ["assets/data/coco_food_bowl.jpg", "assets/data/coco_kitchen.jpg"]
@@ -264,7 +265,7 @@ D-FINE is Functional, so the input shape is fixed when the model is constructed.
 at another resolution, build at that size and match the processor:
 
 ```python
-model = DFineDetect.from_weights("dfine-nano", image_size=512)
+model = DFineDetect.from_weights("kerasformers/dfine-nano", image_size=512)
 processor = DFineImageProcessor(size={"height": 512, "width": 512})
 ```
 
@@ -336,7 +337,7 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = DFineDetect.from_weights("dfine-nano")
+model = DFineDetect.from_weights("kerasformers/dfine-nano")
 processor = DFineImageProcessor()
 ```
 
@@ -355,14 +356,14 @@ prefix, including the upstream checkpoints and arbitrary fine-tunes.
 ```python
 from kerasformers.models.dfine import DFineDetect
 
-# Upstream release
+# Upstream Hub
 model = DFineDetect.from_weights("hf:ustc-community/dfine-nano-coco")
 
 # Somebody's fine-tune
 model = DFineDetect.from_weights("hf:<user>/dfine-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = DFineDetect.from_weights("dfine-nano", load_weights=False)
+model = DFineDetect.from_weights("kerasformers/dfine-nano", load_weights=False)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`
@@ -373,5 +374,5 @@ and mapped onto the constructor. Both model classes accept `hf:`, as does
 processor = DFineImageProcessor.from_weights("hf:ustc-community/dfine-nano-coco")
 ```
 
-Loading `hf:ustc-community/dfine-nano-coco` and the `dfine-nano` release variant
+Loading `hf:ustc-community/dfine-nano-coco` and the `kerasformers/dfine-nano` Hub variant
 produces identical outputs, since they are the same checkpoint by two routes.

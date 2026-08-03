@@ -1,11 +1,12 @@
 # DETR
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the DETR model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/detr" style="color:#1a5c8a;">detr</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 DETR (DEtection TRansformer) treats object detection as direct set prediction. A ResNet backbone produces a feature map, a transformer encoder-decoder attends over it with a fixed set of learned object queries, and each query emits one class and one box. Training uses a bipartite (Hungarian) matching loss, so every ground-truth object is assigned exactly one query.
@@ -202,7 +203,7 @@ Panoptic variants for `DETRPanopticSegment.from_weights`:
 from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 
-model = DETRDetect.from_weights("detr-resnet-50")
+model = DETRDetect.from_weights("kerasformers/detr-resnet-50")
 processor = DETRImageProcessor()
 
 image = Image.open("assets/data/coco_living_room.jpg").convert("RGB")
@@ -253,7 +254,7 @@ Pass a list of images and one `target_sizes` entry per image:
 from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 
-model = DETRDetect.from_weights("detr-resnet-50")
+model = DETRDetect.from_weights("kerasformers/detr-resnet-50")
 processor = DETRImageProcessor()
 
 paths = ["assets/data/coco_desk.jpg", "assets/data/coco_cats.jpg"]
@@ -308,7 +309,7 @@ things plus stuff, plus "no object") rather than the detector's 92.
 from PIL import Image
 from kerasformers.models.detr import DETRImageProcessor, DETRPanopticSegment
 
-model = DETRPanopticSegment.from_weights("detr-resnet-50-panoptic")
+model = DETRPanopticSegment.from_weights("kerasformers/detr-resnet-50-panoptic")
 processor = DETRImageProcessor()
 
 image = Image.open("assets/data/coco_skier.jpg").convert("RGB")
@@ -463,7 +464,7 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = DETRDetect.from_weights("detr-resnet-50")
+model = DETRDetect.from_weights("kerasformers/detr-resnet-50")
 processor = DETRImageProcessor()
 
 inputs = processor(image)
@@ -496,7 +497,7 @@ model = DETRDetect.from_weights("hf:facebook/detr-resnet-50")
 model = DETRDetect.from_weights("hf:<user>/detr-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = DETRDetect.from_weights("detr-resnet-50", load_weights=False)
+model = DETRDetect.from_weights("kerasformers/detr-resnet-50", load_weights=False)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`
@@ -510,5 +511,5 @@ matching preprocessing from the same repo:
 processor = DETRImageProcessor.from_weights("hf:facebook/detr-resnet-50")
 ```
 
-Loading `hf:facebook/detr-resnet-50` and the `detr-resnet-50` release variant produces
+Loading `hf:facebook/detr-resnet-50` and the `kerasformers/detr-resnet-50` Hub variant produces
 identical outputs, since they are the same checkpoint by two routes.

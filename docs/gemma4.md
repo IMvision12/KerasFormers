@@ -1,13 +1,15 @@
 # Gemma 4
 
 <div style="background:#fdecea; border:1px solid #f5c6c0; border-radius:3px; padding:12px 16px; color:#4a2626;">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored on the kerasformers
-release page. <code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
+<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
+<code>.weights.h5</code> under <code>kerasformers/</code>.
+<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
 from the Hub and converts them in process on every load, because checkpoints this large are
 impractical to re-host.
 Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
 conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">Loading Weights</a>.
 </div>
+
 <br>
 
 The fourth Gemma generation, ported to pure Keras 3, spanning dense and
@@ -67,7 +69,7 @@ only 4B are used per token.
 `Gemma4Generate` still loads their (identical) text weights. The audio tower is
 ported (validated against the `gemma4_audio` conformer) but the checkpoints that
 carry it are the E-variants, whose per-layer-input text decoder is not supported, so
-there is no audio-carrying variant wired for release loading yet.
+there is no audio-carrying variant wired for Hub / bare-variant loading yet.
 
 ## API
 

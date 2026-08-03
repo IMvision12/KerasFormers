@@ -16,12 +16,12 @@ See also [deepseek_vl.md](deepseek_vl.md), [janus.md](janus.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")`.
 
 | Variant | Hub |
 |---|---|
-| `deepseek_vl_7b_chat` | kerasformers release |
-| `deepseek_vl_7b_base` | kerasformers release |
+| `deepseek_vl_7b_chat` | [`kerasformers/deepseek_vl_7b_chat`](https://huggingface.co/kerasformers/deepseek_vl_7b_chat) |
+| `deepseek_vl_7b_base` | [`kerasformers/deepseek_vl_7b_base`](https://huggingface.co/kerasformers/deepseek_vl_7b_base) |
 
 ## API
 
@@ -133,8 +133,8 @@ from kerasformers.models.deepseek_vl_hybrid import (
     DeepseekVLHybridProcessor,
 )
 
-model = DeepseekVLHybridGenerate.from_weights("deepseek_vl_7b_chat")
-processor = DeepseekVLHybridProcessor.from_weights("deepseek_vl_7b_chat")
+model = DeepseekVLHybridGenerate.from_weights("kerasformers/deepseek_vl_7b_chat")
+processor = DeepseekVLHybridProcessor.from_weights("kerasformers/deepseek_vl_7b_chat")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -219,7 +219,7 @@ have rendered yourself (or go through the processor above).
 ```python
 from kerasformers.models.deepseek_vl_hybrid import DeepseekVLHybridTokenizer
 
-tokenizer = DeepseekVLHybridTokenizer.from_weights("deepseek_vl_7b_chat")
+tokenizer = DeepseekVLHybridTokenizer.from_weights("kerasformers/deepseek_vl_7b_chat")
 inputs = tokenizer("Who wrote Dune?")
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(tokenizer.decode(outputs[0]))
@@ -232,6 +232,9 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = DeepseekVLHybridGenerate.from_weights(
-    "deepseek_vl_7b_chat", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/deepseek_vl_7b_chat",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```

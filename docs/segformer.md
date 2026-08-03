@@ -1,11 +1,12 @@
 # SegFormer
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the SegFormer model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/segformer" style="color:#1a5c8a;">segformer</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 SegFormer pairs a hierarchical transformer encoder (MiT) with a decoder that is nothing but a few MLPs. The encoder produces features at four scales like a CNN, and the decoder simply upsamples each scale, concatenates, and projects. No dilated convolutions, no attention in the decoder.
@@ -85,13 +86,13 @@ SegFormerImageProcessor(
 Resizes to a fixed square, rescales to `[0, 1]`, and normalizes with ImageNet
 statistics.
 
-> **Prefer `SegFormerImageProcessor.from_weights(variant)`.** The variants train at
+> **Prefer `SegFormerImageProcessor.from_weights("kerasformers/<variant>")`.** The variants train at
 > 512, 640, 768 or 1024, so the bare constructor's 512 mismatches the model for most of
 > them and the forward pass raises on shape.
 
 **Parameters**
 
-- **variant** (`str`, *optional*): release variant whose resolution to adopt. Ignored when `size` is given.
+- **variant** (`str`, *optional*): variant whose resolution to adopt. Ignored when `size` is given.
 - **do_resize** (`bool`, *optional*, defaults to `True`): resize before normalizing.
 - **size** (`dict`, *optional*): target size, overriding `variant`. Falls back to 512.
 - **resample** (`str`, *optional*, defaults to `"bilinear"`): resize interpolation.
@@ -153,8 +154,10 @@ from kerasformers.models.segformer import (
     SegFormerSemanticSegment,
 )
 
-model = SegFormerSemanticSegment.from_weights("segformer_b5_ade_640")
-processor = SegFormerImageProcessor.from_weights("segformer_b5_ade_640")  # 640
+model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b5_ade_640")
+processor = SegFormerImageProcessor.from_weights(
+    "kerasformers/segformer_b5_ade_640"
+)  # 640
 
 image = Image.open("assets/data/coco_street_dusk.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -206,8 +209,10 @@ from kerasformers.models.segformer import (
     SegFormerSemanticSegment,
 )
 
-model = SegFormerSemanticSegment.from_weights("segformer_b5_ade_640")
-processor = SegFormerImageProcessor.from_weights("segformer_b5_ade_640")  # 640
+model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b5_ade_640")
+processor = SegFormerImageProcessor.from_weights(
+    "kerasformers/segformer_b5_ade_640"
+)  # 640
 
 paths = ["assets/data/coco_open_kitchen.jpg", "assets/data/coco_herd_field.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -265,8 +270,10 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = SegFormerSemanticSegment.from_weights("segformer_b5_ade_640")
-processor = SegFormerImageProcessor.from_weights("segformer_b5_ade_640")  # 640
+model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b5_ade_640")
+processor = SegFormerImageProcessor.from_weights(
+    "kerasformers/segformer_b5_ade_640"
+)  # 640
 ```
 
 `post_process_semantic_segmentation` also takes `data_format`, since it needs to know
@@ -300,7 +307,7 @@ model = SegFormerSemanticSegment.from_weights(
 
 # Architecture only, randomly initialized
 model = SegFormerSemanticSegment.from_weights(
-    "segformer_b0_ade_512", load_weights=False
+    "kerasformers/segformer_b0_ade_512", load_weights=False
 )
 ```
 

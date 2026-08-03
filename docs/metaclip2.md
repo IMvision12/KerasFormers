@@ -1,11 +1,12 @@
 # MetaCLIP 2
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> eleven of the sixteen MetaCLIP 2 variants have weights on the kerasformers
-<a href="https://github.com/IMvision12/KerasFormers/releases/tag/metaclip2" style="color:#1a5c8a;">metaclip2</a>
-release tag and download automatically. The remaining five are converted from
-Hugging Face on the fly: see <b>Variants without release weights</b> below.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 MetaCLIP 2 is a CLIP-architecture dual encoder trained on a worldwide,
@@ -333,41 +334,41 @@ Combined image + text processor for MetaCLIP 2.
 
 ## Model Variants
 
-Load any of these with `from_weights("<variant id>")`.
+Load any of these with `from_weights("kerasformers/<variant id>")`.
 
 | Variant id | Image size | Patch | Weights |
 |---|---:|---:|---|
-| `metaclip2_worldwide_s16_224` | 224 | 16 | release |
-| `metaclip2_worldwide_s16_384` | 384 | 16 | release |
-| `metaclip2_worldwide_m16_224` | 224 | 16 | release |
-| `metaclip2_worldwide_m16_384` | 384 | 16 | release |
-| `metaclip2_worldwide_b16_224` | 224 | 16 | release |
-| `metaclip2_worldwide_b16_384` | 384 | 16 | release |
-| `metaclip2_worldwide_b32_224` | 224 | 32 | release |
-| `metaclip2_worldwide_b32_384` | 384 | 32 | release |
+| `metaclip2_worldwide_s16_224` | 224 | 16 | hub |
+| `metaclip2_worldwide_s16_384` | 384 | 16 | hub |
+| `metaclip2_worldwide_m16_224` | 224 | 16 | hub |
+| `metaclip2_worldwide_m16_384` | 384 | 16 | hub |
+| `metaclip2_worldwide_b16_224` | 224 | 16 | hub |
+| `metaclip2_worldwide_b16_384` | 384 | 16 | hub |
+| `metaclip2_worldwide_b32_224` | 224 | 32 | hub |
+| `metaclip2_worldwide_b32_384` | 384 | 32 | hub |
 | `metaclip2_worldwide_l14_224` | 224 | 14 | on the fly from `facebook/metaclip-2-worldwide-l14` |
 | `metaclip2_worldwide_huge_quickgelu` | 224 | 14 | on the fly from `facebook/metaclip-2-worldwide-huge-quickgelu` |
 | `metaclip2_worldwide_huge_378` | 378 | 14 | on the fly from `facebook/metaclip-2-worldwide-huge-378` |
 | `metaclip2_worldwide_giant_224` | 224 | 14 | on the fly from `facebook/metaclip-2-worldwide-giant` |
 | `metaclip2_worldwide_giant_378` | 378 | 14 | on the fly from `facebook/metaclip-2-worldwide-giant-378` |
-| `metaclip2_mt5_worldwide_s16_224` | 224 | 16 | release |
-| `metaclip2_mt5_worldwide_m16_224` | 224 | 16 | release |
-| `metaclip2_mt5_worldwide_b32_224` | 224 | 32 | release |
+| `metaclip2_mt5_worldwide_s16_224` | 224 | 16 | hub |
+| `metaclip2_mt5_worldwide_m16_224` | 224 | 16 | hub |
+| `metaclip2_mt5_worldwide_b32_224` | 224 | 32 | hub |
 
-### Variants without release weights
+### Variants without Hub Keras weights
 
-The five variants marked *on the fly* have **no kerasformers release asset**.
-Calling `from_weights` on them silently falls back to downloading the Hugging
-Face checkpoint and converting it in-process. That still works, but it differs
-from the other eleven in ways worth knowing:
+The five variants marked *on the fly* have **no preconverted kerasformers Hub
+repo**. Calling `from_weights` on them silently falls back to downloading the
+upstream Hugging Face checkpoint and converting it in-process. That still works,
+but it differs from the other eleven in ways worth knowing:
 
-- It downloads from Hugging Face, not the kerasformers release, so it depends on
-  that repo staying available and on any gating it may have.
+- It downloads from the upstream Hub repo, not a kerasformers `.weights.h5`, so it
+  depends on that repo staying available and on any gating it may have.
 - Conversion runs every time the weights are not already cached, which is slower
   than fetching a prebuilt `.weights.h5`.
 - These are the largest variants (l14, huge, giant), so the download is big.
 
-If you want the fast path, prefer one of the eleven release variants.
+If you want the fast path, prefer one of the eleven Hub Keras variants.
 
 ## Basic Usage: Zero-Shot Classification
 
@@ -380,8 +381,10 @@ from kerasformers.models.metaclip2 import (
     MetaClip2ZeroShotClassify,
 )
 
-processor = MetaClip2Processor.from_weights("metaclip2_worldwide_s16_224")
-model = MetaClip2ZeroShotClassify.from_weights("metaclip2_worldwide_s16_224")
+processor = MetaClip2Processor.from_weights("kerasformers/metaclip2_worldwide_s16_224")
+model = MetaClip2ZeroShotClassify.from_weights(
+    "kerasformers/metaclip2_worldwide_s16_224"
+)
 
 labels = [
     "a photo of teddy bears",
@@ -553,5 +556,5 @@ processor = MetaClip2Processor.from_weights("hf:facebook/metaclip-2-worldwide-s1
 ```
 
 Loading `hf:facebook/metaclip-2-worldwide-s16` and the `metaclip2_worldwide_s16_224`
-release variant produces identical outputs, since they are the same checkpoint by two
+Hub variant produces identical outputs, since they are the same checkpoint by two
 routes.

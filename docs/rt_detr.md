@@ -1,11 +1,12 @@
 # RT-DETR
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the RT-DETR model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/rt-detr" style="color:#1a5c8a;">rt-detr</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 RT-DETR was the first DETR-style detector to beat YOLO on the real-time speed/accuracy tradeoff. It pairs a ResNet-vd backbone with a hybrid encoder that decouples intra-scale attention from cross-scale fusion, then feeds IoU-aware selected queries into a deformable decoder.
@@ -162,7 +163,7 @@ generally helps on classes that are rare in COCO. All are 640×640.
 from PIL import Image
 from kerasformers.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 
-model = RTDETRDetect.from_weights("rtdetr-r18vd")
+model = RTDETRDetect.from_weights("kerasformers/rtdetr-r18vd")
 processor = RTDETRImageProcessor()
 
 image = Image.open("assets/data/coco_children_pool.jpg").convert("RGB")
@@ -217,7 +218,7 @@ Pass a list of images and one `target_sizes` entry per image:
 from PIL import Image
 from kerasformers.models.rt_detr import RTDETRDetect, RTDETRImageProcessor
 
-model = RTDETRDetect.from_weights("rtdetr-r18vd")
+model = RTDETRDetect.from_weights("kerasformers/rtdetr-r18vd")
 processor = RTDETRImageProcessor()
 
 paths = ["assets/data/coco_conference.jpg", "assets/data/coco_stop_sign.jpg"]
@@ -277,7 +278,7 @@ RT-DETR is Functional, so the input shape is fixed when the model is constructed
 run at another resolution, build at that size and match the processor:
 
 ```python
-model = RTDETRDetect.from_weights("rtdetr-r18vd", image_size=512)
+model = RTDETRDetect.from_weights("kerasformers/rtdetr-r18vd", image_size=512)
 processor = RTDETRImageProcessor(size={"height": 512, "width": 512})
 ```
 
@@ -353,7 +354,7 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = RTDETRDetect.from_weights("rtdetr-r18vd")
+model = RTDETRDetect.from_weights("kerasformers/rtdetr-r18vd")
 processor = RTDETRImageProcessor()
 ```
 
@@ -372,14 +373,14 @@ prefix, including the upstream checkpoints and arbitrary fine-tunes.
 ```python
 from kerasformers.models.rt_detr import RTDETRDetect
 
-# Upstream release
+# Upstream Hub
 model = RTDETRDetect.from_weights("hf:PekingU/rtdetr_r18vd")
 
 # Somebody's fine-tune
 model = RTDETRDetect.from_weights("hf:<user>/rtdetr-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = RTDETRDetect.from_weights("rtdetr-r18vd", load_weights=False)
+model = RTDETRDetect.from_weights("kerasformers/rtdetr-r18vd", load_weights=False)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`
@@ -390,7 +391,7 @@ and mapped onto the constructor. Both model classes accept `hf:`, as does
 processor = RTDETRImageProcessor.from_weights("hf:PekingU/rtdetr_r18vd")
 ```
 
-Loading `hf:PekingU/rtdetr_r18vd` and the `rtdetr-r18vd` release variant produces
+Loading `hf:PekingU/rtdetr_r18vd` and the `kerasformers/rtdetr-r18vd` Hub variant produces
 identical outputs, since they are the same checkpoint by two routes.
 
 See also [RT-DETRv2](rt_detr_v2.md), which keeps this architecture and improves the

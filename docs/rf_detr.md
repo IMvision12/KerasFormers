@@ -1,11 +1,12 @@
 # RF-DETR
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the RF-DETR model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/rf-detr" style="color:#1a5c8a;">rf-detr</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 RF-DETR is Roboflow's real-time DETR, built on a windowed DINOv2 backbone with a lightweight deformable decoder. The configurations came out of a neural architecture search, which is why the variants differ along several axes at once (resolution, patch size, window count, decoder depth) rather than just scaling width.
@@ -133,13 +134,13 @@ RFDETRImageProcessor(
 Resizes to a fixed square, rescales to `[0, 1]`, and normalizes with ImageNet
 statistics.
 
-> **Prefer `RFDETRImageProcessor.from_weights(variant)`.** Every variant trains at its
+> **Prefer `RFDETRImageProcessor.from_weights("kerasformers/<variant>")`.** Every variant trains at its
 > own resolution, and the bare constructor gives rfdetr-base's 560, which is wrong for
 > every other variant. `from_weights` reads the right size from the model config.
 
 **Parameters**
 
-- **variant** (`str`, *optional*): release variant whose resolution to adopt, for example `"rfdetr-nano"`. Ignored when `size` is given.
+- **variant** (`str`, *optional*): variant whose resolution to adopt, for example `"rfdetr-nano"`. Ignored when `size` is given.
 - **size** (`dict`, *optional*): target size, overriding `variant`. Defaults to the variant's resolution, or `{"height": 560, "width": 560}` when neither is given.
 - **resample** (`str`, *optional*, defaults to `"bilinear"`): resize interpolation.
 - **do_rescale** (`bool`, *optional*, defaults to `True`): scale pixels to `[0, 1]`.
@@ -219,8 +220,10 @@ Instance segmentation, for `RFDETRInstanceSegment.from_weights`, sourced from th
 from PIL import Image
 from kerasformers.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 
-model = RFDETRDetect.from_weights("rfdetr-nano")
-processor = RFDETRImageProcessor.from_weights("rfdetr-nano")  # resolves 384
+model = RFDETRDetect.from_weights("kerasformers/rfdetr-nano")
+processor = RFDETRImageProcessor.from_weights(
+    "kerasformers/rfdetr-nano"
+)  # resolves 384
 
 image = Image.open("assets/data/coco_fairground_ride.jpg").convert("RGB")
 inputs = processor(image)
@@ -253,7 +256,7 @@ person         0.504  [138, 182, 212, 249]
 
 Using `from_weights` on **both** the model and the processor is what keeps their
 resolutions in agreement. A bare `RFDETRImageProcessor()` emits 560 while
-`RFDETRDetect.from_weights("rfdetr-nano")` builds at 384, and the mismatch raises.
+`RFDETRDetect.from_weights("kerasformers/rfdetr-nano")` builds at 384, and the mismatch raises.
 
 ### Batch Processing Multiple Images
 
@@ -265,8 +268,8 @@ Pass a list of images and one `target_sizes` entry per image:
 from PIL import Image
 from kerasformers.models.rf_detr import RFDETRDetect, RFDETRImageProcessor
 
-model = RFDETRDetect.from_weights("rfdetr-nano")
-processor = RFDETRImageProcessor.from_weights("rfdetr-nano")
+model = RFDETRDetect.from_weights("kerasformers/rfdetr-nano")
+processor = RFDETRImageProcessor.from_weights("kerasformers/rfdetr-nano")
 
 paths = ["assets/data/coco_sandwich.jpg", "assets/data/coco_baseball.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -324,8 +327,10 @@ import numpy as np
 from PIL import Image
 from kerasformers.models.rf_detr import RFDETRImageProcessor, RFDETRInstanceSegment
 
-model = RFDETRInstanceSegment.from_weights("rfdetr-seg-small")
-processor = RFDETRImageProcessor.from_weights("rfdetr-seg-small")  # resolves 384
+model = RFDETRInstanceSegment.from_weights("kerasformers/rfdetr-seg-small")
+processor = RFDETRImageProcessor.from_weights(
+    "kerasformers/rfdetr-seg-small"
+)  # resolves 384
 
 image = Image.open("assets/data/coco_bus.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -371,7 +376,9 @@ the processor must agree, which `from_weights` handles. To run at another resolu
 set it on both:
 
 ```python
-model = RFDETRDetect.from_weights("rfdetr-nano", resolution=512, image_size=512)
+model = RFDETRDetect.from_weights(
+    "kerasformers/rfdetr-nano", resolution=512, image_size=512
+)
 processor = RFDETRImageProcessor(size={"height": 512, "width": 512})
 ```
 
@@ -446,8 +453,8 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = RFDETRDetect.from_weights("rfdetr-nano")
-processor = RFDETRImageProcessor.from_weights("rfdetr-nano")
+model = RFDETRDetect.from_weights("kerasformers/rfdetr-nano")
+processor = RFDETRImageProcessor.from_weights("kerasformers/rfdetr-nano")
 ```
 
 Detections are the same under either layout. Only the tensor shape changes. Set it once
@@ -466,7 +473,7 @@ prefix, including the Roboflow checkpoints and arbitrary fine-tunes.
 ```python
 from kerasformers.models.rf_detr import RFDETRDetect, RFDETRInstanceSegment
 
-# Upstream release
+# Upstream Hub
 model = RFDETRDetect.from_weights("hf:Roboflow/rf-detr-nano")
 seg = RFDETRInstanceSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
 
@@ -474,7 +481,7 @@ seg = RFDETRInstanceSegment.from_weights("hf:Roboflow/rf-detr-seg-small")
 model = RFDETRDetect.from_weights("hf:<user>/rfdetr-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = RFDETRDetect.from_weights("rfdetr-nano", load_weights=False)
+model = RFDETRDetect.from_weights("kerasformers/rfdetr-nano", load_weights=False)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`
@@ -485,5 +492,5 @@ and mapped onto the constructor. All three model classes accept `hf:`, as does
 processor = RFDETRImageProcessor.from_weights("hf:Roboflow/rf-detr-nano")
 ```
 
-Loading `hf:Roboflow/rf-detr-nano` and the `rfdetr-nano` release variant produces
+Loading `hf:Roboflow/rf-detr-nano` and the `kerasformers/rfdetr-nano` Hub variant produces
 identical outputs, since they are the same checkpoint by two routes.

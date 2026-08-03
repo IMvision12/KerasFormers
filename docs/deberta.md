@@ -30,15 +30,14 @@ backbone. Unlike BERT, **DeBERTa has no pooler and no next-sentence head**: the
 backbone returns only `last_hidden_state`, and the sequence/multiple-choice heads
 attach DeBERTa's *context pooler* (a dense + `gelu` over the `[CLS]` token). The
 masked-LM head is part of the pretrained checkpoint; the other task heads are
-randomly initialized for the official release (ready for fine-tuning) and load
+randomly initialized for the official Hub checkpoint (ready for fine-tuning) and load
 trained weights from a `hf:` fine-tune.
 
 ## Loading
 
 Two paths, both via `from_weights`:
 
-- **Official release variant**: `from_weights("deberta_base")` downloads the
-  kerasformers-release `.weights.h5`.
+- **Official Hub variant**: `from_weights("kerasformers/deberta_base")` loads the kerasformers Hub repo (`kf_config.json` + `.weights.h5`).
 - **`hf:` checkpoint / community fine-tune**: `from_weights("hf:org/repo")` reads
   the repo's `config.json` (architecture + `num_labels`) and loads the checkpoint,
   including a fine-tuned classifier head.
@@ -46,8 +45,8 @@ Two paths, both via `from_weights`:
 ```python
 from kerasformers.models.deberta_v3 import DebertaV3Model, DebertaV3Tokenizer
 
-model = DebertaV3Model.from_weights("deberta_v3_base")
-tokenizer = DebertaV3Tokenizer.from_weights("deberta_v3_base")
+model = DebertaV3Model.from_weights("kerasformers/deberta_v3_base")
+tokenizer = DebertaV3Tokenizer.from_weights("kerasformers/deberta_v3_base")
 
 out = model(tokenizer("Hello, world."))
 out["last_hidden_state"]  # (1, L, 768)
@@ -97,7 +96,7 @@ inputs = {
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: all 0 (unused)
 }
-DebertaV3Model.from_weights("deberta_v3_base")(inputs)["last_hidden_state"]
+DebertaV3Model.from_weights("kerasformers/deberta_v3_base")(inputs)["last_hidden_state"]
 ```
 
 These are token-id models: **no spatial H/W axes**, so `channels_first/last`
@@ -108,8 +107,8 @@ does not apply.
 ```python
 from kerasformers.models.deberta_v3 import DebertaV3MaskedLM, DebertaV3Tokenizer
 
-mlm = DebertaV3MaskedLM.from_weights("deberta_v3_base")
-tokenizer = DebertaV3Tokenizer.from_weights("deberta_v3_base")
+mlm = DebertaV3MaskedLM.from_weights("kerasformers/deberta_v3_base")
+tokenizer = DebertaV3Tokenizer.from_weights("kerasformers/deberta_v3_base")
 
 inputs = tokenizer("The capital of France is [MASK].")
 logits = mlm(inputs)  # (1, L, vocab_size)

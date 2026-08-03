@@ -1,11 +1,12 @@
 # MaskFormer
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the MaskFormer model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/maskformer" style="color:#1a5c8a;">maskformer</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 MaskFormer's insight is in its title: per-pixel classification is not the only way to segment. Instead of labelling every pixel independently, it predicts a fixed set of **binary masks**, each paired with one class. A DETR-style transformer decoder turns 100 learned queries into 100 (mask, class) pairs, and how you combine them decides the task.
@@ -61,13 +62,13 @@ MaskFormerImageProcessor(
 Resizes the longest edge to `target_size` preserving aspect ratio, pads to a square
 canvas, rescales, and normalizes with ImageNet statistics.
 
-> **Prefer `MaskFormerImageProcessor.from_weights(variant)`.** The COCO checkpoints
+> **Prefer `MaskFormerImageProcessor.from_weights("kerasformers/<variant>")`.** The COCO checkpoints
 > build at 384 and the ADE ones at 512, so a fixed default mismatches the model for one
 > of the two and the forward pass raises on shape.
 
 **Parameters**
 
-- **variant** (`str`, *optional*): release variant whose resolution to adopt.
+- **variant** (`str`, *optional*): variant whose resolution to adopt.
 - **target_size** (`int`, *optional*): square canvas edge, overriding `variant`. Falls back to `512`.
 - **image_mean** / **image_std** (`tuple`, *optional*): defaults to the ImageNet statistics.
 - **data_format** (`str`, *optional*): `"channels_last"` or `"channels_first"`.
@@ -134,8 +135,12 @@ from kerasformers.models.maskformer import (
     MaskFormerUniversalSegment,
 )
 
-model = MaskFormerUniversalSegment.from_weights("maskformer-swin-tiny-coco")
-processor = MaskFormerImageProcessor.from_weights("maskformer-swin-tiny-coco")  # 384
+model = MaskFormerUniversalSegment.from_weights(
+    "kerasformers/maskformer-swin-tiny-coco"
+)
+processor = MaskFormerImageProcessor.from_weights(
+    "kerasformers/maskformer-swin-tiny-coco"
+)  # 384
 
 image = Image.open("assets/data/coco_surfer_wave.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -178,8 +183,12 @@ from kerasformers.models.maskformer import (
     MaskFormerUniversalSegment,
 )
 
-model = MaskFormerUniversalSegment.from_weights("maskformer-swin-tiny-coco")
-processor = MaskFormerImageProcessor.from_weights("maskformer-swin-tiny-coco")
+model = MaskFormerUniversalSegment.from_weights(
+    "kerasformers/maskformer-swin-tiny-coco"
+)
+processor = MaskFormerImageProcessor.from_weights(
+    "kerasformers/maskformer-swin-tiny-coco"
+)
 
 paths = ["assets/data/coco_frisbee.jpg", "assets/data/coco_pizza_kid.jpg"]
 
@@ -257,7 +266,7 @@ model = MaskFormerUniversalSegment.from_weights("hf:<user>/maskformer-finetuned"
 
 # Architecture only, randomly initialized
 model = MaskFormerUniversalSegment.from_weights(
-    "maskformer-swin-tiny-coco",
+    "kerasformers/maskformer-swin-tiny-coco",
     load_weights=False,
 )
 ```

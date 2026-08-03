@@ -16,12 +16,12 @@ See also [deepseek_vl.md](deepseek_vl.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")`.
 
 | Variant | Hub |
 |---|---|
-| `janus_pro_1b` | kerasformers release |
-| `janus_pro_7b` | kerasformers release |
+| `janus_pro_1b` | [`kerasformers/janus_pro_1b`](https://huggingface.co/kerasformers/janus_pro_1b) |
+| `janus_pro_7b` | [`kerasformers/janus_pro_7b`](https://huggingface.co/kerasformers/janus_pro_7b) |
 
 ## API
 
@@ -131,8 +131,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.janus import JanusGenerate, JanusProcessor
 
-model = JanusGenerate.from_weights("janus_pro_1b")
-processor = JanusProcessor.from_weights("janus_pro_1b")
+model = JanusGenerate.from_weights("kerasformers/janus_pro_1b")
+processor = JanusProcessor.from_weights("kerasformers/janus_pro_1b")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -217,7 +217,7 @@ have rendered yourself (or go through the processor above).
 ```python
 from kerasformers.models.janus import JanusTokenizer
 
-tokenizer = JanusTokenizer.from_weights("janus_pro_1b")
+tokenizer = JanusTokenizer.from_weights("kerasformers/janus_pro_1b")
 inputs = tokenizer("Who wrote Dune?")
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(tokenizer.decode(outputs[0]))
@@ -230,6 +230,9 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = JanusGenerate.from_weights(
-    "janus_pro_1b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/janus_pro_1b",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```

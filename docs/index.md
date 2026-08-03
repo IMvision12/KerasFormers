@@ -25,8 +25,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 
-model = DETRDetect.from_weights("detr-resnet-50")
-processor = DETRImageProcessor()
+model = DETRDetect.from_weights("kerasformers/detr-resnet-50")
+processor = DETRImageProcessor.from_weights("kerasformers/detr-resnet-50")
 
 image = Image.open("photo.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -81,7 +81,7 @@ Each model page follows the same structure, so you can skim any of them the same
 | **Model Variants** | The `from_weights` ids, with sizes and what each was trained on. |
 | **Basic Usage** | A runnable example with its real, measured output. |
 | **Data Format** | Layouts, `channels_last` vs `channels_first`, audio rates. |
-| **Loading Fine-tuned Weights** | The `hf:` prefix for any compatible Hub repo. |
+| **Loading Fine-tuned Weights** | Hub Keras (`kerasformers/...`) and the `hf:` prefix for any compatible Hub repo. |
 
 The outputs printed in those examples are **measured, not illustrative**: they come from
 actually running the snippet on the image or audio clip shown beside it.
@@ -92,20 +92,23 @@ loading, plotting, and the class-name lists.
 
 ## Loading weights
 
-Two sources, one call:
+Three sources, one call:
 
 ```python
-# A kerasformers release variant, downloaded and cached on first use
-model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")
+# Preconverted Keras weights on the kerasformers Hub org (kf_config.json)
+model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
 
-# Any Hugging Face repo with a matching model_type
+# Bare variant: on-the-fly conversion from an upstream Hub checkpoint (LLMs / VLMs)
+model = Qwen3Generate.from_weights("qwen3-8b")
+
+# Any Hugging Face repo with a matching model_type (convert on the fly)
 model = SegFormerSemanticSegment.from_weights(
     "hf:nvidia/segformer-b0-finetuned-ade-512-512"
 )
 
 # Architecture only, randomly initialized
 model = SegFormerSemanticSegment.from_weights(
-    "segformer_b0_ade_512", load_weights=False
+    "kerasformers/segformer_b0_ade_512", load_weights=False
 )
 ```
 
@@ -114,7 +117,7 @@ Large checkpoints load in lower precision or weight-only quantized; see
 
 ```python
 model = Qwen3Generate.from_weights(
-    "qwen3_8b", load_dtype="bfloat16", quantization="int8", low_memory=True
+    "qwen3-8b", load_dtype="bfloat16", quantization="int8", low_memory=True
 )
 ```
 

@@ -1,11 +1,12 @@
 # DINOv2
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the DINOv2 models are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/dino12" style="color:#1a5c8a;">dino12</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 DINOv2 keeps [DINO](dino.md)'s self-supervised recipe and scales it: a curated 142 M-image
@@ -93,7 +94,7 @@ from PIL import Image
 from kerasformers.models.dino_v2 import DinoV2Model
 
 size, patch = 448, 14
-model = DinoV2Model.from_weights("dinov2_vits14", image_size=size)
+model = DinoV2Model.from_weights("kerasformers/dinov2_vits14", image_size=size)
 
 image = Image.open("assets/data/coco_motorcycle.jpg").convert("RGB")
 x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
@@ -141,7 +142,7 @@ from PIL import Image
 from kerasformers.models.dino_v2 import DinoV2Model
 
 size = 448
-model = DinoV2Model.from_weights("dinov2_vits14", image_size=size)
+model = DinoV2Model.from_weights("kerasformers/dinov2_vits14", image_size=size)
 
 paths = ["assets/data/coco_cats.jpg", "assets/data/coco_bicycles.jpg"]
 batch = np.stack(
@@ -170,7 +171,9 @@ DPT-style neck or a segmentation head, which is exactly how DINOv2 is used for d
 prediction:
 
 ```python
-model = DinoV2Model.from_weights("dinov2_vits14", as_backbone=True, image_size=size)
+model = DinoV2Model.from_weights(
+    "kerasformers/dinov2_vits14", as_backbone=True, image_size=size
+)
 features = model(x, training=False)  # x from above, at 448
 print(len(features), features[-1].shape)  # 13  (1, 1025, 384)
 ```
@@ -187,7 +190,7 @@ embeddings are bilinearly interpolated to the requested patch grid at load time,
 pretrained weights stay valid. The figures here use `image_size=448` for a finer map than
 the default 224 gives.
 
-> Interpolation runs in the Keras `.weights.h5` reader, which the release path uses. The
+> Interpolation runs in the Keras `.weights.h5` reader, which the Hub checkpoint path uses. The
 > `hf:` path assigns the checkpoint tensor directly and so requires an exact match; ask
 > for a non-default size over `hf:` and it raises a position-embedding shape mismatch.
 
@@ -202,7 +205,7 @@ model = DinoV2Model.from_weights("hf:facebook/dinov2-small")
 model = DinoV2Model.from_weights("hf:<user>/dinov2-finetuned")
 
 # Architecture only, randomly initialized
-model = DinoV2Model.from_weights("dinov2_vits14", load_weights=False)
+model = DinoV2Model.from_weights("kerasformers/dinov2_vits14", load_weights=False)
 ```
 
 See also [DINO](dino.md), the original, and [DINOv3](dinov3.md), which adds register

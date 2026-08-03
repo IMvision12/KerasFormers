@@ -1,11 +1,12 @@
 # OWL-ViT
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the OWL-ViT model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/owlvit" style="color:#1a5c8a;">owlvit</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 OWL-ViT detects objects described by free text, with no fixed class list. It starts from a CLIP-style vision and text encoder, then drops CLIP's pooling and attaches a lightweight box head to **every patch token**. Each patch becomes a detection candidate, scored by cosine similarity against your text queries rather than against a learned classifier.
@@ -157,8 +158,8 @@ from kerasformers.models.owlvit import (
     OwlViTProcessor,
 )
 
-model = OwlViTDetect.from_weights("owlvit-base-patch32")
-processor = OwlViTProcessor.from_weights("owlvit-base-patch32")
+model = OwlViTDetect.from_weights("kerasformers/owlvit-base-patch32")
+processor = OwlViTProcessor.from_weights("kerasformers/owlvit-base-patch32")
 image_processor = OwlViTImageProcessor()
 
 image = Image.open("assets/data/coco_mug_knife.jpg").convert("RGB")
@@ -215,8 +216,8 @@ from kerasformers.models.owlvit import (
     OwlViTProcessor,
 )
 
-model = OwlViTDetect.from_weights("owlvit-base-patch32")
-processor = OwlViTProcessor.from_weights("owlvit-base-patch32")
+model = OwlViTDetect.from_weights("kerasformers/owlvit-base-patch32")
+processor = OwlViTProcessor.from_weights("kerasformers/owlvit-base-patch32")
 image_processor = OwlViTImageProcessor()
 
 paths = ["assets/data/coco_apples.jpg", "assets/data/coco_bananas.jpg"]
@@ -304,8 +305,8 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = OwlViTDetect.from_weights("owlvit-base-patch32")
-processor = OwlViTProcessor.from_weights("owlvit-base-patch32")
+model = OwlViTDetect.from_weights("kerasformers/owlvit-base-patch32")
+processor = OwlViTProcessor.from_weights("kerasformers/owlvit-base-patch32")
 ```
 
 Detections are the same under either layout. Set it once at the top of a script, since
@@ -329,7 +330,9 @@ model = OwlViTDetect.from_weights("hf:google/owlvit-base-patch32")
 model = OwlViTDetect.from_weights("hf:<user>/owlvit-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = OwlViTDetect.from_weights("owlvit-base-patch32", load_weights=False)
+model = OwlViTDetect.from_weights(
+    "kerasformers/owlvit-base-patch32", load_weights=False
+)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`.
@@ -340,7 +343,7 @@ All five model classes accept `hf:`, as do `OwlViTProcessor` and
 processor = OwlViTProcessor.from_weights("hf:google/owlvit-base-patch32")
 ```
 
-Loading `hf:google/owlvit-base-patch32` and the `owlvit-base-patch32` release variant
+Loading `hf:google/owlvit-base-patch32` and the `kerasformers/owlvit-base-patch32` Hub variant
 produces identical outputs, since they are the same checkpoint by two routes.
 
 See also [OWLv2](owlv2.md), which scales this recipe with self-training and adds an

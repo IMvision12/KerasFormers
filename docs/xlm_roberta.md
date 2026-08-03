@@ -29,8 +29,7 @@ vocabulary instead of RoBERTa's 50k byte-level BPE. All models are functional
 
 Two paths, both via `from_weights`:
 
-- **Official release variant**: `from_weights("xlm_roberta_base")` downloads the
-  kerasformers-release `.weights.h5`.
+- **Official Hub variant**: `from_weights("kerasformers/xlm_roberta_base")` loads the kerasformers Hub repo (`kf_config.json` + `.weights.h5`).
 - **`hf:` community fine-tune**: `from_weights("hf:org/repo")` reads the repo's
   `config.json` (architecture + `num_labels`) and loads the checkpoint, including
   the fine-tuned classifier head.
@@ -38,8 +37,8 @@ Two paths, both via `from_weights`:
 ```python
 from kerasformers.models.xlm_roberta import XLMRobertaModel, XLMRobertaTokenizer
 
-model = XLMRobertaModel.from_weights("xlm_roberta_base")
-tokenizer = XLMRobertaTokenizer.from_weights("xlm_roberta_base")
+model = XLMRobertaModel.from_weights("kerasformers/xlm_roberta_base")
+tokenizer = XLMRobertaTokenizer.from_weights("kerasformers/xlm_roberta_base")
 
 out = model(tokenizer(["Hello, world.", "Bonjour le monde."]))
 out["last_hidden_state"]  # (2, L, 768)
@@ -79,7 +78,9 @@ inputs = {
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: all 0
 }
-XLMRobertaModel.from_weights("xlm_roberta_base")(inputs)["last_hidden_state"]
+XLMRobertaModel.from_weights("kerasformers/xlm_roberta_base")(inputs)[
+    "last_hidden_state"
+]
 ```
 
 These are token-id models: **no spatial H/W axes**, so `channels_first/last`
@@ -90,8 +91,8 @@ does not apply.
 ```python
 from kerasformers.models.xlm_roberta import XLMRobertaMaskedLM, XLMRobertaTokenizer
 
-mlm = XLMRobertaMaskedLM.from_weights("xlm_roberta_base")
-tokenizer = XLMRobertaTokenizer.from_weights("xlm_roberta_base")
+mlm = XLMRobertaMaskedLM.from_weights("kerasformers/xlm_roberta_base")
+tokenizer = XLMRobertaTokenizer.from_weights("kerasformers/xlm_roberta_base")
 
 inputs = tokenizer("La capitale de la France est <mask>.")
 logits = mlm(inputs)  # (1, L, vocab_size)

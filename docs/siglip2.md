@@ -1,11 +1,12 @@
 # SigLIP 2
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> pretrained weights for all thirteen SigLIP 2 variants are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/siglip" style="color:#1a5c8a;">siglip</a>
-release tag (the same tag as SigLIP), and download automatically the first time
-you call <code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 SigLIP 2 keeps SigLIP's sigmoid loss and adds captioning-based pretraining,
@@ -241,23 +242,23 @@ Combined processor for SigLIP 2 models: image + Gemma text.
 
 ## Model Variants
 
-Load any of these with `from_weights("<variant id>")`.
+Load any of these with `from_weights("kerasformers/<variant id>")`.
 
 | Variant id | Image size | Patch | Weights |
 |---|---:|---:|---|
-| `siglip2_base_p16_224` | 224 | 16 | release |
-| `siglip2_base_p16_256` | 256 | 16 | release |
-| `siglip2_base_p16_384` | 384 | 16 | release |
-| `siglip2_base_p16_512` | 512 | 16 | release |
-| `siglip2_base_p32_256` | 256 | 32 | release |
-| `siglip2_large_p16_256` | 256 | 16 | release |
-| `siglip2_large_p16_384` | 384 | 16 | release |
-| `siglip2_large_p16_512` | 512 | 16 | release |
-| `siglip2_so400m_p14_224` | 224 | 14 | release |
-| `siglip2_so400m_p14_384` | 384 | 14 | release |
-| `siglip2_so400m_p16_256` | 256 | 16 | release |
-| `siglip2_so400m_p16_384` | 384 | 16 | release |
-| `siglip2_so400m_p16_512` | 512 | 16 | release |
+| `siglip2_base_p16_224` | 224 | 16 | hub |
+| `siglip2_base_p16_256` | 256 | 16 | hub |
+| `siglip2_base_p16_384` | 384 | 16 | hub |
+| `siglip2_base_p16_512` | 512 | 16 | hub |
+| `siglip2_base_p32_256` | 256 | 32 | hub |
+| `siglip2_large_p16_256` | 256 | 16 | hub |
+| `siglip2_large_p16_384` | 384 | 16 | hub |
+| `siglip2_large_p16_512` | 512 | 16 | hub |
+| `siglip2_so400m_p14_224` | 224 | 14 | hub |
+| `siglip2_so400m_p14_384` | 384 | 14 | hub |
+| `siglip2_so400m_p16_256` | 256 | 16 | hub |
+| `siglip2_so400m_p16_384` | 384 | 16 | hub |
+| `siglip2_so400m_p16_512` | 512 | 16 | hub |
 
 ## Basic Usage: Zero-Shot Classification
 
@@ -267,8 +268,8 @@ Load any of these with `from_weights("<variant id>")`.
 import keras
 from kerasformers.models.siglip2 import SigLIP2Processor, SigLIP2ZeroShotClassify
 
-processor = SigLIP2Processor.from_weights("siglip2_base_p16_224")
-model = SigLIP2ZeroShotClassify.from_weights("siglip2_base_p16_224")
+processor = SigLIP2Processor.from_weights("kerasformers/siglip2_base_p16_224")
+model = SigLIP2ZeroShotClassify.from_weights("kerasformers/siglip2_base_p16_224")
 
 labels = [
     "a photo of a living room",
@@ -395,5 +396,5 @@ repo:
 processor = SigLIP2Processor.from_weights("hf:google/siglip2-base-patch16-224")
 ```
 
-Loading `hf:google/siglip2-base-patch16-224` and the `siglip2_base_p16_224` release
+Loading `hf:google/siglip2-base-patch16-224` and the `kerasformers/siglip2_base_p16_224` Hub
 variant produces identical outputs, since they are the same checkpoint by two routes.

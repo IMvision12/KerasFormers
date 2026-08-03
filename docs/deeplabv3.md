@@ -1,11 +1,12 @@
 # DeepLabV3
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the DeepLabV3 model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/deeplabv3" style="color:#1a5c8a;">deeplabv3</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 DeepLabV3 does **semantic segmentation**: every pixel gets a class, with no notion of separate object instances. Two dogs side by side are one `dog` region, not two.
@@ -129,7 +130,9 @@ from kerasformers.models.deeplabv3 import (
     DeepLabV3SemanticSegment,
 )
 
-model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
+model = DeepLabV3SemanticSegment.from_weights(
+    "kerasformers/deeplabv3_resnet50_coco_voc"
+)
 processor = DeepLabV3ImageProcessor()
 
 image = Image.open("assets/data/coco_airplane.jpg").convert("RGB")
@@ -171,7 +174,9 @@ from kerasformers.models.deeplabv3 import (
     DeepLabV3SemanticSegment,
 )
 
-model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
+model = DeepLabV3SemanticSegment.from_weights(
+    "kerasformers/deeplabv3_resnet50_coco_voc"
+)
 processor = DeepLabV3ImageProcessor()
 
 paths = ["assets/data/coco_dog_yard.jpg", "assets/data/coco_cat_car.jpg"]
@@ -219,7 +224,9 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = DeepLabV3SemanticSegment.from_weights("deeplabv3_resnet50_coco_voc")
+model = DeepLabV3SemanticSegment.from_weights(
+    "kerasformers/deeplabv3_resnet50_coco_voc"
+)
 processor = DeepLabV3ImageProcessor()
 ```
 
@@ -242,16 +249,16 @@ Without it the post-processor falls back to the Pascal VOC names.
 
 ## Loading Fine-tuned and Community Weights
 
-The release variants come from torchvision rather than the Hub, so there is no
-`hf:` route for the official checkpoints. You can still construct the architecture and
-load your own weights:
+The official Hub Keras variants come from torchvision rather than a transformers
+checkpoint, so there is no `hf:` route for those ids. You can still construct the
+architecture and load your own weights:
 
 ```python
 from kerasformers.models.deeplabv3 import DeepLabV3SemanticSegment
 
 # Architecture only, randomly initialized
 model = DeepLabV3SemanticSegment.from_weights(
-    "deeplabv3_resnet50_coco_voc",
+    "kerasformers/deeplabv3_resnet50_coco_voc",
     load_weights=False,
 )
 
