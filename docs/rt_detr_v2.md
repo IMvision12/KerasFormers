@@ -1,11 +1,12 @@
 # RT-DETRv2
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the RT-DETRv2 model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/rt-detrv2" style="color:#1a5c8a;">rt-detrv2</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 RT-DETRv2 keeps [RT-DETR](rt_detr.md)'s hybrid encoder and deformable decoder and improves the sampling. Where v1 uses a fixed grid of deformable sampling points, v2 merges the per-level offsets into one dimension and scales them by a learned `n_points_scale` buffer, so the model adapts its sampling radius per feature level. The rest is a refined training recipe, the paper's "bag of freebies".
@@ -156,7 +157,7 @@ All are 640×640 COCO models. v2 has no Objects365-pretrained variants, unlike v
 from PIL import Image
 from kerasformers.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcessor
 
-model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd")
+model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd")
 processor = RTDETRV2ImageProcessor()
 
 image = Image.open("assets/data/coco_surfer.jpg").convert("RGB")
@@ -198,7 +199,7 @@ Pass a list of images and one `target_sizes` entry per image:
 from PIL import Image
 from kerasformers.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcessor
 
-model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd")
+model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd")
 processor = RTDETRV2ImageProcessor()
 
 paths = ["assets/data/coco_woman_phone.jpg", "assets/data/coco_waterfront.jpg"]
@@ -252,7 +253,7 @@ RT-DETRv2 is Functional, so the input shape is fixed when the model is construct
 run at another resolution, build at that size and match the processor:
 
 ```python
-model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd", image_size=512)
+model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd", image_size=512)
 processor = RTDETRV2ImageProcessor(size={"height": 512, "width": 512})
 ```
 
@@ -323,7 +324,7 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd")
+model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd")
 processor = RTDETRV2ImageProcessor()
 ```
 
@@ -342,14 +343,14 @@ Any Hugging Face repo whose `model_type` is `"rt_detr_v2"` loads directly with t
 ```python
 from kerasformers.models.rt_detr_v2 import RTDETRV2Detect
 
-# Upstream release
+# Upstream Hub
 model = RTDETRV2Detect.from_weights("hf:PekingU/rtdetr_v2_r18vd")
 
 # Somebody's fine-tune
 model = RTDETRV2Detect.from_weights("hf:<user>/rtdetrv2-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = RTDETRV2Detect.from_weights("rtdetr-v2-r18vd", load_weights=False)
+model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd", load_weights=False)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`

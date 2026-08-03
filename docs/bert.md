@@ -21,7 +21,7 @@ bit-close parity to Hugging Face on real checkpoints (see below).
 All models are functional `FunctionalBaseModel`s; the head classes compose a `BertModel`
 backbone. The next-sentence head is part of the pretrained checkpoint, so it
 loads real weights; the other task heads are randomly initialized for the
-official release (ready for fine-tuning) and load trained weights from a `hf:`
+official Hub checkpoint (ready for fine-tuning) and load trained weights from a `hf:`
 fine-tune. The architecture is identical across variants: only the vocabulary
 and tokenizer casing differ.
 
@@ -29,8 +29,7 @@ and tokenizer casing differ.
 
 Two paths, both via `from_weights`:
 
-- **Official release variant**: `from_weights("bert_base_uncased")` downloads the
-  kerasformers-release `.weights.h5`.
+- **Official Hub variant**: `from_weights("kerasformers/bert_base_uncased")` loads the kerasformers Hub repo (`kf_config.json` + `.weights.h5`).
 - **`hf:` community fine-tune**: `from_weights("hf:org/repo")` reads the repo's
   `config.json` (architecture + `num_labels`) and loads the checkpoint, including
   the fine-tuned classifier head.
@@ -38,8 +37,8 @@ Two paths, both via `from_weights`:
 ```python
 from kerasformers.models.bert import BertModel, BertTokenizer
 
-model = BertModel.from_weights("bert_base_uncased")
-tokenizer = BertTokenizer.from_weights("bert_base_uncased")
+model = BertModel.from_weights("kerasformers/bert_base_uncased")
+tokenizer = BertTokenizer.from_weights("kerasformers/bert_base_uncased")
 
 out = model(tokenizer("Hello, world."))
 out["last_hidden_state"]  # (1, L, 768)
@@ -91,7 +90,7 @@ inputs = {
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: segment (0 / 1)
 }
-BertModel.from_weights("bert_base_uncased")(inputs)["last_hidden_state"]
+BertModel.from_weights("kerasformers/bert_base_uncased")(inputs)["last_hidden_state"]
 ```
 
 These are token-id models: **no spatial H/W axes**, so `channels_first/last`
@@ -102,8 +101,8 @@ does not apply.
 ```python
 from kerasformers.models.bert import BertMaskedLM, BertTokenizer
 
-mlm = BertMaskedLM.from_weights("bert_base_uncased")
-tokenizer = BertTokenizer.from_weights("bert_base_uncased")
+mlm = BertMaskedLM.from_weights("kerasformers/bert_base_uncased")
+tokenizer = BertTokenizer.from_weights("kerasformers/bert_base_uncased")
 
 inputs = tokenizer("the capital of france is [MASK].")
 logits = mlm(inputs)  # (1, L, vocab_size)

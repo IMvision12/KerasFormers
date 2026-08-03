@@ -1,11 +1,12 @@
 # OneFormer
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the OneFormer model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/oneformer" style="color:#1a5c8a;">oneformer</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 [MaskFormer](maskformer.md) and [Mask2Former](mask2former.md) are universal in architecture but not in training: each checkpoint is trained for one task, which is why you pick between `-instance`, `-panoptic` and `-semantic` weights.
@@ -65,7 +66,7 @@ tokenizer exists to encode the task string.
 
 **Parameters**
 
-- **variant** (`str`, *optional*): release variant, used to pick the matching `tokenizer.json` and resolution.
+- **variant** (`str`, *optional*): Hub variant, used to pick the matching `tokenizer.json` and resolution.
 - **target_size** (`int`, *optional*): square canvas edge.
 - **task_seq_len** (`int`, *optional*, defaults to `77`): padded length of the task token sequence.
 - **tokenizer** / **image_processor** (*optional*): pre-built components.
@@ -122,8 +123,10 @@ from kerasformers.models.oneformer import (
     OneFormerUniversalSegment,
 )
 
-model = OneFormerUniversalSegment.from_weights("oneformer_ade20k_swin_tiny")
-processor = OneFormerProcessor.from_weights("oneformer_ade20k_swin_tiny")
+model = OneFormerUniversalSegment.from_weights(
+    "kerasformers/oneformer_ade20k_swin_tiny"
+)
+processor = OneFormerProcessor.from_weights("kerasformers/oneformer_ade20k_swin_tiny")
 
 image = Image.open("assets/data/coco_office.jpg").convert("RGB")
 
@@ -178,8 +181,10 @@ from kerasformers.models.oneformer import (
     OneFormerUniversalSegment,
 )
 
-model = OneFormerUniversalSegment.from_weights("oneformer_ade20k_swin_tiny")
-processor = OneFormerProcessor.from_weights("oneformer_ade20k_swin_tiny")
+model = OneFormerUniversalSegment.from_weights(
+    "kerasformers/oneformer_ade20k_swin_tiny"
+)
+processor = OneFormerProcessor.from_weights("kerasformers/oneformer_ade20k_swin_tiny")
 
 paths = ["assets/data/coco_presentation.jpg", "assets/data/coco_movie_snacks.jpg"]
 
@@ -242,7 +247,7 @@ model = OneFormerUniversalSegment.from_weights("hf:<user>/oneformer-finetuned")
 
 # Architecture only, randomly initialized
 model = OneFormerUniversalSegment.from_weights(
-    "oneformer_ade20k_swin_tiny",
+    "kerasformers/oneformer_ade20k_swin_tiny",
     load_weights=False,
 )
 ```

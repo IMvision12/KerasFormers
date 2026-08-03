@@ -1,13 +1,15 @@
 # Qwen (text & vision-language)
 
 <div style="background:#fdecea; border:1px solid #f5c6c0; border-radius:3px; padding:12px 16px; color:#4a2626;">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored on the kerasformers
-release page. <code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
+<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
+<code>.weights.h5</code> under <code>kerasformers/</code>.
+<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
 from the Hub and converts them in process on every load, because checkpoints this large are
 impractical to re-host.
 Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
 conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">Loading Weights</a>.
 </div>
+
 <br>
 
 Alibaba's Qwen family in **pure Keras 3**: both the text LLMs and the
@@ -149,8 +151,8 @@ like HF) or inline `frames`.
 Load the tokenizer / processor with `.from_weights(...)`, passing the **same**
 identifier you give the model, so its files match the checkpoint, e.g.
 `Qwen2Tokenizer.from_weights("hf:Qwen/Qwen2-7B-Instruct")` or
-`Qwen2VLProcessor.from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")`. A release variant
-like `"qwen2-7b-instruct"` uses the family's shared tokenizer, and the bare
+`Qwen2VLProcessor.from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")`. A bare variant
+like `"qwen2-7b-instruct"` uses the family's shared tokenizer, and the same
 `Qwen2Tokenizer()` / `Qwen2VLProcessor()` constructors fall back to a default Qwen
 repo.
 

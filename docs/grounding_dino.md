@@ -1,11 +1,12 @@
 # Grounding DINO
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the Grounding DINO model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/grounding_dino" style="color:#1a5c8a;">grounding_dino</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 Grounding DINO detects objects named by a free-text prompt rather than a fixed label set. A Swin image backbone and a BERT text encoder are fused by a cross-modality encoder, query proposals are selected by image-text similarity, and boxes are refined DINO-style across six decoder layers. Every output box is scored against the prompt's tokens, so the "classes" are whatever you asked for.
@@ -88,7 +89,7 @@ Tokenizer and image processor behind one callable.
 
 - **shortest_edge** (`int`, *optional*, defaults to `800`): resize target for the short side.
 - **longest_edge** (`int`, *optional*, defaults to `1333`): cap for the long side, preserving aspect ratio.
-- **variant** (`str`, *optional*): release variant, used to pick the matching `tokenizer.json`.
+- **variant** (`str`, *optional*): Hub variant, used to pick the matching `tokenizer.json`.
 - **tokenizer** / **image_processor** (*optional*): pre-built components.
 
 **Call** `processor(images=..., text=...)`. `text` accepts a list of label strings, or a
@@ -155,8 +156,8 @@ from kerasformers.models.grounding_dino import (
     GroundingDinoProcessor,
 )
 
-model = GroundingDinoForObjectDetection.from_weights("grounding_dino_tiny")
-processor = GroundingDinoProcessor.from_weights("grounding_dino_tiny")
+model = GroundingDinoForObjectDetection.from_weights("kerasformers/grounding_dino_tiny")
+processor = GroundingDinoProcessor.from_weights("kerasformers/grounding_dino_tiny")
 
 image = Image.open("assets/data/coco_paddleboard.jpg").convert("RGB")
 
@@ -208,11 +209,11 @@ from kerasformers.models.grounding_dino import (
     GroundingDinoProcessor,
 )
 
-model = GroundingDinoForObjectDetection.from_weights("grounding_dino_tiny")
+model = GroundingDinoForObjectDetection.from_weights("kerasformers/grounding_dino_tiny")
 # Batching a portrait with a landscape pads to the union of both. At the default
 # 800/1333 that is ~29k tokens per image, enough to exhaust an 8 GB card.
 processor = GroundingDinoProcessor.from_weights(
-    "grounding_dino_tiny",
+    "kerasformers/grounding_dino_tiny",
     shortest_edge=600,
     longest_edge=1000,
 )
@@ -278,7 +279,7 @@ size. Change the resolution on the processor alone:
 
 ```python
 processor = GroundingDinoProcessor.from_weights(
-    "grounding_dino_tiny",
+    "kerasformers/grounding_dino_tiny",
     shortest_edge=480,
     longest_edge=800,
 )
@@ -304,8 +305,8 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = GroundingDinoForObjectDetection.from_weights("grounding_dino_tiny")
-processor = GroundingDinoProcessor.from_weights("grounding_dino_tiny")
+model = GroundingDinoForObjectDetection.from_weights("kerasformers/grounding_dino_tiny")
+processor = GroundingDinoProcessor.from_weights("kerasformers/grounding_dino_tiny")
 ```
 
 Detections are identical under either layout; only the tensor shape changes. The
@@ -339,5 +340,5 @@ Both model classes accept `hf:`, as do `GroundingDinoProcessor`,
 processor = GroundingDinoProcessor.from_weights("hf:IDEA-Research/grounding-dino-tiny")
 ```
 
-Loading `hf:IDEA-Research/grounding-dino-tiny` and the `grounding_dino_tiny` release
+Loading `hf:IDEA-Research/grounding-dino-tiny` and the `kerasformers/grounding_dino_tiny` Hub
 variant produces identical outputs, since they are the same checkpoint by two routes.

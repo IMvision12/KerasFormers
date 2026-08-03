@@ -4,8 +4,8 @@ OpenAI's GPT-2 in **pure Keras 3**, the classic decoder-only language model:
 learned token + absolute-position embeddings, pre-LayerNorm causal transformer
 blocks, a final LayerNorm, and a tied LM head. One implementation runs unmodified
 on **TensorFlow / Torch / JAX**, with bit-close parity to Hugging Face. Weights
-load from the kerasformers GitHub release: `gpt2_large` / `gpt2_xl` are **sharded**
-(`.weights.json` index + shards, since they exceed GitHub's 2 GB asset cap).
+load from the kerasformers Hub (`kerasformers/gpt2`); `gpt2_large` / `gpt2_xl` are
+**sharded** (`.weights.json` index + shards).
 
 **Paper**: [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf)
 
@@ -26,14 +26,16 @@ approximation (`gelu_new`), and the blocks are pre-LayerNorm with a final `ln_f`
 ```python
 from kerasformers.models.gpt2 import GPT2Generate, GPT2Tokenizer
 
-model = GPT2Generate.from_weights("gpt2")  # or "gpt2_medium" / "_large" / "_xl"
+model = GPT2Generate.from_weights(
+    "kerasformers/gpt2"
+)  # or .../gpt2_medium / _large / _xl
 tok = GPT2Tokenizer()
 ids = model.generate(tok("The meaning of life is")["input_ids"], max_new_tokens=40)
 print(tok.decode(ids[0]))
 ```
 
 `from_weights("hf:openai-community/gpt2")` also works (on-the-fly conversion).
-The release `.weights.h5` / sharded `.weights.json` are produced with
+The Hub `.weights.h5` / sharded `.weights.json` are produced with
 `KERAS_BACKEND=torch python -m kerasformers.models.gpt2.convert_gpt2_hf_to_keras`
 (large/xl are saved with `max_shard_size`).
 

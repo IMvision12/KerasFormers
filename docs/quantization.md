@@ -35,8 +35,8 @@ quantize_model(model, "int4", group_size=64)  # int4 block size (default 32)
 quantize_model(model, "fp8")  # float8 e4m3 (torch / jax)
 ```
 
-`quantization=` is wired through `from_weights` for every model (release variants
-**and** `hf:` repos).
+`quantization=` is wired through `from_weights` for every model (Hub Keras repos,
+bare LLM/VLM variants, **and** `hf:` repos).
 
 **No-float load (for models bigger than your float budget).** Add
 `low_memory=True` to stream the checkpoint straight into int storage without ever

@@ -1,15 +1,12 @@
 # Gemma
 
-<div style="background:#fdecea; border:1px solid #f5c6c0; border-radius:3px; padding:12px 16px; color:#4a2626;">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored on the kerasformers
-release page. <code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-These are <b>gated</b>: accept the license at <a href="https://huggingface.co/google/gemma-2b" style="color:#1a5c8a;">google/gemma-2b</a>, then authenticate with
-<code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">Loading Weights</a>.
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 Google's first open decoder-only LLM family, built from the Gemini research line and
@@ -24,18 +21,18 @@ See also [gemma2.md](gemma2.md), [gemma3.md](gemma3.md), [gemma4.md](gemma4.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`. The `-it` suffix marks
+Load any of these with `from_weights("kerasformers/<variant>")`. The `-it` suffix marks
 instruction-tuned checkpoints (use the chat template); bare names are base models.
 The `1.1` releases are updated instruction tunes of the same architecture.
 
 | Variant | Hub |
 |---|---|
-| `gemma-2b` | [`google/gemma-2b`](https://huggingface.co/google/gemma-2b) |
-| `gemma-2b-it` | [`google/gemma-2b-it`](https://huggingface.co/google/gemma-2b-it) |
-| `gemma-1.1-2b-it` | [`google/gemma-1.1-2b-it`](https://huggingface.co/google/gemma-1.1-2b-it) |
-| `gemma-7b` | [`google/gemma-7b`](https://huggingface.co/google/gemma-7b) |
-| `gemma-7b-it` | [`google/gemma-7b-it`](https://huggingface.co/google/gemma-7b-it) |
-| `gemma-1.1-7b-it` | [`google/gemma-1.1-7b-it`](https://huggingface.co/google/gemma-1.1-7b-it) |
+| `gemma-2b` | [`kerasformers/gemma-2b`](https://huggingface.co/kerasformers/gemma-2b) |
+| `gemma-2b-it` | [`kerasformers/gemma-2b-it`](https://huggingface.co/kerasformers/gemma-2b-it) |
+| `gemma-1.1-2b-it` | [`kerasformers/gemma-1.1-2b-it`](https://huggingface.co/kerasformers/gemma-1.1-2b-it) |
+| `gemma-7b` | [`kerasformers/gemma-7b`](https://huggingface.co/kerasformers/gemma-7b) |
+| `gemma-7b-it` | [`kerasformers/gemma-7b-it`](https://huggingface.co/kerasformers/gemma-7b-it) |
+| `gemma-1.1-7b-it` | [`kerasformers/gemma-1.1-7b-it`](https://huggingface.co/kerasformers/gemma-1.1-7b-it) |
 
 ## API
 
@@ -112,8 +109,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.gemma import GemmaGenerate, GemmaTokenizer
 
-model = GemmaGenerate.from_weights("gemma-2b-it")
-tokenizer = GemmaTokenizer.from_weights("gemma-2b-it")
+model = GemmaGenerate.from_weights("kerasformers/gemma-2b-it")
+tokenizer = GemmaTokenizer.from_weights("kerasformers/gemma-2b-it")
 
 inputs = tokenizer(
     [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
@@ -145,7 +142,7 @@ for text in tokenizer.batch_decode(outputs):
 ```python
 from kerasformers.models.gemma import GemmaModel
 
-backbone = GemmaModel.from_weights("gemma-2b")
+backbone = GemmaModel.from_weights("kerasformers/gemma-2b")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 2048)
 ```
 
@@ -164,6 +161,9 @@ The 7B checkpoints load in bf16 or quantized weight-only. See [quantization.md](
 
 ```python
 model = GemmaGenerate.from_weights(
-    "gemma-7b-it", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/gemma-7b-it",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```

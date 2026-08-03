@@ -1,7 +1,7 @@
 # DINOv3
 
 <div style="background:#fff4e5; border:1px solid #f0dcc0; border-radius:3px; padding:12px 16px; color:#4a3a26;">
-<b>Gated weights:</b> DINOv3 is not redistributed on the kerasformers release page.
+<b>Gated weights:</b> DINOv3 is not redistributed as preconverted kerasformers Hub weights.
 Accept the license at <a href="https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m" style="color:#1a5c8a;">facebook/dinov3-*</a>,
 then authenticate with <code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
 The first <code>from_weights</code> call downloads the checkpoint, converts it, and caches
@@ -222,7 +222,7 @@ The ViT works in token space, so it is layout-agnostic. `DinoV3ConvNeXtModel` re
 
 Any size that is a **multiple of the patch size, 16**, works. DINOv3 uses rotary position
 embeddings computed on the fly, so unlike DINO and DINOv2 there is no learned position
-table to interpolate: a new resolution just works, on the release or `hf:` path alike.
+table to interpolate: a new resolution just works, on the Hub Keras or `hf:` path alike.
 The figures here use `image_size=448`.
 
 ## Loading Fine-tuned and Community Weights

@@ -20,8 +20,8 @@ parity to Hugging Face on real checkpoints (see below).
 
 All models are functional `FunctionalBaseModel`s; the head classes compose a `RobertaModel`
 backbone. The masked-LM head is part of the pretrained checkpoint, so it loads
-real weights; the other task heads are randomly initialized for the official
-release (ready for fine-tuning) and load trained weights from a `hf:` fine-tune.
+real weights; the other task heads are randomly initialized for the official Hub
+checkpoint (ready for fine-tuning) and load trained weights from a `hf:` fine-tune.
 
 RoBERTa shares BERT's encoder but differs in three ways: position ids are offset
 by the padding id (so the table has two extra slots), there is a single
@@ -32,8 +32,7 @@ token-type, and the sentence classifier reads the `<s>` token directly through a
 
 Two paths, both via `from_weights`:
 
-- **Official release variant**: `from_weights("roberta_base")` downloads the
-  kerasformers-release `.weights.h5`.
+- **Official Hub variant**: `from_weights("kerasformers/roberta_base")` loads the kerasformers Hub repo (`kf_config.json` + `.weights.h5`).
 - **`hf:` community fine-tune**: `from_weights("hf:org/repo")` reads the repo's
   `config.json` (architecture + `num_labels`) and loads the checkpoint, including
   the fine-tuned classifier head.
@@ -41,8 +40,8 @@ Two paths, both via `from_weights`:
 ```python
 from kerasformers.models.roberta import RobertaModel, RobertaTokenizer
 
-model = RobertaModel.from_weights("roberta_base")
-tokenizer = RobertaTokenizer.from_weights("roberta_base")
+model = RobertaModel.from_weights("kerasformers/roberta_base")
+tokenizer = RobertaTokenizer.from_weights("kerasformers/roberta_base")
 
 out = model(tokenizer("Hello, world."))
 out["last_hidden_state"]  # (1, L, 768)
@@ -84,7 +83,7 @@ inputs = {
     "attention_mask": attention_mask,  # (B, L) int: 1 keep, 0 pad
     "token_type_ids": token_type_ids,  # (B, L) int: all 0
 }
-RobertaModel.from_weights("roberta_base")(inputs)["last_hidden_state"]
+RobertaModel.from_weights("kerasformers/roberta_base")(inputs)["last_hidden_state"]
 ```
 
 These are token-id models: **no spatial H/W axes**, so `channels_first/last`
@@ -95,8 +94,8 @@ does not apply.
 ```python
 from kerasformers.models.roberta import RobertaMaskedLM, RobertaTokenizer
 
-mlm = RobertaMaskedLM.from_weights("roberta_base")
-tokenizer = RobertaTokenizer.from_weights("roberta_base")
+mlm = RobertaMaskedLM.from_weights("kerasformers/roberta_base")
+tokenizer = RobertaTokenizer.from_weights("kerasformers/roberta_base")
 
 inputs = tokenizer("The capital of France is <mask>.")
 logits = mlm(inputs)  # (1, L, vocab_size)

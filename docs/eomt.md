@@ -1,11 +1,12 @@
 # EoMT
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the EoMT model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/eomt" style="color:#1a5c8a;">eomt</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 EoMT (Encoder-only Mask Transformer) takes the opposite direction from the MaskFormer line. Where [Mask2Former](mask2former.md) adds a pixel decoder, a transformer decoder and multi-scale deformable attention on top of its backbone, EoMT deletes all of it.
@@ -115,7 +116,7 @@ import numpy as np
 from PIL import Image
 from kerasformers.models.eomt import EoMTImageProcessor, EoMTUniversalSegment
 
-model = EoMTUniversalSegment.from_weights("eomt_small_coco_panoptic_640")
+model = EoMTUniversalSegment.from_weights("kerasformers/eomt_small_coco_panoptic_640")
 processor = EoMTImageProcessor()
 
 image = Image.open("assets/data/coco_produce.jpg").convert("RGB")
@@ -162,7 +163,7 @@ import numpy as np
 from PIL import Image
 from kerasformers.models.eomt import EoMTImageProcessor, EoMTUniversalSegment
 
-model = EoMTUniversalSegment.from_weights("eomt_small_coco_panoptic_640")
+model = EoMTUniversalSegment.from_weights("kerasformers/eomt_small_coco_panoptic_640")
 processor = EoMTImageProcessor()
 
 paths = ["assets/data/coco_broccoli.jpg", "assets/data/coco_man_tie.jpg"]
@@ -239,7 +240,7 @@ model = EoMTUniversalSegment.from_weights("hf:<user>/eomt-finetuned")
 
 # Architecture only, randomly initialized
 model = EoMTUniversalSegment.from_weights(
-    "eomt_small_coco_panoptic_640",
+    "kerasformers/eomt_small_coco_panoptic_640",
     load_weights=False,
 )
 ```

@@ -1,11 +1,12 @@
 # LocateAnything
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for LocateAnything-3B are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/locate" style="color:#1a5c8a;">locate</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 LocateAnything-3B is NVIDIA's visual-grounding VLM: a native-resolution **MoonViT**
@@ -32,7 +33,7 @@ width or height to get pixels.
 | `LocateAnythingTokenizer` | Qwen2.5 BPE extended with the grounding tokens, plus `parse_*`. |
 | `LocateAnythingImageProcessor` | the native-resolution MoonViT patch preprocessor. |
 
-`from_weights("locateanything_3b")` loads any of them. The 3B decoder is large; load it in
+`from_weights("kerasformers/locateanything_3b")` loads any of them. The 3B decoder is large; load it in
 bf16 (`load_dtype="bfloat16"`) unless you have the memory for fp32.
 
 ### Building an instruction
@@ -75,8 +76,10 @@ from kerasformers.models.locateanything import (
     locate_prompt,
 )
 
-model = LocateAnythingGenerate.from_weights("locateanything_3b", load_dtype="bfloat16")
-processor = LocateAnythingProcessor.from_weights("locateanything_3b")
+model = LocateAnythingGenerate.from_weights(
+    "kerasformers/locateanything_3b", load_dtype="bfloat16"
+)
+processor = LocateAnythingProcessor.from_weights("kerasformers/locateanything_3b")
 
 
 def run(task, image, text="", **gen):
@@ -326,7 +329,10 @@ The 3B decoder loads in bf16 or weight-only quantized. See [quantization.md](qua
 
 ```python
 model = LocateAnythingGenerate.from_weights(
-    "locateanything_3b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/locateanything_3b",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```
 

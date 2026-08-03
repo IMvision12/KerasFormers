@@ -1,11 +1,12 @@
 # Granite Speech
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the Granite Speech models are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/granite" style="color:#1a5c8a;">granite</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 Granite Speech is a **speech-aware LLM**, not an ASR model with a language model bolted
@@ -173,9 +174,9 @@ from kerasformers.models.granite_speech import (
 )
 
 model = GraniteSpeechGenerate.from_weights(
-    "granite_speech_3_3_2b", load_dtype="bfloat16"
+    "kerasformers/granite_speech_3_3_2b", load_dtype="bfloat16"
 )
-processor = GraniteSpeechProcessor.from_weights("granite_speech_3_3_2b")
+processor = GraniteSpeechProcessor.from_weights("kerasformers/granite_speech_3_3_2b")
 
 audio, sr = sf.read(
     "assets/speech_luminous_criticisms.wav", dtype="float32"
@@ -276,7 +277,9 @@ model = GraniteSpeechGenerate.from_weights("hf:ibm-granite/granite-speech-3.3-2b
 processor = GraniteSpeechProcessor.from_weights("hf:ibm-granite/granite-speech-3.3-2b")
 
 # Architecture only, randomly initialized
-model = GraniteSpeechGenerate.from_weights("granite_speech_3_3_2b", load_weights=False)
+model = GraniteSpeechGenerate.from_weights(
+    "kerasformers/granite_speech_3_3_2b", load_weights=False
+)
 ```
 
 See also [Granite Speech Plus](granite_speech_plus.md), and [Whisper](whisper.md) if you

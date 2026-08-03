@@ -15,11 +15,11 @@ Every classification architecture in `kerasformers.models.<arch>` exposes **two 
 from kerasformers.models.resnet import ResNetImageClassify, ResNetModel
 
 # Full classifier - 1000-class logits
-classifier = ResNetImageClassify.from_weights("resnet50_a1_in1k")
+classifier = ResNetImageClassify.from_weights("kerasformers/resnet50_a1_in1k")
 logits = classifier(images)  # (B, 1000)
 
 # Just the backbone - last-stage feature map, no head
-backbone = ResNetModel.from_weights("resnet50_a1_in1k")
+backbone = ResNetModel.from_weights("kerasformers/resnet50_a1_in1k")
 feature_map = backbone(images)  # (B, H/32, W/32, 2048)
 ```
 
@@ -32,7 +32,7 @@ Pass `as_backbone=True` to `XModel` (not `XImageClassify`) to get a **list of pe
 ```python
 from kerasformers.models.resnet import ResNetModel
 
-backbone = ResNetModel.from_weights("resnet50_a1_in1k", as_backbone=True)
+backbone = ResNetModel.from_weights("kerasformers/resnet50_a1_in1k", as_backbone=True)
 features = backbone(images)
 # features is a list of 4 tensors at strides [4, 8, 16, 32]
 for i, f in enumerate(features):
@@ -68,14 +68,17 @@ The number of stages and their semantics depend on the architecture:
 Both classes use the same variant registry, so any string you can pass to one works on the other:
 
 ```python
-ResNetImageClassify.from_weights("resnet50_a1_in1k")
-ResNetModel.from_weights("resnet50_a1_in1k")  # same weights, no Dense head
+ResNetImageClassify.from_weights("kerasformers/resnet50_a1_in1k")
+ResNetModel.from_weights("kerasformers/resnet50_a1_in1k")  # same weights, no Dense head
 ResNetModel.from_weights(
     "hf:timm/resnet50.a1_in1k"
-)  # any timm variant via the hf: prefix
+)  # any timm variant via on-the-fly conversion
 ```
 
-Under the hood `XModel.from_variant` warm-starts from `XImageClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone subset (the classifier `Dense` is dropped).
+Official kerasformers checkpoints load by Hub repo id (`kf_config.json` +
+`model.weights.h5`). Under the hood `XModel.from_hub_repo` warm-starts from
+`XImageClassify`'s weight file and `copy_weights_by_path_suffix` picks the backbone
+subset (the classifier `Dense` is dropped).
 
 ## Custom heads / transfer learning
 
@@ -86,7 +89,7 @@ import keras
 from keras import layers
 from kerasformers.models.convnext import ConvNeXtModel
 
-backbone = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k")
+backbone = ConvNeXtModel.from_weights("kerasformers/convnext_base_fb_in22k_ft_in1k")
 
 # Option 1: Sequential with a custom head
 model = keras.Sequential(
@@ -105,7 +108,9 @@ logits = layers.Dense(num_classes)(pooled)
 model = keras.Model(inputs, logits)
 
 # Option 3: Reach into the per-stage outputs for FPN / segmentation
-multi = ConvNeXtModel.from_weights("convnext_base_fb_in22k_ft_in1k", as_backbone=True)
+multi = ConvNeXtModel.from_weights(
+    "kerasformers/convnext_base_fb_in22k_ft_in1k", as_backbone=True
+)
 c2, c3, c4, c5 = multi.output  # 4 stages
 # ...feed c2..c5 into an FPN
 ```
@@ -123,7 +128,9 @@ import keras
 from keras import layers
 from kerasformers.models.resnet import ResNetModel
 
-backbone = ResNetModel.from_weights("resnet50_a1_in1k")  # strict load, no skip
+backbone = ResNetModel.from_weights(
+    "kerasformers/resnet50_a1_in1k"
+)  # strict load, no skip
 classifier = keras.Sequential(
     [
         backbone,
@@ -141,7 +148,7 @@ One line. Loads matching backbone weights and silently re-initializes any layer 
 from kerasformers.models.resnet import ResNetImageClassify
 
 model = ResNetImageClassify.from_weights(
-    "resnet50_a1_in1k",
+    "kerasformers/resnet50_a1_in1k",
     num_classes=10,
     skip_mismatch=True,  # head Dense reshaped (1000→10), reset to random init
 )
@@ -149,14 +156,16 @@ model = ResNetImageClassify.from_weights(
 
 **Trade-off:** `skip_mismatch=True` is shape-based, not name-based. If you point it at a wrong variant or a corrupt file, it will *quietly* skip more than the head and leave parts of the backbone randomly initialized. Keras emits `warnings.warn` per skipped layer, but warnings are easy to miss: especially in notebook stderr streams. For sensitive training runs, prefer **Path A**.
 
-**Scope:** `skip_mismatch=True` only affects the kerasformers-release weight path (the `.h5` / `.json` URLs from the GitHub release). The `hf:` prefix goes through hand-mapped `transfer_from_*` functions that ignore the flag.
+**Scope:** `skip_mismatch=True` applies to the Hub Keras weight path (`.h5` / `.json` from
+`kerasformers/<variant>`). The `hf:` prefix goes through hand-mapped `transfer_from_*`
+functions that ignore the flag.
 
 ### Feature extractor (frozen backbone)
 
 Either path supports `trainable = False`:
 
 ```python
-backbone = ResNetModel.from_weights("resnet50_a1_in1k")
+backbone = ResNetModel.from_weights("kerasformers/resnet50_a1_in1k")
 backbone.trainable = False  # whole backbone frozen
 
 model = keras.Sequential(
@@ -171,7 +180,7 @@ model = keras.Sequential(
 Or partial:
 
 ```python
-backbone = ResNetModel.from_weights("resnet50_a1_in1k")
+backbone = ResNetModel.from_weights("kerasformers/resnet50_a1_in1k")
 for layer in backbone.layers[:-30]:  # freeze all but last 30 layers
     layer.trainable = False
 ```

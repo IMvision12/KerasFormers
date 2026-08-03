@@ -49,9 +49,9 @@ Both share the loading interface below.
 
 ## Loading Weights
 
-Every model and preprocessor inherits these three classmethods. What each source actually
-does, release variants, `hf:` on-the-fly conversion, and caching, is covered in
-[Loading Weights](loading_weights.md).
+Every model and preprocessor inherits these classmethods. What each source actually does —
+Hub Keras repos, bare-variant on-the-fly conversion, `hf:` conversion, and caching — is
+covered in [Loading Weights](loading_weights.md).
 
 ### from_weights
 
@@ -70,31 +70,45 @@ Model.from_weights(
 )
 ```
 
-The one entry point you normally use. It dispatches on `identifier`: a bare string is a
-kerasformers release variant, and an `hf:`-prefixed string is a Hugging Face repo.
+The one entry point you normally use. It dispatches on `identifier`:
+
+- `"org/repo"` (for example `"kerasformers/segformer_b0_ade_512"`) → Hub Keras via
+  `kf_config.json`
+- a bare variant (for example `"qwen3-4b"`) → on-the-fly conversion from an upstream
+  `hf_id`
+- `"hf:org/repo"` → convert any compatible Hub checkpoint
 
 **Parameters**
 
-- **identifier** (`str`): a release variant (`"segformer_b0_ade_512"`) or a Hub repo (`"hf:nvidia/segformer-b0-finetuned-ade-512-512"`).
+- **identifier** (`str`): a Hub Keras repo (`"kerasformers/segformer_b0_ade_512"`), a bare
+  LLM/VLM variant (`"qwen3-4b"`), or an `hf:`-prefixed Hub repo
+  (`"hf:nvidia/segformer-b0-finetuned-ade-512-512"`).
 - **load_weights** (`bool`, *optional*, defaults to `True`): set `False` to build the architecture with random initialization.
 - **skip_mismatch** (`bool`, *optional*, defaults to `False`): skip weights whose shapes disagree instead of raising, for partially compatible fine-tunes.
 - **attn_implementation** (`str`, *optional*): attention kernel to use, see [`fused_attention`](#fused_attention).
 - **quantization** (`str`, *optional*): quantize while loading, for example `"int8"`. See [Quantization](quantization.md).
 - **low_memory** (`bool`, *optional*, defaults to `False`): stream weights in rather than materializing the full state dict.
 - **load_dtype** (`str`, *optional*): cast weights on load, typically `"bfloat16"`.
-- **cache_converted** (`bool`, *optional*, defaults to `False`): keep the converted Keras weights so the next `hf:` load skips conversion.
+- **cache_converted** (`bool`, *optional*, defaults to `False`): keep the converted Keras weights so the next conversion load skips work.
 - **low_disk** (`bool`, *optional*, defaults to `False`): stream shards and evict them as it goes, for checkpoints larger than free disk.
 - **kwargs**: forwarded to the constructor, so `image_size=448` or `as_backbone=True` go here.
 
 ```python
-model = SegFormerSemanticSegment.from_weights("segformer_b0_ade_512")
+model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
 model = SegFormerSemanticSegment.from_weights("hf:<user>/my-finetune")
-model = Qwen3Generate.from_weights("qwen3_8b", load_dtype="bfloat16", low_memory=True)
+model = Qwen3Generate.from_weights("qwen3-8b", load_dtype="bfloat16", low_memory=True)
 ```
 
-### from_variant and from_hf
+### from_hub_repo, from_variant, and from_hf
 
 ```python
+Model.from_hub_repo(
+    repo_id,
+    load_weights=True,
+    skip_mismatch=False,
+    **kwargs,
+)
+
 Model.from_variant(
     variant,
     load_weights=True,
@@ -117,9 +131,10 @@ Model.from_hf(
 )
 ```
 
-The two halves `from_weights` dispatches to. Call them directly only when you want to be
-explicit about the source. `from_hf` reads the repo's `config.json`, so a fine-tune with a
-different class count or vocabulary needs no extra arguments.
+The three halves `from_weights` dispatches to. Call them directly only when you want to be
+explicit about the source. `from_hub_repo` reads `kf_config.json` (and optionally
+`kf_preprocessor.json` for processors). `from_hf` reads the repo's `config.json`, so a
+fine-tune with a different class count or vocabulary needs no extra arguments.
 
 > **Load the processor from the same source as the model.** A fine-tune can ship a
 > different tokenizer, label set, or normalization; mismatching them fails quietly with
@@ -189,7 +204,7 @@ the whole pipeline; see their pages.
 ## Preprocessing
 
 All preprocessors share `PreprocessorMixin`, so they also get `from_weights`,
-`from_variant`, and `from_hf`.
+`from_hub_repo`, `from_variant`, and `from_hf`.
 
 ### BaseTokenizer
 

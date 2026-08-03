@@ -1,11 +1,12 @@
 # Moonshine
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the Moonshine models are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/moonshine" style="color:#1a5c8a;">moonshine</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 Moonshine is built for live transcription and voice commands, where latency matters more
@@ -165,8 +166,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 import soundfile as sf
 from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToText
 
-model = MoonshineSpeechToText.from_weights("moonshine_tiny")
-processor = MoonshineProcessor.from_weights("moonshine_tiny")
+model = MoonshineSpeechToText.from_weights("kerasformers/moonshine_tiny")
+processor = MoonshineProcessor.from_weights("kerasformers/moonshine_tiny")
 
 audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")  # 16 kHz mono
 text = model.generate(audio, processor)
@@ -247,7 +248,9 @@ model = MoonshineSpeechToText.from_weights("hf:UsefulSensors/moonshine-tiny")
 processor = MoonshineProcessor.from_weights("hf:UsefulSensors/moonshine-tiny")
 
 # Architecture only, randomly initialized
-model = MoonshineSpeechToText.from_weights("moonshine_tiny", load_weights=False)
+model = MoonshineSpeechToText.from_weights(
+    "kerasformers/moonshine_tiny", load_weights=False
+)
 ```
 
 See also [Whisper](whisper.md) for multilingual coverage, and [Speech2Text](speech2text.md)

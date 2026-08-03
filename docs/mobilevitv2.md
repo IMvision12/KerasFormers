@@ -1,11 +1,12 @@
 # MobileViTV2
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the MobileViTV2 model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/mobilevitv2" style="color:#1a5c8a;">mobilevitv2</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 MobileViTV2 keeps [MobileViT](mobilevit.md)'s convolution-and-transformer layout and replaces multi-head self-attention with **separable self-attention**. Standard attention costs O(k²) in the token count; the separable form computes a single context vector from the keys and broadcasts it, which is O(k). On a mobile CPU that is the difference between a latency budget met and missed.
@@ -93,7 +94,7 @@ Identical to [MobileViT's processor](mobilevit.md#mobilevitimageprocessor); the
 reference ships one class for both generations. Resizes the shortest edge,
 center-crops, rescales, and flips RGB to BGR. No mean/std normalization.
 
-> **Prefer `MobileViTV2ImageProcessor.from_weights(variant)`.** Classification trains at
+> **Prefer `MobileViTV2ImageProcessor.from_weights("kerasformers/<variant>")`.** Classification trains at
 > 256 (or 384) and segmentation at 512, so the bare constructor is wrong for one of
 > them. Passing the variant resolves the right pair.
 
@@ -138,8 +139,12 @@ from kerasformers.models.mobilevitv2 import (
     MobileViTV2SemanticSegment,
 )
 
-model = MobileViTV2SemanticSegment.from_weights("mobilevitv2_100_deeplabv3")
-processor = MobileViTV2ImageProcessor.from_weights("mobilevitv2_100_deeplabv3")
+model = MobileViTV2SemanticSegment.from_weights(
+    "kerasformers/mobilevitv2_100_deeplabv3"
+)
+processor = MobileViTV2ImageProcessor.from_weights(
+    "kerasformers/mobilevitv2_100_deeplabv3"
+)
 
 image = Image.open("assets/data/coco_horse_trolley.jpg").convert("RGB")
 
@@ -199,8 +204,12 @@ from kerasformers.models.mobilevitv2 import (
     MobileViTV2SemanticSegment,
 )
 
-model = MobileViTV2SemanticSegment.from_weights("mobilevitv2_100_deeplabv3")
-processor = MobileViTV2ImageProcessor.from_weights("mobilevitv2_100_deeplabv3")
+model = MobileViTV2SemanticSegment.from_weights(
+    "kerasformers/mobilevitv2_100_deeplabv3"
+)
+processor = MobileViTV2ImageProcessor.from_weights(
+    "kerasformers/mobilevitv2_100_deeplabv3"
+)
 
 
 def seen_box(image):
@@ -291,7 +300,7 @@ model = MobileViTV2SemanticSegment.from_weights("hf:<user>/mobilevitv2-finetuned
 
 # Architecture only, randomly initialized
 model = MobileViTV2SemanticSegment.from_weights(
-    "mobilevitv2_100_deeplabv3",
+    "kerasformers/mobilevitv2_100_deeplabv3",
     load_weights=False,
 )
 ```

@@ -1,11 +1,12 @@
 # Depth Anything V1
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the Depth Anything V1 model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/depth_anything_v1" style="color:#1a5c8a;">depth_anything_v1</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 Depth Anything estimates depth from a single image, with no camera parameters and no stereo pair. A DINOv2 ViT backbone feeds a DPT-style neck and head. What made V1 work is scale: 1.5 M labeled images train a teacher, which then pseudo-labels 62 M unlabeled ones, so the model generalizes to scenes no depth dataset covers.
@@ -76,10 +77,10 @@ DepthAnythingV1Model(
 The backbone and DPT neck alone, without the head, returning the fused pyramid at quarter
 resolution (`(B, 296, 296, 64)` for a 518 input). Use it as a feature extractor.
 
-> **The backbone class has no entry on the release tag**, so
-> `DepthAnythingV1Model.from_weights("depth_anything_small")` raises `"No release weights
-> configured for variant"`: the release assets are exports of the full estimator. Load it
-> over `hf:`, or read the layer you want off `DepthAnythingV1DepthEstimation`.
+> **The backbone class has no dedicated kerasformers Hub repo**, so
+> `DepthAnythingV1Model.from_weights("kerasformers/depth_anything_small")` raises: the Hub
+> checkpoint assets are exports of the full estimator. Load it over `hf:`, or read the
+> layer you want off `DepthAnythingV1DepthEstimation`.
 
 ## Preprocessing
 
@@ -140,7 +141,7 @@ from kerasformers.models.depth_anything_v1 import (
     DepthAnythingV1ImageProcessor,
 )
 
-model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_large")
+model = DepthAnythingV1DepthEstimation.from_weights("kerasformers/depth_anything_large")
 processor = DepthAnythingV1ImageProcessor()
 
 image = Image.open("assets/data/coco_waterfront.jpg").convert("RGB")
@@ -189,7 +190,7 @@ from kerasformers.models.depth_anything_v1 import (
     DepthAnythingV1ImageProcessor,
 )
 
-model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_large")
+model = DepthAnythingV1DepthEstimation.from_weights("kerasformers/depth_anything_large")
 processor = DepthAnythingV1ImageProcessor()
 
 paths = ["assets/data/coco_dog_woods.jpg", "assets/data/ade_val_1.jpg"]
@@ -240,19 +241,19 @@ weights stay valid.
 ```python
 # 392 / 14 = 28 x 28 patches
 model = DepthAnythingV1DepthEstimation.from_weights(
-    "depth_anything_small", image_size=392
+    "kerasformers/depth_anything_small", image_size=392
 )
 
 # Non-square, 28 x 56 patches
 model = DepthAnythingV1DepthEstimation.from_weights(
-    "depth_anything_small", image_size=(392, 784)
+    "kerasformers/depth_anything_small", image_size=(392, 784)
 )
 ```
 
 Pass the matching `target_size` to the processor. Larger inputs recover more fine
 structure at quadratic attention cost.
 
-> **Resizing works on the release path, not `hf:`.** The interpolation lives in
+> **Resizing works on the Hub checkpoint path, not `hf:`.** The interpolation lives in
 > `ViTAddPositionEmbs.load_own_variables`, which the Keras `.weights.h5` reader calls;
 > the `hf:` converter assigns the checkpoint tensor straight into the variable and so
 > requires an exact match. Asking for a non-default size over `hf:` fails with
@@ -272,7 +273,7 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = DepthAnythingV1DepthEstimation.from_weights("depth_anything_large")
+model = DepthAnythingV1DepthEstimation.from_weights("kerasformers/depth_anything_large")
 processor = DepthAnythingV1ImageProcessor()
 # model input: (B, 3, 518, 518), output: (B, 1, 518, 518)
 ```
@@ -296,7 +297,7 @@ model = DepthAnythingV1DepthEstimation.from_weights(
 
 # Architecture only, randomly initialized
 model = DepthAnythingV1DepthEstimation.from_weights(
-    "depth_anything_small", load_weights=False
+    "kerasformers/depth_anything_small", load_weights=False
 )
 ```
 

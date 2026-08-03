@@ -1,11 +1,12 @@
 # SigLIP
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> pretrained weights for all nine SigLIP variants are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/siglip" style="color:#1a5c8a;">siglip</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 SigLIP is a vision + text dual encoder trained with a **pairwise sigmoid loss**
@@ -294,19 +295,19 @@ Combined image + text processor for SigLIP.
 
 ## Model Variants
 
-Load any of these with `from_weights("<variant id>")`.
+Load any of these with `from_weights("kerasformers/<variant id>")`.
 
 | Variant id | Image size | Patch | Weights |
 |---|---:|---:|---|
-| `siglip_base_p16_224` | 224 | 16 | release |
-| `siglip_base_p16_256` | 256 | 16 | release |
-| `siglip_base_p16_multilingual_256` | 256 | 16 | release |
-| `siglip_base_p16_384` | 384 | 16 | release |
-| `siglip_base_p16_512` | 512 | 16 | release |
-| `siglip_large_p16_256` | 256 | 16 | release |
-| `siglip_large_p16_384` | 384 | 16 | release |
-| `siglip_so400m_p14_224` | 224 | 14 | release |
-| `siglip_so400m_p14_384` | 384 | 14 | release |
+| `siglip_base_p16_224` | 224 | 16 | hub |
+| `siglip_base_p16_256` | 256 | 16 | hub |
+| `siglip_base_p16_multilingual_256` | 256 | 16 | hub |
+| `siglip_base_p16_384` | 384 | 16 | hub |
+| `siglip_base_p16_512` | 512 | 16 | hub |
+| `siglip_large_p16_256` | 256 | 16 | hub |
+| `siglip_large_p16_384` | 384 | 16 | hub |
+| `siglip_so400m_p14_224` | 224 | 14 | hub |
+| `siglip_so400m_p14_384` | 384 | 14 | hub |
 
 ## Basic Usage: Zero-Shot Classification
 
@@ -316,8 +317,8 @@ Load any of these with `from_weights("<variant id>")`.
 import keras
 from kerasformers.models.siglip import SigLIPProcessor, SigLIPZeroShotClassify
 
-processor = SigLIPProcessor.from_weights("siglip_base_p16_224")
-model = SigLIPZeroShotClassify.from_weights("siglip_base_p16_224")
+processor = SigLIPProcessor.from_weights("kerasformers/siglip_base_p16_224")
+model = SigLIPZeroShotClassify.from_weights("kerasformers/siglip_base_p16_224")
 
 labels = [
     "a photo of a person skiing",
@@ -443,5 +444,5 @@ and `SigLIPProcessor`, so you can pull the matching preprocessing from the same 
 processor = SigLIPProcessor.from_weights("hf:google/siglip-base-patch16-224")
 ```
 
-Loading `hf:google/siglip-base-patch16-224` and the `siglip_base_p16_224` release
+Loading `hf:google/siglip-base-patch16-224` and the `kerasformers/siglip_base_p16_224` Hub
 variant produces identical outputs, since they are the same checkpoint by two routes.

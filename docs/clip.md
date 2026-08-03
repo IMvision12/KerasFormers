@@ -1,11 +1,12 @@
 # CLIP
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the CLIP model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/clip" style="color:#1a5c8a;">clip</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 CLIP (Contrastive Language-Image Pre-training) is a vision + text dual-encoder trained on hundreds of millions of (image, caption) pairs with a contrastive loss. The vision side is a ViT; the text side is a small transformer with causal masking. Both encoders project to a shared embedding space, and a learnable temperature scales the cosine-similarity logits.
@@ -119,7 +120,7 @@ CLIPImageClassify(
 ```
 
 The vision tower only (mean-pooled patches, no text side) with a linear head. Needs a
-checkpoint whose head was actually trained, which no release variant has. See
+checkpoint whose head was actually trained, which no Hub Keras variant has. See
 [Supervised Image Classification](#supervised-image-classification-clipimageclassify).
 
 **Parameters**
@@ -328,7 +329,7 @@ CLIPTokenizer(
 ```
 
 Byte-level BPE on the `tokenizers` Rust backend. Loads the variant's `tokenizer.json`
-from the `clip` release tag and applies CLIP's truncation and `<|endoftext|>` padding.
+from the `clip` Hub repo and applies CLIP's truncation and `<|endoftext|>` padding.
 
 **Parameters**
 
@@ -402,8 +403,8 @@ Variant ids for `CLIPModel.from_weights`:
 import keras
 from kerasformers.models.clip import CLIPProcessor, CLIPZeroShotClassify
 
-processor = CLIPProcessor.from_weights("clip_vit_base_16")
-model = CLIPZeroShotClassify.from_weights("clip_vit_base_16")
+processor = CLIPProcessor.from_weights("kerasformers/clip_vit_base_16")
+model = CLIPZeroShotClassify.from_weights("kerasformers/clip_vit_base_16")
 
 labels = [
     "a photo of two cats",
@@ -452,8 +453,8 @@ image, and the same label set is scored against each:
 import keras
 from kerasformers.models.clip import CLIPProcessor, CLIPZeroShotClassify
 
-processor = CLIPProcessor.from_weights("clip_vit_base_16")
-model = CLIPZeroShotClassify.from_weights("clip_vit_base_16")
+processor = CLIPProcessor.from_weights("kerasformers/clip_vit_base_16")
+model = CLIPZeroShotClassify.from_weights("kerasformers/clip_vit_base_16")
 
 image_paths = ["assets/data/coco_cats.jpg", "assets/data/coco_bear.jpg"]
 labels = [
@@ -500,9 +501,9 @@ assets/data/coco_bear.jpg
 Mirrors HF's `CLIPForImageClassification`: the CLIP vision encoder feeds a mean-pool over the patch tokens (CLS excluded) and a single linear `classifier` Dense producing `num_classes` logits. The text tower, visual projection, and `logit_scale` are **not** built.
 
 The classifier head is a plain `Dense`, so this class is only meaningful with a
-checkpoint whose head was actually trained. None of the release variants in the
+checkpoint whose head was actually trained. None of the Hub checkpoint variants in the
 table above carry one: they are all base CLIP, so
-`CLIPImageClassify.from_weights("clip_vit_base_16")` leaves the head randomly
+`CLIPImageClassify.from_weights("kerasformers/clip_vit_base_16")` leaves the head randomly
 initialized and its predictions are meaningless. Point it at a fine-tune, or train
 the head yourself.
 
@@ -545,7 +546,7 @@ model built from the **defaults** (`num_classes=1000`) with no error raised.
 You can also warm-start the vision encoder from a `CLIPModel` checkpoint (the encoder weight names match across both classes):
 
 ```python
-src = CLIPModel.from_weights("clip_vit_base_16")
+src = CLIPModel.from_weights("kerasformers/clip_vit_base_16")
 ac = CLIPImageClassify(
     num_classes=10,
     image_size=224,
@@ -594,8 +595,8 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-processor = CLIPProcessor.from_weights("clip_vit_base_16")
-model = CLIPZeroShotClassify.from_weights("clip_vit_base_16")
+processor = CLIPProcessor.from_weights("kerasformers/clip_vit_base_16")
+model = CLIPZeroShotClassify.from_weights("kerasformers/clip_vit_base_16")
 
 inputs = processor(text=labels, image_paths="assets/data/coco_cats.jpg")
 # inputs["images"] is (1, 3, 224, 224)
@@ -646,5 +647,5 @@ All seven model classes accept `hf:`, as do `CLIPProcessor`, `CLIPImageProcessor
 processor = CLIPProcessor.from_weights("hf:openai/clip-vit-base-patch16")
 ```
 
-Loading `hf:openai/clip-vit-base-patch16` and the `clip_vit_base_16` release variant
+Loading `hf:openai/clip-vit-base-patch16` and the `kerasformers/clip_vit_base_16` Hub variant
 produces identical outputs, since they are the same checkpoint by two routes.

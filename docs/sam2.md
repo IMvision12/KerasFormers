@@ -1,11 +1,12 @@
 # SAM2
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the SAM2 model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/sam2" style="color:#1a5c8a;">sam2</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 SAM2 keeps [SAM](sam.md)'s promptable formulation and replaces the plain ViT with a **Hiera** backbone: a hierarchical encoder that produces multi-scale features, feeding an FPN neck before the mask decoder. The result is both faster and sharper at object boundaries than the original.
@@ -140,7 +141,7 @@ from kerasformers.models.sam2 import (
     SAM2PromptableSegment,
 )
 
-model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
+model = SAM2PromptableSegment.from_weights("kerasformers/sam2_hiera_tiny")
 processor = SAM2ImageProcessorWithPrompts()
 
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
@@ -241,7 +242,9 @@ from kerasformers.models.sam2 import (
     SAM2PromptableSegment,
 )
 
-model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny", include_box_input=True)
+model = SAM2PromptableSegment.from_weights(
+    "kerasformers/sam2_hiera_tiny", include_box_input=True
+)
 processor = SAM2ImageProcessorWithPrompts()
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
@@ -292,7 +295,7 @@ quality and stability filtering.
 import torch
 from kerasformers.models.sam2 import SAM2GenerateMasks, SAM2PromptableSegment
 
-model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
+model = SAM2PromptableSegment.from_weights("kerasformers/sam2_hiera_tiny")
 
 with torch.no_grad():
     result = SAM2GenerateMasks(
@@ -341,7 +344,7 @@ from kerasformers.models.sam2 import (
     SAM2PromptableSegment,
 )
 
-model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny")
+model = SAM2PromptableSegment.from_weights("kerasformers/sam2_hiera_tiny")
 processor = SAM2ImageProcessorWithPrompts()
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
@@ -386,8 +389,8 @@ splitting the graph changes nothing but where the time goes.
 and those skip connections are where the sharper boundaries come from. Splatting the
 dict with `**features` keeps all three.
 
-> **`SAM2Model` is the encoder-only class**, but it has no entry on the release tag, so
-> `SAM2Model.from_weights("sam2_hiera_tiny")` raises. Use `hf:facebook/sam2.1-hiera-tiny`
+> **`SAM2Model` is the encoder-only class**, but it has no dedicated kerasformers Hub repo of its own, so
+> `SAM2Model.from_weights("kerasformers/sam2_hiera_tiny")` raises. Use `hf:facebook/sam2.1-hiera-tiny`
 > if you want it standalone, or the `vision_encoder_model` sub-model above.
 
 ## Data Format
@@ -412,7 +415,9 @@ model = SAM2PromptableSegment.from_weights("hf:facebook/sam2.1-hiera-tiny")
 model = SAM2PromptableSegment.from_weights("hf:<user>/sam2-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = SAM2PromptableSegment.from_weights("sam2_hiera_tiny", load_weights=False)
+model = SAM2PromptableSegment.from_weights(
+    "kerasformers/sam2_hiera_tiny", load_weights=False
+)
 ```
 
 See also [SAM](sam.md), the original, and [SAM3](sam3.md), which prompts with text.

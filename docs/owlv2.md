@@ -1,11 +1,12 @@
 # OWLv2
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the OWLv2 model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/owlv2" style="color:#1a5c8a;">owlv2</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 OWLv2 keeps [OWL-ViT](owlvit.md)'s dual-tower skeleton and per-patch detection head, and scales it with self-training on web image-text pairs. It adds an **objectness head**, a learned "is this patch an object at all" score that is independent of the text queries, which improves ranking when several queries compete for the same region.
@@ -183,8 +184,8 @@ from kerasformers.models.owlv2 import (
     Owlv2Processor,
 )
 
-model = Owlv2Detect.from_weights("owlv2-base-patch16")
-processor = Owlv2Processor.from_weights("owlv2-base-patch16")
+model = Owlv2Detect.from_weights("kerasformers/owlv2-base-patch16")
+processor = Owlv2Processor.from_weights("kerasformers/owlv2-base-patch16")
 image_processor = Owlv2ImageProcessor()
 
 image = Image.open("assets/data/coco_teddy_bears.jpg").convert("RGB")
@@ -248,8 +249,8 @@ from kerasformers.models.owlv2 import (
     Owlv2Processor,
 )
 
-model = Owlv2Detect.from_weights("owlv2-base-patch16")
-processor = Owlv2Processor.from_weights("owlv2-base-patch16")
+model = Owlv2Detect.from_weights("kerasformers/owlv2-base-patch16")
+processor = Owlv2Processor.from_weights("kerasformers/owlv2-base-patch16")
 image_processor = Owlv2ImageProcessor()
 
 paths = ["assets/data/coco_bear.jpg", "assets/data/coco_girl_umbrella.jpg"]
@@ -329,8 +330,8 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = Owlv2Detect.from_weights("owlv2-base-patch16")
-processor = Owlv2Processor.from_weights("owlv2-base-patch16")
+model = Owlv2Detect.from_weights("kerasformers/owlv2-base-patch16")
+processor = Owlv2Processor.from_weights("kerasformers/owlv2-base-patch16")
 ```
 
 Detections are the same under either layout. Set it once at the top of a script, since
@@ -354,7 +355,7 @@ model = Owlv2Detect.from_weights("hf:google/owlv2-base-patch16-ensemble")
 model = Owlv2Detect.from_weights("hf:<user>/owlv2-finetuned-on-my-data")
 
 # Architecture only, randomly initialized
-model = Owlv2Detect.from_weights("owlv2-base-patch16", load_weights=False)
+model = Owlv2Detect.from_weights("kerasformers/owlv2-base-patch16", load_weights=False)
 ```
 
 No shape arguments are needed. The architecture is read from the repo's `config.json`.
@@ -364,5 +365,5 @@ All five model classes accept `hf:`, as do `Owlv2Processor` and `Owlv2ImageProce
 processor = Owlv2Processor.from_weights("hf:google/owlv2-base-patch16")
 ```
 
-Loading `hf:google/owlv2-base-patch16` and the `owlv2-base-patch16` release variant
+Loading `hf:google/owlv2-base-patch16` and the `kerasformers/owlv2-base-patch16` Hub variant
 produces identical outputs, since they are the same checkpoint by two routes.

@@ -12,12 +12,12 @@ See also [deepseek_vl_hybrid.md](deepseek_vl_hybrid.md), [janus.md](janus.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")`.
 
 | Variant | Hub |
 |---|---|
-| `deepseek_vl_1.3b_chat` | kerasformers release |
-| `deepseek_vl_1.3b_base` | kerasformers release |
+| `deepseek_vl_1.3b_chat` | [`kerasformers/deepseek_vl_1.3b_chat`](https://huggingface.co/kerasformers/deepseek_vl_1.3b_chat) |
+| `deepseek_vl_1.3b_base` | [`kerasformers/deepseek_vl_1.3b_base`](https://huggingface.co/kerasformers/deepseek_vl_1.3b_base) |
 
 ## API
 
@@ -126,8 +126,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.deepseek_vl import DeepseekVLGenerate, DeepseekVLProcessor
 
-model = DeepseekVLGenerate.from_weights("deepseek_vl_1.3b_chat")
-processor = DeepseekVLProcessor.from_weights("deepseek_vl_1.3b_chat")
+model = DeepseekVLGenerate.from_weights("kerasformers/deepseek_vl_1.3b_chat")
+processor = DeepseekVLProcessor.from_weights("kerasformers/deepseek_vl_1.3b_chat")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -212,7 +212,7 @@ have rendered yourself (or go through the processor above).
 ```python
 from kerasformers.models.deepseek_vl import DeepseekVLTokenizer
 
-tokenizer = DeepseekVLTokenizer.from_weights("deepseek_vl_1.3b_chat")
+tokenizer = DeepseekVLTokenizer.from_weights("kerasformers/deepseek_vl_1.3b_chat")
 inputs = tokenizer("Who wrote Dune?")
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(tokenizer.decode(outputs[0]))
@@ -225,6 +225,9 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = DeepseekVLGenerate.from_weights(
-    "deepseek_vl_1.3b_chat", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/deepseek_vl_1.3b_chat",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```

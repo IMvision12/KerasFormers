@@ -1,11 +1,12 @@
 # Granite Speech Plus
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for Granite Speech Plus are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/granite" style="color:#1a5c8a;">granite</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 Granite Speech Plus is the **Granite 4.0-based** successor to
@@ -144,9 +145,11 @@ from kerasformers.models.granite_speech_plus import (
 )
 
 model = GraniteSpeechPlusGenerate.from_weights(
-    "granite_speech_4_1_2b_plus", load_dtype="bfloat16"
+    "kerasformers/granite_speech_4_1_2b_plus", load_dtype="bfloat16"
 )
-processor = GraniteSpeechPlusProcessor.from_weights("granite_speech_4_1_2b_plus")
+processor = GraniteSpeechPlusProcessor.from_weights(
+    "kerasformers/granite_speech_4_1_2b_plus"
+)
 
 audio, sr = sf.read("assets/speech_leighton.wav", dtype="float32")  # 16 kHz mono
 
@@ -217,7 +220,7 @@ processor = GraniteSpeechPlusProcessor.from_weights(
 
 # Architecture only, randomly initialized
 model = GraniteSpeechPlusGenerate.from_weights(
-    "granite_speech_4_1_2b_plus", load_weights=False
+    "kerasformers/granite_speech_4_1_2b_plus", load_weights=False
 )
 ```
 

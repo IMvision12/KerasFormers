@@ -1,11 +1,12 @@
 # DINO
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the DINO models are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/dino12" style="color:#1a5c8a;">dino12</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 DINO is self-supervised: it trains a ViT with no labels, by matching the outputs of a
@@ -117,7 +118,7 @@ from PIL import Image
 from kerasformers.models.dino import DinoViTModel
 
 size, patch = 448, 16
-model = DinoViTModel.from_weights("dino_vits16", image_size=size)
+model = DinoViTModel.from_weights("kerasformers/dino_vits16", image_size=size)
 
 image = Image.open("assets/data/coco_bear.jpg").convert("RGB")
 x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
@@ -165,7 +166,7 @@ from PIL import Image
 from kerasformers.models.dino import DinoViTModel
 
 size = 448
-model = DinoViTModel.from_weights("dino_vits16", image_size=size)
+model = DinoViTModel.from_weights("kerasformers/dino_vits16", image_size=size)
 
 paths = ["assets/data/coco_elephants.jpg", "assets/data/coco_horse_jump.jpg"]
 batch = np.stack(
@@ -193,7 +194,9 @@ the scrub, the horse and rider from the trees behind.
 DPT-style neck or an FPN:
 
 ```python
-model = DinoViTModel.from_weights("dino_vits16", as_backbone=True, image_size=size)
+model = DinoViTModel.from_weights(
+    "kerasformers/dino_vits16", as_backbone=True, image_size=size
+)
 features = model(x, training=False)  # x from above, at 448
 print(len(features), features[-1].shape)  # 13  (1, 785, 384)
 ```
@@ -210,7 +213,9 @@ The ViT works in token space, so it is layout-agnostic. `DinoResNetModel` reads
 import keras
 
 keras.config.set_image_data_format("channels_first")
-model = DinoResNetModel.from_weights("dino_resnet50")  # output (B, 2048, 7, 7)
+model = DinoResNetModel.from_weights(
+    "kerasformers/dino_resnet50"
+)  # output (B, 2048, 7, 7)
 ```
 
 ## Input Resolution
@@ -232,7 +237,7 @@ model = DinoViTModel.from_weights("hf:facebook/dino-vits16")
 model = DinoViTModel.from_weights("hf:<user>/dino-finetuned")
 
 # Architecture only, randomly initialized
-model = DinoViTModel.from_weights("dino_vits16", load_weights=False)
+model = DinoViTModel.from_weights("kerasformers/dino_vits16", load_weights=False)
 ```
 
 See also [DINOv2](dinov2.md), which adds register-free dense features and layer scale, and

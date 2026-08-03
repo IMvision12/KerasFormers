@@ -1,11 +1,12 @@
 # MobileViT
 
 <div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
-<b>Weights:</b> the pretrained weights for the MobileViT model are hosted on the
-kerasformers <a href="https://github.com/IMvision12/KerasFormers/releases/tag/mobilevit" style="color:#1a5c8a;">mobilevit</a>
-release tag, and download automatically the first time you call
-<code>from_weights(...)</code>.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
+
 <br>
 
 MobileViT interleaves MobileNetV2 inverted-residual blocks with small transformer blocks. The convolutions carry local detail cheaply, and the transformer blocks give global context where it is worth paying for, so the model stays mobile-sized without giving up long-range receptive field.
@@ -99,14 +100,14 @@ MobileViTImageProcessor(
 
 Resizes the shortest edge, center-crops, rescales, and flips RGB to BGR.
 
-> **Prefer `MobileViTImageProcessor.from_weights(variant)`.** The classification and
-> segmentation checkpoints train at different resolutions, and the bare constructor
-> gives the classification pair (288/256). Passing a `*_deeplabv3` variant resolves the
-> segmentation pair (544/512) instead.
+> **Prefer `MobileViTImageProcessor.from_weights("kerasformers/<variant>")`.** The
+> classification and segmentation checkpoints train at different resolutions, and the
+> bare constructor gives the classification pair (288/256). Loading a `*_deeplabv3` Hub
+> repo (with `kf_preprocessor.json`) resolves the segmentation pair (544/512) instead.
 
 **Parameters**
 
-- **variant** (`str`, *optional*): release variant whose resolution to adopt. Ignored when `size` and `crop_size` are given.
+- **variant** (`str`, *optional*): variant whose resolution to adopt. Ignored when `size` and `crop_size` are given.
 - **size** (`dict`, *optional*): `{"shortest_edge": int}`, defaults to the variant's crop plus 32.
 - **crop_size** (`dict`, *optional*): `{"height": int, "width": int}`, defaults to the variant's `image_size`.
 - **do_flip_channel_order** (`bool`, *optional*, defaults to `True`): convert RGB to BGR, which these checkpoints expect.
@@ -162,8 +163,8 @@ from kerasformers.models.mobilevit import (
     MobileViTSemanticSegment,
 )
 
-model = MobileViTSemanticSegment.from_weights("mobilevit_s_deeplabv3")
-processor = MobileViTImageProcessor.from_weights("mobilevit_s_deeplabv3")
+model = MobileViTSemanticSegment.from_weights("kerasformers/mobilevit_s_deeplabv3")
+processor = MobileViTImageProcessor.from_weights("kerasformers/mobilevit_s_deeplabv3")
 
 image = Image.open("assets/data/hf_cat_2.jpg").convert("RGB")
 
@@ -226,8 +227,8 @@ from kerasformers.models.mobilevit import (
     MobileViTSemanticSegment,
 )
 
-model = MobileViTSemanticSegment.from_weights("mobilevit_s_deeplabv3")
-processor = MobileViTImageProcessor.from_weights("mobilevit_s_deeplabv3")
+model = MobileViTSemanticSegment.from_weights("kerasformers/mobilevit_s_deeplabv3")
+processor = MobileViTImageProcessor.from_weights("kerasformers/mobilevit_s_deeplabv3")
 
 
 def seen_box(image):
@@ -291,7 +292,9 @@ These are the reference values, and the resize target is always the crop plus 32
 run at another size, set it on both:
 
 ```python
-model = MobileViTSemanticSegment.from_weights("mobilevit_s_deeplabv3", image_size=384)
+model = MobileViTSemanticSegment.from_weights(
+    "kerasformers/mobilevit_s_deeplabv3", image_size=384
+)
 processor = MobileViTImageProcessor(
     size={"shortest_edge": 416},
     crop_size={"height": 384, "width": 384},
@@ -324,7 +327,7 @@ model = MobileViTSemanticSegment.from_weights(
 
 # Architecture only, randomly initialized
 model = MobileViTSemanticSegment.from_weights(
-    "mobilevit_s_deeplabv3", load_weights=False
+    "kerasformers/mobilevit_s_deeplabv3", load_weights=False
 )
 ```
 
