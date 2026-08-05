@@ -513,7 +513,7 @@ from kerasformers.models.clip import CLIPImageClassify, CLIPImageProcessor
 
 # A checkpoint whose classifier head was trained
 model = CLIPImageClassify.from_weights("hf:<user>/clip-finetuned-imagenet")
-image_processor = CLIPImageProcessor()
+image_processor = CLIPImageProcessor.from_weights("kerasformers/clip_vit_base_16")
 
 inputs = image_processor("cat.jpg")  # {"pixel_values": (1, 224, 224, 3)}
 logits = model(inputs["pixel_values"])  # (B, num_classes)

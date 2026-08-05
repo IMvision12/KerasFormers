@@ -160,7 +160,7 @@ from kerasformers.models.owlvit import (
 
 model = OwlViTDetect.from_weights("kerasformers/owlvit-base-patch32")
 processor = OwlViTProcessor.from_weights("kerasformers/owlvit-base-patch32")
-image_processor = OwlViTImageProcessor()
+image_processor = OwlViTImageProcessor.from_weights("kerasformers/owlvit-base-patch32")
 
 image = Image.open("assets/data/coco_mug_knife.jpg").convert("RGB")
 prompts = ["a photo of a mug", "a photo of a knife", "a photo of an apple"]
@@ -218,7 +218,7 @@ from kerasformers.models.owlvit import (
 
 model = OwlViTDetect.from_weights("kerasformers/owlvit-base-patch32")
 processor = OwlViTProcessor.from_weights("kerasformers/owlvit-base-patch32")
-image_processor = OwlViTImageProcessor()
+image_processor = OwlViTImageProcessor.from_weights("kerasformers/owlvit-base-patch32")
 
 paths = ["assets/data/coco_apples.jpg", "assets/data/coco_bananas.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]

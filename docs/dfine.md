@@ -158,7 +158,7 @@ from PIL import Image
 from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 
 model = DFineDetect.from_weights("kerasformers/dfine-nano")
-processor = DFineImageProcessor()
+processor = DFineImageProcessor.from_weights("kerasformers/dfine-nano")
 
 image = Image.open("assets/data/coco_buffet.jpg").convert("RGB")
 inputs = processor(image)
@@ -211,7 +211,7 @@ from PIL import Image
 from kerasformers.models.dfine import DFineDetect, DFineImageProcessor
 
 model = DFineDetect.from_weights("kerasformers/dfine-nano")
-processor = DFineImageProcessor()
+processor = DFineImageProcessor.from_weights("kerasformers/dfine-nano")
 
 paths = ["assets/data/coco_food_bowl.jpg", "assets/data/coco_kitchen.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -338,7 +338,7 @@ import keras
 keras.config.set_image_data_format("channels_first")
 
 model = DFineDetect.from_weights("kerasformers/dfine-nano")
-processor = DFineImageProcessor()
+processor = DFineImageProcessor.from_weights("kerasformers/dfine-nano")
 ```
 
 Detections are the same under either layout. Only the tensor shape changes. Set it once

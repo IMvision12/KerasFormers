@@ -186,7 +186,7 @@ from kerasformers.models.owlv2 import (
 
 model = Owlv2Detect.from_weights("kerasformers/owlv2-base-patch16")
 processor = Owlv2Processor.from_weights("kerasformers/owlv2-base-patch16")
-image_processor = Owlv2ImageProcessor()
+image_processor = Owlv2ImageProcessor.from_weights("kerasformers/owlv2-base-patch16")
 
 image = Image.open("assets/data/coco_teddy_bears.jpg").convert("RGB")
 prompts = [
@@ -251,7 +251,7 @@ from kerasformers.models.owlv2 import (
 
 model = Owlv2Detect.from_weights("kerasformers/owlv2-base-patch16")
 processor = Owlv2Processor.from_weights("kerasformers/owlv2-base-patch16")
-image_processor = Owlv2ImageProcessor()
+image_processor = Owlv2ImageProcessor.from_weights("kerasformers/owlv2-base-patch16")
 
 paths = ["assets/data/coco_bear.jpg", "assets/data/coco_girl_umbrella.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
