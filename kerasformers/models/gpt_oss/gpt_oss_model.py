@@ -104,6 +104,7 @@ class GptOssModel(SubclassedBaseModel):
         rope_original_max_pos=4096,
         attention_bias=True,
         tie_embeddings=False,
+        mxfp4_experts=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -126,6 +127,7 @@ class GptOssModel(SubclassedBaseModel):
         self.rope_original_max_pos = rope_original_max_pos
         self.attention_bias = attention_bias
         self.tie_embeddings = tie_embeddings
+        self.mxfp4_experts = mxfp4_experts
 
         self.token_embedding = layers.Embedding(
             vocab_size, embed_dim, name="token_embedding"
@@ -141,6 +143,7 @@ class GptOssModel(SubclassedBaseModel):
                 num_experts_per_tok,
                 norm_eps,
                 attention_bias,
+                mxfp4_experts=mxfp4_experts,
                 name=f"decoder_layer_{i}",
             )
             for i in range(num_layers)
@@ -221,6 +224,11 @@ class GptOssModel(SubclassedBaseModel):
             "rope_original_max_pos": rope.get("original_max_position_embeddings", 4096),
             "attention_bias": hf_config.get("attention_bias", True),
             "tie_embeddings": hf_config.get("tie_word_embeddings", False),
+            # Keep the experts packed when the upstream checkpoint ships MXFP4
+            # (the official 20b / 120b), matching its ~4x smaller footprint.
+            "mxfp4_experts": (
+                hf_config.get("quantization_config", {}).get("quant_method") == "mxfp4"
+            ),
         }
 
     @classmethod
@@ -252,6 +260,7 @@ class GptOssModel(SubclassedBaseModel):
                 "rope_original_max_pos": self.rope_original_max_pos,
                 "attention_bias": self.attention_bias,
                 "tie_embeddings": self.tie_embeddings,
+                "mxfp4_experts": self.mxfp4_experts,
             }
         )
         return config

@@ -2939,6 +2939,29 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
+    # MXFP4-packed experts variant: exercises GptOssMXFP4Experts (uint8 nibble
+    # blocks + e8m0 scales, dequantized on the fly) through the serialization /
+    # save / data-format suites. embed_dim and mlp_dim stay multiples of 32.
+    "GptOssMXFP4Model": {
+        "module": "kerasformers.models.gpt_oss",
+        "model_cls": "GptOssModel",
+        "model_type": "llm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "embed_dim": 64,
+            "mlp_dim": 32,
+            "num_layers": 2,
+            "num_heads": 4,
+            "num_kv_heads": 2,
+            "head_dim": 16,
+            "num_experts": 8,
+            "num_experts_per_tok": 2,
+            "sliding_window": 4,
+            "mxfp4_experts": True,
+        },
+        "input_factory": "qwen_text_input",
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
     "GlmModel": {
         "module": "kerasformers.models.glm",
         "model_cls": "GlmModel",

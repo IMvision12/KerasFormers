@@ -19,6 +19,7 @@ GPT_OSS_CONFIG = {
         "rope_original_max_pos": 4096,
         "attention_bias": True,
         "tie_embeddings": False,
+        "mxfp4_experts": True,
     },
     "gpt-oss-120b": {
         "vocab_size": 201088,
@@ -40,6 +41,7 @@ GPT_OSS_CONFIG = {
         "rope_original_max_pos": 4096,
         "attention_bias": True,
         "tie_embeddings": False,
+        "mxfp4_experts": True,
     },
 }
 
