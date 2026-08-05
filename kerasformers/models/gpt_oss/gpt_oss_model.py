@@ -5,7 +5,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .gpt_oss_config import GPT_OSS_CONFIG, GPT_OSS_WEIGHTS_URLS
+from .gpt_oss_config import GptOssConfig
 from .gpt_oss_layers import GptOssDecoderLayer, GptOssRMSNorm
 
 MASK_NEG = -1e9
@@ -80,8 +80,7 @@ class GptOssModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "gpt_oss"
-    BASE_MODEL_CONFIG = GPT_OSS_CONFIG
-    BASE_WEIGHT_CONFIG = GPT_OSS_WEIGHTS_URLS
+    config_class = GptOssConfig
 
     def __init__(
         self,
