@@ -133,7 +133,7 @@ from kerasformers.models.deeplabv3 import (
 model = DeepLabV3SemanticSegment.from_weights(
     "kerasformers/deeplabv3_resnet50_coco_voc"
 )
-processor = DeepLabV3ImageProcessor()
+processor = DeepLabV3ImageProcessor.from_weights("kerasformers/deeplabv3_resnet50_coco_voc")
 
 image = Image.open("assets/data/coco_airplane.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -177,7 +177,7 @@ from kerasformers.models.deeplabv3 import (
 model = DeepLabV3SemanticSegment.from_weights(
     "kerasformers/deeplabv3_resnet50_coco_voc"
 )
-processor = DeepLabV3ImageProcessor()
+processor = DeepLabV3ImageProcessor.from_weights("kerasformers/deeplabv3_resnet50_coco_voc")
 
 paths = ["assets/data/coco_dog_yard.jpg", "assets/data/coco_cat_car.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -227,7 +227,7 @@ keras.config.set_image_data_format("channels_first")
 model = DeepLabV3SemanticSegment.from_weights(
     "kerasformers/deeplabv3_resnet50_coco_voc"
 )
-processor = DeepLabV3ImageProcessor()
+processor = DeepLabV3ImageProcessor.from_weights("kerasformers/deeplabv3_resnet50_coco_voc")
 ```
 
 `post_process_semantic_segmentation` also takes `data_format`, since it has to know

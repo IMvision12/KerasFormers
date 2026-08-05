@@ -154,7 +154,7 @@ from kerasformers.models.depth_anything_v2 import (
 model = DepthAnythingV2DepthEstimation.from_weights(
     "kerasformers/depth_anything_v2_large"
 )
-processor = DepthAnythingV2ImageProcessor()
+processor = DepthAnythingV2ImageProcessor.from_weights("kerasformers/depth_anything_v2_large")
 
 image = Image.open("assets/data/coco_tennis.jpg").convert("RGB")
 
@@ -205,7 +205,7 @@ from kerasformers.models.depth_anything_v2 import (
 model = DepthAnythingV2DepthEstimation.from_weights(
     "kerasformers/depth_anything_v2_large"
 )
-processor = DepthAnythingV2ImageProcessor()
+processor = DepthAnythingV2ImageProcessor.from_weights("kerasformers/depth_anything_v2_large")
 
 paths = ["assets/data/ade_val_2.jpg", "assets/data/coco_parking.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -265,7 +265,7 @@ from kerasformers.models.depth_anything_v2 import (
 model = DepthAnythingV2DepthEstimation.from_weights(
     "kerasformers/depth_anything_v2_metric_indoor_large"
 )
-processor = DepthAnythingV2ImageProcessor()
+processor = DepthAnythingV2ImageProcessor.from_weights("kerasformers/depth_anything_v2_metric_indoor_large")
 
 image = Image.open("assets/data/coco_living_room.jpg").convert("RGB")
 with torch.no_grad():
@@ -349,7 +349,7 @@ keras.config.set_image_data_format("channels_first")
 model = DepthAnythingV2DepthEstimation.from_weights(
     "kerasformers/depth_anything_v2_large"
 )
-processor = DepthAnythingV2ImageProcessor()
+processor = DepthAnythingV2ImageProcessor.from_weights("kerasformers/depth_anything_v2_large")
 # model input: (B, 3, 518, 518), output: (B, 1, 518, 518)
 ```
 

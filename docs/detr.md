@@ -204,7 +204,7 @@ from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 
 model = DETRDetect.from_weights("kerasformers/detr-resnet-50")
-processor = DETRImageProcessor()
+processor = DETRImageProcessor.from_weights("kerasformers/detr-resnet-50")
 
 image = Image.open("assets/data/coco_living_room.jpg").convert("RGB")
 inputs = processor(image)
@@ -255,7 +255,7 @@ from PIL import Image
 from kerasformers.models.detr import DETRDetect, DETRImageProcessor
 
 model = DETRDetect.from_weights("kerasformers/detr-resnet-50")
-processor = DETRImageProcessor()
+processor = DETRImageProcessor.from_weights("kerasformers/detr-resnet-50")
 
 paths = ["assets/data/coco_desk.jpg", "assets/data/coco_cats.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -310,7 +310,7 @@ from PIL import Image
 from kerasformers.models.detr import DETRImageProcessor, DETRPanopticSegment
 
 model = DETRPanopticSegment.from_weights("kerasformers/detr-resnet-50-panoptic")
-processor = DETRImageProcessor()
+processor = DETRImageProcessor.from_weights("kerasformers/detr-resnet-50-panoptic")
 
 image = Image.open("assets/data/coco_skier.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -465,7 +465,7 @@ import keras
 keras.config.set_image_data_format("channels_first")
 
 model = DETRDetect.from_weights("kerasformers/detr-resnet-50")
-processor = DETRImageProcessor()
+processor = DETRImageProcessor.from_weights("kerasformers/detr-resnet-50")
 
 inputs = processor(image)
 # inputs["pixel_values"] is (1, 3, 800, 800)

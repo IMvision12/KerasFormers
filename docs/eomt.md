@@ -117,7 +117,7 @@ from PIL import Image
 from kerasformers.models.eomt import EoMTImageProcessor, EoMTUniversalSegment
 
 model = EoMTUniversalSegment.from_weights("kerasformers/eomt_small_coco_panoptic_640")
-processor = EoMTImageProcessor()
+processor = EoMTImageProcessor.from_weights("kerasformers/eomt_small_coco_panoptic_640")
 
 image = Image.open("assets/data/coco_produce.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -164,7 +164,7 @@ from PIL import Image
 from kerasformers.models.eomt import EoMTImageProcessor, EoMTUniversalSegment
 
 model = EoMTUniversalSegment.from_weights("kerasformers/eomt_small_coco_panoptic_640")
-processor = EoMTImageProcessor()
+processor = EoMTImageProcessor.from_weights("kerasformers/eomt_small_coco_panoptic_640")
 
 paths = ["assets/data/coco_broccoli.jpg", "assets/data/coco_man_tie.jpg"]
 

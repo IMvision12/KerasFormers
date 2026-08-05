@@ -802,8 +802,9 @@ class PreprocessorMixin(keras.layers.Layer):
         Mirrors the model's :meth:`WeightLoadingMixin.from_hub_repo`, so a
         processor loads with the same repo id as its model
         (``DETRImageProcessor.from_weights("kerasformers/detr-resnet-50")``).
-        When the repo carries no ``kf_preprocessor.json``, fall back to the
-        default-constructed processor.
+        Transformers-style: a repo that carries no ``kf_preprocessor.json`` raises,
+        rather than silently returning generic defaults; build the defaults
+        explicitly with ``cls()`` if that is what you want.
         """
         from kerasformers.conversion.kf_config import (
             KF_METADATA_KEYS,
@@ -812,7 +813,12 @@ class PreprocessorMixin(keras.layers.Layer):
 
         spec = load_kf_preprocessor(repo_id.rstrip("/"))
         if spec is None:
-            return cls(**kwargs)
+            raise OSError(
+                f"{repo_id} does not appear to have a file named "
+                f"kf_preprocessor.json. Build {cls.__name__} with default settings "
+                f"via {cls.__name__}() instead, or add a kf_preprocessor.json to "
+                f"the repo."
+            )
         if "config" in spec:
             config = dict(spec["config"])  # legacy nested format
         else:

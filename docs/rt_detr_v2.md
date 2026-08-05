@@ -158,7 +158,7 @@ from PIL import Image
 from kerasformers.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcessor
 
 model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd")
-processor = RTDETRV2ImageProcessor()
+processor = RTDETRV2ImageProcessor.from_weights("kerasformers/rtdetr-v2-r18vd")
 
 image = Image.open("assets/data/coco_surfer.jpg").convert("RGB")
 inputs = processor(image)
@@ -200,7 +200,7 @@ from PIL import Image
 from kerasformers.models.rt_detr_v2 import RTDETRV2Detect, RTDETRV2ImageProcessor
 
 model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd")
-processor = RTDETRV2ImageProcessor()
+processor = RTDETRV2ImageProcessor.from_weights("kerasformers/rtdetr-v2-r18vd")
 
 paths = ["assets/data/coco_woman_phone.jpg", "assets/data/coco_waterfront.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -325,7 +325,7 @@ import keras
 keras.config.set_image_data_format("channels_first")
 
 model = RTDETRV2Detect.from_weights("kerasformers/rtdetr-v2-r18vd")
-processor = RTDETRV2ImageProcessor()
+processor = RTDETRV2ImageProcessor.from_weights("kerasformers/rtdetr-v2-r18vd")
 ```
 
 Detections are the same under either layout. Only the tensor shape changes. Set it once
