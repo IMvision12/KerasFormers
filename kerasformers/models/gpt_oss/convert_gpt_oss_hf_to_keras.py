@@ -68,8 +68,16 @@ def transfer_gpt_oss_weights(keras_model, hf_state_dict):
         keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
         name = hf_name_for(weight.path)
-        if name.endswith(".gate_up_proj") or name.endswith(".down_proj"):
-            # MoE expert matrix: plain (bf16 repo) or MXFP4 blocks/scales.
+        if (name.endswith("_blocks") or name.endswith("_scales")) and "experts" in name:
+            # MXFP4 expert matrix, kept packed: copy the uint8 nibble blocks /
+            # e8m0 scales straight across (shapes match the checkpoint). The
+            # GptOssMXFP4Experts layer dequantizes them on the fly at run time.
+            if name not in hf_state_dict:
+                raise WeightMappingError(weight.path, name)
+            weight.assign(np.asarray(hf_state_dict[name]))
+        elif name.endswith(".gate_up_proj") or name.endswith(".down_proj"):
+            # Dequantized (bf16) expert matrix: plain bf16 repo, or MXFP4 blocks
+            # expanded to float when the model was built without mxfp4_experts.
             if name in hf_state_dict:
                 weight.assign(np.asarray(hf_state_dict[name]))
             elif f"{name}_blocks" in hf_state_dict:

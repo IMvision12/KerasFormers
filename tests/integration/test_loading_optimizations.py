@@ -109,3 +109,42 @@ def test_lazy_state_dict_records_completed_access_plan(tmp_path):
     np.testing.assert_array_equal(state["a"], np.array([1]))
     state.close()
     assert json.loads(plan_path.read_text())["tensors"] == ["b", "a"]
+
+
+def test_mxfp4_quantize_is_exact_inverse_of_dequant():
+    """``quantize_to_mxfp4`` inverts ``dequantize_mxfp4`` value-for-value on the
+    MXFP4 lattice, and rounds arbitrary floats to the nearest FP4 grid point.
+
+    The dequant is a byte-exact port of HF ``convert_moe_packed_tensors``, so a
+    zero round-trip pins the quantizer to the same values HF's downcast produces
+    on every representable point (no GPU triton kernel needed to check).
+    """
+    from kerasformers.quantization.mxfp4_quantize import (
+        FP4_VALUES,
+        dequantize_mxfp4,
+        quantize_to_mxfp4,
+    )
+
+    rng = np.random.default_rng(0)
+    blocks = rng.integers(0, 256, (4, 64, 4, 16), dtype=np.uint8)
+    scales = rng.integers(110, 140, (4, 64, 4), dtype=np.uint8)
+    lattice = ops.convert_to_numpy(dequantize_mxfp4(blocks, scales))
+    b2, s2 = quantize_to_mxfp4(ops.convert_to_tensor(lattice))
+    reconstructed = ops.convert_to_numpy(dequantize_mxfp4(b2, s2))
+    np.testing.assert_array_equal(lattice, reconstructed)
+
+    # Arbitrary floats: dequant(quant(w)) is the closest lattice point at the
+    # block's chosen scale (round-to-nearest, matching HF).
+    w = (rng.standard_normal((8, 256)) * 3).astype("float32")
+    bq, sq = quantize_to_mxfp4(ops.convert_to_tensor(w))
+    wq = ops.convert_to_numpy(dequantize_mxfp4(bq, sq))
+    fp4 = np.asarray(FP4_VALUES, "float32")
+    scale = 2.0 ** (ops.convert_to_numpy(sq).astype(np.int32) - 127)
+    candidates = fp4[None, None, None, :] * scale[..., None, None]
+    blocks_of_w = w.reshape(8, 256 // 32, 32)
+    nearest = np.take_along_axis(
+        candidates,
+        np.argmin(np.abs(blocks_of_w[..., None] - candidates), axis=-1)[..., None],
+        axis=-1,
+    )[..., 0].reshape(8, 256)
+    np.testing.assert_allclose(wq, nearest)
