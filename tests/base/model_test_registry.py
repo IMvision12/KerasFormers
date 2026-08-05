@@ -3359,7 +3359,6 @@ for _base in (
     "DeepseekV4Model",
     "GemmaModel",
     "Gemma2Model",
-    "Gemma4Model",
     "GlmModel",
     "Glm4Model",
     "Glm4MoeModel",
@@ -3380,6 +3379,21 @@ for _base in (
     _entry["model_cls"] = _gen
     _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
     MODEL_TEST_CONFIGS[_gen] = _entry
+
+
+# Gemma 4's generate class is the multimodal backbone (Gemma4MultimodalModel) plus
+# an LM head, so its text kwargs are nested under `text_config`; with no vision or
+# audio config it is a plain text generator. Derived on its own rather than through
+# the flat loop above, which assumes `Generate` shares its base model's signature.
+_g4 = MODEL_TEST_CONFIGS["Gemma4Model"]
+MODEL_TEST_CONFIGS["Gemma4Generate"] = {
+    "module": _g4["module"],
+    "model_cls": "Gemma4Generate",
+    "model_type": "llm",
+    "init_kwargs": {"text_config": dict(_g4["init_kwargs"])},
+    "input_factory": _g4["input_factory"],
+    "expected_output_shape": {"logits": (2, 6, 128)},
+}
 
 
 def get_all_model_ids():

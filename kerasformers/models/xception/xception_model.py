@@ -568,7 +568,7 @@ class XceptionModel(FunctionalBaseModel):
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
-        self.config = config
+        self.arch = config
         self.preact = preact
         self.bn_epsilon = bn_epsilon
         self.image_size = image_size
@@ -581,7 +581,7 @@ class XceptionModel(FunctionalBaseModel):
         config = super().get_config()
         config.update(
             {
-                "config": self.config,
+                "config": self.arch,
                 "preact": self.preact,
                 "bn_epsilon": self.bn_epsilon,
                 "image_size": self.image_size,
@@ -706,7 +706,7 @@ class XceptionImageClassify(FunctionalBaseModel):
 
         super().__init__(inputs=backbone.input, outputs=out, name=name, **kwargs)
 
-        self.config = config
+        self.arch = config
         self.preact = preact
         self.bn_epsilon = bn_epsilon
         self.image_size = backbone.image_size
@@ -721,7 +721,7 @@ class XceptionImageClassify(FunctionalBaseModel):
         config = super().get_config()
         config.update(
             {
-                "config": self.config,
+                "config": self.arch,
                 "preact": self.preact,
                 "bn_epsilon": self.bn_epsilon,
                 "image_size": self.image_size,

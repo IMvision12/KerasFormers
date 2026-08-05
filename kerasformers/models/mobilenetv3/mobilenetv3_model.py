@@ -492,7 +492,7 @@ class MobileNetV3Model(FunctionalBaseModel):
             transfer_mobilenetv3_weights,
         )
 
-        scounts = stage_counts(keras_model.config, keras_model.block_count_multiplier)
+        scounts = stage_counts(keras_model.arch, keras_model.block_count_multiplier)
         transfer_mobilenetv3_weights(
             keras_model, state_dict, scounts, keras_model.head_count_multiplier
         )
@@ -569,7 +569,7 @@ class MobileNetV3Model(FunctionalBaseModel):
 
         self.width_multiplier = width_multiplier
         self.depth_multiplier = depth_multiplier
-        self.config = config
+        self.arch = config
         self.minimal = minimal
         self.block_count_multiplier = block_count_multiplier
         self.head_count_multiplier = head_count_multiplier
@@ -589,7 +589,7 @@ class MobileNetV3Model(FunctionalBaseModel):
             {
                 "width_multiplier": self.width_multiplier,
                 "depth_multiplier": self.depth_multiplier,
-                "config": self.config,
+                "config": self.arch,
                 "minimal": self.minimal,
                 "block_count_multiplier": self.block_count_multiplier,
                 "head_count_multiplier": self.head_count_multiplier,
@@ -686,7 +686,7 @@ class MobileNetV3ImageClassify(FunctionalBaseModel):
             transfer_mobilenetv3_weights,
         )
 
-        scounts = stage_counts(keras_model.config, keras_model.block_count_multiplier)
+        scounts = stage_counts(keras_model.arch, keras_model.block_count_multiplier)
         transfer_mobilenetv3_weights(
             keras_model, state_dict, scounts, keras_model.head_count_multiplier
         )
@@ -765,7 +765,7 @@ class MobileNetV3ImageClassify(FunctionalBaseModel):
 
         self.width_multiplier = width_multiplier
         self.depth_multiplier = depth_multiplier
-        self.config = config
+        self.arch = config
         self.minimal = minimal
         self.block_count_multiplier = block_count_multiplier
         self.head_count_multiplier = head_count_multiplier
@@ -788,7 +788,7 @@ class MobileNetV3ImageClassify(FunctionalBaseModel):
             {
                 "width_multiplier": self.width_multiplier,
                 "depth_multiplier": self.depth_multiplier,
-                "config": self.config,
+                "config": self.arch,
                 "minimal": self.minimal,
                 "block_count_multiplier": self.block_count_multiplier,
                 "head_count_multiplier": self.head_count_multiplier,
