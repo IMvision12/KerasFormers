@@ -132,7 +132,9 @@ from kerasformers.models.mask2former import (
 model = Mask2FormerUniversalSegment.from_weights(
     "kerasformers/mask2former-swin-tiny-coco-panoptic"
 )
-processor = Mask2FormerImageProcessor.from_weights("kerasformers/mask2former-swin-tiny-coco-panoptic")
+processor = Mask2FormerImageProcessor.from_weights(
+    "kerasformers/mask2former-swin-tiny-coco-panoptic"
+)
 
 image = Image.open("assets/data/coco_elephant_trainer.jpg").convert("RGB")
 output = model(processor(image)["pixel_values"], training=False)
@@ -180,7 +182,9 @@ from kerasformers.models.mask2former import (
 model = Mask2FormerUniversalSegment.from_weights(
     "kerasformers/mask2former-swin-tiny-coco-panoptic"
 )
-processor = Mask2FormerImageProcessor.from_weights("kerasformers/mask2former-swin-tiny-coco-panoptic")
+processor = Mask2FormerImageProcessor.from_weights(
+    "kerasformers/mask2former-swin-tiny-coco-panoptic"
+)
 
 paths = ["assets/data/coco_bear_cub.jpg", "assets/data/coco_couple.jpg"]
 

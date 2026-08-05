@@ -142,7 +142,9 @@ from kerasformers.models.depth_anything_v1 import (
 )
 
 model = DepthAnythingV1DepthEstimation.from_weights("kerasformers/depth_anything_large")
-processor = DepthAnythingV1ImageProcessor.from_weights("kerasformers/depth_anything_large")
+processor = DepthAnythingV1ImageProcessor.from_weights(
+    "kerasformers/depth_anything_large"
+)
 
 image = Image.open("assets/data/coco_waterfront.jpg").convert("RGB")
 
@@ -191,7 +193,9 @@ from kerasformers.models.depth_anything_v1 import (
 )
 
 model = DepthAnythingV1DepthEstimation.from_weights("kerasformers/depth_anything_large")
-processor = DepthAnythingV1ImageProcessor.from_weights("kerasformers/depth_anything_large")
+processor = DepthAnythingV1ImageProcessor.from_weights(
+    "kerasformers/depth_anything_large"
+)
 
 paths = ["assets/data/coco_dog_woods.jpg", "assets/data/ade_val_1.jpg"]
 images = [Image.open(p).convert("RGB") for p in paths]
@@ -274,7 +278,9 @@ import keras
 keras.config.set_image_data_format("channels_first")
 
 model = DepthAnythingV1DepthEstimation.from_weights("kerasformers/depth_anything_large")
-processor = DepthAnythingV1ImageProcessor.from_weights("kerasformers/depth_anything_large")
+processor = DepthAnythingV1ImageProcessor.from_weights(
+    "kerasformers/depth_anything_large"
+)
 # model input: (B, 3, 518, 518), output: (B, 1, 518, 518)
 ```
 
