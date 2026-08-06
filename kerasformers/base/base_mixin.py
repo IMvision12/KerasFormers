@@ -150,6 +150,12 @@ class WeightLoadingMixin:
     # a ``generate(...)`` method. Written into a repo's kf_config.json under
     # ``generate_args`` and re-attached to the model on repo-id load.
     generate_args = None
+    # Default ``load_dtype`` for :meth:`from_weights` when the caller passes none.
+    # Set by models whose official checkpoints ship in a specific precision (e.g.
+    # GPT-OSS ships bf16 dense + MXFP4 experts), so loading their hosted weights
+    # stays at that native precision instead of upcasting to fp32. Pass
+    # ``load_dtype="float32"`` to override back to fp32.
+    default_load_dtype = None
 
     @classmethod
     def from_weights(
@@ -210,13 +216,16 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 Only applies to subclassed models whose converter assigns through
                 ``model.weights`` (the standard LLM pattern); it falls back to the
                 load-then-quantize path automatically for anything else.
-            load_dtype: ``None`` (default, fp32) or a dtype string such as
-                ``"bfloat16"`` / ``"float16"``. Builds the device model under
-                that global dtype policy, so a bf16 checkpoint loads at its
-                native ~2 bytes/param instead of being upcast to fp32 (≈half the
-                device memory, cosine ~0.9998 vs fp32). The streamed checkpoint
-                is cast to it on assign. Independent of ``quantization``, which
-                runs after the build.
+            load_dtype: ``None`` (resolves to ``cls.default_load_dtype``, which is
+                fp32 for most models but bf16 for models that ship bf16 weights
+                such as GPT-OSS) or a dtype string such as ``"bfloat16"`` /
+                ``"float16"`` / ``"float32"``. Builds the device model under that
+                global dtype policy, so a bf16 checkpoint loads at its native
+                ~2 bytes/param instead of being upcast to fp32 (≈half the device
+                memory, cosine ~0.9998 vs fp32). The streamed checkpoint is cast
+                to it on assign. Pass ``"float32"`` to force fp32 on a model whose
+                default is bf16. Independent of ``quantization``, which runs after
+                the build.
             cache_converted: If ``True`` (opt-in), cache the fully converted
                 (and optionally quantized) model under
                 ``$KERASFORMERS_HOME/converted`` on first load, and on later
@@ -251,6 +260,12 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     f"{base_attention.VALID_ATTN_IMPL}, got {attn_implementation!r}"
                 )
             base_attention.ATTN_IMPLEMENTATION = attn_implementation
+
+        # Fall back to the model's native checkpoint precision (e.g. GPT-OSS is
+        # bf16 dense) when the caller did not pin one, so the hosted weights load
+        # at their native ~2 bytes/param. ``load_dtype="float32"`` forces fp32.
+        if load_dtype is None:
+            load_dtype = cls.default_load_dtype
 
         # Converted-model cache: on a hit, rebuild from the local cache and skip
         # the download + conversion entirely. Only when loading weights (an

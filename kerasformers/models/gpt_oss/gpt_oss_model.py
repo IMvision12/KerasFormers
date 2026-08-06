@@ -5,7 +5,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .gpt_oss_config import GPT_OSS_CONFIG, GPT_OSS_WEIGHTS_URLS
+from .gpt_oss_config import GptOssConfig
 from .gpt_oss_layers import GptOssDecoderLayer, GptOssRMSNorm
 
 MASK_NEG = -1e9
@@ -80,8 +80,14 @@ class GptOssModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "gpt_oss"
-    BASE_MODEL_CONFIG = GPT_OSS_CONFIG
-    BASE_WEIGHT_CONFIG = GPT_OSS_WEIGHTS_URLS
+    config_class = GptOssConfig
+
+    # TODO : Auto Detection of weights from hub
+    # OpenAI ships GPT-OSS as bf16 dense + MXFP4 experts, and the hosted
+    # kerasformers weights match. Default from_weights() to bf16 so the loaded
+    # model keeps that native ~2 bytes/param footprint (pass load_dtype="float32"
+    # to upcast). The experts stay uint8 MXFP4 regardless of this policy.
+    default_load_dtype = "bfloat16"
 
     def __init__(
         self,

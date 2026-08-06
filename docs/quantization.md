@@ -17,6 +17,10 @@ run on TensorFlow / Torch / JAX; fp8 (float8-e4m3) is torch / jax only.
 Each page covers that scheme's math, storage layout, measured accuracy, and its own config
 class. The rest of this page is the machinery they share.
 
+> **[MXFP4](quantization_mxfp4.md)** is a special case: not a `quantize_model` scheme but
+> the 4-bit format OpenAI's GPT-OSS ships its experts in, which kerasformers keeps packed
+> and dequantizes on the fly rather than applying to arbitrary models.
+
 ## Quick start
 
 ```python
@@ -143,6 +147,8 @@ class plus one file per scheme:
 | `Int4Quantizer` | `int4_quantize.py` | block-wise packed int4 quantizer (any axis via moveaxis; module `effective_group_size`) |
 | `Fp8Quantizer` | `fp8_quantize.py` | per-channel float8-e4m3 quantizer (module `fp8_supported`; torch / jax) |
 | `QuantizedDense` / `QuantizedEinsumDense` / `QuantizedEmbedding` / `QuantizedExperts` | `quantized_layers.py` | weight-only drop-in layers (each holds a quantizer); `QuantizedExperts` = fused MoE expert bank, contracting-axis quantized |
+| `dequantize_mxfp4` / `quantize_to_mxfp4` | `mxfp4_quantize.py` | backend-agnostic MXFP4 pack / unpack (GPT-OSS experts; see [mxfp4](quantization_mxfp4.md)) |
+| `GptOssMXFP4Experts` | `mxfp4_experts.py` | GPT-OSS MoE expert bank kept in MXFP4, dequantized in `call` |
 | `QuantizationConfig` / `Int8Config` / `Int4Config` / `Fp8Config` / `SCHEMES` | `quant_config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + per-method configs + named presets |
 | `quantize_model` / `quantize_functional` | `quantize.py` | in-place (subclassed) / clone (functional) model surgery |
 | `quantize_skeleton` / `quantize_and_load` | `quantize.py` | no-float int skeleton / stream a float checkpoint into int storage |
