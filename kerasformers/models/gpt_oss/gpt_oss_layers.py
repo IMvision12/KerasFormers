@@ -164,7 +164,9 @@ class GptOssMLP(layers.Layer):
         router_logits = self.router(x)  # (T, E)
         top_vals, top_idx = ops.top_k(router_logits, self.num_experts_per_tok)
         routing = ops.softmax(top_vals, axis=-1)  # (T, k)
-        one_hot = ops.one_hot(top_idx, self.num_experts)  # (T, k, E)
+        one_hot = ops.one_hot(
+            top_idx, self.num_experts, dtype=routing.dtype
+        )  # (T, k, E)
         full_weights = ops.sum(one_hot * routing[..., None], axis=1)  # (T, E)
         out = self.experts(x, full_weights)  # (T, H)
         return ops.reshape(out, (b, s, self.embed_dim))
