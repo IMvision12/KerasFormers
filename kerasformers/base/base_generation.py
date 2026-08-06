@@ -3,6 +3,7 @@ from collections import OrderedDict
 import keras
 from keras import ops
 
+from kerasformers.base.base_mixin import inference_scope
 from kerasformers.samplers import GreedySampler
 
 
@@ -72,9 +73,15 @@ class BaseGeneration:
         noise = self.draw_noise(sampler, max_new_tokens, batch, seed)
         if prefill_inputs:
             prompt_len = int(input_ids.shape[1])
-            cache, logits = self.build_cache(
-                input_ids, padding_mask, prompt_len + max_new_tokens, **prefill_inputs
-            )
+            # Prefill is inference-only; keep it graph-free on torch (run_decode
+            # already guards the decode loop).
+            with inference_scope():
+                cache, logits = self.build_cache(
+                    input_ids,
+                    padding_mask,
+                    prompt_len + max_new_tokens,
+                    **prefill_inputs,
+                )
             return self.run_decode(
                 cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
             )

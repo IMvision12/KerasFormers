@@ -1,5 +1,8 @@
+import keras
 import numpy as np
 from keras import ops
+
+from kerasformers.base import Quantizer, single_axis
 
 # OCP MXFP4 (E2M1) codebook: 4-bit index -> value. Shared with the GPT-OSS
 # converter's FP4_VALUES; kept here so the runtime dequant needs no converter.
@@ -77,7 +80,7 @@ def dequantize_mxfp4(blocks, scales, dtype="float32"):
     ``(..., G * 32)`` with the two nibbles interleaved (low, high), i.e. the
     per-block layout before any axis transpose.
     """
-    table = ops.convert_to_tensor(np.asarray(FP4_VALUES, dtype="float32"))
+    table = ops.cast(ops.convert_to_tensor(np.asarray(FP4_VALUES, "float32")), dtype)
     packed = ops.cast(blocks, "int32")
     low = ops.take(table, ops.bitwise_and(packed, 0x0F), axis=0)  # (..., G, 16)
     high = ops.take(table, ops.right_shift(packed, 4), axis=0)  # (..., G, 16)
@@ -85,6 +88,72 @@ def dequantize_mxfp4(blocks, scales, dtype="float32"):
     *prefix, groups, _, _ = values.shape
     values = ops.reshape(values, (*prefix, groups, 32))  # interleaved lo, hi
     exponent = ops.cast(scales, "float32") - 127.0
-    scale = ops.expand_dims(ops.power(2.0, exponent), axis=-1)  # (..., G, 1)
-    out = ops.cast(values * scale, dtype)
+    scale = ops.cast(ops.expand_dims(ops.power(2.0, exponent), axis=-1), dtype)
+    out = values * scale
     return ops.reshape(out, (*prefix, groups * 32))
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class MXFP4Quantizer(Quantizer):
+    """OCP MXFP4 (e2m1) weight-only quantizer (~4x smaller than bf16).
+
+    The contracting ``axis`` is split into fixed 32-value blocks; each block gets
+    a shared e8m0 (power-of-two) ``scale`` and its values are rounded to the FP4
+    (e2m1) codebook, two 4-bit indices packed per uint8 byte. This is the format
+    OpenAI ships GPT-OSS in; as a general ``quantize_model`` scheme it applies to
+    any ``Dense`` / ``EinsumDense`` / fused-expert kernel whose contracting
+    dimension is a multiple of 32. Like int4 it packs a **single** axis: the axis
+    is moved to the end, packed there, then moved back, so the same code serves
+    2-D ``Dense`` kernels (``axis=0``), N-D ``EinsumDense`` kernels, and MoE
+    expert banks (``axis=-1``). The ``scale`` is uint8 (e8m0), not float. Reuses
+    :func:`quantize_to_mxfp4` / :func:`dequantize_mxfp4`; backend-agnostic.
+    """
+
+    mode = "mxfp4"
+    BLOCK = 32
+
+    def quantize(self, weight, axis=0):
+        weight = ops.convert_to_tensor(weight)
+        axis = single_axis(axis, len(weight.shape))
+        self._check_axis(weight.shape, axis)
+        w = ops.moveaxis(weight, axis, -1)  # (..., K)
+        blocks, scales = quantize_to_mxfp4(w)  # (..., G, 16), (..., G)
+        prefix = [int(s) for s in blocks.shape[:-2]]
+        groups = int(blocks.shape[-2])
+        packed = ops.reshape(blocks, (*prefix, groups * 16))  # (..., K // 2)
+        return ops.moveaxis(packed, -1, axis), ops.moveaxis(scales, -1, axis)
+
+    def dequantize(self, packed, scale, axis=0, dtype=None):
+        dtype = dtype or "float32"
+        axis = single_axis(axis, len(packed.shape))
+        p = ops.moveaxis(packed, axis, -1)  # (..., K // 2)
+        s = ops.moveaxis(scale, axis, -1)  # (..., G)
+        prefix = [int(x) for x in p.shape[:-1]]
+        groups = int(p.shape[-1]) // 16
+        blocks = ops.reshape(p, (*prefix, groups, 16))
+        deq = dequantize_mxfp4(blocks, s, dtype)  # (..., K)
+        return ops.moveaxis(deq, -1, axis)
+
+    def storage_spec(self, weight_shape, axis=0):
+        axis = single_axis(axis, len(weight_shape))
+        self._check_axis(weight_shape, axis)
+        k = int(weight_shape[axis])
+        kernel_shape = tuple(
+            k // 2 if i == axis else d for i, d in enumerate(weight_shape)
+        )
+        scale_shape = tuple(
+            k // self.BLOCK if i == axis else d for i, d in enumerate(weight_shape)
+        )
+        return {"kernel": (kernel_shape, "uint8"), "scale": (scale_shape, "uint8")}
+
+    def _check_axis(self, weight_shape, axis):
+        k = int(weight_shape[axis])
+        if k % self.BLOCK:
+            raise ValueError(
+                f"MXFP4 packs fixed {self.BLOCK}-value blocks, so the contracting "
+                f"axis (dimension {k}) must be a multiple of {self.BLOCK}. Exclude "
+                f"this layer with a QuantizationConfig skip pattern, or use int4."
+            )
+
+    def get_config(self):
+        return {}

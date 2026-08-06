@@ -93,6 +93,26 @@ def build_dtype_scope(dtype):
         keras.config.set_dtype_policy(previous)
 
 
+@contextlib.contextmanager
+def inference_scope():
+    """Disable autograd on the torch backend (a no-op on JAX / TensorFlow).
+
+    Weight loading (``build_for_transfer``'s dummy forward, converter transfer)
+    and prefill are inference-only, but a torch forward outside this scope builds
+    an autograd graph that saves every intermediate for backward. For an MXFP4
+    checkpoint that means retaining each layer's ~GB dequantized expert bank, so
+    a full-model build at load time can hold tens of GB it never frees and OOM a
+    large checkpoint. Wrapping those forwards here keeps them graph-free.
+    """
+    if keras.backend.backend() == "torch":
+        import torch
+
+        with torch.no_grad():
+            yield
+    else:
+        yield
+
+
 class WeightLoadingMixin:
     """Unified pretrained-weight loading API shared by all kerasformers models.
 
@@ -287,7 +307,9 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
 
         # Build (and transfer) under the requested dtype policy so the device
         # model is allocated in e.g. bf16; post-hoc quantize runs outside it.
-        with build_dtype_scope(load_dtype):
+        # ``inference_scope`` keeps the load-time forwards graph-free on torch so
+        # an MXFP4 build does not retain each layer's dequantized experts.
+        with inference_scope(), build_dtype_scope(load_dtype):
             if identifier.startswith(_HF_PREFIX):
                 hf_id = identifier[len(_HF_PREFIX) :]
                 model = cls.from_hf(

@@ -52,6 +52,56 @@ class GptOssTokenizer(BaseTokenizer):
             self.to_id_list(ids), skip_special_tokens=skip_special_tokens
         )
 
+    def channel_text(self, raw, channel):
+        """Text of a Harmony ``channel`` in a marker-carrying decode, or ``None``.
+
+        A turn is ``<|channel|>{name}<|message|>{text}{stop}``; return ``{text}``
+        for the requested channel, cut at the next control token.
+        """
+        marker = f"<|channel|>{channel}<|message|>"
+        start = raw.find(marker)
+        if start == -1:
+            return None
+        tail = raw[start + len(marker) :]
+        stops = (
+            "<|end|>",
+            "<|return|>",
+            "<|call|>",
+            "<|start|>",
+            "<|channel|>",
+            "<|endoftext|>",
+        )
+        cuts = [i for i in (tail.find(s) for s in stops) if i != -1]
+        return (tail[: min(cuts)] if cuts else tail).strip()
+
+    def parse_harmony(self, ids):
+        """Split a generated Harmony turn into ``(final_answer, reasoning)``.
+
+        Either is ``None`` when its channel is absent (a response truncated before
+        the ``final`` channel, or plain non-Harmony text)."""
+        raw = self.decode(ids, skip_special_tokens=False)
+        return self.channel_text(raw, "final"), self.channel_text(raw, "analysis")
+
+    def decode_message(self, ids, role="assistant", skip_special_tokens=True):
+        """Decode a generated turn into a chat-message ``dict``, Harmony-aware.
+
+        ``content`` is the ``final`` channel (the answer), and ``thinking`` (added
+        only when present) is the ``analysis`` channel (the chain-of-thought), so
+        the reasoning is separated out instead of munged into the content. Falls
+        back to a plain decode for non-Harmony text.
+        """
+        final, thinking = self.parse_harmony(ids)
+        if final is not None:
+            content = final
+        elif thinking is not None:
+            content = ""  # ran out of tokens before the final channel
+        else:
+            content = self.decode(ids, skip_special_tokens)
+        message = {"role": role, "content": content}
+        if thinking:
+            message["thinking"] = thinking
+        return message
+
     def get_config(self):
         config = super().get_config()
         config.update({"hf_id": self.hf_id, "tokenizer_file": self.tokenizer_file})

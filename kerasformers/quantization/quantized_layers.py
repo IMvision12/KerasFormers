@@ -4,6 +4,7 @@ from keras import layers, ops
 from .fp8_quantize import Fp8Quantizer, fp8_supported
 from .int4_quantize import Int4Quantizer
 from .int8_quantize import Int8Quantizer
+from .mxfp4_quantize import MXFP4Quantizer, dequantize_mxfp4
 
 
 class _LoadProxy:
@@ -48,7 +49,9 @@ def get_quantizer(mode, group_size=32):
                 "(tensorflow lacks float8 casts)."
             )
         return Fp8Quantizer()
-    raise ValueError(f"mode must be 'int8', 'int4', or 'fp8', got {mode!r}")
+    if mode == "mxfp4":
+        return MXFP4Quantizer()
+    raise ValueError(f"mode must be 'int8', 'int4', 'fp8', or 'mxfp4', got {mode!r}")
 
 
 def einsum_contracting_axes(equation):
@@ -67,11 +70,11 @@ def einsum_contracting_axes(equation):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class QuantizedDense(layers.Layer):
-    """Weight-only int8 / int4 / fp8 drop-in for ``keras.layers.Dense``.
+    """Weight-only int8 / int4 / fp8 / mxfp4 drop-in for ``keras.layers.Dense``.
 
     The kernel ``(in, out)`` is stored quantized (contracting ``axis=0``) and
     dequantized on the fly in ``call`` (the matmul runs in the activation dtype),
-    so the model at rest is ~4x (int8 / fp8) or ~8x (int4) smaller.
+    so the model at rest is ~4x (int8 / fp8) or ~8x (int4 / mxfp4) smaller.
     Backend-agnostic; built from a trained ``Dense`` via :meth:`from_dense`.
     """
 
@@ -180,7 +183,7 @@ class QuantizedDense(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class QuantizedEinsumDense(layers.Layer):
-    """Weight-only int8 / int4 / fp8 drop-in for ``keras.layers.EinsumDense``.
+    """Weight-only int8 / int4 / fp8 / mxfp4 drop-in for ``keras.layers.EinsumDense``.
 
     Attention/projection kernels in some ports are N-D ``EinsumDense`` tensors
     (e.g. ``(hidden, heads, head_dim)``) whose contracting axis is not 0. This
@@ -393,7 +396,7 @@ class QuantizedExperts(layers.Layer):
     Replaces a ``...Experts`` layer that stores ``gate_up_proj`` ``(E, 2I, H)``
     and ``down_proj`` ``(E, H, I)`` as fused weights and runs the experts with
     ``einsum``. Both banks are quantized along their **contracting (last) axis**
-    via the shared int8 / int4 / fp8 quantizers and dequantized on the fly.
+    via the shared int8 / int4 / fp8 / mxfp4 quantizers and dequantized on the fly.
     ``activation`` is the gate nonlinearity (``"silu"`` for most MoE LLMs,
     ``"gelu"`` for Gemma-style).
     """
@@ -543,6 +546,185 @@ class QuantizedExperts(layers.Layer):
                 "mode": self.mode,
                 "group_size": self.group_size,
                 "activation": self.activation,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class GptOssMXFP4Experts(layers.Layer):
+    """MXFP4-quantized GPT-OSS expert bank, matching the official packed weights.
+
+    The MXFP4 counterpart of ``GptOssExperts``: it lives here beside the other
+    quantized layers (not in the model file) so the model stays
+    quantization-agnostic, the way transformers keeps its ``Mxfp4GptOssExperts``
+    in ``integrations/mxfp4.py`` rather than ``modeling_gpt_oss.py``. Unlike the
+    generic :class:`QuantizedExperts`, this one carries GPT-OSS's exact clamped
+    gated-SiLU and per-expert biases and consumes the checkpoint's native
+    ``_blocks`` / ``_scales`` layout directly.
+
+    ``gate_up_proj`` and ``down_proj`` are stored in MXFP4 exactly as OpenAI ships
+    them, uint8 nibble ``_blocks`` (two 4-bit codebook indices per byte) plus a
+    uint8 e8m0 ``_scales`` exponent per 32-value block, ~4x smaller than bf16.
+    They are dequantized on the fly in ``call`` and consumed in their natural
+    ``(E, 2I, H)`` / ``(E, H, I)`` layout, so no transpose is needed and the block
+    tensors map one-to-one onto the checkpoint. Biases stay full precision. On
+    single-token decode only the top-k routed experts are dequantized.
+
+    Args:
+        num_experts: Number of experts ``E``.
+        embed_dim: Model width ``H`` (must be a multiple of 32).
+        mlp_dim: Per-expert hidden width ``I`` (must be a multiple of 32).
+        num_experts_per_tok: Top-k experts routed per token (the sparse decode
+            path dequantizes exactly this many).
+    """
+
+    def __init__(
+        self, num_experts, embed_dim, mlp_dim, num_experts_per_tok=4, **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.num_experts = num_experts
+        self.embed_dim = embed_dim
+        self.mlp_dim = mlp_dim
+        self.num_experts_per_tok = num_experts_per_tok
+        self.alpha = 1.702
+        self.limit = 7.0
+
+    def build(self, input_shape):
+        e, h, i = self.num_experts, self.embed_dim, self.mlp_dim
+        if h % 32 or i % 32:
+            raise ValueError(
+                f"MXFP4 packs 32-value blocks, so embed_dim ({h}) and mlp_dim ({i}) "
+                f"must be multiples of 32."
+            )
+        # gate_up_proj (E, 2I, H) packed along H; down_proj (E, H, I) packed along I.
+        # Shapes match OpenAI's *_blocks / *_scales exactly (direct checkpoint copy).
+        self.gate_up_proj_blocks = self.add_weight(
+            name="gate_up_proj_blocks",
+            shape=(e, 2 * i, h // 32, 16),
+            dtype="uint8",
+            initializer="zeros",
+            trainable=False,
+        )
+        self.gate_up_proj_scales = self.add_weight(
+            name="gate_up_proj_scales",
+            shape=(e, 2 * i, h // 32),
+            dtype="uint8",
+            initializer="zeros",
+            trainable=False,
+        )
+        self.gate_up_proj_bias = self.add_weight(
+            name="gate_up_proj_bias", shape=(e, 2 * i), initializer="zeros"
+        )
+        self.down_proj_blocks = self.add_weight(
+            name="down_proj_blocks",
+            shape=(e, h, i // 32, 16),
+            dtype="uint8",
+            initializer="zeros",
+            trainable=False,
+        )
+        self.down_proj_scales = self.add_weight(
+            name="down_proj_scales",
+            shape=(e, h, i // 32),
+            dtype="uint8",
+            initializer="zeros",
+            trainable=False,
+        )
+        self.down_proj_bias = self.add_weight(
+            name="down_proj_bias", shape=(e, h), initializer="zeros"
+        )
+        self.built = True
+
+    def _activate(self, gate_up, groups):
+        # gate_up (T, groups, 2I) -> gated (T, groups, I): GPT-OSS's clamped
+        # gated-SiLU on the interleaved gate/up halves.
+        gate_up = ops.reshape(gate_up, (-1, groups, self.mlp_dim, 2))
+        gate = ops.minimum(gate_up[..., 0], self.limit)
+        up = ops.clip(gate_up[..., 1], -self.limit, self.limit)
+        return (up + 1.0) * (gate * ops.sigmoid(gate * self.alpha))
+
+    def call(self, hidden_states, routing_weights):
+        # Prefill routes many tokens at once, and each routed expert dequantizes to
+        # a large bf16 tensor, so process the tokens in fixed-size chunks to bound
+        # the per-forward dequant peak. (transformers avoids the materialized dequant
+        # entirely with a fused Triton kernel, or chunks the *weight* dequant at load
+        # via rows_per_chunk; token-chunking the forward is the backend-agnostic
+        # equivalent here.) A single-token decode (tokens <= chunk) runs in one pass;
+        # tokens is static at trace time, and a whole-tensor pass is the fallback.
+        tokens = hidden_states.shape[0]
+        chunk = max(1, 16 // self.num_experts_per_tok)
+        if tokens is not None and tokens > chunk:
+            return ops.concatenate(
+                [
+                    self._route(
+                        hidden_states[i : i + chunk], routing_weights[i : i + chunk]
+                    )
+                    for i in range(0, tokens, chunk)
+                ],
+                axis=0,
+            )
+        return self._route(hidden_states, routing_weights)
+
+    def _route(self, hidden_states, routing_weights):
+        # Evaluate only the experts each token routes to when that is cheaper than
+        # dequantizing the whole bank (top_k vs all num_experts). Identical result
+        # either way: the non-routed experts carry zero routing weight.
+        tokens = hidden_states.shape[0]
+        if tokens is not None and tokens * self.num_experts_per_tok < self.num_experts:
+            return self._call_sparse(hidden_states, routing_weights)
+        return self._call_dense(hidden_states, routing_weights)
+
+    def _call_dense(self, hidden_states, routing_weights):
+        dtype = hidden_states.dtype
+        gate_up_proj = dequantize_mxfp4(
+            self.gate_up_proj_blocks, self.gate_up_proj_scales, dtype
+        )  # (E, 2I, H)
+        down_proj = dequantize_mxfp4(
+            self.down_proj_blocks, self.down_proj_scales, dtype
+        )  # (E, H, I)
+        gate_up = (
+            ops.einsum("th,eih->tei", hidden_states, gate_up_proj)
+            + self.gate_up_proj_bias
+        )
+        gated = self._activate(gate_up, self.num_experts)  # (T, E, I)
+        expert_out = (
+            ops.einsum("tei,ehi->teh", gated, down_proj) + self.down_proj_bias
+        )  # (T, E, H)
+        return ops.einsum("te,teh->th", routing_weights, expert_out)  # (T, H)
+
+    def _call_sparse(self, hidden_states, routing_weights):
+        # Gather + dequantize only the top_k routed experts per token. routing_weights
+        # (T, E) has exactly top_k nonzero entries per row, so top_k recovers the
+        # routed indices + weights with a static (T, k) shape.
+        dtype = hidden_states.dtype
+        weights, idx = ops.top_k(routing_weights, self.num_experts_per_tok)  # (T, k)
+        gate_up_proj = dequantize_mxfp4(
+            ops.take(self.gate_up_proj_blocks, idx, axis=0),
+            ops.take(self.gate_up_proj_scales, idx, axis=0),
+            dtype,
+        )  # (T, k, 2I, H)
+        gate_up = ops.einsum("th,tkjh->tkj", hidden_states, gate_up_proj) + ops.take(
+            self.gate_up_proj_bias, idx, axis=0
+        )  # (T, k, 2I)
+        gated = self._activate(gate_up, self.num_experts_per_tok)  # (T, k, I)
+        down_proj = dequantize_mxfp4(
+            ops.take(self.down_proj_blocks, idx, axis=0),
+            ops.take(self.down_proj_scales, idx, axis=0),
+            dtype,
+        )  # (T, k, H, I)
+        expert_out = ops.einsum("tki,tkhi->tkh", gated, down_proj) + ops.take(
+            self.down_proj_bias, idx, axis=0
+        )  # (T, k, H)
+        return ops.einsum("tk,tkh->th", weights, expert_out)  # (T, H)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "num_experts": self.num_experts,
+                "embed_dim": self.embed_dim,
+                "mlp_dim": self.mlp_dim,
+                "num_experts_per_tok": self.num_experts_per_tok,
             }
         )
         return config

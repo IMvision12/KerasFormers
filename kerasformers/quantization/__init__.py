@@ -2,11 +2,17 @@ from kerasformers.base import Quantizer
 from kerasformers.quantization.fp8_quantize import Fp8Quantizer
 from kerasformers.quantization.int4_quantize import Int4Quantizer
 from kerasformers.quantization.int8_quantize import Int8Quantizer
+from kerasformers.quantization.mxfp4_quantize import (
+    MXFP4Quantizer,
+    dequantize_mxfp4,
+    quantize_to_mxfp4,
+)
 from kerasformers.quantization.quant_config import (
     SCHEMES,
     Fp8Config,
     Int4Config,
     Int8Config,
+    Mxfp4Config,
     QuantizationConfig,
     resolve_config,
 )
@@ -20,6 +26,7 @@ from kerasformers.quantization.quantize import (
     save_quantized,
 )
 from kerasformers.quantization.quantized_layers import (
+    GptOssMXFP4Experts,
     QuantizedDense,
     QuantizedEinsumDense,
     QuantizedEmbedding,
@@ -40,6 +47,7 @@ __all__ = [
     "Int8Config",
     "Int4Config",
     "Fp8Config",
+    "Mxfp4Config",
     "SCHEMES",
     "resolve_config",
     # tensor-level quantizers + quantized layers
@@ -48,8 +56,12 @@ __all__ = [
     "Int8Quantizer",
     "Int4Quantizer",
     "Fp8Quantizer",
+    "MXFP4Quantizer",
+    "quantize_to_mxfp4",
+    "dequantize_mxfp4",
     "QuantizedDense",
     "QuantizedEinsumDense",
     "QuantizedEmbedding",
     "QuantizedExperts",
+    "GptOssMXFP4Experts",
 ]

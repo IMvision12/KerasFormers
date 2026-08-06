@@ -11,9 +11,10 @@ class QuantizationConfig:
     setups can keep sensitive layers in float and mix precisions per layer.
 
     Args:
-        mode: Default scheme for quantized layers, ``"int8"``, ``"int4"`` or
-            ``"fp8"``.
-        group_size: int4 block size along the input dim (ignored by int8/fp8).
+        mode: Default scheme for quantized layers, ``"int8"``, ``"int4"``,
+            ``"fp8"`` or ``"mxfp4"``.
+        group_size: int4 block size along the input dim (ignored by
+            int8/fp8/mxfp4; MXFP4 uses fixed 32-value blocks).
         skip_modules: Tuple of name substrings; any layer whose path contains one
             is left in float. Defaults to ``("lm_head",)`` (the output head is
             accuracy-sensitive).
@@ -31,8 +32,10 @@ class QuantizationConfig:
         quantize_embeddings=True,
         overrides=None,
     ):
-        if mode not in ("int8", "int4", "fp8"):
-            raise ValueError(f"mode must be 'int8', 'int4' or 'fp8', got {mode!r}")
+        if mode not in ("int8", "int4", "fp8", "mxfp4"):
+            raise ValueError(
+                f"mode must be 'int8', 'int4', 'fp8' or 'mxfp4', got {mode!r}"
+            )
         self.mode = mode
         self.group_size = group_size
         self.skip_modules = tuple(skip_modules)
@@ -93,6 +96,7 @@ SCHEMES = {
     "int4-g64": QuantizationConfig("int4", group_size=64),
     "int4-g128": QuantizationConfig("int4", group_size=128),
     "fp8": QuantizationConfig("fp8"),
+    "mxfp4": QuantizationConfig("mxfp4"),
 }
 
 
@@ -100,18 +104,18 @@ def resolve_config(spec, group_size=32):
     """Coerce ``spec`` to a :class:`QuantizationConfig`.
 
     ``spec`` may be a config instance, a bare mode (``"int8"`` / ``"int4"`` /
-    ``"fp8"``), or a named scheme (``"int4-g128"``, ...).
+    ``"fp8"`` / ``"mxfp4"``), or a named scheme (``"int4-g128"``, ...).
     """
     if isinstance(spec, QuantizationConfig):
         return spec
     if isinstance(spec, str):
         if spec in SCHEMES:
             return SCHEMES[spec]
-        if spec in ("int8", "int4", "fp8"):
+        if spec in ("int8", "int4", "fp8", "mxfp4"):
             return QuantizationConfig(spec, group_size=group_size)
         raise ValueError(
             f"Unknown quantization spec {spec!r}. Use a QuantizationConfig, a mode "
-            f"('int8'/'int4'/'fp8'), or a scheme {sorted(SCHEMES)}."
+            f"('int8'/'int4'/'fp8'/'mxfp4'), or a scheme {sorted(SCHEMES)}."
         )
     raise TypeError(
         f"quantization spec must be a str or QuantizationConfig, got {type(spec)}"
@@ -172,6 +176,31 @@ class Fp8Config(QuantizationConfig):
     ):
         super().__init__(
             mode="fp8",
+            skip_modules=skip_modules,
+            quantize_embeddings=quantize_embeddings,
+            overrides=overrides,
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        del config["mode"], config["group_size"]
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Mxfp4Config(QuantizationConfig):
+    """OCP MXFP4 (e2m1, fixed 32-value blocks) config.
+
+    Applies the same 4-bit float format GPT-OSS ships to any model's Dense /
+    EinsumDense / expert kernels (contracting dims must be multiples of 32).
+    Embeddings stay int8, like int4.
+    """
+
+    def __init__(
+        self, skip_modules=("lm_head",), quantize_embeddings=True, overrides=None
+    ):
+        super().__init__(
+            mode="mxfp4",
             skip_modules=skip_modules,
             quantize_embeddings=quantize_embeddings,
             overrides=overrides,
