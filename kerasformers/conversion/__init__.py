@@ -3,7 +3,11 @@ from kerasformers.conversion.exceptions import (
     WeightMappingError,
     WeightShapeMismatchError,
 )
-from kerasformers.conversion.file_downloader import download_file, validate_url
+from kerasformers.conversion.file_downloader import (
+    download_file,
+    download_weights,
+    validate_url,
+)
 from kerasformers.conversion.hf_download_utils import load_and_convert_from_hf
 from kerasformers.conversion.kf_config import (
     KF_METADATA_KEYS,

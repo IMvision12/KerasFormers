@@ -8,7 +8,7 @@ import keras
 from huggingface_hub import hf_hub_download
 
 from kerasformers.base import base_attention
-from kerasformers.conversion import download_file
+from kerasformers.conversion import download_weights
 from kerasformers.conversion.hf_download_utils import (
     download_hf_state_dict,
 )
@@ -402,30 +402,14 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         (downloads each shard listed in ``weight_map`` from the same release),
         and a bare HF-repo URL (``https://huggingface.co/<org>/<repo>``), which is
         resolved to the repo's ``model.weights.h5`` / ``model.weights.json``.
+
+        The download is delegated to :func:`~kerasformers.conversion.\
+download_weights`: a Hugging Face repo is fetched through the HF cache
+        (concurrent shards, resume, Xet, reuse across runs); any other URL
+        streams directly.
         """
         url = resolve_weights_url(url)
-        if url.lower().endswith(".json"):
-            json_path = download_file(url)
-            with open(json_path, "r") as f:
-                index = json.load(f)
-            if "weight_map" not in index:
-                raise ValueError(
-                    f"Sharded weights index '{url}' must contain 'weight_map'."
-                )
-            base_url = "/".join(url.split("/")[:-1])
-            # weight_map values are a shard filename (older keras) or a list of
-            # shard filenames per weight group (keras >= 3.14).
-            shard_files = set()
-            for value in index["weight_map"].values():
-                if isinstance(value, list):
-                    shard_files.update(value)
-                else:
-                    shard_files.add(value)
-            for shard_file in sorted(shard_files):
-                download_file(f"{base_url}/{shard_file}")
-            model.load_weights(json_path, skip_mismatch=skip_mismatch)
-        else:
-            model.load_weights(download_file(url), skip_mismatch=skip_mismatch)
+        model.load_weights(download_weights(url), skip_mismatch=skip_mismatch)
 
     @classmethod
     def from_variant(
