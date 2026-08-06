@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .gemma_config import GEMMA_CONFIG, GEMMA_WEIGHTS_URLS
+from .gemma_config import GemmaConfig
 from .gemma_layers import GemmaDecoderLayer, GemmaRMSNorm
 
 MASK_NEG = -1e9
@@ -20,7 +20,7 @@ class GemmaModel(SubclassedBaseModel):
     K/V head), and a tied LM head. Subclassed (imperative) model; returns
     raw features: use :class:`GemmaGenerate` for logits / text.
 
-        model = GemmaModel.from_weights("gemma-2b")
+        model = GemmaModel.from_weights("kerasformers/gemma-2b")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
 
     Args:
@@ -38,8 +38,7 @@ class GemmaModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "gemma"
-    BASE_MODEL_CONFIG = GEMMA_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA_WEIGHTS_URLS
+    config_class = GemmaConfig
 
     def __init__(
         self,
@@ -180,7 +179,7 @@ class GemmaGenerate(GemmaModel, BaseGeneration):
     ``build_cache`` / ``call_with_cache``. Constructor ``Args`` are inherited
     from :class:`GemmaModel`.
 
-        gen = GemmaGenerate.from_weights("gemma-2b-it")
+        gen = GemmaGenerate.from_weights("kerasformers/gemma-2b-it")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

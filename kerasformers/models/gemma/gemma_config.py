@@ -1,61 +1,56 @@
-GEMMA_CONFIG = {
-    "gemma-2b": {
-        "embed_dim": 2048,
-        "mlp_dim": 16384,
-        "num_layers": 18,
-        "num_heads": 8,
-        "num_kv_heads": 1,
-    },
-    "gemma-2b-it": {
-        "embed_dim": 2048,
-        "mlp_dim": 16384,
-        "num_layers": 18,
-        "num_heads": 8,
-        "num_kv_heads": 1,
-    },
-    "gemma-1.1-2b-it": {
-        "embed_dim": 2048,
-        "mlp_dim": 16384,
-        "num_layers": 18,
-        "num_heads": 8,
-        "num_kv_heads": 1,
-    },
-    "gemma-7b": {
-        "embed_dim": 3072,
-        "mlp_dim": 24576,
-        "num_layers": 28,
-        "num_heads": 16,
-        "num_kv_heads": 16,
-    },
-    "gemma-7b-it": {
-        "embed_dim": 3072,
-        "mlp_dim": 24576,
-        "num_layers": 28,
-        "num_heads": 16,
-        "num_kv_heads": 16,
-    },
-    "gemma-1.1-7b-it": {
-        "embed_dim": 3072,
-        "mlp_dim": 24576,
-        "num_layers": 28,
-        "num_heads": 16,
-        "num_kv_heads": 16,
-    },
-}
+from kerasformers.base import BaseConfig
 
-GEMMA_WEIGHTS_URLS = {
-    "gemma-2b": {"hf_id": "google/gemma-2b", "gated": True, "safetensors": True},
-    "gemma-2b-it": {"hf_id": "google/gemma-2b-it", "gated": True, "safetensors": True},
-    "gemma-1.1-2b-it": {
-        "hf_id": "google/gemma-1.1-2b-it",
-        "gated": True,
-        "safetensors": True,
-    },
-    "gemma-7b": {"hf_id": "google/gemma-7b", "gated": True, "safetensors": True},
-    "gemma-7b-it": {"hf_id": "google/gemma-7b-it", "gated": True, "safetensors": True},
-    "gemma-1.1-7b-it": {
-        "hf_id": "google/gemma-1.1-7b-it",
-        "gated": True,
-        "safetensors": True,
-    },
-}
+
+class GemmaConfig(BaseConfig):
+    r"""Configuration for Gemma: [`GemmaModel`] and [`GemmaGenerate`].
+
+    Gemma is Google's decoder-only transformer: `(1 + w)` RMSNorm, GeGLU
+    (tanh-approximate gelu) MLPs, scaled token embeddings, a `head_dim` (256)
+    decoupled from `embed_dim // num_heads` (the 2B is multi-query, one K/V head),
+    rotary positions, and a tied LM head. One `kf_config.json` sits on each
+    variant's repo, and fields mirror the model constructor and serialize flat.
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 256000):
+            Token vocabulary size.
+        embed_dim (`int`, *optional*, defaults to 2048):
+            Model (hidden) width.
+        mlp_dim (`int`, *optional*, defaults to 16384):
+            GeGLU hidden width per layer.
+        num_layers (`int`, *optional*, defaults to 18):
+            Number of decoder blocks.
+        num_heads (`int`, *optional*, defaults to 8):
+            Number of query attention heads.
+        num_kv_heads (`int`, *optional*, defaults to 1):
+            Number of key/value heads (1 = multi-query, as in the 2B).
+        head_dim (`int`, *optional*, defaults to 256):
+            Per-head dimension (decoupled from `embed_dim // num_heads`).
+        norm_eps (`float`, *optional*, defaults to 1e-6):
+            RMSNorm epsilon.
+        rope_theta (`float`, *optional*, defaults to 10000.0):
+            Rotary base frequency.
+        tie_embeddings (`bool`, *optional*, defaults to `True`):
+            Whether [`GemmaGenerate`] ties the LM head to the token embedding.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.gemma import GemmaConfig, GemmaGenerate
+
+    >>> configuration = GemmaConfig(embed_dim=3072, num_layers=28, num_heads=16)
+    >>> model = GemmaGenerate(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "gemma"
+
+    vocab_size: int = 256000
+    embed_dim: int = 2048
+    mlp_dim: int = 16384
+    num_layers: int = 18
+    num_heads: int = 8
+    num_kv_heads: int = 1
+    head_dim: int = 256
+    norm_eps: float = 1e-6
+    rope_theta: float = 10000.0
+    tie_embeddings: bool = True
