@@ -371,6 +371,12 @@ class Gemma3Model(SubclassedBaseModel):
         return full, sliding
 
     def prepare_inputs(self, input_ids, pixel_values, attention_mask):
+        if pixel_values is not None and self.vision_tower is None:
+            raise ValueError(
+                "This Gemma3 variant is text-only (no vision tower), so it cannot "
+                "process images. Use a multimodal variant such as 'gemma-3-4b-it' "
+                "(or 12b / 27b) for image inputs."
+            )
         input_ids = ops.cast(ops.convert_to_tensor(input_ids), "int32")
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         inputs_embeds = self.embed_scaled(input_ids)
