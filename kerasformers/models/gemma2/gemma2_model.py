@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .gemma2_config import GEMMA2_CONFIG, GEMMA2_WEIGHTS_URLS
+from .gemma2_config import Gemma2Config
 from .gemma2_layers import Gemma2DecoderLayer, Gemma2RMSNorm
 
 MASK_NEG = -1e9
@@ -21,7 +21,7 @@ class Gemma2Model(SubclassedBaseModel):
     Returns raw features; use :class:`Gemma2Generate` for logits / text
     (which also applies the final-logit softcap, 30.0).
 
-        model = Gemma2Model.from_weights("gemma-2-2b")
+        model = Gemma2Model.from_weights("kerasformers/gemma-2-2b")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
 
     Args:
@@ -43,8 +43,7 @@ class Gemma2Model(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "gemma2"
-    BASE_MODEL_CONFIG = GEMMA2_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA2_WEIGHTS_URLS
+    config_class = Gemma2Config
 
     def __init__(
         self,
@@ -218,7 +217,7 @@ class Gemma2Generate(Gemma2Model, BaseGeneration):
     ``call_with_cache``, respecting the per-layer full / sliding masks.
     Constructor ``Args`` are inherited from :class:`Gemma2Model`.
 
-        gen = Gemma2Generate.from_weights("gemma-2-2b-it")
+        gen = Gemma2Generate.from_weights("kerasformers/gemma-2-2b-it")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
