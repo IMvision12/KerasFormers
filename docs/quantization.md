@@ -1,10 +1,10 @@
-# Quantization (int8 / int4 / fp8)
+# Quantization (int8 / int4 / fp8 / mxfp4)
 
-kerasformers ships its **own** weight-only int8 / int4 / fp8 quantization in
+kerasformers ships its **own** weight-only int8 / int4 / fp8 / mxfp4 quantization in
 `kerasformers/quantization/`: a from-scratch, backend-agnostic implementation
 (pure `keras.ops`), not Keras's built-in `model.quantize`. It shrinks a model
-~4× (int8 / fp8) or ~8× (int4) so larger checkpoints fit in memory. int8 / int4
-run on TensorFlow / Torch / JAX; fp8 (float8-e4m3) is torch / jax only.
+~4× (int8 / fp8) or ~8× (int4 / mxfp4) so larger checkpoints fit in memory. int8 /
+int4 / mxfp4 run on TensorFlow / Torch / JAX; fp8 (float8-e4m3) is torch / jax only.
 
 ## Choosing a scheme
 
@@ -13,13 +13,15 @@ run on TensorFlow / Torch / JAX; fp8 (float8-e4m3) is torch / jax only.
 | [**int8**](quantization_int8.md) | ~3.8× smaller | ~0.9999 | all three | The default. Near-free accuracy, use it whenever it fits. |
 | [**int4**](quantization_int4.md) | ~5.8–8× smaller | ~0.98 | all three | int8 does not fit. Block-wise, `group_size` is the knob. |
 | [**fp8**](quantization_fp8.md) | ~3.8× smaller | ~0.9994 | torch / jax | Same size as int8, better on heavy-tailed weights. Measure both. |
+| [**mxfp4**](quantization_mxfp4.md) | ~8× smaller | ~0.98 | all three | 4-bit *float* (OCP e2m1). The format GPT-OSS ships; contracting dims must be multiples of 32. |
 
 Each page covers that scheme's math, storage layout, measured accuracy, and its own config
 class. The rest of this page is the machinery they share.
 
-> **[MXFP4](quantization_mxfp4.md)** is a special case: not a `quantize_model` scheme but
-> the 4-bit format OpenAI's GPT-OSS ships its experts in, which kerasformers keeps packed
-> and dequantizes on the fly rather than applying to arbitrary models.
+> **[MXFP4](quantization_mxfp4.md)** does double duty: it is both a general
+> `quantize_model(model, "mxfp4")` scheme (applied to any model whose kernels have
+> 32-multiple contracting dims) **and** the native on-disk format of GPT-OSS, whose
+> experts are shipped packed and dequantized on the fly with the same primitives.
 
 ## Quick start
 
@@ -37,6 +39,7 @@ from kerasformers.quantization import quantize_model
 quantize_model(model, "int8")  # in place
 quantize_model(model, "int4", group_size=64)  # int4 block size (default 32)
 quantize_model(model, "fp8")  # float8 e4m3 (torch / jax)
+quantize_model(model, "mxfp4")  # OCP 4-bit float, fixed 32-value blocks
 ```
 
 `quantization=` is wired through `from_weights` for every model (Hub Keras repos,
@@ -111,14 +114,17 @@ backend-agnostic.
   per block of `group_size`, packed two values per byte.
 - **[fp8](quantization_fp8.md)**: per-channel absmax cast into the native
   `float8_e4m3fn` dtype, `scale = max|w| / 448`. torch / jax only.
+- **[mxfp4](quantization_mxfp4.md)**: OCP 4-bit float (e2m1) in fixed 32-value
+  blocks, each with a shared e8m0 (power-of-two) `uint8` scale; values pack two
+  per byte. Same ~8× as int4, but a *float* grid and a `uint8` (not fp32) scale.
 - **Embeddings**: int8 with a per-row scale; the lookup gathers int8 rows and
-  dequantizes only the gathered slice (for both `int8` and `int4` model modes,
+  dequantizes only the gathered slice (for the `int4` and `mxfp4` model modes,
   embeddings stay int8: the 4-bit savings live in the Dense weights).
 
 **N-D kernels.** Quantization is along the **contracting axis**, not a hardcoded
 `axis=0`, so the same quantizers serve 2-D `Dense` kernels, N-D `EinsumDense`
 kernels (axis derived from the equation: a tuple for int8/fp8, a single axis for
-packed int4), per-row embeddings (`axis=1`), and fused MoE expert banks
+packed int4 / mxfp4), per-row embeddings (`axis=1`), and fused MoE expert banks
 (`axis=-1`). Scales keep the reduced axes as size 1 so they broadcast over any
 rank with no reshape.
 
@@ -146,17 +152,18 @@ class plus one file per scheme:
 | `Int8Quantizer` | `int8_quantize.py` | per-channel int8 quantizer (quantize / dequantize methods) |
 | `Int4Quantizer` | `int4_quantize.py` | block-wise packed int4 quantizer (any axis via moveaxis; module `effective_group_size`) |
 | `Fp8Quantizer` | `fp8_quantize.py` | per-channel float8-e4m3 quantizer (module `fp8_supported`; torch / jax) |
+| `MXFP4Quantizer` | `mxfp4_quantize.py` | OCP MXFP4 (e2m1) quantizer, single packed axis, `uint8` e8m0 scale (also `quantize_to_mxfp4` / `dequantize_mxfp4` pack / unpack) |
 | `QuantizedDense` / `QuantizedEinsumDense` / `QuantizedEmbedding` / `QuantizedExperts` | `quantized_layers.py` | weight-only drop-in layers (each holds a quantizer); `QuantizedExperts` = fused MoE expert bank, contracting-axis quantized |
-| `dequantize_mxfp4` / `quantize_to_mxfp4` | `mxfp4_quantize.py` | backend-agnostic MXFP4 pack / unpack (GPT-OSS experts; see [mxfp4](quantization_mxfp4.md)) |
-| `GptOssMXFP4Experts` | `mxfp4_experts.py` | GPT-OSS MoE expert bank kept in MXFP4, dequantized in `call` |
-| `QuantizationConfig` / `Int8Config` / `Int4Config` / `Fp8Config` / `SCHEMES` | `quant_config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + per-method configs + named presets |
+| `GptOssMXFP4Experts` | `quantized_layers.py` | GPT-OSS MoE expert bank kept in MXFP4 (native on-disk format), dequantized in `call` (top-k sparse on decode) |
+| `QuantizationConfig` / `Int8Config` / `Int4Config` / `Fp8Config` / `Mxfp4Config` / `SCHEMES` | `quant_config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + per-method configs + named presets |
 | `quantize_model` / `quantize_functional` | `quantize.py` | in-place (subclassed) / clone (functional) model surgery |
 | `quantize_skeleton` / `quantize_and_load` | `quantize.py` | no-float int skeleton / stream a float checkpoint into int storage |
 | `save_quantized` / `load_quantized` / `dequantize_model` | `quantize.py` | persist (+ `.quant.json`) / reload / revert |
 
-A `QuantizedDense` holds an `Int8Quantizer` / `Int4Quantizer` / `Fp8Quantizer`
-(via `get_quantizer(mode, group_size)`) and uses it for `storage_spec` (build),
-`quantize` (from a float `Dense`), and `dequantize` (in `call`).
+A `QuantizedDense` holds an `Int8Quantizer` / `Int4Quantizer` / `Fp8Quantizer` /
+`MXFP4Quantizer` (via `get_quantizer(mode, group_size)`) and uses it for
+`storage_spec` (build), `quantize` (from a float `Dense`), and `dequantize` (in
+`call`).
 
 ## Will it fit? (memory sizing)
 

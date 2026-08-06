@@ -16,7 +16,7 @@ from .quantized_layers import (
 
 
 def quantize_model(model, config="int8", group_size=32):
-    """In-place weight-only int8 / int4 / fp8 quantization of a (built) model.
+    """In-place weight-only int8 / int4 / fp8 / mxfp4 quantization of a model.
 
     Walks the layer tree and swaps every eligible built ``keras.layers.Dense``
     for a :class:`QuantizedDense` and ``keras.layers.Embedding`` for a
@@ -26,9 +26,11 @@ def quantize_model(model, config="int8", group_size=32):
     Args:
         model: A built model (weights already loaded).
         config: A :class:`QuantizationConfig`, a bare mode (``"int8"`` /
-            ``"int4"`` / ``"fp8"``), or a named scheme (``"int4-g128"``, ...).
-            The config controls per-layer precision, skipped layers, and whether
-            embeddings are quantized.
+            ``"int4"`` / ``"fp8"`` / ``"mxfp4"``), or a named scheme
+            (``"int4-g128"``, ...). The config controls per-layer precision,
+            skipped layers, and whether embeddings are quantized. ``"mxfp4"``
+            (OCP 4-bit float, the format GPT-OSS ships) needs each quantized
+            kernel's contracting dim to be a multiple of 32.
         group_size: int4 block size when ``config`` is a bare mode string.
 
     Returns:

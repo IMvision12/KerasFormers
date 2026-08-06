@@ -1,7 +1,7 @@
 import keras
 
 from kerasformers.base.base_config import BaseConfig
-from kerasformers.base.base_mixin import WeightLoadingMixin
+from kerasformers.base.base_mixin import WeightLoadingMixin, inference_scope
 
 _KerasModelMeta = type(keras.Model)
 
@@ -86,5 +86,10 @@ class SubclassedBaseModel(WeightLoadingMixin, keras.Model, metaclass=_ConfigMode
         runs the minimal forward that materializes them: a length-4 ``input_ids``
         batch, the text-LLM signature. Non-text subclassed models (VLMs, ASR)
         override with a signature-matching dummy input.
+
+        Runs under :func:`inference_scope` so the build forward is graph-free on
+        torch (an MXFP4 build would otherwise retain each layer's dequantized
+        experts and OOM a large checkpoint).
         """
-        self({"input_ids": keras.ops.zeros((1, 4), dtype="int32")})
+        with inference_scope():
+            self({"input_ids": keras.ops.zeros((1, 4), dtype="int32")})
