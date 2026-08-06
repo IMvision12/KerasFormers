@@ -173,17 +173,17 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 2880)
 model = GptOssGenerate.from_weights("hf:openai/gpt-oss-20b")
 ```
 
-### Lower memory
+### Precision
 
-The 120B checkpoint needs a big machine (~66 GB RAM, or an 80 GB GPU under a
-`bfloat16` policy, since loading builds the full model). Set a bfloat16 policy before
-building so the dense weights and compute are half-size (the experts are already 4-bit
-MXFP4):
+GPT-OSS loads in **bfloat16 by default** (the dense weights are bf16, the experts stay
+4-bit MXFP4), matching how OpenAI ships it, so `from_weights` keeps the native
+~2 bytes/param footprint instead of upcasting to fp32. To force fp32 (double the dense
+memory), pass `load_dtype="float32"`:
 
 ```python
-import keras
-
-keras.config.set_dtype_policy("bfloat16")  # before building / loading
-
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-120b")
+model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b")                    # bf16 (default)
+model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b", load_dtype="float32")  # fp32
 ```
+
+The 120B checkpoint still needs a big machine (loading builds the full model), but at bf16
+that is ~66 GB rather than ~130 GB: an 80 GB GPU fits it under the default policy.

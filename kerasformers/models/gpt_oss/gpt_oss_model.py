@@ -82,6 +82,13 @@ class GptOssModel(SubclassedBaseModel):
     HF_MODEL_TYPE = "gpt_oss"
     config_class = GptOssConfig
 
+    # TODO : Auto Detection of weights from hub
+    # OpenAI ships GPT-OSS as bf16 dense + MXFP4 experts, and the hosted
+    # kerasformers weights match. Default from_weights() to bf16 so the loaded
+    # model keeps that native ~2 bytes/param footprint (pass load_dtype="float32"
+    # to upcast). The experts stay uint8 MXFP4 regardless of this policy.
+    default_load_dtype = "bfloat16"
+
     def __init__(
         self,
         vocab_size=201088,
