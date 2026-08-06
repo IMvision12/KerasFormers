@@ -644,11 +644,31 @@ class GptOssMXFP4Experts(layers.Layer):
         return (up + 1.0) * (gate * ops.sigmoid(gate * self.alpha))
 
     def call(self, hidden_states, routing_weights):
+        # Prefill routes many tokens at once, and each routed expert dequantizes to
+        # a large bf16 tensor, so process the tokens in fixed-size chunks to bound
+        # the per-forward dequant peak. (transformers avoids the materialized dequant
+        # entirely with a fused Triton kernel, or chunks the *weight* dequant at load
+        # via rows_per_chunk; token-chunking the forward is the backend-agnostic
+        # equivalent here.) A single-token decode (tokens <= chunk) runs in one pass;
+        # tokens is static at trace time, and a whole-tensor pass is the fallback.
+        tokens = hidden_states.shape[0]
+        chunk = max(1, 16 // self.num_experts_per_tok)
+        if tokens is not None and tokens > chunk:
+            return ops.concatenate(
+                [
+                    self._route(
+                        hidden_states[i : i + chunk], routing_weights[i : i + chunk]
+                    )
+                    for i in range(0, tokens, chunk)
+                ],
+                axis=0,
+            )
+        return self._route(hidden_states, routing_weights)
+
+    def _route(self, hidden_states, routing_weights):
         # Evaluate only the experts each token routes to when that is cheaper than
-        # dequantizing the whole bank (e.g. single-token decode: top_k vs all
-        # num_experts). Identical result either way: the non-routed experts carry
-        # zero routing weight. tokens is static at trace time; fall back to dense
-        # when it is unknown.
+        # dequantizing the whole bank (top_k vs all num_experts). Identical result
+        # either way: the non-routed experts carry zero routing weight.
         tokens = hidden_states.shape[0]
         if tokens is not None and tokens * self.num_experts_per_tok < self.num_experts:
             return self._call_sparse(hidden_states, routing_weights)
