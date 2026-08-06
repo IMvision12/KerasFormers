@@ -80,7 +80,7 @@ def dequantize_mxfp4(blocks, scales, dtype="float32"):
     ``(..., G * 32)`` with the two nibbles interleaved (low, high), i.e. the
     per-block layout before any axis transpose.
     """
-    table = ops.convert_to_tensor(np.asarray(FP4_VALUES, dtype="float32"))
+    table = ops.cast(ops.convert_to_tensor(np.asarray(FP4_VALUES, "float32")), dtype)
     packed = ops.cast(blocks, "int32")
     low = ops.take(table, ops.bitwise_and(packed, 0x0F), axis=0)  # (..., G, 16)
     high = ops.take(table, ops.right_shift(packed, 4), axis=0)  # (..., G, 16)
@@ -88,8 +88,8 @@ def dequantize_mxfp4(blocks, scales, dtype="float32"):
     *prefix, groups, _, _ = values.shape
     values = ops.reshape(values, (*prefix, groups, 32))  # interleaved lo, hi
     exponent = ops.cast(scales, "float32") - 127.0
-    scale = ops.expand_dims(ops.power(2.0, exponent), axis=-1)  # (..., G, 1)
-    out = ops.cast(values * scale, dtype)
+    scale = ops.cast(ops.expand_dims(ops.power(2.0, exponent), axis=-1), dtype)
+    out = values * scale
     return ops.reshape(out, (*prefix, groups * 32))
 
 

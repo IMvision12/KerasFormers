@@ -152,7 +152,7 @@ outputs = model.generate(**inputs, max_new_tokens=256)  # reasoning model: leave
 
 # GPT-OSS emits a Harmony turn (analysis + final channels); decode_message splits them.
 message = tokenizer.decode_message(outputs[0])
-print(message["content"])   # the answer
+print(message["content"])  # the answer
 print(message.get("thinking"))  # the chain-of-thought, when present
 ```
 
@@ -194,8 +194,10 @@ GPT-OSS loads in **bfloat16 by default** (the dense weights are bf16, the expert
 memory), pass `load_dtype="float32"`:
 
 ```python
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b")                    # bf16 (default)
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b", load_dtype="float32")  # fp32
+model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b")  # bf16 (default)
+model = GptOssGenerate.from_weights(
+    "kerasformers/gpt-oss-20b", load_dtype="float32"
+)  # fp32
 ```
 
 The 120B checkpoint still needs a big machine (loading builds the full model), but at bf16

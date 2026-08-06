@@ -51,7 +51,9 @@ The `mxfp4_experts` config field toggles it when you build a model yourself:
 ```python
 from kerasformers.models.gpt_oss import GptOssConfig, GptOssGenerate
 
-GptOssGenerate(GptOssConfig(mxfp4_experts=True))   # packed uint8 experts (hosted default)
+GptOssGenerate(
+    GptOssConfig(mxfp4_experts=True)
+)  # packed uint8 experts (hosted default)
 GptOssGenerate(GptOssConfig(mxfp4_experts=False))  # experts expanded to float at build
 ```
 
@@ -73,14 +75,16 @@ backend-agnostic pack / unpack and the `Quantizer` that wraps them:
 
 ```python
 from kerasformers.quantization import (
-    MXFP4Quantizer, quantize_to_mxfp4, dequantize_mxfp4,
+    MXFP4Quantizer,
+    quantize_to_mxfp4,
+    dequantize_mxfp4,
 )
 
-blocks, scales = quantize_to_mxfp4(w)        # float -> packed (uint8 blocks + e8m0 scales)
+blocks, scales = quantize_to_mxfp4(w)  # float -> packed (uint8 blocks + e8m0 scales)
 w_approx = dequantize_mxfp4(blocks, scales)  # packed -> float
 
-q = MXFP4Quantizer()                          # the quantize_model building block
-packed, scale = q.quantize(w, axis=0)         # single packed axis (moved to the end)
+q = MXFP4Quantizer()  # the quantize_model building block
+packed, scale = q.quantize(w, axis=0)  # single packed axis (moved to the end)
 w_approx = q.dequantize(packed, scale, axis=0, dtype="float32")
 ```
 
