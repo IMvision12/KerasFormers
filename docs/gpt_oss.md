@@ -16,9 +16,9 @@ standard decoder it adds:
 - **Mixture-of-experts feed-forward**: a top-`num_experts_per_tok` router selects
   experts whose softmax weights combine per-expert outputs, with GPT-OSS's clamped
   gated-SiLU on the interleaved gate/up halves (`(up+1) * gate*sigmoid(1.702*gate)`,
-  clamp 7). Experts are evaluated densely (every expert, masked by the routing
-  weights): exact and backend-agnostic, but heavy over all 32/128 experts on long
-  sequences.
+  clamp 7). The expert bank evaluates only the routed experts on single-token decode
+  and the full bank on longer prefills (see MXFP4 experts below); both are exact and
+  backend-agnostic.
 - **Attention sinks**: a learned per-head logit is appended to the attention scores
   before softmax and dropped afterward, letting a head attend to "nothing".
 - **Alternating attention**: even layers use a `sliding_window` (128) local span;
@@ -27,11 +27,15 @@ standard decoder it adds:
   4096) with the mscale cos/sin factor.
 - **MXFP4 experts**: the experts stay packed in MXFP4 (uint8 nibble blocks + e8m0
   scales) exactly as OpenAI ships them and are dequantized on the fly in the expert
-  layer's `call` (weight-only: memory, not speed), keeping the official
-  ~13 GB / ~65 GB footprint instead of a ~4x larger bf16 expansion. The dequant is a
+  layer's `call`, keeping the official ~13 GB / ~65 GB footprint instead of a ~4x
+  larger bf16 expansion. On single-token **decode** only the top-`num_experts_per_tok`
+  routed experts are dequantized (~8x less than the full 32/128-expert bank, and
+  faster); longer **prefills** dequantize the whole bank once (cheaper when many
+  tokens share experts). Both paths give identical results. The dequant is a
   backend-agnostic `keras.ops` port of HF's `convert_moe_packed_tensors`, so it runs
   on every backend including CPU. Pass `mxfp4_experts=False` to expand the experts to
-  float at build instead.
+  float at build instead. See [mxfp4](quantization_mxfp4.md) for the format and using
+  it as a general `quantize_model` scheme.
 
 Links:
 
@@ -121,6 +125,12 @@ Calling it returns `{"input_ids", "attention_mask"}`, padded across the batch. I
 accepts a plain string, a list of strings (a batch), or a chat-message list, which is
 routed through `apply_chat_template` automatically.
 
+`decode_message(ids)` turns a generated turn into a Harmony-aware chat dict,
+`{"role": "assistant", "content": <final answer>, "thinking": <reasoning>}`: it pulls
+the `final` channel into `content` and the `analysis` channel into `thinking` (added
+only when present), so the reasoning is separated out instead of munged into the
+answer. `parse_harmony(ids)` returns the raw `(final, reasoning)` pair.
+
 ## End-to-end example
 
 ### Single input
@@ -138,9 +148,12 @@ tokenizer = GptOssTokenizer.from_weights("kerasformers/gpt-oss-20b")
 inputs = tokenizer(
     [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
 )
-outputs = model.generate(**inputs, max_new_tokens=64)
+outputs = model.generate(**inputs, max_new_tokens=256)  # reasoning model: leave room
 
-print(tokenizer.decode(outputs[0]))
+# GPT-OSS emits a Harmony turn (analysis + final channels); decode_message splits them.
+message = tokenizer.decode_message(outputs[0])
+print(message["content"])   # the answer
+print(message.get("thinking"))  # the chain-of-thought, when present
 ```
 
 ### Batch
