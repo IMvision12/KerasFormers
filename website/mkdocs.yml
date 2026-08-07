@@ -79,6 +79,7 @@ nav:
 
   - Models:
       - Main Classes: main_classes.md
+      - Configuration: configuration.md
       - Text models:
           - BERT: bert.md
           - Cohere: cohere.md

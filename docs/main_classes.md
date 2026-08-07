@@ -7,6 +7,7 @@ call, the same `generate`.
 
 ```python
 from kerasformers.base import (
+    BaseConfig,
     FunctionalBaseModel,
     SubclassedBaseModel,
     BaseGeneration,
@@ -47,10 +48,27 @@ model take any sequence length.
 
 Both share the loading interface below.
 
+## Configuration
+
+### BaseConfig
+
+```python
+class BaseConfig
+```
+
+Every model carries a typed config, a `BaseConfig` subclass whose annotated fields are the
+architecture hyperparameters. Model constructors stay flat while the config serializes
+nested (the `text_config` / `vision_config` blocks you see in `kf_config.json`), and
+BaseConfig bridges the two: `constructor_kwargs()` flattens a config for the model, and
+`to_dict()` / `from_dict()` handle serialization. You rarely build one by hand, since
+`from_weights` reconstructs it from the repo, but the [Configuration](configuration.md)
+page covers the field system, the composite `sub_configs` layout, and the sub-config
+classes each model exports.
+
 ## Loading Weights
 
-Every model and preprocessor inherits these classmethods. What each source actually does —
-Hub Keras repos, bare-variant on-the-fly conversion, `hf:` conversion, and caching — is
+Every model and preprocessor inherits these classmethods. What each source actually does
+(Hub Keras repos, bare-variant on-the-fly conversion, `hf:` conversion, and caching) is
 covered in [Loading Weights](loading_weights.md).
 
 ### from_weights
