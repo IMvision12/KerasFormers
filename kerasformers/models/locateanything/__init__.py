@@ -1,5 +1,7 @@
 from kerasformers.models.locateanything.locateanything_config import (
     LocateAnythingConfig,
+    LocateAnythingTextConfig,
+    LocateAnythingVisionConfig,
 )
 from kerasformers.models.locateanything.locateanything_image_processor import (
     LocateAnythingImageProcessor,
@@ -30,4 +32,6 @@ __all__ = [
     "locate_prompt",
     "TASK_PROMPTS",
     "LocateAnythingConfig",
+    "LocateAnythingTextConfig",
+    "LocateAnythingVisionConfig",
 ]

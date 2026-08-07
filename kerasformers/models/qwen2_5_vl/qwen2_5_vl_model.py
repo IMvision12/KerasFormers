@@ -427,6 +427,7 @@ class Qwen2_5VLModel(Qwen2VLModel):
     """
 
     HF_MODEL_TYPE = "qwen2_5_vl"
+    default_load_dtype = "bfloat16"
     BASE_MODEL_CONFIG = QWEN2_5_VL_CONFIG
     BASE_WEIGHT_CONFIG = QWEN2_5_VL_WEIGHTS_URLS
 

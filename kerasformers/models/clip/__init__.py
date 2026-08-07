@@ -1,4 +1,8 @@
-from .clip_config import CLIPConfig
+from .clip_config import (
+    CLIPConfig,
+    CLIPTextConfig,
+    CLIPVisionConfig,
+)
 from .clip_image_processor import CLIPImageProcessor
 from .clip_model import (
     CLIPImageClassify,
@@ -24,4 +28,6 @@ __all__ = [
     "CLIPProcessor",
     "CLIPTokenizer",
     "CLIPConfig",
+    "CLIPTextConfig",
+    "CLIPVisionConfig",
 ]

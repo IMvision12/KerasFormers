@@ -1,4 +1,8 @@
-from kerasformers.models.deepseek_vl.deepseek_vl_config import DeepseekVLConfig
+from kerasformers.models.deepseek_vl.deepseek_vl_config import (
+    DeepseekVLConfig,
+    DeepseekVLTextConfig,
+    DeepseekVLVisionConfig,
+)
 from kerasformers.models.deepseek_vl.deepseek_vl_image_processor import (
     DeepseekVLImageProcessor,
 )
@@ -12,6 +16,8 @@ from kerasformers.models.deepseek_vl.deepseek_vl_tokenizer import DeepseekVLToke
 
 __all__ = [
     "DeepseekVLConfig",
+    "DeepseekVLTextConfig",
+    "DeepseekVLVisionConfig",
     "DeepseekVLModel",
     "DeepseekVLGenerate",
     "DeepseekVLVisionModel",

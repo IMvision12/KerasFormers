@@ -170,12 +170,13 @@ class WeightLoadingMixin:
     # a ``generate(...)`` method. Written into a repo's kf_config.json under
     # ``generate_args`` and re-attached to the model on repo-id load.
     generate_args = None
-    # Default ``load_dtype`` for :meth:`from_weights` when the caller passes none.
-    # Set by models whose official checkpoints ship in a specific precision (e.g.
-    # GPT-OSS ships bf16 dense + MXFP4 experts), so loading their hosted weights
-    # stays at that native precision instead of upcasting to fp32. Pass
-    # ``load_dtype="float32"`` to override back to fp32.
-    default_load_dtype = None
+    # Default ``load_dtype`` for :meth:`from_weights` when the caller passes none,
+    # and the ``dtype`` recorded into a repo's kf_config.json. Defaults to float32
+    # (the historical convention for the hosted vision / encoder / ASR weights);
+    # models whose hosted weights are bf16 (gemma*, gpt-oss, qwen*, locateanything)
+    # override to ``"bfloat16"`` so they load at native ~2 bytes/param instead of an
+    # fp32 upcast. Pass ``load_dtype=...`` to override per call.
+    default_load_dtype = "float32"
 
     @classmethod
     def from_weights(
@@ -544,8 +545,10 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         BASE_MODEL_CONFIG fallback). No model_class guard, no weight loading."""
         from kerasformers.conversion.kf_config import KF_METADATA_KEYS, retuple
 
-        if spec is not None and "config" in spec:
-            # legacy nested format: constructor kwargs under a "config" key.
+        if spec is not None and isinstance(spec.get("config"), dict):
+            # legacy nested format: constructor kwargs under a "config" *dict* key.
+            # (Guard on dict: some models, e.g. MobileNet, have a flat field literally
+            # named "config" whose value is an arch string, not the legacy wrapper.)
             return retuple(spec["config"])
         if spec is not None:
             # flat format: hyperparameters at the top level (transformers style).

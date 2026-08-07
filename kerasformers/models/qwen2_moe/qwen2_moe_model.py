@@ -36,6 +36,7 @@ class Qwen2MoeModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "qwen2_moe"
+    default_load_dtype = "bfloat16"
     BASE_MODEL_CONFIG = QWEN2_MOE_CONFIG
     BASE_WEIGHT_CONFIG = QWEN2_MOE_WEIGHTS_URLS
 

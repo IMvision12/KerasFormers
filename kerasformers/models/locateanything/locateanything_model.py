@@ -23,6 +23,7 @@ class LocateAnythingModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "locateanything"
+    default_load_dtype = "bfloat16"
     BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     config_class = LocateAnythingConfig

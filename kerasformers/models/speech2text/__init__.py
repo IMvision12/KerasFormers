@@ -1,4 +1,8 @@
-from .speech2text_config import Speech2TextConfig
+from .speech2text_config import (
+    Speech2TextAudioConfig,
+    Speech2TextConfig,
+    Speech2TextTextConfig,
+)
 from .speech2text_feature_extractor import Speech2TextFeatureExtractor
 from .speech2text_model import Speech2TextModel, Speech2TextSpeechToText
 from .speech2text_processor import Speech2TextProcessor
@@ -11,4 +15,6 @@ __all__ = [
     "Speech2TextTokenizer",
     "Speech2TextProcessor",
     "Speech2TextConfig",
+    "Speech2TextTextConfig",
+    "Speech2TextAudioConfig",
 ]

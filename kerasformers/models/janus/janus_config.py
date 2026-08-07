@@ -1,15 +1,10 @@
+"""Janus model configuration."""
+
 from kerasformers.base import BaseConfig
 
 
-class JanusConfig(BaseConfig):
-    r"""Configuration for the Janus-Pro backbone ([`JanusModel`]) and its
-    generative head ([`JanusGenerate`]).
-
-    Janus-Pro is a SigLIP vision tower + depth-2 GELU aligner + Llama decoder
-    (the understanding path). One `kf_config.json` (declaring the canonical
-    [`JanusModel`]) sits on each variant's repo; both the backbone and the
-    generative head load from it. Fields mirror the model constructor and
-    serialize flat.
+class JanusTextConfig(BaseConfig):
+    r"""Configuration for the Janus text decoder (the `text_config` sub-config).
 
     Args:
         vocab_size (`int`, *optional*, defaults to 102400):
@@ -32,34 +27,16 @@ class JanusConfig(BaseConfig):
             Rotary base frequency.
         tie_embeddings (`bool`, *optional*, defaults to `False`):
             Whether [`JanusGenerate`] ties the LM head to the token embeddings.
-        vision_embed_dim (`int`, *optional*, defaults to 1024):
-            SigLIP vision tower hidden width.
-        vision_mlp_dim (`int`, *optional*, defaults to 4096):
-            SigLIP vision tower MLP width.
-        vision_num_layers (`int`, *optional*, defaults to 24):
-            Number of SigLIP encoder blocks.
-        vision_num_heads (`int`, *optional*, defaults to 16):
-            SigLIP attention heads.
-        image_size (`int`, *optional*, defaults to 384):
-            Square vision input size in pixels.
-        patch_size (`int`, *optional*, defaults to 16):
-            Vision patch size in pixels.
-        vision_norm_eps (`float`, *optional*, defaults to 1e-6):
-            Vision LayerNorm epsilon.
-        image_token_id (`int`, *optional*, defaults to 100581):
-            The `<image_placeholder>` token id whose slots receive image features.
 
-    Examples:
+    Example:
 
     ```python
-    >>> from kerasformers.models.janus import JanusConfig, JanusModel
+    >>> from kerasformers.models.janus import JanusTextConfig
 
-    >>> configuration = JanusConfig()
-    >>> model = JanusModel(configuration)
-    >>> configuration = model.config
+    >>> configuration = JanusTextConfig()
     ```"""
 
-    model_type = "janus"
+    model_type = "janus_text"
 
     vocab_size: int = 102400
     embed_dim: int = 2048
@@ -68,14 +45,76 @@ class JanusConfig(BaseConfig):
     num_heads: int = 16
     num_kv_heads: int = 16
     head_dim: int = 128
-    norm_eps: float = 1e-6
+    norm_eps: float = 1e-06
     rope_theta: float = 10000.0
     tie_embeddings: bool = False
-    vision_embed_dim: int = 1024
-    vision_mlp_dim: int = 4096
-    vision_num_layers: int = 24
-    vision_num_heads: int = 16
+
+
+class JanusVisionConfig(BaseConfig):
+    r"""Configuration for the Janus vision tower (the `vision_config` sub-config).
+
+    Args:
+        embed_dim (`int`, *optional*, defaults to 1024):
+            SigLIP vision tower hidden width.
+        mlp_dim (`int`, *optional*, defaults to 4096):
+            SigLIP vision tower MLP width.
+        num_layers (`int`, *optional*, defaults to 24):
+            Number of SigLIP encoder blocks.
+        num_heads (`int`, *optional*, defaults to 16):
+            SigLIP attention heads.
+        norm_eps (`float`, *optional*, defaults to 1e-6):
+            Vision LayerNorm epsilon.
+        image_size (`int`, *optional*, defaults to 384):
+            Square vision input size in pixels.
+        patch_size (`int`, *optional*, defaults to 16):
+            Vision patch size in pixels.
+
+    Example:
+
+    ```python
+    >>> from kerasformers.models.janus import JanusVisionConfig
+
+    >>> configuration = JanusVisionConfig()
+    ```"""
+
+    model_type = "janus_vision"
+
+    embed_dim: int = 1024
+    mlp_dim: int = 4096
+    num_layers: int = 24
+    num_heads: int = 16
+    norm_eps: float = 1e-06
     image_size: int = 384
     patch_size: int = 16
-    vision_norm_eps: float = 1e-6
+
+
+class JanusConfig(BaseConfig):
+    r"""Configuration for Janus: the composite holding each tower's sub-config.
+
+    Args:
+        text_config (`JanusTextConfig` or `dict`, *optional*):
+            Configuration of the Janus text decoder.
+        vision_config (`JanusVisionConfig` or `dict`, *optional*):
+            Configuration of the Janus vision tower.
+        image_token_id (`int`, *optional*, defaults to 100581):
+            The `<image_placeholder>` token id whose slots receive image features.
+
+    Example:
+
+    ```python
+    >>> from kerasformers.models.janus import JanusConfig, JanusGenerate
+
+    >>> configuration = JanusConfig()
+    >>> model = JanusGenerate(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "janus"
+
+    sub_configs = {"text_config": JanusTextConfig, "vision_config": JanusVisionConfig}
+    sub_config_prefixes = {"text_config": "", "vision_config": "vision_"}
+    group_extras = {"vision_config": ("image_size", "patch_size")}
+
+    text_config: JanusTextConfig | dict | None = None
+    vision_config: JanusVisionConfig | dict | None = None
     image_token_id: int = 100581
