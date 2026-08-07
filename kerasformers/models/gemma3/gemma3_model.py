@@ -220,6 +220,7 @@ class Gemma3Model(SubclassedBaseModel):
 
     HF_MODEL_TYPE = ("gemma3", "gemma3_text")
     config_class = Gemma3Config
+    default_load_dtype = "bfloat16"
     BASE_MODEL_CONFIG = GEMMA3_CONFIG
     BASE_WEIGHT_CONFIG = GEMMA3_WEIGHTS_URLS
 
