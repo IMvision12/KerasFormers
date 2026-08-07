@@ -4,9 +4,6 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-# The text decoder and lm_head (keras paths starting "language_model." (none
-# here: the decoder is inline), "token_embedding", "decoder_layer_",
-# "final_norm").
 TEXT_MAPPING = {
     "token_embedding.embeddings": "language_model.embed_tokens.weight",
     "final_norm.weight": "language_model.norm.weight",
@@ -27,7 +24,6 @@ TEXT_MAPPING = {
     "kernel": "weight",
 }
 
-# The SigLIP tower (keras paths starting "vision_tower.").
 VISION_MAPPING = {
     "vision_tower.patch_embed": "vision_tower.vision_model.embeddings.patch_embedding",
     "vision_tower.position_embedding.embeddings": (
@@ -52,11 +48,6 @@ PROJECTOR_MAPPING = {
 
 
 def normalize_keys(hf_state_dict):
-    # Text-only checkpoints (gemma3_text) use bare "model.*" keys; multimodal
-    # ones use "model.language_model.* / model.vision_tower.* /
-    # model.multi_modal_projector.*" (new) or the same without the outer
-    # "model." (hub). Canonicalize to "language_model.* / vision_tower.* /
-    # multi_modal_projector.* / lm_head.weight".
     keys = list(hf_state_dict.keys())
     has_lm = any("language_model." in key for key in keys)
     out = {}
@@ -64,9 +55,10 @@ def normalize_keys(hf_state_dict):
         if key.startswith("model."):
             key = key[len("model.") :]
         if not has_lm:
-            # text-only layout: layers.* / embed_tokens.* / norm.* at top level
             if not key.startswith(("lm_head.",)):
                 key = "language_model." + key
+        elif key.startswith("language_model.model."):
+            key = "language_model." + key[len("language_model.model.") :]
         out[key] = value
     return out
 
@@ -100,10 +92,8 @@ def transfer_gemma3_weights(keras_model, hf_state_dict):
         if name not in state:
             raise WeightMappingError(weight.path, name)
         if name.endswith("patch_embedding.weight"):
-            # Conv2D patch embed: HF (out, in, kh, kw) -> Keras (kh, kw, in, out).
             weight.assign(np.transpose(np.asarray(state[name]), (2, 3, 1, 0)))
         elif name.endswith("mm_input_projection_weight"):
-            # Raw (vision_dim, text_dim) matrix: direct copy, no transpose.
             weight.assign(np.asarray(state[name]))
         else:
             transfer_weights(weight.path, weight, state[name])
