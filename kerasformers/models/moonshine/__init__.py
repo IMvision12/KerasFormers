@@ -1,4 +1,8 @@
-from .moonshine_config import MoonshineConfig
+from .moonshine_config import (
+    MoonshineAudioConfig,
+    MoonshineConfig,
+    MoonshineTextConfig,
+)
 from .moonshine_feature_extractor import MoonshineFeatureExtractor
 from .moonshine_model import MoonshineModel, MoonshineSpeechToText
 from .moonshine_processor import MoonshineProcessor
@@ -11,4 +15,6 @@ __all__ = [
     "MoonshineTokenizer",
     "MoonshineProcessor",
     "MoonshineConfig",
+    "MoonshineTextConfig",
+    "MoonshineAudioConfig",
 ]

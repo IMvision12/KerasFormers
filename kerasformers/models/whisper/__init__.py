@@ -1,4 +1,8 @@
-from .whisper_config import WhisperConfig
+from .whisper_config import (
+    WhisperAudioConfig,
+    WhisperConfig,
+    WhisperTextConfig,
+)
 from .whisper_feature_extractor import WhisperFeatureExtractor
 from .whisper_model import WhisperAudioClassify, WhisperModel, WhisperSpeechToText
 from .whisper_processor import WhisperProcessor
@@ -12,4 +16,6 @@ __all__ = [
     "WhisperTokenizer",
     "WhisperProcessor",
     "WhisperConfig",
+    "WhisperTextConfig",
+    "WhisperAudioConfig",
 ]

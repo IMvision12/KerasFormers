@@ -38,6 +38,7 @@ class GemmaModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "gemma"
+    default_load_dtype = "bfloat16"
     config_class = GemmaConfig
 
     def __init__(

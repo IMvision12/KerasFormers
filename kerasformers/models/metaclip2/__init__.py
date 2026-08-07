@@ -1,5 +1,9 @@
 from kerasformers.models.metaclip2 import metaclip2_config
-from kerasformers.models.metaclip2.metaclip2_config import MetaClip2Config
+from kerasformers.models.metaclip2.metaclip2_config import (
+    MetaClip2Config,
+    MetaClip2TextConfig,
+    MetaClip2VisionConfig,
+)
 from kerasformers.models.metaclip2.metaclip2_image_processor import (
     MetaClip2ImageProcessor,
 )
@@ -26,4 +30,6 @@ __all__ = [
     "MetaClip2Tokenizer",
     "MetaClip2Mt5Tokenizer",
     "MetaClip2Config",
+    "MetaClip2TextConfig",
+    "MetaClip2VisionConfig",
 ]

@@ -39,6 +39,7 @@ class Qwen3Model(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "qwen3"
+    default_load_dtype = "bfloat16"
     BASE_MODEL_CONFIG = QWEN3_CONFIG
     BASE_WEIGHT_CONFIG = QWEN3_WEIGHTS_URLS
 
