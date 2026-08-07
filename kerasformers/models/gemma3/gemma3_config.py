@@ -103,6 +103,32 @@ class Gemma3Config(BaseConfig):
 
 
 GEMMA3_CONFIG = {
+    "gemma-3-270m": {
+        "vocab_size": 262144,
+        "embed_dim": 640,
+        "mlp_dim": 2048,
+        "num_layers": 18,
+        "num_heads": 4,
+        "num_kv_heads": 1,
+        "head_dim": 256,
+        "query_pre_attn_scalar": 256.0,
+        "sliding_window": 512,
+        "rope_scaling_factor": None,
+        "vision_num_layers": 0,
+    },
+    "gemma-3-270m-it": {
+        "vocab_size": 262144,
+        "embed_dim": 640,
+        "mlp_dim": 2048,
+        "num_layers": 18,
+        "num_heads": 4,
+        "num_kv_heads": 1,
+        "head_dim": 256,
+        "query_pre_attn_scalar": 256.0,
+        "sliding_window": 512,
+        "rope_scaling_factor": None,
+        "vision_num_layers": 0,
+    },
     "gemma-3-1b-pt": {
         "vocab_size": 262144,
         "embed_dim": 1152,
@@ -258,6 +284,16 @@ GEMMA3_CONFIG = {
 }
 
 GEMMA3_WEIGHTS_URLS = {
+    "gemma-3-270m": {
+        "hf_id": "google/gemma-3-270m",
+        "gated": True,
+        "safetensors": True,
+    },
+    "gemma-3-270m-it": {
+        "hf_id": "google/gemma-3-270m-it",
+        "gated": True,
+        "safetensors": True,
+    },
     "gemma-3-1b-pt": {
         "hf_id": "google/gemma-3-1b-pt",
         "gated": True,
