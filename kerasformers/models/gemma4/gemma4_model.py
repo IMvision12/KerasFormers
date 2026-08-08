@@ -96,6 +96,7 @@ class Gemma4Model(SubclassedBaseModel):
         moe_mlp_dim=0,
         sliding_window=1024,
         sliding_window_pattern=6,
+        layer_types=None,
         partial_rotary_factor=0.25,
         final_logit_softcapping=30.0,
         norm_eps=1e-6,
@@ -138,6 +139,20 @@ class Gemma4Model(SubclassedBaseModel):
         self.global_rot_dim = 2 * int(partial_rotary_factor * global_head_dim // 2)
         # Layers at index >= first_kv_shared reuse an earlier layer's K/V (E-variants).
         self.first_kv_shared = num_layers - num_kv_shared_layers
+        # Per-layer sliding/global schedule. Honor the checkpoint's explicit
+        # ``layer_types`` when present (the E2B/E4B variants place their global
+        # layers on a 5:1 schedule, not the 6-layer default of 12B/26B/31B);
+        # otherwise derive it from ``sliding_window_pattern``.
+        self.layer_types = (
+            list(layer_types)
+            if layer_types
+            else [
+                "full_attention"
+                if (i + 1) % sliding_window_pattern == 0
+                else "sliding_attention"
+                for i in range(num_layers)
+            ]
+        )
 
         self.token_embedding = layers.Embedding(
             vocab_size, embed_dim, name="token_embedding"
@@ -186,7 +201,7 @@ class Gemma4Model(SubclassedBaseModel):
         self.final_norm = Gemma4RMSNorm(eps=norm_eps, name="final_norm")
 
     def is_sliding(self, layer_idx):
-        return bool((layer_idx + 1) % self.sliding_window_pattern)
+        return self.layer_types[layer_idx] != "full_attention"
 
     def embed_scaled(self, input_ids):
         return self.token_embedding(input_ids) * ops.cast(
@@ -355,6 +370,7 @@ class Gemma4Model(SubclassedBaseModel):
             "moe_mlp_dim": text.get("moe_intermediate_size") or 0,
             "sliding_window": text.get("sliding_window", 1024),
             "sliding_window_pattern": text.get("sliding_window_pattern", 6),
+            "layer_types": text.get("layer_types"),
             "partial_rotary_factor": full_rope.get("partial_rotary_factor", 0.25),
             "final_logit_softcapping": text.get("final_logit_softcapping"),
             "norm_eps": text.get("rms_norm_eps", 1e-6),
@@ -400,6 +416,7 @@ class Gemma4Model(SubclassedBaseModel):
                 "moe_mlp_dim": self.moe_mlp_dim,
                 "sliding_window": self.sliding_window,
                 "sliding_window_pattern": self.sliding_window_pattern,
+                "layer_types": self.layer_types,
                 "partial_rotary_factor": self.partial_rotary_factor,
                 "final_logit_softcapping": self.final_logit_softcapping,
                 "norm_eps": self.norm_eps,
