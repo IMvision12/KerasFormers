@@ -484,6 +484,21 @@ class GroundingDinoModel(SubclassedBaseModel):
             "encoder_last_hidden_state_text": enc["text"],
         }
 
+    def build_for_transfer(self):
+        # Always-multimodal build: the base text-only build_for_transfer feeds no
+        # pixel_values, so the vision backbone + cross-modality encoder weights
+        # stay uncreated (and encode() would fail). Mirror the conversion feed so
+        # every sublayer exists. Used by from_hub_repo / the converted-weight cache.
+        self(
+            {
+                "input_ids": ops.convert_to_tensor(
+                    [[101, 102, 1012, 1029, 102, 102]], dtype="int32"
+                ),
+                "attention_mask": ops.ones((1, 6), dtype="int32"),
+                "pixel_values": ops.zeros((1, 384, 384, 3), dtype="float32"),
+            }
+        )
+
     @classmethod
     def config_from_hf(cls, hf_config):
         bc = hf_config.get("backbone_config", {})

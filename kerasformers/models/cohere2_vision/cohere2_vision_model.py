@@ -201,6 +201,28 @@ class Cohere2VisionModel(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self.forward_features(inputs)}
 
+    def build_for_transfer(self):
+        # Multimodal lazy build: the base text-only build_for_transfer never runs
+        # the vision tower + projector (no pixel_values), so their weights stay
+        # uncreated before a weight stream. Mirror the conversion feed so every
+        # sublayer exists. Used by from_hub_repo and the converted-weight cache.
+        n = (self.image_size // self.patch_size // self.downsample_factor) ** 2
+        self(
+            {
+                "input_ids": ops.concatenate(
+                    [
+                        ops.zeros((1, 1), dtype="int32"),
+                        ops.full((1, n), self.image_token_id, dtype="int32"),
+                        ops.ones((1, 1), dtype="int32"),
+                    ],
+                    axis=1,
+                ),
+                "pixel_values": ops.zeros(
+                    (1, self.image_size, self.image_size, 3), dtype="float32"
+                ),
+            }
+        )
+
     @classmethod
     def config_from_hf(cls, hf_config):
         text = hf_config["text_config"]
