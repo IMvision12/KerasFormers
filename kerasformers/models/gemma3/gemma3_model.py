@@ -423,6 +423,27 @@ class Gemma3Model(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self.forward_features(inputs)}
 
+    def build_for_transfer(self):
+        if self.vision_tower is None:
+            super().build_for_transfer()
+            return
+        n = self.mm_tokens_per_image
+        self(
+            {
+                "input_ids": ops.concatenate(
+                    [
+                        ops.zeros((1, 1), dtype="int32"),
+                        ops.full((1, n), self.image_token_id, dtype="int32"),
+                        ops.ones((1, 1), dtype="int32"),
+                    ],
+                    axis=1,
+                ),
+                "pixel_values": ops.zeros(
+                    (1, self.image_size, self.image_size, 3), dtype="float32"
+                ),
+            }
+        )
+
     @classmethod
     def config_from_hf(cls, hf_config):
         text = hf_config.get("text_config", hf_config)

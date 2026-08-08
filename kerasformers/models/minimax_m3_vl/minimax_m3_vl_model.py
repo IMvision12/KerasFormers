@@ -360,6 +360,27 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self.forward_features(inputs)}
 
+    def build_for_transfer(self):
+        # Multimodal lazy build: mirror the conversion feed so the vision tower +
+        # projector weights exist before a weight stream (the base text-only
+        # build would leave them uncreated). from_hub_repo / converted cache.
+        sms = self.spatial_merge_size
+        patch_dim = 3 * self.temporal_patch_size * self.patch_size**2
+        self(
+            {
+                "input_ids": ops.concatenate(
+                    [
+                        ops.zeros((1, 1), dtype="int32"),
+                        ops.full((1, 1), self.image_token_id, dtype="int32"),
+                        ops.ones((1, 1), dtype="int32"),
+                    ],
+                    axis=1,
+                ),
+                "pixel_values": ops.zeros((sms * sms, patch_dim), dtype="float32"),
+                "image_grid_thw": ops.convert_to_tensor([[1, sms, sms]], dtype="int32"),
+            }
+        )
+
     @classmethod
     def config_from_hf(cls, hf_config):
         text = hf_config["text_config"]

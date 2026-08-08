@@ -468,6 +468,28 @@ class Mistral3Model(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self.forward_features(inputs)}
 
+    def build_for_transfer(self):
+        # Multimodal lazy build: mirror the conversion feed so the vision tower +
+        # projector weights exist before a weight stream (the base text-only
+        # build would leave them uncreated). from_hub_repo / converted cache.
+        merged = self.patch_size * self.spatial_merge_size
+        side = 2 * merged
+        n = (side // merged) ** 2
+        self(
+            {
+                "input_ids": ops.concatenate(
+                    [
+                        ops.zeros((1, 1), dtype="int32"),
+                        ops.full((1, n), self.image_token_id, dtype="int32"),
+                        ops.ones((1, 1), dtype="int32"),
+                    ],
+                    axis=1,
+                ),
+                "pixel_values": ops.zeros((1, side, side, 3), dtype="float32"),
+                "image_sizes": ops.convert_to_tensor([[side, side]], dtype="int32"),
+            }
+        )
+
     @classmethod
     def config_from_hf(cls, hf_config):
         text = hf_config["text_config"]

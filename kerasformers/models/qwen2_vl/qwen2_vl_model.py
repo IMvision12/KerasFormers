@@ -568,6 +568,29 @@ class Qwen2VLModel(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self._forward_features(inputs)}
 
+    def build_for_transfer(self):
+        # Multimodal lazy build: mirror the conversion feed so the vision tower +
+        # merger weights exist before a weight stream (the base text-only build
+        # would leave them uncreated). Inherited by Qwen2.5-VL and Qwen3-VL (both
+        # subclass this) and shares their feed. from_hub_repo / converted cache.
+        m = self.spatial_merge_size
+        h = w = 2 * m
+        n = (h * w) // (m * m)
+        self(
+            {
+                "input_ids": ops.concatenate(
+                    [
+                        ops.zeros((1, 1), dtype="int32"),
+                        ops.full((1, n), self.image_token_id, dtype="int32"),
+                        ops.ones((1, 1), dtype="int32"),
+                    ],
+                    axis=1,
+                ),
+                "pixel_values": ops.zeros((h * w, self.patch_dim), dtype="float32"),
+                "image_grid_thw": ops.convert_to_tensor([[1, h, w]], dtype="int32"),
+            }
+        )
+
     def _prepare_inputs(
         self,
         input_ids,

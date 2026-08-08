@@ -422,6 +422,35 @@ class Glm4vMoeModel(SubclassedBaseModel):
     def call(self, inputs):
         return {"last_hidden_state": self._forward_features(inputs)}
 
+    def build_for_transfer(self):
+        # Multimodal lazy build: mirror the conversion feed so the vision tower +
+        # merger weights exist before a weight stream (the base text-only build
+        # would leave them uncreated). from_hub_repo / converted cache.
+        orig = self.image_size // self.patch_size
+        n = (orig // self.spatial_merge_size) ** 2
+        patch_dim = (
+            self.in_channels
+            * self.temporal_patch_size
+            * self.patch_size
+            * self.patch_size
+        )
+        self(
+            {
+                "input_ids": ops.concatenate(
+                    [
+                        ops.zeros((1, 1), dtype="int32"),
+                        ops.full((1, n), self.image_token_id, dtype="int32"),
+                        ops.ones((1, 1), dtype="int32"),
+                    ],
+                    axis=1,
+                ),
+                "pixel_values": ops.zeros((orig * orig, patch_dim), dtype="float32"),
+                "image_grid_thw": ops.convert_to_tensor(
+                    [[1, orig, orig]], dtype="int32"
+                ),
+            }
+        )
+
     @classmethod
     def config_from_hf(cls, hf_config):
         tc = hf_config.get("text_config", hf_config)
