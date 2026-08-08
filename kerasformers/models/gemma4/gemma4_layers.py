@@ -239,6 +239,7 @@ class Gemma4Attention(layers.Layer):
         num_kv_heads,
         head_dim,
         k_eq_v=False,
+        is_kv_shared=False,
         norm_eps=1e-6,
         **kwargs,
     ):
@@ -248,31 +249,39 @@ class Gemma4Attention(layers.Layer):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
         self.k_eq_v = k_eq_v
+        self.is_kv_shared = is_kv_shared
         self.norm_eps = norm_eps
         self.num_kv_groups = num_heads // num_kv_heads
         self.query = layers.Dense(num_heads * head_dim, use_bias=False, name="query")
-        self.key = layers.Dense(num_kv_heads * head_dim, use_bias=False, name="key")
-        self.value = (
-            None
-            if k_eq_v
-            else layers.Dense(num_kv_heads * head_dim, use_bias=False, name="value")
-        )
         self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
         self.query_norm = Gemma4RMSNorm(eps=norm_eps, name="query_norm")
-        self.key_norm = Gemma4RMSNorm(eps=norm_eps, name="key_norm")
-        self.value_norm = Gemma4RMSNorm(
-            eps=norm_eps, with_scale=False, name="value_norm"
-        )
+        # Shared-KV layers (the last num_kv_shared_layers) carry no key/value
+        # weights; they reuse the K/V of the last non-shared layer of their type.
+        if is_kv_shared:
+            self.key = self.value = self.key_norm = self.value_norm = None
+        else:
+            self.key = layers.Dense(num_kv_heads * head_dim, use_bias=False, name="key")
+            self.value = (
+                None
+                if k_eq_v
+                else layers.Dense(num_kv_heads * head_dim, use_bias=False, name="value")
+            )
+            self.key_norm = Gemma4RMSNorm(eps=norm_eps, name="key_norm")
+            self.value_norm = Gemma4RMSNorm(
+                eps=norm_eps, with_scale=False, name="value_norm"
+            )
 
-    def project_qkv(self, hidden_states, q_len, cos, sin):
+    def project_q(self, hidden_states, q_len, cos, sin):
         b = ops.shape(hidden_states)[0]
         q = ops.reshape(
             self.query(hidden_states), (b, q_len, self.num_heads, self.head_dim)
         )
         q = self.query_norm(q)
         q = apply_rope(q, cos, sin)
-        q = ops.transpose(q, (0, 2, 1, 3))
+        return ops.transpose(q, (0, 2, 1, 3))
 
+    def project_kv(self, hidden_states, q_len, cos, sin):
+        b = ops.shape(hidden_states)[0]
         k_raw = ops.reshape(
             self.key(hidden_states), (b, q_len, self.num_kv_heads, self.head_dim)
         )
@@ -288,7 +297,7 @@ class Gemma4Attention(layers.Layer):
         k = ops.transpose(k, (0, 2, 1, 3))
         v = self.value_norm(v)
         v = ops.transpose(v, (0, 2, 1, 3))
-        return q, k, v
+        return k, v
 
     def attend(self, q, k, v, attention_mask, b, q_len):
         if self.num_kv_groups > 1:
@@ -300,34 +309,31 @@ class Gemma4Attention(layers.Layer):
         )
         return self.output_proj(out)
 
-    def call(
-        self,
-        hidden_states,
-        cos,
-        sin,
-        attention_mask=None,
-        past_key_value=None,
-        use_cache=False,
-    ):
+    def call(self, hidden_states, cos, sin, attention_mask=None, shared_kv=None):
+        # Returns (output, (k, v)); shared-KV layers reuse ``shared_kv`` and pass
+        # it back so the caller keeps threading it, others compute and expose it.
         b = ops.shape(hidden_states)[0]
         q_len = ops.shape(hidden_states)[1]
-        q, k, v = self.project_qkv(hidden_states, q_len, cos, sin)
-        if past_key_value is not None:
-            past_k, past_v = past_key_value
-            k = ops.concatenate([past_k, k], axis=2)
-            v = ops.concatenate([past_v, v], axis=2)
-        new_kv = (k, v) if use_cache else None
+        q = self.project_q(hidden_states, q_len, cos, sin)
+        k, v = (
+            shared_kv
+            if self.is_kv_shared
+            else self.project_kv(hidden_states, q_len, cos, sin)
+        )
         out = self.attend(q, k, v, attention_mask, b, q_len)
-        return (out, new_kv) if use_cache else out
+        return out, (k, v)
 
     def decode_step(
         self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
     ):
-        # Single-token attention against fixed-size caches.
+        # Single-token attention against fixed-size caches. Shared-KV layers get
+        # the storing layer's (already written) cache and do not write their own.
         b = ops.shape(hidden_states)[0]
-        q, k, v = self.project_qkv(hidden_states, 1, cos, sin)
-        cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
-        cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
+        q = self.project_q(hidden_states, 1, cos, sin)
+        if not self.is_kv_shared:
+            k, v = self.project_kv(hidden_states, 1, cos, sin)
+            cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
+            cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         kk, vv = cache_k, cache_v
         if self.num_kv_groups > 1:
             kk = ops.repeat(kk, self.num_kv_groups, axis=1)
@@ -347,6 +353,7 @@ class Gemma4Attention(layers.Layer):
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
                 "k_eq_v": self.k_eq_v,
+                "is_kv_shared": self.is_kv_shared,
                 "norm_eps": self.norm_eps,
             }
         )
@@ -383,6 +390,8 @@ class Gemma4DecoderLayer(layers.Layer):
         num_kv_heads,
         head_dim,
         k_eq_v=False,
+        is_kv_shared=False,
+        hidden_size_per_layer_input=0,
         is_moe=False,
         num_experts=0,
         num_experts_per_tok=0,
@@ -397,6 +406,8 @@ class Gemma4DecoderLayer(layers.Layer):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
         self.k_eq_v = k_eq_v
+        self.is_kv_shared = is_kv_shared
+        self.hidden_size_per_layer_input = hidden_size_per_layer_input
         self.is_moe = is_moe
         self.num_experts = num_experts
         self.num_experts_per_tok = num_experts_per_tok
@@ -408,10 +419,21 @@ class Gemma4DecoderLayer(layers.Layer):
             num_heads,
             num_kv_heads,
             head_dim,
-            k_eq_v,
-            norm_eps,
+            k_eq_v=k_eq_v,
+            is_kv_shared=is_kv_shared,
+            norm_eps=norm_eps,
             name="attention",
         )
+        if hidden_size_per_layer_input:
+            self.per_layer_input_gate = layers.Dense(
+                hidden_size_per_layer_input, use_bias=False, name="per_layer_input_gate"
+            )
+            self.per_layer_projection = layers.Dense(
+                embed_dim, use_bias=False, name="per_layer_projection"
+            )
+            self.post_per_layer_input_norm = Gemma4RMSNorm(
+                eps=norm_eps, name="post_per_layer_input_norm"
+            )
         self.post_attention_norm = Gemma4RMSNorm(
             eps=norm_eps, name="post_attention_norm"
         )
@@ -460,35 +482,49 @@ class Gemma4DecoderLayer(layers.Layer):
         h = self.post_feedforward_norm(h)
         return residual + h
 
+    def apply_per_layer_input(self, hidden_states, per_layer_input):
+        # PLE residual: gate the block output, multiply by the per-layer input
+        # embedding, project back, norm, and add.
+        residual = hidden_states
+        h = self.per_layer_input_gate(hidden_states)
+        h = ops.gelu(h, approximate=True)
+        h = h * ops.cast(per_layer_input, h.dtype)
+        h = self.per_layer_projection(h)
+        h = self.post_per_layer_input_norm(h)
+        return residual + h
+
     def call(
         self,
         hidden_states,
         cos,
         sin,
         attention_mask=None,
-        past_key_value=None,
-        use_cache=False,
+        shared_kv=None,
+        per_layer_input=None,
     ):
+        # Always returns (hidden, (k, v)); the caller threads (k, v) for KV sharing.
         residual = hidden_states
         hidden_states = self.attention_norm(hidden_states)
-        attn_out = self.attention(
-            hidden_states,
-            cos,
-            sin,
-            attention_mask=attention_mask,
-            past_key_value=past_key_value,
-            use_cache=use_cache,
+        attn_out, kv = self.attention(
+            hidden_states, cos, sin, attention_mask=attention_mask, shared_kv=shared_kv
         )
-        new_kv = None
-        if use_cache:
-            attn_out, new_kv = attn_out
         hidden_states = residual + self.post_attention_norm(attn_out)
         hidden_states = self.feed_forward(hidden_states)
+        if self.hidden_size_per_layer_input:
+            hidden_states = self.apply_per_layer_input(hidden_states, per_layer_input)
         hidden_states = hidden_states * ops.cast(self.layer_scalar, hidden_states.dtype)
-        return (hidden_states, new_kv) if use_cache else hidden_states
+        return hidden_states, kv
 
     def decode_step(
-        self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
+        self,
+        hidden_states,
+        cos,
+        sin,
+        cache_k,
+        cache_v,
+        write_pos,
+        key_mask,
+        per_layer_input=None,
     ):
         residual = hidden_states
         x = self.attention_norm(hidden_states)
@@ -497,6 +533,8 @@ class Gemma4DecoderLayer(layers.Layer):
         )
         hidden_states = residual + self.post_attention_norm(attn_out)
         hidden_states = self.feed_forward(hidden_states)
+        if self.hidden_size_per_layer_input:
+            hidden_states = self.apply_per_layer_input(hidden_states, per_layer_input)
         hidden_states = hidden_states * ops.cast(self.layer_scalar, hidden_states.dtype)
         return hidden_states, cache_k, cache_v
 
@@ -510,6 +548,8 @@ class Gemma4DecoderLayer(layers.Layer):
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
                 "k_eq_v": self.k_eq_v,
+                "is_kv_shared": self.is_kv_shared,
+                "hidden_size_per_layer_input": self.hidden_size_per_layer_input,
                 "is_moe": self.is_moe,
                 "num_experts": self.num_experts,
                 "num_experts_per_tok": self.num_experts_per_tok,

@@ -1,22 +1,7 @@
+# The gemma-4-12B checkpoints are the separate "gemma4_unified" architecture
+# (encoder-free vision + audio); they live in models/gemma4_unified. This family
+# is the NaViT / USM "gemma4" checkpoints (31B and 26B-A4B).
 GEMMA4_CONFIG = {
-    "gemma-4-12b": {
-        "embed_dim": 3840,
-        "mlp_dim": 15360,
-        "num_layers": 48,
-        "num_heads": 16,
-        "num_kv_heads": 8,
-        "num_global_kv_heads": 1,
-        "enable_moe": False,
-    },
-    "gemma-4-12b-it": {
-        "embed_dim": 3840,
-        "mlp_dim": 15360,
-        "num_layers": 48,
-        "num_heads": 16,
-        "num_kv_heads": 8,
-        "num_global_kv_heads": 1,
-        "enable_moe": False,
-    },
     "gemma-4-31b-it": {
         "embed_dim": 5376,
         "mlp_dim": 21504,
@@ -41,12 +26,6 @@ GEMMA4_CONFIG = {
 }
 
 GEMMA4_WEIGHTS_URLS = {
-    "gemma-4-12b": {"hf_id": "google/gemma-4-12B", "gated": False, "safetensors": True},
-    "gemma-4-12b-it": {
-        "hf_id": "google/gemma-4-12B-it",
-        "gated": False,
-        "safetensors": True,
-    },
     "gemma-4-31b-it": {
         "hf_id": "google/gemma-4-31B-it",
         "gated": False,
@@ -60,8 +39,7 @@ GEMMA4_WEIGHTS_URLS = {
 }
 
 # The vision-carrying gemma4 checkpoints (model_type "gemma4") share one NaViT
-# tower. The 31B and 26B-A4B checkpoints carry a vision tower but no audio tower;
-# gemma-4-12B is the separate "gemma4_unified" architecture and is text-only here.
+# tower. The 31B and 26B-A4B checkpoints carry a vision tower but no audio tower.
 GEMMA4_VISION_CONFIG = {
     "hidden_size": 1152,
     "num_layers": 27,
@@ -130,22 +108,10 @@ GEMMA4_MULTIMODAL_WEIGHTS_URLS = {
 }
 
 # The single Gemma4Generate handles both text-only and multimodal checkpoints
-# (like transformers' Gemma4ForConditionalGeneration): 12B is the gemma4_unified
-# family whose vision/audio towers are not ported, so it loads text-only
-# (vision_config None); 31B and 26B-A4B carry the ported gemma4 vision tower.
+# (like transformers' Gemma4ForConditionalGeneration): 31B and 26B-A4B carry the
+# ported gemma4 NaViT vision tower. (The 12B gemma4_unified checkpoints have
+# their own Gemma4UnifiedGenerate in models/gemma4_unified.)
 GEMMA4_GENERATE_CONFIG = {
-    "gemma-4-12b": {
-        "text_config": dict(GEMMA4_CONFIG["gemma-4-12b"]),
-        "vision_config": None,
-        "audio_config": None,
-        "use_bidirectional_vision": False,
-    },
-    "gemma-4-12b-it": {
-        "text_config": dict(GEMMA4_CONFIG["gemma-4-12b-it"]),
-        "vision_config": None,
-        "audio_config": None,
-        "use_bidirectional_vision": False,
-    },
     "gemma-4-31b-it": dict(GEMMA4_MULTIMODAL_CONFIG["gemma-4-31b-it"]),
     "gemma-4-26b-a4b-it": dict(GEMMA4_MULTIMODAL_CONFIG["gemma-4-26b-a4b-it"]),
 }

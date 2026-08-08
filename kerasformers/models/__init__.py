@@ -37,6 +37,7 @@ from kerasformers.models import (
     gemma2,
     gemma3,
     gemma4,
+    gemma4_unified,
     glm,
     glm4,
     glm4_moe,
