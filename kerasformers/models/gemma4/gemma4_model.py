@@ -74,6 +74,7 @@ class Gemma4Model(SubclassedBaseModel):
     HF_MODEL_TYPE = ("gemma4", "gemma4_text", "gemma4_unified", "gemma4_unified_text")
     BASE_MODEL_CONFIG = GEMMA4_CONFIG
     BASE_WEIGHT_CONFIG = GEMMA4_WEIGHTS_URLS
+    default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     def __init__(
         self,
@@ -526,6 +527,7 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
     HF_MODEL_TYPE = ("gemma4",)
     BASE_MODEL_CONFIG = GEMMA4_MULTIMODAL_CONFIG
     BASE_WEIGHT_CONFIG = GEMMA4_MULTIMODAL_WEIGHTS_URLS
+    default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     def __init__(
         self,
@@ -837,6 +839,7 @@ class Gemma4Generate(Gemma4MultimodalModel, BaseGeneration):
     HF_MODEL_TYPE = ("gemma4", "gemma4_text", "gemma4_unified", "gemma4_unified_text")
     BASE_MODEL_CONFIG = GEMMA4_GENERATE_CONFIG
     BASE_WEIGHT_CONFIG = GEMMA4_GENERATE_WEIGHTS_URLS
+    default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     eos_token_id = (1, 106)
 
