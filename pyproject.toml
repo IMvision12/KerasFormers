@@ -44,7 +44,10 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "keras>=3.11.0",
+    # 3.15.0 fixes the torch-backend slice_update/scatter_update to index with a
+    # tuple (`outputs[tuple(slices)]`); earlier 3.x uses a bare list, which warns
+    # under torch and errors/misbehaves under torch 2.9 on every cache write.
+    "keras>=3.15.0",
     "huggingface_hub",
     "safetensors",
     "numpy",

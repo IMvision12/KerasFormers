@@ -1,4 +1,4 @@
-keras>=3.10.0
+keras>=3.15.0
 torch
 torchvision
 tensorflow-cpu>=2.18.0
