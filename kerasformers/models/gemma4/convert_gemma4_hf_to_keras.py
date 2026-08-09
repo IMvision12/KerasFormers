@@ -4,10 +4,6 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-# Keras weight paths (top-level model name stripped) -> the text-model-relative
-# HF name. The "language_model." / "model." prefixes are added in transfer once
-# the checkpoint layout is known, so this is shared by the text backbone
-# (Gemma4Model) and the multimodal one (Gemma4MultimodalModel).
 TEXT_MAP = {
     "token_embedding.embeddings": "embed_tokens.weight",
     "embed_tokens_per_layer.embeddings": "embed_tokens_per_layer.weight",
@@ -37,10 +33,6 @@ TEXT_MAP = {
 
 
 def resolve_hf_name(keras_path, nested):
-    # Map a Keras weight path to its HF name. Vision uses "vision_tower.encoder.*"
-    # with clippable projections stored as "<name>.linear.weight"; audio uses
-    # "audio_tower.*"; text is bare (embed_tokens / layers.N / norm), placed under
-    # "language_model." when the checkpoint nests the decoder there.
     path = keras_path.split("/", 1)[1].replace("/", ".")
     if path.startswith("vision_tower."):
         path = path.replace("layers_", "encoder.layers.")
@@ -76,12 +68,6 @@ def resolve_hf_name(keras_path, nested):
 
 
 def transfer_gemma4_weights(keras_model, hf_state_dict):
-    """Transfer Gemma 4 weights, for both the text and the multimodal models.
-
-    Handles text-only checkpoints (``model.embed_tokens.*``), the multimodal /
-    unified checkpoints that nest the decoder under ``model.language_model.*``
-    (alongside vision / audio towers), and the un-prefixed backbone layouts.
-    """
     if not keras_model.built or not keras_model.weights:
         if hasattr(keras_model, "build_for_transfer"):
             keras_model.build_for_transfer()
@@ -100,19 +86,14 @@ def transfer_gemma4_weights(keras_model, hf_state_dict):
             raise WeightMappingError(weight.path, name)
         torch_weight = hf_state_dict[name]
         if weight.path.endswith("depthwise_conv1d_kernel"):
-            # PyTorch depthwise conv1d [C, 1, K] -> Keras [K, C, 1].
             weight.assign(np.transpose(np.asarray(torch_weight), (2, 0, 1)))
         elif len(weight.shape) == 0:
-            # Scalar clip bounds (+-inf); transfer_weights rejects empty shapes.
             weight.assign(np.asarray(torch_weight))
         elif weight.path.endswith("position_embedding_table"):
             weight.assign(np.asarray(torch_weight))
         elif weight.path.endswith("embedding_projection/kernel"):
-            # A Dense whose name trips transfer_weights' "embedding" heuristic
-            # (direct copy, no transpose); assign the transpose ourselves.
             weight.assign(np.asarray(torch_weight).T)
         elif ".experts.gate_up_proj" in name or ".experts.down_proj" in name:
-            # Fused expert banks (E, 2I, H) / (E, H, I): direct copy.
             weight.assign(np.asarray(torch_weight))
         elif name.endswith("router.scale") or name.endswith("router.per_expert_scale"):
             weight.assign(np.asarray(torch_weight))
