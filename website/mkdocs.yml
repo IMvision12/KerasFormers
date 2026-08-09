@@ -92,6 +92,7 @@ nav:
           - Gemma: gemma.md
           - Gemma 2: gemma2.md
           - Gemma 4: gemma4.md
+          - Gemma 4 Unified: gemma4_unified.md
           - GLM: glm.md
           - GLM-4: glm4.md
           - GLM-4 MoE: glm4_moe.md

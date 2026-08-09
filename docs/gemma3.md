@@ -1,13 +1,10 @@
 # Gemma 3
 
-<div style="background:#fdecea; border:1px solid #f5c6c0; border-radius:3px; padding:12px 16px; color:#4a2626;">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/" style="color:#1a5c8a;">Loading Weights</a>.
+<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
 <br>

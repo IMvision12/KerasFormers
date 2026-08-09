@@ -10,7 +10,7 @@
 
 ## 📖 Introduction
 
-KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2, Grounding DINO), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, OneFormer, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text, Moonshine), speech-aware language modeling (Granite Speech, Granite Speech Plus), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (GPT, GPT-2, Qwen2, Qwen2-MoE, Qwen3, Qwen3-MoE, Qwen3.5, Qwen3.5-MoE, GPT-OSS, Llama 2, Llama 3, Llama 4, Mistral, Mixtral, Gemma, Gemma 2, Gemma 4, MiniMax-Text-01, MiniMax-M2, DeepSeek-V2, DeepSeek-V3, DeepSeek-V4, Cohere/Command-R, Cohere2, Cohere2-MoE, GLM-4, GLM-4-0414, GLM-4.5/GLM-4.6, GLM-5/GLM-5.1/GLM-5.2), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL, InternVL3, Gemma 3, Mistral 3, DeepSeek-VL, Janus-Pro, MiniMax-M3-VL, Cohere2-Vision, GLM-4V, GLM-4.5V, Kimi K2.5, Kimi K2.6, Kimi K2.7-Code), vision-language grounding across object detection, OCR, pointing, and referring (LocateAnything), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2, Grounding DINO), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, OneFormer, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text, Moonshine), speech-aware language modeling (Granite Speech, Granite Speech Plus), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (GPT, GPT-2, Qwen2, Qwen2-MoE, Qwen3, Qwen3-MoE, Qwen3.5, Qwen3.5-MoE, GPT-OSS, Llama 2, Llama 3, Llama 4, Mistral, Mixtral, Gemma, Gemma 2, Gemma 4, Gemma 4 Unified, MiniMax-Text-01, MiniMax-M2, DeepSeek-V2, DeepSeek-V3, DeepSeek-V4, Cohere/Command-R, Cohere2, Cohere2-MoE, GLM-4, GLM-4-0414, GLM-4.5/GLM-4.6, GLM-5/GLM-5.1/GLM-5.2), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL, InternVL3, Gemma 3, Mistral 3, DeepSeek-VL, Janus-Pro, MiniMax-M3-VL, Cohere2-Vision, GLM-4V, GLM-4.5V, Kimi K2.5, Kimi K2.6, Kimi K2.7-Code), vision-language grounding across object detection, OCR, pointing, and referring (LocateAnything), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -55,7 +55,7 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | Qwen3-MoE | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | `transformers` |
     | Qwen3.5 | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | `transformers` |
     | Qwen3.5-MoE (Qwen3-Next) | [Qwen3 Technical Report](https://arxiv.org/abs/2505.09388) | `transformers` |
-    | GPT-OSS | [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b) | `transformers` |
+    | GPT-OSS | [gpt-oss-120b & gpt-oss-20b Model Card](https://arxiv.org/abs/2508.10925) | `transformers` |
     | GPT | [Improving Language Understanding by Generative Pre-Training](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf) | `transformers` |
     | GPT-2 | [Language Models are Unsupervised Multitask Learners](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) | `transformers` |
     | Llama 2 | [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://arxiv.org/abs/2307.09288) | `transformers` (gated) |
@@ -68,16 +68,17 @@ Per-model guides - with architecture notes, usage examples, and available pretra
     | Cohere2-MoE | [Command Mixture-of-Experts](https://huggingface.co/CohereLabs) | `transformers` (gated) |
     | DeepSeek-V2 | [DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model](https://arxiv.org/abs/2405.04434) | `transformers` |
     | DeepSeek-V3 | [DeepSeek-V3 Technical Report](https://arxiv.org/abs/2412.19437) | `transformers` |
-    | DeepSeek-V4 | [deepseek-ai/DeepSeek-V4-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash) | `transformers` |
+    | DeepSeek-V4 | [DeepSeek-V4 Technical Report](https://arxiv.org/abs/2606.19348) | `transformers` |
     | Gemma | [Gemma: Open Models Based on Gemini Research and Technology](https://arxiv.org/abs/2403.08295) | `transformers` (gated) |
     | Gemma 2 | [Gemma 2: Improving Open Language Models at a Practical Size](https://arxiv.org/abs/2408.00118) | `transformers` (gated) |
-    | Gemma 4 | [google/gemma-4-12B](https://huggingface.co/google/gemma-4-12B) | `transformers` |
+    | Gemma 4 | [Gemma 4 Technical Report](https://arxiv.org/abs/2607.02770) | `transformers` |
+    | Gemma 4 Unified | [Gemma 4 Technical Report](https://arxiv.org/abs/2607.02770) | `transformers` |
     | MiniMax-Text-01 | [MiniMax-01: Scaling Foundation Models with Lightning Attention](https://arxiv.org/abs/2501.08313) | `transformers` |
     | MiniMax-M2 | [MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2) | `transformers` |
-    | GLM-4 (GLM-4-9B) | [THUDM/glm-4-9b-chat-hf](https://huggingface.co/THUDM/glm-4-9b-chat-hf) | `transformers` |
+    | GLM-4 (GLM-4-9B) | [ChatGLM: A Family of Large Language Models from GLM-130B to GLM-4](https://arxiv.org/abs/2406.12793) | `transformers` |
     | GLM-4-0414 | [THUDM/GLM-4-9B-0414](https://huggingface.co/THUDM/GLM-4-9B-0414) | `transformers` |
-    | GLM-4.5 / GLM-4.6 (MoE) | [zai-org/GLM-4.5](https://huggingface.co/zai-org/GLM-4.5) | `transformers` |
-    | GLM-5 / GLM-5.1 / GLM-5.2 (MoE) | [zai-org/GLM-5.2](https://huggingface.co/zai-org/GLM-5.2) | `transformers` |
+    | GLM-4.5 / GLM-4.6 (MoE) | [GLM-4.5: Agentic, Reasoning, and Coding (ARC) Foundation Models](https://arxiv.org/abs/2508.06471) | `transformers` |
+    | GLM-5 / GLM-5.1 / GLM-5.2 (MoE) | [GLM-5 Technical Report](https://arxiv.org/abs/2602.15763) | `transformers` |
 
 <br>
 
