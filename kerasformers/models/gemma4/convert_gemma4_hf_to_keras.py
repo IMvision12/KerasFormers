@@ -10,6 +10,7 @@ from kerasformers.conversion.weight_transfer_util import transfer_weights
 # (Gemma4Model) and the multimodal one (Gemma4MultimodalModel).
 TEXT_MAP = {
     "token_embedding.embeddings": "embed_tokens.weight",
+    "embed_tokens_per_layer.embeddings": "embed_tokens_per_layer.weight",
     "final_norm.weight": "norm.weight",
     "decoder_layer_": "layers.",
     "attention.query_norm": "self_attn.q_norm",

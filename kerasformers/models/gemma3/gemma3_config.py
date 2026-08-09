@@ -69,8 +69,9 @@ class Gemma3VisionConfig(BaseConfig):
             SigLIP tower width.
         mlp_dim (`int`, *optional*, defaults to 4304):
             SigLIP MLP width.
-        num_layers (`int`, *optional*, defaults to 0):
-            SigLIP encoder blocks (0 builds the text-only 1B; 27 on 4B+).
+        num_layers (`int`, *optional*, defaults to 27):
+            SigLIP encoder blocks (27 on 4B+; the text-only 1B has no
+            ``vision_config``).
         num_heads (`int`, *optional*, defaults to 16):
             SigLIP attention heads.
         image_size (`int`, *optional*, defaults to 896):
@@ -84,7 +85,7 @@ class Gemma3VisionConfig(BaseConfig):
 
     embed_dim: int = 1152
     mlp_dim: int = 4304
-    num_layers: int = 0
+    num_layers: int = 27
     num_heads: int = 16
     image_size: int = 896
     patch_size: int = 14
@@ -97,8 +98,8 @@ class Gemma3Config(BaseConfig):
     A composite config: the text decoder lives in a [`Gemma3TextConfig`]
     (``text_config``) and the optional SigLIP tower in a [`Gemma3VisionConfig`]
     (``vision_config``); `image_token_id` / `mm_tokens_per_image` are the top-level
-    image glue. The 1B is text-only (a default ``vision_config`` with
-    `num_layers=0`, omitted on serialize); 4B / 12B / 27B carry the vision tower.
+    image glue. The 1B is text-only (``vision_config`` is ``None``, omitted on
+    serialize); 4B / 12B / 27B carry the vision tower.
     The flat model constructor is fed by flattening the sub-configs (vision fields
     gain the `vision_` prefix, except `image_size` / `patch_size`).
 

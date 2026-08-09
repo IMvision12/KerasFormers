@@ -8,14 +8,7 @@ from .gemma4_audio_layers import (
     Gemma4AudioRelPositionalEncoding,
     Gemma4AudioSubSampleConvProjection,
 )
-from .gemma4_config import (
-    GEMMA4_CONFIG,
-    GEMMA4_GENERATE_CONFIG,
-    GEMMA4_GENERATE_WEIGHTS_URLS,
-    GEMMA4_MULTIMODAL_CONFIG,
-    GEMMA4_MULTIMODAL_WEIGHTS_URLS,
-    GEMMA4_WEIGHTS_URLS,
-)
+from .gemma4_config import Gemma4Config, Gemma4TextConfig
 from .gemma4_layers import Gemma4DecoderLayer, Gemma4RMSNorm
 from .gemma4_vision_layers import (
     Gemma4MultimodalEmbedder,
@@ -45,8 +38,10 @@ class Gemma4Model(SubclassedBaseModel):
     vision and audio towers of the multimodal checkpoints live in
     :class:`Gemma4MultimodalModel` (also in this module; loading a multimodal
     checkpoint here transfers just its ``model.*`` text
-    weights). E2B/E4B variants (per-layer inputs, shared KV) are not
-    supported. Returns raw features; use :class:`Gemma4Generate`.
+    weights). The E2B/E4B "Elastic" variants add Per-Layer Embeddings
+    (``hidden_size_per_layer_input``), tail layers that share an earlier layer's
+    K/V (``num_kv_shared_layers``), and an optional double-wide MLP on those
+    shared layers. Returns raw features; use :class:`Gemma4Generate`.
 
     Args:
         vocab_size: Token vocabulary size.
@@ -71,9 +66,9 @@ class Gemma4Model(SubclassedBaseModel):
         tie_embeddings: Whether :class:`Gemma4Generate` ties the LM head.
     """
 
-    HF_MODEL_TYPE = ("gemma4", "gemma4_text", "gemma4_unified", "gemma4_unified_text")
-    BASE_MODEL_CONFIG = GEMMA4_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_WEIGHTS_URLS
+    HF_MODEL_TYPE = ("gemma4", "gemma4_text")
+    config_class = Gemma4TextConfig
+    default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     def __init__(
         self,
@@ -93,12 +88,17 @@ class Gemma4Model(SubclassedBaseModel):
         moe_mlp_dim=0,
         sliding_window=1024,
         sliding_window_pattern=6,
+        layer_types=None,
         partial_rotary_factor=0.25,
         final_logit_softcapping=30.0,
         norm_eps=1e-6,
         rope_theta=1000000.0,
         rope_local_theta=10000.0,
         tie_embeddings=True,
+        hidden_size_per_layer_input=0,
+        vocab_size_per_layer_input=262144,
+        num_kv_shared_layers=0,
+        use_double_wide_mlp=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -124,22 +124,64 @@ class Gemma4Model(SubclassedBaseModel):
         self.rope_theta = rope_theta
         self.rope_local_theta = rope_local_theta
         self.tie_embeddings = tie_embeddings
+        self.hidden_size_per_layer_input = hidden_size_per_layer_input
+        self.vocab_size_per_layer_input = vocab_size_per_layer_input
+        self.num_kv_shared_layers = num_kv_shared_layers
+        self.use_double_wide_mlp = use_double_wide_mlp
         self.global_rot_dim = 2 * int(partial_rotary_factor * global_head_dim // 2)
+        # Layers at index >= first_kv_shared reuse an earlier layer's K/V (E-variants).
+        self.first_kv_shared = num_layers - num_kv_shared_layers
+        # Per-layer sliding/global schedule. Honor the checkpoint's explicit
+        # ``layer_types`` when present (the E2B/E4B variants place their global
+        # layers on a 5:1 schedule, not the 6-layer default of 12B/26B/31B);
+        # otherwise derive it from ``sliding_window_pattern``.
+        self.layer_types = (
+            list(layer_types)
+            if layer_types
+            else [
+                "full_attention"
+                if (i + 1) % sliding_window_pattern == 0
+                else "sliding_attention"
+                for i in range(num_layers)
+            ]
+        )
 
         self.token_embedding = layers.Embedding(
             vocab_size, embed_dim, name="token_embedding"
         )
+        # Per-Layer Embeddings (PLE): a per-layer auxiliary embedding + a projection
+        # of the main hidden state, combined and fed into every decoder block.
+        if hidden_size_per_layer_input:
+            self.embed_tokens_per_layer = layers.Embedding(
+                vocab_size_per_layer_input,
+                num_layers * hidden_size_per_layer_input,
+                name="embed_tokens_per_layer",
+            )
+            self.per_layer_model_projection = layers.Dense(
+                num_layers * hidden_size_per_layer_input,
+                use_bias=False,
+                name="per_layer_model_projection",
+            )
+            self.per_layer_projection_norm = Gemma4RMSNorm(
+                eps=norm_eps, name="per_layer_projection_norm"
+            )
         self.decoder_layers = []
         for i in range(num_layers):
             sliding = self.is_sliding(i)
+            is_kv_shared = num_kv_shared_layers > 0 and i >= self.first_kv_shared
+            layer_mlp_dim = (
+                mlp_dim * 2 if (use_double_wide_mlp and is_kv_shared) else mlp_dim
+            )
             self.decoder_layers.append(
                 Gemma4DecoderLayer(
                     embed_dim,
-                    mlp_dim,
+                    layer_mlp_dim,
                     num_heads,
                     num_kv_heads if sliding else num_global_kv_heads,
                     head_dim if sliding else global_head_dim,
                     k_eq_v=(not sliding) and k_eq_v,
+                    is_kv_shared=is_kv_shared,
+                    hidden_size_per_layer_input=hidden_size_per_layer_input,
                     is_moe=enable_moe,
                     num_experts=num_experts,
                     num_experts_per_tok=num_experts_per_tok,
@@ -151,7 +193,7 @@ class Gemma4Model(SubclassedBaseModel):
         self.final_norm = Gemma4RMSNorm(eps=norm_eps, name="final_norm")
 
     def is_sliding(self, layer_idx):
-        return bool((layer_idx + 1) % self.sliding_window_pattern)
+        return self.layer_types[layer_idx] != "full_attention"
 
     def embed_scaled(self, input_ids):
         return self.token_embedding(input_ids) * ops.cast(
@@ -211,12 +253,59 @@ class Gemma4Model(SubclassedBaseModel):
             sliding = sliding + pad
         return full, sliding
 
-    def run_layers(self, hidden, cos_l, sin_l, cos_g, sin_g, full_mask, sliding_mask):
+    def compute_per_layer_inputs(self, input_ids, inputs_embeds):
+        # PLE: token-identity embedding (scaled) + a context projection of the
+        # scaled main embedding, combined as (proj + identity) / sqrt(2). Shape
+        # (batch, seq, num_layers, hidden_size_per_layer_input).
+        b = ops.shape(input_ids)[0]
+        s = ops.shape(input_ids)[1]
+        ple = self.embed_tokens_per_layer(input_ids) * ops.cast(
+            self.hidden_size_per_layer_input**0.5, self.compute_dtype
+        )
+        ple = ops.reshape(
+            ple, (b, s, self.num_layers, self.hidden_size_per_layer_input)
+        )
+        proj = self.per_layer_model_projection(inputs_embeds) * ops.cast(
+            self.embed_dim**-0.5, self.compute_dtype
+        )
+        proj = ops.reshape(
+            proj, (b, s, self.num_layers, self.hidden_size_per_layer_input)
+        )
+        proj = self.per_layer_projection_norm(proj)
+        return (proj + ple) * ops.cast(2.0**-0.5, self.compute_dtype)
+
+    def run_layers(
+        self,
+        hidden,
+        cos_l,
+        sin_l,
+        cos_g,
+        sin_g,
+        full_mask,
+        sliding_mask,
+        per_layer_inputs=None,
+    ):
+        # ``shared`` holds the K/V of the last non-shared layer per attention type,
+        # which the shared layers at the tail reuse (transformers KV-sharing).
+        shared = {}
         for i, layer in enumerate(self.decoder_layers):
-            if self.is_sliding(i):
-                hidden = layer(hidden, cos_l, sin_l, attention_mask=sliding_mask)
-            else:
-                hidden = layer(hidden, cos_g, sin_g, attention_mask=full_mask)
+            sliding = self.is_sliding(i)
+            layer_type = "sliding" if sliding else "global"
+            cos, sin, mask = (
+                (cos_l, sin_l, sliding_mask) if sliding else (cos_g, sin_g, full_mask)
+            )
+            pli = per_layer_inputs[:, :, i, :] if per_layer_inputs is not None else None
+            is_shared = self.num_kv_shared_layers > 0 and i >= self.first_kv_shared
+            hidden, kv = layer(
+                hidden,
+                cos,
+                sin,
+                attention_mask=mask,
+                shared_kv=shared.get(layer_type) if is_shared else None,
+                per_layer_input=pli,
+            )
+            if self.num_kv_shared_layers > 0 and not is_shared:
+                shared[layer_type] = kv
         return self.final_norm(hidden)
 
     def call(self, inputs):
@@ -226,23 +315,30 @@ class Gemma4Model(SubclassedBaseModel):
         batch, seq = int(input_ids.shape[0]), int(input_ids.shape[1])
         attention_mask = inputs.get("attention_mask")
         hidden = self.embed_scaled(input_ids)
+        per_layer_inputs = (
+            self.compute_per_layer_inputs(input_ids, hidden)
+            if self.hidden_size_per_layer_input
+            else None
+        )
         position_ids = self.compute_position_ids(attention_mask, batch, seq)
         cos_l, sin_l = self.rope_tables(position_ids, local=True)
         cos_g, sin_g = self.rope_tables(position_ids, local=False)
         full_mask, sliding_mask = self.build_masks(seq, attention_mask)
         hidden = self.run_layers(
-            hidden, cos_l, sin_l, cos_g, sin_g, full_mask, sliding_mask
+            hidden,
+            cos_l,
+            sin_l,
+            cos_g,
+            sin_g,
+            full_mask,
+            sliding_mask,
+            per_layer_inputs=per_layer_inputs,
         )
         return {"last_hidden_state": hidden}
 
     @classmethod
     def config_from_hf(cls, hf_config):
         text = hf_config.get("text_config", hf_config)
-        if text.get("hidden_size_per_layer_input") or text.get("num_kv_shared_layers"):
-            raise NotImplementedError(
-                "Gemma 4 E-variants (per-layer inputs / shared KV layers) are "
-                "not supported by this port."
-            )
         rope = text.get("rope_parameters") or {}
         full_rope = rope.get("full_attention") or {}
         sliding_rope = rope.get("sliding_attention") or {}
@@ -266,6 +362,7 @@ class Gemma4Model(SubclassedBaseModel):
             "moe_mlp_dim": text.get("moe_intermediate_size") or 0,
             "sliding_window": text.get("sliding_window", 1024),
             "sliding_window_pattern": text.get("sliding_window_pattern", 6),
+            "layer_types": text.get("layer_types"),
             "partial_rotary_factor": full_rope.get("partial_rotary_factor", 0.25),
             "final_logit_softcapping": text.get("final_logit_softcapping"),
             "norm_eps": text.get("rms_norm_eps", 1e-6),
@@ -276,6 +373,13 @@ class Gemma4Model(SubclassedBaseModel):
                 "rope_theta", text.get("rope_local_base_freq", 10000.0)
             ),
             "tie_embeddings": text.get("tie_word_embeddings", True),
+            "hidden_size_per_layer_input": text.get("hidden_size_per_layer_input", 0)
+            or 0,
+            "vocab_size_per_layer_input": text.get(
+                "vocab_size_per_layer_input", 262144
+            ),
+            "num_kv_shared_layers": text.get("num_kv_shared_layers", 0) or 0,
+            "use_double_wide_mlp": bool(text.get("use_double_wide_mlp", False)),
         }
 
     @classmethod
@@ -304,12 +408,17 @@ class Gemma4Model(SubclassedBaseModel):
                 "moe_mlp_dim": self.moe_mlp_dim,
                 "sliding_window": self.sliding_window,
                 "sliding_window_pattern": self.sliding_window_pattern,
+                "layer_types": self.layer_types,
                 "partial_rotary_factor": self.partial_rotary_factor,
                 "final_logit_softcapping": self.final_logit_softcapping,
                 "norm_eps": self.norm_eps,
                 "rope_theta": self.rope_theta,
                 "rope_local_theta": self.rope_local_theta,
                 "tie_embeddings": self.tie_embeddings,
+                "hidden_size_per_layer_input": self.hidden_size_per_layer_input,
+                "vocab_size_per_layer_input": self.vocab_size_per_layer_input,
+                "num_kv_shared_layers": self.num_kv_shared_layers,
+                "use_double_wide_mlp": self.use_double_wide_mlp,
             }
         )
         return config
@@ -524,8 +633,8 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = ("gemma4",)
-    BASE_MODEL_CONFIG = GEMMA4_MULTIMODAL_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_MULTIMODAL_WEIGHTS_URLS
+    config_class = Gemma4Config
+    default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     def __init__(
         self,
@@ -732,7 +841,12 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
             inputs.get("input_features_mask"),
         )
         rope, masks = self.prefill_rope_masks(is_vision, attention_mask, batch, seq)
-        hidden = lm.run_layers(hidden, *rope, *masks)
+        per_layer_inputs = (
+            lm.compute_per_layer_inputs(input_ids, hidden)
+            if lm.hidden_size_per_layer_input
+            else None
+        )
+        hidden = lm.run_layers(hidden, *rope, *masks, per_layer_inputs=per_layer_inputs)
         return {"last_hidden_state": hidden}
 
     @staticmethod
@@ -780,8 +894,9 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
         text = hf_config["text_config"]
         vision = hf_config.get("vision_config")
         audio = hf_config.get("audio_config")
-        # Only the "gemma4" towers are ported; the "gemma4_unified" towers are a
-        # different architecture, so those checkpoints load text-only here.
+        # This family owns only the NaViT / USM "gemma4" towers; the encoder-free
+        # "gemma4_unified" towers live in models/gemma4_unified, so guard on the
+        # tower model_type (a stray unified sub-config would load text-only here).
         vision_ok = bool(vision) and vision.get("model_type") == "gemma4_vision"
         audio_ok = bool(audio) and audio.get("model_type") == "gemma4_audio"
         return {
@@ -834,9 +949,9 @@ class Gemma4Generate(Gemma4MultimodalModel, BaseGeneration):
     keyword prefill inputs to ``generate`` when the checkpoint has the towers.
     """
 
-    HF_MODEL_TYPE = ("gemma4", "gemma4_text", "gemma4_unified", "gemma4_unified_text")
-    BASE_MODEL_CONFIG = GEMMA4_GENERATE_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_GENERATE_WEIGHTS_URLS
+    HF_MODEL_TYPE = ("gemma4", "gemma4_text")
+    config_class = Gemma4Config
+    default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     eos_token_id = (1, 106)
 
@@ -890,16 +1005,33 @@ class Gemma4Generate(Gemma4MultimodalModel, BaseGeneration):
         )
         cos_l, sin_l, cos_g, sin_g = rope
         full_mask, sliding_mask = masks
+        per_layer_inputs = (
+            lm.compute_per_layer_inputs(token_ids, hidden)
+            if lm.hidden_size_per_layer_input
+            else None
+        )
         layer_caches = []
+        shared_kv = {}  # layer_type -> storing layer's prompt-length (k, v)
+        shared_stacked = {}  # layer_type -> storing layer's padded [ck, cv]
         for i, layer in enumerate(lm.decoder_layers):
-            if lm.is_sliding(i):
-                hidden, (k, v) = layer(
-                    hidden, cos_l, sin_l, attention_mask=sliding_mask, use_cache=True
-                )
-            else:
-                hidden, (k, v) = layer(
-                    hidden, cos_g, sin_g, attention_mask=full_mask, use_cache=True
-                )
+            sliding = lm.is_sliding(i)
+            layer_type = "sliding" if sliding else "global"
+            cos, sin, mask = (
+                (cos_l, sin_l, sliding_mask) if sliding else (cos_g, sin_g, full_mask)
+            )
+            pli = per_layer_inputs[:, :, i, :] if per_layer_inputs is not None else None
+            is_shared = lm.num_kv_shared_layers > 0 and i >= lm.first_kv_shared
+            hidden, (k, v) = layer(
+                hidden,
+                cos,
+                sin,
+                attention_mask=mask,
+                shared_kv=shared_kv.get(layer_type) if is_shared else None,
+                per_layer_input=pli,
+            )
+            if is_shared:
+                layer_caches.append(shared_stacked[layer_type])
+                continue
             nkv = int(k.shape[1])
             hd = int(k.shape[3])
             ck = ops.slice_update(
@@ -908,7 +1040,11 @@ class Gemma4Generate(Gemma4MultimodalModel, BaseGeneration):
             cv = ops.slice_update(
                 ops.zeros((batch, nkv, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
             )
-            layer_caches.append(ops.stack([ck, cv], axis=1))
+            stacked = ops.stack([ck, cv], axis=1)
+            layer_caches.append(stacked)
+            if lm.num_kv_shared_layers > 0:
+                shared_kv[layer_type] = (k, v)
+                shared_stacked[layer_type] = stacked
         logits = self.project(lm.final_norm(hidden)[:, -1, :])
         return tuple(layer_caches), logits
 
@@ -932,17 +1068,50 @@ class Gemma4Generate(Gemma4MultimodalModel, BaseGeneration):
             ),
             "float32",
         )[None, None, None, :]
-        h = lm.embed_scaled(ops.cast(token_ids, "int32"))
+        token_ids = ops.cast(token_ids, "int32")
+        h = lm.embed_scaled(token_ids)
+        per_layer_inputs = (
+            lm.compute_per_layer_inputs(token_ids, h)
+            if lm.hidden_size_per_layer_input
+            else None
+        )
         new_caches = []
+        shared_stacked = {}  # layer_type -> storing layer's updated [ck, cv]
         for i, layer in enumerate(lm.decoder_layers):
-            if lm.is_sliding(i):
-                h, ck, cv = layer.decode_step(
-                    h, cos_l, sin_l, cache[i][:, 0], cache[i][:, 1], pos, sliding_km
+            sliding = lm.is_sliding(i)
+            layer_type = "sliding" if sliding else "global"
+            cos, sin, km = (
+                (cos_l, sin_l, sliding_km) if sliding else (cos_g, sin_g, full_km)
+            )
+            pli = per_layer_inputs[:, :, i, :] if per_layer_inputs is not None else None
+            is_shared = lm.num_kv_shared_layers > 0 and i >= lm.first_kv_shared
+            if is_shared:
+                stacked = shared_stacked[layer_type]
+                h, _, _ = layer.decode_step(
+                    h,
+                    cos,
+                    sin,
+                    stacked[:, 0],
+                    stacked[:, 1],
+                    pos,
+                    km,
+                    per_layer_input=pli,
                 )
-            else:
-                h, ck, cv = layer.decode_step(
-                    h, cos_g, sin_g, cache[i][:, 0], cache[i][:, 1], pos, full_km
-                )
-            new_caches.append(ops.stack([ck, cv], axis=1))
+                new_caches.append(stacked)
+                continue
+            h, ck, cv = layer.decode_step(
+                h,
+                cos,
+                sin,
+                cache[i][:, 0],
+                cache[i][:, 1],
+                pos,
+                km,
+                per_layer_input=pli,
+            )
+            stacked = ops.stack([ck, cv], axis=1)
+            new_caches.append(stacked)
+            if lm.num_kv_shared_layers > 0:
+                shared_stacked[layer_type] = stacked
         logits = self.project(lm.final_norm(h))[:, 0, :]
         return logits, tuple(new_caches)
