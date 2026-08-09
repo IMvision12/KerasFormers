@@ -9,10 +9,13 @@
 ![Python](https://img.shields.io/badge/python-v3.10.0+-success.svg)
 
   > [!IMPORTANT]
-  > **kerasformers is under active development.** We are currently migrating from
-  > GitHub-release-hosted weights to the Hugging Face Hub, with proper typed config
-  > files and weights for each model. During this transition we recommend installing
-  > directly from the `main` branch on GitHub rather than from PyPI:
+  > **kerasformers is under active development**, and we are currently migrating
+  > from GitHub-hosted release weights to the Hugging Face Hub.
+  > The PyPI package may lag behind the latest models, fixes, and API updates.
+  > This migration includes properly typed configuration files and dedicated
+  > weights for each model. Until the migration is complete, we recommend
+  > installing `kerasformers` directly from the `main` branch on GitHub rather
+  > than from PyPI:
   >
   > ```bash
   > pip install git+https://github.com/IMvision12/KerasFormers.git
