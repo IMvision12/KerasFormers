@@ -43,9 +43,6 @@ class BaseConfig:
     model_type = None
     sub_configs = {}
     sub_config_prefixes = {}
-    # Secondary sub-configs omitted from serialization when all-default (an *optional*
-    # tower, e.g. gemma3's vision on the text-only 1B). Mandatory towers (CLIP,
-    # whisper) are always emitted, so leave this empty for them.
     optional_sub_configs = ()
     config_groups = {}
     group_extras = {}
@@ -63,7 +60,7 @@ class BaseConfig:
             value = getattr(self, key, None)
             if isinstance(value, dict):
                 setattr(self, key, sub_cls(**value))
-            elif value is None:
+            elif value is None and key not in self.optional_sub_configs:
                 setattr(self, key, sub_cls())
 
     @classmethod
@@ -117,6 +114,8 @@ class BaseConfig:
             }
             for key in self.sub_configs:
                 obj = getattr(self, key)
+                if obj is None:
+                    continue
                 for field in obj.field_names():
                     flat[self._sub_flat_name(key, field)] = getattr(obj, field)
             return flat
@@ -140,6 +139,8 @@ class BaseConfig:
         active_secondary = False
         for key, sub_cls in self.sub_configs.items():
             obj = getattr(self, key)
+            if obj is None:
+                continue  # absent optional tower (kept as None)
             sub = {f: getattr(obj, f) for f in obj.field_names()}
             if key == main:
                 data[key] = sub
@@ -148,7 +149,7 @@ class BaseConfig:
                 f: getattr(sub_cls, f, None) for f in sub_cls.field_names()
             }
             if key in self.optional_sub_configs and all_default:
-                continue  # optional tower, absent (e.g. gemma3 text-only)
+                continue  # optional tower left all-default (legacy sentinel style)
             data[key] = sub
             active_secondary = True
         if active_secondary:  # glue only present alongside a secondary tower
@@ -200,7 +201,8 @@ class BaseConfig:
                 flat_name = cls._sub_flat_name(key, field)
                 if flat_name in data:
                     sub[field] = data[flat_name]
-            init[key] = sub
+            if sub or key not in cls.optional_sub_configs:
+                init[key] = sub
         for name in cls.field_names():
             if name not in cls.sub_configs and name in data:
                 init[name] = data[name]

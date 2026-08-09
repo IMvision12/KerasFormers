@@ -15,9 +15,8 @@ class Gemma4UnifiedVisionConfig(BaseConfig):
             Teacher patch side in pixels (before merging).
         pooling_kernel_size (`int`, *optional*, defaults to 3):
             Merge kernel side (``model_patch_size = patch_size * pooling_kernel_size``).
-        mm_embed_dim (`int`, *optional*, defaults to 0):
-            Patch Dense projection width and position-table width; ``0`` marks an
-            absent vision embedder.
+        mm_embed_dim (`int`, *optional*, defaults to 3840):
+            Patch Dense projection width and position-table width.
         mm_posemb_size (`int`, *optional*, defaults to 1120):
             Length of the factorized 2D position table.
         output_proj_dims (`int`, *optional*, defaults to 3840):
@@ -29,7 +28,7 @@ class Gemma4UnifiedVisionConfig(BaseConfig):
 
     patch_size: int = 16
     pooling_kernel_size: int = 3
-    mm_embed_dim: int = 0
+    mm_embed_dim: int = 3840
     mm_posemb_size: int = 1120
     output_proj_dims: int = 3840
     eps: float = 1e-6
@@ -42,9 +41,8 @@ class Gemma4UnifiedAudioConfig(BaseConfig):
     ``audio_embed_dim`` (640) samples projected straight into ``output_proj_dims``.
 
     Args:
-        audio_embed_dim (`int`, *optional*, defaults to 0):
-            Raw samples per audio soft token (== frame length); ``0`` marks an
-            absent audio embedder.
+        audio_embed_dim (`int`, *optional*, defaults to 640):
+            Raw samples per audio soft token (== frame length).
         output_proj_dims (`int`, *optional*, defaults to 640):
             Soft-token projector input width (== ``audio_embed_dim``).
         eps (`float`, *optional*, defaults to 1e-6):
@@ -52,7 +50,7 @@ class Gemma4UnifiedAudioConfig(BaseConfig):
 
     model_type = "gemma4_unified_audio"
 
-    audio_embed_dim: int = 0
+    audio_embed_dim: int = 640
     output_proj_dims: int = 640
     eps: float = 1e-6
 

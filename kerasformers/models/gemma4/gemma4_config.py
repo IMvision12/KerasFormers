@@ -103,8 +103,8 @@ class Gemma4VisionConfig(BaseConfig):
     Args:
         hidden_size (`int`, *optional*, defaults to 1152):
             Vision tower width.
-        num_layers (`int`, *optional*, defaults to 0):
-            Vision encoder blocks; ``0`` marks an absent vision tower.
+        num_layers (`int`, *optional*, defaults to 27):
+            Vision encoder blocks.
         num_heads (`int`, *optional*, defaults to 16):
             Vision attention heads.
         num_kv_heads (`int`, *optional*, defaults to 16):
@@ -131,7 +131,7 @@ class Gemma4VisionConfig(BaseConfig):
     model_type = "gemma4_vision"
 
     hidden_size: int = 1152
-    num_layers: int = 0
+    num_layers: int = 27
     num_heads: int = 16
     num_kv_heads: int = 16
     head_dim: int = 72
@@ -151,8 +151,8 @@ class Gemma4AudioConfig(BaseConfig):
     Args:
         hidden_size (`int`, *optional*, defaults to 1024):
             Audio conformer width.
-        num_layers (`int`, *optional*, defaults to 0):
-            Conformer blocks; ``0`` marks an absent audio tower.
+        num_layers (`int`, *optional*, defaults to 12):
+            Conformer blocks.
         num_heads (`int`, *optional*, defaults to 8):
             Conformer attention heads.
         conv_channels (`tuple`, *optional*, defaults to `(128, 32)`):
@@ -179,7 +179,7 @@ class Gemma4AudioConfig(BaseConfig):
     model_type = "gemma4_audio"
 
     hidden_size: int = 1024
-    num_layers: int = 0
+    num_layers: int = 12
     num_heads: int = 8
     conv_channels: tuple = (128, 32)
     conv_kernel_size: int = 5
@@ -202,9 +202,8 @@ class Gemma4Config(BaseConfig):
     (``text_config``), the optional NaViT tower in a [`Gemma4VisionConfig`]
     (``vision_config``), and the optional USM tower in a [`Gemma4AudioConfig`]
     (``audio_config``); the ``*_token_id`` glue is top-level. An absent optional
-    tower is its all-default sub-config (``num_layers=0``, gemma3's convention),
-    dropped on serialize. Unlike gemma3's flat constructor,
-    [`Gemma4MultimodalModel`] takes the sub-configs **nested**, so
+    tower is ``None`` (dropped on serialize by BaseConfig). Unlike gemma3's flat
+    constructor, [`Gemma4MultimodalModel`] takes the sub-configs **nested**, so
     ``constructor_kwargs`` emits the nested form and passes ``None`` for an absent
     tower (which is how the model skips building it).
 
@@ -263,10 +262,7 @@ class Gemma4Config(BaseConfig):
             for name in self.field_names()
             if name not in self.sub_configs
         }
-        for key, sub_cls in self.sub_configs.items():
+        for key in self.sub_configs:
             obj = getattr(self, key)
-            absent = key in self.optional_sub_configs and all(
-                getattr(obj, f) == getattr(sub_cls, f, None) for f in obj.field_names()
-            )
-            kw[key] = None if absent else obj.constructor_kwargs()
+            kw[key] = obj.constructor_kwargs() if obj is not None else None
         return kw
