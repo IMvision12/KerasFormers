@@ -205,7 +205,9 @@ Text + image + audio to model inputs. Renders the chat template, preprocesses im
 and audio, and expands each `<|image|>` / `<|audio|>` marker into its soft-token run.
 
 ```python
-Gemma4Processor(hf_id=None, tokenizer=None, image_processor=None, feature_extractor=None)
+Gemma4Processor(
+    hf_id=None, tokenizer=None, image_processor=None, feature_extractor=None
+)
 ```
 
 ## End-to-end example
@@ -319,6 +321,9 @@ at full precision. See [quantization.md](quantization.md):
 
 ```python
 model = Gemma4Generate.from_weights(
-    "kerasformers/gemma-4-31b-it", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/gemma-4-31b-it",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```

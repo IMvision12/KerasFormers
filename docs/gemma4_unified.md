@@ -130,7 +130,9 @@ marker into its soft-token run (audio has no downsampling, so one token per vali
 640-sample frame).
 
 ```python
-Gemma4UnifiedProcessor(hf_id=None, tokenizer=None, image_processor=None, feature_extractor=None)
+Gemma4UnifiedProcessor(
+    hf_id=None, tokenizer=None, image_processor=None, feature_extractor=None
+)
 ```
 
 ## End-to-end example
@@ -200,6 +202,9 @@ The 12B fits comfortably in bf16; weight-only quantization shrinks it further. S
 
 ```python
 model = Gemma4UnifiedGenerate.from_weights(
-    "kerasformers/gemma-4-12b-it", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/gemma-4-12b-it",
+    quantization="int8",
+    low_memory=True,
+    load_dtype="bfloat16",
 )
 ```

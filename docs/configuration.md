@@ -24,9 +24,9 @@ nested blocks (`to_dict()`).
 ```python
 from kerasformers.models.gemma3 import Gemma3Config
 
-config = Gemma3Config()          # every field at its default
-config.text_config               # a Gemma3TextConfig object
-config.text_config.num_layers    # 26
+config = Gemma3Config()  # every field at its default
+config.text_config  # a Gemma3TextConfig object
+config.text_config.num_layers  # 26
 ```
 
 ## Building and reading a config
@@ -56,7 +56,7 @@ config.to_dict()
 #   "model_type": "gemma3",
 #   "text_config": {"vocab_size": 262144, "embed_dim": 1152, ...},
 # }
-Gemma3Config.from_dict(config.to_dict())   # the same config back
+Gemma3Config.from_dict(config.to_dict())  # the same config back
 ```
 
 ## How a config feeds the model
@@ -100,7 +100,7 @@ class Gemma3Config(BaseConfig):
 
     text_config: Gemma3TextConfig | dict | None = None
     vision_config: Gemma3VisionConfig | dict | None = None
-    mm_tokens_per_image: int = 256      # top-level glue, in neither block
+    mm_tokens_per_image: int = 256  # top-level glue, in neither block
     image_token_id: int = 262144
 ```
 
@@ -119,7 +119,9 @@ sub-config classes.
 
 ```python
 class SomeConfig(BaseConfig):
-    config_groups = {"vision_config": "vision_"}   # vision_embed_dim -> vision_config: {"embed_dim": ...}
+    config_groups = {
+        "vision_config": "vision_"
+    }  # vision_embed_dim -> vision_config: {"embed_dim": ...}
     group_extras = {"vision_config": ("image_size",)}
     top_level_fields = ("image_token_id",)
 ```
@@ -163,7 +165,7 @@ on its own:
 ```python
 from kerasformers.models.clip import CLIPConfig, CLIPTextConfig, CLIPVisionConfig
 
-CLIPTextConfig()                  # just the text tower's fields
+CLIPTextConfig()  # just the text tower's fields
 CLIPConfig(vision_config=CLIPVisionConfig(patch_size=16))
 ```
 
