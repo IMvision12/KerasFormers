@@ -5,10 +5,7 @@ from kerasformers.base import BaseGeneration, SubclassedBaseModel
 from kerasformers.models.gemma4.gemma4_model import Gemma4Model
 from kerasformers.models.gemma4.gemma4_vision_layers import Gemma4MultimodalEmbedder
 
-from .gemma4_unified_config import (
-    GEMMA4_UNIFIED_GENERATE_CONFIG,
-    GEMMA4_UNIFIED_GENERATE_WEIGHTS_URLS,
-)
+from .gemma4_unified_config import Gemma4UnifiedConfig
 from .gemma4_unified_vision import Gemma4UnifiedVisionEmbedder
 
 MASK_NEG = -1e9
@@ -44,8 +41,7 @@ class Gemma4UnifiedModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = ("gemma4_unified",)
-    BASE_MODEL_CONFIG = GEMMA4_UNIFIED_GENERATE_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_UNIFIED_GENERATE_WEIGHTS_URLS
+    config_class = Gemma4UnifiedConfig
     default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     def __init__(
@@ -303,8 +299,7 @@ class Gemma4UnifiedGenerate(Gemma4UnifiedModel, BaseGeneration):
     """
 
     HF_MODEL_TYPE = ("gemma4_unified", "gemma4_unified_text")
-    BASE_MODEL_CONFIG = GEMMA4_UNIFIED_GENERATE_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_UNIFIED_GENERATE_WEIGHTS_URLS
+    config_class = Gemma4UnifiedConfig
     default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     eos_token_id = (1, 106)

@@ -8,14 +8,7 @@ from .gemma4_audio_layers import (
     Gemma4AudioRelPositionalEncoding,
     Gemma4AudioSubSampleConvProjection,
 )
-from .gemma4_config import (
-    GEMMA4_CONFIG,
-    GEMMA4_GENERATE_CONFIG,
-    GEMMA4_GENERATE_WEIGHTS_URLS,
-    GEMMA4_MULTIMODAL_CONFIG,
-    GEMMA4_MULTIMODAL_WEIGHTS_URLS,
-    GEMMA4_WEIGHTS_URLS,
-)
+from .gemma4_config import Gemma4Config, Gemma4TextConfig
 from .gemma4_layers import Gemma4DecoderLayer, Gemma4RMSNorm
 from .gemma4_vision_layers import (
     Gemma4MultimodalEmbedder,
@@ -74,8 +67,7 @@ class Gemma4Model(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = ("gemma4", "gemma4_text")
-    BASE_MODEL_CONFIG = GEMMA4_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_WEIGHTS_URLS
+    config_class = Gemma4TextConfig
     default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     def __init__(
@@ -641,8 +633,7 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = ("gemma4",)
-    BASE_MODEL_CONFIG = GEMMA4_MULTIMODAL_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_MULTIMODAL_WEIGHTS_URLS
+    config_class = Gemma4Config
     default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     def __init__(
@@ -959,8 +950,7 @@ class Gemma4Generate(Gemma4MultimodalModel, BaseGeneration):
     """
 
     HF_MODEL_TYPE = ("gemma4", "gemma4_text")
-    BASE_MODEL_CONFIG = GEMMA4_GENERATE_CONFIG
-    BASE_WEIGHT_CONFIG = GEMMA4_GENERATE_WEIGHTS_URLS
+    config_class = Gemma4Config
     default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     eos_token_id = (1, 106)

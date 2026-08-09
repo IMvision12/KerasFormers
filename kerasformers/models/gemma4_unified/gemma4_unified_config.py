@@ -1,92 +1,112 @@
-# Gemma 4 "unified" family (google/gemma-4-12B). Unlike the "gemma4" family
-# (NaViT vision tower + USM audio conformer), the unified checkpoints are
-# encoder-free: images become raw 48px merged pixel patches projected by a
-# Dense + factorized 2D position embedding, and audio becomes raw 640-sample
-# waveform frames projected straight through an RMSNorm + Dense. The text tower
-# is the plain Gemma 4 dense decoder (no Per-Layer Embeddings, no MoE) with
-# global K=V attention and a learned per-layer scalar, so it reuses
-# :class:`~kerasformers.models.gemma4.gemma4_model.Gemma4Model`.
+from kerasformers.base import BaseConfig
+from kerasformers.models.gemma4.gemma4_config import Gemma4Config, Gemma4TextConfig
 
-# Text configs forwarded to Gemma4Model. The 12B has no KV sharing
-# (num_kv_shared_layers 0) but keeps global K=V attention (k_eq_v).
-GEMMA4_UNIFIED_CONFIG = {
-    "gemma-4-12b": {
-        "embed_dim": 3840,
-        "mlp_dim": 15360,
-        "num_layers": 48,
-        "num_heads": 16,
-        "num_kv_heads": 8,
-        "num_global_kv_heads": 1,
-        "head_dim": 256,
-        "global_head_dim": 512,
-        "k_eq_v": True,
-        "enable_moe": False,
-    },
-    "gemma-4-12b-it": {
-        "embed_dim": 3840,
-        "mlp_dim": 15360,
-        "num_layers": 48,
-        "num_heads": 16,
-        "num_kv_heads": 8,
-        "num_global_kv_heads": 1,
-        "head_dim": 256,
-        "global_head_dim": 512,
-        "k_eq_v": True,
-        "enable_moe": False,
-    },
-}
 
-GEMMA4_UNIFIED_WEIGHTS_URLS = {
-    "gemma-4-12b": {"hf_id": "google/gemma-4-12B", "gated": False, "safetensors": True},
-    "gemma-4-12b-it": {
-        "hf_id": "google/gemma-4-12B-it",
-        "gated": False,
-        "safetensors": True,
-    },
-}
+class Gemma4UnifiedVisionConfig(BaseConfig):
+    r"""Encoder-free vision-embedder config for Gemma 4 unified (``vision_config``).
 
-# Encoder-free vision embedder. ``model_patch_size = patch_size *
-# pooling_kernel_size`` (48), so each merged patch carries ``model_patch_size**2
-# * 3`` (6912) raw pixel channels. ``mm_posemb_size`` is the length of the
-# factorized 2D position table (shape ``(mm_posemb_size, 2, mm_embed_dim)``).
-GEMMA4_UNIFIED_VISION_CONFIG = {
-    "patch_size": 16,
-    "pooling_kernel_size": 3,
-    "mm_embed_dim": 3840,
-    "mm_posemb_size": 1120,
-    "output_proj_dims": 3840,
-    "eps": 1e-6,
-}
+    No transformer tower: images are raw merged pixel patches
+    (``model_patch_size = patch_size * pooling_kernel_size``, 48px) projected by a
+    Dense + factorized 2D position embedding of length ``mm_posemb_size``, then the
+    shared soft-token projector into ``output_proj_dims`` (text width).
 
-# Encoder-free audio embedder. Each soft token is a raw 40ms waveform frame of
-# ``audio_embed_dim`` (640) samples at 16 kHz, projected straight to text space.
-GEMMA4_UNIFIED_AUDIO_CONFIG = {
-    "audio_embed_dim": 640,
-    "output_proj_dims": 640,
-    "eps": 1e-6,
-}
+    Args:
+        patch_size (`int`, *optional*, defaults to 16):
+            Teacher patch side in pixels (before merging).
+        pooling_kernel_size (`int`, *optional*, defaults to 3):
+            Merge kernel side (``model_patch_size = patch_size * pooling_kernel_size``).
+        mm_embed_dim (`int`, *optional*, defaults to 0):
+            Patch Dense projection width and position-table width; ``0`` marks an
+            absent vision embedder.
+        mm_posemb_size (`int`, *optional*, defaults to 1120):
+            Length of the factorized 2D position table.
+        output_proj_dims (`int`, *optional*, defaults to 3840):
+            Soft-token projector output width (text hidden size).
+        eps (`float`, *optional*, defaults to 1e-6):
+            RMSNorm epsilon of the soft-token projector."""
 
-# The full multimodal generator (text + encoder-free vision + audio), mirroring
-# transformers' Gemma4UnifiedForConditionalGeneration.
-GEMMA4_UNIFIED_GENERATE_CONFIG = {
-    "gemma-4-12b": {
-        "text_config": dict(GEMMA4_UNIFIED_CONFIG["gemma-4-12b"]),
-        "vision_config": dict(GEMMA4_UNIFIED_VISION_CONFIG),
-        "audio_config": dict(GEMMA4_UNIFIED_AUDIO_CONFIG),
-        "image_token_id": 258880,
-        "video_token_id": 258884,
-        "audio_token_id": 258881,
-        "use_bidirectional_vision": True,
-    },
-    "gemma-4-12b-it": {
-        "text_config": dict(GEMMA4_UNIFIED_CONFIG["gemma-4-12b-it"]),
-        "vision_config": dict(GEMMA4_UNIFIED_VISION_CONFIG),
-        "audio_config": dict(GEMMA4_UNIFIED_AUDIO_CONFIG),
-        "image_token_id": 258880,
-        "video_token_id": 258884,
-        "audio_token_id": 258881,
-        "use_bidirectional_vision": True,
-    },
-}
+    model_type = "gemma4_unified_vision"
 
-GEMMA4_UNIFIED_GENERATE_WEIGHTS_URLS = dict(GEMMA4_UNIFIED_WEIGHTS_URLS)
+    patch_size: int = 16
+    pooling_kernel_size: int = 3
+    mm_embed_dim: int = 0
+    mm_posemb_size: int = 1120
+    output_proj_dims: int = 3840
+    eps: float = 1e-6
+
+
+class Gemma4UnifiedAudioConfig(BaseConfig):
+    r"""Encoder-free audio-embedder config for Gemma 4 unified (``audio_config``).
+
+    No conformer: each soft token is a raw 40ms waveform frame of
+    ``audio_embed_dim`` (640) samples projected straight into ``output_proj_dims``.
+
+    Args:
+        audio_embed_dim (`int`, *optional*, defaults to 0):
+            Raw samples per audio soft token (== frame length); ``0`` marks an
+            absent audio embedder.
+        output_proj_dims (`int`, *optional*, defaults to 640):
+            Soft-token projector input width (== ``audio_embed_dim``).
+        eps (`float`, *optional*, defaults to 1e-6):
+            RMSNorm epsilon of the soft-token projector."""
+
+    model_type = "gemma4_unified_audio"
+
+    audio_embed_dim: int = 0
+    output_proj_dims: int = 640
+    eps: float = 1e-6
+
+
+class Gemma4UnifiedConfig(Gemma4Config):
+    r"""Configuration for Gemma 4 unified: [`Gemma4UnifiedModel`] /
+    [`Gemma4UnifiedGenerate`].
+
+    The composite for the encoder-free unified checkpoints (google/gemma-4-12B):
+    the text decoder reuses [`Gemma4TextConfig`] (``text_config``), the vision and
+    audio embedders are [`Gemma4UnifiedVisionConfig`] / [`Gemma4UnifiedAudioConfig`]
+    (``vision_config`` / ``audio_config``, optional None when a tower is absent),
+    and the ``*_token_id`` glue is top-level. Shares
+    [`Gemma4Config`]'s nested-constructor / optional-tower handling.
+
+    Args:
+        text_config (`Gemma4TextConfig | dict`, *optional*):
+            Text-decoder config (defaults to a `Gemma4TextConfig`).
+        vision_config (`Gemma4UnifiedVisionConfig | dict`, *optional*):
+            Encoder-free vision-embedder config, or `None`.
+        audio_config (`Gemma4UnifiedAudioConfig | dict`, *optional*):
+            Encoder-free audio-embedder config, or `None`.
+        image_token_id (`int`, *optional*, defaults to 258880):
+            Image soft-token placeholder id.
+        video_token_id (`int`, *optional*, defaults to 258884):
+            Video soft-token placeholder id.
+        audio_token_id (`int`, *optional*, defaults to 258881):
+            Audio soft-token placeholder id.
+        pad_token_id (`int`, *optional*, defaults to 0):
+            Pad id used to embed multimodal slots before scatter.
+        use_bidirectional_vision (`bool`, *optional*, defaults to `True`):
+            Blockwise bidirectional vision masking on sliding layers.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.gemma4_unified import (
+    ...     Gemma4UnifiedConfig, Gemma4UnifiedGenerate
+    ... )
+
+    >>> configuration = Gemma4UnifiedConfig(
+    ...     text_config={"embed_dim": 3840, "num_layers": 48},
+    ...     vision_config={"mm_embed_dim": 3840},
+    ...     audio_config={"audio_embed_dim": 640},
+    ... )
+    >>> model = Gemma4UnifiedGenerate(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "gemma4_unified"
+
+    sub_configs = {
+        "text_config": Gemma4TextConfig,
+        "vision_config": Gemma4UnifiedVisionConfig,
+        "audio_config": Gemma4UnifiedAudioConfig,
+    }
+    optional_sub_configs = ("vision_config", "audio_config")
