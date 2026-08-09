@@ -91,7 +91,6 @@ nav:
           - DeepSeek-V4: deepseek_v4.md
           - Gemma: gemma.md
           - Gemma 2: gemma2.md
-          - Gemma 4: gemma4.md
           - GLM: glm.md
           - GLM-4: glm4.md
           - GLM-4 MoE: glm4_moe.md
@@ -148,6 +147,8 @@ nav:
           - DeepSeek-VL: deepseek_vl.md
           - DeepSeek-VL Hybrid: deepseek_vl_hybrid.md
           - Gemma 3: gemma3.md
+          - Gemma 4: gemma4.md
+          - Gemma 4 Unified: gemma4_unified.md
           - GLM-4V: glm4v.md
           - GLM-4V MoE: glm4v_moe.md
           - Grounding DINO: grounding_dino.md

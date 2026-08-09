@@ -1,6 +1,11 @@
 from kerasformers.models.gemma4_unified.gemma4_unified_audio_feature_extractor import (
     Gemma4UnifiedAudioFeatureExtractor,
 )
+from kerasformers.models.gemma4_unified.gemma4_unified_config import (
+    Gemma4UnifiedAudioConfig,
+    Gemma4UnifiedConfig,
+    Gemma4UnifiedVisionConfig,
+)
 from kerasformers.models.gemma4_unified.gemma4_unified_image_processor import (
     Gemma4UnifiedImageProcessor,
 )
@@ -19,6 +24,9 @@ from kerasformers.models.gemma4_unified.gemma4_unified_vision import (
 )
 
 __all__ = [
+    "Gemma4UnifiedConfig",
+    "Gemma4UnifiedVisionConfig",
+    "Gemma4UnifiedAudioConfig",
     "Gemma4UnifiedModel",
     "Gemma4UnifiedGenerate",
     "Gemma4UnifiedVisionEmbedder",
