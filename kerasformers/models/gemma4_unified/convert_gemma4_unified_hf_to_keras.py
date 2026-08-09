@@ -7,24 +7,20 @@ from kerasformers.models.gemma4.convert_gemma4_hf_to_keras import TEXT_MAP
 
 
 def resolve_hf_name(keras_path):
-    # Map a Keras weight path to its HF name. The text decoder is the reused
-    # Gemma4Model (its "language_model" submodule name is flattened out of the
-    # Keras path, so it appears bare as decoder_layer_/token_embedding/final_norm
-    # and is re-nested under "language_model." here, matching the checkpoint's
-    # "model.language_model.*"). The encoder-free towers map their LayerNorm
-    # gamma/beta -> weight/bias, Dense kernels -> weight, and the factorized
-    # position table straight across.
     path = keras_path.split("/", 1)[1].replace("/", ".")
     if path.startswith("embed_vision."):
         rest = path[len("embed_vision.") :]
+        if rest.startswith("multimodal_embedder."):
+            sub = rest[len("multimodal_embedder.") :].replace(".kernel", ".weight")
+            return "embed_vision." + sub
         if rest == "pos_embedding":
-            return "embed_vision.pos_embedding"
+            return "vision_embedder.pos_embedding"
         rest = (
             rest.replace(".gamma", ".weight")
             .replace(".beta", ".bias")
             .replace(".kernel", ".weight")
         )
-        return "embed_vision." + rest
+        return "vision_embedder." + rest
     if path.startswith("embed_audio."):
         return "embed_audio." + path[len("embed_audio.") :].replace(
             ".kernel", ".weight"
@@ -35,12 +31,6 @@ def resolve_hf_name(keras_path):
 
 
 def transfer_gemma4_unified_weights(keras_model, hf_state_dict):
-    """Transfer Gemma 4 unified weights (text + encoder-free vision / audio).
-
-    The checkpoint nests the decoder under ``model.language_model.*`` alongside
-    ``model.embed_vision.*`` and ``model.embed_audio.*``; the tied ``lm_head`` is
-    not materialized on the Keras side (it reuses the token embedding).
-    """
     if not keras_model.built or not keras_model.weights:
         if hasattr(keras_model, "build_for_transfer"):
             keras_model.build_for_transfer()
