@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.models.gemma4.gemma4_vision_layers import Gemma4MultimodalEmbedder
+from kerasformers.models.gemma4.gemma4_layers import Gemma4MultimodalEmbedder
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")

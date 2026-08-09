@@ -2,8 +2,8 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
+from kerasformers.models.gemma4.gemma4_layers import Gemma4MultimodalEmbedder
 from kerasformers.models.gemma4.gemma4_model import Gemma4Model
-from kerasformers.models.gemma4.gemma4_vision_layers import Gemma4MultimodalEmbedder
 
 from .gemma4_unified_config import Gemma4UnifiedConfig
 from .gemma4_unified_vision import Gemma4UnifiedVisionEmbedder
