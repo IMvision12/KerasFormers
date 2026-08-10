@@ -1625,6 +1625,19 @@ class Gemma3nMultimodalEmbedder(layers.Layer):
             eps=eps, with_scale=False, name="embedding_post_projection_norm"
         )
 
+    def build(self, input_shape=None):
+        # The two call paths (input_ids / inputs_embeds) take different inputs, so
+        # Keras cannot infer the sub-layer shapes; build them explicitly (their
+        # widths are fixed) to create the weights and avoid an "unbuilt state"
+        # warning during weight transfer.
+        mm = (None, self.multimodal_hidden_size)
+        self.embedding.build((None, None))
+        self.hard_embedding_norm.build(mm)
+        self.soft_embedding_norm.build(mm)
+        self.embedding_projection.build(mm)
+        self.embedding_post_projection_norm.build((None, self.text_hidden_size))
+        super().build(input_shape)
+
     def call(self, input_ids=None, inputs_embeds=None):
         if inputs_embeds is not None:
             emb_norm = self.soft_embedding_norm(inputs_embeds)
