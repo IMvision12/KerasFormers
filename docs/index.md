@@ -189,9 +189,7 @@ SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
 Qwen3Generate.from_weights("qwen3-8b")
 
 # Any Hub repo with a matching model_type
-SegFormerSemanticSegment.from_weights(
-    "hf:nvidia/segformer-b0-finetuned-ade-512-512"
-)
+SegFormerSemanticSegment.from_weights("hf:nvidia/segformer-b0-finetuned-ade-512-512")
 
 # Architecture only, randomly initialized
 SegFormerSemanticSegment.from_weights(
@@ -284,9 +282,7 @@ from kerasformers.models.gpt_oss import GptOssGenerate
 model = GptOssGenerate.from_weights("kerasformers/gpt-oss-120b")
 
 # Quantize weight-only on the way in, for a smaller footprint again
-model = GptOssGenerate.from_weights(
-    "kerasformers/gpt-oss-120b", quantization="int8"
-)
+model = GptOssGenerate.from_weights("kerasformers/gpt-oss-120b", quantization="int8")
 ```
 
 </div>
@@ -357,4 +353,3 @@ Transcription and speech-aware language models.
     <a class="kf-btn kf-btn--ghost" href="https://huggingface.co/kerasformers">Weights on the Hub</a>
   </div>
 </div>
-
