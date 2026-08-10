@@ -1,13 +1,11 @@
 # RT-DETRv2
 
-<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<div class="kf-note kf-note--weights">
 <b>Weights:</b> pretrained Keras weights live on Hugging Face under
-<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
 (each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
 Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
-
-<br>
 
 RT-DETRv2 keeps [RT-DETR](rt_detr.md)'s hybrid encoder and deformable decoder and improves the sampling. Where v1 uses a fixed grid of deformable sampling points, v2 merges the per-level offsets into one dimension and scales them by a learned `n_points_scale` buffer, so the model adapts its sampling radius per feature level. The rest is a refined training recipe, the paper's "bag of freebies".
 

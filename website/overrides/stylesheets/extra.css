@@ -3,32 +3,58 @@
    colours are set here for both schemes. */
 
 [data-md-color-scheme="slate"] {
-  --md-default-bg-color: #0f131c;
-  --md-default-bg-color--light: #151a26;
-  --md-default-fg-color: #e6edf3;
-  --md-default-fg-color--light: #c2cbd6;
-  --md-default-fg-color--lighter: #8b95a3;
+  --md-default-bg-color: #060a0f;
+  --md-default-bg-color--light: #0b1118;
+  --md-default-fg-color: #e8f1f5;
+  --md-default-fg-color--light: #b6c4cd;
+  --md-default-fg-color--lighter: #7d8b95;
 
-  /* header, tabs and sidebar sit slightly above the page */
-  --md-primary-fg-color: #161b26;
-  --md-primary-bg-color: #e6edf3;
+  /* The header takes the page colour rather than its own raised surface, so the
+     top of the page reads as one continuous sheet. Material paints the header
+     from --md-primary-fg-color, so these two have to stay equal. */
+  --md-primary-fg-color: #060a0f;
+  --md-primary-fg-color--light: #0b1118;
+  --md-primary-fg-color--dark: #060a0f;
+  --md-primary-bg-color: #e8f1f5;
 
-  --md-typeset-a-color: #4a9eff;
-  --md-accent-fg-color: #7cb8ff;
+  --md-typeset-a-color: #22d3ee;
+  --md-accent-fg-color: #67e8f9;
 
-  --md-code-bg-color: #161b26;
-  --md-code-fg-color: #e6edf3;
+  /* Sits a step above --kf-surface in home.css (the cards and tiles), which in
+     turn sits above the page. Keeping the three monotonic is what stops a code
+     block from disappearing into whatever it is nested in. */
+  --md-code-bg-color: #10171f;
+  --md-code-fg-color: #e8f1f5;
 
-  --md-typeset-table-color: rgba(230, 237, 243, 0.14);
-  --md-footer-bg-color: #0b0e15;
-  --md-footer-bg-color--dark: #080b11;
+  --md-typeset-table-color: rgba(232, 241, 245, 0.12);
+  --md-footer-bg-color: #060a0f;
+  --md-footer-bg-color--dark: #060a0f;
 }
 
 [data-md-color-scheme="default"] {
-  --md-typeset-a-color: #1668dc;
-  --md-accent-fg-color: #0b4fb0;
+  /* A darker teal, so the accent reads as the same brand colour in both schemes. */
+  --md-typeset-a-color: #0e7490;
+  --md-accent-fg-color: #0891b2;
+  /* Light mode keeps its dark header: the page is white here, so matching the
+     two would mean a white header, and Material's search field and icons are
+     built for a dark one. */
   --md-primary-fg-color: #161b26;
   --md-primary-bg-color: #ffffff;
+}
+
+/* With the header the same colour as the page there is nothing for a shadow to
+   separate, and a seam under it would undo the point. Content simply scrolls
+   behind it. */
+[data-md-color-scheme="slate"] .md-header {
+  box-shadow: none;
+}
+
+/* Native audio controls default to a light widget, which lands as a pale slab on
+   the dark scheme. This is the standards-based way to ask the browser for the
+   dark form instead, and it applies to the speech pages as well as the landing
+   page card. */
+[data-md-color-scheme="slate"] audio {
+  color-scheme: dark;
 }
 
 /* Search field reads as part of the header rather than a light cutout. */
@@ -40,14 +66,308 @@
   background-color: rgba(230, 237, 243, 0.14);
 }
 
-/* No logo mark: the header and drawer show the project name on its own. */
-.md-header__button.md-logo,
-.md-nav__button.md-logo {
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+/* One row: logo and wordmark left, outbound links centred, palette toggle,
+   search and the repo card right. See overrides/partials/header.html. */
+
+/* The site name lives inside the logo link now, so Material's own title block
+   renders nothing. It is kept in the layout rather than removed: Material gives
+   it flex-grow, and above the mobile breakpoint the centre links leave the flow,
+   so this is what holds the palette toggle and search at the right edge. */
+.md-header__title {
+  visibility: hidden;
+}
+
+
+
+.md-header__button.kf-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.2rem 0.2rem 0.2rem 0;
+  padding: 0.4rem;
+  opacity: 1;
+}
+
+.md-header__button.kf-logo:hover {
+  opacity: 0.8;
+}
+
+.md-header__button.kf-logo img {
+  height: 1.5rem;
+}
+
+.kf-logo__word {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+/* Search belongs to the docs, not the landing page, so it is hidden while the
+   home template is on screen. Hidden rather than omitted from the header: the
+   theme wires up its search component once at page load, and navigation.instant
+   swaps pages without re-running that, so a search box that only exists on some
+   pages would arrive unwired. Keyed off .md-content--home, which the home
+   template adds and which does get swapped on navigation. */
+body:has(.md-content--home) .md-search,
+body:has(.md-content--home) .md-header__button[for="__search"] {
   display: none;
 }
 
-/* The weights banners in the model pages are written as inline-styled divs, so
-   they keep their own light background. Round off the code blocks to match. */
+.kf-topnav {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+}
+
+/* Stretch the link row across the whole bar and centre inside it, so the links
+   land on the bar's true centre rather than the midpoint of whatever space is
+   left over between the wordmark and the search field.
+
+   Spanning the full width means this block lies over the logo and the search, so
+   pointer events pass straight through it; only the links themselves take
+   clicks. Dropping the repo card is what made this safe: it used to push the
+   search far enough left that centred links crossed it. */
+@media screen and (min-width: 60em) {
+  .md-header__inner {
+    position: relative;
+  }
+
+  .kf-topnav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .kf-topnav a {
+    pointer-events: auto;
+  }
+}
+
+.kf-topnav a {
+  color: currentcolor;
+  font-size: 0.76rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0.82;
+  transition: opacity 125ms;
+}
+
+.kf-topnav a:hover,
+.kf-topnav a:focus {
+  opacity: 1;
+}
+
+/* Material hides the header logo below 1220px, where the hamburger takes over.
+   Keep the mark visible there and drop only the wordmark. */
+@media screen and (max-width: 76.234375em) {
+  .md-header__button.kf-logo {
+    display: flex;
+  }
+
+  .kf-logo__word {
+    display: none;
+  }
+}
+
+/* The three links stay at every width rather than collapsing into the drawer:
+   two of them point off-site, so the drawer's page tree is no substitute.
+
+   Below the breakpoint there is not enough room to pin them to the centre
+   without running into the hamburger, so they go back into the flow and take
+   the space the title would otherwise absorb. */
+@media screen and (max-width: 59.9375em) {
+  /* Back in the flow here: the bar is too narrow to lay a centred row over the
+     hamburger and search icon without them colliding. */
+  .md-header__title {
+    display: none;
+  }
+
+  .kf-topnav {
+    flex: 1 1 auto;
+    justify-content: center;
+    gap: 0.9rem;
+  }
+
+  .kf-topnav a {
+    font-size: 0.7rem;
+  }
+}
+
+@media screen and (max-width: 29.9375em) {
+  .kf-topnav {
+    gap: 0.6rem;
+  }
+
+  .kf-topnav a {
+    font-size: 0.66rem;
+  }
+}
+
 .md-typeset pre > code {
   border-radius: 0.2rem;
+}
+
+/* ── Weights banners ─────────────────────────────────────────────────────── */
+
+/* The note at the top of every model page saying where its weights come from.
+   Three kinds: --weights for preconverted Keras repos, --convert for on-the-fly
+   conversion, --gated for checkpoints behind a licence.
+
+   These used to be inline-styled divs repeated on 76 pages, which pinned them to
+   one light colour scheme regardless of the palette toggle. Tint and border are
+   per scheme so they sit on the dark surface instead of on top of it. */
+.md-typeset .kf-note {
+  margin: 1.2em 0 1.6em;
+  padding: 0.75em 1em;
+  border: 1px solid var(--kf-note-border);
+  border-left: 3px solid var(--kf-note-accent);
+  border-radius: 0.2rem;
+  background: var(--kf-note-bg);
+  color: var(--kf-note-fg);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+/* Inline code inside a banner should read against the tint, not punch a hole. */
+.md-typeset .kf-note code {
+  background: var(--kf-note-code-bg);
+  color: inherit;
+}
+
+[data-md-color-scheme="slate"] .kf-note {
+  --kf-note-fg: #d7e0ea;
+  --kf-note-code-bg: rgba(255, 255, 255, 0.09);
+}
+
+[data-md-color-scheme="default"] .kf-note {
+  --kf-note-fg: #2c3238;
+  --kf-note-code-bg: rgba(0, 0, 0, 0.06);
+}
+
+/* Preconverted Keras weights on the Hub. */
+[data-md-color-scheme="slate"] .kf-note--weights {
+  --kf-note-bg: rgba(86, 178, 106, 0.11);
+  --kf-note-border: rgba(86, 178, 106, 0.28);
+  --kf-note-accent: #56b26a;
+}
+
+[data-md-color-scheme="default"] .kf-note--weights {
+  --kf-note-bg: #eaf6e6;
+  --kf-note-border: #cfe6bf;
+  --kf-note-accent: #4b9e5f;
+}
+
+/* Converted from an upstream checkpoint on every load. */
+[data-md-color-scheme="slate"] .kf-note--convert {
+  --kf-note-bg: rgba(232, 106, 96, 0.11);
+  --kf-note-border: rgba(232, 106, 96, 0.28);
+  --kf-note-accent: #e86a60;
+}
+
+[data-md-color-scheme="default"] .kf-note--convert {
+  --kf-note-bg: #fdecea;
+  --kf-note-border: #f5c6c0;
+  --kf-note-accent: #d9544a;
+}
+
+/* Behind a licence you have to accept first. */
+[data-md-color-scheme="slate"] .kf-note--gated {
+  --kf-note-bg: rgba(232, 168, 80, 0.11);
+  --kf-note-border: rgba(232, 168, 80, 0.28);
+  --kf-note-accent: #e8a850;
+}
+
+[data-md-color-scheme="default"] .kf-note--gated {
+  --kf-note-bg: #fff4e5;
+  --kf-note-border: #f0dcc0;
+  --kf-note-accent: #d08c2a;
+}
+
+/* ── Site footer ─────────────────────────────────────────────────────────── */
+
+/* Centred brand, one row of links, one credit line. See
+   overrides/partials/footer.html. Material's footer normally uses two darker
+   surface colours; these let it sit on the page background with a hairline
+   above, so it reads as the end of the page rather than a separate bar. */
+.md-footer,
+.md-footer-meta {
+  background: var(--md-default-bg-color);
+}
+
+.kf-sitefooter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  max-width: 61rem;
+  margin: 0 auto;
+  padding: 2.6rem 0.8rem 2.8rem;
+  border-top: 1px solid var(--md-typeset-table-color);
+  text-align: center;
+}
+
+.md-typeset .kf-sitefooter__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--md-default-fg-color);
+  text-decoration: none;
+  transition: opacity 125ms;
+}
+
+.md-typeset .kf-sitefooter__brand:hover {
+  opacity: 0.8;
+}
+
+.md-typeset .kf-sitefooter__brand img {
+  height: 1.5rem;
+  margin: 0;
+}
+
+.kf-sitefooter__brand span {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.kf-sitefooter__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.md-typeset .kf-sitefooter__links a {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.76rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 125ms;
+}
+
+.md-typeset .kf-sitefooter__links a:hover {
+  color: var(--md-typeset-a-color);
+}
+
+.md-typeset .kf-sitefooter__note {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--md-default-fg-color--lighter);
+}
+
+@media screen and (max-width: 44.9375em) {
+  .kf-sitefooter {
+    gap: 0.9rem;
+    padding: 2rem 0.8rem 2.2rem;
+  }
+
+  .kf-sitefooter__links {
+    gap: 1rem;
+  }
 }
