@@ -1,13 +1,11 @@
 # Grounding DINO
 
-<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<div class="kf-note kf-note--weights">
 <b>Weights:</b> pretrained Keras weights live on Hugging Face under
-<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
 (each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
 Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
-
-<br>
 
 Grounding DINO detects objects named by a free-text prompt rather than a fixed label set. A Swin image backbone and a BERT text encoder are fused by a cross-modality encoder, query proposals are selected by image-text similarity, and boxes are refined DINO-style across six decoder layers. Every output box is scored against the prompt's tokens, so the "classes" are whatever you asked for.
 

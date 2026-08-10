@@ -1,5 +1,12 @@
 # DeepSeek-VL Hybrid
 
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
+</div>
+
 The dual-tower DeepSeek-VL variant, ported to pure Keras 3. It runs the SigLIP
 tower alongside a **high-resolution SAM-style tower** (`high_res_*` arguments)
 and fuses both feature streams before the text decoder, which is what lets it

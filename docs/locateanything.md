@@ -1,13 +1,11 @@
 # LocateAnything
 
-<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<div class="kf-note kf-note--weights">
 <b>Weights:</b> pretrained Keras weights live on Hugging Face under
-<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
 (each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
 Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
-
-<br>
 
 LocateAnything-3B is NVIDIA's visual-grounding VLM: a native-resolution **MoonViT**
 vision tower and a small connector feed a **Qwen2.5-3B** decoder, and the model answers

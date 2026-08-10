@@ -1,13 +1,11 @@
 # Depth Anything V2
 
-<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<div class="kf-note kf-note--weights">
 <b>Weights:</b> pretrained Keras weights live on Hugging Face under
-<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
 (each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
 Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
-
-<br>
 
 V2 changes **nothing** about [V1](depth_anything_v1.md)'s architecture: the same DINOv2 ViT backbone, the same DPT neck and head. What changed is the data. V1 learned from real labeled images, whose depth annotations are noisy around edges; V2 replaces them with synthetic images, whose labels are exact, and recovers real-world coverage through a much larger teacher pseudo-labeling 62 M unlabeled photos.
 

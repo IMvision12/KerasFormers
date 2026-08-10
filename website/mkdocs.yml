@@ -11,13 +11,24 @@ site_dir: ../site
 
 theme:
   name: material
-  # A blank 1x1 png, so the browser tab shows the title alone rather than
-  # Material's default logo. The header logo is hidden in extra.css.
-  favicon: blank.png
+  # overrides/ holds the landing-page template (home.html), the stylesheets and
+  # the favicon. Registering it as the theme dir means MkDocs copies those files
+  # itself and resolves them through `| url`, which matters because the site is
+  # served from the /KerasFormers/ subpath on GitHub Pages, not from a root.
+  custom_dir: overrides
+  logo: logo.png
+  favicon: logo.png
   features:
     # No navigation.sections: it pins the modality groups open and unclickable
     # above 1220px, and they should stay collapsible at every width.
-    - navigation.tabs
+    #
+    # No navigation.tabs either: it draws the section nav as a second header row,
+    # and the header is a single row now. overrides/partials/header.html carries
+    # the outbound links instead, and the section tree lives in the left sidebar
+    # on content pages.
+    # Lets the Models section carry an overview page of its own, so the section
+    # label is a link instead of a dead toggle.
+    - navigation.indexes
     - navigation.top
     - navigation.instant
     - navigation.tracking
@@ -31,13 +42,13 @@ theme:
   palette:
     - scheme: slate
       primary: black
-      accent: blue
+      accent: cyan
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
     - scheme: default
       primary: black
-      accent: blue
+      accent: cyan
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
@@ -62,24 +73,65 @@ plugins:
 
 extra_css:
   - stylesheets/extra.css
+  # Landing-page styles. Loaded on every page rather than only from home.html,
+  # because navigation.instant swaps pages client-side and a stylesheet injected
+  # per-template is not guaranteed to survive the swap. Every rule in here is
+  # scoped to a .kf-* class or to .md-content--home, so it is inert elsewhere.
+  - stylesheets/home.css
 
 # Figures, audio and the stylesheet live outside docs/. This registers them with
 # MkDocs so they are copied for `mkdocs serve` as well as `build`.
 hooks:
   - hooks/copy_assets.py
 
+# `mkdocs serve` watches docs_dir and this config, and nothing else. Without
+# these, editing the landing-page template, the stylesheets or a figure would not
+# reload the browser. Paths are relative to this file, so assets/ needs the `..`.
+watch:
+  - overrides
+  - ../assets
+
+# These are what stops the docs drifting. CI builds with --strict, which turns
+# every warning below into a failed build:
+#
+#   omitted_files  a new page in docs/ that nobody added to the nav. Silent
+#                  before, and easy to hit: 118 model packages, 98 pages.
+#   not_found      a nav entry pointing at a file that does not exist.
+#   anchors        a #fragment link whose heading is gone or renamed.
+#
+# Media references are checked separately, by website/scripts/check_site_assets.py,
+# because the figures are raw HTML that MkDocs does not look at.
 validation:
   nav:
-    omitted_files: ignore
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
 
 # Five top tabs. Models is a flat alphabetical list per modality, the way the
 # Hugging Face docs are: no task sub-grouping.
-nav:
-  - Home: index.md
+# The landing page is not a docs page and gets no sidebar entry: the logo in the
+# header and the footer brand both link to it. Listing it here keeps the
+# omitted_files guard above meaningful for every other page.
+not_in_nav: |
+  index.md
 
+nav:
+  - Getting Started: getting_started.md
+
+  # These two describe the shared machinery rather than any one model, so they sit
+  # alongside Models rather than inside it.
+  - Main Classes: main_classes.md
+  - Configuration: configuration.md
+
+  # models.md is listed first and untitled, which with the navigation.indexes
+  # feature makes it the landing page for the section: clicking "Models" opens it
+  # rather than doing nothing, and the header link has somewhere real to point.
   - Models:
-      - Main Classes: main_classes.md
-      - Configuration: configuration.md
+      - models.md
       - Text models:
           - BERT: bert.md
           - Cohere: cohere.md

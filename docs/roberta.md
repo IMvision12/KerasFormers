@@ -1,5 +1,12 @@
 # RoBERTa (text encoder)
 
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
+</div>
+
 Facebook AI's RoBERTa in **pure Keras 3**: the robustly-optimized bidirectional
 transformer text encoder with its masked-LM, sequence-classification,
 token-classification, question-answering, and multiple-choice heads. One

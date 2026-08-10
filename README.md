@@ -8,6 +8,27 @@
 [![Keras](https://img.shields.io/badge/keras-v3.5.0+-success.svg)](https://github.com/keras-team/keras)
 ![Python](https://img.shields.io/badge/python-v3.10.0+-success.svg)
 
+  > [!IMPORTANT]
+  > **kerasformers is under active development**, and we are currently migrating
+  > from GitHub-hosted release weights to the Hugging Face Hub.
+  > The PyPI package may lag behind the latest models, fixes, and API updates.
+  > This migration includes properly typed configuration files and dedicated
+  > weights for each model. Until the migration is complete, we recommend
+  > installing `kerasformers` directly from the `main` branch on GitHub rather
+  > than from PyPI:
+  >
+  > ```bash
+  > pip install git+https://github.com/IMvision12/KerasFormers.git
+  > ```
+  >
+  > Or clone it for local development:
+  >
+  > ```bash
+  > git clone https://github.com/IMvision12/KerasFormers.git
+  > cd KerasFormers
+  > pip install -e .
+  > ```
+>   
 ## 📖 Introduction
 
 KerasFormers is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE, OWL-ViT, OWLv2, Grounding DINO), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT, MaskFormer, Mask2Former, OneFormer, MobileViT-DeepLabV3, RF-DETR), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2, MetaCLIP 2), speech recognition (Whisper, Speech2Text, Moonshine), speech-aware language modeling (Granite Speech, Granite Speech Plus), text encoding and masked language modeling (BERT, RoBERTa, XLM-RoBERTa, DeBERTa, DeBERTa-v2, DeBERTa-v3), text generation with large language models (GPT, GPT-2, Qwen2, Qwen2-MoE, Qwen3, Qwen3-MoE, Qwen3.5, Qwen3.5-MoE, GPT-OSS, Llama 2, Llama 3, Llama 4, Mistral, Mixtral, Gemma, Gemma 2, MiniMax-Text-01, MiniMax-M2, DeepSeek-V2, DeepSeek-V3, DeepSeek-V4, Cohere/Command-R, Cohere2, Cohere2-MoE, GLM-4, GLM-4-0414, GLM-4.5/GLM-4.6, GLM-5/GLM-5.1/GLM-5.2), multimodal vision-language generation (Qwen2-VL, Qwen2.5-VL, Qwen3-VL, InternVL3, Gemma 3, Gemma 4, Gemma 4 Unified, Mistral 3, DeepSeek-VL, Janus-Pro, MiniMax-M3-VL, Cohere2-Vision, GLM-4V, GLM-4.5V, Kimi K2.5, Kimi K2.6, Kimi K2.7-Code), vision-language grounding across object detection, OCR, pointing, and referring (LocateAnything), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kerasformers includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
@@ -28,7 +49,11 @@ pip install -U git+https://github.com/IMvision12/KerasFormers
 
 ## 📑 Documentation
 
-Per-model guides - with architecture notes, usage examples, and available pretrained weights, live in the [`docs/`](docs/) folder, one page per model across every supported task (classification, object detection, segmentation, depth estimation, feature extraction, vision-language, speech recognition, text encoding, and language modeling). Classification backbones share a single [page](docs/classification_backbones.md) since they all follow the same `XModel` / `XImageClassify` two-class structure; each other model has its own. Browse [`docs/`](docs/) for the complete, always-up-to-date list.
+📖 **[imvision12.github.io/KerasFormers](https://imvision12.github.io/KerasFormers/)** — the rendered docs, with search.
+
+Per-model guides - with architecture notes, usage examples, and available pretrained weights, cover one page per model across every supported task (classification, object detection, segmentation, depth estimation, feature extraction, vision-language, speech recognition, text encoding, and language modeling). Classification backbones share a single [page](https://imvision12.github.io/KerasFormers/classification_backbones/) since they all follow the same `XModel` / `XImageClassify` two-class structure; each other model has its own. Every example on those pages prints its real, measured output.
+
+The Markdown sources live in [`docs/`](docs/) if you would rather read them in the repo.
 
 ## 📑 Models
 

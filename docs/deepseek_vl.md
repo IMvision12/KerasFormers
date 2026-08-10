@@ -1,5 +1,12 @@
 # DeepSeek-VL
 
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
+</div>
+
 DeepSeek's first vision-language models, ported to pure Keras 3. A SigLIP tower
 with exact-gelu (matching the reference) and an MLP connector feed a DeepSeek
 text decoder. Each image expands to `num_image_tokens` placeholders.
