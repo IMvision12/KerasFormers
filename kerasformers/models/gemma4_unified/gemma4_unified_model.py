@@ -6,7 +6,7 @@ from kerasformers.models.gemma4.gemma4_layers import Gemma4MultimodalEmbedder
 from kerasformers.models.gemma4.gemma4_model import Gemma4Model
 
 from .gemma4_unified_config import Gemma4UnifiedConfig
-from .gemma4_unified_vision import Gemma4UnifiedVisionEmbedder
+from .gemma4_unified_layers import Gemma4UnifiedVisionEmbedder
 
 MASK_NEG = -1e9
 

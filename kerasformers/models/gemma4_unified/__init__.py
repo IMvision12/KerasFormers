@@ -9,6 +9,9 @@ from kerasformers.models.gemma4_unified.gemma4_unified_config import (
 from kerasformers.models.gemma4_unified.gemma4_unified_image_processor import (
     Gemma4UnifiedImageProcessor,
 )
+from kerasformers.models.gemma4_unified.gemma4_unified_layers import (
+    Gemma4UnifiedVisionEmbedder,
+)
 from kerasformers.models.gemma4_unified.gemma4_unified_model import (
     Gemma4UnifiedGenerate,
     Gemma4UnifiedModel,
@@ -18,9 +21,6 @@ from kerasformers.models.gemma4_unified.gemma4_unified_processor import (
 )
 from kerasformers.models.gemma4_unified.gemma4_unified_tokenizer import (
     Gemma4UnifiedTokenizer,
-)
-from kerasformers.models.gemma4_unified.gemma4_unified_vision import (
-    Gemma4UnifiedVisionEmbedder,
 )
 
 __all__ = [
