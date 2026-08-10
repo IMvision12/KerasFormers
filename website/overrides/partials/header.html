@@ -1,0 +1,95 @@
+{#-
+  Single-row header: logo and wordmark on the left, outbound links in the middle,
+  palette toggle / search / repo card on the right.
+
+  Adapted from Material 9.7.7's own partials/header.html. Two departures from it:
+
+  * The site name moves inside the logo link so the two read as one wordmark.
+    Material's .md-header__title is still emitted, because the theme's JS looks
+    up its data-md-component to swap in the page title on scroll, but extra.css
+    hides it.
+  * A .kf-topnav list is inserted. It replaces the second header row that
+    navigation.tabs used to draw; that feature is off now, so the section nav
+    lives in the left sidebar on content pages instead.
+
+  Internal hrefs go through the `url` filter, which is what keeps them correct
+  under the /KerasFormers/ subpath on GitHub Pages.
+-#}
+{% set class = "md-header" %}
+{% if "navigation.tabs.sticky" in features %}
+  {% set class = class ~ " md-header--shadow md-header--lifted" %}
+{% elif "navigation.tabs" not in features %}
+  {% set class = class ~ " md-header--shadow" %}
+{% endif %}
+<header class="{{ class }}" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="{{ lang.t('header') }}">
+    {#- Kept as flat siblings, exactly as Material ships them. Grouping the search
+        into a wrapper div broke it: its desktop dropdown is a floated child with a
+        fixed width, and inside a nested flex container that width stopped
+        resolving, so the field drew over the centre links.
+
+        The landing page is deliberately absent from the nav, so nav.homepage is
+        unset and Material's usual `d(nav.homepage.url, true)` fallback would not
+        resolve. `'.' | url` gives the site root relative to the current page,
+        which is what keeps this correct under the /KerasFormers/ subpath. -#}
+    <a href="{{ config.extra.homepage | d('.' | url, true) }}" title="{{ config.site_name | e }}" class="md-header__button md-logo kf-logo" aria-label="{{ config.site_name }}" data-md-component="logo">
+      {% include "partials/logo.html" %}
+      <span class="kf-logo__word">{{ config.site_name }}</span>
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      {% set icon = config.theme.icon.menu or "material/menu" %}
+      {% include ".icons/" ~ icon ~ ".svg" %}
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            {{ config.site_name }}
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            {% if page.meta and page.meta.title %}
+              {{ page.meta.title }}
+            {% else %}
+              {{ page.title }}
+            {% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+    {#- GitHub is not here: the repo card on the right of this same bar already
+        links to it, and so does the footer. -#}
+    <nav class="kf-topnav" aria-label="Site links">
+      <a href="{{ 'models/' | url }}">Models</a>
+      <a href="https://huggingface.co/kerasformers">Hugging Face</a>
+      <a href="{{ 'getting_started/' | url }}">Docs</a>
+    </nav>
+    {% if config.theme.palette %}
+      {% if not config.theme.palette is mapping %}
+        {% include "partials/palette.html" %}
+      {% endif %}
+    {% endif %}
+    {% if not config.theme.palette is mapping %}
+      {% include "partials/javascripts/palette.html" %}
+    {% endif %}
+    {% if config.extra.alternate %}
+      {% include "partials/alternate.html" %}
+    {% endif %}
+    {% if "material/search" in config.plugins %}
+      {% set search = config.plugins["material/search"] | attr("config") %}
+      {% if search.enabled %}
+        <label class="md-header__button md-icon" for="__search">
+          {% set icon = config.theme.icon.search or "material/magnify" %}
+          {% include ".icons/" ~ icon ~ ".svg" %}
+        </label>
+        {% include "partials/search.html" %}
+      {% endif %}
+    {% endif %}
+    {#- No repo card here. It made the right-hand side roughly twice the width of
+        the logo, which is what pushed the centre links off centre and left them
+        nowhere to go once the search field appeared. It also truncated to
+        "IMvision12/KerasFo..." at common widths. GitHub is in the footer, and in
+        the centre links' Hugging Face neighbour on every page. -#}
+  </nav>
+</header>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+<!--
+  Landing page shell. Opted into from a page's front matter with
+  `template: home.html`, which today is only docs/index.md.
+
+  Material's normal page layout constrains the article to a column with a nav
+  sidebar on one side and a table of contents on the other. A landing page wants
+  neither, so this drops both sidebars and hands the content a wider container.
+  The header and the top-level tabs stay exactly as they are on every other page.
+
+  The matching styles live in overrides/stylesheets/home.css, wired up through
+  `extra_css` in mkdocs.yml. The `.md-content--home` class below is what scopes
+  the layout half of that stylesheet to this template.
+-->
+
+{% block site_nav %}{% endblock %}
+
+{% block container %}
+  <div class="md-content md-content--home" data-md-component="content">
+    <article class="md-content__inner md-typeset">
+      {{ page.content }}
+    </article>
+  </div>
+{% endblock %}

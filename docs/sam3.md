@@ -1,8 +1,8 @@
 # SAM3
 
-<div style="background:#fff4e5; border:1px solid #f0dcc0; border-radius:3px; padding:12px 16px; color:#4a3a26;">
+<div class="kf-note kf-note--gated">
 <b>Gated weights:</b> SAM3 is not redistributed as preconverted kerasformers Hub weights.
-Accept the license at <a href="https://huggingface.co/facebook/sam3" style="color:#1a5c8a;">facebook/sam3</a>,
+Accept the license at <a href="https://huggingface.co/facebook/sam3">facebook/sam3</a>,
 then authenticate with <code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
 The first <code>from_weights</code> call downloads the checkpoint, converts it, and caches
 the result at <code>~/.cache/kerasformers/sam3_saco/</code> (about 3.1 GB); later calls load

@@ -1,5 +1,12 @@
 # XLM-RoBERTa (multilingual text encoder)
 
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
+</div>
+
 Facebook AI's XLM-RoBERTa in **pure Keras 3**: the multilingual variant of
 RoBERTa, pretrained on 2.5TB of filtered CommonCrawl across 100 languages, with
 its masked-LM, sequence-classification, token-classification,

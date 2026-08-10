@@ -1,13 +1,11 @@
 # MobileViTV2
 
-<div style="background:#dff0d8; border:1px solid #cfe6bf; border-radius:3px; padding:12px 16px; color:#2a3a26;">
+<div class="kf-note kf-note--weights">
 <b>Weights:</b> pretrained Keras weights live on Hugging Face under
-<a href="https://huggingface.co/kerasformers" style="color:#1a5c8a;">kerasformers/&lt;variant&gt;</a>
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
 (each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
 Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
-
-<br>
 
 MobileViTV2 keeps [MobileViT](mobilevit.md)'s convolution-and-transformer layout and replaces multi-head self-attention with **separable self-attention**. Standard attention costs O(k²) in the token count; the separable form computes a single context vector from the keys and broadcasts it, which is O(k). On a mobile CPU that is the difference between a latency budget met and missed.
 

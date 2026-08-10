@@ -1,8 +1,8 @@
 # DINOv3
 
-<div style="background:#fff4e5; border:1px solid #f0dcc0; border-radius:3px; padding:12px 16px; color:#4a3a26;">
+<div class="kf-note kf-note--gated">
 <b>Gated weights:</b> DINOv3 is not redistributed as preconverted kerasformers Hub weights.
-Accept the license at <a href="https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m" style="color:#1a5c8a;">facebook/dinov3-*</a>,
+Accept the license at <a href="https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m">facebook/dinov3-*</a>,
 then authenticate with <code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
 The first <code>from_weights</code> call downloads the checkpoint, converts it, and caches
 the result under <code>~/.cache/kerasformers/</code>; later calls load from that cache.
