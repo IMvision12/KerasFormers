@@ -3,15 +3,14 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .gemma4_audio_layers import (
+from .gemma4_config import Gemma4Config, Gemma4TextConfig
+from .gemma4_layers import (
     Gemma4AudioLayer,
     Gemma4AudioRelPositionalEncoding,
     Gemma4AudioSubSampleConvProjection,
-)
-from .gemma4_config import Gemma4Config, Gemma4TextConfig
-from .gemma4_layers import Gemma4DecoderLayer, Gemma4RMSNorm
-from .gemma4_vision_layers import (
+    Gemma4DecoderLayer,
     Gemma4MultimodalEmbedder,
+    Gemma4RMSNorm,
     Gemma4VisionEncoderLayer,
     Gemma4VisionPatchEmbedder,
     Gemma4VisionPooler,

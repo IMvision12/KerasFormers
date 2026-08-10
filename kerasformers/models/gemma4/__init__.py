@@ -8,6 +8,7 @@ from kerasformers.models.gemma4.gemma4_config import (
     Gemma4VisionConfig,
 )
 from kerasformers.models.gemma4.gemma4_image_processor import Gemma4ImageProcessor
+from kerasformers.models.gemma4.gemma4_layers import Gemma4MultimodalEmbedder
 from kerasformers.models.gemma4.gemma4_model import (
     Gemma4AudioModel,
     Gemma4Generate,
@@ -17,7 +18,6 @@ from kerasformers.models.gemma4.gemma4_model import (
 )
 from kerasformers.models.gemma4.gemma4_processor import Gemma4Processor
 from kerasformers.models.gemma4.gemma4_tokenizer import Gemma4Tokenizer
-from kerasformers.models.gemma4.gemma4_vision_layers import Gemma4MultimodalEmbedder
 
 __all__ = [
     "Gemma4Config",

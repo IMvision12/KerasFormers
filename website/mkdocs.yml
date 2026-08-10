@@ -199,6 +199,7 @@ nav:
           - DeepSeek-VL: deepseek_vl.md
           - DeepSeek-VL Hybrid: deepseek_vl_hybrid.md
           - Gemma 3: gemma3.md
+          - Gemma 3n: gemma3n.md
           - Gemma 4: gemma4.md
           - Gemma 4 Unified: gemma4_unified.md
           - GLM-4V: glm4v.md
