@@ -788,9 +788,21 @@ class Gemma3nModel(SubclassedBaseModel):
                 name="embed_audio",
             )
 
+    def build_for_transfer(self):
+        inputs = {"input_ids": None}
+        ids = [0, 1]
+        if self.vision_tower is not None:
+            ids += [self.vision_vocab_offset, self.image_token_id, self.image_token_id]
+            inputs["pixel_values"] = ops.zeros((1, 128, 128, 3), dtype="float32")
+        if self.audio_tower is not None:
+            ids += [self.audio_vocab_offset, self.audio_token_id, self.audio_token_id]
+            feat_size = self.audio_config.get("input_feat_size", 128)
+            inputs["input_features"] = ops.zeros((1, 64, feat_size), dtype="float32")
+            inputs["input_features_mask"] = ops.ones((1, 64), dtype="bool")
+        inputs["input_ids"] = ops.convert_to_tensor([ids], dtype="int32")
+        self(inputs)
+
     def scatter_soft_tokens(self, text_embeds, slot_mask, features):
-        # Fill every True position of slot_mask (row-major over batch then sequence)
-        # with successive rows of features, mirroring HF's masked_scatter.
         shape = ops.shape(text_embeds)
         flat_mask = ops.reshape(slot_mask, (-1,))
         rank = ops.cumsum(ops.cast(flat_mask, "int32")) - 1

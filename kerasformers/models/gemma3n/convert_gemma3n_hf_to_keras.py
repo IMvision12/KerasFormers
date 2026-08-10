@@ -126,7 +126,11 @@ def transfer_gemma3n_weights(keras_model, hf_state_dict):
     routes each tower to its ``model.<tower>.*`` prefix and the tied / untied
     ``lm_head`` to the top level. The AltUp value norm and the KV-shared tail carry
     no weights, matching the Keras model."""
-    if not keras_model.built or not keras_model.weights:
+    if hasattr(keras_model, "build_for_transfer"):
+        # Multimodal model: force-build every tower + embedder (a text-only
+        # forward would leave the vision / audio weights uncreated and skipped).
+        keras_model.build_for_transfer()
+    elif not keras_model.built or not keras_model.weights:
         keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})
 
     fusion = is_fusion_model(keras_model)
