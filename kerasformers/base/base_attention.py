@@ -87,6 +87,10 @@ def fused_attention(
         and not use_dropout
         and soft_cap is None
     )
+    # Match the additive mask to the compute dtype: torch / jax auto-promote a
+    # float32 mask against bf16 logits, but tensorflow raises on the mismatch.
+    if attention_mask is not None:
+        attention_mask = ops.cast(attention_mask, query.dtype)
     if use_flash:
         q = ops.transpose(query, (0, 2, 1, 3))
         k = ops.transpose(key, (0, 2, 1, 3))
