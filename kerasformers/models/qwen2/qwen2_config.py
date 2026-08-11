@@ -1,117 +1,55 @@
-QWEN2_CONFIG = {
-    "qwen2-0.5b": {
-        "vocab_size": 151936,
-        "embed_dim": 896,
-        "mlp_dim": 4864,
-        "num_layers": 24,
-        "num_heads": 14,
-        "num_kv_heads": 2,
-        "norm_eps": 1e-6,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": True,
-    },
-    "qwen2-0.5b-instruct": {
-        "vocab_size": 151936,
-        "embed_dim": 896,
-        "mlp_dim": 4864,
-        "num_layers": 24,
-        "num_heads": 14,
-        "num_kv_heads": 2,
-        "norm_eps": 1e-6,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": True,
-    },
-    "qwen2-1.5b": {
-        "vocab_size": 151936,
-        "embed_dim": 1536,
-        "mlp_dim": 8960,
-        "num_layers": 28,
-        "num_heads": 12,
-        "num_kv_heads": 2,
-        "norm_eps": 1e-6,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": True,
-    },
-    "qwen2-1.5b-instruct": {
-        "vocab_size": 151936,
-        "embed_dim": 1536,
-        "mlp_dim": 8960,
-        "num_layers": 28,
-        "num_heads": 12,
-        "num_kv_heads": 2,
-        "norm_eps": 1e-6,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": True,
-    },
-    "qwen2-7b": {
-        "vocab_size": 152064,
-        "embed_dim": 3584,
-        "mlp_dim": 18944,
-        "num_layers": 28,
-        "num_heads": 28,
-        "num_kv_heads": 4,
-        "norm_eps": 1e-6,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": False,
-    },
-    "qwen2-7b-instruct": {
-        "vocab_size": 152064,
-        "embed_dim": 3584,
-        "mlp_dim": 18944,
-        "num_layers": 28,
-        "num_heads": 28,
-        "num_kv_heads": 4,
-        "norm_eps": 1e-6,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": False,
-    },
-    "qwen2-72b": {
-        "vocab_size": 152064,
-        "embed_dim": 8192,
-        "mlp_dim": 29568,
-        "num_layers": 80,
-        "num_heads": 64,
-        "num_kv_heads": 8,
-        "norm_eps": 1e-5,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": False,
-    },
-    "qwen2-72b-instruct": {
-        "vocab_size": 152064,
-        "embed_dim": 8192,
-        "mlp_dim": 29568,
-        "num_layers": 80,
-        "num_heads": 64,
-        "num_kv_heads": 8,
-        "norm_eps": 1e-6,
-        "rope_theta": 1000000.0,
-        "tie_embeddings": False,
-    },
-}
+from kerasformers.base import BaseConfig
 
-QWEN2_WEIGHTS_URLS = {
-    "qwen2-0.5b": {"hf_id": "Qwen/Qwen2-0.5B", "gated": False, "safetensors": True},
-    "qwen2-0.5b-instruct": {
-        "hf_id": "Qwen/Qwen2-0.5B-Instruct",
-        "gated": False,
-        "safetensors": True,
-    },
-    "qwen2-1.5b": {"hf_id": "Qwen/Qwen2-1.5B", "gated": False, "safetensors": True},
-    "qwen2-1.5b-instruct": {
-        "hf_id": "Qwen/Qwen2-1.5B-Instruct",
-        "gated": False,
-        "safetensors": True,
-    },
-    "qwen2-7b": {"hf_id": "Qwen/Qwen2-7B", "gated": False, "safetensors": True},
-    "qwen2-7b-instruct": {
-        "hf_id": "Qwen/Qwen2-7B-Instruct",
-        "gated": False,
-        "safetensors": True,
-    },
-    "qwen2-72b": {"hf_id": "Qwen/Qwen2-72B", "gated": False, "safetensors": True},
-    "qwen2-72b-instruct": {
-        "hf_id": "Qwen/Qwen2-72B-Instruct",
-        "gated": False,
-        "safetensors": True,
-    },
-}
+
+class Qwen2Config(BaseConfig):
+    r"""Configuration for Qwen2: [`Qwen2Model`] and [`Qwen2Generate`].
+
+    Qwen2 is Alibaba's decoder-only transformer: grouped-query attention with a
+    bias on the q/k/v projections, SwiGLU MLPs, RMSNorm, and 1D rotary positions.
+    One `kf_config.json` sits on each variant's repo, and fields mirror the model
+    constructor and serialize flat.
+
+    Args:
+        vocab_size (`int`, *optional*, defaults to 151936):
+            Token vocabulary size.
+        embed_dim (`int`, *optional*, defaults to 896):
+            Model (hidden) width.
+        mlp_dim (`int`, *optional*, defaults to 4864):
+            SwiGLU hidden width per layer.
+        num_layers (`int`, *optional*, defaults to 24):
+            Number of decoder blocks.
+        num_heads (`int`, *optional*, defaults to 14):
+            Number of query attention heads.
+        num_kv_heads (`int`, *optional*, defaults to 2):
+            Number of key/value heads (grouped-query attention).
+        head_dim (`int`, *optional*):
+            Per-head dimension; defaults to `embed_dim // num_heads`.
+        norm_eps (`float`, *optional*, defaults to 1e-6):
+            RMSNorm epsilon.
+        rope_theta (`float`, *optional*, defaults to 1000000.0):
+            Rotary base frequency.
+        tie_embeddings (`bool`, *optional*, defaults to `True`):
+            Whether [`Qwen2Generate`] ties the LM head to the token embedding.
+
+    Examples:
+
+    ```python
+    >>> from kerasformers.models.qwen2 import Qwen2Config, Qwen2Generate
+
+    >>> configuration = Qwen2Config(embed_dim=3584, num_layers=28, num_kv_heads=4)
+    >>> model = Qwen2Generate(configuration)
+    >>> configuration = model.config
+    ```"""
+
+    model_type = "qwen2"
+
+    vocab_size: int = 151936
+    embed_dim: int = 896
+    mlp_dim: int = 4864
+    num_layers: int = 24
+    num_heads: int = 14
+    num_kv_heads: int = 2
+    head_dim: int | None = None
+    norm_eps: float = 1e-6
+    rope_theta: float = 1000000.0
+    tie_embeddings: bool = True

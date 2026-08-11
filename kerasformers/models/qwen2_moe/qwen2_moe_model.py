@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .qwen2_moe_config import QWEN2_MOE_CONFIG, QWEN2_MOE_WEIGHTS_URLS
+from .qwen2_moe_config import Qwen2MoeConfig
 from .qwen2_moe_layers import Qwen2MoeDecoderLayer, Qwen2MoeRMSNorm
 
 MASK_NEG = -1e9
@@ -37,8 +37,7 @@ class Qwen2MoeModel(SubclassedBaseModel):
 
     HF_MODEL_TYPE = "qwen2_moe"
     default_load_dtype = "bfloat16"
-    BASE_MODEL_CONFIG = QWEN2_MOE_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN2_MOE_WEIGHTS_URLS
+    config_class = Qwen2MoeConfig
 
     def __init__(
         self,
