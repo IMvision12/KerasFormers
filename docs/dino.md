@@ -101,15 +101,15 @@ Because the processor already normalizes, load the model with `include_normaliza
 from kerasformers.models.dino import DinoViTModel, DinoImageProcessor
 
 model = DinoViTModel.from_weights(
-    "kerasformers/dino_vitb16", include_normalization=False
+    "kerasformers/dino-vitb16", include_normalization=False
 )
-processor = DinoImageProcessor.from_weights("kerasformers/dino_vitb16")
+processor = DinoImageProcessor.from_weights("kerasformers/dino-vitb16")
 
 pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
 tokens = model(pixel_values, training=False)
 ```
 
-`dino_resnet50` loads the same way and needs no extra arguments: its Hub
+`dino-resnet50` loads the same way and needs no extra arguments: its Hub
 `kf_preprocessor.json` sets `model_type="dino_resnet"`, so the crop recipe is restored for
 you.
 
@@ -117,9 +117,9 @@ you.
 from kerasformers.models.dino import DinoResNetModel, DinoImageProcessor
 
 model = DinoResNetModel.from_weights(
-    "kerasformers/dino_resnet50", include_normalization=False
+    "kerasformers/dino-resnet50", include_normalization=False
 )
-processor = DinoImageProcessor.from_weights("kerasformers/dino_resnet50")
+processor = DinoImageProcessor.from_weights("kerasformers/dino-resnet50")
 
 pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
 features = model(pixel_values, training=False)  # (1, 7, 7, 2048)
@@ -134,11 +134,11 @@ already normalized.
 
 | Variant id | Backbone | Patch | Params |
 |---|---|---|---:|
-| `dino_vits16` | ViT-S | 16 | ~21 M |
-| `dino_vits8` | ViT-S | 8 | ~21 M |
-| `dino_vitb16` | ViT-B | 16 | ~85 M |
-| `dino_vitb8` | ViT-B | 8 | ~85 M |
-| `dino_resnet50` | ResNet-50 | n/a | ~23 M |
+| `dino-vits16` | ViT-S | 16 | ~21 M |
+| `dino-vits8` | ViT-S | 8 | ~21 M |
+| `dino-vitb16` | ViT-B | 16 | ~85 M |
+| `dino-vitb8` | ViT-B | 8 | ~85 M |
+| `dino-resnet50` | ResNet-50 | n/a | ~23 M |
 
 The `*8` variants use an 8-pixel patch, so four times as many tokens and a much finer
 feature map, at a higher compute cost.
@@ -160,10 +160,10 @@ from kerasformers.models.dino import DinoImageProcessor, DinoViTModel
 
 size, patch = 448, 16
 model = DinoViTModel.from_weights(
-    "kerasformers/dino_vits16", image_size=size, include_normalization=False
+    "kerasformers/dino-vits16", image_size=size, include_normalization=False
 )
 processor = DinoImageProcessor.from_weights(
-    "kerasformers/dino_vits16", image_resolution=size
+    "kerasformers/dino-vits16", image_resolution=size
 )
 
 x = processor("assets/data/coco_bear.jpg")["pixel_values"]  # (1, 448, 448, 3)
@@ -211,10 +211,10 @@ from kerasformers.models.dino import DinoImageProcessor, DinoViTModel
 
 size = 448
 model = DinoViTModel.from_weights(
-    "kerasformers/dino_vits16", image_size=size, include_normalization=False
+    "kerasformers/dino-vits16", image_size=size, include_normalization=False
 )
 processor = DinoImageProcessor.from_weights(
-    "kerasformers/dino_vits16", image_resolution=size
+    "kerasformers/dino-vits16", image_resolution=size
 )
 
 paths = ["assets/data/coco_elephants.jpg", "assets/data/coco_horse_jump.jpg"]
@@ -239,7 +239,7 @@ DPT-style neck or an FPN:
 
 ```python
 model = DinoViTModel.from_weights(
-    "kerasformers/dino_vits16", as_backbone=True, image_size=size
+    "kerasformers/dino-vits16", as_backbone=True, image_size=size
 )
 features = model(x, training=False)  # x from above, at 448
 print(len(features), features[-1].shape)  # 13  (1, 785, 384)
@@ -258,7 +258,7 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 model = DinoResNetModel.from_weights(
-    "kerasformers/dino_resnet50"
+    "kerasformers/dino-resnet50"
 )  # output (B, 2048, 7, 7)
 ```
 
@@ -281,7 +281,7 @@ model = DinoViTModel.from_weights("hf:facebook/dino-vits16")
 model = DinoViTModel.from_weights("hf:<user>/dino-finetuned")
 
 # Architecture only, randomly initialized
-model = DinoViTModel.from_weights("kerasformers/dino_vits16", load_weights=False)
+model = DinoViTModel.from_weights("kerasformers/dino-vits16", load_weights=False)
 ```
 
 See also [DINOv2](dinov2.md), which adds register-free dense features and layer scale, and

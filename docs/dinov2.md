@@ -78,9 +78,9 @@ defaults. Two matching options:
   from kerasformers.models.dino_v2 import DinoV2Model, DinoV2ImageProcessor
 
   model = DinoV2Model.from_weights(
-      "kerasformers/dinov2_vitb14", include_normalization=False
+      "kerasformers/dinov2-base", include_normalization=False
   )
-  processor = DinoV2ImageProcessor.from_weights("kerasformers/dinov2_vitb14")
+  processor = DinoV2ImageProcessor.from_weights("kerasformers/dinov2-base")
 
   pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
   tokens = model(pixel_values, training=False)
@@ -95,9 +95,9 @@ defaults. Two matching options:
 
 | Variant id | Backbone | Patch | Params |
 |---|---|---|---:|
-| `dinov2_vits14` | ViT-S | 14 | ~21 M |
-| `dinov2_vitb14` | ViT-B | 14 | ~86 M |
-| `dinov2_vitl14` | ViT-L | 14 | ~300 M |
+| `dinov2-small` | ViT-S | 14 | ~21 M |
+| `dinov2-base` | ViT-B | 14 | ~86 M |
+| `dinov2-large` | ViT-L | 14 | ~300 M |
 
 ## Basic Usage: Feature Extraction
 
@@ -116,10 +116,10 @@ from kerasformers.models.dino_v2 import DinoV2ImageProcessor, DinoV2Model
 
 size, patch = 448, 14
 model = DinoV2Model.from_weights(
-    "kerasformers/dinov2_vits14", image_size=size, include_normalization=False
+    "kerasformers/dinov2-small", image_size=size, include_normalization=False
 )
 processor = DinoV2ImageProcessor.from_weights(
-    "kerasformers/dinov2_vits14", resize_size=512, crop_size=size
+    "kerasformers/dinov2-small", resize_size=512, crop_size=size
 )
 
 x = processor("assets/data/coco_motorcycle.jpg")["pixel_values"]  # (1, 448, 448, 3)
@@ -167,10 +167,10 @@ from kerasformers.models.dino_v2 import DinoV2ImageProcessor, DinoV2Model
 
 size = 448
 model = DinoV2Model.from_weights(
-    "kerasformers/dinov2_vits14", image_size=size, include_normalization=False
+    "kerasformers/dinov2-small", image_size=size, include_normalization=False
 )
 processor = DinoV2ImageProcessor.from_weights(
-    "kerasformers/dinov2_vits14", resize_size=512, crop_size=size
+    "kerasformers/dinov2-small", resize_size=512, crop_size=size
 )
 
 paths = ["assets/data/coco_cats.jpg", "assets/data/coco_bicycles.jpg"]
@@ -196,7 +196,7 @@ prediction:
 
 ```python
 model = DinoV2Model.from_weights(
-    "kerasformers/dinov2_vits14", as_backbone=True, image_size=size
+    "kerasformers/dinov2-small", as_backbone=True, image_size=size
 )
 features = model(x, training=False)  # x from above, at 448
 print(len(features), features[-1].shape)  # 13  (1, 1025, 384)
@@ -229,7 +229,7 @@ model = DinoV2Model.from_weights("hf:facebook/dinov2-small")
 model = DinoV2Model.from_weights("hf:<user>/dinov2-finetuned")
 
 # Architecture only, randomly initialized
-model = DinoV2Model.from_weights("kerasformers/dinov2_vits14", load_weights=False)
+model = DinoV2Model.from_weights("kerasformers/dinov2-small", load_weights=False)
 ```
 
 See also [DINO](dino.md), the original, and [DINOv3](dinov3.md), which adds register

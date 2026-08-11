@@ -19,24 +19,46 @@ from kerasformers.conversion.weight_transfer_util import (
 from kerasformers.models.dino_v3 import DinoV3ConvNeXtModel, DinoV3ViTModel
 
 DINOV3_VIT_VARIANTS: List[Tuple[str, str]] = [
-    ("dinov3_vits16", "facebook/dinov3-vits16-pretrain-lvd1689m"),
-    ("dinov3_vitb16", "facebook/dinov3-vitb16-pretrain-lvd1689m"),
-    ("dinov3_vitl16", "facebook/dinov3-vitl16-pretrain-lvd1689m"),
+    ("dinov3-vits16-pretrain-lvd1689m", "facebook/dinov3-vits16-pretrain-lvd1689m"),
+    ("dinov3-vitb16-pretrain-lvd1689m", "facebook/dinov3-vitb16-pretrain-lvd1689m"),
+    ("dinov3-vitl16-pretrain-lvd1689m", "facebook/dinov3-vitl16-pretrain-lvd1689m"),
 ]
 
 DINOV3_CONVNEXT_VARIANTS: List[Tuple[str, str]] = [
-    ("dinov3_convnext_tiny", "facebook/dinov3-convnext-tiny-pretrain-lvd1689m"),
-    ("dinov3_convnext_small", "facebook/dinov3-convnext-small-pretrain-lvd1689m"),
-    ("dinov3_convnext_base", "facebook/dinov3-convnext-base-pretrain-lvd1689m"),
-    ("dinov3_convnext_large", "facebook/dinov3-convnext-large-pretrain-lvd1689m"),
+    (
+        "dinov3-convnext-tiny-pretrain-lvd1689m",
+        "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
+    ),
+    (
+        "dinov3-convnext-small-pretrain-lvd1689m",
+        "facebook/dinov3-convnext-small-pretrain-lvd1689m",
+    ),
+    (
+        "dinov3-convnext-base-pretrain-lvd1689m",
+        "facebook/dinov3-convnext-base-pretrain-lvd1689m",
+    ),
+    (
+        "dinov3-convnext-large-pretrain-lvd1689m",
+        "facebook/dinov3-convnext-large-pretrain-lvd1689m",
+    ),
 ]
 
 # Per-variant recipes (relocated from dino_v3_config.py). Models load from the Hub
 # by repo id; these build the arch for conversion + drive the kf_config backfill.
 DINOV3_VIT_RECIPES = {
-    "dinov3_vits16": {"patch_size": 16, "embed_dim": 384, "depth": 12, "num_heads": 6},
-    "dinov3_vitb16": {"patch_size": 16, "embed_dim": 768, "depth": 12, "num_heads": 12},
-    "dinov3_vitl16": {
+    "dinov3-vits16-pretrain-lvd1689m": {
+        "patch_size": 16,
+        "embed_dim": 384,
+        "depth": 12,
+        "num_heads": 6,
+    },
+    "dinov3-vitb16-pretrain-lvd1689m": {
+        "patch_size": 16,
+        "embed_dim": 768,
+        "depth": 12,
+        "num_heads": 12,
+    },
+    "dinov3-vitl16-pretrain-lvd1689m": {
         "patch_size": 16,
         "embed_dim": 1024,
         "depth": 24,
@@ -45,19 +67,19 @@ DINOV3_VIT_RECIPES = {
 }
 
 DINOV3_CONVNEXT_RECIPES = {
-    "dinov3_convnext_tiny": {
+    "dinov3-convnext-tiny-pretrain-lvd1689m": {
         "depths": (3, 3, 9, 3),
         "projection_dim": (96, 192, 384, 768),
     },
-    "dinov3_convnext_small": {
+    "dinov3-convnext-small-pretrain-lvd1689m": {
         "depths": (3, 3, 27, 3),
         "projection_dim": (96, 192, 384, 768),
     },
-    "dinov3_convnext_base": {
+    "dinov3-convnext-base-pretrain-lvd1689m": {
         "depths": (3, 3, 27, 3),
         "projection_dim": (128, 256, 512, 1024),
     },
-    "dinov3_convnext_large": {
+    "dinov3-convnext-large-pretrain-lvd1689m": {
         "depths": (3, 3, 27, 3),
         "projection_dim": (192, 384, 768, 1536),
     },
