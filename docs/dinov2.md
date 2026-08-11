@@ -101,11 +101,14 @@ defaults. Two matching options:
 
 ## Basic Usage: Feature Extraction
 
-<img src="../assets/dinov2_pca_output.jpg" alt="DINOv2 ViT-S/14: a motorcyclist beside the PCA of its patch features" width="500">
+<img src="../assets/dinov2_pca_output.jpg" alt="DINOv2 ViT-g/14 (giant): a motorcyclist beside the PCA of its patch features" width="500">
 
 Run the backbone, drop the `[CLS]` token, and PCA the patch features to three components.
 The rider and machine take one colour, the grass and road two others, all recovered with
 no labels.
+
+> The giant is ~1.1B parameters (a ~4.5 GB download). If memory is tight, load it in half
+> precision with `load_dtype="bfloat16"`; the features are effectively unchanged.
 
 ```python
 import keras
@@ -114,15 +117,15 @@ import torch
 from PIL import Image
 from kerasformers.models.dino_v2 import DinoV2ImageProcessor, DinoV2Model
 
-size, patch = 448, 14
+size, patch = 896, 14
 model = DinoV2Model.from_weights(
-    "kerasformers/dinov2-small", image_size=size, include_normalization=False
+    "kerasformers/dinov2-giant", image_size=size, include_normalization=False
 )
 processor = DinoV2ImageProcessor.from_weights(
-    "kerasformers/dinov2-small", resize_size=512, crop_size=size
+    "kerasformers/dinov2-giant", resize_size=1024, crop_size=size
 )
 
-x = processor("assets/data/coco_motorcycle.jpg")["pixel_values"]  # (1, 448, 448, 3)
+x = processor("assets/data/coco_motorcycle.jpg")["pixel_values"]  # (1, 896, 896, 3)
 
 with torch.no_grad():
     tokens = model(x, training=False)
@@ -143,10 +146,10 @@ vis.save("assets/dinov2_pca.jpg")
 ```
 
 ```
-(1025, 384)
+(4097, 1536)
 ```
 
-`1025 = 1 + 32 * 32`: one `[CLS]` token plus a 32x32 patch grid at 448/14. DINOv2's whole
+`4097 = 1 + 64 * 64`: one `[CLS]` token plus a 64x64 patch grid at 896/14. DINOv2's whole
 selling point is that those patch features are good enough to use directly, so a linear
 layer on `tokens[1:]` is a real segmentation or depth head.
 
@@ -157,7 +160,7 @@ layer on `tokens[1:]` is a real segmentation or depth head.
 
 Stack images that share a size into one batch:
 
-<img src="../assets/dinov2_pca_batch_output.jpg" alt="DINOv2 ViT-S/14 on two cats and a busy street, each beside its feature PCA" width="440">
+<img src="../assets/dinov2_pca_batch_output.jpg" alt="DINOv2 ViT-g/14 (giant) on two cats and a busy street, each beside its feature PCA" width="440">
 
 ```python
 import keras
@@ -165,24 +168,24 @@ import numpy as np
 import torch
 from kerasformers.models.dino_v2 import DinoV2ImageProcessor, DinoV2Model
 
-size = 448
+size = 896
 model = DinoV2Model.from_weights(
-    "kerasformers/dinov2-small", image_size=size, include_normalization=False
+    "kerasformers/dinov2-giant", image_size=size, include_normalization=False
 )
 processor = DinoV2ImageProcessor.from_weights(
-    "kerasformers/dinov2-small", resize_size=512, crop_size=size
+    "kerasformers/dinov2-giant", resize_size=1024, crop_size=size
 )
 
 paths = ["assets/data/coco_cats.jpg", "assets/data/coco_bicycles.jpg"]
-batch = processor(paths)["pixel_values"]  # (2, 448, 448, 3)
+batch = processor(paths)["pixel_values"]  # (2, 896, 896, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)
-print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 1025, 384)
+print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 4097, 1536)
 ```
 
 ```
-(2, 1025, 384)
+(2, 4097, 1536)
 ```
 
 The two cats separate from the blanket as one region each; even the cluttered street
@@ -196,10 +199,10 @@ prediction:
 
 ```python
 model = DinoV2Model.from_weights(
-    "kerasformers/dinov2-small", as_backbone=True, image_size=size
+    "kerasformers/dinov2-giant", as_backbone=True, image_size=size
 )
-features = model(x, training=False)  # x from above, at 448
-print(len(features), features[-1].shape)  # 13  (1, 1025, 384)
+features = model(x, training=False)  # x from above, at 896
+print(len(features), features[-1].shape)  # 41  (1, 4097, 1536)
 ```
 
 ## Data Format
@@ -211,7 +214,7 @@ regardless of `keras.config.image_data_format()`.
 
 Any size that is a **multiple of the patch size, 14**, works: the learned position
 embeddings are bilinearly interpolated to the requested patch grid at load time, so the
-pretrained weights stay valid. The figures here use `image_size=448` for a finer map than
+pretrained weights stay valid. The figures here use `image_size=896` for a finer map than
 the default 224 gives.
 
 > Interpolation runs in the Keras `.weights.h5` reader, which the Hub checkpoint path uses. The
@@ -229,7 +232,7 @@ model = DinoV2Model.from_weights("hf:facebook/dinov2-small")
 model = DinoV2Model.from_weights("hf:<user>/dinov2-finetuned")
 
 # Architecture only, randomly initialized
-model = DinoV2Model.from_weights("kerasformers/dinov2-small", load_weights=False)
+model = DinoV2Model.from_weights("kerasformers/dinov2-giant", load_weights=False)
 ```
 
 See also [DINO](dino.md), the original, and [DINOv3](dinov3.md), which adds register

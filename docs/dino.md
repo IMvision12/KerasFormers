@@ -145,7 +145,7 @@ feature map, at a higher compute cost.
 
 ## Basic Usage: Feature Extraction
 
-<img src="../assets/dino_pca_output.jpg" alt="DINO ViT-S/16: a bear beside the PCA of its patch features" width="360">
+<img src="../assets/dino_pca_output.jpg" alt="DINO ViT-B/16: a bear beside the PCA of its patch features" width="360">
 
 Run the backbone, drop the `[CLS]` token, and PCA the patch features to three components
 for an RGB view of what the model sees. The bear's head and body separate cleanly from
@@ -158,15 +158,15 @@ import torch
 from PIL import Image
 from kerasformers.models.dino import DinoImageProcessor, DinoViTModel
 
-size, patch = 448, 16
+size, patch = 896, 16
 model = DinoViTModel.from_weights(
-    "kerasformers/dino-vits16", image_size=size, include_normalization=False
+    "kerasformers/dino-vitb16", image_size=size, include_normalization=False
 )
 processor = DinoImageProcessor.from_weights(
-    "kerasformers/dino-vits16", image_resolution=size
+    "kerasformers/dino-vitb16", image_resolution=size
 )
 
-x = processor("assets/data/coco_bear.jpg")["pixel_values"]  # (1, 448, 448, 3)
+x = processor("assets/data/coco_bear.jpg")["pixel_values"]  # (1, 896, 896, 3)
 
 with torch.no_grad():
     tokens = model(x, training=False)
@@ -187,10 +187,10 @@ vis.save("assets/dino_pca.jpg")
 ```
 
 ```
-(785, 384)
+(3137, 768)
 ```
 
-`785 = 1 + 28 * 28`: one `[CLS]` token plus a 28x28 patch grid at 448/16. The `[CLS]`
+`3137 = 1 + 56 * 56`: one `[CLS]` token plus a 56x56 patch grid at 896/16. The `[CLS]`
 token, `tokens[0]`, is the image-level embedding you would feed a classification head; the
 patches are the dense features the PCA above visualizes.
 
@@ -201,7 +201,7 @@ patches are the dense features the PCA above visualizes.
 
 Stack images that share a size into one batch:
 
-<img src="../assets/dino_pca_batch_output.jpg" alt="DINO ViT-S/16 on two elephants and a horse jumper, each beside its feature PCA" width="440">
+<img src="../assets/dino_pca_batch_output.jpg" alt="DINO ViT-B/16 on two elephants and a horse jumper, each beside its feature PCA" width="440">
 
 ```python
 import keras
@@ -209,24 +209,24 @@ import numpy as np
 import torch
 from kerasformers.models.dino import DinoImageProcessor, DinoViTModel
 
-size = 448
+size = 896
 model = DinoViTModel.from_weights(
-    "kerasformers/dino-vits16", image_size=size, include_normalization=False
+    "kerasformers/dino-vitb16", image_size=size, include_normalization=False
 )
 processor = DinoImageProcessor.from_weights(
-    "kerasformers/dino-vits16", image_resolution=size
+    "kerasformers/dino-vitb16", image_resolution=size
 )
 
 paths = ["assets/data/coco_elephants.jpg", "assets/data/coco_horse_jump.jpg"]
-batch = processor(paths)["pixel_values"]  # (2, 448, 448, 3)
+batch = processor(paths)["pixel_values"]  # (2, 896, 896, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)
-print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 785, 384)
+print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 3137, 768)
 ```
 
 ```
-(2, 785, 384)
+(2, 3137, 768)
 ```
 
 Each row of the figure is an image beside its own feature PCA: the elephants separate from
@@ -239,10 +239,10 @@ DPT-style neck or an FPN:
 
 ```python
 model = DinoViTModel.from_weights(
-    "kerasformers/dino-vits16", as_backbone=True, image_size=size
+    "kerasformers/dino-vitb16", as_backbone=True, image_size=size
 )
-features = model(x, training=False)  # x from above, at 448
-print(len(features), features[-1].shape)  # 13  (1, 785, 384)
+features = model(x, training=False)  # x from above, at 896
+print(len(features), features[-1].shape)  # 13  (1, 3137, 768)
 ```
 
 `DinoResNetModel(as_backbone=True)` gives the four convolutional stage maps instead.
@@ -266,7 +266,7 @@ model = DinoResNetModel.from_weights(
 
 Any size that is a **multiple of the patch size** works: the learned position embeddings
 are bilinearly interpolated to the requested patch grid at load time, so the pretrained
-weights stay valid. The figures here use `image_size=448` for a finer map than the
+weights stay valid. The figures here use `image_size=896` for a finer map than the
 default 224 gives.
 
 ## Loading Fine-tuned and Community Weights
@@ -281,7 +281,7 @@ model = DinoViTModel.from_weights("hf:facebook/dino-vits16")
 model = DinoViTModel.from_weights("hf:<user>/dino-finetuned")
 
 # Architecture only, randomly initialized
-model = DinoViTModel.from_weights("kerasformers/dino-vits16", load_weights=False)
+model = DinoViTModel.from_weights("kerasformers/dino-vitb16", load_weights=False)
 ```
 
 See also [DINOv2](dinov2.md), which adds register-free dense features and layer scale, and

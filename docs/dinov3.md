@@ -134,13 +134,13 @@ defaults. Two matching options:
 
 ## Basic Usage: Feature Extraction
 
-<img src="../assets/dinov3_pca_output.jpg" alt="DINOv3 ViT-S/16: a dog in a yard beside the PCA of its patch features" width="440">
+<img src="../assets/dinov3_pca_output.jpg" alt="DINOv3 ViT-L/16: a dog in a yard beside the PCA of its patch features" width="440">
 
 Run the backbone, drop the `[CLS]` **and the register tokens**, then PCA the patch
 features to three components. The dog, the foliage, and the deck each take a distinct
 colour. DINOv3's rotary position embeddings make **any resolution native**, and its dense
-features get noticeably crisper at higher resolution, so the figures here run at 768 (a
-48x48 patch grid) rather than the 224 the model was trained at.
+features get noticeably crisper at higher resolution, so the figures here run at 1024 (a
+64x64 patch grid) rather than the 224 the model was trained at.
 
 ```python
 import keras
@@ -149,17 +149,17 @@ import torch
 from PIL import Image
 from kerasformers.models.dino_v3 import DinoV3ImageProcessor, DinoV3ViTModel
 
-size, patch, registers = 768, 16, 4
+size, patch, registers = 1024, 16, 4
 model = DinoV3ViTModel.from_weights(
-    "kerasformers/dinov3-vits16-pretrain-lvd1689m",
+    "kerasformers/dinov3-vitl16-pretrain-lvd1689m",
     image_size=size,
     include_normalization=False,
 )
 processor = DinoV3ImageProcessor.from_weights(
-    "kerasformers/dinov3-vits16-pretrain-lvd1689m", image_resolution=size
+    "kerasformers/dinov3-vitl16-pretrain-lvd1689m", image_resolution=size
 )
 
-x = processor("assets/data/coco_dog_yard.jpg")["pixel_values"]  # (1, 768, 768, 3)
+x = processor("assets/data/coco_dog_yard.jpg")["pixel_values"]  # (1, 1024, 1024, 3)
 
 with torch.no_grad():
     tokens = model(x, training=False)
@@ -183,11 +183,11 @@ vis.save("assets/dinov3_pca.jpg")
 ```
 
 ```
-(2309, 384)
+(4101, 1024)
 ```
 
-`2309 = 1 + 4 + 48 * 48`: the `[CLS]` token, four register tokens, and a 48x48 patch grid
-at 768/16. **Forgetting to drop the register tokens shifts every patch by four and
+`4101 = 1 + 4 + 64 * 64`: the `[CLS]` token, four register tokens, and a 64x64 patch grid
+at 1024/16. **Forgetting to drop the register tokens shifts every patch by four and
 scrambles the map**, so always slice from `1 + num_register_tokens`.
 
 > Use `torch.no_grad()` on the torch backend. These are pure forward passes; autograd
@@ -197,7 +197,7 @@ scrambles the map**, so always slice from `1 + num_register_tokens`.
 
 Stack images that share a size into one batch:
 
-<img src="../assets/dinov3_pca_batch_output.jpg" alt="DINOv3 ViT-S/16 on a bear cub and a surfer, each beside its feature PCA" width="440">
+<img src="../assets/dinov3_pca_batch_output.jpg" alt="DINOv3 ViT-L/16 on fallow deer and the Teton range, each beside its feature PCA" width="440">
 
 ```python
 import keras
@@ -205,30 +205,31 @@ import numpy as np
 import torch
 from kerasformers.models.dino_v3 import DinoV3ImageProcessor, DinoV3ViTModel
 
-size = 768
+size = 1024
 model = DinoV3ViTModel.from_weights(
-    "kerasformers/dinov3-vits16-pretrain-lvd1689m",
+    "kerasformers/dinov3-vitl16-pretrain-lvd1689m",
     image_size=size,
     include_normalization=False,
 )
 processor = DinoV3ImageProcessor.from_weights(
-    "kerasformers/dinov3-vits16-pretrain-lvd1689m", image_resolution=size
+    "kerasformers/dinov3-vitl16-pretrain-lvd1689m", image_resolution=size
 )
 
-paths = ["assets/data/coco_bear_cub.jpg", "assets/data/coco_surfer.jpg"]
-batch = processor(paths)["pixel_values"]  # (2, 768, 768, 3)
+paths = ["assets/data/deer.jpg", "assets/data/mountain.jpg"]
+batch = processor(paths)["pixel_values"]  # (2, 1024, 1024, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)
-print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 2309, 384)
+print(np.asarray(keras.ops.convert_to_numpy(tokens)).shape)  # (2, 4101, 1024)
 ```
 
 ```
-(2, 2309, 384)
+(2, 4101, 1024)
 ```
 
-The bear cub lifts off the gravel and the surfer out of the breaking wave, each as a
-single coherent region.
+The fallow bucks lift off the sunlit meadow as coherent shapes, and the Teton scene
+resolves into sky, snow-capped range, forest, and lake, the mountains' reflection echoing
+the peaks above it.
 
 ## Intermediate Features
 
@@ -237,10 +238,10 @@ segmentation head:
 
 ```python
 model = DinoV3ViTModel.from_weights(
-    "kerasformers/dinov3-vits16-pretrain-lvd1689m", as_backbone=True, image_size=size
+    "kerasformers/dinov3-vitl16-pretrain-lvd1689m", as_backbone=True, image_size=size
 )
-features = model(x, training=False)  # x from above, at 768
-print(len(features), features[-1].shape)  # (1, 2309, 384) per map
+features = model(x, training=False)  # x from above, at 1024
+print(len(features), features[-1].shape)  # (1, 4101, 1024) per map
 ```
 
 `DinoV3ConvNeXtModel(as_backbone=True)` gives the convolutional stage maps instead.
@@ -256,7 +257,7 @@ The ViT works in token space, so it is layout-agnostic. `DinoV3ConvNeXtModel` re
 Any size that is a **multiple of the patch size, 16**, works. DINOv3 uses rotary position
 embeddings computed on the fly, so unlike DINO and DINOv2 there is no learned position
 table to interpolate: a new resolution just works, on the Hub Keras or `hf:` path alike.
-The figures here use `image_size=768`; the dense feature map sharpens as you raise it (the
+The figures here use `image_size=1024`; the dense feature map sharpens as you raise it (the
 model was trained at 224), at the usual quadratic cost in tokens.
 
 ## Loading Fine-tuned and Community Weights
@@ -274,7 +275,7 @@ model = DinoV3ViTModel.from_weights("hf:<user>/dinov3-finetuned")
 
 # Architecture only, randomly initialized
 model = DinoV3ViTModel.from_weights(
-    "kerasformers/dinov3-vits16-pretrain-lvd1689m", load_weights=False
+    "kerasformers/dinov3-vitl16-pretrain-lvd1689m", load_weights=False
 )
 ```
 
