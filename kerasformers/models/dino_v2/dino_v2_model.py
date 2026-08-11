@@ -70,6 +70,7 @@ class DinoV2Model(FunctionalBaseModel):
             "num_heads": hf_config["num_attention_heads"],
             "mlp_ratio": hf_config.get("mlp_ratio", 4.0),
             "layer_scale_init": hf_config.get("layerscale_value", 1.0),
+            "use_swiglu": hf_config.get("use_swiglu_ffn", False),
         }
 
     @classmethod
@@ -93,6 +94,7 @@ class DinoV2Model(FunctionalBaseModel):
         drop_rate=0.0,
         attn_drop_rate=0.0,
         layer_scale_init=1.0,
+        use_swiglu=False,
         include_normalization=True,
         normalization_mode="imagenet",
         image_size=224,
@@ -135,6 +137,7 @@ class DinoV2Model(FunctionalBaseModel):
             image_size=image_size,
             data_format=data_format,
             return_intermediates=True,
+            use_swiglu=use_swiglu,
         )
         final_ln = layers.LayerNormalization(
             epsilon=1e-6, axis=-1, name="final_layernorm"
@@ -155,6 +158,7 @@ class DinoV2Model(FunctionalBaseModel):
         self.drop_rate = drop_rate
         self.attn_drop_rate = attn_drop_rate
         self.layer_scale_init = layer_scale_init
+        self.use_swiglu = use_swiglu
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.image_size = image_size
@@ -175,6 +179,7 @@ class DinoV2Model(FunctionalBaseModel):
                 "drop_rate": self.drop_rate,
                 "attn_drop_rate": self.attn_drop_rate,
                 "layer_scale_init": self.layer_scale_init,
+                "use_swiglu": self.use_swiglu,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "image_size": self.image_size,

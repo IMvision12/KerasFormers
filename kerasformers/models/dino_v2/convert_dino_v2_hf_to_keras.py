@@ -26,6 +26,8 @@ DINOV2_NAME_MAPPING: Dict[str, str] = {
     "blocks.": "encoder.layer.",
     "dense.1": "mlp.fc1",
     "dense.2": "mlp.fc2",
+    "weights.in": "mlp.weights_in",
+    "weights.out": "mlp.weights_out",
     "layernorm.1": "norm1",
     "layernorm.2": "norm2",
     "final.layernorm": "layernorm",
@@ -167,6 +169,7 @@ DINOV2_VARIANTS: List[Tuple[str, str]] = [
     ("dinov2-small", "facebook/dinov2-small"),
     ("dinov2-base", "facebook/dinov2-base"),
     ("dinov2-large", "facebook/dinov2-large"),
+    ("dinov2-giant", "facebook/dinov2-giant"),
 ]
 
 # Per-variant recipes (relocated from dino_v2_config.py). Models load from the Hub
@@ -192,6 +195,14 @@ DINOV2_RECIPES = {
         "depth": 24,
         "num_heads": 16,
         "layer_scale_init": 1.0,
+    },
+    "dinov2-giant": {
+        "patch_size": 14,
+        "embed_dim": 1536,
+        "depth": 40,
+        "num_heads": 24,
+        "layer_scale_init": 1.0,
+        "use_swiglu": True,  # ViT-g/14 uses a SwiGLU FFN
     },
 }
 

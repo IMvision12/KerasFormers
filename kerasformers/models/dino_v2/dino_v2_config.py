@@ -63,6 +63,7 @@ class DinoV2Config(BaseConfig):
     drop_rate: float = 0.0
     attn_drop_rate: float = 0.0
     layer_scale_init: float = 1.0
+    use_swiglu: bool = False
     include_normalization: bool = True
     normalization_mode: str = "imagenet"
     image_size: int = 224

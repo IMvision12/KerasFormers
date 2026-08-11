@@ -586,3 +586,19 @@ class ViTLayerScale(layers.Layer):
         config = super().get_config()
         config.update({"layer_scale_init": self.layer_scale_init})
         return config
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class ViTSwiGLUGate(layers.Layer):
+    """SwiGLU gate: split the fused projection in half and gate, silu(x1) * x2.
+
+    Pairs with a single ``weights_in`` Dense that outputs ``2 * hidden`` features,
+    matching HF's ``Dinov2SwiGLUFFN`` used by the DINOv2 giant.
+    """
+
+    def call(self, x):
+        x1, x2 = ops.split(x, 2, axis=-1)
+        return ops.silu(x1) * x2
+
+    def compute_output_shape(self, input_shape):
+        return (*input_shape[:-1], input_shape[-1] // 2)
