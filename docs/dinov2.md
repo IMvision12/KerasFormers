@@ -64,7 +64,9 @@ token sequence `(B, 1 + num_patches, embed_dim)`, the leading token being `[CLS]
 
 ## Preprocessing
 
-Two matching options:
+`DinoV2ImageProcessor.from_weights("kerasformers/<variant>")` reads its settings from the
+repo's `kf_preprocessor.json`; `DinoV2ImageProcessor()` with no arguments gives the same
+defaults. Two matching options:
 
 - **`DinoV2ImageProcessor`** (matches transformers' `BitImageProcessor` for
   `facebook/dinov2-*`): an aspect-preserving shortest-edge resize to 256 (bicubic, through
@@ -110,13 +112,17 @@ import keras
 import numpy as np
 import torch
 from PIL import Image
-from kerasformers.models.dino_v2 import DinoV2Model
+from kerasformers.models.dino_v2 import DinoV2ImageProcessor, DinoV2Model
 
 size, patch = 448, 14
-model = DinoV2Model.from_weights("kerasformers/dinov2_vits14", image_size=size)
+model = DinoV2Model.from_weights(
+    "kerasformers/dinov2_vits14", image_size=size, include_normalization=False
+)
+processor = DinoV2ImageProcessor.from_weights(
+    "kerasformers/dinov2_vits14", resize_size=512, crop_size=size
+)
 
-image = Image.open("assets/data/coco_motorcycle.jpg").convert("RGB")
-x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
+x = processor("assets/data/coco_motorcycle.jpg")["pixel_values"]  # (1, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(x, training=False)
@@ -132,7 +138,7 @@ proj = proj.reshape(grid, grid, 3)
 lo, hi = proj.min((0, 1)), proj.max((0, 1))
 proj = (proj - lo) / (hi - lo + 1e-8)
 
-vis = Image.fromarray((proj * 255).astype("uint8")).resize(image.size, Image.BILINEAR)
+vis = Image.fromarray((proj * 255).astype("uint8")).resize((size, size), Image.BILINEAR)
 vis.save("assets/dinov2_pca.jpg")
 ```
 
@@ -157,19 +163,18 @@ Stack images that share a size into one batch:
 import keras
 import numpy as np
 import torch
-from PIL import Image
-from kerasformers.models.dino_v2 import DinoV2Model
+from kerasformers.models.dino_v2 import DinoV2ImageProcessor, DinoV2Model
 
 size = 448
-model = DinoV2Model.from_weights("kerasformers/dinov2_vits14", image_size=size)
+model = DinoV2Model.from_weights(
+    "kerasformers/dinov2_vits14", image_size=size, include_normalization=False
+)
+processor = DinoV2ImageProcessor.from_weights(
+    "kerasformers/dinov2_vits14", resize_size=512, crop_size=size
+)
 
 paths = ["assets/data/coco_cats.jpg", "assets/data/coco_bicycles.jpg"]
-batch = np.stack(
-    [
-        np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
-        for p in paths
-    ]
-)  # (2, 448, 448, 3)
+batch = processor(paths)["pixel_values"]  # (2, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)

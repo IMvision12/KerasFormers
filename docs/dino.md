@@ -83,29 +83,52 @@ stage maps (`(B, 56, 56, 256)` through `(B, 7, 7, 2048)`).
 
 ## Preprocessing
 
-Two matching options:
+`DinoImageProcessor` handles both DINO families, keyed on `model_type` (the same tag the
+model config carries). Loading it with `from_weights("kerasformers/<variant>")` reads the
+recipe from the repo's `kf_preprocessor.json`, so the right one comes back automatically;
+`DinoImageProcessor()` with no arguments is the ViT default.
 
-- **`DinoImageProcessor`** (matches transformers' `ViTImageProcessor` for `facebook/dino-*`):
-  a square resize to 224 (bilinear, through PIL on the raw uint8 image), rescale to
-  `[0, 1]`, and ImageNet-standard normalization. Because it already normalizes, load the
-  model with `include_normalization=False`:
+- **ViT** (`facebook/dino-*`, `model_type="dino_vit"`, the default) matches transformers'
+  `ViTImageProcessor`: a square resize to 224 (bilinear, through PIL on the raw uint8
+  image), rescale to `[0, 1]`, and ImageNet-standard normalization. No center crop.
+- **ResNet-50** (`model_type="dino_resnet"`) matches the torch.hub `facebookresearch/dino`
+  eval transform: an aspect-preserving shortest-edge resize to 256 (bicubic), a center
+  crop to 224, then the same rescale and normalization.
 
-  ```python
-  from kerasformers.models.dino import DinoViTModel, DinoImageProcessor
+Because the processor already normalizes, load the model with `include_normalization=False`:
 
-  model = DinoViTModel.from_weights(
-      "kerasformers/dino_vitb16", include_normalization=False
-  )
-  processor = DinoImageProcessor.from_weights("kerasformers/dino_vitb16")
+```python
+from kerasformers.models.dino import DinoViTModel, DinoImageProcessor
 
-  pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
-  tokens = model(pixel_values, training=False)
-  ```
+model = DinoViTModel.from_weights(
+    "kerasformers/dino_vitb16", include_normalization=False
+)
+processor = DinoImageProcessor.from_weights("kerasformers/dino_vitb16")
 
-- **Built-in normalization**: the models default to `include_normalization=True`, so you
-  can instead feed **raw `[0, 255]` pixels** (resized to the model's `image_size`) and the
-  ImageNet normalization happens inside. Pass `include_normalization=False` if you have
-  already normalized.
+pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
+tokens = model(pixel_values, training=False)
+```
+
+`dino_resnet50` loads the same way and needs no extra arguments: its Hub
+`kf_preprocessor.json` sets `model_type="dino_resnet"`, so the crop recipe is restored for
+you.
+
+```python
+from kerasformers.models.dino import DinoResNetModel, DinoImageProcessor
+
+model = DinoResNetModel.from_weights(
+    "kerasformers/dino_resnet50", include_normalization=False
+)
+processor = DinoImageProcessor.from_weights("kerasformers/dino_resnet50")
+
+pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
+features = model(pixel_values, training=False)  # (1, 7, 7, 2048)
+```
+
+**Built-in normalization**: the models default to `include_normalization=True`, so you can
+instead feed **raw `[0, 255]` pixels** (resized to the model's `image_size`) and the
+ImageNet normalization happens inside. Pass `include_normalization=False` if you have
+already normalized.
 
 ## Model Variants
 
@@ -133,13 +156,17 @@ import keras
 import numpy as np
 import torch
 from PIL import Image
-from kerasformers.models.dino import DinoViTModel
+from kerasformers.models.dino import DinoImageProcessor, DinoViTModel
 
 size, patch = 448, 16
-model = DinoViTModel.from_weights("kerasformers/dino_vits16", image_size=size)
+model = DinoViTModel.from_weights(
+    "kerasformers/dino_vits16", image_size=size, include_normalization=False
+)
+processor = DinoImageProcessor.from_weights(
+    "kerasformers/dino_vits16", image_resolution=size
+)
 
-image = Image.open("assets/data/coco_bear.jpg").convert("RGB")
-x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
+x = processor("assets/data/coco_bear.jpg")["pixel_values"]  # (1, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(x, training=False)
@@ -155,7 +182,7 @@ proj = proj.reshape(grid, grid, 3)
 lo, hi = proj.min((0, 1)), proj.max((0, 1))
 proj = (proj - lo) / (hi - lo + 1e-8)
 
-vis = Image.fromarray((proj * 255).astype("uint8")).resize(image.size, Image.BILINEAR)
+vis = Image.fromarray((proj * 255).astype("uint8")).resize((size, size), Image.BILINEAR)
 vis.save("assets/dino_pca.jpg")
 ```
 
@@ -180,19 +207,18 @@ Stack images that share a size into one batch:
 import keras
 import numpy as np
 import torch
-from PIL import Image
-from kerasformers.models.dino import DinoViTModel
+from kerasformers.models.dino import DinoImageProcessor, DinoViTModel
 
 size = 448
-model = DinoViTModel.from_weights("kerasformers/dino_vits16", image_size=size)
+model = DinoViTModel.from_weights(
+    "kerasformers/dino_vits16", image_size=size, include_normalization=False
+)
+processor = DinoImageProcessor.from_weights(
+    "kerasformers/dino_vits16", image_resolution=size
+)
 
 paths = ["assets/data/coco_elephants.jpg", "assets/data/coco_horse_jump.jpg"]
-batch = np.stack(
-    [
-        np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
-        for p in paths
-    ]
-)  # (2, 448, 448, 3)
+batch = processor(paths)["pixel_values"]  # (2, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)

@@ -1,13 +1,11 @@
 # DINOv3
 
 <div class="kf-note kf-note--weights">
-<b>Gated weights:</b> DINOv3 is not redistributed as preconverted kerasformers Hub weights.
-Accept the license at <a href="https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m">facebook/dinov3-*</a>,
-then authenticate with <code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
-The first <code>from_weights</code> call downloads the checkpoint, converts it, and caches
-the result under <code>~/.cache/kerasformers/</code>; later calls load from that cache.
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
-<br>
 
 DINOv3 pushes [DINOv2](dinov2.md)'s self-supervised features further, on 1.7 B images, and
 adds two architectural pieces aimed squarely at **dense features**: register tokens, extra
@@ -94,7 +92,9 @@ feature map (`(B, 7, 7, 768)` for the tiny variant under `channels_last`), or wi
 
 ## Preprocessing
 
-Two matching options:
+`DinoV3ImageProcessor.from_weights("kerasformers/<variant>")` reads its settings from the
+repo's `kf_preprocessor.json`; `DinoV3ImageProcessor()` with no arguments gives the same
+defaults. Two matching options:
 
 - **`DinoV3ImageProcessor`** (matches transformers' `DINOv3ViTImageProcessor` for
   `facebook/dinov3-*`): a square resize to 224 (bilinear, through PIL on the raw uint8
@@ -143,13 +143,17 @@ import keras
 import numpy as np
 import torch
 from PIL import Image
-from kerasformers.models.dino_v3 import DinoV3ViTModel
+from kerasformers.models.dino_v3 import DinoV3ImageProcessor, DinoV3ViTModel
 
 size, patch, registers = 448, 16, 4
-model = DinoV3ViTModel.from_weights("dinov3_vits16", image_size=size)
+model = DinoV3ViTModel.from_weights(
+    "kerasformers/dinov3_vits16", image_size=size, include_normalization=False
+)
+processor = DinoV3ImageProcessor.from_weights(
+    "kerasformers/dinov3_vits16", image_resolution=size
+)
 
-image = Image.open("assets/data/coco_dog_yard.jpg").convert("RGB")
-x = np.asarray(image.resize((size, size)))[None].astype("float32")  # raw [0, 255]
+x = processor("assets/data/coco_dog_yard.jpg")["pixel_values"]  # (1, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(x, training=False)
@@ -168,7 +172,7 @@ proj = proj.reshape(grid, grid, 3)
 lo, hi = proj.min((0, 1)), proj.max((0, 1))
 proj = (proj - lo) / (hi - lo + 1e-8)
 
-vis = Image.fromarray((proj * 255).astype("uint8")).resize(image.size, Image.BILINEAR)
+vis = Image.fromarray((proj * 255).astype("uint8")).resize((size, size), Image.BILINEAR)
 vis.save("assets/dinov3_pca.jpg")
 ```
 
@@ -193,19 +197,18 @@ Stack images that share a size into one batch:
 import keras
 import numpy as np
 import torch
-from PIL import Image
-from kerasformers.models.dino_v3 import DinoV3ViTModel
+from kerasformers.models.dino_v3 import DinoV3ImageProcessor, DinoV3ViTModel
 
 size = 448
-model = DinoV3ViTModel.from_weights("dinov3_vits16", image_size=size)
+model = DinoV3ViTModel.from_weights(
+    "kerasformers/dinov3_vits16", image_size=size, include_normalization=False
+)
+processor = DinoV3ImageProcessor.from_weights(
+    "kerasformers/dinov3_vits16", image_resolution=size
+)
 
 paths = ["assets/data/coco_bear_cub.jpg", "assets/data/coco_surfer.jpg"]
-batch = np.stack(
-    [
-        np.asarray(Image.open(p).convert("RGB").resize((size, size)), "float32")
-        for p in paths
-    ]
-)  # (2, 448, 448, 3)
+batch = processor(paths)["pixel_values"]  # (2, 448, 448, 3)
 
 with torch.no_grad():
     tokens = model(batch, training=False)
@@ -225,7 +228,9 @@ single coherent region.
 segmentation head:
 
 ```python
-model = DinoV3ViTModel.from_weights("dinov3_vits16", as_backbone=True, image_size=size)
+model = DinoV3ViTModel.from_weights(
+    "kerasformers/dinov3_vits16", as_backbone=True, image_size=size
+)
 features = model(x, training=False)  # x from above, at 448
 print(len(features), features[-1].shape)  # (1, 789, 384) per map
 ```
@@ -248,7 +253,9 @@ The figures here use `image_size=448`.
 ## Loading Fine-tuned and Community Weights
 
 Any Hugging Face repo whose `model_type` is `"dinov3_vit"` or `"dinov3_convnext"` loads
-with the `hf:` prefix (the base checkpoints are gated; see the banner above).
+with the `hf:` prefix. The kerasformers Hub weights above are free to pull, but the
+upstream `facebook/dinov3-*` checkpoints are gated, so accept Meta's license there before
+using an `hf:facebook/dinov3-*` id.
 
 ```python
 from kerasformers.models.dino_v3 import DinoV3ViTModel
@@ -257,7 +264,7 @@ model = DinoV3ViTModel.from_weights("hf:facebook/dinov3-vits16-pretrain-lvd1689m
 model = DinoV3ViTModel.from_weights("hf:<user>/dinov3-finetuned")
 
 # Architecture only, randomly initialized
-model = DinoV3ViTModel.from_weights("dinov3_vits16", load_weights=False)
+model = DinoV3ViTModel.from_weights("kerasformers/dinov3_vits16", load_weights=False)
 ```
 
 See also [DINO](dino.md) and [DINOv2](dinov2.md), the earlier self-supervised backbones
