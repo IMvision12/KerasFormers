@@ -251,7 +251,7 @@ class Gemma3nConfig(BaseConfig):
         "vision_config": Gemma3nVisionConfig,
         "audio_config": Gemma3nAudioConfig,
     }
-    optional_sub_configs = ("vision_config", "audio_config")
+    optional_sub_configs = ()
 
     text_config: Gemma3nTextConfig | dict | None = None
     vision_config: Gemma3nVisionConfig | dict | None = None
