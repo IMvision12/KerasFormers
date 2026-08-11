@@ -749,6 +749,180 @@
    }
   }
  },
+ "DinoImageProcessor": {
+  "large_300x500": {
+   "pixel_values": {
+    "max": 2.16941,
+    "mean": 0.2175,
+    "min": -1.58704,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.51421
+   }
+  },
+  "odd_223x225": {
+   "pixel_values": {
+    "max": 2.57028,
+    "mean": 0.21562,
+    "min": -2.1179,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.85998
+   }
+  },
+  "tall_96x48": {
+   "pixel_values": {
+    "max": 2.60514,
+    "mean": 0.21998,
+    "min": -2.08365,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.87372
+   }
+  },
+  "wide_48x96": {
+   "pixel_values": {
+    "max": 2.62257,
+    "mean": 0.21961,
+    "min": -2.10078,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.87045
+   }
+  }
+ },
+ "DinoV2ImageProcessor": {
+  "large_300x500": {
+   "pixel_values": {
+    "max": 2.64,
+    "mean": 0.22005,
+    "min": -2.1179,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.89889
+   }
+  },
+  "odd_223x225": {
+   "pixel_values": {
+    "max": 2.64,
+    "mean": 0.21409,
+    "min": -2.1179,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 1.04356
+   }
+  },
+  "tall_96x48": {
+   "pixel_values": {
+    "max": 2.64,
+    "mean": 0.21846,
+    "min": -2.1179,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 1.05453
+   }
+  },
+  "wide_48x96": {
+   "pixel_values": {
+    "max": 2.64,
+    "mean": 0.20297,
+    "min": -2.1179,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 1.04753
+   }
+  }
+ },
+ "DinoV3ImageProcessor": {
+  "large_300x500": {
+   "pixel_values": {
+    "max": 2.16941,
+    "mean": 0.2175,
+    "min": -1.58704,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.51421
+   }
+  },
+  "odd_223x225": {
+   "pixel_values": {
+    "max": 2.57028,
+    "mean": 0.21562,
+    "min": -2.1179,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.85998
+   }
+  },
+  "tall_96x48": {
+   "pixel_values": {
+    "max": 2.60514,
+    "mean": 0.21998,
+    "min": -2.08365,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.87372
+   }
+  },
+  "wide_48x96": {
+   "pixel_values": {
+    "max": 2.62257,
+    "mean": 0.21961,
+    "min": -2.10078,
+    "shape": [
+     1,
+     224,
+     224,
+     3
+    ],
+    "std": 0.87045
+   }
+  }
+ },
  "EoMTImageProcessor": {
   "large_300x500": {
    "pixel_values": {

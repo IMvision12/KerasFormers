@@ -26,6 +26,8 @@ DINOV2_NAME_MAPPING: Dict[str, str] = {
     "blocks.": "encoder.layer.",
     "dense.1": "mlp.fc1",
     "dense.2": "mlp.fc2",
+    "weights.in": "mlp.weights_in",
+    "weights.out": "mlp.weights_out",
     "layernorm.1": "norm1",
     "layernorm.2": "norm2",
     "final.layernorm": "layernorm",
@@ -164,34 +166,43 @@ def transfer_dinov2_weights(
 
 
 DINOV2_VARIANTS: List[Tuple[str, str]] = [
-    ("dinov2_vits14", "facebook/dinov2-small"),
-    ("dinov2_vitb14", "facebook/dinov2-base"),
-    ("dinov2_vitl14", "facebook/dinov2-large"),
+    ("dinov2-small", "facebook/dinov2-small"),
+    ("dinov2-base", "facebook/dinov2-base"),
+    ("dinov2-large", "facebook/dinov2-large"),
+    ("dinov2-giant", "facebook/dinov2-giant"),
 ]
 
 # Per-variant recipes (relocated from dino_v2_config.py). Models load from the Hub
 # by repo id; these build the arch for conversion + drive the kf_config backfill.
 DINOV2_RECIPES = {
-    "dinov2_vits14": {
+    "dinov2-small": {
         "patch_size": 14,
         "embed_dim": 384,
         "depth": 12,
         "num_heads": 6,
         "layer_scale_init": 1.0,
     },
-    "dinov2_vitb14": {
+    "dinov2-base": {
         "patch_size": 14,
         "embed_dim": 768,
         "depth": 12,
         "num_heads": 12,
         "layer_scale_init": 1.0,
     },
-    "dinov2_vitl14": {
+    "dinov2-large": {
         "patch_size": 14,
         "embed_dim": 1024,
         "depth": 24,
         "num_heads": 16,
         "layer_scale_init": 1.0,
+    },
+    "dinov2-giant": {
+        "patch_size": 14,
+        "embed_dim": 1536,
+        "depth": 40,
+        "num_heads": 24,
+        "layer_scale_init": 1.0,
+        "use_swiglu": True,  # ViT-g/14 uses a SwiGLU FFN
     },
 }
 

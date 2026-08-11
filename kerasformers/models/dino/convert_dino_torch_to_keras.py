@@ -109,27 +109,27 @@ def transfer_dino_resnet_weights(
 
 
 DINO_VIT_CONVERSION_CONFIG: List[Tuple[str, str]] = [
-    ("dino_vits16", "dino_vits16"),
-    ("dino_vits8", "dino_vits8"),
-    ("dino_vitb16", "dino_vitb16"),
-    ("dino_vitb8", "dino_vitb8"),
+    ("dino-vits16", "dino_vits16"),
+    ("dino-vits8", "dino_vits8"),
+    ("dino-vitb16", "dino_vitb16"),
+    ("dino-vitb8", "dino_vitb8"),
 ]
 
 DINO_RESNET_CONVERSION_CONFIG: List[Tuple[str, str]] = [
-    ("dino_resnet50", "dino_resnet50"),
+    ("dino-resnet50", "dino_resnet50"),
 ]
 
 # Per-variant recipes (relocated from dino_config.py). Models load from the Hub
 # by repo id; these build the arch for conversion + drive the kf_config backfill.
 DINO_VIT_RECIPES = {
-    "dino_vits16": {"patch_size": 16, "embed_dim": 384, "depth": 12, "num_heads": 6},
-    "dino_vits8": {"patch_size": 8, "embed_dim": 384, "depth": 12, "num_heads": 6},
-    "dino_vitb16": {"patch_size": 16, "embed_dim": 768, "depth": 12, "num_heads": 12},
-    "dino_vitb8": {"patch_size": 8, "embed_dim": 768, "depth": 12, "num_heads": 12},
+    "dino-vits16": {"patch_size": 16, "embed_dim": 384, "depth": 12, "num_heads": 6},
+    "dino-vits8": {"patch_size": 8, "embed_dim": 384, "depth": 12, "num_heads": 6},
+    "dino-vitb16": {"patch_size": 16, "embed_dim": 768, "depth": 12, "num_heads": 12},
+    "dino-vitb8": {"patch_size": 8, "embed_dim": 768, "depth": 12, "num_heads": 12},
 }
 
 DINO_RESNET_RECIPES = {
-    "dino_resnet50": {"depths": (3, 4, 6, 3), "filters": (64, 128, 256, 512)},
+    "dino-resnet50": {"depths": (3, 4, 6, 3), "filters": (64, 128, 256, 512)},
 }
 
 

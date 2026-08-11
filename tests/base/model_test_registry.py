@@ -581,6 +581,22 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": None,
     },
+    "DinoV2ModelSwiGLU": {
+        "module": "kerasformers.models.dino_v2",
+        "model_cls": "DinoV2Model",
+        "model_type": "backbone",
+        "init_kwargs": {
+            "as_backbone": True,
+            "patch_size": 14,
+            "embed_dim": 64,
+            "depth": 2,
+            "num_heads": 4,
+            "use_swiglu": True,
+            "image_size": (42, 42, 3),
+        },
+        "input_shape": (2, 42, 42, 3),
+        "expected_output_shape": None,
+    },
     "DinoV3ViTModel": {
         "module": "kerasformers.models.dino_v3",
         "model_cls": "DinoV3ViTModel",

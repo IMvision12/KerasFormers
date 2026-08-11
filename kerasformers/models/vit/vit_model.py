@@ -8,6 +8,7 @@ from kerasformers.models.vit.vit_layers import (
     ViTClassDistToken,
     ViTLayerScale,
     ViTMultiHeadSelfAttention,
+    ViTSwiGLUGate,
 )
 from kerasformers.utils import standardize_input_shape
 from kerasformers.utils.image_util import normalize_image_for_classify_models
@@ -30,6 +31,28 @@ def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0)
     return x
 
 
+def swiglu_block(inputs, hidden_features, out_features, drop=0.0, block_idx=0):
+    # One fused `weights_in` (-> 2 * hidden), gated silu(x1) * x2, then `weights_out`.
+    # Matches HF's Dinov2SwiGLUFFN (the DINOv2 giant FFN).
+    x = layers.Dense(
+        2 * hidden_features, use_bias=True, name=f"blocks_{block_idx}_weights_in"
+    )(inputs)
+    x = ViTSwiGLUGate(name=f"blocks_{block_idx}_swiglu")(x)
+    x = layers.Dropout(drop, name=f"blocks_{block_idx}_dropout_1")(x)
+    x = layers.Dense(
+        out_features, use_bias=True, name=f"blocks_{block_idx}_weights_out"
+    )(x)
+    x = layers.Dropout(drop, name=f"blocks_{block_idx}_dropout_2")(x)
+    return x
+
+
+def swiglu_hidden_features(embed_dim, mlp_ratio):
+    """DINOv2's SwiGLU hidden width: 2/3 of mlp_ratio*dim, rounded up to a
+    multiple of 8 (matches HF's Dinov2SwiGLUFFN)."""
+    hidden = int(embed_dim * mlp_ratio)
+    return (int(hidden * 2 / 3) + 7) // 8 * 8
+
+
 def transformer_block(
     inputs,
     embed_dim,
@@ -41,6 +64,7 @@ def transformer_block(
     attn_drop=0.0,
     block_idx=0,
     layer_scale_init=None,
+    use_swiglu=False,
 ):
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
@@ -63,13 +87,22 @@ def transformer_block(
     y = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_2"
     )(x)
-    y = mlp_block(
-        y,
-        hidden_features=int(embed_dim * mlp_ratio),
-        out_features=embed_dim,
-        drop=proj_drop,
-        block_idx=block_idx,
-    )
+    if use_swiglu:
+        y = swiglu_block(
+            y,
+            hidden_features=swiglu_hidden_features(embed_dim, mlp_ratio),
+            out_features=embed_dim,
+            drop=proj_drop,
+            block_idx=block_idx,
+        )
+    else:
+        y = mlp_block(
+            y,
+            hidden_features=int(embed_dim * mlp_ratio),
+            out_features=embed_dim,
+            drop=proj_drop,
+            block_idx=block_idx,
+        )
     if layer_scale_init:
         y = ViTLayerScale(
             layer_scale_init=layer_scale_init, name=f"blocks_{block_idx}_layerscale_2"
@@ -97,6 +130,7 @@ def vit_backbone_feature(
     resize_mode="bilinear",
     return_intermediates=False,
     return_stages=False,
+    use_swiglu=False,
 ):
     if data_format == "channels_first":
         _, height, width = inputs.shape[1:]
@@ -143,6 +177,7 @@ def vit_backbone_feature(
             attn_drop=attn_drop_rate,
             layer_scale_init=layer_scale_init,
             block_idx=i,
+            use_swiglu=use_swiglu,
         )
         intermediates.append(x)
         stages.append(x)
