@@ -83,9 +83,29 @@ stage maps (`(B, 56, 56, 256)` through `(B, 7, 7, 2048)`).
 
 ## Preprocessing
 
-There is no separate image processor. Both models carry `include_normalization=True`, so
-feed **raw `[0, 255]` pixels** (resized to the model's `image_size`) and normalization
-happens inside. Pass `include_normalization=False` if you have already normalized.
+Two matching options:
+
+- **`DinoImageProcessor`** (matches transformers' `ViTImageProcessor` for `facebook/dino-*`):
+  a square resize to 224 (bilinear, through PIL on the raw uint8 image), rescale to
+  `[0, 1]`, and ImageNet-standard normalization. Because it already normalizes, load the
+  model with `include_normalization=False`:
+
+  ```python
+  from kerasformers.models.dino import DinoViTModel, DinoImageProcessor
+
+  model = DinoViTModel.from_weights(
+      "kerasformers/dino_vitb16", include_normalization=False
+  )
+  processor = DinoImageProcessor.from_weights("kerasformers/dino_vitb16")
+
+  pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
+  tokens = model(pixel_values, training=False)
+  ```
+
+- **Built-in normalization**: the models default to `include_normalization=True`, so you
+  can instead feed **raw `[0, 255]` pixels** (resized to the model's `image_size`) and the
+  ImageNet normalization happens inside. Pass `include_normalization=False` if you have
+  already normalized.
 
 ## Model Variants
 

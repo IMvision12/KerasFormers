@@ -1,6 +1,6 @@
 # DINOv3
 
-<div class="kf-note kf-note--gated">
+<div class="kf-note kf-note--weights">
 <b>Gated weights:</b> DINOv3 is not redistributed as preconverted kerasformers Hub weights.
 Accept the license at <a href="https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m">facebook/dinov3-*</a>,
 then authenticate with <code>huggingface-cli login</code> or <code>export HF_TOKEN=...</code>.
@@ -94,9 +94,29 @@ feature map (`(B, 7, 7, 768)` for the tiny variant under `channels_last`), or wi
 
 ## Preprocessing
 
-There is no separate image processor. Both models carry `include_normalization=True`, so
-feed **raw `[0, 255]` pixels** resized to the model's `image_size`; normalization happens
-inside. Pass `include_normalization=False` if you have already normalized.
+Two matching options:
+
+- **`DinoV3ImageProcessor`** (matches transformers' `DINOv3ViTImageProcessor` for
+  `facebook/dinov3-*`): a square resize to 224 (bilinear, through PIL on the raw uint8
+  image), rescale to `[0, 1]`, and ImageNet-standard normalization. Because it already
+  normalizes, load the model with `include_normalization=False`:
+
+  ```python
+  from kerasformers.models.dino_v3 import DinoV3ViTModel, DinoV3ImageProcessor
+
+  model = DinoV3ViTModel.from_weights(
+      "kerasformers/dinov3_vitb16", include_normalization=False
+  )
+  processor = DinoV3ImageProcessor.from_weights("kerasformers/dinov3_vitb16")
+
+  pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
+  tokens = model(pixel_values, training=False)
+  ```
+
+- **Built-in normalization**: the models default to `include_normalization=True`, so you
+  can instead feed **raw `[0, 255]` pixels** (resized to the model's `image_size`) and the
+  ImageNet normalization happens inside. Pass `include_normalization=False` if you have
+  already normalized.
 
 ## Model Variants
 

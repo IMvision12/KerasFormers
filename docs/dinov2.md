@@ -64,9 +64,30 @@ token sequence `(B, 1 + num_patches, embed_dim)`, the leading token being `[CLS]
 
 ## Preprocessing
 
-There is no separate image processor. `DinoV2Model` carries `include_normalization=True`,
-so feed **raw `[0, 255]` pixels** resized to the model's `image_size`; normalization
-happens inside. Pass `include_normalization=False` if you have already normalized.
+Two matching options:
+
+- **`DinoV2ImageProcessor`** (matches transformers' `BitImageProcessor` for
+  `facebook/dinov2-*`): an aspect-preserving shortest-edge resize to 256 (bicubic, through
+  PIL on the raw uint8 image), a center crop to 224, rescale to `[0, 1]`, and
+  ImageNet-standard normalization. Because it already normalizes, load the model with
+  `include_normalization=False`:
+
+  ```python
+  from kerasformers.models.dino_v2 import DinoV2Model, DinoV2ImageProcessor
+
+  model = DinoV2Model.from_weights(
+      "kerasformers/dinov2_vitb14", include_normalization=False
+  )
+  processor = DinoV2ImageProcessor.from_weights("kerasformers/dinov2_vitb14")
+
+  pixel_values = processor("bear.jpg")["pixel_values"]  # (1, 224, 224, 3), normalized
+  tokens = model(pixel_values, training=False)
+  ```
+
+- **Built-in normalization**: `DinoV2Model` defaults to `include_normalization=True`, so
+  you can instead feed **raw `[0, 255]` pixels** (resized to the model's `image_size`) and
+  the ImageNet normalization happens inside. Pass `include_normalization=False` if you have
+  already normalized.
 
 ## Model Variants
 
