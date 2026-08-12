@@ -1,13 +1,11 @@
 # Qwen2
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> plus the Keras weights:
+<code>model.weights.h5</code>, or a sharded <code>model.weights.json</code> + shards for the
+larger checkpoints). Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
 Alibaba's Qwen2 dense decoder-only LLM, ported to pure Keras 3. A pre-norm
@@ -24,18 +22,19 @@ See also [qwen2_moe.md](qwen2_moe.md), [qwen3.md](qwen3.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")`. The `-instruct` suffix
+marks instruction-tuned checkpoints (use the chat template); bare names are base models.
 
 | Variant | Hub |
 |---|---|
-| `qwen2-0.5b` | [`Qwen/Qwen2-0.5B`](https://huggingface.co/Qwen/Qwen2-0.5B) |
-| `qwen2-0.5b-instruct` | [`Qwen/Qwen2-0.5B-Instruct`](https://huggingface.co/Qwen/Qwen2-0.5B-Instruct) |
-| `qwen2-1.5b` | [`Qwen/Qwen2-1.5B`](https://huggingface.co/Qwen/Qwen2-1.5B) |
-| `qwen2-1.5b-instruct` | [`Qwen/Qwen2-1.5B-Instruct`](https://huggingface.co/Qwen/Qwen2-1.5B-Instruct) |
-| `qwen2-7b` | [`Qwen/Qwen2-7B`](https://huggingface.co/Qwen/Qwen2-7B) |
-| `qwen2-7b-instruct` | [`Qwen/Qwen2-7B-Instruct`](https://huggingface.co/Qwen/Qwen2-7B-Instruct) |
-| `qwen2-72b` | [`Qwen/Qwen2-72B`](https://huggingface.co/Qwen/Qwen2-72B) |
-| `qwen2-72b-instruct` | [`Qwen/Qwen2-72B-Instruct`](https://huggingface.co/Qwen/Qwen2-72B-Instruct) |
+| `qwen2-0.5b` | [`kerasformers/qwen2-0.5b`](https://huggingface.co/kerasformers/qwen2-0.5b) |
+| `qwen2-0.5b-instruct` | [`kerasformers/qwen2-0.5b-instruct`](https://huggingface.co/kerasformers/qwen2-0.5b-instruct) |
+| `qwen2-1.5b` | [`kerasformers/qwen2-1.5b`](https://huggingface.co/kerasformers/qwen2-1.5b) |
+| `qwen2-1.5b-instruct` | [`kerasformers/qwen2-1.5b-instruct`](https://huggingface.co/kerasformers/qwen2-1.5b-instruct) |
+| `qwen2-7b` | [`kerasformers/qwen2-7b`](https://huggingface.co/kerasformers/qwen2-7b) |
+| `qwen2-7b-instruct` | [`kerasformers/qwen2-7b-instruct`](https://huggingface.co/kerasformers/qwen2-7b-instruct) |
+| `qwen2-72b` | [`kerasformers/qwen2-72b`](https://huggingface.co/kerasformers/qwen2-72b) |
+| `qwen2-72b-instruct` | [`kerasformers/qwen2-72b-instruct`](https://huggingface.co/kerasformers/qwen2-72b-instruct) |
 
 ## API
 
@@ -111,8 +110,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.qwen2 import Qwen2Generate, Qwen2Tokenizer
 
-model = Qwen2Generate.from_weights("qwen2-0.5b")
-tokenizer = Qwen2Tokenizer.from_weights("qwen2-0.5b")
+model = Qwen2Generate.from_weights("kerasformers/qwen2-0.5b-instruct")
+tokenizer = Qwen2Tokenizer.from_weights("kerasformers/qwen2-0.5b-instruct")
 
 inputs = tokenizer(
     [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
@@ -145,7 +144,7 @@ for text in tokenizer.batch_decode(outputs):
 ```python
 from kerasformers.models.qwen2 import Qwen2Model
 
-backbone = Qwen2Model.from_weights("qwen2-0.5b")
+backbone = Qwen2Model.from_weights("kerasformers/qwen2-0.5b")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
@@ -160,11 +159,13 @@ model = Qwen2Generate.from_weights("hf:Qwen/Qwen2-0.5B")
 
 ### Lower memory
 
-Larger checkpoints load in bf16 or weight-only quantized. See
+The 72B checkpoint needs quantization to fit comfortably on a single 80GB GPU. See
 [quantization.md](quantization.md):
 
 ```python
 model = Qwen2Generate.from_weights(
-    "qwen2-0.5b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/qwen2-72b-instruct",
+    quantization="int8",
+    low_memory=True,
 )
 ```

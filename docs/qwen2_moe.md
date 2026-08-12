@@ -1,13 +1,11 @@
 # Qwen2-MoE
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> plus the Keras weights, sharded as
+<code>model.weights.json</code> + <code>model_*.weights.h5</code>). Load with
+<code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
 The Mixture-of-Experts variant of Qwen2, ported to pure Keras 3. The attention
@@ -25,14 +23,16 @@ See also [qwen2.md](qwen2.md), [qwen3_moe.md](qwen3_moe.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")`. The `-instruct` / `-chat`
+suffix marks instruction-tuned checkpoints (use the chat template); bare names are base
+models.
 
 | Variant | Hub |
 |---|---|
-| `qwen1.5-moe-a2.7b` | [`Qwen/Qwen1.5-MoE-A2.7B`](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B) |
-| `qwen1.5-moe-a2.7b-chat` | [`Qwen/Qwen1.5-MoE-A2.7B-Chat`](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat) |
-| `qwen2-57b-a14b` | [`Qwen/Qwen2-57B-A14B`](https://huggingface.co/Qwen/Qwen2-57B-A14B) |
-| `qwen2-57b-a14b-instruct` | [`Qwen/Qwen2-57B-A14B-Instruct`](https://huggingface.co/Qwen/Qwen2-57B-A14B-Instruct) |
+| `qwen1.5-moe-a2.7b` | [`kerasformers/qwen1.5-moe-a2.7b`](https://huggingface.co/kerasformers/qwen1.5-moe-a2.7b) |
+| `qwen1.5-moe-a2.7b-chat` | [`kerasformers/qwen1.5-moe-a2.7b-chat`](https://huggingface.co/kerasformers/qwen1.5-moe-a2.7b-chat) |
+| `qwen2-57b-a14b` | [`kerasformers/qwen2-57b-a14b`](https://huggingface.co/kerasformers/qwen2-57b-a14b) |
+| `qwen2-57b-a14b-instruct` | [`kerasformers/qwen2-57b-a14b-instruct`](https://huggingface.co/kerasformers/qwen2-57b-a14b-instruct) |
 
 ## API
 
@@ -115,8 +115,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.qwen2_moe import Qwen2MoeGenerate, Qwen2MoeTokenizer
 
-model = Qwen2MoeGenerate.from_weights("qwen1.5-moe-a2.7b")
-tokenizer = Qwen2MoeTokenizer.from_weights("qwen1.5-moe-a2.7b")
+model = Qwen2MoeGenerate.from_weights("kerasformers/qwen1.5-moe-a2.7b-chat")
+tokenizer = Qwen2MoeTokenizer.from_weights("kerasformers/qwen1.5-moe-a2.7b-chat")
 
 inputs = tokenizer(
     [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
@@ -149,7 +149,7 @@ for text in tokenizer.batch_decode(outputs):
 ```python
 from kerasformers.models.qwen2_moe import Qwen2MoeModel
 
-backbone = Qwen2MoeModel.from_weights("qwen1.5-moe-a2.7b")
+backbone = Qwen2MoeModel.from_weights("kerasformers/qwen1.5-moe-a2.7b")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
@@ -164,11 +164,14 @@ model = Qwen2MoeGenerate.from_weights("hf:Qwen/Qwen1.5-MoE-A2.7B")
 
 ### Lower memory
 
-Larger checkpoints load in bf16 or weight-only quantized. See
+MoE memory is governed by total (not active) parameters, so the 57B-A14B checkpoint
+needs quantization to fit comfortably on a single 80GB GPU. See
 [quantization.md](quantization.md):
 
 ```python
 model = Qwen2MoeGenerate.from_weights(
-    "qwen1.5-moe-a2.7b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "kerasformers/qwen2-57b-a14b-instruct",
+    quantization="int8",
+    low_memory=True,
 )
 ```
