@@ -236,27 +236,16 @@ class BaseGeneration:
         return fn
 
     def run_compiled(self, fn, runtime_args, noise):
-        if keras.backend.backend() == "torch":
-            import torch
-
-            with torch.no_grad():
-                out = fn(runtime_args, noise)
-        else:
+        with inference_scope():
             out = fn(runtime_args, noise)
         return ops.convert_to_numpy(out)
 
     def run_decode(
         self, cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
     ):
-        # TODO : Add Logic For jax and tf too
-        if keras.backend.backend() == "torch":
-            import torch
-
-            with torch.no_grad():
-                out = self.decode_loop(
-                    cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
-                )
-        else:
+        # inference_scope disables autograd on torch (keeps the eager decode loop
+        # graph-free); a no-op on JAX / TensorFlow, which don't tape gradients here.
+        with inference_scope():
             out = self.decode_loop(
                 cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
             )
