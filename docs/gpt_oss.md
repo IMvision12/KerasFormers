@@ -31,9 +31,10 @@ standard decoder it adds:
   faster); longer **prefills** dequantize the whole bank once (cheaper when many
   tokens share experts). Both paths give identical results. The dequant is a
   backend-agnostic `keras.ops` port of HF's `convert_moe_packed_tensors`, so it runs
-  on every backend including CPU. Pass `mxfp4_experts=False` to expand the experts to
-  float at build instead. See [mxfp4](quantization_mxfp4.md) for the format and using
-  it as a general `quantize_model` scheme.
+  on every backend including CPU. The hosted repos declare this in a
+  `quantization_config` block, and a `Mxfp4KfQuantizer` swaps the packed experts in on
+  load, so the model itself carries no mxfp4 flag. See [mxfp4](quantization_mxfp4.md)
+  for the format and using it as a general `quantize_model` scheme.
 
 Links:
 
@@ -77,7 +78,6 @@ A subclassed (imperative) model whose forward runs eagerly with `keras.ops`.
 | `rope_original_max_pos` | `4096` | YaRN original context length |
 | `attention_bias` | `True` | whether q/k/v/o projections carry a bias |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
-| `mxfp4_experts` | `False` | keep the experts packed in MXFP4 (dequant on the fly) |
 
 ### `GptOssGenerate`
 

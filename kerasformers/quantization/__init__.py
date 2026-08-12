@@ -2,6 +2,12 @@ from kerasformers.base import BaseQuantizer
 from kerasformers.quantization.fp8_quantize import Fp8Quantizer
 from kerasformers.quantization.int4_quantize import Int4Quantizer
 from kerasformers.quantization.int8_quantize import Int8Quantizer
+from kerasformers.quantization.kf_quantizer import (
+    KfQuantizer,
+    Mxfp4KfQuantizer,
+    WeightOnlyKfQuantizer,
+    get_kf_quantizer,
+)
 from kerasformers.quantization.mxfp4_quantize import (
     MXFP4Quantizer,
     dequantize_mxfp4,
@@ -18,12 +24,10 @@ from kerasformers.quantization.quant_config import (
 )
 from kerasformers.quantization.quantize import (
     dequantize_model,
-    load_quantized,
     quantize_and_load,
     quantize_functional,
     quantize_model,
     quantize_skeleton,
-    save_quantized,
 )
 from kerasformers.quantization.quantized_layers import (
     GptOssMXFP4Experts,
@@ -36,12 +40,14 @@ from kerasformers.quantization.quantized_layers import (
 
 __all__ = [
     "quantize_model",
+    "KfQuantizer",
+    "Mxfp4KfQuantizer",
+    "WeightOnlyKfQuantizer",
+    "get_kf_quantizer",
     "quantize_functional",
     "quantize_skeleton",
     "quantize_and_load",
     "dequantize_model",
-    "save_quantized",
-    "load_quantized",
     # configs
     "QuantizationConfig",
     "Int8Config",

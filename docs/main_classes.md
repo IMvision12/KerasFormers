@@ -284,11 +284,23 @@ Components are declared as class attributes, so `processor.tokenizer` and
 quantizer.quantize(weight, axis=0)
 ```
 
-Base for the weight-only quantizers. Helpers `normalize_axes(axis, ndim)` and
-`single_axis(axis, ndim)` resolve contraction axes. The quantized layers built on this
+Base for the weight-only (tensor-level) quantizers. Helpers `normalize_axes(axis, ndim)`
+and `single_axis(axis, ndim)` resolve contraction axes. The quantized layers built on this
 (`QuantizedDense`, `QuantizedEinsumDense`, `QuantizedEmbedding`, `QuantizedExperts`) and
-the `quantize_model` / `save_quantized` / `quantize_and_load` entry points are covered in
+the `quantize_model` / `quantize_and_load` / `dequantize_model` entry points are covered in
 [Quantization](quantization.md).
+
+### KfQuantizer
+
+```python
+get_kf_quantizer(quantization_config)  # {"quant_method": "mxfp4" | "int8" | ...}
+```
+
+Model-level quantizer, the transformers `HfQuantizer` analog. `from_weights` reads a
+repo's `quantization_config` and runs the matching `KfQuantizer` to swap in the packed /
+int layers before the weights load, so the model stays quantization-agnostic. Dispatched
+by `quant_method`: `Mxfp4KfQuantizer` (GPT-OSS native experts) / `WeightOnlyKfQuantizer`
+(int8 / int4 / fp8). Covered in [Quantization](quantization.md).
 
 ## Attention
 

@@ -576,6 +576,18 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
             merged.update(spec["generate_args"])
             model.generate_args = merged
 
+    @staticmethod
+    def _apply_quantization_config(model, quantization_config):
+        """Run the matching :class:`KfQuantizer` so a natively-quantized repo (e.g.
+        an mxfp4 GPT-OSS checkpoint) swaps in its packed layers *before* the weights
+        load, and stamps ``model._quantization_config`` for save round-trips. The
+        model stays quantization-agnostic; this is the sole thing that packs it.
+        No-op when the repo carries no ``quantization_config`` block."""
+        if quantization_config:
+            from kerasformers.quantization import get_kf_quantizer
+
+            get_kf_quantizer(quantization_config).preprocess_model(model)
+
     @classmethod
     def build_from_hub_repo(cls, repo_id, **kwargs):
         """Build (unloaded) from a repo's ``kf_config.json``, bypassing the
@@ -590,6 +602,9 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         config.update(kwargs)
         model = cls(**config)
         cls._apply_generate_args(model, spec)
+        cls._apply_quantization_config(
+            model, spec.get("quantization_config") if spec else None
+        )
         return model
 
     @classmethod
@@ -629,6 +644,10 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         config.update(kwargs)
         model = cls(**config)
         cls._apply_generate_args(model, spec)
+        # Swap in packed layers BEFORE building, so the packed weights load into them.
+        cls._apply_quantization_config(
+            model, spec.get("quantization_config") if spec else None
+        )
 
         if load_weights:
             if hasattr(model, "build_for_transfer") and not model.built:

@@ -49,19 +49,17 @@ class GptOssConfig(BaseConfig):
             Whether q/k/v/o projections carry a bias.
         tie_embeddings (`bool`, *optional*, defaults to `False`):
             Whether [`GptOssGenerate`] ties the LM head to the embeddings.
-        mxfp4_experts (`bool`, *optional*, defaults to `False`):
-            Keep the experts packed in MXFP4 (uint8 nibble blocks + e8m0 scales),
-            dequantized on the fly, instead of expanded to float at build. The
-            hosted checkpoints set this `True` to match the official footprint. It
-            serializes as a top-level ``quantization_config`` block
-            (``{"quant_method": "mxfp4"}``), transformers style, not as an arch field.
+    MXFP4-packed checkpoints (the official 20b / 120b) carry a
+    ``quantization_config`` block (``{"quant_method": "mxfp4"}``); the model itself is
+    quantization-agnostic, and a ``KfQuantizer`` swaps in the packed expert bank at
+    load time.
 
     Examples:
 
     ```python
     >>> from kerasformers.models.gpt_oss import GptOssConfig, GptOssGenerate
 
-    >>> configuration = GptOssConfig(num_layers=24, num_experts=32, mxfp4_experts=True)
+    >>> configuration = GptOssConfig(num_layers=24, num_experts=32)
     >>> model = GptOssGenerate(configuration)
     >>> configuration = model.config
     ```"""
@@ -87,17 +85,3 @@ class GptOssConfig(BaseConfig):
     rope_original_max_pos: int = 4096
     attention_bias: bool = True
     tie_embeddings: bool = False
-    mxfp4_experts: bool = False
-
-    # mxfp4_experts stays a real constructor field (the build needs it) but serializes
-    # as a top-level quantization_config block instead of an arch field.
-    quantization_fields = ("mxfp4_experts",)
-
-    def get_quantization_config(self):
-        return {"quant_method": "mxfp4"} if self.mxfp4_experts else None
-
-    @classmethod
-    def quant_config_kwargs(cls, quantization_config):
-        if quantization_config and quantization_config.get("quant_method") == "mxfp4":
-            return {"mxfp4_experts": True}
-        return {}

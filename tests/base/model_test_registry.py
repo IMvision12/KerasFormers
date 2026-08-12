@@ -2973,8 +2973,8 @@ MODEL_TEST_CONFIGS = {
             "num_experts": 8,
             "num_experts_per_tok": 2,
             "sliding_window": 4,
-            "mxfp4_experts": True,
         },
+        "quantization_config": {"quant_method": "mxfp4"},
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
@@ -3450,6 +3450,22 @@ def import_model_class(config):
 
     module = importlib.import_module(config["module"])
     return getattr(module, config["model_cls"])
+
+
+def instantiate_model(config):
+    """Build a registry model, applying a KfQuantizer when the entry is quantized.
+
+    Models are quantization-agnostic, so a natively-quantized variant (e.g. the
+    mxfp4 GPT-OSS entry) is produced by running its ``quantization_config`` through
+    a :class:`KfQuantizer` after construction, the same way ``from_weights`` does.
+    """
+    model = import_model_class(config)(**config["init_kwargs"])
+    quantization_config = config.get("quantization_config")
+    if quantization_config:
+        from kerasformers.quantization import get_kf_quantizer
+
+        get_kf_quantizer(quantization_config).preprocess_model(model)
+    return model
 
 
 def create_test_input(config, batch_size=2):

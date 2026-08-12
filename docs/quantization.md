@@ -77,16 +77,29 @@ quantize_model(model, cfg)
 quantize_model(model, "int4-g128")  # or a named scheme
 ```
 
-**Save / load / revert:**
+**Save / load / revert.** A quantized model saves and reloads itself quantized through
+ordinary Keras save (the quantization is carried in `get_config` and re-applied in
+`from_config`, see [`KfQuantizer`](#loading-a-pre-quantized-repo-kfquantizer)):
 
 ```python
-from kerasformers.quantization import save_quantized, load_quantized, dequantize_model
+import keras
+from kerasformers.quantization import dequantize_model, get_kf_quantizer
 
-save_quantized(model, "model.weights.h5")  # int weights + ".quant.json" sidecar
+# Full save: the quantization round-trips automatically.
+model.save("model.keras")
+model = keras.saving.load_model("model.keras")  # rebuilt quantized, weights loaded
 
+# Weights-only (.weights.h5) carries values, not structure, so the target must already
+# be quantized before load_weights. From a Hub repo that is automatic (kf_config's
+# quantization_config drives it):
+model = Qwen3Generate.from_weights("kerasformers/qwen3-4b-int8")
+
+# Into a hand-built model, apply the quantizer first, then load_weights:
+model.save_weights("model.weights.h5")
 skeleton = Qwen3Generate.from_weights("qwen3-4b", load_weights=False)
-skeleton(dummy_inputs)  # build the float architecture
-load_quantized(skeleton, "model.weights.h5")  # replay config + load int weights
+get_kf_quantizer({"quant_method": "int8"}).preprocess_model(skeleton)
+skeleton(dummy_inputs)  # build the now-int8 skeleton
+skeleton.load_weights("model.weights.h5")
 
 dequantize_model(model)  # revert to float layers
 ```
@@ -100,6 +113,56 @@ returned model:
 ```python
 qmodel = quantize_model(vit_model, "int8")  # functional -> returns a NEW model
 ```
+
+## Loading a pre-quantized repo (`KfQuantizer`)
+
+Everything above *applies* quantization to a float model. A repo can also **ship
+already quantized** and declare it in `kf_config.json` with a transformers-style
+block:
+
+```json
+"quantization_config": { "quant_method": "mxfp4" }
+```
+
+`from_weights` reads that block and **auto-applies** the matching quantizer, so a
+quantized repo loads with **no flag**:
+
+```python
+# reads quantization_config -> loads bf16 dense + mxfp4 experts, by default
+model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b")
+```
+
+The models stay **quantization-agnostic** (no per-model flags): the model builds the
+plain float architecture, and a `KfQuantizer` swaps in the quantized layers **before
+the weights load**, exactly like transformers'
+`HfQuantizer._process_model_before_weight_loading`. `KfQuantizer` is a **second
+level** above the tensor-level `BaseQuantizer`:
+
+| level | class | job |
+|---|---|---|
+| tensor | `BaseQuantizer` (`Int8Quantizer`, `MXFP4Quantizer`, …) | quantize / dequantize one weight along an axis |
+| model | `KfQuantizer` (transformers' `HfQuantizer` analog) | read `quantization_config`, swap modules before load |
+
+`get_kf_quantizer(block)` dispatches on `quant_method`:
+
+- `mxfp4` -> `Mxfp4KfQuantizer` (GPT-OSS native: swaps the float `GptOssExperts` for
+  the packed `GptOssMXFP4Experts`).
+- `int8` / `int4` / `fp8` -> `WeightOnlyKfQuantizer` (generic: builds the int / fp8
+  skeleton via `quantize_skeleton`).
+
+**Save round-trips itself.** The applied quantization is stamped on the model
+(`model._quantization_config`) and carried through `get_config` / `from_config`, so a
+quantized model **saves and reloads itself quantized** via an ordinary Keras save,
+no export step and no re-quantization:
+
+```python
+model.save("m.keras")
+reloaded = keras.saving.load_model("m.keras")  # rebuilds bf16 + mxfp4 automatically
+```
+
+Subclassed models need this hook (Keras rebuilds them from `get_config`, which would
+otherwise recreate plain layers); functional models round-trip natively because Keras
+serializes each layer, quantized ones included, on its own.
 
 ## How it works
 
@@ -158,7 +221,8 @@ class plus one file per scheme:
 | `QuantizationConfig` / `Int8Config` / `Int4Config` / `Fp8Config` / `Mxfp4Config` / `SCHEMES` | `quant_config.py` | recipe (mode, group_size, skip_modules, quantize_embeddings, overrides) + per-method configs + named presets |
 | `quantize_model` / `quantize_functional` | `quantize.py` | in-place (subclassed) / clone (functional) model surgery |
 | `quantize_skeleton` / `quantize_and_load` | `quantize.py` | no-float int skeleton / stream a float checkpoint into int storage |
-| `save_quantized` / `load_quantized` / `dequantize_model` | `quantize.py` | persist (+ `.quant.json`) / reload / revert |
+| `KfQuantizer` / `Mxfp4KfQuantizer` / `WeightOnlyKfQuantizer` / `get_kf_quantizer` | `kf_quantizer.py` | model-level quantizers (transformers `HfQuantizer` analog): read a repo's `quantization_config` and swap in packed / int layers before load; dispatched by `quant_method` |
+| `dequantize_model` | `quantize.py` | revert quantized layers back to float |
 
 A `QuantizedDense` holds an `Int8Quantizer` / `Int4Quantizer` / `Fp8Quantizer` /
 `MXFP4Quantizer` (via `get_quantizer(mode, group_size)`) and uses it for
@@ -206,15 +270,14 @@ Worked examples (int4, ≈ 0.55 B/param):
 - **Portable weight-only = memory, not speed.** The default Keras path
   dequantizes weights to float every `call`, so it reduces footprint rather than
   latency.
-- **Float path vs no-float path.** By default `quantization=` and `load_quantized`
-  build the float architecture before swapping in the quantized layers (floats
-  freed after). The **no-float** path avoids that peak: `from_weights(...,
-  low_memory=True)` / `quantize_and_load` build an int skeleton and quantize each
-  tensor as it streams in, and `load_quantized(skeleton, ..., dummy_inputs=...)`
-  reloads a saved quantized artifact the same way. The no-float load needs the
-  model's converter to assign through `model.weights` (the standard LLM pattern);
-  it verifies every quantized layer was filled and errors clearly otherwise, so it
-  never silently corrupts: fall back to the float path for those models.
+- **Float path vs no-float path.** By default `quantization=` builds the float
+  architecture before swapping in the quantized layers (floats freed after). The
+  **no-float** path avoids that peak: `from_weights(..., low_memory=True)` /
+  `quantize_and_load` build an int skeleton and quantize each tensor as it streams in.
+  The no-float load needs the model's converter to assign through `model.weights` (the
+  standard LLM pattern); it verifies every quantized layer was filled and errors
+  clearly otherwise, so it never silently corrupts: fall back to the float path for
+  those models.
 - **Coverage.** `Dense`, `EinsumDense`, `Embedding`, and fused-SwiGLU MoE expert
   banks (`gate_up_proj`/`down_proj`) are quantized; other custom weight layouts
   stay float. A `Dense`/`Embedding` stored inside a Python list (rare:
