@@ -2,10 +2,10 @@
 
 OCP **MXFP4**: 4-bit floating point (e2m1) packed two values per `uint8`, with a shared
 **e8m0** (power-of-two) scale per 32-value block. A floating-point 4-bit grid, ~8x smaller
-than fp32 (~4x smaller than bf16). It is both the format OpenAI's **GPT-OSS** ships its
-experts in, and a general `quantize_model` scheme you can apply to any model.
+than fp32 (~4x smaller than bf16): a weight-only `quantize_model` scheme you can apply to
+any model whose kernels have 32-multiple contracting dims.
 
-## As a `quantize_model` scheme
+## Usage
 
 Like [int8](quantization_int8.md) / [int4](quantization_int4.md) /
 [fp8](quantization_fp8.md), `"mxfp4"` is a weight-only scheme: pass it to `from_weights`
@@ -32,46 +32,40 @@ int8, like int4 (the 4-bit savings live in the Dense weights).
 
 Accuracy is comparable to int4 (~0.98 cosine): both are ~4-bit. MXFP4 uses a *float*
 (e2m1) grid with a power-of-two block scale, so it shines on weights that were **trained**
-in it (GPT-OSS dequantizes bit-exact) and is a solid round-to-nearest option elsewhere.
-This is not calibrated PTQ (no GPTQ / AWQ).
+in it and is a solid round-to-nearest option elsewhere. This is not calibrated PTQ (no
+GPTQ / AWQ).
 
-## As GPT-OSS's native format
-
-GPT-OSS ships its experts in MXFP4 already, so loading its Hub weights keeps them packed
-with no flag; `GptOssMXFP4Experts` holds them and dequantizes in `call`:
+## Mxfp4Config
 
 ```python
-from kerasformers.models.gpt_oss import GptOssGenerate
-
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-120b")  # experts stay MXFP4
+Mxfp4Config(skip_modules=("lm_head",), quantize_embeddings=True, overrides=None)
 ```
 
-The `mxfp4_experts` config field toggles it when you build a model yourself:
+The declarative recipe for mxfp4. It is `QuantizationConfig` with `mode="mxfp4"` fixed;
+the 32-value block size is intrinsic to the format, so there is no `group_size` knob.
+
+**Parameters**
+
+- **skip_modules** (`tuple` of `str`, *optional*, defaults to `("lm_head",)`): name substrings; any layer whose path contains one is left in float.
+- **quantize_embeddings** (`bool`, *optional*, defaults to `True`): quantize `Embedding` layers. They are quantized **int8**, not mxfp4: a 4-bit token table costs more accuracy than it saves bytes.
+- **overrides** (`dict`, *optional*): `{name_substring: mode}`, per-layer precision, checked **before** `mode`.
+
+Resolution order for any layer is `skip_modules` first, then `overrides`, then the mode.
+Pass the config anywhere a scheme string is accepted, `from_weights` included:
 
 ```python
-from kerasformers.models.gpt_oss import GptOssConfig, GptOssGenerate
+from kerasformers.quantization import Mxfp4Config, quantize_model
 
-GptOssGenerate(
-    GptOssConfig(mxfp4_experts=True)
-)  # packed uint8 experts (hosted default)
-GptOssGenerate(GptOssConfig(mxfp4_experts=False))  # experts expanded to float at build
+cfg = Mxfp4Config(skip_modules=("lm_head", "router"))
+
+model = Qwen3Generate.from_weights("qwen3-4b", quantization=cfg)
+quantize_model(model, cfg)
 ```
-
-`GptOssMXFP4Experts` (`kerasformers/quantization/quantized_layers.py`) stores `gate_up_proj` /
-`down_proj` as `uint8` `_blocks` (nibble pairs) + `uint8` `_scales` (e8m0), keeps the
-biases full precision, and consumes the dequantized result in its natural `(E, 2I, H)` /
-`(E, H, I)` layout so the block tensors map one-to-one onto the checkpoint. On **decode**
-(single token) it dequantizes only the **top-k routed experts**, not all of them — ~8×
-less dequant per layer than the dense path, at identical output; long prefills fall back to
-the dense all-experts path when that is cheaper.
-
-It lives in the quantization package rather than the model file, mirroring how transformers
-keeps its `Mxfp4GptOssExperts` in `integrations/mxfp4.py`.
 
 ## Primitives
 
 `kerasformers/quantization/mxfp4_quantize.py` holds the pure-`keras.ops`,
-backend-agnostic pack / unpack and the `Quantizer` that wraps them:
+backend-agnostic pack / unpack and the `BaseQuantizer` that wraps them:
 
 ```python
 from kerasformers.quantization import (
@@ -90,23 +84,21 @@ w_approx = q.dequantize(packed, scale, axis=0, dtype="float32")
 
 - **`dequantize_mxfp4(blocks, scales, dtype="float32")`**: nibble -> FP4 codebook, times
   `2^(e8m0 - 127)`. A bit-exact port of HF's `convert_moe_packed_tensors` (validated max
-  \|Δ\| **0.0**), so a repo's packed experts decode to exactly the reference values.
+  \|Δ\| **0.0**), so packed weights decode to exactly the reference values.
 - **`quantize_to_mxfp4(w)`**: the inverse. Picks the e8m0 block scale
   (`floor(log2(amax)) - 2`, OCP MXFP4) and rounds each value to the nearest FP4 grid
   point. A value-exact inverse on the lattice (round-trip **0.0**).
-- **`MXFP4Quantizer`**: the `Quantizer` used by `quantize_model` — `quantize` /
+- **`MXFP4Quantizer`**: the `BaseQuantizer` used by `quantize_model` — `quantize` /
   `dequantize` / `storage_spec` along an arbitrary contracting axis, `uint8` kernel +
   `uint8` (e8m0) scale.
 
-Both run on **every backend including CPU**. transformers' `quantize_to_mxfp4` needs the
-GPU triton kernel; the pure-Keras version here does not.
+Both run on **every backend including CPU**, with no GPU triton kernel required.
 
 ## Footprint
 
-4 bits per weight, so ~4x smaller than a bf16 copy. GPT-OSS-120B's experts are ~57 GB
-packed (vs ~230 GB in bf16), keeping the whole checkpoint near the official ~66 GB.
-Weight-only, so this is a memory win, not a speed one, since the dequant runs each forward
-(with the top-k sparse shortcut on decode).
+4 bits per weight, so ~4x smaller than a bf16 copy and ~8x smaller than fp32. Weight-only,
+so this is a memory win, not a speed one: the dequant runs each forward.
 
-See [Quantization](quantization.md) for the general int8 / int4 / fp8 / mxfp4 machinery,
-and [gpt_oss.md](gpt_oss.md) for the model itself.
+See [Quantization](quantization.md) for the shared int8 / int4 / fp8 / mxfp4 machinery,
+and [int8](quantization_int8.md) / [int4](quantization_int4.md) / [fp8](quantization_fp8.md)
+for the other schemes.

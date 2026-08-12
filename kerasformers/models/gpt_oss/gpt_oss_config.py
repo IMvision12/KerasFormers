@@ -49,17 +49,17 @@ class GptOssConfig(BaseConfig):
             Whether q/k/v/o projections carry a bias.
         tie_embeddings (`bool`, *optional*, defaults to `False`):
             Whether [`GptOssGenerate`] ties the LM head to the embeddings.
-        mxfp4_experts (`bool`, *optional*, defaults to `False`):
-            Keep the experts packed in MXFP4 (uint8 nibble blocks + e8m0 scales),
-            dequantized on the fly, instead of expanded to float at build. The
-            hosted checkpoints set this `True` to match the official footprint.
+    MXFP4-packed checkpoints (the official 20b / 120b) carry a
+    ``quantization_config`` block (``{"quant_method": "mxfp4"}``); the model itself is
+    quantization-agnostic, and a ``KfQuantizer`` swaps in the packed expert bank at
+    load time.
 
     Examples:
 
     ```python
     >>> from kerasformers.models.gpt_oss import GptOssConfig, GptOssGenerate
 
-    >>> configuration = GptOssConfig(num_layers=24, num_experts=32, mxfp4_experts=True)
+    >>> configuration = GptOssConfig(num_layers=24, num_experts=32)
     >>> model = GptOssGenerate(configuration)
     >>> configuration = model.config
     ```"""
@@ -85,4 +85,3 @@ class GptOssConfig(BaseConfig):
     rope_original_max_pos: int = 4096
     attention_bias: bool = True
     tie_embeddings: bool = False
-    mxfp4_experts: bool = False

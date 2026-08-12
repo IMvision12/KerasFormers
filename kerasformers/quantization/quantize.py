@@ -1,6 +1,5 @@
 import contextlib
 import inspect
-import json
 import warnings
 
 import keras
@@ -210,48 +209,6 @@ def dequantize_model(model):
         return _dequantize_functional(model)
     _dequantize_layer(model)
     model._quantization_config = None
-    return model
-
-
-def save_quantized(model, filepath):
-    """Save a quantized model: the (int) weights + a sidecar quant config.
-
-    Writes ``filepath`` (``.weights.h5`` / sharded ``.weights.json``) and
-    ``filepath + ".quant.json"`` describing how it was quantized, so
-    :func:`load_quantized` can rebuild the exact structure.
-    """
-    config = getattr(model, "_quantization_config", None)
-    if config is None:
-        raise ValueError(
-            "Model is not quantized; call quantize_model(model, ...) before "
-            "save_quantized()."
-        )
-    model.save_weights(filepath)
-    with open(filepath + ".quant.json", "w") as f:
-        json.dump(config.to_dict(), f, indent=2)
-
-
-def load_quantized(model, filepath, dummy_inputs=None):
-    """Load quantized weights into ``model``, replaying the saved ``.quant.json``.
-
-    Two paths:
-
-    - **No-float** (``dummy_inputs`` given and ``model`` unbuilt subclassed):
-      build an integer skeleton via :func:`quantize_skeleton`, forward once to
-      materialize int storage, then load: the float model is never built.
-    - **Float** (built model, or no ``dummy_inputs``): quantize the built float
-      model in place (materializing float once), then load.
-    """
-    from .quant_config import QuantizationConfig
-
-    with open(filepath + ".quant.json") as f:
-        config = QuantizationConfig.from_dict(json.load(f))
-    if dummy_inputs is not None and not model.built:
-        quantize_skeleton(model, config)
-        model(dummy_inputs)
-    else:
-        quantize_model(model, config)
-    model.load_weights(filepath)
     return model
 
 

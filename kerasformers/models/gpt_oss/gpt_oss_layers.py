@@ -1,8 +1,6 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.quantization.quantized_layers import GptOssMXFP4Experts
-
 
 def rotate_half(x):
     half = ops.shape(x)[-1] // 2
@@ -134,7 +132,6 @@ class GptOssMLP(layers.Layer):
         num_experts_per_tok,
         embed_dim,
         mlp_dim,
-        mxfp4_experts=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -142,20 +139,10 @@ class GptOssMLP(layers.Layer):
         self.num_experts_per_tok = num_experts_per_tok
         self.embed_dim = embed_dim
         self.mlp_dim = mlp_dim
-        self.mxfp4_experts = mxfp4_experts
         self.router = layers.Dense(num_experts, use_bias=True, name="router")
-        if mxfp4_experts:
-            self.experts = GptOssMXFP4Experts(
-                num_experts,
-                embed_dim,
-                mlp_dim,
-                num_experts_per_tok,
-                name="experts",
-            )
-        else:
-            self.experts = GptOssExperts(
-                num_experts, embed_dim, mlp_dim, name="experts"
-            )
+        # Always builds the float bank; a KfQuantizer swaps in GptOssMXFP4Experts at
+        # load time for an mxfp4 checkpoint (the model stays quantization-agnostic).
+        self.experts = GptOssExperts(num_experts, embed_dim, mlp_dim, name="experts")
 
     def call(self, hidden_states):
         b = ops.shape(hidden_states)[0]
@@ -179,7 +166,6 @@ class GptOssMLP(layers.Layer):
                 "num_experts_per_tok": self.num_experts_per_tok,
                 "embed_dim": self.embed_dim,
                 "mlp_dim": self.mlp_dim,
-                "mxfp4_experts": self.mxfp4_experts,
             }
         )
         return config
@@ -343,7 +329,6 @@ class GptOssAttention(layers.Layer):
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
                 "attention_bias": self.attention_bias,
-                "mxfp4_experts": self.mxfp4_experts,
             }
         )
         return config
@@ -364,7 +349,6 @@ class GptOssDecoderLayer(layers.Layer):
         num_experts_per_tok,
         norm_eps=1e-5,
         attention_bias=True,
-        mxfp4_experts=False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -377,7 +361,6 @@ class GptOssDecoderLayer(layers.Layer):
         self.num_experts_per_tok = num_experts_per_tok
         self.norm_eps = norm_eps
         self.attention_bias = attention_bias
-        self.mxfp4_experts = mxfp4_experts
         self.input_layernorm = GptOssRMSNorm(eps=norm_eps, name="input_layernorm")
         self.self_attn = GptOssAttention(
             embed_dim,
@@ -395,7 +378,6 @@ class GptOssDecoderLayer(layers.Layer):
             num_experts_per_tok,
             embed_dim,
             mlp_dim,
-            mxfp4_experts=mxfp4_experts,
             name="mlp",
         )
 

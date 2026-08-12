@@ -7,7 +7,7 @@ import pytest
 from tests.base.model_test_registry import (
     MODEL_TEST_CONFIGS,
     create_test_input,
-    import_model_class,
+    instantiate_model,
 )
 
 BACKEND = os.environ.get("KERAS_BACKEND", "torch")
@@ -24,8 +24,7 @@ def test_config_roundtrip(model_name):
         pytest.skip(f"{model_name} causes TF backend segfault during serialization")
 
     config = MODEL_TEST_CONFIGS[model_name]
-    model_cls = import_model_class(config)
-    model = model_cls(**config["init_kwargs"])
+    model = instantiate_model(config)
 
     cfg = model.get_config()
     revived = model.__class__.from_config(cfg)
@@ -179,8 +178,7 @@ def test_keras_serialization_roundtrip(model_name):
         pytest.skip(f"{model_name} causes TF backend segfault during serialization")
 
     config = MODEL_TEST_CONFIGS[model_name]
-    model_cls = import_model_class(config)
-    model = model_cls(**config["init_kwargs"])
+    model = instantiate_model(config)
 
     serialized = keras.saving.serialize_keras_object(model)
     json_str = json.dumps(serialized, indent=4, default=str)

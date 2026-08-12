@@ -8,6 +8,7 @@ from tests.base.model_test_registry import (
     MODEL_TEST_CONFIGS,
     create_test_input,
     import_model_class,
+    instantiate_model,
 )
 
 # Substrings marking a sublayer as a vision/audio tower (checked against the
@@ -65,8 +66,7 @@ def _skip_if_incompatible(model_name):
 def test_model_forward_pass(model_name):
     _skip_if_incompatible(model_name)
     config = MODEL_TEST_CONFIGS[model_name]
-    model_cls = import_model_class(config)
-    model = model_cls(**config["init_kwargs"])
+    model = instantiate_model(config)
     input_data = create_test_input(config)
     output = model(input_data)
 
@@ -107,8 +107,7 @@ def test_model_forward_pass(model_name):
 def test_model_no_nans(model_name):
     _skip_if_incompatible(model_name)
     config = MODEL_TEST_CONFIGS[model_name]
-    model_cls = import_model_class(config)
-    model = model_cls(**config["init_kwargs"])
+    model = instantiate_model(config)
     input_data = create_test_input(config)
     output = model(input_data)
 
@@ -141,7 +140,7 @@ def test_multimodal_models_override_build_for_transfer(model_name):
     model_cls = import_model_class(config)
     if not issubclass(model_cls, SubclassedBaseModel):
         pytest.skip("build_for_transfer only applies to subclassed models")
-    model = model_cls(**config["init_kwargs"])
+    model = instantiate_model(config)
     towers = _multimodal_towers(model)
     if not towers:
         pytest.skip("no multimodal tower in this test config")

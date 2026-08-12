@@ -36,7 +36,7 @@ KF_METADATA_KEYS = frozenset(
         "weights",
         "schema_version",
         "weight_dtype",
-        "quantization",
+        "quantization_config",
         "generate_args",
     }
 )
@@ -121,7 +121,7 @@ def write_kf_config(
     config,
     weights_filename="model.weights.h5",
     weight_dtype=None,
-    quantization=None,
+    quantization_config=None,
     generate_args=None,
 ):
     """Write a self-describing kf_config.json for ``variant`` into ``dest_dir``.
@@ -131,9 +131,10 @@ def write_kf_config(
     (``model_type`` + ``text_config`` + optional ``vision_config`` + glue).
 
     ``weight_dtype`` (e.g. ``"bfloat16"``) records the stored weights' dtype so the
-    loader can rebuild at native precision; ``quantization`` (a
-    ``QuantizationConfig.to_dict()`` or ``None``) records the quant scheme so a
-    quantized repo loads without a flag. Both are omitted when ``None``.
+    loader can rebuild at native precision; ``quantization_config`` (a
+    ``{"quant_method": ...}`` dict, transformers style) records the quant scheme so a
+    quantized repo loads without a flag: the loader builds the plain model and runs
+    the matching ``KfQuantizer``. Both are omitted when ``None``.
 
     ``generate_args`` (a dict of default generation settings, e.g. Whisper's
     ``suppress_tokens``) is written under a nested ``generate_args`` key so the
@@ -152,8 +153,8 @@ def write_kf_config(
     }
     if weight_dtype is not None:
         payload["weight_dtype"] = str(weight_dtype)
-    if quantization is not None:
-        payload["quantization"] = _jsonable(dict(quantization))
+    if quantization_config is not None:
+        payload["quantization_config"] = _jsonable(dict(quantization_config))
     payload.update(model_config_dict(config))
     if generate_args is None:
         generate_args = getattr(model_cls, "generate_args", None)

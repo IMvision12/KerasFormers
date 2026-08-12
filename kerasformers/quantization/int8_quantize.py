@@ -1,13 +1,13 @@
 import keras
 from keras import ops
 
-from kerasformers.base import Quantizer, normalize_axes
+from kerasformers.base import BaseQuantizer, normalize_axes
 
 INT8_MAX = 127
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Int8Quantizer(Quantizer):
+class Int8Quantizer(BaseQuantizer):
     """Per-channel symmetric int8 weight-only quantizer (~4x smaller).
 
     Absmax symmetric quantization with one float32 scale per output channel

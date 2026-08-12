@@ -76,6 +76,40 @@ class SubclassedBaseModel(WeightLoadingMixin, keras.Model, metaclass=_ConfigMode
     '_inputs'`` on call. A separate base keeps subclassed models unaffected.
     """
 
+    def get_config(self):
+        """Config for keras serialization, carrying any applied quantization.
+
+        A no-op for unquantized models. When a :class:`KfQuantizer` has run (via
+        ``from_weights`` or a prior load), ``model._quantization_config`` is stamped
+        into the config so a plain ``.keras`` save/reload rebuilds itself quantized
+        (see :meth:`from_config`), the way Keras carries a quantized dtype policy.
+        """
+        config = super().get_config()
+        qc = getattr(self, "_quantization_config", None)
+        if qc is not None:
+            # ``_quantization_config`` is a QuantizationConfig (weight-only subsystem)
+            # or a plain {"quant_method": ...} dict (native, e.g. mxfp4). Normalize.
+            config["quantization_config"] = (
+                qc.to_dict() if hasattr(qc, "to_dict") else dict(qc)
+            )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        """Rebuild from config, re-applying the quantizer when the block is present.
+
+        Builds the plain (quantization-agnostic) model, then runs the matching
+        :class:`KfQuantizer` to swap in the packed layers before weights load.
+        """
+        config = dict(config)
+        quantization_config = config.pop("quantization_config", None)
+        model = super().from_config(config)
+        if quantization_config:
+            from kerasformers.quantization import get_kf_quantizer
+
+            get_kf_quantizer(quantization_config).preprocess_model(model)
+        return model
+
     def build_for_transfer(self):
         """Build every sublayer with a dummy forward, ready for a weight stream.
 

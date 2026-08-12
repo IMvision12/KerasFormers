@@ -2,7 +2,7 @@ import keras
 import ml_dtypes
 from keras import ops
 
-from kerasformers.base import Quantizer, normalize_axes
+from kerasformers.base import BaseQuantizer, normalize_axes
 
 FP8_DTYPE = "float8_e4m3fn"
 FP8_MAX = float(ml_dtypes.finfo(FP8_DTYPE).max)  # 448.0
@@ -15,7 +15,7 @@ def fp8_supported():
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Fp8Quantizer(Quantizer):
+class Fp8Quantizer(BaseQuantizer):
     """Per-channel float8 (e4m3) weight-only quantizer (~4x smaller).
 
     Stores the weight in the native ``float8_e4m3fn`` dtype (1 byte) with one

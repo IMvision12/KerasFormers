@@ -5,7 +5,7 @@ from keras import ops
 from tests.base.model_test_registry import (
     MODEL_TEST_CONFIGS,
     create_test_input,
-    import_model_class,
+    instantiate_model,
 )
 
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
@@ -57,8 +57,7 @@ def test_save_weights_h5_roundtrip(model_name, tmp_path):
     if model_name in SKIP_SAVING:
         pytest.skip(f"{model_name} is subclassed; load_weights needs a built model")
     config = MODEL_TEST_CONFIGS[model_name]
-    model_cls = import_model_class(config)
-    model = model_cls(**config["init_kwargs"])
+    model = instantiate_model(config)
     input_data = create_test_input(config)
 
     original_output = model(input_data)
@@ -66,7 +65,7 @@ def test_save_weights_h5_roundtrip(model_name, tmp_path):
     weights_path = str(tmp_path / f"{model_name}.weights.h5")
     model.save_weights(weights_path)
 
-    fresh_model = model_cls(**config["init_kwargs"])
+    fresh_model = instantiate_model(config)
     if not fresh_model.built:
         # Subclassed models materialize weights on first call; build the
         # fresh instance the same way before loading into it.

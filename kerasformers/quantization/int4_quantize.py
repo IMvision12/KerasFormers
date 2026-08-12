@@ -1,7 +1,7 @@
 import keras
 from keras import ops
 
-from kerasformers.base import Quantizer, single_axis
+from kerasformers.base import BaseQuantizer, single_axis
 
 INT4_MAX = 7
 
@@ -18,7 +18,7 @@ def effective_group_size(in_dim, group_size):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Int4Quantizer(Quantizer):
+class Int4Quantizer(BaseQuantizer):
     """Block-wise symmetric int4 weight-only quantizer (~8x smaller).
 
     The contracting ``axis`` is split into blocks of ``group_size``; each

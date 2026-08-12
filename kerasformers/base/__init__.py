@@ -7,7 +7,7 @@ from kerasformers.base.base_mixin import PreprocessorMixin
 from kerasformers.base.base_model import FunctionalBaseModel, SubclassedBaseModel
 from kerasformers.base.base_processor import BaseProcessor
 from kerasformers.base.base_quantization import (
-    Quantizer,
+    BaseQuantizer,
     normalize_axes,
     single_axis,
 )
@@ -26,7 +26,7 @@ __all__ = [
     "BaseImageProcessor",
     "BaseAudioFeatureExtractor",
     "BaseProcessor",
-    "Quantizer",
+    "BaseQuantizer",
     "normalize_axes",
     "single_axis",
 ]
