@@ -165,6 +165,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = CohereGenerate.from_weights(
-    "c4ai-command-r-v01", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "c4ai-command-r-v01", quantization="int8", load_dtype="bfloat16"
 )
 ```

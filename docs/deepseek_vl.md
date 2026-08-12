@@ -234,7 +234,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 model = DeepseekVLGenerate.from_weights(
     "kerasformers/deepseek_vl_1.3b_chat",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

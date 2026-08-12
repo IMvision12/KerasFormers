@@ -164,6 +164,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Glm4Generate.from_weights(
-    "glm-4-9b-0414", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "glm-4-9b-0414", quantization="int8", load_dtype="bfloat16"
 )
 ```

@@ -167,6 +167,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = MixtralGenerate.from_weights(
-    "mixtral-8x7b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "mixtral-8x7b", quantization="int8", load_dtype="bfloat16"
 )
 ```

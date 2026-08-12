@@ -199,27 +199,23 @@ A miss falls back to the normal path silently. On an ephemeral machine (Colab, C
 
 ## Loading big checkpoints
 
-Four independent flags, composable, for checkpoints that do not comfortably fit:
+Two independent flags, composable, for checkpoints that do not comfortably fit:
 
 | Flag | Trades against | Effect |
 |---|---|---|
 | `load_dtype="bfloat16"` | Device memory | Builds under a bf16 policy so a bf16 checkpoint stays ~2 bytes/param instead of being upcast to fp32. |
-| `quantization="int8"` | Device memory | Weight-only quantization of Dense and Embedding layers, roughly 4x, or 8x for `"int4"`. See [Quantization](quantization.md). |
-| `low_memory=True` | Peak RAM | With `quantization`, streams weights straight into int storage so the full float model is never built. |
-| `low_disk=True` | Local disk | Downloads a sharded checkpoint one shard at a time, converting and evicting each before the next, so peak disk is about one shard. |
+| `quantization="int8"` | Device memory | Weight-only quantization of Dense and Embedding layers, roughly 4x, or 8x for `"int4"`. For subclassed LLMs the weights stream straight into int storage so the full float model is never built (automatic, no flag). See [Quantization](quantization.md). |
 
 ```python
 model = Qwen3Generate.from_weights(
     "hf:Qwen/Qwen3-8B",
     load_dtype="bfloat16",
     quantization="int8",
-    low_memory=True,
-    low_disk=True,
 )
 ```
 
-These are memory and disk optimizations, not speed ones. Weight-only quantization in
-particular dequantizes on the fly, so it buys footprint, not throughput.
+These are memory optimizations, not speed ones. Weight-only quantization in particular
+dequantizes on the fly, so it buys footprint, not throughput.
 
 ## Architecture only, and partial loads
 

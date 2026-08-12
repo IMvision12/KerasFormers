@@ -176,6 +176,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = DeepseekV3Generate.from_weights(
-    "deepseek-v3", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "deepseek-v3", quantization="int8", load_dtype="bfloat16"
 )
 ```

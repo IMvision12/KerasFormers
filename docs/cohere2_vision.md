@@ -168,7 +168,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 model = Cohere2VisionGenerate.from_weights(
     "command-a-vision-07-2025",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

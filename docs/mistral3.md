@@ -252,7 +252,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 model = Mistral3Generate.from_weights(
     "mistral-small-3.1-24b-instruct",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

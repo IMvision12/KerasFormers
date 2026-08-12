@@ -170,6 +170,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = MiniMaxGenerate.from_weights(
-    "minimax-text-01", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "minimax-text-01", quantization="int8", load_dtype="bfloat16"
 )
 ```

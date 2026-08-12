@@ -23,16 +23,17 @@ quantize_model(model, "int4", group_size=64)
 Three named schemes cover the common cases: `"int4"` (block size 32), `"int4-g64"`, and
 `"int4-g128"`.
 
-int4 is also the usual reason to want the **no-float** load. By default `quantization=`
-builds the float model first, so peak memory is the bf16 size even though the result is 8x
-smaller. `low_memory=True` quantizes each tensor as it streams in:
+int4 is also the usual reason to want the **no-float** load. For subclassed LLMs
+`quantization=` quantizes each tensor as it streams in, so peak memory is the int4 size
+rather than the bf16 model it would otherwise build first:
 
 ```python
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4", low_memory=True)
+model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")
 ```
 
-It covers subclassed LLMs whose converter assigns through `model.weights`, and falls back
-automatically for anything else, so it is always safe to pass.
+This is automatic and needs no flag. It covers subclassed LLMs whose converter assigns
+through `model.weights`; functional models and the release-`.h5` / timm paths build then
+quantize instead.
 
 ## Int4Config
 

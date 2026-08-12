@@ -242,6 +242,6 @@ The 12B and 27B checkpoints benefit from bf16 or weight-only quantization. See
 
 ```python
 model = Gemma3Generate.from_weights(
-    "gemma-3-27b-it", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "gemma-3-27b-it", quantization="int8", load_dtype="bfloat16"
 )
 ```

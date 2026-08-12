@@ -321,7 +321,6 @@ at full precision. See [quantization.md](quantization.md):
 model = Gemma4Generate.from_weights(
     "kerasformers/gemma-4-31b-it",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

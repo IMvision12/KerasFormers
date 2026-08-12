@@ -239,7 +239,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 model = JanusGenerate.from_weights(
     "kerasformers/janus_pro_1b",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```
