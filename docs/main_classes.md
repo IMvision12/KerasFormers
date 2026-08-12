@@ -16,7 +16,7 @@ from kerasformers.base import (
     BaseImageProcessor,
     BaseAudioFeatureExtractor,
     BaseProcessor,
-    Quantizer,
+    BaseQuantizer,
     fused_attention,
 )
 ```
@@ -278,7 +278,7 @@ Components are declared as class attributes, so `processor.tokenizer` and
 
 ## Quantization
 
-### Quantizer
+### BaseQuantizer
 
 ```python
 quantizer.quantize(weight, axis=0)

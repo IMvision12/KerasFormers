@@ -48,6 +48,10 @@ class BaseConfig:
     group_extras = {}
     top_level_fields = ()
     main_config_key = None
+    # Constructor fields describing a NATIVE checkpoint quantization (e.g. GPT-OSS
+    # mxfp4). They stay real constructor fields but serialize as a top-level
+    # ``quantization_config`` block (transformers style), not inside the arch config.
+    quantization_fields = ()
 
     def __init__(self, **kwargs):
         annotations = self._annotations()
@@ -121,6 +125,18 @@ class BaseConfig:
             return flat
         return {name: getattr(self, name) for name in self.field_names()}
 
+    def get_quantization_config(self):
+        """Native-checkpoint quantization as a ``{"quant_method": ...}`` dict, or None.
+
+        Configs with ``quantization_fields`` (e.g. GPT-OSS mxfp4) override this so the
+        block serializes top-level, transformers style, instead of as arch fields."""
+        return None
+
+    @classmethod
+    def quant_config_kwargs(cls, quantization_config):
+        """Constructor kwargs implied by a ``quantization_config`` block (or None)."""
+        return {}
+
     def _group_members(self, key):
         """``{sub_field_name: flat_field}`` for a ``config_groups`` group."""
         prefix = self.config_groups[key]
@@ -154,8 +170,14 @@ class BaseConfig:
             active_secondary = True
         if active_secondary:  # glue only present alongside a secondary tower
             for name in self.field_names():
-                if name not in self.sub_configs:
+                if (
+                    name not in self.sub_configs
+                    and name not in self.quantization_fields
+                ):
                     data[name] = getattr(self, name)
+        qc = self.get_quantization_config()
+        if qc:
+            data["quantization_config"] = qc
         return data
 
     def to_dict(self):
@@ -175,7 +197,9 @@ class BaseConfig:
         main_fields = [
             f
             for f in self.field_names()
-            if f not in grouped and f not in self.top_level_fields
+            if f not in grouped
+            and f not in self.top_level_fields
+            and f not in self.quantization_fields
         ]
         if main_key not in self.config_groups:
             data[main_key] = {f: getattr(self, f) for f in main_fields}
@@ -184,15 +208,20 @@ class BaseConfig:
         if active:  # glue only makes sense alongside an active group
             for f in self.top_level_fields:
                 data[f] = getattr(self, f)
+        qc = self.get_quantization_config()
+        if qc:
+            data["quantization_config"] = qc
         return data
 
     @classmethod
     def _composite_from_dict(cls, data):
+        quant = cls.quant_config_kwargs(data.get("quantization_config"))
         if any(key in data for key in cls.sub_configs):  # nested input
             init = {key: data[key] for key in cls.sub_configs if key in data}
             for name in cls.field_names():
                 if name not in cls.sub_configs and name in data:
                     init[name] = data[name]
+            init.update(quant)
             return cls(**init)
         init = {}
         for key, sub_cls in cls.sub_configs.items():
@@ -206,6 +235,7 @@ class BaseConfig:
         for name in cls.field_names():
             if name not in cls.sub_configs and name in data:
                 init[name] = data[name]
+        init.update(quant)
         return cls(**init)
 
     @classmethod
@@ -225,8 +255,12 @@ class BaseConfig:
                     flat_name = sub if sub in extras else prefix + sub
                     if flat_name in fields:
                         flat[flat_name] = value
-            return cls(**flat)
-        return cls(**{k: v for k, v in data.items() if k in fields})
+        else:
+            flat = {k: v for k, v in data.items() if k in fields}
+        # Native quantization (e.g. mxfp4) rides a top-level block; legacy repos may
+        # still carry the raw field inside the arch config, which stays honored above.
+        flat.update(cls.quant_config_kwargs(data.get("quantization_config")))
+        return cls(**flat)
 
     def __repr__(self):
         inner = ", ".join(f"{k}={v!r}" for k, v in self.constructor_kwargs().items())

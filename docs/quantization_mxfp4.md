@@ -71,7 +71,7 @@ keeps its `Mxfp4GptOssExperts` in `integrations/mxfp4.py`.
 ## Primitives
 
 `kerasformers/quantization/mxfp4_quantize.py` holds the pure-`keras.ops`,
-backend-agnostic pack / unpack and the `Quantizer` that wraps them:
+backend-agnostic pack / unpack and the `BaseQuantizer` that wraps them:
 
 ```python
 from kerasformers.quantization import (

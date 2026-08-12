@@ -1,4 +1,4 @@
-from kerasformers.base import Quantizer
+from kerasformers.base import BaseQuantizer
 from kerasformers.quantization.fp8_quantize import Fp8Quantizer
 from kerasformers.quantization.int4_quantize import Int4Quantizer
 from kerasformers.quantization.int8_quantize import Int8Quantizer
@@ -52,7 +52,7 @@ __all__ = [
     "resolve_config",
     # tensor-level quantizers + quantized layers
     "get_quantizer",
-    "Quantizer",
+    "BaseQuantizer",
     "Int8Quantizer",
     "Int4Quantizer",
     "Fp8Quantizer",

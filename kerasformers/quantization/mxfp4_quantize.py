@@ -2,7 +2,7 @@ import keras
 import numpy as np
 from keras import ops
 
-from kerasformers.base import Quantizer, single_axis
+from kerasformers.base import BaseQuantizer, single_axis
 
 # OCP MXFP4 (E2M1) codebook: 4-bit index -> value. Shared with the GPT-OSS
 # converter's FP4_VALUES; kept here so the runtime dequant needs no converter.
@@ -94,7 +94,7 @@ def dequantize_mxfp4(blocks, scales, dtype="float32"):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MXFP4Quantizer(Quantizer):
+class MXFP4Quantizer(BaseQuantizer):
     """OCP MXFP4 (e2m1) weight-only quantizer (~4x smaller than bf16).
 
     The contracting ``axis`` is split into fixed 32-value blocks; each block gets

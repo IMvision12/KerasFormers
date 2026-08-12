@@ -52,7 +52,9 @@ class GptOssConfig(BaseConfig):
         mxfp4_experts (`bool`, *optional*, defaults to `False`):
             Keep the experts packed in MXFP4 (uint8 nibble blocks + e8m0 scales),
             dequantized on the fly, instead of expanded to float at build. The
-            hosted checkpoints set this `True` to match the official footprint.
+            hosted checkpoints set this `True` to match the official footprint. It
+            serializes as a top-level ``quantization_config`` block
+            (``{"quant_method": "mxfp4"}``), transformers style, not as an arch field.
 
     Examples:
 
@@ -86,3 +88,16 @@ class GptOssConfig(BaseConfig):
     attention_bias: bool = True
     tie_embeddings: bool = False
     mxfp4_experts: bool = False
+
+    # mxfp4_experts stays a real constructor field (the build needs it) but serializes
+    # as a top-level quantization_config block instead of an arch field.
+    quantization_fields = ("mxfp4_experts",)
+
+    def get_quantization_config(self):
+        return {"quant_method": "mxfp4"} if self.mxfp4_experts else None
+
+    @classmethod
+    def quant_config_kwargs(cls, quantization_config):
+        if quantization_config and quantization_config.get("quant_method") == "mxfp4":
+            return {"mxfp4_experts": True}
+        return {}

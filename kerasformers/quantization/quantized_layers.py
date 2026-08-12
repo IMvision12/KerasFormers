@@ -37,7 +37,7 @@ class _LoadProxy:
 
 
 def get_quantizer(mode, group_size=32):
-    """Build the :class:`~kerasformers.base.Quantizer` for ``mode``."""
+    """Build the :class:`~kerasformers.base.BaseQuantizer` for ``mode``."""
     if mode == "int8":
         return Int8Quantizer()
     if mode == "int4":

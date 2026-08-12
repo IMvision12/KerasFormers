@@ -148,7 +148,7 @@ class plus one file per scheme:
 
 | Symbol | File | Role |
 |---|---|---|
-| `Quantizer` | `base/base_quantization.py` | base class (also `kerasformers.base.Quantizer`): `quantize(weight, axis)` / `dequantize(packed, scale, axis, dtype)` / `storage_spec(weight_shape, axis)` + `get_config` / `from_config`; ships `normalize_axes` / `single_axis` |
+| `BaseQuantizer` | `base/base_quantization.py` | base class (also `kerasformers.base.BaseQuantizer`): `quantize(weight, axis)` / `dequantize(packed, scale, axis, dtype)` / `storage_spec(weight_shape, axis)` + `get_config` / `from_config`; ships `normalize_axes` / `single_axis` |
 | `Int8Quantizer` | `int8_quantize.py` | per-channel int8 quantizer (quantize / dequantize methods) |
 | `Int4Quantizer` | `int4_quantize.py` | block-wise packed int4 quantizer (any axis via moveaxis; module `effective_group_size`) |
 | `Fp8Quantizer` | `fp8_quantize.py` | per-channel float8-e4m3 quantizer (module `fp8_supported`; torch / jax) |

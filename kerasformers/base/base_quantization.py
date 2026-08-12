@@ -18,7 +18,7 @@ def single_axis(axis, ndim):
     return axes[0]
 
 
-class Quantizer:
+class BaseQuantizer:
     """Base class for kerasformers weight-only quantizers.
 
     A quantizer compresses a float weight along its **contracting axis**: the

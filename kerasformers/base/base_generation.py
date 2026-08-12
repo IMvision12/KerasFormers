@@ -248,6 +248,7 @@ class BaseGeneration:
     def run_decode(
         self, cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
     ):
+        # TODO : Add Logic For jax and tf too
         if keras.backend.backend() == "torch":
             import torch
 
