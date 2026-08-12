@@ -7,10 +7,7 @@ from keras import layers, ops
 
 from kerasformers.base import SubclassedBaseModel
 from kerasformers.conversion import converted_cache
-from kerasformers.conversion.hf_download_utils import (
-    LazyStateDict,
-    _shard_order_for_plan,
-)
+from kerasformers.conversion.hf_download_utils import LazyStateDict
 from kerasformers.quantization import quantize_model
 
 
@@ -85,30 +82,26 @@ def test_cache_key_includes_source_revision(monkeypatch):
     assert first != second
 
 
-def test_learned_shard_plan_orders_first_accesses():
-    weight_map = {"a": "one", "b": "two", "c": "one", "d": "three"}
-    assert _shard_order_for_plan(weight_map, ["b", "a", "d"]) == [
-        "two",
-        "one",
-        "three",
-    ]
-
-
-def test_lazy_state_dict_records_completed_access_plan(tmp_path):
+def test_lazy_state_dict_reads_one_tensor_at_a_time(tmp_path):
     from safetensors.numpy import save_file
 
-    shard = tmp_path / "one.safetensors"
-    save_file({"a": np.array([1]), "b": np.array([2])}, str(shard))
-    plan_path = tmp_path / "transfer-plan.json"
-    state = LazyStateDict(
-        {"a": str(shard), "b": str(shard)},
-        shard_of={"a": "one", "b": "one"},
-        access_plan_path=str(plan_path),
-    )
+    s1 = tmp_path / "one.safetensors"
+    s2 = tmp_path / "two.safetensors"
+    save_file({"a": np.array([1]), "b": np.array([2])}, str(s1))
+    save_file({"c": np.array([3])}, str(s2))
+
+    # The sharded construction path: name -> the shard file that holds it.
+    state = LazyStateDict({"a": str(s1), "b": str(s1), "c": str(s2)})
+    assert len(state) == 3
+    assert set(state) == {"a", "b", "c"}
+    # Membership must not read a tensor (the reason __contains__ is overridden):
+    # it is answered from the key index, and "missing" is simply absent.
+    assert "a" in state and "missing" not in state
     np.testing.assert_array_equal(state["b"], np.array([2]))
-    np.testing.assert_array_equal(state["a"], np.array([1]))
-    state.close()
-    assert json.loads(plan_path.read_text())["tensors"] == ["b", "a"]
+    np.testing.assert_array_equal(state["c"], np.array([3]))
+    with pytest.raises(KeyError):
+        state["missing"]
+    state.close()  # drops the mmap handles; safe to call after conversion.
 
 
 def test_mxfp4_quantize_is_exact_inverse_of_dequant():

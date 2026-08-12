@@ -189,9 +189,24 @@ def _download_repo_json(repo_id, filename):
         return json.load(f)
 
 
+_KF_CONFIG_CACHE = {}
+
+
 def load_kf_config(repo_id):
-    """Fetch and parse kf_config.json from ``repo_id`` (None if the repo lacks it)."""
-    return _download_repo_json(repo_id, CONFIG_FILE)
+    """Fetch and parse kf_config.json from ``repo_id`` (None if the repo lacks it).
+
+    Successful results are memoized per process, so a repo resolved twice in one
+    ``from_weights`` call (once for its ``weight_dtype``, once to build) is fetched
+    only once. The returned spec is shared: treat it as read-only. Absent / failed
+    lookups are not cached, so a transient failure is retried on the next call.
+    """
+    cached = _KF_CONFIG_CACHE.get(repo_id)
+    if cached is not None:
+        return cached
+    spec = _download_repo_json(repo_id, CONFIG_FILE)
+    if spec is not None:
+        _KF_CONFIG_CACHE[repo_id] = spec
+    return spec
 
 
 def load_kf_preprocessor(repo_id):

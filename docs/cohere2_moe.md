@@ -168,6 +168,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Cohere2MoeGenerate.from_weights(
-    "north-mini-code-1.0", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "north-mini-code-1.0", quantization="int8", load_dtype="bfloat16"
 )
 ```

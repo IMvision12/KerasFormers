@@ -7,11 +7,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     vision_rotary_cos_sin,
 )
 
-from .qwen2_5_vl_config import (
-    QWEN2_5_VL_CONFIG,
-    QWEN2_5_VL_TOKENS,
-    QWEN2_5_VL_WEIGHTS_URLS,
-)
+from .qwen2_5_vl_config import Qwen2_5VLConfig
 from .qwen2_5_vl_layers import (
     Qwen2_5_VisionPatchEmbed,
     Qwen2_5VLDecoderLayer,
@@ -428,8 +424,7 @@ class Qwen2_5VLModel(Qwen2VLModel):
 
     HF_MODEL_TYPE = "qwen2_5_vl"
     default_load_dtype = "bfloat16"
-    BASE_MODEL_CONFIG = QWEN2_5_VL_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN2_5_VL_WEIGHTS_URLS
+    config_class = Qwen2_5VLConfig
 
     def __init__(
         self,
@@ -455,10 +450,10 @@ class Qwen2_5VLModel(Qwen2VLModel):
         spatial_merge_size=2,
         temporal_patch_size=2,
         in_channels=3,
-        image_token_id=QWEN2_5_VL_TOKENS["image_token_id"],
-        video_token_id=QWEN2_5_VL_TOKENS["video_token_id"],
-        vision_start_token_id=QWEN2_5_VL_TOKENS["vision_start_token_id"],
-        vision_end_token_id=QWEN2_5_VL_TOKENS["vision_end_token_id"],
+        image_token_id=151655,
+        video_token_id=151656,
+        vision_start_token_id=151652,
+        vision_end_token_id=151653,
         **kwargs,
     ):
         from kerasformers.base import SubclassedBaseModel

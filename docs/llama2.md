@@ -167,6 +167,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Llama2Generate.from_weights(
-    "llama2-7b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "llama2-7b", quantization="int8", load_dtype="bfloat16"
 )
 ```

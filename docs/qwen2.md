@@ -166,6 +166,5 @@ The 72B checkpoint needs quantization to fit comfortably on a single 80GB GPU. S
 model = Qwen2Generate.from_weights(
     "kerasformers/qwen2-72b-instruct",
     quantization="int8",
-    low_memory=True,
 )
 ```

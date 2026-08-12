@@ -313,7 +313,6 @@ E4B). See [quantization.md](quantization.md):
 model = Gemma3nForConditionalGeneration.from_weights(
     "kerasformers/gemma-3n-e4b-it",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

@@ -167,7 +167,6 @@ The 27B checkpoint needs quantization to fit comfortably on a single 80GB GPU. S
 model = Gemma2Generate.from_weights(
     "kerasformers/gemma-2-27b-it",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

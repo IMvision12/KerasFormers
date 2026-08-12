@@ -186,10 +186,8 @@ class WeightLoadingMixin:
         skip_mismatch=False,
         attn_implementation=None,
         quantization=None,
-        low_memory=False,
         load_dtype=None,
         cache_converted=False,
-        low_disk=False,
         **kwargs,
     ):
         """Build a model and (optionally) load pretrained weights.
@@ -224,28 +222,30 @@ class WeightLoadingMixin:
                 subclassed models.
             quantization: ``None`` (default), ``"int8"``, ``"int4"`` or
                 ``"fp8"`` (or a :class:`~kerasformers.quantization.\
-QuantizationConfig` / scheme). When set, the model is quantized weight-only via
-                :func:`kerasformers.quantization.quantize_model`: Dense/Embedding
-                weights become int8 / float8-e4m3 (~4x) or block-wise packed
-                int4 (~8x), and the float weights are freed. fp8 is torch/jax
-                only.
-            low_memory: If ``True`` **and** ``quantization`` is set, load weights
-                straight into int storage without ever building the full float
-                model (the no-float skeleton path,
-                :func:`~kerasformers.quantization.quantize_and_load`), so a
-                checkpoint larger than device memory can be loaded quantized.
-                Only applies to subclassed models whose converter assigns through
-                ``model.weights`` (the standard LLM pattern); it falls back to the
-                load-then-quantize path automatically for anything else.
-            load_dtype: ``None`` (resolves to ``cls.default_load_dtype``, which is
-                fp32 for most models but bf16 for models that ship bf16 weights
-                such as GPT-OSS) or a dtype string such as ``"bfloat16"`` /
-                ``"float16"`` / ``"float32"``. Builds the device model under that
-                global dtype policy, so a bf16 checkpoint loads at its native
-                ~2 bytes/param instead of being upcast to fp32 (≈half the device
-                memory, cosine ~0.9998 vs fp32). The streamed checkpoint is cast
-                to it on assign. Pass ``"float32"`` to force fp32 on a model whose
-                default is bf16. Independent of ``quantization``, which runs after
+QuantizationConfig` / scheme). When set, the model is quantized weight-only:
+                Dense/Embedding weights become int8 / float8-e4m3 (~4x) or
+                block-wise packed int4 (~8x), and the float weights are freed. fp8
+                is torch/jax only. For subclassed (LLM-style) models the weights
+                stream straight into int storage as they load, so the full float
+                model is never built and a checkpoint larger than device memory can
+                still be loaded quantized
+                (:func:`~kerasformers.quantization.quantize_and_load`). That
+                no-float path is automatic and needs no flag, mirroring the forced
+                ``low_cpu_mem_usage`` transformers applies to quantized loads;
+                functional models and the release-``.h5`` / timm paths build then
+                quantize via :func:`kerasformers.quantization.quantize_model`.
+            load_dtype: ``None`` resolves, highest priority first, to the repo's
+                recorded ``weight_dtype`` (from a kerasformers Hub repo's
+                ``kf_config.json`` -- the checkpoint's real precision), then to
+                ``cls.default_load_dtype`` (fp32 for most models, bf16 for families
+                that ship bf16 weights such as GPT-OSS) for the ``hf:`` / variant
+                paths and repos predating ``weight_dtype``. Or pass a dtype string
+                such as ``"bfloat16"`` / ``"float16"`` / ``"float32"``. Builds the
+                device model under that global dtype policy, so a bf16 checkpoint
+                loads at its native ~2 bytes/param instead of being upcast to fp32
+                (≈half the device memory, cosine ~0.9998 vs fp32). The streamed
+                checkpoint is cast to it on assign. Pass ``"float32"`` to force fp32
+                on a bf16 model. Independent of ``quantization``, which runs after
                 the build.
             cache_converted: If ``True`` (opt-in), cache the fully converted
                 (and optionally quantized) model under
@@ -260,14 +260,6 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 models when float; a cache miss / failure silently falls back to
                 the source path. Best on a persistent disk: set
                 ``KERASFORMERS_HOME`` on ephemeral boxes.
-            low_disk: If ``True``, stream a **sharded** ``hf:`` safetensors
-                checkpoint shard-by-shard: download one shard, convert it, evict
-                it before fetching the next, so peak local disk is ~one shard
-                and a checkpoint larger than the disk can be loaded. Composes with
-                ``low_memory`` / ``quantization`` / ``load_dtype`` (the full "too
-                big for the box" stack). A successful conversion records its source
-                tensor access order and reuses that order on future low-disk loads.
-                No effect on single-file or ``.bin`` checkpoints.
             **kwargs: Forwarded to the model constructor (or to
                 ``from_hf`` when applicable).
 
@@ -282,9 +274,19 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                 )
             base_attention.ATTN_IMPLEMENTATION = attn_implementation
 
-        # Fall back to the model's native checkpoint precision (e.g. GPT-OSS is
-        # bf16 dense) when the caller did not pin one, so the hosted weights load
-        # at their native ~2 bytes/param. ``load_dtype="float32"`` forces fp32.
+        # Resolve the build precision, highest priority first (mirrors the
+        # ``dtype="auto"`` resolution in transformers: the repo's own record wins
+        # over any library-side default):
+        #   1. an explicit ``load_dtype=`` from the caller,
+        #   2. the ``weight_dtype`` a kerasformers Hub repo records in its
+        #      kf_config.json -- the checkpoint's actual dtype, so a repo saved in a
+        #      precision other than its family default (a bf16 fine-tune of an fp32
+        #      family, say) still loads natively instead of being cast,
+        #   3. ``cls.default_load_dtype``, the family's native precision, for the
+        #      variant / ``hf:`` paths and for repos predating ``weight_dtype``.
+        # ``load_dtype="float32"`` forces fp32.
+        if load_dtype is None:
+            load_dtype = cls.hub_repo_weight_dtype(identifier)
         if load_dtype is None:
             load_dtype = cls.default_load_dtype
 
@@ -318,8 +320,6 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     load_weights=load_weights,
                     skip_mismatch=skip_mismatch,
                     quantization=quantization,
-                    low_memory=low_memory,
-                    low_disk=low_disk,
                     **kwargs,
                 )
             elif "/" in identifier:
@@ -339,13 +339,11 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
                     load_weights=load_weights,
                     skip_mismatch=skip_mismatch,
                     quantization=quantization,
-                    low_memory=low_memory,
-                    low_disk=low_disk,
                     **kwargs,
                 )
         # A no-float load already quantized in place (and recorded the config);
-        # only quantize here when that path didn't run (functional models, the
-        # release-`.h5` / timm paths, or low_memory=False).
+        # only quantize here when that path didn't run (functional models, or the
+        # release-`.h5` / timm paths).
         if (
             quantization is not None
             and getattr(model, "_quantization_config", None) is None
@@ -365,15 +363,15 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         return model
 
     @classmethod
-    def _quantized_transfer(
-        cls, model, state_dict, quantization, low_memory, skip_mismatch=False
-    ):
-        """Apply ``cls.transfer_from_hf``; stream into int storage when asked.
+    def _quantized_transfer(cls, model, state_dict, quantization, skip_mismatch=False):
+        """Apply ``cls.transfer_from_hf``; stream into int storage when quantizing.
 
-        With ``low_memory`` + ``quantization`` on an unbuilt subclassed model,
-        weights are quantized as they transfer (no full float model is ever
-        built). Otherwise a plain float transfer runs and the caller quantizes
-        afterwards. Returns ``True`` if the no-float path quantized in place.
+        With ``quantization`` set on an unbuilt subclassed model, weights are
+        quantized as they transfer (no full float model is ever built). This is
+        automatic, matching the forced low-memory path transformers uses for
+        quantized loads. Otherwise a plain float transfer runs and the caller
+        quantizes afterwards. Returns ``True`` if the no-float path quantized in
+        place.
 
         On a strict load (``skip_mismatch=False``) the build runs under
         :func:`~kerasformers.conversion.weight_transfer_util.zeros_init` so an
@@ -387,7 +385,6 @@ QuantizationConfig` / scheme). When set, the model is quantized weight-only via
         build_init = contextlib.nullcontext() if skip_mismatch else zeros_init()
         if (
             quantization is not None
-            and low_memory
             and isinstance(model, SubclassedBaseModel)
             and not model.built
         ):
@@ -441,8 +438,6 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         load_weights=True,
         skip_mismatch=False,
         quantization=None,
-        low_memory=False,
-        low_disk=False,
         **kwargs,
     ):
         """Build a packaged variant and convert its weights from the source Hub.
@@ -496,12 +491,12 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
                 # model, gives the exact checkpoint key layout the transfer
                 # expects, and handles bf16 -> float32. Used by the Qwen
                 # families, whose converters key off raw checkpoint tensors.
-                state_dict = download_hf_state_dict(hf_id, low_disk=low_disk)
+                state_dict = download_hf_state_dict(hf_id)
                 completed = False
                 try:
                     with skip_mismatched_weights(skip_mismatch) as skipped:
                         cls._quantized_transfer(
-                            model, state_dict, quantization, low_memory, skip_mismatch
+                            model, state_dict, quantization, skip_mismatch
                         )
                     completed = True
                 finally:
@@ -588,6 +583,28 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
 
             get_kf_quantizer(quantization_config).preprocess_model(model)
 
+    @staticmethod
+    def hub_repo_weight_dtype(identifier):
+        """The dtype a Hub repo's weights are stored in, or ``None``.
+
+        Reads ``weight_dtype`` from the repo's ``kf_config.json`` (written by
+        :func:`~kerasformers.conversion.kf_config.write_kf_config`) so
+        :meth:`from_weights` can build at the checkpoint's real precision. Returns
+        ``None`` for anything that is not a bare ``org/repo`` id (a bare variant or
+        an ``hf:`` id, whose precision comes from the class default), for repos
+        written before ``weight_dtype`` existed, and when the lookup fails -- so an
+        offline or private repo falls back rather than raising.
+        """
+        if identifier.startswith(_HF_PREFIX) or "/" not in identifier:
+            return None
+        from kerasformers.conversion.kf_config import load_kf_config
+
+        try:
+            spec = load_kf_config(identifier.rstrip("/"))
+        except Exception:
+            return None
+        return (spec or {}).get("weight_dtype")
+
     @classmethod
     def build_from_hub_repo(cls, repo_id, **kwargs):
         """Build (unloaded) from a repo's ``kf_config.json``, bypassing the
@@ -665,8 +682,6 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         variant=None,
         skip_mismatch=False,
         quantization=None,
-        low_memory=False,
-        low_disk=False,
         **kwargs,
     ):
         """Load a model from a model-hub repo.
@@ -715,7 +730,7 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
                     )
             model = cls.from_variant(variant, load_weights=False, **kwargs)
             if load_weights:
-                state_dict = download_hf_state_dict(hf_id, low_disk=low_disk)
+                state_dict = download_hf_state_dict(hf_id)
                 completed = False
                 try:
                     with skip_mismatched_weights(skip_mismatch) as skipped:
@@ -735,12 +750,12 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         kerasformers_kwargs.update(kwargs)
         model = cls(**kerasformers_kwargs)
         if load_weights:
-            state_dict = download_hf_state_dict(hf_id, low_disk=low_disk)
+            state_dict = download_hf_state_dict(hf_id)
             completed = False
             try:
                 with skip_mismatched_weights(skip_mismatch) as skipped:
                     cls._quantized_transfer(
-                        model, state_dict, quantization, low_memory, skip_mismatch
+                        model, state_dict, quantization, skip_mismatch
                     )
                 completed = True
             finally:

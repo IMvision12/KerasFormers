@@ -172,6 +172,5 @@ needs quantization to fit comfortably on a single 80GB GPU. See
 model = Qwen2MoeGenerate.from_weights(
     "kerasformers/qwen2-57b-a14b-instruct",
     quantization="int8",
-    low_memory=True,
 )
 ```

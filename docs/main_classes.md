@@ -80,10 +80,8 @@ Model.from_weights(
     skip_mismatch=False,
     attn_implementation=None,
     quantization=None,
-    low_memory=False,
     load_dtype=None,
     cache_converted=False,
-    low_disk=False,
     **kwargs,
 )
 ```
@@ -104,17 +102,15 @@ The one entry point you normally use. It dispatches on `identifier`:
 - **load_weights** (`bool`, *optional*, defaults to `True`): set `False` to build the architecture with random initialization.
 - **skip_mismatch** (`bool`, *optional*, defaults to `False`): skip weights whose shapes disagree instead of raising, for partially compatible fine-tunes.
 - **attn_implementation** (`str`, *optional*): attention kernel to use, see [`fused_attention`](#fused_attention).
-- **quantization** (`str`, *optional*): quantize while loading, for example `"int8"`. See [Quantization](quantization.md).
-- **low_memory** (`bool`, *optional*, defaults to `False`): stream weights in rather than materializing the full state dict.
+- **quantization** (`str`, *optional*): quantize while loading, for example `"int8"`. For subclassed LLMs the weights stream straight into int storage (no full float model is built); this is automatic. See [Quantization](quantization.md).
 - **load_dtype** (`str`, *optional*): cast weights on load, typically `"bfloat16"`.
 - **cache_converted** (`bool`, *optional*, defaults to `False`): keep the converted Keras weights so the next conversion load skips work.
-- **low_disk** (`bool`, *optional*, defaults to `False`): stream shards and evict them as it goes, for checkpoints larger than free disk.
 - **kwargs**: forwarded to the constructor, so `image_size=448` or `as_backbone=True` go here.
 
 ```python
 model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
 model = SegFormerSemanticSegment.from_weights("hf:<user>/my-finetune")
-model = Qwen3Generate.from_weights("qwen3-8b", load_dtype="bfloat16", low_memory=True)
+model = Qwen3Generate.from_weights("qwen3-8b", load_dtype="bfloat16", quantization="int8")
 ```
 
 ### from_hub_repo, from_variant, and from_hf
@@ -132,8 +128,6 @@ Model.from_variant(
     load_weights=True,
     skip_mismatch=False,
     quantization=None,
-    low_memory=False,
-    low_disk=False,
     **kwargs,
 )
 
@@ -143,8 +137,6 @@ Model.from_hf(
     variant=None,
     skip_mismatch=False,
     quantization=None,
-    low_memory=False,
-    low_disk=False,
     **kwargs,
 )
 ```

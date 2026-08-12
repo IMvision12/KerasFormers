@@ -188,11 +188,12 @@ def quantize_and_load(model, config, transfer_fn, state_dict, group_size=32):
     ]
     if unfilled:
         raise RuntimeError(
-            "No-float load left quantized layers unfilled "
+            "No-float quantized load left quantized layers unfilled "
             f"({unfilled[:5]}{'...' if len(unfilled) > 5 else ''}): this model's "
-            "converter does not assign weights through model.weights, so the float "
-            "proxies were never written. Load without low_memory (build float, then "
-            "quantize) instead."
+            "converter does not assign all weights through model.weights, so the "
+            "float proxies for these layers were never written. A subclassed model "
+            "must build and iterate model.weights in its converter to be loadable "
+            "in quantized form."
         )
     model._quantization_config = config
     return model

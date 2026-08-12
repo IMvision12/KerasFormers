@@ -167,6 +167,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Qwen3MoeGenerate.from_weights(
-    "qwen3-30b-a3b", quantization="int8", low_memory=True, load_dtype="bfloat16"
+    "qwen3-30b-a3b", quantization="int8", load_dtype="bfloat16"
 )
 ```

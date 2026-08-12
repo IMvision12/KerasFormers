@@ -202,7 +202,6 @@ The 12B fits comfortably in bf16; weight-only quantization shrinks it further. S
 model = Gemma4UnifiedGenerate.from_weights(
     "kerasformers/gemma-4-12b-it",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

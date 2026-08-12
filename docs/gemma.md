@@ -161,7 +161,6 @@ The 7B checkpoints load in bf16 or quantized weight-only. See [quantization.md](
 model = GemmaGenerate.from_weights(
     "kerasformers/gemma-7b-it",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

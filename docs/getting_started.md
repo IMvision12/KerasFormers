@@ -112,7 +112,7 @@ Large checkpoints load in lower precision or weight-only quantized; see
 
 ```python
 model = Qwen3Generate.from_weights(
-    "qwen3-8b", load_dtype="bfloat16", quantization="int8", low_memory=True
+    "qwen3-8b", load_dtype="bfloat16", quantization="int8"
 )
 ```
 

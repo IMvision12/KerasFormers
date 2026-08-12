@@ -45,18 +45,20 @@ quantize_model(model, "mxfp4")  # OCP 4-bit float, fixed 32-value blocks
 `quantization=` is wired through `from_weights` for every model (Hub Keras repos,
 bare LLM/VLM variants, **and** `hf:` repos).
 
-**No-float load (for models bigger than your float budget).** Add
-`low_memory=True` to stream the checkpoint straight into int storage without ever
-building the full float model:
+**No-float load (for models bigger than your float budget).** For subclassed LLMs
+`quantization=` streams the checkpoint straight into int storage without ever
+building the full float model, so a checkpoint larger than your float budget still
+loads quantized:
 
 ```python
 # never materializes the bf16 model: quantizes each tensor as it loads
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4", low_memory=True)
+model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")
 ```
 
-It applies to subclassed LLMs whose converter assigns through `model.weights` (the
-standard pattern) and **falls back automatically** to load-then-quantize for
-anything else, so it is always safe to pass.
+This is automatic and needs no flag, matching the forced low-memory path
+transformers applies to quantized loads. It covers subclassed LLMs whose converter
+assigns through `model.weights` (the standard pattern); functional models and the
+release-`.h5` / timm paths build then quantize instead.
 
 ## Production usage
 
@@ -257,27 +259,26 @@ Worked examples (int4, ≈ 0.55 B/param):
 | 355B (GLM-4.5) | ~195 GB | no: ~3 GPUs |
 | 744B (GLM-5.x) | ~410 GB | no: ~5–6 GPUs |
 
-> **Load time.** By default `quantization=` builds the float model first (peak ≈
-> the **bf16** size, params × 2) and quantizes after. Pass **`low_memory=True`**
-> (or call `quantize_and_load`) to take the **no-float** path: an int skeleton is
-> built and each tensor is quantized as it loads, so peak ≈ the *quantized* size +
-> one layer's float. That is what lets a checkpoint larger than your float budget
-> load quantized. It covers subclassed LLMs with the standard
-> `model.weights`-iteration converter; other models fall back to the float path.
+> **Load time.** For subclassed LLMs `quantization=` takes the **no-float** path:
+> an int skeleton is built and each tensor is quantized as it loads, so peak ≈ the
+> *quantized* size + one layer's float, never the full **bf16** model (params × 2).
+> That is what lets a checkpoint larger than your float budget load quantized, and
+> it happens automatically with no flag, matching what transformers forces for
+> quantized loads. Functional models and the release-`.h5` / timm paths build the
+> float model first and quantize after.
 
 ## Caveats (honest)
 
 - **Portable weight-only = memory, not speed.** The default Keras path
   dequantizes weights to float every `call`, so it reduces footprint rather than
   latency.
-- **Float path vs no-float path.** By default `quantization=` builds the float
-  architecture before swapping in the quantized layers (floats freed after). The
-  **no-float** path avoids that peak: `from_weights(..., low_memory=True)` /
-  `quantize_and_load` build an int skeleton and quantize each tensor as it streams in.
-  The no-float load needs the model's converter to assign through `model.weights` (the
-  standard LLM pattern); it verifies every quantized layer was filled and errors
-  clearly otherwise, so it never silently corrupts: fall back to the float path for
-  those models.
+- **Float path vs no-float path.** For subclassed LLMs `quantization=` builds an
+  int skeleton and quantizes each tensor as it streams in (`quantize_and_load`),
+  avoiding the float-model peak; functional models and the release-`.h5` / timm
+  paths build the float architecture first and swap in quantized layers (floats
+  freed after). The no-float load needs the model's converter to assign through
+  `model.weights` (the standard LLM pattern); it verifies every quantized layer was
+  filled and errors clearly otherwise, so it never silently corrupts.
 - **Coverage.** `Dense`, `EinsumDense`, `Embedding`, and fused-SwiGLU MoE expert
   banks (`gate_up_proj`/`down_proj`) are quantized; other custom weight layouts
   stay float. A `Dense`/`Embedding` stored inside a Python list (rare:

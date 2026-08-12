@@ -234,7 +234,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 model = Qwen2_5VLGenerate.from_weights(
     "qwen2.5-vl-3b-instruct",
     quantization="int8",
-    low_memory=True,
     load_dtype="bfloat16",
 )
 ```

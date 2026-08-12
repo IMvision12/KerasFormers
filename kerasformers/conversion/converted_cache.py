@@ -92,7 +92,8 @@ def cache_dir(cls, identifier, quantization, load_dtype, kwargs):
 
     Keyed on the model class, immutable source revision, converter/cache layout,
     quantization recipe, backend/dtype and architecture arguments. Excludes
-    ``attn_implementation`` (reapplied at build) and ``low_memory`` (same result).
+    ``attn_implementation``, which is reapplied at build and does not change the
+    stored weights.
     """
     payload = {
         "cache_format": CACHE_FORMAT_VERSION,
