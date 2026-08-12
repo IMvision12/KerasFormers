@@ -1,13 +1,12 @@
 # Qwen2.5-VL
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> and <code>kf_preprocessor.json</code> plus the
+Keras weights: <code>model.weights.h5</code>, or a sharded <code>model.weights.json</code> +
+shards for the larger checkpoints). Load the model and processor with
+<code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
 Alibaba's Qwen2.5-VL vision-language models, ported to pure Keras 3. It keeps
@@ -27,14 +26,14 @@ See also [qwen2_vl.md](qwen2_vl.md), [qwen3_vl.md](qwen3_vl.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")`.
 
 | Variant | Hub |
 |---|---|
-| `qwen2.5-vl-3b-instruct` | [`Qwen/Qwen2.5-VL-3B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct) |
-| `qwen2.5-vl-7b-instruct` | [`Qwen/Qwen2.5-VL-7B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct) |
-| `qwen2.5-vl-32b-instruct` | [`Qwen/Qwen2.5-VL-32B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct) |
-| `qwen2.5-vl-72b-instruct` | [`Qwen/Qwen2.5-VL-72B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct) |
+| `qwen2.5-vl-3b-instruct` | [`kerasformers/qwen2.5-vl-3b-instruct`](https://huggingface.co/kerasformers/qwen2.5-vl-3b-instruct) |
+| `qwen2.5-vl-7b-instruct` | [`kerasformers/qwen2.5-vl-7b-instruct`](https://huggingface.co/kerasformers/qwen2.5-vl-7b-instruct) |
+| `qwen2.5-vl-32b-instruct` | [`kerasformers/qwen2.5-vl-32b-instruct`](https://huggingface.co/kerasformers/qwen2.5-vl-32b-instruct) |
+| `qwen2.5-vl-72b-instruct` | [`kerasformers/qwen2.5-vl-72b-instruct`](https://huggingface.co/kerasformers/qwen2.5-vl-72b-instruct) |
 
 ## API
 
@@ -147,8 +146,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.qwen2_5_vl import Qwen2_5VLGenerate, Qwen2_5VLProcessor
 
-model = Qwen2_5VLGenerate.from_weights("qwen2.5-vl-3b-instruct")
-processor = Qwen2_5VLProcessor.from_weights("qwen2.5-vl-3b-instruct")
+model = Qwen2_5VLGenerate.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
+processor = Qwen2_5VLProcessor.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -232,7 +231,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Qwen2_5VLGenerate.from_weights(
-    "qwen2.5-vl-3b-instruct",
+    "kerasformers/qwen2.5-vl-3b-instruct",
     quantization="int8",
     load_dtype="bfloat16",
 )
