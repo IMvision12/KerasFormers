@@ -3232,9 +3232,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
-    "Qwen35MoeModel": {
-        "module": "kerasformers.models.qwen3_5_moe",
-        "model_cls": "Qwen35MoeModel",
+    "Qwen3NextModel": {
+        "module": "kerasformers.models.qwen3_next",
+        "model_cls": "Qwen3NextModel",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -3411,7 +3411,7 @@ for _base in (
     "MixtralModel",
     "Qwen2MoeModel",
     "Qwen3MoeModel",
-    "Qwen35MoeModel",
+    "Qwen3NextModel",
 ):
     _gen = _base.replace("Model", "Generate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])

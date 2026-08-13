@@ -3,29 +3,29 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .qwen3_5_moe_config import (
-    QWEN3_5_MOE_CONFIG,
-    QWEN3_5_MOE_WEIGHTS_URLS,
-    Qwen35MoeConfig,
+from .qwen3_next_config import (
+    QWEN3_NEXT_CONFIG,
+    QWEN3_NEXT_WEIGHTS_URLS,
+    Qwen3NextConfig,
 )
-from .qwen3_5_moe_layers import Qwen35MoeDecoderLayer, Qwen35MoeRMSNorm
+from .qwen3_next_layers import Qwen3NextDecoderLayer, Qwen3NextRMSNorm
 
 MASK_NEG = -1e9
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeModel(SubclassedBaseModel):
+class Qwen3NextModel(SubclassedBaseModel):
     """Qwen3.5 (Qwen3-Next) hybrid decoder-only backbone (no LM head).
 
-    ``token_embedding -> num_layers x Qwen35MoeDecoderLayer -> final RMSNorm``. The
+    ``token_embedding -> num_layers x Qwen3NextDecoderLayer -> final RMSNorm``. The
     decoder layers alternate two token mixers: most are Gated-DeltaNet *linear
     attention* (conv1d + delta-rule recurrence), and every ``full_attention_interval``
     -th layer is *gated full attention* (GQA, QK-norm, partial rotary, sigmoid
     output gate). RMSNorm is zero-centered. This is a subclassed (imperative)
     :class:`FunctionalBaseModel`: the forward pass runs eagerly with ``keras.ops``. Returns
-    raw features; use :class:`Qwen35MoeGenerate` for logits / text.
+    raw features; use :class:`Qwen3NextGenerate` for logits / text.
 
-        model = Qwen35MoeModel.from_weights("hf:Qwen/Qwen3.5-...")
+        model = Qwen3NextModel.from_weights("hf:Qwen/Qwen3.5-...")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
 
     Args:
@@ -40,7 +40,7 @@ class Qwen35MoeModel(SubclassedBaseModel):
         rope_theta: Rotary base frequency.
         partial_rotary_factor: Fraction of ``head_dim`` that gets rotary
             (``rotary_dim = int(head_dim * partial_rotary_factor)``).
-        tie_embeddings: Whether :class:`Qwen35MoeGenerate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen3NextGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         full_attention_interval: Place a full-attention layer every Nth block;
             all others are Gated-DeltaNet linear-attention layers.
@@ -51,11 +51,11 @@ class Qwen35MoeModel(SubclassedBaseModel):
             attention key/value.
     """
 
-    HF_MODEL_TYPE = ("qwen3_next", "qwen3_5_moe", "qwen3_5_moe_text")
+    HF_MODEL_TYPE = "qwen3_next"
     default_load_dtype = "bfloat16"
-    config_class = Qwen35MoeConfig
-    BASE_MODEL_CONFIG = QWEN3_5_MOE_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN3_5_MOE_WEIGHTS_URLS
+    config_class = Qwen3NextConfig
+    BASE_MODEL_CONFIG = QWEN3_NEXT_CONFIG
+    BASE_WEIGHT_CONFIG = QWEN3_NEXT_WEIGHTS_URLS
 
     def __init__(
         self,
@@ -141,7 +141,7 @@ class Qwen35MoeModel(SubclassedBaseModel):
             vocab_size, embed_dim, name="token_embedding"
         )
         self.decoder_layers = [
-            Qwen35MoeDecoderLayer(
+            Qwen3NextDecoderLayer(
                 layer_cfg,
                 self.layer_types[i],
                 use_moe=(
@@ -153,7 +153,7 @@ class Qwen35MoeModel(SubclassedBaseModel):
             )
             for i in range(num_layers)
         ]
-        self.final_norm = Qwen35MoeRMSNorm(eps=norm_eps, name="final_norm")
+        self.final_norm = Qwen3NextRMSNorm(eps=norm_eps, name="final_norm")
 
     def call(self, inputs):
         if not isinstance(inputs, dict):
@@ -221,9 +221,9 @@ class Qwen35MoeModel(SubclassedBaseModel):
 
     @classmethod
     def transfer_from_hf(cls, keras_model, hf_state_dict):
-        from .convert_qwen3_5_moe_hf_to_keras import transfer_qwen3_5_moe_weights
+        from .convert_qwen3_next_hf_to_keras import transfer_qwen3_next_weights
 
-        transfer_qwen3_5_moe_weights(keras_model, hf_state_dict)
+        transfer_qwen3_next_weights(keras_model, hf_state_dict)
 
     def get_config(self):
         config = super().get_config()
@@ -259,10 +259,10 @@ class Qwen35MoeModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeGenerate(Qwen35MoeModel, BaseGeneration):
+class Qwen3NextGenerate(Qwen3NextModel, BaseGeneration):
     """Qwen3.5 backbone + a language-model head and fast ``.generate()``.
 
-    Adds a vocabulary projection on top of :class:`Qwen35MoeModel` (a separate
+    Adds a vocabulary projection on top of :class:`Qwen3NextModel` (a separate
     bias-free ``lm_head`` when ``tie_embeddings`` is ``False``, else the tied token
     embedding). ``call`` returns both ``logits`` and ``last_hidden_state``. Fast
     generation comes from :class:`~kerasformers.base.BaseGeneration`, fulfilled here
@@ -270,9 +270,9 @@ class Qwen35MoeGenerate(Qwen35MoeModel, BaseGeneration):
     fixed-slot ``(key, value)`` for the full-attention layers and a
     ``(conv_state, recurrent_state)`` for the Gated-DeltaNet layers (whose recurrence
     is identical to prefill, so its decode step is exact). Constructor ``Args`` are
-    inherited from :class:`Qwen35MoeModel`.
+    inherited from :class:`Qwen3NextModel`.
 
-        gen = Qwen35MoeGenerate.from_weights("hf:Qwen/Qwen3.5-...")
+        gen = Qwen3NextGenerate.from_weights("hf:Qwen/Qwen3.5-...")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

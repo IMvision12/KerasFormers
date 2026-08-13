@@ -1,4 +1,4 @@
-# Qwen3.5-MoE
+# Qwen3-Next
 
 <div class="kf-note kf-note--convert">
 <b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
@@ -10,12 +10,17 @@ Pass <code>cache_converted=True</code> to keep the converted result and skip the
 conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
 </div>
 
-The Mixture-of-Experts variant of Qwen3.5, ported to pure Keras 3. It keeps the
-Gated-DeltaNet / full-attention hybrid and replaces the MLP with a routed expert
-bank.
+Alibaba's Qwen3-Next (`Qwen3-Next-80B-A3B`), ported to pure Keras 3. A hybrid decoder:
+most blocks are Gated-DeltaNet linear-attention layers, with a full-attention block
+every fourth layer; both feed a sparse Mixture-of-Experts MLP (a softmax router over the
+routed experts plus a sigmoid-gated shared expert). This is the actual released MoE
+checkpoint; [qwen3_5.md](qwen3_5.md) documents the dense-MLP form of the same hybrid.
 
 Memory is governed by **total** parameters, not active ones.
 
+Links:
+
+- HF docs: [transformers/model_doc/qwen3_next](https://huggingface.co/docs/transformers/model_doc/qwen3_next)
 
 See also [qwen3_5.md](qwen3_5.md), [qwen3_moe.md](qwen3_moe.md).
 
@@ -30,7 +35,7 @@ Load any of these with `from_weights("<variant>")`.
 
 ## API
 
-### `Qwen35MoeModel`
+### `Qwen3NextModel`
 
 The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, embed_dim)}`.
 
@@ -61,10 +66,10 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `decoder_sparse_step` | `1` |  |
 | `mlp_only_layers` | `()` |  |
 
-### `Qwen35MoeGenerate`
+### `Qwen3NextGenerate`
 
-`Qwen35MoeModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
-arguments as `Qwen35MoeModel`.
+`Qwen3NextModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
+arguments as `Qwen3NextModel`.
 
 ```python
 generate(
@@ -87,12 +92,12 @@ generate(
 | `sampler` | `None` | sampling strategy; greedy when unset |
 | `seed` | `None` | seed for stochastic samplers |
 
-### `Qwen35MoeTokenizer`
+### `Qwen3NextTokenizer`
 
 Tokenizer on the `tokenizers` backend.
 
 ```python
-Qwen35MoeTokenizer(hf_id=None, tokenizer_file=None)
+Qwen3NextTokenizer(hf_id=None, tokenizer_file=None)
 ```
 
 | Arg | Default | Meaning |
@@ -114,10 +119,10 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.qwen3_5_moe import Qwen35MoeGenerate, Qwen35MoeTokenizer
+from kerasformers.models.qwen3_next import Qwen3NextGenerate, Qwen3NextTokenizer
 
-model = Qwen35MoeGenerate.from_weights("qwen3-next-80b-a3b-instruct")
-tokenizer = Qwen35MoeTokenizer.from_weights("qwen3-next-80b-a3b-instruct")
+model = Qwen3NextGenerate.from_weights("qwen3-next-80b-a3b-instruct")
+tokenizer = Qwen3NextTokenizer.from_weights("qwen3-next-80b-a3b-instruct")
 
 inputs = tokenizer(
     [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
@@ -148,9 +153,9 @@ for text in tokenizer.batch_decode(outputs):
 ### Backbone only
 
 ```python
-from kerasformers.models.qwen3_5_moe import Qwen35MoeModel
+from kerasformers.models.qwen3_next import Qwen3NextModel
 
-backbone = Qwen35MoeModel.from_weights("qwen3-next-80b-a3b-instruct")
+backbone = Qwen3NextModel.from_weights("qwen3-next-80b-a3b-instruct")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
@@ -160,7 +165,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Qwen35MoeGenerate.from_weights("hf:Qwen/Qwen3-Next-80B-A3B-Instruct")
+model = Qwen3NextGenerate.from_weights("hf:Qwen/Qwen3-Next-80B-A3B-Instruct")
 ```
 
 ### Lower memory
@@ -169,7 +174,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen35MoeGenerate.from_weights(
+model = Qwen3NextGenerate.from_weights(
     "qwen3-next-80b-a3b-instruct",
     quantization="int8",
     load_dtype="bfloat16",

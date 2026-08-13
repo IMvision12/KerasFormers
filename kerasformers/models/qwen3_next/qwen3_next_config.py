@@ -1,15 +1,15 @@
 from kerasformers.base import BaseConfig
 
 
-class Qwen35MoeConfig(BaseConfig):
-    r"""Configuration for Qwen3-Next: [`Qwen35MoeModel`] and [`Qwen35MoeGenerate`].
+class Qwen3NextConfig(BaseConfig):
+    r"""Configuration for Qwen3-Next: [`Qwen3NextModel`] and [`Qwen3NextGenerate`].
 
     A hybrid decoder: most blocks are Gated-DeltaNet linear-attention layers, with a
     full-attention block every ``full_attention_interval``; both use a sparse MoE MLP
     (a softmax router over ``num_experts`` fused experts plus a sigmoid-gated shared
     expert). Full-attention blocks use partial-rotary GQA with per-head QK-norm.
 
-    Args mirror [`Qwen35MoeModel`]; see that class for per-field descriptions."""
+    Args mirror [`Qwen3NextModel`]; see that class for per-field descriptions."""
 
     model_type = "qwen3_next"
 
@@ -66,12 +66,12 @@ QWEN3_NEXT_80B = {
     "mlp_only_layers": (),
 }
 
-QWEN3_5_MOE_CONFIG = {
+QWEN3_NEXT_CONFIG = {
     "qwen3-next-80b-a3b-instruct": dict(QWEN3_NEXT_80B),
     "qwen3-next-80b-a3b-thinking": dict(QWEN3_NEXT_80B),
 }
 
-QWEN3_5_MOE_WEIGHTS_URLS = {
+QWEN3_NEXT_WEIGHTS_URLS = {
     "qwen3-next-80b-a3b-instruct": {
         "hf_id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
         "gated": False,

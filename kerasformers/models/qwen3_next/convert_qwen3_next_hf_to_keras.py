@@ -87,7 +87,7 @@ def fuse_expert_weights(hf_state_dict):
     return out
 
 
-def transfer_qwen3_5_moe_weights(keras_model, hf_state_dict):
+def transfer_qwen3_next_weights(keras_model, hf_state_dict):
     state = fuse_expert_weights(hf_state_dict)
     if not keras_model.built or not keras_model.weights:
         keras_model({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})

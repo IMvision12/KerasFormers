@@ -8,7 +8,7 @@ def l2norm(x, eps=1e-6):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeRMSNorm(layers.Layer):
+class Qwen3NextRMSNorm(layers.Layer):
     """Zero-centered root-mean-square layer norm (Qwen3.5).
 
     Like a standard RMSNorm but the learned scale is stored *zero-centered*: the
@@ -49,7 +49,7 @@ class Qwen35MoeRMSNorm(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeRMSNormGated(layers.Layer):
+class Qwen3NextRMSNormGated(layers.Layer):
     """Gated RMSNorm used inside Gated-DeltaNet read-out.
 
     RMS-normalizes ``x`` in float32, scales by a learned per-channel ``weight``
@@ -84,7 +84,7 @@ class Qwen35MoeRMSNormGated(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeMLP(layers.Layer):
+class Qwen3NextMLP(layers.Layer):
     """SwiGLU feed-forward block: ``down(silu(gate(x)) * up(x))``.
 
     Two parallel bias-free projections to ``mlp_dim``: a SiLU-gated ``gate`` and
@@ -114,7 +114,7 @@ class Qwen35MoeMLP(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeAttention(layers.Layer):
+class Qwen3NextAttention(layers.Layer):
     """Gated grouped-query full attention (Qwen3.5): QK-norm + partial rotary.
 
     The ``query`` projection emits both the query and an output gate
@@ -171,8 +171,8 @@ class Qwen35MoeAttention(layers.Layer):
         self.key = layers.Dense(num_kv_heads * head_dim, use_bias=False, name="key")
         self.value = layers.Dense(num_kv_heads * head_dim, use_bias=False, name="value")
         self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
-        self.query_norm = Qwen35MoeRMSNorm(eps=norm_eps, name="query_norm")
-        self.key_norm = Qwen35MoeRMSNorm(eps=norm_eps, name="key_norm")
+        self.query_norm = Qwen3NextRMSNorm(eps=norm_eps, name="query_norm")
+        self.key_norm = Qwen3NextRMSNorm(eps=norm_eps, name="key_norm")
 
     def call(
         self,
@@ -311,7 +311,7 @@ class Qwen35MoeAttention(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeGatedDeltaNet(layers.Layer):
+class Qwen3NextGatedDeltaNet(layers.Layer):
     """Gated-DeltaNet linear-attention token mixer (Qwen3.5 / Qwen3-Next).
 
     A short causal depthwise conv1d mixes the projected query/key/value, followed
@@ -377,7 +377,7 @@ class Qwen35MoeGatedDeltaNet(layers.Layer):
         self.in_proj_z = layers.Dense(self.value_dim, use_bias=False, name="in_proj_z")
         self.in_proj_b = layers.Dense(num_v_heads, use_bias=False, name="in_proj_b")
         self.in_proj_a = layers.Dense(num_v_heads, use_bias=False, name="in_proj_a")
-        self.norm = Qwen35MoeRMSNormGated(eps=norm_eps, name="norm")
+        self.norm = Qwen3NextRMSNormGated(eps=norm_eps, name="norm")
         self.out_proj = layers.Dense(embed_dim, use_bias=False, name="out_proj")
 
     def build(self, input_shape):
@@ -500,7 +500,7 @@ class Qwen35MoeGatedDeltaNet(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeExperts(layers.Layer):
+class Qwen3NextExperts(layers.Layer):
     """Dense bank of SwiGLU experts evaluated for every token via einsum.
 
     Weights are stored fused as the HF layout: ``gate_up_proj`` ``(E, 2I, H)``
@@ -555,7 +555,7 @@ class Qwen35MoeExperts(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeSparseBlock(layers.Layer):
+class Qwen3NextSparseBlock(layers.Layer):
     """Qwen2-MoE sparse block: softmax top-k router + sigmoid-gated shared expert.
 
     The bias-free router softmaxes over all experts in float32, keeps the
@@ -589,10 +589,10 @@ class Qwen35MoeSparseBlock(layers.Layer):
         self.moe_mlp_dim = moe_mlp_dim
         self.shared_mlp_dim = shared_mlp_dim
         self.norm_topk_prob = norm_topk_prob
-        self.experts = Qwen35MoeExperts(
+        self.experts = Qwen3NextExperts(
             num_experts, embed_dim, moe_mlp_dim, name="experts"
         )
-        self.shared_expert = Qwen35MoeMLP(
+        self.shared_expert = Qwen3NextMLP(
             embed_dim, shared_mlp_dim, name="shared_expert"
         )
         self.shared_expert_gate = layers.Dense(
@@ -641,13 +641,13 @@ class Qwen35MoeSparseBlock(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeDecoderLayer(layers.Layer):
+class Qwen3NextDecoderLayer(layers.Layer):
     """One hybrid Qwen3.5 decoder block: token mixer then pre-norm SwiGLU.
 
     Pre-norm residual block ``h = x + mixer(attention_norm(x))`` then
     ``h = h + mlp(mlp_norm(h))``, where the token ``mixer`` is selected by
-    ``layer_type``: :class:`Qwen35MoeAttention` (gated full attention) for
-    ``"full_attention"``, otherwise :class:`Qwen35MoeGatedDeltaNet` (linear
+    ``layer_type``: :class:`Qwen3NextAttention` (gated full attention) for
+    ``"full_attention"``, otherwise :class:`Qwen3NextGatedDeltaNet` (linear
     attention). Rotary tables and the mask are forwarded only to the full-attention
     mixer; the cache state threaded through ``past_key_value`` is whatever the
     chosen mixer produces.
@@ -673,10 +673,10 @@ class Qwen35MoeDecoderLayer(layers.Layer):
         self.use_moe = use_moe
         c = config
         eps = c["norm_eps"]
-        self.attention_norm = Qwen35MoeRMSNorm(eps=eps, name="attention_norm")
-        self.mlp_norm = Qwen35MoeRMSNorm(eps=eps, name="mlp_norm")
+        self.attention_norm = Qwen3NextRMSNorm(eps=eps, name="attention_norm")
+        self.mlp_norm = Qwen3NextRMSNorm(eps=eps, name="mlp_norm")
         if use_moe:
-            self.mlp = Qwen35MoeSparseBlock(
+            self.mlp = Qwen3NextSparseBlock(
                 c["num_experts"],
                 c["num_experts_per_tok"],
                 c["embed_dim"],
@@ -686,9 +686,9 @@ class Qwen35MoeDecoderLayer(layers.Layer):
                 name="mlp",
             )
         else:
-            self.mlp = Qwen35MoeMLP(c["embed_dim"], c["mlp_dim"], name="mlp")
+            self.mlp = Qwen3NextMLP(c["embed_dim"], c["mlp_dim"], name="mlp")
         if layer_type == "full_attention":
-            self.attention = Qwen35MoeAttention(
+            self.attention = Qwen3NextAttention(
                 c["embed_dim"],
                 c["num_heads"],
                 c["num_kv_heads"],
@@ -698,7 +698,7 @@ class Qwen35MoeDecoderLayer(layers.Layer):
                 name="attention",
             )
         else:
-            self.linear_attn = Qwen35MoeGatedDeltaNet(
+            self.linear_attn = Qwen3NextGatedDeltaNet(
                 c["embed_dim"],
                 c["linear_num_key_heads"],
                 c["linear_num_value_heads"],

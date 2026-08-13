@@ -1614,7 +1614,7 @@
    ]
   }
  },
- "Qwen35MoeTokenizer": {
+ "Qwen3NextTokenizer": {
   "<empty>": {
    "ids": []
   },

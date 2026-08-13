@@ -6,7 +6,7 @@ DEFAULT_SYSTEM = "You are a helpful assistant."
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen35MoeTokenizer(BaseTokenizer):
+class Qwen3NextTokenizer(BaseTokenizer):
     """Qwen3.5 BPE tokenizer (``tokenizers`` backend)."""
 
     def __init__(self, hf_id=None, tokenizer_file=None, **kwargs):

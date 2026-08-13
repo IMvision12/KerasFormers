@@ -16,7 +16,7 @@ Gated-DeltaNet linear-attention layers with periodic full-attention layers
 the full-attention path.
 
 
-See also [qwen3.md](qwen3.md), [qwen3_5_moe.md](qwen3_5_moe.md).
+See also [qwen3.md](qwen3.md), [qwen3_next.md](qwen3_next.md).
 
 ## Variants
 

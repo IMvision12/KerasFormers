@@ -38,7 +38,7 @@ Encoders for embeddings and masked language modelling, and decoder LLMs, dense a
 - [Qwen3](qwen3.md)
 - [Qwen3 MoE](qwen3_moe.md)
 - [Qwen3.5](qwen3_5.md)
-- [Qwen3.5 MoE](qwen3_5_moe.md)
+- [Qwen3-Next](qwen3_next.md)
 - [RoBERTa](roberta.md)
 - [XLM-RoBERTa](xlm_roberta.md)
 
