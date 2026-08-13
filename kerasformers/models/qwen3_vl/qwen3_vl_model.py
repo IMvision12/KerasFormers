@@ -7,7 +7,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     vision_rotary_cos_sin,
 )
 
-from .qwen3_vl_config import QWEN3_VL_CONFIG, QWEN3_VL_TOKENS, QWEN3_VL_WEIGHTS_URLS
+from .qwen3_vl_config import QWEN3_VL_TOKENS, Qwen3VLConfig
 from .qwen3_vl_layers import (
     Qwen3VLRMSNorm,
     Qwen3VLTextDecoderLayer,
@@ -386,7 +386,7 @@ class Qwen3VLModel(Qwen2VLModel):
 
     Construction:
 
-    >>> Qwen3VLModel.from_weights("qwen3-vl-2b-instruct")
+    >>> Qwen3VLModel.from_weights("kerasformers/qwen3-vl-2b-instruct")
     >>> Qwen3VLModel.from_weights("hf:Qwen/Qwen3-VL-4B-Instruct")
 
     Reference:
@@ -429,8 +429,7 @@ class Qwen3VLModel(Qwen2VLModel):
 
     HF_MODEL_TYPE = "qwen3_vl"
     default_load_dtype = "bfloat16"
-    BASE_MODEL_CONFIG = QWEN3_VL_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN3_VL_WEIGHTS_URLS
+    config_class = Qwen3VLConfig
 
     def __init__(
         self,
