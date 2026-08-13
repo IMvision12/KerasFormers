@@ -1,13 +1,13 @@
 # Qwen3-VL
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> the eight dense sizes (2B / 4B / 8B / 32B, each Instruct + Thinking)
+are hosted as pretrained Keras weights on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> and <code>kf_preprocessor.json</code> plus a
+sharded <code>model.weights.json</code> + shards and a <code>tokenizer.json</code>). Load the
+model and processor with <code>from_weights("kerasformers/&lt;variant&gt;")</code>. The MoE
+sizes (30B-A3B / 235B-A22B) are a separate architecture and are not hosted here.
 </div>
 
 Alibaba's Qwen3-VL vision-language models, ported to pure Keras 3. It follows the
@@ -17,24 +17,32 @@ rather than Qwen2-VL's per-frame budget, and samples frames at 2 fps by default.
 
 Links:
 
+- Paper: [Qwen3 Technical Report (arXiv:2505.09388)](https://arxiv.org/abs/2505.09388)
 - HF docs: [transformers/model_doc/qwen3_vl](https://huggingface.co/docs/transformers/model_doc/qwen3_vl)
 
 See also [qwen2_vl.md](qwen2_vl.md), [qwen2_5_vl.md](qwen2_5_vl.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Preconverted, bf16 weights are hosted under `kerasformers/`. Load the model and processor
+with `from_weights("kerasformers/<variant>")`; the `-instruct` sizes are the
+instruction-tuned checkpoints and `-thinking` the reasoning checkpoints. Qwen3-VL is
+Apache 2.0.
 
 | Variant | Hub |
 |---|---|
-| `qwen3-vl-2b-instruct` | [`Qwen/Qwen3-VL-2B-Instruct`](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) |
-| `qwen3-vl-2b-thinking` | [`Qwen/Qwen3-VL-2B-Thinking`](https://huggingface.co/Qwen/Qwen3-VL-2B-Thinking) |
-| `qwen3-vl-4b-instruct` | [`Qwen/Qwen3-VL-4B-Instruct`](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct) |
-| `qwen3-vl-4b-thinking` | [`Qwen/Qwen3-VL-4B-Thinking`](https://huggingface.co/Qwen/Qwen3-VL-4B-Thinking) |
-| `qwen3-vl-8b-instruct` | [`Qwen/Qwen3-VL-8B-Instruct`](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) |
-| `qwen3-vl-8b-thinking` | [`Qwen/Qwen3-VL-8B-Thinking`](https://huggingface.co/Qwen/Qwen3-VL-8B-Thinking) |
-| `qwen3-vl-32b-instruct` | [`Qwen/Qwen3-VL-32B-Instruct`](https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct) |
-| `qwen3-vl-32b-thinking` | [`Qwen/Qwen3-VL-32B-Thinking`](https://huggingface.co/Qwen/Qwen3-VL-32B-Thinking) |
+| `qwen3-vl-2b-instruct` | [`kerasformers/qwen3-vl-2b-instruct`](https://huggingface.co/kerasformers/qwen3-vl-2b-instruct) |
+| `qwen3-vl-2b-thinking` | [`kerasformers/qwen3-vl-2b-thinking`](https://huggingface.co/kerasformers/qwen3-vl-2b-thinking) |
+| `qwen3-vl-4b-instruct` | [`kerasformers/qwen3-vl-4b-instruct`](https://huggingface.co/kerasformers/qwen3-vl-4b-instruct) |
+| `qwen3-vl-4b-thinking` | [`kerasformers/qwen3-vl-4b-thinking`](https://huggingface.co/kerasformers/qwen3-vl-4b-thinking) |
+| `qwen3-vl-8b-instruct` | [`kerasformers/qwen3-vl-8b-instruct`](https://huggingface.co/kerasformers/qwen3-vl-8b-instruct) |
+| `qwen3-vl-8b-thinking` | [`kerasformers/qwen3-vl-8b-thinking`](https://huggingface.co/kerasformers/qwen3-vl-8b-thinking) |
+| `qwen3-vl-32b-instruct` | [`kerasformers/qwen3-vl-32b-instruct`](https://huggingface.co/kerasformers/qwen3-vl-32b-instruct) |
+| `qwen3-vl-32b-thinking` | [`kerasformers/qwen3-vl-32b-thinking`](https://huggingface.co/kerasformers/qwen3-vl-32b-thinking) |
+
+Upstream Qwen safetensors also load directly via the `hf:` prefix, e.g.
+`from_weights("hf:Qwen/Qwen3-VL-4B-Instruct")`, which converts them in process (pass
+`cache_converted=True` to keep the result). See [Loading Weights](loading_weights.md).
 
 ## API
 
@@ -195,8 +203,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.qwen3_vl import Qwen3VLGenerate, Qwen3VLProcessor
 
-model = Qwen3VLGenerate.from_weights("qwen3-vl-2b-instruct")
-processor = Qwen3VLProcessor.from_weights("qwen3-vl-2b-instruct")
+model = Qwen3VLGenerate.from_weights("kerasformers/qwen3-vl-2b-instruct")
+processor = Qwen3VLProcessor.from_weights("kerasformers/qwen3-vl-2b-instruct")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -280,6 +288,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Qwen3VLGenerate.from_weights(
-    "qwen3-vl-2b-instruct", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/qwen3-vl-2b-instruct", quantization="int8", load_dtype="bfloat16"
 )
 ```
