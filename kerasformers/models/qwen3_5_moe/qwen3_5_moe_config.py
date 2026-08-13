@@ -1,3 +1,44 @@
+from kerasformers.base import BaseConfig
+
+
+class Qwen35MoeConfig(BaseConfig):
+    r"""Configuration for Qwen3-Next: [`Qwen35MoeModel`] and [`Qwen35MoeGenerate`].
+
+    A hybrid decoder: most blocks are Gated-DeltaNet linear-attention layers, with a
+    full-attention block every ``full_attention_interval``; both use a sparse MoE MLP
+    (a softmax router over ``num_experts`` fused experts plus a sigmoid-gated shared
+    expert). Full-attention blocks use partial-rotary GQA with per-head QK-norm.
+
+    Args mirror [`Qwen35MoeModel`]; see that class for per-field descriptions."""
+
+    model_type = "qwen3_next"
+
+    vocab_size: int = 151936
+    embed_dim: int = 2048
+    mlp_dim: int = 5120
+    num_layers: int = 48
+    num_heads: int = 16
+    num_kv_heads: int = 2
+    head_dim: int = 256
+    norm_eps: float = 1e-6
+    rope_theta: float = 10000000.0
+    partial_rotary_factor: float = 0.25
+    tie_embeddings: bool = False
+    full_attention_interval: int = 4
+    linear_conv_kernel_dim: int = 4
+    linear_key_head_dim: int = 128
+    linear_value_head_dim: int = 128
+    linear_num_key_heads: int = 16
+    linear_num_value_heads: int = 32
+    num_experts: int = 512
+    num_experts_per_tok: int = 10
+    moe_mlp_dim: int = 512
+    shared_mlp_dim: int = 512
+    norm_topk_prob: bool = True
+    decoder_sparse_step: int = 1
+    mlp_only_layers: tuple = ()
+
+
 QWEN3_NEXT_80B = {
     "vocab_size": 151936,
     "embed_dim": 2048,

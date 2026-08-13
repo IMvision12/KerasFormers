@@ -1,3 +1,4 @@
+from kerasformers.models.qwen3_5_moe.qwen3_5_moe_config import Qwen35MoeConfig
 from kerasformers.models.qwen3_5_moe.qwen3_5_moe_model import (
     Qwen35MoeGenerate,
     Qwen35MoeModel,
@@ -8,4 +9,5 @@ __all__ = [
     "Qwen35MoeModel",
     "Qwen35MoeGenerate",
     "Qwen35MoeTokenizer",
+    "Qwen35MoeConfig",
 ]
