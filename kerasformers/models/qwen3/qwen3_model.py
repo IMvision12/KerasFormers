@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .qwen3_config import QWEN3_CONFIG, QWEN3_WEIGHTS_URLS, Qwen3Config
+from .qwen3_config import Qwen3Config
 from .qwen3_layers import Qwen3DecoderLayer, Qwen3RMSNorm
 
 MASK_NEG = -1e9
@@ -21,7 +21,7 @@ class Qwen3Model(SubclassedBaseModel):
     rather than as a static graph. Returns raw features; use :class:`Qwen3Generate`
     for logits / text.
 
-        model = Qwen3Model.from_weights("qwen3-0.6b")
+        model = Qwen3Model.from_weights("kerasformers/qwen3-0.6b")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
 
     Args:
@@ -41,8 +41,6 @@ class Qwen3Model(SubclassedBaseModel):
     HF_MODEL_TYPE = "qwen3"
     default_load_dtype = "bfloat16"
     config_class = Qwen3Config
-    BASE_MODEL_CONFIG = QWEN3_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN3_WEIGHTS_URLS
 
     def __init__(
         self,
@@ -169,7 +167,7 @@ class Qwen3Generate(Qwen3Model, BaseGeneration):
     (parallel prefill into a fixed KV cache) and ``call_with_cache`` (one compiled
     decode step). Constructor ``Args`` are inherited from :class:`Qwen3Model`.
 
-        gen = Qwen3Generate.from_weights("qwen3-0.6b")
+        gen = Qwen3Generate.from_weights("kerasformers/qwen3-0.6b")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
