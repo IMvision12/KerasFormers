@@ -7,15 +7,15 @@ from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
 # Keras weight-path substring -> HF name. Text keys are normalized so
-# ``model.language_model.*`` becomes ``model.*`` (see the key rewrite below); vision
-# keys keep ``visual.*``. Order matters: the specific MoE / vision rules run before the
-# generic ``kernel``/``gamma``/``beta`` fallbacks.
+# ``model.language_model.*`` becomes ``model.*``; vision keys keep ``visual.*``. Order
+# matters: the router / dense-MLP / vision rules run before the generic fallbacks, and
+# the router ``mlp.gate_weight`` rule precedes the dense ``mlp.gate.kernel`` rule so it
+# cannot be corrupted.
 WEIGHT_NAME_MAPPING = {
     "token_embedding.embeddings": "model.embed_tokens.weight",
     "language_model.final_norm.weight": "model.norm.weight",
     "language_model.": "model.",
     "decoder_layer_": "layers.",
-    # Full-attention (gated GQA + QK-norm).
     "attention.query_norm": "self_attn.q_norm",
     "attention.key_norm": "self_attn.k_norm",
     "attention.query": "self_attn.q_proj",
@@ -24,14 +24,14 @@ WEIGHT_NAME_MAPPING = {
     "attention.output_proj": "self_attn.o_proj",
     "attention_norm": "input_layernorm",
     "mlp_norm": "post_attention_layernorm",
-    # MoE: shared expert + router (specific rules before any generic fallback).
-    "mlp.shared_expert.gate": "mlp.shared_expert.gate_proj",
-    "mlp.shared_expert.up": "mlp.shared_expert.up_proj",
-    "mlp.shared_expert.down": "mlp.shared_expert.down_proj",
-    "mlp.shared_expert_gate.kernel": "mlp.shared_expert_gate.weight",
+    # MoE router (before the dense-gate rule).
     "mlp.gate_weight": "mlp.gate.weight",
-    "linear_attn.conv_weight": "linear_attn.conv1d.weight",
+    # Dense MLP (mlp_only_layers); explicit ``.kernel`` so it can't match the router.
+    "mlp.gate.kernel": "mlp.gate_proj.weight",
+    "mlp.up.kernel": "mlp.up_proj.weight",
+    "mlp.down.kernel": "mlp.down_proj.weight",
     # Vision tower.
+    "deepstack_merger_": "deepstack_merger_list.",
     "visual.pos_embed": "visual.pos_embed.weight",
     "blocks_": "blocks.",
     "gamma": "weight",
@@ -42,23 +42,6 @@ WEIGHT_NAME_MAPPING = {
 EXPERT_RE = re.compile(
     r"^(model\.layers\.\d+)\.mlp\.experts\.(\d+)\.(gate_proj|up_proj|down_proj)\.weight$"
 )
-
-
-def split_gated_deltanet_in_proj(layer, qkvz, ba):
-    nk, nv = layer.num_k_heads, layer.num_v_heads
-    hk, hv = layer.head_k_dim, layer.head_v_dim
-    ratio = nv // nk
-    hidden = qkvz.shape[1]
-    group = 2 * hk + 2 * ratio * hv
-    qkvz = qkvz.reshape(nk, group, hidden)
-    q = qkvz[:, :hk].reshape(nk * hk, hidden)
-    k = qkvz[:, hk : 2 * hk].reshape(nk * hk, hidden)
-    v = qkvz[:, 2 * hk : 2 * hk + ratio * hv].reshape(nv * hv, hidden)
-    z = qkvz[:, 2 * hk + ratio * hv :].reshape(nv * hv, hidden)
-    ba = ba.reshape(nk, 2 * ratio, hidden)
-    b = ba[:, :ratio].reshape(nv, hidden)
-    a = ba[:, ratio:].reshape(nv, hidden)
-    return np.concatenate([q, k, v], axis=0), z, b, a
 
 
 def fuse_expert_weights(state):
@@ -93,15 +76,15 @@ def fuse_expert_weights(state):
     return out
 
 
-def transfer_qwen3_5_moe_weights(keras_model, hf_state_dict):
-    """Load an HF Qwen3.5-MoE (``Qwen3_5MoeForConditionalGeneration``) state dict into
+def transfer_qwen3_vl_moe_weights(keras_model, hf_state_dict):
+    """Load an HF Qwen3-VL-MoE (``Qwen3VLMoeForConditionalGeneration``) state dict into
     a freshly built Keras model in place.
 
-    Combines the Qwen3-Next MoE text rules (fuse per-expert experts, split the fused
-    Gated-DeltaNet ``in_proj_qkvz`` / ``in_proj_ba``, squeeze the conv1d weight) with
-    the Qwen3-VL vision rules (learned ``pos_embed`` assigned directly, Conv3d patch
-    embed reshaped for the Keras ``Dense``). HF ``model.language_model.*`` keys are
-    rewritten to ``model.*`` and ``model.visual.*`` to ``visual.*`` first.
+    Like the Qwen3-VL converter (learned ``pos_embed`` assigned directly, Conv3d patch
+    embed reshaped for the Keras ``Dense``, DeepStack mergers) plus the Qwen3-MoE text
+    rules: per-expert ``mlp.experts.N.*`` are fused into ``gate_up_proj`` / ``down_proj``
+    and the router ``mlp.gate.weight`` is copied verbatim. HF ``model.language_model.*``
+    keys are rewritten to ``model.*`` and ``model.visual.*`` to ``visual.*`` first.
     """
     if not keras_model.built or not keras_model.weights:
         m = keras_model.spatial_merge_size
@@ -119,7 +102,6 @@ def transfer_qwen3_5_moe_weights(keras_model, hf_state_dict):
             }
         )
 
-    # Normalize the VLM key namespaces, then fuse the per-expert MoE weights.
     state = {}
     for k, v in hf_state_dict.items():
         if k.startswith("model.visual."):
@@ -129,28 +111,7 @@ def transfer_qwen3_5_moe_weights(keras_model, hf_state_dict):
         state[k] = v
     state = fuse_expert_weights(state)
 
-    # Gated-DeltaNet: split the fused HF in_proj into the 4 Keras projections.
-    handled = set()
-    for i, decoder_layer in enumerate(keras_model.language_model.decoder_layers):
-        if getattr(decoder_layer, "layer_type", None) == "full_attention":
-            continue
-        gdn = decoder_layer.linear_attn
-        prefix = f"model.layers.{i}.linear_attn"
-        qkvz = np.asarray(state[f"{prefix}.in_proj_qkvz.weight"])
-        ba = np.asarray(state[f"{prefix}.in_proj_ba.weight"])
-        qkv_w, z_w, b_w, a_w = split_gated_deltanet_in_proj(gdn, qkvz, ba)
-        for dense, packed in (
-            (gdn.in_proj_qkv, qkv_w),
-            (gdn.in_proj_z, z_w),
-            (gdn.in_proj_b, b_w),
-            (gdn.in_proj_a, a_w),
-        ):
-            transfer_weights(dense.kernel.path, dense.kernel, packed)
-            handled.add(dense.kernel.path)
-
     for weight in tqdm(keras_model.weights, desc="Transferring weights to Keras"):
-        if weight.path in handled:
-            continue
         name = weight.path.split("/", 1)[1].replace("/", ".")
         for old, new in WEIGHT_NAME_MAPPING.items():
             name = name.replace(old, new)
@@ -162,8 +123,6 @@ def transfer_qwen3_5_moe_weights(keras_model, hf_state_dict):
             or name.endswith("mlp.gate.weight")
         ):
             weight.assign(np.asarray(state[name]))  # fused / router: direct copy
-        elif "conv_weight" in weight.path:
-            weight.assign(np.asarray(state[name]).squeeze(1))  # (D,1,K) -> (D,K)
         elif weight.path.endswith("pos_embed"):
             weight.assign(np.asarray(state[name]))
         elif "patch_embed" in weight.path and weight.path.endswith("kernel"):

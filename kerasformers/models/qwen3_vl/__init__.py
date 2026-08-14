@@ -1,3 +1,8 @@
+from kerasformers.models.qwen3_vl.qwen3_vl_config import (
+    Qwen3VLConfig,
+    Qwen3VLTextConfig,
+    Qwen3VLVisionConfig,
+)
 from kerasformers.models.qwen3_vl.qwen3_vl_model import (
     Qwen3VLGenerate,
     Qwen3VLModel,
@@ -8,6 +13,9 @@ from kerasformers.models.qwen3_vl.qwen3_vl_processor import Qwen3VLProcessor
 from kerasformers.models.qwen3_vl.qwen3_vl_video_processor import Qwen3VLVideoProcessor
 
 __all__ = [
+    "Qwen3VLConfig",
+    "Qwen3VLTextConfig",
+    "Qwen3VLVisionConfig",
     "Qwen3VLModel",
     "Qwen3VLGenerate",
     "Qwen3VLTextModel",

@@ -1,13 +1,12 @@
 # Qwen2-VL
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code>, <code>kf_preprocessor.json</code> and
+<code>tokenizer.json</code> plus the Keras weights: <code>model.weights.h5</code>, or a
+sharded <code>model.weights.json</code> + shards for the 72B). Load the model and
+processor with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
 Alibaba's Qwen2-VL vision-language models, ported to pure Keras 3. A
@@ -21,6 +20,7 @@ layout with `grid_t = num_frames // temporal_patch_size`.
 
 Links:
 
+- HF collection: [Qwen2-VL](https://huggingface.co/collections/kerasformers/qwen2-vl-6a7cda6f1cbf2cf66e7b5d36)
 - Paper: [Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution (arXiv:2409.12191)](https://arxiv.org/abs/2409.12191)
 - HF docs: [transformers/model_doc/qwen2_vl](https://huggingface.co/docs/transformers/model_doc/qwen2_vl)
 
@@ -28,16 +28,24 @@ See also [qwen2_5_vl.md](qwen2_5_vl.md), [qwen3_vl.md](qwen3_vl.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Preconverted, bf16 weights are hosted under `kerasformers/`. Load with
+`from_weights("kerasformers/<variant>")`; the `-instruct` suffix marks
+instruction-tuned checkpoints (use the chat template via `Qwen2VLProcessor`), bare
+names are base models. The 2B / 7B sizes are Apache 2.0; the 72B is under the Qwen
+license.
 
 | Variant | Hub |
 |---|---|
-| `qwen2-vl-2b` | [`Qwen/Qwen2-VL-2B`](https://huggingface.co/Qwen/Qwen2-VL-2B) |
-| `qwen2-vl-2b-instruct` | [`Qwen/Qwen2-VL-2B-Instruct`](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) |
-| `qwen2-vl-7b` | [`Qwen/Qwen2-VL-7B`](https://huggingface.co/Qwen/Qwen2-VL-7B) |
-| `qwen2-vl-7b-instruct` | [`Qwen/Qwen2-VL-7B-Instruct`](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct) |
-| `qwen2-vl-72b` | [`Qwen/Qwen2-VL-72B`](https://huggingface.co/Qwen/Qwen2-VL-72B) |
-| `qwen2-vl-72b-instruct` | [`Qwen/Qwen2-VL-72B-Instruct`](https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct) |
+| `qwen2-vl-2b` | [`kerasformers/qwen2-vl-2b`](https://huggingface.co/kerasformers/qwen2-vl-2b) |
+| `qwen2-vl-2b-instruct` | [`kerasformers/qwen2-vl-2b-instruct`](https://huggingface.co/kerasformers/qwen2-vl-2b-instruct) |
+| `qwen2-vl-7b` | [`kerasformers/qwen2-vl-7b`](https://huggingface.co/kerasformers/qwen2-vl-7b) |
+| `qwen2-vl-7b-instruct` | [`kerasformers/qwen2-vl-7b-instruct`](https://huggingface.co/kerasformers/qwen2-vl-7b-instruct) |
+| `qwen2-vl-72b` | [`kerasformers/qwen2-vl-72b`](https://huggingface.co/kerasformers/qwen2-vl-72b) |
+| `qwen2-vl-72b-instruct` | [`kerasformers/qwen2-vl-72b-instruct`](https://huggingface.co/kerasformers/qwen2-vl-72b-instruct) |
+
+Upstream Qwen safetensors also load directly via the `hf:` prefix, e.g.
+`from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")`, which converts them in process (pass
+`cache_converted=True` to keep the result). See [Loading Weights](loading_weights.md).
 
 ## API
 
@@ -185,8 +193,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLProcessor
 
-model = Qwen2VLGenerate.from_weights("qwen2-vl-2b")
-processor = Qwen2VLProcessor.from_weights("qwen2-vl-2b")
+model = Qwen2VLGenerate.from_weights("kerasformers/qwen2-vl-2b")
+processor = Qwen2VLProcessor.from_weights("kerasformers/qwen2-vl-2b")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -271,7 +279,7 @@ have rendered yourself (or go through the processor above).
 ```python
 from kerasformers.models.qwen2_vl import Qwen2VLTokenizer
 
-tokenizer = Qwen2VLTokenizer.from_weights("qwen2-vl-2b")
+tokenizer = Qwen2VLTokenizer.from_weights("kerasformers/qwen2-vl-2b")
 inputs = tokenizer("Who wrote Dune?")
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(tokenizer.decode(outputs[0]))
@@ -284,6 +292,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Qwen2VLGenerate.from_weights(
-    "qwen2-vl-2b", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/qwen2-vl-2b", quantization="int8", load_dtype="bfloat16"
 )
 ```

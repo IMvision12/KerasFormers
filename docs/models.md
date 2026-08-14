@@ -38,7 +38,7 @@ Encoders for embeddings and masked language modelling, and decoder LLMs, dense a
 - [Qwen3](qwen3.md)
 - [Qwen3 MoE](qwen3_moe.md)
 - [Qwen3.5](qwen3_5.md)
-- [Qwen3.5 MoE](qwen3_5_moe.md)
+- [Qwen3-Next](qwen3_next.md)
 - [RoBERTa](roberta.md)
 - [XLM-RoBERTa](xlm_roberta.md)
 
@@ -104,6 +104,8 @@ Vision-language encoders, generative VLMs, and grounding across detection, OCR, 
 - [Qwen2-VL](qwen2_vl.md)
 - [Qwen2.5-VL](qwen2_5_vl.md)
 - [Qwen3-VL](qwen3_vl.md)
+- [Qwen3-VL-MoE](qwen3_vl_moe.md)
+- [Qwen3.5-MoE](qwen3_5_moe.md)
 - [SAM 3](sam3.md)
 - [SigLIP](siglip.md)
 - [SigLIP 2](siglip2.md)

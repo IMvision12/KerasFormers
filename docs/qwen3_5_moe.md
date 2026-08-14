@@ -1,166 +1,123 @@
 # Qwen3.5-MoE
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> and <code>kf_preprocessor.json</code> plus a
+sharded <code>model.weights.json</code> + shards and a <code>tokenizer.json</code>). Load the
+model and processor with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
-The Mixture-of-Experts variant of Qwen3.5, ported to pure Keras 3. It keeps the
-Gated-DeltaNet / full-attention hybrid and replaces the MLP with a routed expert
-bank.
+Alibaba's Qwen3.5-MoE vision-language models, ported to pure Keras 3. Qwen3.5-MoE is a
+**multimodal Mixture-of-Experts** model (`Qwen3_5MoeForConditionalGeneration`): a
+Qwen3-VL-style vision tower feeds a **Qwen3-Next hybrid MoE** text decoder, so it pairs
+image + video understanding with the sparse hybrid backbone.
 
-Memory is governed by **total** parameters, not active ones.
+- **Text backbone**: the Qwen3-Next hybrid, most blocks are Gated-DeltaNet linear
+  attention with a gated full-attention block every fourth layer (GQA, per-head QK-norm,
+  partial-rotary **interleaved M-RoPE**), and every block's MLP is a softmax-routed
+  expert bank plus a sigmoid-gated shared expert. Zero-centered RMSNorm.
+- **Vision tower**: the Qwen3-VL ViT (learned, interpolated position embeddings, GELU
+  blocks, 2x2 patch merger) **without DeepStack**.
+- **Fusion**: image/video placeholder tokens are replaced by the merged patch
+  embeddings, and 3D M-RoPE positions are derived from each image's `(t, h, w)` grid.
 
+Links:
 
-See also [qwen3_5.md](qwen3_5.md), [qwen3_moe.md](qwen3_moe.md).
+- HF collection: [Qwen3.5-MoE](https://huggingface.co/collections/kerasformers/qwen35-moe-6a7eb77a1a41110f3195af09)
+- Paper: [Qwen3 Technical Report (arXiv:2505.09388)](https://arxiv.org/abs/2505.09388)
+- HF docs: [transformers/model_doc/qwen3_5_moe](https://huggingface.co/docs/transformers/model_doc/qwen3_5_moe)
+
+See also [qwen3_next.md](qwen3_next.md) (the text-only Qwen3-Next MoE), [qwen3_5.md](qwen3_5.md)
+(the dense Qwen3.5 text backbone), [qwen3_vl.md](qwen3_vl.md) (the dense Qwen3-VL).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Preconverted, bf16 weights are hosted under `kerasformers/`. Load the model and processor
+with `from_weights("kerasformers/<variant>")`; the `-base` suffix marks the base
+(non-instruction-tuned) checkpoints. Qwen3.5-MoE is Apache 2.0.
 
 | Variant | Hub |
 |---|---|
-| `qwen3-next-80b-a3b-instruct` | [`Qwen/Qwen3-Next-80B-A3B-Instruct`](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct) |
-| `qwen3-next-80b-a3b-thinking` | [`Qwen/Qwen3-Next-80B-A3B-Thinking`](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Thinking) |
+| `qwen3.5-35b-a3b` | [`kerasformers/qwen3.5-35b-a3b`](https://huggingface.co/kerasformers/qwen3.5-35b-a3b) |
+| `qwen3.5-35b-a3b-base` | [`kerasformers/qwen3.5-35b-a3b-base`](https://huggingface.co/kerasformers/qwen3.5-35b-a3b-base) |
+| `qwen3.5-122b-a10b` | [`kerasformers/qwen3.5-122b-a10b`](https://huggingface.co/kerasformers/qwen3.5-122b-a10b) |
+
+Upstream Qwen safetensors also load directly via the `hf:` prefix, e.g.
+`from_weights("hf:Qwen/Qwen3.5-35B-A3B")`, which converts them in process (pass
+`cache_converted=True` to keep the result). See [Loading Weights](loading_weights.md).
 
 ## API
 
-### `Qwen35MoeModel`
+### `Qwen3_5MoeModel`
 
-The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, embed_dim)}`.
+The multimodal backbone (vision tower + Qwen3-Next MoE decoder), no LM head. Returns
+`{"last_hidden_state": (batch, seq, embed_dim)}`.
 
 | Arg | Default | Meaning |
 |---|---|---|
-| `vocab_size` | `151936` | token vocabulary size |
-| `embed_dim` | `2048` | model width |
-| `mlp_dim` | `5120` | MLP inner width |
-| `num_layers` | `48` | decoder blocks |
-| `num_heads` | `16` | query heads |
+| `vocab_size` | `248320` | token vocabulary size |
+| `embed_dim` | `2048` | text model width |
+| `num_layers` | `40` | decoder blocks |
+| `num_heads` | `16` | query heads (full-attention layers) |
 | `num_kv_heads` | `2` | key/value heads (GQA) |
 | `head_dim` | `256` | per-head width |
-| `norm_eps` | `1e-06` | RMSNorm epsilon |
-| `rope_theta` | `10000000.0` | rotary base frequency |
-| `partial_rotary_factor` | `0.25` | fraction of each head that gets rotated |
-| `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
-| `full_attention_interval` | `4` |  |
-| `linear_conv_kernel_dim` | `4` |  |
-| `linear_key_head_dim` | `128` |  |
-| `linear_value_head_dim` | `128` |  |
-| `linear_num_key_heads` | `16` |  |
-| `linear_num_value_heads` | `32` |  |
-| `num_experts` | `512` | expert count |
-| `num_experts_per_tok` | `10` | experts routed per token |
+| `partial_rotary_factor` | `0.25` | fraction of `head_dim` that gets rotary |
+| `mrope_section` | `(11, 11, 10)` | interleaved M-RoPE split (time/height/width) |
+| `full_attention_interval` | `4` | full-attention block every Nth layer |
+| `num_experts` | `256` | routed experts |
+| `num_experts_per_tok` | `8` | experts routed per token |
 | `moe_mlp_dim` | `512` | per-expert inner width |
-| `shared_mlp_dim` | `512` |  |
-| `norm_topk_prob` | `True` |  |
-| `decoder_sparse_step` | `1` |  |
-| `mlp_only_layers` | `()` |  |
+| `shared_mlp_dim` | `512` | shared-expert inner width |
+| `linear_*` | (Qwen3-Next) | Gated-DeltaNet head dims / counts / conv kernel |
+| `vision_depth` | `27` | vision blocks |
+| `vision_embed_dim` | `1152` | vision tower width |
+| `vision_out_dim` | `embed_dim` | merger output width |
+| `num_position_embeddings` | `2304` | learned vision position grid |
+| `patch_size` | `16` | vision patch size |
+| `image_token_id` | `248056` | placeholder token expanded per image |
+| `video_token_id` | `248057` | placeholder token expanded per video |
 
-### `Qwen35MoeGenerate`
+### `Qwen3_5MoeGenerate`
 
-`Qwen35MoeModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
-arguments as `Qwen35MoeModel`.
+`Qwen3_5MoeModel` plus a (tied) LM head and fast `.generate()` (image+text -> text).
+Returns `{"logits": (batch, seq, vocab_size)}`. Prefill runs the vision encoder +
+M-RoPE into a **hybrid** per-layer cache (fixed-slot KV for the full-attention layers,
+`(conv_state, recurrent_state)` for the Gated-DeltaNet layers); decode advances one text
+token at a time.
 
-```python
-generate(
-    input_ids,
-    attention_mask=None,
-    max_new_tokens=None,
-    eos_token_id=None,
-    sampler=None,
-    seed=None,
-    **prefill_inputs,
-)
-```
+### `Qwen3_5MoeProcessor`
 
-| Arg | Default | Meaning |
-|---|---|---|
-| `input_ids` | required | `(batch, seq)` token ids |
-| `attention_mask` | `None` | `(batch, seq)` 1 = keep, 0 = padding |
-| `max_new_tokens` | `None` | tokens to generate |
-| `eos_token_id` | `None` | stop token (defaults to the tokenizer's) |
-| `sampler` | `None` | sampling strategy; greedy when unset |
-| `seed` | `None` | seed for stochastic samplers |
-
-### `Qwen35MoeTokenizer`
-
-Tokenizer on the `tokenizers` backend.
-
-```python
-Qwen35MoeTokenizer(hf_id=None, tokenizer_file=None)
-```
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `hf_id` | `None` | Hub repo to pull the tokenizer files from |
-| `tokenizer_file` | `None` | explicit path to a `tokenizer.json` |
-
-Calling it returns `{"input_ids", "attention_mask"}`, padded across the batch. It
-accepts a plain string, a list of strings (a batch), or a chat-message list, which is
-routed through `apply_chat_template` automatically. Decode with `.decode(ids)` for one
-sequence or `.batch_decode(ids)` for a batch.
+Image/video + text processor (ChatML + image-pad expansion), a 16px-patch Qwen-VL
+processor with the Qwen3.5-MoE tokenizer and video processor.
 
 ## End-to-end example
-
-### Single input
 
 ```python
 import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.qwen3_5_moe import Qwen35MoeGenerate, Qwen35MoeTokenizer
+from PIL import Image
+from kerasformers.models.qwen3_5_moe import Qwen3_5MoeGenerate, Qwen3_5MoeProcessor
 
-model = Qwen35MoeGenerate.from_weights("qwen3-next-80b-a3b-instruct")
-tokenizer = Qwen35MoeTokenizer.from_weights("qwen3-next-80b-a3b-instruct")
+model = Qwen3_5MoeGenerate.from_weights("kerasformers/qwen3.5-35b-a3b")
+processor = Qwen3_5MoeProcessor.from_weights("kerasformers/qwen3.5-35b-a3b")
 
-inputs = tokenizer(
-    [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
+inputs = processor(
+    conversation=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": Image.open("photo.jpg")},
+                {"type": "text", "text": "Describe this image in one sentence."},
+            ],
+        }
+    ]
 )
 outputs = model.generate(**inputs, max_new_tokens=64)
 
-print(tokenizer.decode(outputs[0]))
-```
-
-### Batch
-
-Pass a list of strings. The tokenizer pads them and `generate` runs the batch
-together:
-
-```python
-prompts = [
-    "The capital of France is",
-    "In one sentence, what is a transformer?",
-    "Write a haiku about GPUs.",
-]
-inputs = tokenizer(prompts)  # {"input_ids": (3, seq), "attention_mask": (3, seq)}
-outputs = model.generate(**inputs, max_new_tokens=64)
-
-for text in tokenizer.batch_decode(outputs):
-    print(text)
-```
-
-### Backbone only
-
-```python
-from kerasformers.models.qwen3_5_moe import Qwen35MoeModel
-
-backbone = Qwen35MoeModel.from_weights("qwen3-next-80b-a3b-instruct")
-hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
-```
-
-### Loading from the Hub
-
-Any Hub repo with this architecture works via the `hf:` prefix, including
-community fine-tunes:
-
-```python
-model = Qwen35MoeGenerate.from_weights("hf:Qwen/Qwen3-Next-80B-A3B-Instruct")
+print(processor.decode(outputs[0]))
 ```
 
 ### Lower memory
@@ -169,9 +126,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen35MoeGenerate.from_weights(
-    "qwen3-next-80b-a3b-instruct",
-    quantization="int8",
-    load_dtype="bfloat16",
+model = Qwen3_5MoeGenerate.from_weights(
+    "kerasformers/qwen3.5-35b-a3b", quantization="int8", load_dtype="bfloat16"
 )
 ```

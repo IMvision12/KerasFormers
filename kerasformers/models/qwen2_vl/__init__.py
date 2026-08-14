@@ -1,3 +1,8 @@
+from kerasformers.models.qwen2_vl.qwen2_vl_config import (
+    Qwen2VLConfig,
+    Qwen2VLTextConfig,
+    Qwen2VLVisionConfig,
+)
 from kerasformers.models.qwen2_vl.qwen2_vl_image_processor import Qwen2VLImageProcessor
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     Qwen2VLGenerate,
@@ -14,6 +19,9 @@ __all__ = [
     "Qwen2VLGenerate",
     "Qwen2VLTextModel",
     "Qwen2VLVisionModel",
+    "Qwen2VLConfig",
+    "Qwen2VLTextConfig",
+    "Qwen2VLVisionConfig",
     "Qwen2VLImageProcessor",
     "Qwen2VLVideoProcessor",
     "Qwen2VLTokenizer",

@@ -1768,6 +1768,86 @@ MODEL_TEST_CONFIGS = {
         },
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
+    "Qwen3_5MoeModel": {
+        "module": "kerasformers.models.qwen3_5_moe",
+        "model_cls": "Qwen3_5MoeModel",
+        "model_type": "vlm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "embed_dim": 64,
+            "mlp_dim": 32,
+            "num_layers": 4,
+            "num_heads": 4,
+            "num_kv_heads": 2,
+            "head_dim": 16,
+            "mrope_section": (1, 1, 0),
+            "full_attention_interval": 2,
+            "linear_conv_kernel_dim": 4,
+            "linear_key_head_dim": 8,
+            "linear_value_head_dim": 8,
+            "linear_num_key_heads": 2,
+            "linear_num_value_heads": 4,
+            "num_experts": 4,
+            "num_experts_per_tok": 2,
+            "moe_mlp_dim": 32,
+            "shared_mlp_dim": 32,
+            "tie_embeddings": True,
+            "vision_depth": 4,
+            "vision_embed_dim": 32,
+            "vision_mlp_dim": 64,
+            "vision_num_heads": 4,
+            "vision_out_dim": 64,
+            "num_position_embeddings": 64,
+            "patch_size": 16,
+            "spatial_merge_size": 2,
+            "image_token_id": 4,
+        },
+        "input_factory": "qwen_vl_input",
+        "input_factory_kwargs": {
+            "grid": (1, 4, 4),
+            "patch_dim": 1536,
+            "image_token_id": 4,
+        },
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
+    "Qwen3VLMoeModel": {
+        "module": "kerasformers.models.qwen3_vl_moe",
+        "model_cls": "Qwen3VLMoeModel",
+        "model_type": "vlm",
+        "init_kwargs": {
+            "vocab_size": 128,
+            "embed_dim": 64,
+            "mlp_dim": 48,
+            "num_layers": 4,
+            "num_heads": 4,
+            "num_kv_heads": 2,
+            "head_dim": 16,
+            "mrope_section": (2, 1, 1),
+            "num_experts": 4,
+            "num_experts_per_tok": 2,
+            "moe_mlp_dim": 32,
+            "norm_topk_prob": True,
+            "decoder_sparse_step": 1,
+            "tie_embeddings": True,
+            "vision_depth": 4,
+            "vision_embed_dim": 32,
+            "vision_mlp_dim": 64,
+            "vision_num_heads": 4,
+            "vision_out_dim": 64,
+            "num_position_embeddings": 64,
+            "deepstack_visual_indexes": (1, 2),
+            "patch_size": 16,
+            "spatial_merge_size": 2,
+            "image_token_id": 4,
+        },
+        "input_factory": "qwen_vl_input",
+        "input_factory_kwargs": {
+            "grid": (1, 4, 4),
+            "patch_dim": 1536,
+            "image_token_id": 4,
+        },
+        "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
+    },
     # ---- Text encoders (BERT) ----
     "BertModel": {
         "module": "kerasformers.models.bert",
@@ -3232,9 +3312,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"last_hidden_state": (2, 6, 64)},
     },
-    "Qwen35MoeModel": {
-        "module": "kerasformers.models.qwen3_5_moe",
-        "model_cls": "Qwen35MoeModel",
+    "Qwen3NextModel": {
+        "module": "kerasformers.models.qwen3_next",
+        "model_cls": "Qwen3NextModel",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -3379,6 +3459,13 @@ for _base in ("Qwen2VLModel", "Qwen2_5VLModel", "Qwen3VLModel"):
     _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
     MODEL_TEST_CONFIGS[_gen] = _entry
 
+for _base in ("Qwen3_5MoeModel", "Qwen3VLMoeModel"):
+    _gen = _base.replace("Model", "Generate")
+    _entry = dict(MODEL_TEST_CONFIGS[_base])
+    _entry["model_cls"] = _gen
+    _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
+    MODEL_TEST_CONFIGS[_gen] = _entry
+
 
 # Same for the text generate classes (Qwen2 / Qwen3 / Qwen3.5 / GPT-OSS / GPT / GPT-2):
 # each is `<base-without-Model>Generate`, adding an LM head (logits output) on top of
@@ -3411,7 +3498,7 @@ for _base in (
     "MixtralModel",
     "Qwen2MoeModel",
     "Qwen3MoeModel",
-    "Qwen35MoeModel",
+    "Qwen3NextModel",
 ):
     _gen = _base.replace("Model", "Generate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])

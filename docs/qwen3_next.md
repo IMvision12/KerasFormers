@@ -1,77 +1,80 @@
-# Qwen3.5 (Qwen3-Next)
+# Qwen3-Next
 
 <div class="kf-note kf-note--weights">
-<b>Weights:</b> pretrained Keras weights live on Hugging Face under
-<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
-(each repo carries <code>kf_config.json</code> and <code>tokenizer.json</code> plus the
-Keras weights: <code>model.weights.h5</code>, or a sharded <code>model.weights.json</code> +
-shards for the larger checkpoints). Load with
+<b>Weights:</b> the 80B-A3B checkpoints are hosted as pretrained Keras weights on Hugging
+Face under <a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> and <code>tokenizer.json</code> plus a sharded
+<code>model.weights.json</code> + shards). Load with
 <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
-Alibaba's Qwen3.5 hybrid-attention LLM, ported to pure Keras 3. It interleaves
-Gated-DeltaNet linear-attention layers with periodic full-attention layers
-(`full_attention_interval`), keeping partial rotary embeddings and QK-RMSNorm on
-the full-attention path.
+Alibaba's Qwen3-Next (`Qwen3-Next-80B-A3B`), ported to pure Keras 3. A hybrid decoder:
+most blocks are Gated-DeltaNet linear-attention layers, with a full-attention block
+every fourth layer; both feed a sparse Mixture-of-Experts MLP (a softmax router over the
+routed experts plus a sigmoid-gated shared expert). This is the actual released MoE
+checkpoint; [qwen3_5.md](qwen3_5.md) documents the dense-MLP form of the same hybrid.
 
+Memory is governed by **total** parameters, not active ones.
 
-See also [qwen3.md](qwen3.md), [qwen3_next.md](qwen3_next.md).
+Links:
 
-Collection: [Qwen3.5](https://huggingface.co/collections/kerasformers/qwen35-6a7e5421737d73e63669ebb9)
+- HF collection: [Qwen3-Next](https://huggingface.co/collections/kerasformers/qwen3-next-6a7e551ff86ebf2cca455ef1)
+- HF docs: [transformers/model_doc/qwen3_next](https://huggingface.co/docs/transformers/model_doc/qwen3_next)
+
+See also [qwen3_5.md](qwen3_5.md), [qwen3_moe.md](qwen3_moe.md).
 
 ## Variants
 
 Preconverted, bf16 weights are hosted under `kerasformers/`. Load with
-`from_weights("kerasformers/<variant>")`; the `-base` suffix marks the base
-(non-instruction-tuned) checkpoints. Qwen3.5 is Apache 2.0. The MoE sizes live on
-[qwen3_5_moe.md](qwen3_5_moe.md).
+`from_weights("kerasformers/<variant>")`; the `-instruct` checkpoint is
+instruction-tuned and `-thinking` the reasoning checkpoint. Qwen3-Next is Apache 2.0.
 
 | Variant | Hub |
 |---|---|
-| `qwen3.5-0.8b` | [`kerasformers/qwen3.5-0.8b`](https://huggingface.co/kerasformers/qwen3.5-0.8b) |
-| `qwen3.5-0.8b-base` | [`kerasformers/qwen3.5-0.8b-base`](https://huggingface.co/kerasformers/qwen3.5-0.8b-base) |
-| `qwen3.5-2b` | [`kerasformers/qwen3.5-2b`](https://huggingface.co/kerasformers/qwen3.5-2b) |
-| `qwen3.5-2b-base` | [`kerasformers/qwen3.5-2b-base`](https://huggingface.co/kerasformers/qwen3.5-2b-base) |
-| `qwen3.5-4b` | [`kerasformers/qwen3.5-4b`](https://huggingface.co/kerasformers/qwen3.5-4b) |
-| `qwen3.5-4b-base` | [`kerasformers/qwen3.5-4b-base`](https://huggingface.co/kerasformers/qwen3.5-4b-base) |
-| `qwen3.5-9b` | [`kerasformers/qwen3.5-9b`](https://huggingface.co/kerasformers/qwen3.5-9b) |
-| `qwen3.5-9b-base` | [`kerasformers/qwen3.5-9b-base`](https://huggingface.co/kerasformers/qwen3.5-9b-base) |
-| `qwen3.5-27b` | [`kerasformers/qwen3.5-27b`](https://huggingface.co/kerasformers/qwen3.5-27b) |
+| `qwen3-next-80b-a3b-instruct` | [`kerasformers/qwen3-next-80b-a3b-instruct`](https://huggingface.co/kerasformers/qwen3-next-80b-a3b-instruct) |
+| `qwen3-next-80b-a3b-thinking` | [`kerasformers/qwen3-next-80b-a3b-thinking`](https://huggingface.co/kerasformers/qwen3-next-80b-a3b-thinking) |
 
 Upstream Qwen safetensors also load directly via the `hf:` prefix, e.g.
-`from_weights("hf:Qwen/Qwen3.5-4B")`, which converts them in process (pass
+`from_weights("hf:Qwen/Qwen3-Next-80B-A3B-Instruct")`, which converts them in process (pass
 `cache_converted=True` to keep the result). See [Loading Weights](loading_weights.md).
 
 ## API
 
-### `Qwen3_5Model`
+### `Qwen3NextModel`
 
 The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, embed_dim)}`.
 
 | Arg | Default | Meaning |
 |---|---|---|
-| `vocab_size` | `248320` | token vocabulary size |
-| `embed_dim` | `1024` | model width |
-| `mlp_dim` | `3584` | MLP inner width |
-| `num_layers` | `24` | decoder blocks |
-| `num_heads` | `8` | query heads |
+| `vocab_size` | `151936` | token vocabulary size |
+| `embed_dim` | `2048` | model width |
+| `mlp_dim` | `5120` | MLP inner width |
+| `num_layers` | `48` | decoder blocks |
+| `num_heads` | `16` | query heads |
 | `num_kv_heads` | `2` | key/value heads (GQA) |
 | `head_dim` | `256` | per-head width |
 | `norm_eps` | `1e-06` | RMSNorm epsilon |
 | `rope_theta` | `10000000.0` | rotary base frequency |
 | `partial_rotary_factor` | `0.25` | fraction of each head that gets rotated |
-| `tie_embeddings` | `True` | reuse the embedding matrix as the LM head |
+| `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 | `full_attention_interval` | `4` |  |
 | `linear_conv_kernel_dim` | `4` |  |
 | `linear_key_head_dim` | `128` |  |
 | `linear_value_head_dim` | `128` |  |
 | `linear_num_key_heads` | `16` |  |
-| `linear_num_value_heads` | `16` |  |
+| `linear_num_value_heads` | `32` |  |
+| `num_experts` | `512` | expert count |
+| `num_experts_per_tok` | `10` | experts routed per token |
+| `moe_mlp_dim` | `512` | per-expert inner width |
+| `shared_mlp_dim` | `512` |  |
+| `norm_topk_prob` | `True` |  |
+| `decoder_sparse_step` | `1` |  |
+| `mlp_only_layers` | `()` |  |
 
-### `Qwen3_5Generate`
+### `Qwen3NextGenerate`
 
-`Qwen3_5Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
-arguments as `Qwen3_5Model`.
+`Qwen3NextModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
+arguments as `Qwen3NextModel`.
 
 ```python
 generate(
@@ -94,12 +97,12 @@ generate(
 | `sampler` | `None` | sampling strategy; greedy when unset |
 | `seed` | `None` | seed for stochastic samplers |
 
-### `Qwen3_5Tokenizer`
+### `Qwen3NextTokenizer`
 
 Tokenizer on the `tokenizers` backend.
 
 ```python
-Qwen3_5Tokenizer(hf_id=None, tokenizer_file=None)
+Qwen3NextTokenizer(hf_id=None, tokenizer_file=None)
 ```
 
 | Arg | Default | Meaning |
@@ -121,10 +124,10 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.qwen3_5 import Qwen3_5Generate, Qwen3_5Tokenizer
+from kerasformers.models.qwen3_next import Qwen3NextGenerate, Qwen3NextTokenizer
 
-model = Qwen3_5Generate.from_weights("kerasformers/qwen3.5-0.8b")
-tokenizer = Qwen3_5Tokenizer.from_weights("kerasformers/qwen3.5-0.8b")
+model = Qwen3NextGenerate.from_weights("kerasformers/qwen3-next-80b-a3b-instruct")
+tokenizer = Qwen3NextTokenizer.from_weights("kerasformers/qwen3-next-80b-a3b-instruct")
 
 inputs = tokenizer(
     [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
@@ -155,9 +158,9 @@ for text in tokenizer.batch_decode(outputs):
 ### Backbone only
 
 ```python
-from kerasformers.models.qwen3_5 import Qwen3_5Model
+from kerasformers.models.qwen3_next import Qwen3NextModel
 
-backbone = Qwen3_5Model.from_weights("kerasformers/qwen3.5-0.8b")
+backbone = Qwen3NextModel.from_weights("kerasformers/qwen3-next-80b-a3b-instruct")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
@@ -167,7 +170,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Qwen3_5Generate.from_weights("hf:Qwen/Qwen3.5-0.8B")
+model = Qwen3NextGenerate.from_weights("hf:Qwen/Qwen3-Next-80B-A3B-Instruct")
 ```
 
 ### Lower memory
@@ -176,7 +179,9 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen3_5Generate.from_weights(
-    "kerasformers/qwen3.5-0.8b", quantization="int8", load_dtype="bfloat16"
+model = Qwen3NextGenerate.from_weights(
+    "kerasformers/qwen3-next-80b-a3b-instruct",
+    quantization="int8",
+    load_dtype="bfloat16",
 )
 ```
