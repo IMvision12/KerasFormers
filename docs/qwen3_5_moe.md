@@ -33,21 +33,17 @@ See also [qwen3_next.md](qwen3_next.md) (the text-only Qwen3-Next MoE), [qwen3_5
 ## Variants
 
 Preconverted, bf16 weights are hosted under `kerasformers/`. Load the model and processor
-with `from_weights("kerasformers/<variant>")`; the `-instruct` sizes are the
-instruction-tuned checkpoints and `-thinking` the reasoning checkpoints. Qwen3.5-MoE is
-Apache 2.0.
+with `from_weights("kerasformers/<variant>")`; the `-base` suffix marks the base
+(non-instruction-tuned) checkpoints. Qwen3.5-MoE is Apache 2.0.
 
 | Variant | Hub |
 |---|---|
-| `qwen3.5-35b-a3b-instruct` | [`kerasformers/qwen3.5-35b-a3b-instruct`](https://huggingface.co/kerasformers/qwen3.5-35b-a3b-instruct) |
-| `qwen3.5-35b-a3b-thinking` | [`kerasformers/qwen3.5-35b-a3b-thinking`](https://huggingface.co/kerasformers/qwen3.5-35b-a3b-thinking) |
-| `qwen3.5-122b-a10b-instruct` | [`kerasformers/qwen3.5-122b-a10b-instruct`](https://huggingface.co/kerasformers/qwen3.5-122b-a10b-instruct) |
-| `qwen3.5-122b-a10b-thinking` | [`kerasformers/qwen3.5-122b-a10b-thinking`](https://huggingface.co/kerasformers/qwen3.5-122b-a10b-thinking) |
-| `qwen3.5-397b-a17b-instruct` | [`kerasformers/qwen3.5-397b-a17b-instruct`](https://huggingface.co/kerasformers/qwen3.5-397b-a17b-instruct) |
-| `qwen3.5-397b-a17b-thinking` | [`kerasformers/qwen3.5-397b-a17b-thinking`](https://huggingface.co/kerasformers/qwen3.5-397b-a17b-thinking) |
+| `qwen3.5-35b-a3b` | [`kerasformers/qwen3.5-35b-a3b`](https://huggingface.co/kerasformers/qwen3.5-35b-a3b) |
+| `qwen3.5-35b-a3b-base` | [`kerasformers/qwen3.5-35b-a3b-base`](https://huggingface.co/kerasformers/qwen3.5-35b-a3b-base) |
+| `qwen3.5-122b-a10b` | [`kerasformers/qwen3.5-122b-a10b`](https://huggingface.co/kerasformers/qwen3.5-122b-a10b) |
 
 Upstream Qwen safetensors also load directly via the `hf:` prefix, e.g.
-`from_weights("hf:Qwen/Qwen3.5-35B-A3B-Instruct")`, which converts them in process (pass
+`from_weights("hf:Qwen/Qwen3.5-35B-A3B")`, which converts them in process (pass
 `cache_converted=True` to keep the result). See [Loading Weights](loading_weights.md).
 
 ## API
@@ -104,8 +100,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.qwen3_5_moe import Qwen3_5MoeGenerate, Qwen3_5MoeProcessor
 
-model = Qwen3_5MoeGenerate.from_weights("kerasformers/qwen3.5-35b-a3b-instruct")
-processor = Qwen3_5MoeProcessor.from_weights("kerasformers/qwen3.5-35b-a3b-instruct")
+model = Qwen3_5MoeGenerate.from_weights("kerasformers/qwen3.5-35b-a3b")
+processor = Qwen3_5MoeProcessor.from_weights("kerasformers/qwen3.5-35b-a3b")
 
 inputs = processor(
     conversation=[
@@ -130,6 +126,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Qwen3_5MoeGenerate.from_weights(
-    "kerasformers/qwen3.5-35b-a3b-instruct", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/qwen3.5-35b-a3b", quantization="int8", load_dtype="bfloat16"
 )
 ```
