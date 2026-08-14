@@ -20,7 +20,7 @@ class Qwen3_5MoeProcessor(Qwen2VLProcessor):
 
     def __init__(
         self,
-        hf_id="Qwen/Qwen3.5-35B-A3B-Instruct",
+        hf_id="Qwen/Qwen3.5-35B-A3B",
         patch_size=16,
         spatial_merge_size=2,
         temporal_patch_size=2,
