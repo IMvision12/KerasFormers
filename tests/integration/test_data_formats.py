@@ -41,9 +41,13 @@ SKIP_DATA_FORMAT = {
     "Qwen2VLModel",
     "Qwen2_5VLModel",
     "Qwen3VLModel",
+    "Qwen3_5MoeModel",
+    "Qwen3VLMoeModel",
     "Qwen2VLGenerate",
     "Qwen2_5VLGenerate",
     "Qwen3VLGenerate",
+    "Qwen3_5MoeGenerate",
+    "Qwen3VLMoeGenerate",
     # Text LLMs are token-id only -> no image data format.
     "Qwen2Model",
     "Qwen3Model",
