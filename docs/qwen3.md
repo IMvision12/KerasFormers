@@ -15,6 +15,7 @@ attention), keeping RMSNorm, SwiGLU and grouped-query attention otherwise.
 
 Links:
 
+- HF collection: [Qwen3](https://huggingface.co/collections/kerasformers/qwen3-6a7d3fcc4e56b32e86f5b2c4)
 - Paper: [Qwen3 Technical Report (arXiv:2505.09388)](https://arxiv.org/abs/2505.09388)
 - HF docs: [transformers/model_doc/qwen3](https://huggingface.co/docs/transformers/model_doc/qwen3)
 

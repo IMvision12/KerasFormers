@@ -15,6 +15,7 @@ LM head.
 
 Links:
 
+- HF collection: [Qwen2](https://huggingface.co/collections/kerasformers/qwen2-6a69d274d16370be5d0221c8)
 - Paper: [Qwen2 Technical Report (arXiv:2407.10671)](https://arxiv.org/abs/2407.10671)
 - HF docs: [transformers/model_doc/qwen2](https://huggingface.co/docs/transformers/model_doc/qwen2)
 

@@ -17,6 +17,7 @@ rather than Qwen2-VL's per-frame budget, and samples frames at 2 fps by default.
 
 Links:
 
+- HF collection: [Qwen3-VL](https://huggingface.co/collections/kerasformers/qwen3-vl-6a7d7677c2926ecbddb1ed0a)
 - Paper: [Qwen3 Technical Report (arXiv:2505.09388)](https://arxiv.org/abs/2505.09388)
 - HF docs: [transformers/model_doc/qwen3_vl](https://huggingface.co/docs/transformers/model_doc/qwen3_vl)
 

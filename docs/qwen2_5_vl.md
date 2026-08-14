@@ -19,6 +19,7 @@ not override it by hand.
 
 Links:
 
+- HF collection: [Qwen2.5-VL](https://huggingface.co/collections/kerasformers/qwen25-vl-6a7cc9f463d6956b6c3ba911)
 - Paper: [Qwen2.5-VL Technical Report (arXiv:2502.13923)](https://arxiv.org/abs/2502.13923)
 - HF docs: [transformers/model_doc/qwen2_5_vl](https://huggingface.co/docs/transformers/model_doc/qwen2_5_vl)
 

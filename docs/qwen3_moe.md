@@ -17,6 +17,7 @@ Memory is governed by **total** parameters, not active ones.
 
 Links:
 
+- HF collection: [Qwen3-MoE](https://huggingface.co/collections/kerasformers/qwen3-moe-6a7f9b1eacaba9aba25a1d63)
 - Paper: [Qwen3 Technical Report (arXiv:2505.09388)](https://arxiv.org/abs/2505.09388)
 - HF docs: [transformers/model_doc/qwen3_moe](https://huggingface.co/docs/transformers/model_doc/qwen3_moe)
 

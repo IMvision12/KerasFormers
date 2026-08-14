@@ -24,6 +24,7 @@ image + video understanding with the sparse hybrid backbone.
 
 Links:
 
+- HF collection: [Qwen3.5-MoE](https://huggingface.co/collections/kerasformers/qwen35-moe-6a7eb77a1a41110f3195af09)
 - Paper: [Qwen3 Technical Report (arXiv:2505.09388)](https://arxiv.org/abs/2505.09388)
 - HF docs: [transformers/model_doc/qwen3_5_moe](https://huggingface.co/docs/transformers/model_doc/qwen3_5_moe)
 

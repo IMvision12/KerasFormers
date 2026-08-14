@@ -20,6 +20,7 @@ layout with `grid_t = num_frames // temporal_patch_size`.
 
 Links:
 
+- HF collection: [Qwen2-VL](https://huggingface.co/collections/kerasformers/qwen2-vl-6a7cda6f1cbf2cf66e7b5d36)
 - Paper: [Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution (arXiv:2409.12191)](https://arxiv.org/abs/2409.12191)
 - HF docs: [transformers/model_doc/qwen2_vl](https://huggingface.co/docs/transformers/model_doc/qwen2_vl)
 

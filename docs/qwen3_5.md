@@ -1,13 +1,12 @@
 # Qwen3.5 (Qwen3-Next)
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> and <code>tokenizer.json</code> plus the
+Keras weights: <code>model.weights.h5</code>, or a sharded <code>model.weights.json</code> +
+shards for the larger checkpoints). Load with
+<code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
 Alibaba's Qwen3.5 hybrid-attention LLM, ported to pure Keras 3. It interleaves
@@ -18,21 +17,30 @@ the full-attention path.
 
 See also [qwen3.md](qwen3.md), [qwen3_next.md](qwen3_next.md).
 
+Collection: [Qwen3.5](https://huggingface.co/collections/kerasformers/qwen35-6a7e5421737d73e63669ebb9)
+
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Preconverted, bf16 weights are hosted under `kerasformers/`. Load with
+`from_weights("kerasformers/<variant>")`; the `-base` suffix marks the base
+(non-instruction-tuned) checkpoints. Qwen3.5 is Apache 2.0. The MoE sizes live on
+[qwen3_5_moe.md](qwen3_5_moe.md).
 
 | Variant | Hub |
 |---|---|
-| `qwen3.5-0.8b` | [`Qwen/Qwen3.5-0.8B`](https://huggingface.co/Qwen/Qwen3.5-0.8B) |
-| `qwen3.5-0.8b-base` | [`Qwen/Qwen3.5-0.8B-Base`](https://huggingface.co/Qwen/Qwen3.5-0.8B-Base) |
-| `qwen3.5-2b` | [`Qwen/Qwen3.5-2B`](https://huggingface.co/Qwen/Qwen3.5-2B) |
-| `qwen3.5-2b-base` | [`Qwen/Qwen3.5-2B-Base`](https://huggingface.co/Qwen/Qwen3.5-2B-Base) |
-| `qwen3.5-4b` | [`Qwen/Qwen3.5-4B`](https://huggingface.co/Qwen/Qwen3.5-4B) |
-| `qwen3.5-4b-base` | [`Qwen/Qwen3.5-4B-Base`](https://huggingface.co/Qwen/Qwen3.5-4B-Base) |
-| `qwen3.5-9b` | [`Qwen/Qwen3.5-9B`](https://huggingface.co/Qwen/Qwen3.5-9B) |
-| `qwen3.5-9b-base` | [`Qwen/Qwen3.5-9B-Base`](https://huggingface.co/Qwen/Qwen3.5-9B-Base) |
-| `qwen3.5-27b` | [`Qwen/Qwen3.5-27B`](https://huggingface.co/Qwen/Qwen3.5-27B) |
+| `qwen3.5-0.8b` | [`kerasformers/qwen3.5-0.8b`](https://huggingface.co/kerasformers/qwen3.5-0.8b) |
+| `qwen3.5-0.8b-base` | [`kerasformers/qwen3.5-0.8b-base`](https://huggingface.co/kerasformers/qwen3.5-0.8b-base) |
+| `qwen3.5-2b` | [`kerasformers/qwen3.5-2b`](https://huggingface.co/kerasformers/qwen3.5-2b) |
+| `qwen3.5-2b-base` | [`kerasformers/qwen3.5-2b-base`](https://huggingface.co/kerasformers/qwen3.5-2b-base) |
+| `qwen3.5-4b` | [`kerasformers/qwen3.5-4b`](https://huggingface.co/kerasformers/qwen3.5-4b) |
+| `qwen3.5-4b-base` | [`kerasformers/qwen3.5-4b-base`](https://huggingface.co/kerasformers/qwen3.5-4b-base) |
+| `qwen3.5-9b` | [`kerasformers/qwen3.5-9b`](https://huggingface.co/kerasformers/qwen3.5-9b) |
+| `qwen3.5-9b-base` | [`kerasformers/qwen3.5-9b-base`](https://huggingface.co/kerasformers/qwen3.5-9b-base) |
+| `qwen3.5-27b` | [`kerasformers/qwen3.5-27b`](https://huggingface.co/kerasformers/qwen3.5-27b) |
+
+Upstream Qwen safetensors also load directly via the `hf:` prefix, e.g.
+`from_weights("hf:Qwen/Qwen3.5-4B")`, which converts them in process (pass
+`cache_converted=True` to keep the result). See [Loading Weights](loading_weights.md).
 
 ## API
 
@@ -115,8 +123,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.qwen3_5 import Qwen3_5Generate, Qwen3_5Tokenizer
 
-model = Qwen3_5Generate.from_weights("qwen3.5-0.8b")
-tokenizer = Qwen3_5Tokenizer.from_weights("qwen3.5-0.8b")
+model = Qwen3_5Generate.from_weights("kerasformers/qwen3.5-0.8b")
+tokenizer = Qwen3_5Tokenizer.from_weights("kerasformers/qwen3.5-0.8b")
 
 inputs = tokenizer(
     [{"role": "user", "content": "Explain rotary embeddings in one sentence."}]
@@ -149,7 +157,7 @@ for text in tokenizer.batch_decode(outputs):
 ```python
 from kerasformers.models.qwen3_5 import Qwen3_5Model
 
-backbone = Qwen3_5Model.from_weights("qwen3.5-0.8b")
+backbone = Qwen3_5Model.from_weights("kerasformers/qwen3.5-0.8b")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
@@ -169,6 +177,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Qwen3_5Generate.from_weights(
-    "qwen3.5-0.8b", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/qwen3.5-0.8b", quantization="int8", load_dtype="bfloat16"
 )
 ```

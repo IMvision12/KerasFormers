@@ -1,13 +1,11 @@
 # Qwen (text & vision-language)
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> the Qwen families are hosted as preconverted Keras weights on Hugging Face
+under <a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>; load
+with <code>from_weights("kerasformers/&lt;variant&gt;")</code>. Upstream Qwen safetensors
+also convert on the fly via the <code>hf:</code> prefix. See the per-family pages for the
+exact variant lists.
 </div>
 
 Alibaba's Qwen family in **pure Keras 3**: both the text LLMs and the
@@ -37,18 +35,17 @@ Each family exposes two classes:
 - **`*Model`**: base model; its `call` returns features (`last_hidden_state`).
 - **`*Generate`**: adds the LM head + greedy `.generate()`; `call` returns `logits`.
 
-Weights convert **on the fly** from the public Hugging Face checkpoints
-(safetensors downloaded and mapped at load time: bf16 cast to float32, tied and
-untied LM heads both handled). The canonical path is the **friendly variant
-name**; a raw `hf:` id also works for any matching `model_type`:
+The canonical path is the **hosted repo id** `kerasformers/<variant>` (preconverted
+bf16 Keras weights + `kf_config.json`); a raw `hf:` id also converts any matching
+`model_type` on the fly:
 
 ```python
 from kerasformers.models.qwen3 import Qwen3Generate
 from kerasformers.models.qwen2_vl import Qwen2VLGenerate
 
-gen = Qwen3Generate.from_weights("qwen3-4b")  # text
-gen = Qwen2VLGenerate.from_weights("qwen2-vl-7b-instruct")  # multimodal
-# raw hf: ids still work:
+gen = Qwen3Generate.from_weights("kerasformers/qwen3-4b")  # text
+gen = Qwen2VLGenerate.from_weights("kerasformers/qwen2-vl-7b-instruct")  # multimodal
+# raw hf: ids convert from the upstream safetensors:
 gen = Qwen3Generate.from_weights("hf:Qwen/Qwen3-4B")
 ```
 
@@ -70,17 +67,23 @@ Vision-language:
 | Qwen2.5-VL | `qwen2.5-vl-{3b,7b,32b,72b}-instruct` (instruct-only series) |
 | Qwen3-VL | `qwen3-vl-{2b,4b,8b,32b}-instruct` and each `-thinking` |
 
-> **Not yet supported: Mixture-of-Experts.** The MoE checkpoints
-> (Qwen2-57B-A14B `qwen2_moe`; Qwen3 30B-A3B / 235B-A22B `qwen3_moe`; Qwen3-VL
-> 30B-A3B / 235B-A22B `qwen3_vl_moe`; Qwen3.5 35B-A3B / 122B-A10B / 397B-A17B
-> `qwen3_5_moe_text`) use sparse expert blocks the dense ports can't load. They
-> need a separate MoE implementation. Quantized repos (`-AWQ`, `-GPTQ-*`, GGUF)
-> are also out of scope (the converter reads bf16/fp safetensors).
+Mixture-of-Experts (own folders; sparse expert blocks, see each page):
 
-> **Qwen3.5 is itself a multimodal series.** The released checkpoints
-> (`Qwen3_5ForConditionalGeneration`) bundle a vision tower; this port is the
-> **text backbone** (`model_type` `qwen3_5` / `qwen3_5_text`), loaded from each
-> checkpoint's `model.language_model.*` tensors (vision + MTP head ignored).
+| Family | Module | Kind | Variants |
+|---|---|---|---|
+| Qwen2-MoE | `qwen2_moe` | text | `qwen1.5-moe-a2.7b`(`-chat`); `qwen2-57b-a14b`(`-instruct`) |
+| Qwen3-MoE | `qwen3_moe` | text | `qwen3-30b-a3b`(`-base`, `-instruct-2507`, `-thinking-2507`) |
+| Qwen3-Next | `qwen3_next` | text | `qwen3-next-80b-a3b-{instruct,thinking}` |
+| Qwen3-VL-MoE | `qwen3_vl_moe` | image+video+text | `qwen3-vl-30b-a3b-{instruct,thinking}` |
+| Qwen3.5-MoE | `qwen3_5_moe` | image+video+text | `qwen3.5-{35b-a3b,35b-a3b-base,122b-a10b}` |
+
+Quantized repos (`-AWQ`, `-GPTQ-*`, GGUF) are out of scope (the converter reads bf16/fp
+safetensors).
+
+> **Qwen3.5 comes in two forms here.** The dense text backbone is `qwen3_5`
+> (`model_type` `qwen3_5` / `qwen3_5_text`, this page's Qwen3.5 row); the released
+> Mixture-of-Experts checkpoints (`Qwen3_5ForConditionalGeneration`) are the multimodal
+> `qwen3_5_moe` port (see [qwen3_5_moe.md](qwen3_5_moe.md)).
 
 ## Verified parity
 
@@ -148,18 +151,17 @@ like HF) or inline `frames`.
 
 Load the tokenizer / processor with `.from_weights(...)`, passing the **same**
 identifier you give the model, so its files match the checkpoint, e.g.
-`Qwen2Tokenizer.from_weights("hf:Qwen/Qwen2-7B-Instruct")` or
-`Qwen2VLProcessor.from_weights("hf:Qwen/Qwen2-VL-7B-Instruct")`. A bare variant
-like `"qwen2-7b-instruct"` uses the family's shared tokenizer, and the same
-`Qwen2Tokenizer()` / `Qwen2VLProcessor()` constructors fall back to a default Qwen
-repo.
+`Qwen3Tokenizer.from_weights("kerasformers/qwen3-0.6b")` or
+`Qwen2VLProcessor.from_weights("kerasformers/qwen2-vl-2b-instruct")`. The `hf:` prefix
+works too (`Qwen2Tokenizer.from_weights("hf:Qwen/Qwen2-7B-Instruct")`), and the bare
+`Qwen2Tokenizer()` / `Qwen2VLProcessor()` constructors fall back to a default Qwen repo.
 
 ```python
 # text LLM: tokenizer takes the chat messages
 from kerasformers.models.qwen3 import Qwen3Generate, Qwen3Tokenizer
 
-model = Qwen3Generate.from_weights("qwen3-0.6b")
-tokenizer = Qwen3Tokenizer.from_weights("qwen3-0.6b")
+model = Qwen3Generate.from_weights("kerasformers/qwen3-0.6b")
+tokenizer = Qwen3Tokenizer.from_weights("kerasformers/qwen3-0.6b")
 
 messages = [
     {"role": "system", "content": "You are a helpful assistant."},
@@ -172,8 +174,8 @@ print(tokenizer.decode(outputs[0]))
 # vision-language: processor takes the conversation (images inline)
 from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLProcessor
 
-model = Qwen2VLGenerate.from_weights("qwen2-vl-2b-instruct")
-processor = Qwen2VLProcessor.from_weights("qwen2-vl-2b-instruct")
+model = Qwen2VLGenerate.from_weights("kerasformers/qwen2-vl-2b-instruct")
+processor = Qwen2VLProcessor.from_weights("kerasformers/qwen2-vl-2b-instruct")
 
 conversation = [
     {
