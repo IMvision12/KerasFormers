@@ -9,9 +9,6 @@ The shared machinery is documented separately, in [Main Classes](main_classes.md
 Encoders for embeddings and masked language modelling, and decoder LLMs, dense and mixture-of-experts.
 
 - [BERT](bert.md)
-- [Cohere](cohere.md)
-- [Cohere 2](cohere2.md)
-- [Cohere 2 MoE](cohere2_moe.md)
 - [DeBERTa](deberta.md)
 - [DeepSeek-V2](deepseek_v2.md)
 - [DeepSeek-V3](deepseek_v3.md)
@@ -82,7 +79,6 @@ Speech recognition, and speech-aware language models that take audio and text to
 Vision-language encoders, generative VLMs, and grounding across detection, OCR, pointing and referring.
 
 - [CLIP](clip.md)
-- [Cohere 2 Vision](cohere2_vision.md)
 - [DeepSeek-VL](deepseek_vl.md)
 - [DeepSeek-VL Hybrid](deepseek_vl_hybrid.md)
 - [Gemma 3](gemma3.md)

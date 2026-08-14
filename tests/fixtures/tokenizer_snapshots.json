@@ -88,46 +88,6 @@
    ]
   }
  },
- "Cohere2MoeTokenizer": {
-  "<empty>": {
-   "ids": [
-    2
-   ]
-  },
-  "Hello, World!": {
-   "ids": [
-    2,
-    15065,
-    16,
-    4822,
-    5
-   ]
-  },
-  "a quick brown fox jumps over the lazy dog": {
-   "ids": [
-    2,
-    69,
-    4374,
-    15297,
-    45750,
-    47776,
-    898,
-    277,
-    26697,
-    4749
-   ]
-  },
-  "tokenization 123 parity": {
-   "ids": [
-    2,
-    12599,
-    1701,
-    225,
-    8316,
-    55337
-   ]
-  }
- },
  "DebertaTokenizer": {
   "<empty>": {
    "ids": [
@@ -1614,7 +1574,7 @@
    ]
   }
  },
- "Qwen3NextTokenizer": {
+ "Qwen3MoeTokenizer": {
   "<empty>": {
    "ids": []
   },
@@ -1651,7 +1611,7 @@
    ]
   }
  },
- "Qwen3MoeTokenizer": {
+ "Qwen3NextTokenizer": {
   "<empty>": {
    "ids": []
   },
@@ -1722,6 +1682,80 @@
     17,
     18,
     49615
+   ]
+  }
+ },
+ "Qwen3VLMoeTokenizer": {
+  "<empty>": {
+   "ids": []
+  },
+  "Hello, World!": {
+   "ids": [
+    9707,
+    11,
+    4337,
+    0
+   ]
+  },
+  "a quick brown fox jumps over the lazy dog": {
+   "ids": [
+    64,
+    3974,
+    13876,
+    38835,
+    34208,
+    916,
+    279,
+    15678,
+    5562
+   ]
+  },
+  "tokenization 123 parity": {
+   "ids": [
+    5839,
+    2022,
+    220,
+    16,
+    17,
+    18,
+    49615
+   ]
+  }
+ },
+ "Qwen3_5MoeTokenizer": {
+  "<empty>": {
+   "ids": []
+  },
+  "Hello, World!": {
+   "ids": [
+    9419,
+    11,
+    4196,
+    0
+   ]
+  },
+  "a quick brown fox jumps over the lazy dog": {
+   "ids": [
+    64,
+    3841,
+    13477,
+    37550,
+    33075,
+    888,
+    279,
+    15217,
+    5388
+   ]
+  },
+  "tokenization 123 parity": {
+   "ids": [
+    5658,
+    1954,
+    220,
+    16,
+    17,
+    18,
+    47944
    ]
   }
  },

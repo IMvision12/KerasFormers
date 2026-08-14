@@ -361,7 +361,7 @@ def test_bert_token_type_ids_pairs():
 #
 # The parity table above is hand-maintained and covers 23 of the 60 tokenizers;
 # the other 37 (every LLM: gemma, llama, mistral, qwen-moe, deepseek, glm,
-# cohere, kimi ...) had no test at all. These enumerate the package instead, so
+# kimi ...) had no test at all. These enumerate the package instead, so
 # a new tokenizer is covered the day it lands rather than when someone
 # remembers to add a SPECS row.
 #
