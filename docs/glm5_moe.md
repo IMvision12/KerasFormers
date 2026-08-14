@@ -178,7 +178,5 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Glm5MoeGenerate.from_weights(
-    "glm5", quantization="int8", load_dtype="bfloat16"
-)
+model = Glm5MoeGenerate.from_weights("glm5", quantization="int8", load_dtype="bfloat16")
 ```

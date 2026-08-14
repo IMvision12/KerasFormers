@@ -134,9 +134,6 @@ nav:
       - models.md
       - Text models:
           - BERT: bert.md
-          - Cohere: cohere.md
-          - Cohere 2: cohere2.md
-          - Cohere 2 MoE: cohere2_moe.md
           - DeBERTa: deberta.md
           - DeepSeek-V2: deepseek_v2.md
           - DeepSeek-V3: deepseek_v3.md
@@ -162,8 +159,8 @@ nav:
           - Qwen2 MoE: qwen2_moe.md
           - Qwen3: qwen3.md
           - Qwen3 MoE: qwen3_moe.md
+          - Qwen3-Next: qwen3_next.md
           - Qwen3.5: qwen3_5.md
-          - Qwen3.5 MoE: qwen3_5_moe.md
           - RoBERTa: roberta.md
           - XLM-RoBERTa: xlm_roberta.md
       - Vision models:
@@ -195,7 +192,6 @@ nav:
           - Whisper: whisper.md
       - Multimodal models:
           - CLIP: clip.md
-          - Cohere 2 Vision: cohere2_vision.md
           - DeepSeek-VL: deepseek_vl.md
           - DeepSeek-VL Hybrid: deepseek_vl_hybrid.md
           - Gemma 3: gemma3.md
@@ -218,6 +214,8 @@ nav:
           - Qwen2-VL: qwen2_vl.md
           - Qwen2.5-VL: qwen2_5_vl.md
           - Qwen3-VL: qwen3_vl.md
+          - Qwen3-VL-MoE: qwen3_vl_moe.md
+          - Qwen3.5-MoE: qwen3_5_moe.md
           - SAM 3: sam3.md
           - SigLIP: siglip.md
           - SigLIP 2: siglip2.md
