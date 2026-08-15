@@ -62,7 +62,7 @@ GraniteSpeechPlusConditionalGenerate(vocab_size=100353, embed_dim=2048, mlp_dim=
 
 The audio encoder, projector, Granite 4.0 decoder, and LM head. **This is the class for
 audio-plus-text to text.** The arguments are the same set as
-[`GraniteSpeechConditionalGenerate`](granite_speech.md#granitespeechgenerate), with the defaults in
+[`GraniteSpeechConditionalGenerate`](granite_speech.md#granitespeechconditionalgenerate), with the defaults in
 the table above; `from_weights` fills them in.
 
 **generate**
