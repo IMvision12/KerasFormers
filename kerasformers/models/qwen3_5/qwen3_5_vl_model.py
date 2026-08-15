@@ -579,9 +579,9 @@ class Qwen3_5ConditionalGenerate(Qwen3_5VLModel, BaseGeneration):
     ``cache_idx + rope_delta``. Vision pixels are passed as for :class:`Qwen3_5VLModel`.
     """
 
-    # Qwen's <|im_end|> stop id in the Qwen3.5 vocab. Explicit generate() args (or the
-    # tokenizer's eos_token_id) override this; confirm against the real tokenizer.
-    eos_token_id = (247356,)
+    # Qwen3.5 stop ids: <|endoftext|> (248044, completion) + <|im_end|> (248046, chat
+    # turn-end). Explicit generate() args (or the tokenizer's eos) override this.
+    eos_token_id = (248044, 248046)
 
     def call(self, inputs):
         hidden = self._forward_features(inputs)

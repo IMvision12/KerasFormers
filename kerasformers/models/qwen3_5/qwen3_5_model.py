@@ -231,8 +231,9 @@ class Qwen3_5TextGenerate(Qwen3_5Model, BaseGeneration):
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
-    # Qwen3.5 default stop id. Explicit generate() args override this.
-    eos_token_id = (248044,)
+    # Qwen3.5 stop ids: <|endoftext|> (248044, completion) + <|im_end|> (248046, chat
+    # turn-end). Explicit generate() args (or the tokenizer's eos) override this.
+    eos_token_id = (248044, 248046)
     # The dense Qwen3.5 checkpoints are VLMs (kf_config declares Qwen3_5ConditionalGenerate);
     # this text head loads their text backbone, dropping the vision tower -- the counterpart
     # to transformers' Qwen3_5ForCausalLM on a Qwen3_5 checkpoint. Handled generically by
