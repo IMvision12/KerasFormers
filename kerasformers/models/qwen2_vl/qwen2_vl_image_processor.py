@@ -50,6 +50,31 @@ class Qwen2VLImageProcessor(BaseImageProcessor):
         self.image_mean = np.array(image_mean, dtype="float32")
         self.image_std = np.array(image_std, dtype="float32")
 
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        import json
+
+        hf = {}
+        try:
+            from huggingface_hub import hf_hub_download
+
+            with open(
+                hf_hub_download(repo, "preprocessor_config.json"), encoding="utf-8"
+            ) as f:
+                hf = json.load(f)
+        except Exception:  # noqa: BLE001
+            pass
+        for param, key in (
+            ("patch_size", "patch_size"),
+            ("temporal_patch_size", "temporal_patch_size"),
+            ("spatial_merge_size", "merge_size"),
+            ("min_pixels", "min_pixels"),
+            ("max_pixels", "max_pixels"),
+        ):
+            if hf.get(key) is not None:
+                kwargs.setdefault(param, hf[key])
+        return super().from_hf(repo, **kwargs)
+
     def _to_rgb_array(self, image):
         import os
 

@@ -13,7 +13,7 @@ from kerasformers.models.qwen3_vl.qwen3_vl_layers import (
 )
 from kerasformers.models.qwen3_vl.qwen3_vl_model import qwen3_text_cos_sin
 
-from .qwen3_5_config import QWEN3_5_TOKENS, Qwen3_5Config
+from .qwen3_5_config import Qwen3_5Config
 from .qwen3_5_layers import Qwen3_5DecoderLayer, Qwen3_5RMSNorm
 
 MASK_NEG = -1e9
@@ -357,10 +357,10 @@ class Qwen3_5VLModel(Qwen2VLModel):
         spatial_merge_size=2,
         temporal_patch_size=2,
         in_channels=3,
-        image_token_id=QWEN3_5_TOKENS["image_token_id"],
-        video_token_id=QWEN3_5_TOKENS["video_token_id"],
-        vision_start_token_id=QWEN3_5_TOKENS["vision_start_token_id"],
-        vision_end_token_id=QWEN3_5_TOKENS["vision_end_token_id"],
+        image_token_id=248056,
+        video_token_id=248057,
+        vision_start_token_id=248053,
+        vision_end_token_id=248054,
         **kwargs,
     ):
         # Skip Qwen2VLModel.__init__ (it builds the 2-VL layers); run only the base
