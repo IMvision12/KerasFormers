@@ -391,6 +391,9 @@ class DeepseekV3Attention(layers.Layer):
         self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
     ):
         q, k, v = self.project_qkv(hidden_states, cos, sin)
+        # rope runs in float32; match the cache dtype before writing
+        k = ops.cast(k, cache_k.dtype)
+        v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         out = fused_attention(q, cache_k, cache_v, self.softmax_scale, key_mask)

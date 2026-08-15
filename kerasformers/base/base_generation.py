@@ -1,6 +1,8 @@
+import inspect
 from collections import OrderedDict
 
 import keras
+import numpy as np
 from keras import ops
 
 from kerasformers.base.base_mixin import inference_scope
@@ -49,6 +51,57 @@ class BaseGeneration:
         raise NotImplementedError(
             f"{type(self).__name__} must implement call_with_cache()."
         )
+
+    # Repos whose ``kf_config.json`` declares one of these classes are loaded by building
+    # that (fuller, e.g. multimodal) model and copying THIS head's backbone weights out of
+    # it, ignoring the rest -- the kerasformers analog of transformers'
+    # ``*ForCausalLM.from_pretrained`` reading a ``*ForConditionalGeneration`` checkpoint
+    # (the vision/audio weights become unused keys). Maps a declared class name -> the
+    # module path it lives in.
+    FULL_CHECKPOINT_SOURCES = {}
+
+    @classmethod
+    def _load_backbone_from_full(cls, full_cls, repo_id, load_weights=True, **kwargs):
+        """Build ``full_cls`` from ``repo_id`` and copy this head's backbone out of it.
+
+        The head is constructed from the constructor kwargs it shares with the built full
+        model (read off the full model's attributes), so extra config the head does not
+        take (vision dims, M-RoPE sections) is dropped. Weights are matched by keras path
+        suffix: an exact suffix, else the unique full-model weight ending in ``/<suffix>``
+        (the text backbone is nested one level down, e.g. under ``language_model``); the
+        full model's extra (vision) weights are simply never referenced.
+        """
+        full = full_cls.from_weights(repo_id, load_weights=load_weights, **kwargs)
+        names = set()
+        for klass in cls.__mro__:
+            init = klass.__dict__.get("__init__")
+            if init is None:
+                continue
+            for name, param in inspect.signature(init).parameters.items():
+                if name != "self" and param.kind in (
+                    param.POSITIONAL_OR_KEYWORD,
+                    param.KEYWORD_ONLY,
+                ):
+                    names.add(name)
+        head = cls(**{n: getattr(full, n) for n in names if hasattr(full, n)})
+        if load_weights:
+            head({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})  # build
+            by_suffix = {w.path.split("/", 1)[1]: w for w in full.weights}
+            suffixes = list(by_suffix)
+            for hw in head.weights:
+                suffix = hw.path.split("/", 1)[1]
+                if suffix in by_suffix:
+                    src = by_suffix[suffix]
+                else:
+                    cand = [k for k in suffixes if k.endswith("/" + suffix)]
+                    if len(cand) != 1:
+                        raise KeyError(
+                            f"cannot match head weight '{hw.path}' in "
+                            f"{full_cls.__name__} ({len(cand)} candidates for '{suffix}')"
+                        )
+                    src = by_suffix[cand[0]]
+                hw.assign(ops.convert_to_tensor(src))
+        return head
 
     def generate(
         self,

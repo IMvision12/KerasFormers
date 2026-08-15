@@ -123,7 +123,7 @@ Qwen2.5-VL vision tower: patch-embed -> windowed blocks -> 2x2 merger.
 
 ### `Qwen2_5VLProcessor`
 
-Image / video + text -> model inputs for the Qwen-VL models.
+Image + text -> model inputs for the Qwen-VL models.
 
 | Arg | Default | Meaning |
 |---|---|---|
@@ -133,7 +133,6 @@ Image / video + text -> model inputs for the Qwen-VL models.
 | `temporal_patch_size` | `2` | frames per temporal patch |
 | `tokenizer` | `None` | override the default tokenizer |
 | `image_processor` | `None` | override the default image processor |
-| `video_processor` | `None` | override the default video processor |
 
 ## End-to-end example
 

@@ -11,12 +11,24 @@ class Qwen3_5Tokenizer(BaseTokenizer):
 
     def __init__(self, hf_id=None, tokenizer_file=None, **kwargs):
         super().__init__(**kwargs)
-        from tokenizers import Tokenizer
+        from tokenizers import AddedToken, Tokenizer
 
         tokenizer_file = self.resolve_tokenizer_json_from_hf(hf_id, tokenizer_file)
         self.hf_id = hf_id
         self.tokenizer_file = tokenizer_file
         self._tok = Tokenizer.from_file(tokenizer_file)
+        # Qwen3.5 is a native VLM: expose the vision placeholder tokens so this same
+        # tokenizer also drives Qwen3_5Processor (image + text), not just the text head.
+        for pad_token in ("<|image_pad|>", "<|video_pad|>"):
+            if self._tok.token_to_id(pad_token) is None:
+                self._tok.add_special_tokens(
+                    [AddedToken(pad_token, special=True, normalized=False)]
+                )
+        self.image_token = "<|image_pad|>"
+        self.video_token = "<|video_pad|>"
+        self.vision_start_token = "<|vision_start|>"
+        self.vision_end_token = "<|vision_end|>"
+        self.image_token_id = self._tok.token_to_id(self.image_token)
         self.eos_token = "<|im_end|>"
         self.eos_token_id = self._tok.token_to_id(self.eos_token)
 

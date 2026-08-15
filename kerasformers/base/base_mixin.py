@@ -646,6 +646,17 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         spec = load_kf_config(repo_id)
         if spec is not None:
             declared = spec.get("model_class")
+            # A head can load its backbone out of a fuller (e.g. multimodal) sibling
+            # checkpoint: build that model and copy this head's weights in, dropping the
+            # rest (transformers' *ForCausalLM-on-a-VLM-checkpoint pattern).
+            sources = getattr(cls, "FULL_CHECKPOINT_SOURCES", None)
+            if sources and declared in sources and declared != cls.__name__:
+                import importlib
+
+                full_cls = getattr(importlib.import_module(sources[declared]), declared)
+                return cls._load_backbone_from_full(
+                    full_cls, repo_id, load_weights=load_weights, **kwargs
+                )
             if (
                 declared
                 and declared != cls.__name__

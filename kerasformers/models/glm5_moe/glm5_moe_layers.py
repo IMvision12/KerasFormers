@@ -437,6 +437,9 @@ class Glm5MoeAttention(layers.Layer):
         # MLA single-token decode; the DSA indexer is skipped (no-op while the
         # cached length <= index_topk -- exact in that regime).
         q, k, v, _ = self.project_qkv(hidden_states, cos, sin)
+        # rope runs in float32; match the cache dtype before writing
+        k = ops.cast(k, cache_k.dtype)
+        v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         out = fused_attention(q, cache_k, cache_v, self.softmax_scale, key_mask)

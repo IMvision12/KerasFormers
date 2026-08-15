@@ -251,6 +251,9 @@ class MiniMaxAttention(layers.Layer):
         sin = ops.expand_dims(sin, axis=1)
         q = apply_partial_rope(q, cos, sin)
         k = apply_partial_rope(k, cos, sin)
+        # rope runs in float32; match the cache dtype before writing
+        k = ops.cast(k, cache_k.dtype)
+        v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         kk, vv = cache_k, cache_v

@@ -2,22 +2,22 @@ import keras
 
 from kerasformers.models.qwen2_vl.qwen2_vl_processor import Qwen2VLProcessor
 
-from .qwen3_5_moe_tokenizer import Qwen3_5MoeTokenizer
+from .qwen3_5_tokenizer import Qwen3_5Tokenizer
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3_5MoeProcessor(Qwen2VLProcessor):
-    """Qwen3.5-MoE image+text processor.
+class Qwen3_5Processor(Qwen2VLProcessor):
+    """Dense Qwen3.5 image+text processor.
 
-    Like :class:`Qwen2VLProcessor` but with a 16px patch and the Qwen3.5-MoE tokenizer.
-    The image processor is reused from Qwen2-VL: only the patch size differs (16 vs 14).
+    Like :class:`Qwen2VLProcessor` but with a 16px patch and the Qwen3.5 tokenizer. The
+    image processor is reused from Qwen2-VL: only the patch size differs (16 vs 14).
     """
 
-    TOKENIZER_CLS = Qwen3_5MoeTokenizer
+    TOKENIZER_CLS = Qwen3_5Tokenizer
 
     def __init__(
         self,
-        hf_id="Qwen/Qwen3.5-35B-A3B",
+        hf_id="Qwen/Qwen3.5-27B",
         patch_size=16,
         spatial_merge_size=2,
         temporal_patch_size=2,

@@ -378,6 +378,9 @@ class Llama4Attention(layers.Layer):
         # or chunked mask for this layer and also blocks empty cache slots.
         b = ops.shape(hidden_states)[0]
         q, k, v = self.project_qkv(hidden_states, 1, cos, sin, attn_scales)
+        # rope runs in float32; match the cache dtype before writing
+        k = ops.cast(k, cache_k.dtype)
+        v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         kk, vv = cache_k, cache_v

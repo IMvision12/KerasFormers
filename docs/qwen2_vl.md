@@ -15,9 +15,6 @@ smart-resizes so both sides are multiples of `patch_size * spatial_merge_size`,
 flattens into patches, and reports an `image_grid_thw` grid. The text decoder
 uses M-RoPE (multimodal rotary embeddings split across time/height/width).
 
-Video is supported through `Qwen2VLVideoProcessor`, which emits the same patch
-layout with `grid_t = num_frames // temporal_patch_size`.
-
 Links:
 
 - HF collection: [Qwen2-VL](https://huggingface.co/collections/kerasformers/qwen2-vl-6a7cda6f1cbf2cf66e7b5d36)
@@ -139,25 +136,6 @@ Turn PIL/array images into ``{"pixel_values", "image_grid_thw"}``.
 | `image_mean` | `(0.48145466, 0.4578275, 0.40821073)` | per-channel normalization mean |
 | `image_std` | `(0.26862954, 0.26130258, 0.27577711)` | per-channel normalization std |
 
-### `Qwen2VLVideoProcessor`
-
-Turn videos into ``{"pixel_values_videos", "video_grid_thw"}`` (pure keras.ops).
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `patch_size` | `14` | patch size |
-| `spatial_merge_size` | `2` | patch-merge factor before the decoder |
-| `temporal_patch_size` | `2` | frames per temporal patch |
-| `min_pixels` | `100352` | smallest allowed pixel budget |
-| `max_pixels` | `602112` | largest allowed pixel budget |
-| `image_mean` | `(0.48145466, 0.4578275, 0.40821073)` | per-channel normalization mean |
-| `image_std` | `(0.26862954, 0.26130258, 0.27577711)` | per-channel normalization std |
-| `do_sample_frames` | `False` | subsample frames from the clip |
-| `fps` | `None` | frames per second to sample |
-| `num_frames` | `None` | frames to sample per clip |
-| `min_frames` | `4` | fewest frames per clip |
-| `max_frames` | `768` | most frames per clip |
-
 ### `Qwen2VLTokenizer`
 
 Qwen2 BPE tokenizer (``tokenizers`` backend).
@@ -169,7 +147,7 @@ Qwen2 BPE tokenizer (``tokenizers`` backend).
 
 ### `Qwen2VLProcessor`
 
-Image / video + text -> model inputs for the Qwen-VL models.
+Image + text -> model inputs for the Qwen-VL models.
 
 | Arg | Default | Meaning |
 |---|---|---|
@@ -179,7 +157,6 @@ Image / video + text -> model inputs for the Qwen-VL models.
 | `temporal_patch_size` | `2` | frames per temporal patch |
 | `tokenizer` | `None` | override the default tokenizer |
 | `image_processor` | `None` | override the default image processor |
-| `video_processor` | `None` | override the default video processor |
 
 ## End-to-end example
 

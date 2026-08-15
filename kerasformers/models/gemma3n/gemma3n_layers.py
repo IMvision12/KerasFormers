@@ -308,6 +308,9 @@ class Gemma3nAttention(layers.Layer):
                 self.value(hidden), (b, 1, self.num_kv_heads, self.head_dim)
             )
             vn = ops.transpose(self.value_norm(vn), (0, 2, 1, 3))
+            # rope runs in float32; match the cache dtype before writing
+            kn = ops.cast(kn, cache_k.dtype)
+            vn = ops.cast(vn, cache_v.dtype)
             k = ops.slice_update(cache_k, (0, 0, pos, 0), kn)
             v = ops.slice_update(cache_v, (0, 0, pos, 0), vn)
 

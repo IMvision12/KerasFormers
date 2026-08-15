@@ -182,6 +182,9 @@ class GemmaAttention(layers.Layer):
         half = self.head_dim // 2
         q = q * cos + ops.concatenate([-q[..., half:], q[..., :half]], axis=-1) * sin
         k = k * cos + ops.concatenate([-k[..., half:], k[..., :half]], axis=-1) * sin
+        # rope runs in float32; match the cache dtype before writing
+        k = ops.cast(k, cache_k.dtype)
+        v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         kk, vv = cache_k, cache_v

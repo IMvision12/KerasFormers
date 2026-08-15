@@ -366,7 +366,6 @@ def test_kimi_expands_each_image_against_its_own_grid():
     proc = KimiK25Processor(
         tokenizer=_FakeTokenizer(),
         image_processor=_FakePatcher(),
-        video_processor=_FakePatcher(),
     )
     # (1, 4, 4) -> 4 merged tokens, (1, 2, 2) -> 1
     out = proc.expand_images(f"a{IMAGE_TOKEN}b{IMAGE_TOKEN}c", [(1, 4, 4), (1, 2, 2)])

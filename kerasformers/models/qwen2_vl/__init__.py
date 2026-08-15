@@ -12,7 +12,6 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
 )
 from kerasformers.models.qwen2_vl.qwen2_vl_processor import Qwen2VLProcessor
 from kerasformers.models.qwen2_vl.qwen2_vl_tokenizer import Qwen2VLTokenizer
-from kerasformers.models.qwen2_vl.qwen2_vl_video_processor import Qwen2VLVideoProcessor
 
 __all__ = [
     "Qwen2VLModel",
@@ -23,7 +22,6 @@ __all__ = [
     "Qwen2VLTextConfig",
     "Qwen2VLVisionConfig",
     "Qwen2VLImageProcessor",
-    "Qwen2VLVideoProcessor",
     "Qwen2VLTokenizer",
     "Qwen2VLProcessor",
 ]

@@ -150,30 +150,14 @@ Native-resolution (NaViT) patch preprocessor for Kimi K2.5's MoonViT.
 | `image_mean` | `(0.5, 0.5, 0.5)` | per-channel normalization mean |
 | `image_std` | `(0.5, 0.5, 0.5)` | per-channel normalization std |
 
-### `KimiK25VideoProcessor`
-
-Chunked video preprocessor for Kimi K2.5's MoonViT.
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `patch_size` | `14` | patch size |
-| `merge_size` | `2` | patch-merge factor |
-| `temporal_patch_size` | `4` | frames per temporal patch |
-| `max_patches` | `4096` | most tiles per image |
-| `max_side` | `512` |  |
-| `image_mean` | `(0.5, 0.5, 0.5)` | per-channel normalization mean |
-| `image_std` | `(0.5, 0.5, 0.5)` | per-channel normalization std |
-
 ### `KimiK25Processor`
 
-Text + image + video processor for Kimi K2.5 / K2.6 / K2.7-Code.
+Text + image processor for Kimi K2.5 / K2.6 / K2.7-Code.
 
 | Arg | Default | Meaning |
 |---|---|---|
 | `tokenizer` | `None` | override the default tokenizer |
 | `image_processor` | `None` | override the default image processor |
-| `video_processor` | `None` | override the default video processor |
-| `video_token_id` | `163840` | placeholder token id expanded per video |
 
 ## End-to-end example
 

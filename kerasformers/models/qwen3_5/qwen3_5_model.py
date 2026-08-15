@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .qwen3_5_config import QWEN3_5_CONFIG, QWEN3_5_WEIGHTS_URLS
+from .qwen3_5_config import Qwen3_5TextConfig
 from .qwen3_5_layers import Qwen3_5DecoderLayer, Qwen3_5RMSNorm
 
 MASK_NEG = -1e9
@@ -49,8 +49,7 @@ class Qwen3_5Model(SubclassedBaseModel):
 
     HF_MODEL_TYPE = ("qwen3_5", "qwen3_5_text")
     default_load_dtype = "bfloat16"
-    BASE_MODEL_CONFIG = QWEN3_5_CONFIG
-    BASE_WEIGHT_CONFIG = QWEN3_5_WEIGHTS_URLS
+    config_class = Qwen3_5TextConfig
 
     def __init__(
         self,
@@ -71,6 +70,7 @@ class Qwen3_5Model(SubclassedBaseModel):
         linear_value_head_dim=128,
         linear_num_key_heads=16,
         linear_num_value_heads=16,
+        mrope_section=(11, 11, 10),
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -91,6 +91,9 @@ class Qwen3_5Model(SubclassedBaseModel):
         self.linear_value_head_dim = linear_value_head_dim
         self.linear_num_key_heads = linear_num_key_heads
         self.linear_num_value_heads = linear_num_value_heads
+        # carried only so the shared Qwen3_5TextConfig round-trips; the text head uses 1-D
+        # rope (M-RoPE is a multimodal-only concern, handled by the VLM).
+        self.mrope_section = tuple(mrope_section)
         self.rotary_dim = int(head_dim * partial_rotary_factor)
 
         layer_cfg = {
@@ -208,6 +211,7 @@ class Qwen3_5Model(SubclassedBaseModel):
                 "linear_value_head_dim": self.linear_value_head_dim,
                 "linear_num_key_heads": self.linear_num_key_heads,
                 "linear_num_value_heads": self.linear_num_value_heads,
+                "mrope_section": self.mrope_section,
             }
         )
         return config
@@ -231,8 +235,16 @@ class Qwen3_5TextGenerate(Qwen3_5Model, BaseGeneration):
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
-    # Qwen3.5 default stop id. Explicit generate() args override this.
-    eos_token_id = (248044,)
+    # Qwen3.5 stop ids: <|endoftext|> (248044, completion) + <|im_end|> (248046, chat
+    # turn-end). Explicit generate() args (or the tokenizer's eos) override this.
+    eos_token_id = (248044, 248046)
+    # The dense Qwen3.5 checkpoints are VLMs (kf_config declares Qwen3_5ConditionalGenerate);
+    # this text head loads their text backbone, dropping the vision tower -- the counterpart
+    # to transformers' Qwen3_5ForCausalLM on a Qwen3_5 checkpoint. Handled generically by
+    # BaseGeneration._load_backbone_from_full.
+    FULL_CHECKPOINT_SOURCES = {
+        "Qwen3_5ConditionalGenerate": "kerasformers.models.qwen3_5.qwen3_5_vl_model"
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

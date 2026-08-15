@@ -11,9 +11,7 @@ sizes (30B-A3B / 235B-A22B) are a separate architecture and are not hosted here.
 </div>
 
 Alibaba's Qwen3-VL vision-language models, ported to pure Keras 3. It follows the
-Qwen-VL line (native-resolution ViT, M-RoPE decoder) with a 16px patch and its
-own video processor, which applies a clip-level frame-count-aware resize budget
-rather than Qwen2-VL's per-frame budget, and samples frames at 2 fps by default.
+Qwen-VL line (native-resolution ViT, M-RoPE decoder) with a 16px patch.
 
 Links:
 
@@ -164,7 +162,7 @@ Qwen3-VL vision tower: learned pos-embeds -> GELU blocks -> merger + DeepStack.
 
 ### `Qwen3VLProcessor`
 
-Qwen3-VL image/video+text processor: like :class:`Qwen2VLProcessor` but with a 16px patch and the Qwen3-VL video processor (``[0.5]*3`` normalization and a clip-level resize budget).
+Qwen3-VL image+text processor: like :class:`Qwen2VLProcessor` but with a 16px patch and the Qwen3-VL image normalization (``[0.5]*3``).
 
 | Arg | Default | Meaning |
 |---|---|---|
@@ -172,25 +170,6 @@ Qwen3-VL image/video+text processor: like :class:`Qwen2VLProcessor` but with a 1
 | `patch_size` | `16` | patch size |
 | `spatial_merge_size` | `2` | patch-merge factor before the decoder |
 | `temporal_patch_size` | `2` | frames per temporal patch |
-
-### `Qwen3VLVideoProcessor`
-
-Qwen3-VL video processor: like :class:`Qwen2VLVideoProcessor` but with a 16px patch, ``[0.5, 0.5, 0.5]`` mean/std, and a clip-level (frame-count-aware) resize budget. The flattened patch layout is identical, so the shared vision tower consumes the output unchanged. Pixel values are assumed in ``[0, 255]``.
-
-| Arg | Default | Meaning |
-|---|---|---|
-| `patch_size` | `16` | patch size |
-| `spatial_merge_size` | `2` | patch-merge factor before the decoder |
-| `temporal_patch_size` | `2` | frames per temporal patch |
-| `min_pixels` | `131072` | smallest allowed pixel budget |
-| `max_pixels` | `786432` | largest allowed pixel budget |
-| `image_mean` | `(0.5, 0.5, 0.5)` | per-channel normalization mean |
-| `image_std` | `(0.5, 0.5, 0.5)` | per-channel normalization std |
-| `do_sample_frames` | `True` | subsample frames from the clip |
-| `fps` | `2` | frames per second to sample |
-| `num_frames` | `None` | frames to sample per clip |
-| `min_frames` | `4` | fewest frames per clip |
-| `max_frames` | `768` | most frames per clip |
 
 ## End-to-end example
 

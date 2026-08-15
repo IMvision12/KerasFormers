@@ -545,6 +545,8 @@ class DeepseekV4TextGenerate(DeepseekV4Model, BaseGeneration):
             x = layer.attention_norm(collapsed)
             q, q_residual = attention.project_q(x, lcos, lsin)
             kv_new = attention.project_kv(x, lcos, lsin)
+            # rope runs in float32; match the cache dtype before writing
+            kv_new = ops.cast(kv_new, cache[i][0].dtype)
             ckv = ops.slice_update(cache[i][0], (0, 0, pos, 0), kv_new)
             kv_all = ckv
             mask = raw_mask
