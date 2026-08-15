@@ -3,31 +3,25 @@ import numpy as np
 from keras import ops
 
 from kerasformers.base import BaseProcessor
-from kerasformers.utils.video_util import load_video
 
 from .qwen2_vl_image_processor import Qwen2VLImageProcessor
 from .qwen2_vl_tokenizer import Qwen2VLTokenizer
-from .qwen2_vl_video_processor import Qwen2VLVideoProcessor
 
 DEFAULT_SYSTEM = "You are a helpful assistant."
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class Qwen2VLProcessor(BaseProcessor):
-    """Image / video + text -> model inputs for the Qwen-VL models.
+    """Image + text -> model inputs for the Qwen-VL models.
 
-    Composes the tokenizer, image processor, and video processor. ``call``
-    renders the chat template, runs the image / video processors, expands each
-    ``<|image_pad|>`` / ``<|video_pad|>`` placeholder to the right number of
-    merged vision tokens, and tokenizes. A ``{"type": "video"}`` content item (or
-    the ``videos=`` argument) yields ``pixel_values_videos`` / ``video_grid_thw``;
-    each video is a ``(num_frames, H, W, C)`` array or a list of frames.
+    Composes the tokenizer and image processor. ``call`` renders the chat template,
+    runs the image processor, expands each ``<|image_pad|>`` placeholder to the right
+    number of merged vision tokens, and tokenizes.
     """
 
     TOKENIZER_CLS = Qwen2VLTokenizer
     IMAGE_PROCESSOR_CLS = Qwen2VLImageProcessor
-    video_processor_cls = Qwen2VLVideoProcessor
-    COMPONENTS = ("tokenizer", "image_processor", "video_processor")
+    COMPONENTS = ("tokenizer", "image_processor")
 
     def __init__(
         self,
@@ -37,7 +31,6 @@ class Qwen2VLProcessor(BaseProcessor):
         temporal_patch_size=2,
         tokenizer=None,
         image_processor=None,
-        video_processor=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -50,14 +43,8 @@ class Qwen2VLProcessor(BaseProcessor):
             spatial_merge_size=spatial_merge_size,
             temporal_patch_size=temporal_patch_size,
         )
-        self.video_processor = video_processor or self.video_processor_cls(
-            patch_size=patch_size,
-            spatial_merge_size=spatial_merge_size,
-            temporal_patch_size=temporal_patch_size,
-        )
         self.tokenizer = tokenizer or Qwen2VLTokenizer(hf_id=hf_id)
         self.image_token = self.tokenizer.image_token
-        self.video_token = self.tokenizer.video_token
 
     @classmethod
     def from_hf(cls, repo, **kwargs):
@@ -66,10 +53,9 @@ class Qwen2VLProcessor(BaseProcessor):
     def apply_chat_template(self, messages, add_generation_prompt=True):
         """Render OpenAI-style ``messages`` to a ChatML prompt string.
 
-        Each ``{"type": "image"}`` / ``{"type": "video"}`` content item becomes a
-        single ``<|vision_start|>`` + ``<|image_pad|>`` / ``<|video_pad|>`` +
-        ``<|vision_end|>`` block (expanded to the right token count later, once
-        the image / video grid is known).
+        Each ``{"type": "image"}`` content item becomes a single ``<|vision_start|>`` +
+        ``<|image_pad|>`` + ``<|vision_end|>`` block (expanded to the right token count
+        later, once the image grid is known).
         """
         has_system = any(m.get("role") == "system" for m in messages)
         text = ""
@@ -85,8 +71,6 @@ class Qwen2VLProcessor(BaseProcessor):
                 for item in content:
                     if item.get("type") == "image":
                         text += "<|vision_start|><|image_pad|><|vision_end|>"
-                    elif item.get("type") == "video":
-                        text += "<|vision_start|><|video_pad|><|vision_end|>"
                     elif item.get("type") == "text":
                         text += item["text"]
             text += "<|im_end|>\n"
@@ -96,7 +80,7 @@ class Qwen2VLProcessor(BaseProcessor):
 
     def expand_pads(self, text, token, grids):
         """Replace each single ``token`` placeholder with ``prod(grid) // merge^2``
-        copies (the number of merged vision tokens for that image / video)."""
+        copies (the number of merged vision tokens for that image)."""
         parts = text.split(token)
         n = len(parts) - 1
         if n != len(grids):
@@ -125,27 +109,6 @@ class Qwen2VLProcessor(BaseProcessor):
                 return Image.open(io.BytesIO(resp.read()))
         raise ValueError("Image content item needs a 'path', 'url', or 'image'.")
 
-    def _load_video(self, item):
-        """Resolve a video content item to ``(frames, metadata)``.
-
-        Inline frames come from ``video`` / ``frames``; a ``path`` / ``url`` (or a
-        directory of frames / raw bytes) is decoded by
-        :func:`kerasformers.utils.video_util.load_video` (PyAV backend) and carries the
-        source fps in ``metadata`` so the video processor can subsample to its
-        target fps. Like HF, the user only has to point at the file.
-        """
-        if item.get("video") is not None:
-            return item["video"], {"fps": item.get("fps")}
-        if item.get("frames") is not None:
-            return item["frames"], {"fps": item.get("fps")}
-        src = item.get("path") or item.get("url")
-        if src is not None:
-            frames, metadata = load_video(src, backend="pyav")
-            return frames, {"fps": metadata.fps}
-        raise ValueError(
-            "Video content item needs a 'video', 'frames', 'path', or 'url'."
-        )
-
     def extract_images(self, conversation):
         """Collect inline images from a conversation's content lists, in order."""
         images = []
@@ -157,27 +120,14 @@ class Qwen2VLProcessor(BaseProcessor):
                         images.append(self._load_image(item))
         return images or None
 
-    def extract_videos(self, conversation):
-        """Collect inline videos as ``(frames, metadata)`` tuples, in order."""
-        videos = []
-        for msg in conversation:
-            content = msg.get("content")
-            if isinstance(content, (list, tuple)):
-                for item in content:
-                    if isinstance(item, dict) and item.get("type") == "video":
-                        videos.append(self._load_video(item))
-        return videos or None
-
     def call(
         self,
         conversation=None,
         text=None,
         images=None,
-        videos=None,
         messages=None,
         add_generation_prompt=True,
     ):
-        video_metas = None
         if conversation is not None:
             conversations = self.normalize_conversations(conversation)
             texts = [
@@ -186,11 +136,6 @@ class Qwen2VLProcessor(BaseProcessor):
             ]
             if images is None:
                 images = self.collect_across(conversations, self.extract_images)
-            if videos is None:
-                extracted = self.collect_across(conversations, self.extract_videos)
-                if extracted is not None:
-                    videos = [frames for frames, _ in extracted]
-                    video_metas = [meta for _, meta in extracted]
         elif messages is not None:
             texts = [self.apply_chat_template(messages, add_generation_prompt)]
         elif text is not None:
@@ -200,7 +145,6 @@ class Qwen2VLProcessor(BaseProcessor):
 
         out = {}
         image_grids = None
-        video_grids = None
         if images is not None:
             image_inputs = self.image_processor(images)
             out["pixel_values"] = ops.convert_to_tensor(image_inputs["pixel_values"])
@@ -208,26 +152,11 @@ class Qwen2VLProcessor(BaseProcessor):
                 image_inputs["image_grid_thw"]
             )
             image_grids = np.asarray(image_inputs["image_grid_thw"])
-        if videos is not None:
-            video_inputs = self.video_processor(videos, video_metadata=video_metas)
-            out["pixel_values_videos"] = ops.convert_to_tensor(
-                video_inputs["pixel_values_videos"]
-            )
-            out["video_grid_thw"] = ops.convert_to_tensor(
-                video_inputs["video_grid_thw"]
-            )
-            video_grids = np.asarray(video_inputs["video_grid_thw"])
 
         if image_grids is not None:
             per_text = self.deal_per_text(texts, self.image_token, image_grids)
             texts = [
                 self.expand_pads(t, self.image_token, g)
-                for t, g in zip(texts, per_text)
-            ]
-        if video_grids is not None:
-            per_text = self.deal_per_text(texts, self.video_token, video_grids)
-            texts = [
-                self.expand_pads(t, self.video_token, g)
                 for t, g in zip(texts, per_text)
             ]
 

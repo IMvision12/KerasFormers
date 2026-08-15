@@ -10,9 +10,6 @@ from kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_model import (
 )
 from kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_processor import Qwen3VLMoeProcessor
 from kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_tokenizer import Qwen3VLMoeTokenizer
-from kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_video_processor import (
-    Qwen3VLMoeVideoProcessor,
-)
 
 __all__ = [
     "Qwen3VLMoeConfig",
@@ -23,5 +20,4 @@ __all__ = [
     "Qwen3VLMoeTextModel",
     "Qwen3VLMoeProcessor",
     "Qwen3VLMoeTokenizer",
-    "Qwen3VLMoeVideoProcessor",
 ]

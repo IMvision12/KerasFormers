@@ -233,6 +233,13 @@ class Qwen3_5TextGenerate(Qwen3_5Model, BaseGeneration):
 
     # Qwen3.5 default stop id. Explicit generate() args override this.
     eos_token_id = (248044,)
+    # The dense Qwen3.5 checkpoints are VLMs (kf_config declares Qwen3_5ConditionalGenerate);
+    # this text head loads their text backbone, dropping the vision tower -- the counterpart
+    # to transformers' Qwen3_5ForCausalLM on a Qwen3_5 checkpoint. Handled generically by
+    # BaseGeneration._load_backbone_from_full.
+    FULL_CHECKPOINT_SOURCES = {
+        "Qwen3_5ConditionalGenerate": "kerasformers.models.qwen3_5.qwen3_5_vl_model"
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

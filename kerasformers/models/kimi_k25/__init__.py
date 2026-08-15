@@ -14,9 +14,6 @@ from kerasformers.models.kimi_k25.kimi_k25_model import (
 )
 from kerasformers.models.kimi_k25.kimi_k25_processor import KimiK25Processor
 from kerasformers.models.kimi_k25.kimi_k25_tokenizer import KimiK25Tokenizer
-from kerasformers.models.kimi_k25.kimi_k25_video_processor import (
-    KimiK25VideoProcessor,
-)
 from kerasformers.models.kimi_k25.kimi_k25_vision import KimiK25VisionModel
 
 __all__ = [
@@ -26,7 +23,6 @@ __all__ = [
     "KimiK25MultimodalProjection",
     "KimiK25Tokenizer",
     "KimiK25ImageProcessor",
-    "KimiK25VideoProcessor",
     "KimiK25Processor",
     "KIMI_K25_CONFIG",
     "KIMI_K25_WEIGHTS_URLS",
