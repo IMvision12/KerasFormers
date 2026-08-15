@@ -168,6 +168,9 @@ class Glm4Attention(layers.Layer):
         sin_e = ops.expand_dims(sin, axis=1)
         q = apply_glm_rope(q, cos_e, sin_e, self.rotary_dim)
         k = apply_glm_rope(k, cos_e, sin_e, self.rotary_dim)
+        # rope runs in float32; match the cache dtype before writing
+        k = ops.cast(k, cache_k.dtype)
+        v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         out = self.attend(q, cache_k, cache_v, key_mask)

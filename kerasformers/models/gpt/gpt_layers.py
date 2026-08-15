@@ -57,6 +57,9 @@ class GptAttention(layers.Layer):
         q = ops.transpose(ops.reshape(q, shape), (0, 2, 1, 3))
         k = ops.transpose(ops.reshape(k, shape), (0, 2, 1, 3))
         v = ops.transpose(ops.reshape(v, shape), (0, 2, 1, 3))
+        # rope runs in float32; match the cache dtype before writing
+        k = ops.cast(k, cache_k.dtype)
+        v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         out = fused_attention(q, cache_k, cache_v, self.scaling, key_mask)

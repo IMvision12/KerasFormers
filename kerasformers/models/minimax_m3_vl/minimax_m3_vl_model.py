@@ -621,6 +621,8 @@ class MiniMaxM3VLConditionalGenerate(MiniMaxM3VLModel, BaseGeneration):
             if attention.use_indexer:
                 idx_cache = piece[1]
                 idx_k_new = attention.project_index_k(x, cos, sin)
+                # rope runs in float32; match the cache dtype before writing
+                idx_k_new = ops.cast(idx_k_new, idx_cache.dtype)
                 idx_cache = ops.slice_update(idx_cache, (0, 0, pos, 0), idx_k_new)
                 idx_q = attention.project_index_q(x, cos, sin)
                 keep = attention.block_keep_mask(

@@ -263,6 +263,9 @@ class GraniteSpeechAttention(layers.Layer):
             self.value(hidden_states, apply_lora=apply_lora), self.num_kv_heads
         )
         query, key = apply_rope(query, key, cos, sin)
+        # rope runs in float32; match the cache dtype before writing
+        key = ops.cast(key, cache_k.dtype)
+        value = ops.cast(value, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), key)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), value)
         kk, vv = cache_k, cache_v

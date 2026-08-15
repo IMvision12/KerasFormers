@@ -334,6 +334,9 @@ class Gemma4Attention(layers.Layer):
         q = self.project_q(hidden_states, 1, cos, sin)
         if not self.is_kv_shared:
             k, v = self.project_kv(hidden_states, 1, cos, sin)
+            # rope runs in float32; match the cache dtype before writing
+            k = ops.cast(k, cache_k.dtype)
+            v = ops.cast(v, cache_v.dtype)
             cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
             cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
         kk, vv = cache_k, cache_v
