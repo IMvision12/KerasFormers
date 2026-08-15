@@ -99,7 +99,7 @@ class Qwen3VLVisionConfig(BaseConfig):
 
 
 class Qwen3VLConfig(BaseConfig):
-    r"""Configuration for Qwen3-VL: [`Qwen3VLModel`] and [`Qwen3VLGenerate`].
+    r"""Configuration for Qwen3-VL: [`Qwen3VLModel`] and [`Qwen3VLConditionalGenerate`].
 
     A composite config: the Qwen3 text decoder lives in a [`Qwen3VLTextConfig`]
     (``text_config``) and the ViT in a [`Qwen3VLVisionConfig`] (``vision_config``);
@@ -126,13 +126,13 @@ class Qwen3VLConfig(BaseConfig):
     Examples:
 
     ```python
-    >>> from kerasformers.models.qwen3_vl import Qwen3VLConfig, Qwen3VLGenerate
+    >>> from kerasformers.models.qwen3_vl import Qwen3VLConfig, Qwen3VLConditionalGenerate
 
     >>> configuration = Qwen3VLConfig(
     ...     text_config={"embed_dim": 2560, "num_layers": 36},
     ...     vision_config={"depth": 24, "out_dim": 2560},
     ... )
-    >>> model = Qwen3VLGenerate(configuration)
+    >>> model = Qwen3VLConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

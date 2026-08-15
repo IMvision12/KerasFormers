@@ -363,7 +363,7 @@ class Qwen3_5MoeModel(Qwen2VLModel):
     Qwen3.5-MoE vision tower (no DeepStack) and a Qwen3-Next **MoE hybrid** text
     decoder (Gated-DeltaNet + gated full attention + routed/shared experts), using
     **interleaved** partial-rotary M-RoPE. Returns raw features; use
-    :class:`Qwen3_5MoeGenerate` for logits / text.
+    :class:`Qwen3_5MoeConditionalGenerate` for logits / text.
 
     Output dict:
 
@@ -673,7 +673,7 @@ class Qwen3_5MoeModel(Qwen2VLModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3_5MoeGenerate(Qwen3_5MoeModel, BaseGeneration):
+class Qwen3_5MoeConditionalGenerate(Qwen3_5MoeModel, BaseGeneration):
     """Qwen3.5-MoE with an LM head + fast ``.generate()`` (image+text -> text).
 
     ``build_cache`` runs the vision encoder + interleaved-M-RoPE prefill into a

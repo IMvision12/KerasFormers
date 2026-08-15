@@ -8,7 +8,7 @@ from kerasformers.models.deepseek_vl_hybrid.deepseek_vl_hybrid_image_processor i
     DeepseekVLHybridImageProcessor,
 )
 from kerasformers.models.deepseek_vl_hybrid.deepseek_vl_hybrid_model import (
-    DeepseekVLHybridGenerate,
+    DeepseekVLHybridConditionalGenerate,
     DeepseekVLHybridModel,
 )
 from kerasformers.models.deepseek_vl_hybrid.deepseek_vl_hybrid_processor import (
@@ -24,7 +24,7 @@ __all__ = [
     "DeepseekVLHybridVisionConfig",
     "DeepseekVLHybridHighResConfig",
     "DeepseekVLHybridModel",
-    "DeepseekVLHybridGenerate",
+    "DeepseekVLHybridConditionalGenerate",
     "DeepseekVLHybridImageProcessor",
     "DeepseekVLHybridProcessor",
     "DeepseekVLHybridTokenizer",

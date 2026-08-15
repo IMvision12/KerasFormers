@@ -142,7 +142,7 @@ class Qwen3_5MoeVisionConfig(BaseConfig):
 
 
 class Qwen3_5MoeConfig(BaseConfig):
-    r"""Configuration for Qwen3.5-MoE: [`Qwen3_5MoeModel`] and [`Qwen3_5MoeGenerate`].
+    r"""Configuration for Qwen3.5-MoE: [`Qwen3_5MoeModel`] and [`Qwen3_5MoeConditionalGenerate`].
 
     A composite config: the Qwen3-Next MoE text decoder lives in a
     [`Qwen3_5MoeTextConfig`] (``text_config``) and the ViT in a
@@ -169,13 +169,13 @@ class Qwen3_5MoeConfig(BaseConfig):
     Examples:
 
     ```python
-    >>> from kerasformers.models.qwen3_5_moe import Qwen3_5MoeConfig, Qwen3_5MoeGenerate
+    >>> from kerasformers.models.qwen3_5_moe import Qwen3_5MoeConfig, Qwen3_5MoeConditionalGenerate
 
     >>> configuration = Qwen3_5MoeConfig(
     ...     text_config={"embed_dim": 2048, "num_layers": 40},
     ...     vision_config={"depth": 27, "out_dim": 2048},
     ... )
-    >>> model = Qwen3_5MoeGenerate(configuration)
+    >>> model = Qwen3_5MoeConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

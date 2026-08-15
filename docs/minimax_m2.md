@@ -50,7 +50,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `norm_eps` | `1e-06` | RMSNorm epsilon |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `MiniMaxM2Generate`
+### `MiniMaxM2TextGenerate`
 
 `MiniMaxM2Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `MiniMaxM2Model`.
@@ -103,9 +103,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.minimax_m2 import MiniMaxM2Generate, MiniMaxM2Tokenizer
+from kerasformers.models.minimax_m2 import MiniMaxM2TextGenerate, MiniMaxM2Tokenizer
 
-model = MiniMaxM2Generate.from_weights("minimax-m2")
+model = MiniMaxM2TextGenerate.from_weights("minimax-m2")
 tokenizer = MiniMaxM2Tokenizer.from_weights("minimax-m2")
 
 inputs = tokenizer("Explain rotary embeddings in one sentence.")
@@ -147,7 +147,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = MiniMaxM2Generate.from_weights("hf:MiniMaxAI/MiniMax-M2")
+model = MiniMaxM2TextGenerate.from_weights("hf:MiniMaxAI/MiniMax-M2")
 ```
 
 ### Lower memory
@@ -156,7 +156,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = MiniMaxM2Generate.from_weights(
+model = MiniMaxM2TextGenerate.from_weights(
     "minimax-m2", quantization="int8", load_dtype="bfloat16"
 )
 ```

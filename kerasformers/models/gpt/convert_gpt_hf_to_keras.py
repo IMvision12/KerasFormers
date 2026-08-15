@@ -62,7 +62,7 @@ if __name__ == "__main__":
     from safetensors.numpy import load_file
     from transformers import OpenAIGPTLMHeadModel
 
-    from kerasformers.models.gpt import GptGenerate
+    from kerasformers.models.gpt import GptTextGenerate
 
     HF_SOURCES = {"gpt": "openai-community/openai-gpt"}
     rng = np.random.default_rng(0)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         sd = load_file(hf_hub_download(hf_id, "model.safetensors"))
-        model = GptGenerate(**arch)
+        model = GptTextGenerate(**arch)
         transfer_gpt_weights(model, sd)
         del sd
 

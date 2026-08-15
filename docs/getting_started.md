@@ -94,7 +94,7 @@ Three sources, one call:
 model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
 
 # Bare variant: on-the-fly conversion from an upstream Hub checkpoint (LLMs / VLMs)
-model = Qwen3Generate.from_weights("qwen3-8b")
+model = Qwen3TextGenerate.from_weights("qwen3-8b")
 
 # Any Hugging Face repo with a matching model_type (convert on the fly)
 model = SegFormerSemanticSegment.from_weights(
@@ -111,7 +111,7 @@ Large checkpoints load in lower precision or weight-only quantized; see
 [Loading Weights](loading_weights.md) and [Quantization](quantization.md).
 
 ```python
-model = Qwen3Generate.from_weights(
+model = Qwen3TextGenerate.from_weights(
     "qwen3-8b", load_dtype="bfloat16", quantization="int8"
 )
 ```

@@ -40,7 +40,7 @@ if __name__ == "__main__":
     from keras import ops
     from transformers import AutoTokenizer, Qwen2ForCausalLM
 
-    from .qwen2_model import Qwen2Generate
+    from .qwen2_model import Qwen2TextGenerate
 
     HF_ID = "Qwen/Qwen2-0.5B-Instruct"
     tok = AutoTokenizer.from_pretrained(HF_ID)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     del hf
     gc.collect()
 
-    model = Qwen2Generate.from_weights("hf:" + HF_ID)
+    model = Qwen2TextGenerate.from_weights("hf:" + HF_ID)
     k_logits = ops.convert_to_numpy(model({"input_ids": ids})["logits"])
     diff = float(np.max(np.abs(hf_logits - k_logits)))
     print(f"max abs logit diff: {diff:.6e}")

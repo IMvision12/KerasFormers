@@ -6,11 +6,11 @@ besides int4 that runs on all three backends.
 ## Usage
 
 ```python
-from kerasformers.models.qwen3 import Qwen3Generate
+from kerasformers.models.qwen3 import Qwen3TextGenerate
 from kerasformers.quantization import quantize_model
 
 # load and quantize in one call
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int8")
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="int8")
 
 # or quantize a model you already have, in place
 quantize_model(model, "int8")
@@ -52,7 +52,7 @@ from kerasformers.quantization import Int8Config, quantize_model
 
 cfg = Int8Config(skip_modules=("lm_head", "q_proj"))
 
-model = Qwen3Generate.from_weights("qwen3-4b", quantization=cfg)
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization=cfg)
 quantize_model(model, cfg)
 ```
 

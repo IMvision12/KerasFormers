@@ -14,7 +14,7 @@ MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 # needs every sublayer built, and DeepseekVLHybrid's high-res SAM tower only
 # builds when image inputs are passed (the registry entry is text-only).
 SKIP_SAVING = {
-    "DeepseekVLHybridGenerate",
+    "DeepseekVLHybridConditionalGenerate",
 }
 
 

@@ -36,7 +36,7 @@ class GraniteSpeechTextConfig(BaseConfig):
         logits_scaling (`float`, *optional*, defaults to 8.0):
             Granite divisor applied to the final logits.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`GraniteSpeechGenerate`] ties the LM head to the token
+            Whether [`GraniteSpeechConditionalGenerate`] ties the LM head to the token
             embeddings.
         eos_token_id (`int`, *optional*, defaults to 0):
             End-of-sequence token id.
@@ -166,10 +166,10 @@ class GraniteSpeechConfig(BaseConfig):
     Example:
 
     ```python
-    >>> from kerasformers.models.granite_speech import GraniteSpeechConfig, GraniteSpeechGenerate
+    >>> from kerasformers.models.granite_speech import GraniteSpeechConfig, GraniteSpeechConditionalGenerate
 
     >>> configuration = GraniteSpeechConfig()
-    >>> model = GraniteSpeechGenerate(configuration)
+    >>> model = GraniteSpeechConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

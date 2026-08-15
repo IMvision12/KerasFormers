@@ -11,7 +11,7 @@ Google's on-device Gemma 3n, ported to pure Keras 3: a novel text decoder paired
 a **MobileNet-V5** vision tower and a **USM** audio tower, for image + audio + text.
 A single `Gemma3nForConditionalGeneration` drives generation for text, image+text, and
 image+audio+text, like transformers' `Gemma3nForConditionalGeneration`. The text-only
-backbone is `Gemma3nTextModel` (with `Gemma3nGenerate`), and the multimodal backbone is
+backbone is `Gemma3nTextModel` (with `Gemma3nConditionalGenerate`), and the multimodal backbone is
 `Gemma3nModel`.
 
 What is new in the Gemma 3n decoder:

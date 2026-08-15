@@ -11,7 +11,7 @@ from kerasformers.models.gemma4.gemma4_image_processor import Gemma4ImageProcess
 from kerasformers.models.gemma4.gemma4_layers import Gemma4MultimodalEmbedder
 from kerasformers.models.gemma4.gemma4_model import (
     Gemma4AudioModel,
-    Gemma4Generate,
+    Gemma4ConditionalGenerate,
     Gemma4Model,
     Gemma4MultimodalModel,
     Gemma4VisionModel,
@@ -25,7 +25,7 @@ __all__ = [
     "Gemma4VisionConfig",
     "Gemma4AudioConfig",
     "Gemma4Model",
-    "Gemma4Generate",
+    "Gemma4ConditionalGenerate",
     "Gemma4MultimodalModel",
     "Gemma4VisionModel",
     "Gemma4AudioModel",

@@ -64,7 +64,7 @@ class GptOssModel(SubclassedBaseModel):
     combines them by the routing weights: mathematically identical to sparse
     top-k routing, but compute is O(num_experts).) Subclassed (imperative)
     model: the forward runs eagerly with ``keras.ops``. Returns raw features;
-    use :class:`GptOssGenerate` for logits / text.
+    use :class:`GptOssTextGenerate` for logits / text.
 
     Args:
         vocab_size, embed_dim, mlp_dim, num_layers, num_heads,
@@ -76,7 +76,7 @@ class GptOssModel(SubclassedBaseModel):
         rope_theta, rope_factor, rope_beta_fast, rope_beta_slow, rope_truncate,
         rope_original_max_pos: YaRN rotary parameters.
         attention_bias: whether q/k/v/o carry a bias (GPT-OSS: True).
-        tie_embeddings: whether :class:`GptOssGenerate` ties the LM head.
+        tie_embeddings: whether :class:`GptOssTextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "gpt_oss"
@@ -264,7 +264,7 @@ class GptOssModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GptOssGenerate(GptOssModel, BaseGeneration):
+class GptOssTextGenerate(GptOssModel, BaseGeneration):
     """GPT-OSS backbone + a language-model head and fast ``.generate()``.
 
     Adds a bias-free ``lm_head`` (GPT-OSS does not tie embeddings). ``call`` returns

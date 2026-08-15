@@ -75,7 +75,7 @@ Returns `{"last_hidden_state": (batch, seq, embed_dim)}`.
 | `image_token_id` | `151655` | placeholder token expanded per image |
 | `video_token_id` | `151656` | placeholder token expanded per video |
 
-### `Qwen3VLMoeGenerate`
+### `Qwen3VLMoeConditionalGenerate`
 
 `Qwen3VLMoeModel` plus a (tied) LM head and fast `.generate()` (image+text -> text).
 Returns `{"logits": (batch, seq, vocab_size)}`. Same fast multimodal generation as
@@ -95,9 +95,14 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.qwen3_vl_moe import Qwen3VLMoeGenerate, Qwen3VLMoeProcessor
+from kerasformers.models.qwen3_vl_moe import (
+    Qwen3VLMoeConditionalGenerate,
+    Qwen3VLMoeProcessor,
+)
 
-model = Qwen3VLMoeGenerate.from_weights("kerasformers/qwen3-vl-30b-a3b-instruct")
+model = Qwen3VLMoeConditionalGenerate.from_weights(
+    "kerasformers/qwen3-vl-30b-a3b-instruct"
+)
 processor = Qwen3VLMoeProcessor.from_weights("kerasformers/qwen3-vl-30b-a3b-instruct")
 
 inputs = processor(
@@ -122,7 +127,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen3VLMoeGenerate.from_weights(
+model = Qwen3VLMoeConditionalGenerate.from_weights(
     "kerasformers/qwen3-vl-30b-a3b-instruct", quantization="int8", load_dtype="bfloat16"
 )
 ```

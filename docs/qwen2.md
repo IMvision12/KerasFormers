@@ -56,7 +56,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `rope_theta` | `1000000.0` | rotary base frequency |
 | `tie_embeddings` | `True` | reuse the embedding matrix as the LM head |
 
-### `Qwen2Generate`
+### `Qwen2TextGenerate`
 
 `Qwen2Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `Qwen2Model`.
@@ -109,9 +109,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.qwen2 import Qwen2Generate, Qwen2Tokenizer
+from kerasformers.models.qwen2 import Qwen2TextGenerate, Qwen2Tokenizer
 
-model = Qwen2Generate.from_weights("kerasformers/qwen2-0.5b-instruct")
+model = Qwen2TextGenerate.from_weights("kerasformers/qwen2-0.5b-instruct")
 tokenizer = Qwen2Tokenizer.from_weights("kerasformers/qwen2-0.5b-instruct")
 
 inputs = tokenizer(
@@ -155,7 +155,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Qwen2Generate.from_weights("hf:Qwen/Qwen2-0.5B")
+model = Qwen2TextGenerate.from_weights("hf:Qwen/Qwen2-0.5B")
 ```
 
 ### Lower memory
@@ -164,7 +164,7 @@ The 72B checkpoint needs quantization to fit comfortably on a single 80GB GPU. S
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen2Generate.from_weights(
+model = Qwen2TextGenerate.from_weights(
     "kerasformers/qwen2-72b-instruct",
     quantization="int8",
 )

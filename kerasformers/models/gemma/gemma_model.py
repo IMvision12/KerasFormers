@@ -18,7 +18,7 @@ class GemmaModel(SubclassedBaseModel):
     GeGLU (tanh-approximate gelu) MLPs, scaled token embeddings, ``head_dim``
     256 decoupled from ``embed_dim // num_heads`` (the 2B is MQA with one
     K/V head), and a tied LM head. Subclassed (imperative) model; returns
-    raw features: use :class:`GemmaGenerate` for logits / text.
+    raw features: use :class:`GemmaTextGenerate` for logits / text.
 
         model = GemmaModel.from_weights("kerasformers/gemma-2b")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
@@ -33,7 +33,7 @@ class GemmaModel(SubclassedBaseModel):
         head_dim: Per-head dim.
         norm_eps: RMSNorm epsilon.
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`GemmaGenerate` ties the LM head to the
+        tie_embeddings: Whether :class:`GemmaTextGenerate` ties the LM head to the
             token embedding (Gemma checkpoints do).
     """
 
@@ -169,7 +169,7 @@ class GemmaModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GemmaGenerate(GemmaModel, BaseGeneration):
+class GemmaTextGenerate(GemmaModel, BaseGeneration):
     """Gemma backbone + a (tied) language-model head and fast ``.generate()``.
 
     Adds the vocabulary projection on top of :class:`GemmaModel`, the
@@ -180,7 +180,7 @@ class GemmaGenerate(GemmaModel, BaseGeneration):
     ``build_cache`` / ``call_with_cache``. Constructor ``Args`` are inherited
     from :class:`GemmaModel`.
 
-        gen = GemmaGenerate.from_weights("kerasformers/gemma-2b-it")
+        gen = GemmaTextGenerate.from_weights("kerasformers/gemma-2b-it")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

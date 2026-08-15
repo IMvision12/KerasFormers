@@ -49,20 +49,20 @@ no adapter to toggle.
 
 The classes mirror Granite Speech exactly, under `kerasformers.models.granite_speech_plus`.
 
-### GraniteSpeechPlusGenerate
+### GraniteSpeechPlusConditionalGenerate
 
 ```python
-GraniteSpeechPlusGenerate(vocab_size=100353, embed_dim=2048, mlp_dim=4096,
+GraniteSpeechPlusConditionalGenerate(vocab_size=100353, embed_dim=2048, mlp_dim=4096,
                           num_layers=40, num_heads=16, num_kv_heads=4,
                           rope_theta=10000.0, attention_multiplier=1 / 128,
                           audio_token_id=100352, has_lora_adapter=False,
                           cat_hidden_layers=[3], ...,
-                          name="GraniteSpeechPlusGenerate")
+                          name="GraniteSpeechPlusConditionalGenerate")
 ```
 
 The audio encoder, projector, Granite 4.0 decoder, and LM head. **This is the class for
 audio-plus-text to text.** The arguments are the same set as
-[`GraniteSpeechGenerate`](granite_speech.md#granitespeechgenerate), with the defaults in
+[`GraniteSpeechConditionalGenerate`](granite_speech.md#granitespeechgenerate), with the defaults in
 the table above; `from_weights` fills them in.
 
 **generate**
@@ -138,11 +138,11 @@ import keras
 import numpy as np
 import soundfile as sf
 from kerasformers.models.granite_speech_plus import (
-    GraniteSpeechPlusGenerate,
+    GraniteSpeechPlusConditionalGenerate,
     GraniteSpeechPlusProcessor,
 )
 
-model = GraniteSpeechPlusGenerate.from_weights(
+model = GraniteSpeechPlusConditionalGenerate.from_weights(
     "kerasformers/granite_speech_4_1_2b_plus", load_dtype="bfloat16"
 )
 processor = GraniteSpeechPlusProcessor.from_weights(
@@ -205,11 +205,11 @@ if sr != 16000:
 
 ```python
 from kerasformers.models.granite_speech_plus import (
-    GraniteSpeechPlusGenerate,
+    GraniteSpeechPlusConditionalGenerate,
     GraniteSpeechPlusProcessor,
 )
 
-model = GraniteSpeechPlusGenerate.from_weights(
+model = GraniteSpeechPlusConditionalGenerate.from_weights(
     "hf:ibm-granite/granite-speech-4.1-2b-plus"
 )
 processor = GraniteSpeechPlusProcessor.from_weights(
@@ -217,7 +217,7 @@ processor = GraniteSpeechPlusProcessor.from_weights(
 )
 
 # Architecture only, randomly initialized
-model = GraniteSpeechPlusGenerate.from_weights(
+model = GraniteSpeechPlusConditionalGenerate.from_weights(
     "kerasformers/granite_speech_4_1_2b_plus", load_weights=False
 )
 ```

@@ -8,9 +8,9 @@ from .gpt2_layers import GPT2Block
 
 MASK_NEG = -1e9
 
-# The backbone (GPT2Model) and generative head (GPT2Generate) share the variant's
+# The backbone (GPT2Model) and generative head (GPT2TextGenerate) share the variant's
 # weights repo, whose kf_config.json declares GPT2Model.
-GPT2_HUB_SIBLINGS = frozenset({"GPT2Model", "GPT2Generate"})
+GPT2_HUB_SIBLINGS = frozenset({"GPT2Model", "GPT2TextGenerate"})
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -20,7 +20,7 @@ class GPT2Model(SubclassedBaseModel):
     Learned token (``wte``) + absolute-position (``wpe``) embeddings, a stack of
     pre-LayerNorm causal blocks, and a final LayerNorm (``ln_f``). Subclassed
     (imperative) model: the forward runs eagerly with ``keras.ops``. Returns raw
-    features; use :class:`GPT2Generate` for logits / text.
+    features; use :class:`GPT2TextGenerate` for logits / text.
 
     Args:
         vocab_size: Token vocabulary size.
@@ -30,7 +30,7 @@ class GPT2Model(SubclassedBaseModel):
         num_heads: Attention heads per block.
         max_position_embeddings: Size of the learned position table.
         norm_eps: LayerNorm epsilon.
-        tie_embeddings: Whether :class:`GPT2Generate` ties the LM head to ``wte``.
+        tie_embeddings: Whether :class:`GPT2TextGenerate` ties the LM head to ``wte``.
     """
 
     HF_MODEL_TYPE = "gpt2"
@@ -130,7 +130,7 @@ class GPT2Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GPT2Generate(GPT2Model, BaseGeneration):
+class GPT2TextGenerate(GPT2Model, BaseGeneration):
     """GPT-2 backbone + a (tied) language-model head and fast ``.generate()``.
 
     ``call`` returns ``logits`` ``(batch, seq, vocab_size)`` and

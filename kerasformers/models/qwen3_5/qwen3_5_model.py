@@ -19,7 +19,7 @@ class Qwen3_5Model(SubclassedBaseModel):
     -th layer is *gated full attention* (GQA, QK-norm, partial rotary, sigmoid
     output gate). RMSNorm is zero-centered. This is a subclassed (imperative)
     :class:`FunctionalBaseModel`: the forward pass runs eagerly with ``keras.ops``. Returns
-    raw features; use :class:`Qwen3_5Generate` for logits / text.
+    raw features; use :class:`Qwen3_5TextGenerate` for logits / text.
 
         model = Qwen3_5Model.from_weights("hf:Qwen/Qwen3.5-...")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
@@ -36,7 +36,7 @@ class Qwen3_5Model(SubclassedBaseModel):
         rope_theta: Rotary base frequency.
         partial_rotary_factor: Fraction of ``head_dim`` that gets rotary
             (``rotary_dim = int(head_dim * partial_rotary_factor)``).
-        tie_embeddings: Whether :class:`Qwen3_5Generate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen3_5TextGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         full_attention_interval: Place a full-attention layer every Nth block;
             all others are Gated-DeltaNet linear-attention layers.
@@ -214,7 +214,7 @@ class Qwen3_5Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3_5Generate(Qwen3_5Model, BaseGeneration):
+class Qwen3_5TextGenerate(Qwen3_5Model, BaseGeneration):
     """Qwen3.5 backbone + a language-model head and fast ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`Qwen3_5Model` (a separate
@@ -227,7 +227,7 @@ class Qwen3_5Generate(Qwen3_5Model, BaseGeneration):
     is identical to prefill, so its decode step is exact). Constructor ``Args`` are
     inherited from :class:`Qwen3_5Model`.
 
-        gen = Qwen3_5Generate.from_weights("hf:Qwen/Qwen3.5-...")
+        gen = Qwen3_5TextGenerate.from_weights("hf:Qwen/Qwen3.5-...")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

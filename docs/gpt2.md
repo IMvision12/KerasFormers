@@ -61,7 +61,7 @@ The defaults below are the `gpt2` 124M size; the larger sizes are in the
 | `norm_eps` | `1e-5` | LayerNorm epsilon |
 | `tie_embeddings` | `True` | reuse the embedding matrix as the LM head |
 
-### `GPT2Generate`
+### `GPT2TextGenerate`
 
 `GPT2Model` plus a tied LM head. Returns
 `{"logits": (batch, seq, vocab_size), "last_hidden_state": ...}` and adds `.generate()`.
@@ -115,9 +115,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gpt2 import GPT2Generate, GPT2Tokenizer
+from kerasformers.models.gpt2 import GPT2TextGenerate, GPT2Tokenizer
 
-model = GPT2Generate.from_weights("kerasformers/gpt2")
+model = GPT2TextGenerate.from_weights("kerasformers/gpt2")
 tokenizer = GPT2Tokenizer.from_weights("kerasformers/gpt2")
 
 inputs = tokenizer("The meaning of life is")
@@ -155,7 +155,7 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 768)
 Any upstream GPT-2 checkpoint converts on the fly with the `hf:` prefix:
 
 ```python
-model = GPT2Generate.from_weights("hf:openai-community/gpt2-medium")
+model = GPT2TextGenerate.from_weights("hf:openai-community/gpt2-medium")
 ```
 
 ### Larger sizes
@@ -164,12 +164,12 @@ model = GPT2Generate.from_weights("hf:openai-community/gpt2-medium")
 both the model and the tokenizer:
 
 ```python
-model = GPT2Generate.from_weights("kerasformers/gpt2_xl")
+model = GPT2TextGenerate.from_weights("kerasformers/gpt2_xl")
 tokenizer = GPT2Tokenizer.from_weights("kerasformers/gpt2_xl")
 ```
 
 ## Verified parity
 
-`GPT2Generate` logits vs the real `openai-community/gpt2` (HF, eager attention):
+`GPT2TextGenerate` logits vs the real `openai-community/gpt2` (HF, eager attention):
 **max |Δ| 4.6e-5**, argmax 100% agree. Build + forward + `.generate()` pass on
 TF / Torch / JAX.

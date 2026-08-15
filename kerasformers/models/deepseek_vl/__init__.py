@@ -7,7 +7,7 @@ from kerasformers.models.deepseek_vl.deepseek_vl_image_processor import (
     DeepseekVLImageProcessor,
 )
 from kerasformers.models.deepseek_vl.deepseek_vl_model import (
-    DeepseekVLGenerate,
+    DeepseekVLConditionalGenerate,
     DeepseekVLModel,
     DeepseekVLVisionModel,
 )
@@ -19,7 +19,7 @@ __all__ = [
     "DeepseekVLTextConfig",
     "DeepseekVLVisionConfig",
     "DeepseekVLModel",
-    "DeepseekVLGenerate",
+    "DeepseekVLConditionalGenerate",
     "DeepseekVLVisionModel",
     "DeepseekVLImageProcessor",
     "DeepseekVLProcessor",

@@ -367,7 +367,7 @@ class Qwen3VLModel(Qwen2VLModel):
     (interpolated) position embeddings and GELU blocks, and **DeepStack**: features
     from several vision layers are scattered into the text decoder's early layers
     during prefill. This base model returns raw features (no LM head); use
-    :class:`Qwen3VLGenerate` for logits / text.
+    :class:`Qwen3VLConditionalGenerate` for logits / text.
 
     Output dict:
 
@@ -404,7 +404,7 @@ class Qwen3VLModel(Qwen2VLModel):
         rope_theta: Rotary base frequency.
         mrope_section: Per-axis (temporal, height, width) channel split of the
             interleaved M-RoPE.
-        tie_embeddings: Whether :class:`Qwen3VLGenerate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen3VLConditionalGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         vision_depth: Number of vision-transformer blocks.
         vision_embed_dim: Vision hidden width.
@@ -689,11 +689,11 @@ class Qwen3VLModel(Qwen2VLModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3VLGenerate(Qwen3VLModel, BaseGeneration):
+class Qwen3VLConditionalGenerate(Qwen3VLModel, BaseGeneration):
     """Qwen3-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
     Same fast multimodal generation as
-    :class:`~kerasformers.models.qwen2_vl.qwen2_vl_model.Qwen2VLGenerate`: ``build_cache``
+    :class:`~kerasformers.models.qwen2_vl.qwen2_vl_model.Qwen2VLConditionalGenerate`: ``build_cache``
     runs the vision encoder + M-RoPE prefill into a fixed KV cache (DeepStack vision
     features threaded through the prefill via ``extra``; ``rope_deltas`` carried in the
     cache), then ``call_with_cache`` does text-only decode at M-RoPE position

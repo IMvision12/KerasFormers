@@ -32,9 +32,9 @@ SKIP_DATA_FORMAT = {
     "MoonshineModel",
     "MoonshineSpeechToText",
     "GraniteSpeechModel",
-    "GraniteSpeechGenerate",
+    "GraniteSpeechConditionalGenerate",
     "GraniteSpeechPlusModel",
-    "GraniteSpeechPlusGenerate",
+    "GraniteSpeechPlusConditionalGenerate",
     "MaskFormerUniversalSegment",
     "Mask2FormerUniversalSegment",
     # Qwen-VL inputs are pre-patchified (no spatial axes) -> layout-agnostic.
@@ -43,18 +43,18 @@ SKIP_DATA_FORMAT = {
     "Qwen3VLModel",
     "Qwen3_5MoeModel",
     "Qwen3VLMoeModel",
-    "Qwen2VLGenerate",
-    "Qwen2_5VLGenerate",
-    "Qwen3VLGenerate",
-    "Qwen3_5MoeGenerate",
-    "Qwen3VLMoeGenerate",
+    "Qwen2VLConditionalGenerate",
+    "Qwen2_5VLConditionalGenerate",
+    "Qwen3VLConditionalGenerate",
+    "Qwen3_5MoeConditionalGenerate",
+    "Qwen3VLMoeConditionalGenerate",
     # Text LLMs are token-id only -> no image data format.
     "Qwen2Model",
     "Qwen3Model",
     "Qwen3_5Model",
-    "Qwen2Generate",
-    "Qwen3Generate",
-    "Qwen3_5Generate",
+    "Qwen2TextGenerate",
+    "Qwen3TextGenerate",
+    "Qwen3_5TextGenerate",
 }
 
 

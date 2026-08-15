@@ -26,7 +26,7 @@ class DeepseekVLHybridTextConfig(BaseConfig):
         rope_theta (`float`, *optional*, defaults to 10000.0):
             Rotary base frequency.
         tie_embeddings (`bool`, *optional*, defaults to `False`):
-            Whether [`DeepseekVLHybridGenerate`] ties the LM head to the token
+            Whether [`DeepseekVLHybridConditionalGenerate`] ties the LM head to the token
             embeddings.
 
     Example:
@@ -152,10 +152,10 @@ class DeepseekVLHybridConfig(BaseConfig):
     Example:
 
     ```python
-    >>> from kerasformers.models.deepseek_vl_hybrid import DeepseekVLHybridConfig, DeepseekVLHybridGenerate
+    >>> from kerasformers.models.deepseek_vl_hybrid import DeepseekVLHybridConfig, DeepseekVLHybridConditionalGenerate
 
     >>> configuration = DeepseekVLHybridConfig()
-    >>> model = DeepseekVLHybridGenerate(configuration)
+    >>> model = DeepseekVLHybridConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

@@ -1,7 +1,7 @@
 import keras
 
 from kerasformers.models.granite_speech.granite_speech_model import (
-    GraniteSpeechGenerate,
+    GraniteSpeechConditionalGenerate,
     GraniteSpeechModel,
 )
 
@@ -9,9 +9,9 @@ from .granite_speech_plus_config import GraniteSpeechPlusConfig
 
 # GraniteSpeechPlus has its own weights repos (separate from GraniteSpeech). The
 # backbone + generate head both load from the variant's repo, whose kf_config.json
-# declares the canonical GraniteSpeechPlusGenerate.
+# declares the canonical GraniteSpeechPlusConditionalGenerate.
 GRANITE_SPEECH_PLUS_HUB_SIBLINGS = frozenset(
-    {"GraniteSpeechPlusModel", "GraniteSpeechPlusGenerate"}
+    {"GraniteSpeechPlusModel", "GraniteSpeechPlusConditionalGenerate"}
 )
 
 
@@ -33,9 +33,9 @@ class GraniteSpeechPlusModel(GraniteSpeechModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GraniteSpeechPlusGenerate(GraniteSpeechGenerate):
+class GraniteSpeechPlusConditionalGenerate(GraniteSpeechConditionalGenerate):
     """GraniteSpeechPlus with an LM head + fast ``.generate()`` (audio+text -> text)
-    the Plus variant of :class:`GraniteSpeechGenerate`."""
+    the Plus variant of :class:`GraniteSpeechConditionalGenerate`."""
 
     HF_MODEL_TYPE = "granite_speech_plus"
     BASE_MODEL_CONFIG = None

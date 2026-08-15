@@ -15,11 +15,11 @@ class GraniteSpeechPlusConfig(GraniteSpeechConfig):
     ```python
     >>> from kerasformers.models.granite_speech_plus import (
     ...     GraniteSpeechPlusConfig,
-    ...     GraniteSpeechPlusGenerate,
+    ...     GraniteSpeechPlusConditionalGenerate,
     ... )
 
     >>> configuration = GraniteSpeechPlusConfig()
-    >>> model = GraniteSpeechPlusGenerate(configuration)
+    >>> model = GraniteSpeechPlusConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class Qwen2MoeConfig(BaseConfig):
-    r"""Configuration for Qwen2-MoE: [`Qwen2MoeModel`] and [`Qwen2MoeGenerate`].
+    r"""Configuration for Qwen2-MoE: [`Qwen2MoeModel`] and [`Qwen2MoeTextGenerate`].
 
     Qwen2-MoE keeps the Qwen2 attention (GQA with q/k/v bias, RMSNorm, rotary
     positions) and replaces the dense MLP on the sparse layers with a softmax
@@ -45,15 +45,15 @@ class Qwen2MoeConfig(BaseConfig):
         norm_eps (`float`, *optional*, defaults to 1e-6):
             RMSNorm epsilon.
         tie_embeddings (`bool`, *optional*, defaults to `False`):
-            Whether [`Qwen2MoeGenerate`] ties the LM head to the token embedding.
+            Whether [`Qwen2MoeTextGenerate`] ties the LM head to the token embedding.
 
     Examples:
 
     ```python
-    >>> from kerasformers.models.qwen2_moe import Qwen2MoeConfig, Qwen2MoeGenerate
+    >>> from kerasformers.models.qwen2_moe import Qwen2MoeConfig, Qwen2MoeTextGenerate
 
     >>> configuration = Qwen2MoeConfig(embed_dim=3584, num_layers=28, num_experts=64)
-    >>> model = Qwen2MoeGenerate(configuration)
+    >>> model = Qwen2MoeTextGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

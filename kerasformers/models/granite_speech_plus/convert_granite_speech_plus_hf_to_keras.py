@@ -2,7 +2,7 @@ from kerasformers.models.granite_speech.convert_granite_speech_hf_to_keras impor
     transfer_granite_speech_weights,
 )
 
-from .granite_speech_plus_model import GraniteSpeechPlusGenerate
+from .granite_speech_plus_model import GraniteSpeechPlusConditionalGenerate
 
 # Per-variant recipe (relocated from granite_speech_plus_config.py), as overrides of
 # the GraniteSpeechConfig defaults. The Plus variant adds cat_hidden_layers.
@@ -52,7 +52,7 @@ if __name__ == "__main__":
                 v.to(torch.float32).cpu().numpy()
             )
 
-    model = GraniteSpeechPlusGenerate(**GRANITE_SPEECH_PLUS_RECIPES[VARIANT])
+    model = GraniteSpeechPlusConditionalGenerate(**GRANITE_SPEECH_PLUS_RECIPES[VARIANT])
     transfer_granite_speech_weights(model, state)
 
     frames = 4 * model.window_size

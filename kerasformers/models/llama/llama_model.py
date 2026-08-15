@@ -52,7 +52,7 @@ class LlamaModel(SubclassedBaseModel):
     3.1 / 3.3 (frequency-banded ``llama3`` rope scaling, ``rope_factor=8``),
     and Llama 3.2 1B/3B (``rope_factor=32`` and a tied LM head). Subclassed
     (imperative) model: the forward runs eagerly with ``keras.ops``. Returns
-    raw features; use :class:`LlamaGenerate` for logits / text.
+    raw features; use :class:`LlamaTextGenerate` for logits / text.
 
         model = LlamaModel.from_weights("llama3.2-1b")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
@@ -72,7 +72,7 @@ class LlamaModel(SubclassedBaseModel):
         rope_low_freq_factor / rope_high_freq_factor: band edges of the
             scaled / interpolated wavelength regions.
         rope_original_max_pos: Pretraining context the bands are relative to.
-        tie_embeddings: Whether :class:`LlamaGenerate` ties the LM head to the
+        tie_embeddings: Whether :class:`LlamaTextGenerate` ties the LM head to the
             token embedding (Llama 3.2 1B/3B: ``True``).
     """
 
@@ -234,7 +234,7 @@ class LlamaModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class LlamaGenerate(LlamaModel, BaseGeneration):
+class LlamaTextGenerate(LlamaModel, BaseGeneration):
     """Llama 3 family backbone + a language-model head and fast ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`LlamaModel`: a separate
@@ -247,7 +247,7 @@ class LlamaGenerate(LlamaModel, BaseGeneration):
     ``call_with_cache`` (one compiled decode step). Constructor ``Args`` are
     inherited from :class:`LlamaModel`.
 
-        gen = LlamaGenerate.from_weights("llama3.2-1b-instruct")
+        gen = LlamaTextGenerate.from_weights("llama3.2-1b-instruct")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

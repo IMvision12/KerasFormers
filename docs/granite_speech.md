@@ -22,10 +22,10 @@ the audio LoRA switched off.
 
 ## API
 
-### GraniteSpeechGenerate
+### GraniteSpeechConditionalGenerate
 
 ```python
-GraniteSpeechGenerate(vocab_size=49160, embed_dim=2048, mlp_dim=8192,
+GraniteSpeechConditionalGenerate(vocab_size=49160, embed_dim=2048, mlp_dim=8192,
                       num_layers=40, num_heads=32, num_kv_heads=8,
                       norm_eps=1e-05, rope_theta=1e7,
                       embedding_multiplier=12.0, residual_multiplier=0.22,
@@ -33,7 +33,7 @@ GraniteSpeechGenerate(vocab_size=49160, embed_dim=2048, mlp_dim=8192,
                       tie_embeddings=True, eos_token_id=0,
                       audio_token_id=49159, downsample_rate=5, window_size=15,
                       has_lora_adapter=True, lora_rank=64, ...,
-                      name="GraniteSpeechGenerate")
+                      name="GraniteSpeechConditionalGenerate")
 ```
 
 The audio encoder, projector, LoRA-adapted Granite decoder, and LM head. **This is the
@@ -49,7 +49,7 @@ class for audio-plus-text to text.**
 - **has_lora_adapter** (`bool`, *optional*, defaults to `True`): enable the query/value LoRA that is active in speech mode and off for text.
 - **lora_rank** (`int`, *optional*, defaults to `64`): rank of that adapter.
 - **tie_embeddings** (`bool`, *optional*, defaults to `True`): reuse the embedding matrix as the LM head.
-- **name** (`str`, *optional*, defaults to `"GraniteSpeechGenerate"`): model name.
+- **name** (`str`, *optional*, defaults to `"GraniteSpeechConditionalGenerate"`): model name.
 
 **generate**
 
@@ -77,7 +77,7 @@ GraniteSpeechModel(vocab_size=49160, embed_dim=2048, mlp_dim=8192,
 ```
 
 The same stack without the LM head, for hidden states. Same arguments as
-`GraniteSpeechGenerate`.
+`GraniteSpeechConditionalGenerate`.
 
 **Call** `model(inputs)` with the processor's dict. **Returns** the decoder hidden states
 `(B, T, embed_dim)`.
@@ -167,11 +167,11 @@ import keras
 import numpy as np
 import soundfile as sf
 from kerasformers.models.granite_speech import (
-    GraniteSpeechGenerate,
+    GraniteSpeechConditionalGenerate,
     GraniteSpeechProcessor,
 )
 
-model = GraniteSpeechGenerate.from_weights(
+model = GraniteSpeechConditionalGenerate.from_weights(
     "kerasformers/granite_speech_3_3_2b", load_dtype="bfloat16"
 )
 processor = GraniteSpeechProcessor.from_weights("kerasformers/granite_speech_3_3_2b")
@@ -267,15 +267,17 @@ Any Hugging Face repo whose `model_type` is `"granite_speech"` loads with the `h
 
 ```python
 from kerasformers.models.granite_speech import (
-    GraniteSpeechGenerate,
+    GraniteSpeechConditionalGenerate,
     GraniteSpeechProcessor,
 )
 
-model = GraniteSpeechGenerate.from_weights("hf:ibm-granite/granite-speech-3.3-2b")
+model = GraniteSpeechConditionalGenerate.from_weights(
+    "hf:ibm-granite/granite-speech-3.3-2b"
+)
 processor = GraniteSpeechProcessor.from_weights("hf:ibm-granite/granite-speech-3.3-2b")
 
 # Architecture only, randomly initialized
-model = GraniteSpeechGenerate.from_weights(
+model = GraniteSpeechConditionalGenerate.from_weights(
     "kerasformers/granite_speech_3_3_2b", load_weights=False
 )
 ```

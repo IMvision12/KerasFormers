@@ -65,7 +65,7 @@ def transfer_locateanything_weights(keras_model, hf_state_dict):
 
 # Single-variant recipe (relocated from locateanything_config.py). The conversion
 # below builds from the HF config.json via config_from_hf; this recipe drives the
-# kf_config backfill so the repo declares LocateAnythingGenerate.
+# kf_config backfill so the repo declares LocateAnythingConditionalGenerate.
 LOCATEANYTHING_RECIPES = {
     "locateanything_3b": {
         "vocab_size": 152681,
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     import keras
     from huggingface_hub import snapshot_download
 
-    from kerasformers.models.locateanything import LocateAnythingGenerate
+    from kerasformers.models.locateanything import LocateAnythingConditionalGenerate
 
     DTYPE = "bfloat16"
     MAX_SHARD_GB = 1.7
@@ -143,8 +143,8 @@ if __name__ == "__main__":
 
         with open(os.path.join(local, "config.json")) as f:
             hf_config = json.load(f)
-        model = LocateAnythingGenerate(
-            **LocateAnythingGenerate.config_from_hf(hf_config)
+        model = LocateAnythingConditionalGenerate(
+            **LocateAnythingConditionalGenerate.config_from_hf(hf_config)
         )
         shards = sorted(glob.glob(os.path.join(local, "*.safetensors")))
         transfer_locateanything_weights(model, safetensors_state_dict(shards))

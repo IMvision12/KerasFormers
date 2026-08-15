@@ -8,7 +8,7 @@ from .gpt_layers import GptBlock
 
 MASK_NEG = -1e9
 
-GPT_HUB_SIBLINGS = frozenset({"GptModel", "GptGenerate"})
+GPT_HUB_SIBLINGS = frozenset({"GptModel", "GptTextGenerate"})
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -18,7 +18,7 @@ class GptModel(SubclassedBaseModel):
     Learned token (``tokens_embed``) + absolute-position (``positions_embed``)
     embeddings followed by a stack of post-LayerNorm causal blocks. Unlike GPT-2
     there is no final LayerNorm. Subclassed (imperative) model whose forward runs
-    eagerly with ``keras.ops``; use :class:`GptGenerate` for logits / text.
+    eagerly with ``keras.ops``; use :class:`GptTextGenerate` for logits / text.
 
     Args:
         vocab_size: Token vocabulary size.
@@ -28,7 +28,7 @@ class GptModel(SubclassedBaseModel):
         num_heads: Attention heads per block.
         max_position_embeddings: Size of the learned position table.
         norm_eps: LayerNorm epsilon.
-        tie_embeddings: Whether :class:`GptGenerate` ties the LM head to
+        tie_embeddings: Whether :class:`GptTextGenerate` ties the LM head to
             ``tokens_embed``.
     """
 
@@ -130,7 +130,7 @@ class GptModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GptGenerate(GptModel, BaseGeneration):
+class GptTextGenerate(GptModel, BaseGeneration):
     """GPT backbone + a (tied) language-model head and fast ``.generate()``.
 
     ``call`` returns ``logits`` ``(batch, seq, vocab_size)`` and

@@ -72,7 +72,7 @@ MiniMax-M3 vision-language backbone (MiniMaxAI/MiniMax-M3).
 | `video_token_id` | `200026` | placeholder token id expanded per video |
 | `tie_embeddings` | `False` | reuse embeddings as the LM head |
 
-### `MiniMaxM3VLGenerate`
+### `MiniMaxM3VLConditionalGenerate`
 
 MiniMax-M3 VL with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -150,9 +150,12 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.minimax_m3_vl import MiniMaxM3VLGenerate, MiniMaxM3VLProcessor
+from kerasformers.models.minimax_m3_vl import (
+    MiniMaxM3VLConditionalGenerate,
+    MiniMaxM3VLProcessor,
+)
 
-model = MiniMaxM3VLGenerate.from_weights("minimax-m3")
+model = MiniMaxM3VLConditionalGenerate.from_weights("minimax-m3")
 processor = MiniMaxM3VLProcessor.from_weights("minimax-m3")
 
 image = Image.open("photo.jpg")
@@ -250,7 +253,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = MiniMaxM3VLGenerate.from_weights(
+model = MiniMaxM3VLConditionalGenerate.from_weights(
     "minimax-m3", quantization="int8", load_dtype="bfloat16"
 )
 ```

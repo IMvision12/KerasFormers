@@ -24,7 +24,7 @@ width or height to get pixels.
 
 | Class | What it is |
 |---|---|
-| `LocateAnythingGenerate` | the full model with the tied LM head and `generate`. **This is the one you want.** |
+| `LocateAnythingConditionalGenerate` | the full model with the tied LM head and `generate`. **This is the one you want.** |
 | `LocateAnythingModel` | backbone only (no LM head). |
 | `LocateAnythingVisionModel` | the MoonViT tower alone. |
 | `LocateAnythingProcessor` | image + text to model inputs. |
@@ -69,12 +69,12 @@ import keras
 import numpy as np
 from PIL import Image, ImageDraw
 from kerasformers.models.locateanything import (
-    LocateAnythingGenerate,
+    LocateAnythingConditionalGenerate,
     LocateAnythingProcessor,
     locate_prompt,
 )
 
-model = LocateAnythingGenerate.from_weights(
+model = LocateAnythingConditionalGenerate.from_weights(
     "kerasformers/locateanything_3b", load_dtype="bfloat16"
 )
 processor = LocateAnythingProcessor.from_weights("kerasformers/locateanything_3b")
@@ -326,7 +326,7 @@ coco_buffet.jpg [{'label': 'a wine glass', 'point': [38, 234]}, ...]
 The 3B decoder loads in bf16 or weight-only quantized. See [quantization.md](quantization.md):
 
 ```python
-model = LocateAnythingGenerate.from_weights(
+model = LocateAnythingConditionalGenerate.from_weights(
     "kerasformers/locateanything_3b",
     quantization="int8",
     load_dtype="bfloat16",

@@ -81,7 +81,7 @@ Qwen3-VL multimodal backbone: vision tower + Qwen3 decoder + DeepStack.
 | `vision_start_token_id` | `151652` | token id opening a vision span |
 | `vision_end_token_id` | `151653` | token id closing a vision span |
 
-### `Qwen3VLGenerate`
+### `Qwen3VLConditionalGenerate`
 
 Qwen3-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -202,9 +202,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.qwen3_vl import Qwen3VLGenerate, Qwen3VLProcessor
+from kerasformers.models.qwen3_vl import Qwen3VLConditionalGenerate, Qwen3VLProcessor
 
-model = Qwen3VLGenerate.from_weights("kerasformers/qwen3-vl-2b-instruct")
+model = Qwen3VLConditionalGenerate.from_weights("kerasformers/qwen3-vl-2b-instruct")
 processor = Qwen3VLProcessor.from_weights("kerasformers/qwen3-vl-2b-instruct")
 
 image = Image.open("photo.jpg")
@@ -288,7 +288,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen3VLGenerate.from_weights(
+model = Qwen3VLConditionalGenerate.from_weights(
     "kerasformers/qwen3-vl-2b-instruct", quantization="int8", load_dtype="bfloat16"
 )
 ```

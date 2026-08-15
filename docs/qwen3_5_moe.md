@@ -78,7 +78,7 @@ The multimodal backbone (vision tower + Qwen3-Next MoE decoder), no LM head. Ret
 | `image_token_id` | `248056` | placeholder token expanded per image |
 | `video_token_id` | `248057` | placeholder token expanded per video |
 
-### `Qwen3_5MoeGenerate`
+### `Qwen3_5MoeConditionalGenerate`
 
 `Qwen3_5MoeModel` plus a (tied) LM head and fast `.generate()` (image+text -> text).
 Returns `{"logits": (batch, seq, vocab_size)}`. Prefill runs the vision encoder +
@@ -99,9 +99,12 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.qwen3_5_moe import Qwen3_5MoeGenerate, Qwen3_5MoeProcessor
+from kerasformers.models.qwen3_5_moe import (
+    Qwen3_5MoeConditionalGenerate,
+    Qwen3_5MoeProcessor,
+)
 
-model = Qwen3_5MoeGenerate.from_weights("kerasformers/qwen3.5-35b-a3b")
+model = Qwen3_5MoeConditionalGenerate.from_weights("kerasformers/qwen3.5-35b-a3b")
 processor = Qwen3_5MoeProcessor.from_weights("kerasformers/qwen3.5-35b-a3b")
 
 inputs = processor(
@@ -126,7 +129,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen3_5MoeGenerate.from_weights(
+model = Qwen3_5MoeConditionalGenerate.from_weights(
     "kerasformers/qwen3.5-35b-a3b", quantization="int8", load_dtype="bfloat16"
 )
 ```

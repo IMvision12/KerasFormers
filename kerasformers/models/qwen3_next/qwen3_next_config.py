@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class Qwen3NextConfig(BaseConfig):
-    r"""Configuration for Qwen3-Next: [`Qwen3NextModel`] and [`Qwen3NextGenerate`].
+    r"""Configuration for Qwen3-Next: [`Qwen3NextModel`] and [`Qwen3NextTextGenerate`].
 
     A hybrid decoder: most blocks are Gated-DeltaNet linear-attention layers, with a
     full-attention block every ``full_attention_interval``; both use a sparse MoE MLP

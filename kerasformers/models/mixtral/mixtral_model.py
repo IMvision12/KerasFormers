@@ -18,7 +18,7 @@ class MixtralModel(SubclassedBaseModel):
     8-expert top-2 softmax-routed mixture of experts. (This port evaluates
     all experts densely and combines by the routing weights: mathematically
     identical to sparse routing, compute O(num_experts).) Subclassed
-    (imperative) model; returns raw features: use :class:`MixtralGenerate`
+    (imperative) model; returns raw features: use :class:`MixtralTextGenerate`
     for logits / text.
 
         model = MixtralModel.from_weights("mixtral-8x7b-instruct")
@@ -38,7 +38,7 @@ class MixtralModel(SubclassedBaseModel):
         rope_theta: Rotary base frequency.
         sliding_window: Causal attention window; ``None`` (the released
             checkpoints) means full causal attention.
-        tie_embeddings: Whether :class:`MixtralGenerate` ties the LM head
+        tie_embeddings: Whether :class:`MixtralTextGenerate` ties the LM head
             (Mixtral checkpoints do not).
     """
 
@@ -188,7 +188,7 @@ class MixtralModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MixtralGenerate(MixtralModel, BaseGeneration):
+class MixtralTextGenerate(MixtralModel, BaseGeneration):
     """Mixtral backbone + a language-model head and fast ``.generate()``.
 
     Adds a bias-free ``lm_head`` on top of :class:`MixtralModel` (Mixtral does
@@ -199,7 +199,7 @@ class MixtralGenerate(MixtralModel, BaseGeneration):
     ``call_with_cache`` (one compiled decode step). Constructor ``Args`` are
     inherited from :class:`MixtralModel`.
 
-        gen = MixtralGenerate.from_weights("mixtral-8x7b-instruct")
+        gen = MixtralTextGenerate.from_weights("mixtral-8x7b-instruct")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

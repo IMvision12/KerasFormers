@@ -81,7 +81,7 @@ Kimi K2.5 / K2.6 / K2.7-Code: MoonViT + DeepSeek-V3 MoE decoder.
 | `vision_start_token_id` | `163602` | token id opening a vision span |
 | `vision_end_token_id` | `163604` | token id closing a vision span |
 
-### `KimiK25Generate`
+### `KimiK25ConditionalGenerate`
 
 Kimi K2.5 with an LM head + fast ``.generate()`` (image/video+text -> text).
 
@@ -190,9 +190,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.kimi_k25 import KimiK25Generate, KimiK25Processor
+from kerasformers.models.kimi_k25 import KimiK25ConditionalGenerate, KimiK25Processor
 
-model = KimiK25Generate.from_weights("kimi-k2.5")
+model = KimiK25ConditionalGenerate.from_weights("kimi-k2.5")
 processor = KimiK25Processor.from_weights("kimi-k2.5")
 
 image = Image.open("photo.jpg")
@@ -260,7 +260,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = KimiK25Generate.from_weights(
+model = KimiK25ConditionalGenerate.from_weights(
     "kimi-k2.5", quantization="int8", load_dtype="bfloat16"
 )
 ```

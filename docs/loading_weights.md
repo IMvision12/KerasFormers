@@ -28,7 +28,7 @@ variant is way 2, and an `hf:` prefix is way 3.
 model = SegFormerSemanticSegment.from_weights(
     "kerasformers/segformer_b0_ade_512"
 )  # 1: Hub Keras
-model = Qwen3Generate.from_weights("qwen3-4b")  # 2: on the fly
+model = Qwen3TextGenerate.from_weights("qwen3-4b")  # 2: on the fly
 model = SegFormerSemanticSegment.from_weights("hf:<user>/my-finetune")  # 3: hf:
 ```
 
@@ -67,7 +67,7 @@ from the same repo before loading.
 memory:
 
 ```python
-model = Qwen3Generate.from_weights("qwen3-4b")
+model = Qwen3TextGenerate.from_weights("qwen3-4b")
 ```
 
 The reason is **size**. A pre-converted `.weights.h5` for a 4B model is ~8 GB and a 120B
@@ -78,7 +78,7 @@ the Hub download is cached like any other.
 The tradeoff is that **the conversion runs on every load**. To pay it once:
 
 ```python
-model = Qwen3Generate.from_weights("qwen3-4b", cache_converted=True)
+model = Qwen3TextGenerate.from_weights("qwen3-4b", cache_converted=True)
 ```
 
 That stores the converted result under `$KERASFORMERS_HOME/converted` and rebuilds from it
@@ -100,7 +100,7 @@ the same machinery. There is no offline conversion step and no intermediate file
 manage.
 
 ```python
-model = Qwen2Generate.from_weights("hf:Qwen/Qwen2-1.5B-Instruct")
+model = Qwen2TextGenerate.from_weights("hf:Qwen/Qwen2-1.5B-Instruct")
 tokenizer = Qwen2Tokenizer.from_weights("hf:Qwen/Qwen2-1.5B-Instruct")
 ```
 
@@ -185,8 +185,10 @@ the converted result under `$KERASFORMERS_HOME/converted` (default
 and conversion:
 
 ```python
-model = Qwen3Generate.from_weights("qwen3-4b", cache_converted=True)  # way 2
-model = Qwen3Generate.from_weights("hf:Qwen/Qwen3-8B", cache_converted=True)  # way 3
+model = Qwen3TextGenerate.from_weights("qwen3-4b", cache_converted=True)  # way 2
+model = Qwen3TextGenerate.from_weights(
+    "hf:Qwen/Qwen3-8B", cache_converted=True
+)  # way 3
 ```
 
 It works for both conversion paths. Way 1 has nothing to cache beyond the downloaded file.
@@ -207,7 +209,7 @@ Two independent flags, composable, for checkpoints that do not comfortably fit:
 | `quantization="int8"` | Device memory | Weight-only quantization of Dense and Embedding layers, roughly 4x, or 8x for `"int4"`. For subclassed LLMs the weights stream straight into int storage so the full float model is never built (automatic, no flag). See [Quantization](quantization.md). |
 
 ```python
-model = Qwen3Generate.from_weights(
+model = Qwen3TextGenerate.from_weights(
     "hf:Qwen/Qwen3-8B",
     load_dtype="bfloat16",
     quantization="int8",
@@ -264,7 +266,7 @@ rather the source be visible at the call site than encoded in the identifier:
 
 ```python
 model = SegFormerSemanticSegment.from_hub_repo("kerasformers/segformer_b0_ade_512")
-model = Qwen3Generate.from_variant("qwen3-4b")
+model = Qwen3TextGenerate.from_variant("qwen3-4b")
 model = SegFormerSemanticSegment.from_hf("nvidia/segformer-b0-finetuned-ade-512-512")
 ```
 

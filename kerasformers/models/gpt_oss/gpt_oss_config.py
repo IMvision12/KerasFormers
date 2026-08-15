@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class GptOssConfig(BaseConfig):
-    r"""Configuration for GPT-OSS: [`GptOssModel`] and [`GptOssGenerate`].
+    r"""Configuration for GPT-OSS: [`GptOssModel`] and [`GptOssTextGenerate`].
 
     GPT-OSS is OpenAI's open-weight mixture-of-experts decoder: grouped-query
     attention with learned per-head attention sinks, alternating sliding-window /
@@ -48,7 +48,7 @@ class GptOssConfig(BaseConfig):
         attention_bias (`bool`, *optional*, defaults to `True`):
             Whether q/k/v/o projections carry a bias.
         tie_embeddings (`bool`, *optional*, defaults to `False`):
-            Whether [`GptOssGenerate`] ties the LM head to the embeddings.
+            Whether [`GptOssTextGenerate`] ties the LM head to the embeddings.
     MXFP4-packed checkpoints (the official 20b / 120b) carry a
     ``quantization_config`` block (``{"quant_method": "mxfp4"}``); the model itself is
     quantization-agnostic, and a ``KfQuantizer`` swaps in the packed expert bank at
@@ -57,10 +57,10 @@ class GptOssConfig(BaseConfig):
     Examples:
 
     ```python
-    >>> from kerasformers.models.gpt_oss import GptOssConfig, GptOssGenerate
+    >>> from kerasformers.models.gpt_oss import GptOssConfig, GptOssTextGenerate
 
     >>> configuration = GptOssConfig(num_layers=24, num_experts=32)
-    >>> model = GptOssGenerate(configuration)
+    >>> model = GptOssTextGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

@@ -10,7 +10,7 @@ Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 The fourth Gemma generation, ported to pure Keras 3: dense and Mixture-of-Experts
 text models paired with a NaViT vision tower and a USM audio tower, with a 256K
 context window and the "Elastic" **E-variants** (per-layer embeddings + KV-sharing).
-A single `Gemma4Generate` drives generation for text-only, image+text, and
+A single `Gemma4ConditionalGenerate` drives generation for text-only, image+text, and
 image+audio+text checkpoints, like transformers' `Gemma4ForConditionalGeneration`.
 The backbones are `Gemma4Model` (text decoder) and `Gemma4MultimodalModel` (vision +
 audio + text).
@@ -65,7 +65,7 @@ checkpoints (use the chat template). Gemma 4 is Apache 2.0.
 | `gemma-4-31b` | [`kerasformers/gemma-4-31b`](https://huggingface.co/kerasformers/gemma-4-31b) | dense | text + image |
 | `gemma-4-31b-it` | [`kerasformers/gemma-4-31b-it`](https://huggingface.co/kerasformers/gemma-4-31b-it) | dense | text + image |
 
-`Gemma4Generate` builds the towers automatically from the checkpoint: the NaViT
+`Gemma4ConditionalGenerate` builds the towers automatically from the checkpoint: the NaViT
 vision tower for every variant, plus the USM audio tower for E2B / E4B.
 
 Note that MoE memory is governed by **total** parameters, not active ones: every
@@ -110,7 +110,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `num_kv_shared_layers` | `0` | tail layers that reuse an earlier layer's K/V |
 | `use_double_wide_mlp` | `False` | double-width MLP on the KV-shared layers |
 
-### `Gemma4Generate`
+### `Gemma4ConditionalGenerate`
 
 The single generation class, over the `Gemma4MultimodalModel` backbone plus a
 (tied) LM head with final-logit softcapping. Returns
@@ -217,9 +217,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gemma4 import Gemma4Generate, Gemma4Tokenizer
+from kerasformers.models.gemma4 import Gemma4ConditionalGenerate, Gemma4Tokenizer
 
-model = Gemma4Generate.from_weights("kerasformers/gemma-4-e2b-it")
+model = Gemma4ConditionalGenerate.from_weights("kerasformers/gemma-4-e2b-it")
 tokenizer = Gemma4Tokenizer.from_weights("kerasformers/gemma-4-e2b-it")
 
 inputs = tokenizer(
@@ -236,9 +236,9 @@ Use `Gemma4Processor` with any variant (all carry the vision tower):
 
 ```python
 from PIL import Image
-from kerasformers.models.gemma4 import Gemma4Generate, Gemma4Processor
+from kerasformers.models.gemma4 import Gemma4ConditionalGenerate, Gemma4Processor
 
-model = Gemma4Generate.from_weights("kerasformers/gemma-4-31b-it")
+model = Gemma4ConditionalGenerate.from_weights("kerasformers/gemma-4-31b-it")
 processor = Gemma4Processor.from_weights("kerasformers/gemma-4-31b-it")
 
 inputs = processor(
@@ -262,7 +262,7 @@ print(processor.decode(outputs[0]))
 E2B / E4B are any-to-any: mix image, audio, and text in one prompt.
 
 ```python
-model = Gemma4Generate.from_weights("kerasformers/gemma-4-e4b-it")
+model = Gemma4ConditionalGenerate.from_weights("kerasformers/gemma-4-e4b-it")
 processor = Gemma4Processor.from_weights("kerasformers/gemma-4-e4b-it")
 
 inputs = processor(
@@ -308,8 +308,8 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ### Loading from the Hub (upstream)
 
 ```python
-model = Gemma4Generate.from_weights("hf:google/gemma-4-E2B-it")
-model = Gemma4Generate.from_weights("hf:google/gemma-4-31B-it")
+model = Gemma4ConditionalGenerate.from_weights("hf:google/gemma-4-E2B-it")
+model = Gemma4ConditionalGenerate.from_weights("hf:google/gemma-4-31B-it")
 ```
 
 ### Lower memory
@@ -318,7 +318,7 @@ The 31B dense and 26B MoE checkpoints need quantization to fit on a single 80GB 
 at full precision. See [quantization.md](quantization.md):
 
 ```python
-model = Gemma4Generate.from_weights(
+model = Gemma4ConditionalGenerate.from_weights(
     "kerasformers/gemma-4-31b-it",
     quantization="int8",
     load_dtype="bfloat16",

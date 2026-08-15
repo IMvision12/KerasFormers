@@ -4,7 +4,7 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-from .qwen2_vl_model import Qwen2VLGenerate
+from .qwen2_vl_model import Qwen2VLConditionalGenerate
 
 WEIGHT_NAME_MAPPING = {
     "token_embedding.embeddings": "model.embed_tokens.weight",
@@ -90,7 +90,7 @@ if __name__ == "__main__":
 
     print("[2/4] Building Keras model + transferring weights")
     state = {k: v.detach().cpu().numpy() for k, v in hf.state_dict().items()}
-    model = Qwen2VLGenerate.from_weights(
+    model = Qwen2VLConditionalGenerate.from_weights(
         HF_ID.replace("Qwen/", "").lower(), load_weights=False
     )
     transfer_qwen2_vl_weights(model, state)

@@ -27,7 +27,7 @@ class Gemma4UnifiedModel(SubclassedBaseModel):
     ``K = V`` attention and per-layer scalars. On the sliding-window layers the
     image soft tokens attend bidirectionally within their block (Gemma 4's
     ``vision`` bidirectional setting); global layers stay causal. Returns raw text
-    features; the LM head lives in :class:`Gemma4UnifiedGenerate`.
+    features; the LM head lives in :class:`Gemma4UnifiedConditionalGenerate`.
 
     Args:
         text_config: Keyword arguments forwarded to :class:`Gemma4Model`.
@@ -284,7 +284,7 @@ class Gemma4UnifiedModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma4UnifiedGenerate(Gemma4UnifiedModel, BaseGeneration):
+class Gemma4UnifiedConditionalGenerate(Gemma4UnifiedModel, BaseGeneration):
     """Gemma 4 unified backbone + a (tied) LM head with fast ``.generate()``.
 
     The single generation entry point, mirroring transformers'

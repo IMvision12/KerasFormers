@@ -41,13 +41,13 @@ Weights convert **on the fly** from the public Hugging Face checkpoints
 checkpoints dequantized). Use the friendly variant name, or a raw `hf:` id:
 
 ```python
-from kerasformers.models.glm import GlmGenerate
-from kerasformers.models.glm4_moe import Glm4MoeGenerate
+from kerasformers.models.glm import GlmTextGenerate
+from kerasformers.models.glm4_moe import Glm4MoeTextGenerate
 
-gen = GlmGenerate.from_weights("glm-4-9b-chat")  # text
-gen = Glm4MoeGenerate.from_weights("glm-4.5-air")  # text MoE
+gen = GlmTextGenerate.from_weights("glm-4-9b-chat")  # text
+gen = Glm4MoeTextGenerate.from_weights("glm-4.5-air")  # text MoE
 # raw hf: ids work too
-gen = GlmGenerate.from_weights("hf:THUDM/glm-4-9b-chat-hf")
+gen = GlmTextGenerate.from_weights("hf:THUDM/glm-4-9b-chat-hf")
 ```
 
 ### Available variants
@@ -77,9 +77,9 @@ identifier you give the model.
 
 ```python
 # text LLM
-from kerasformers.models.glm import GlmGenerate, GlmTokenizer
+from kerasformers.models.glm import GlmTextGenerate, GlmTokenizer
 
-model = GlmGenerate.from_weights("glm-4-9b-chat")
+model = GlmTextGenerate.from_weights("glm-4-9b-chat")
 tokenizer = GlmTokenizer.from_weights("glm-4-9b-chat")
 
 messages = [{"role": "user", "content": "Name three prime numbers."}]
@@ -88,9 +88,9 @@ outputs = model.generate(**inputs, max_new_tokens=128)
 print(tokenizer.decode(outputs[0]))
 
 # vision-language (GLM-4.1V)
-from kerasformers.models.glm4v import Glm4vGenerate, Glm4vProcessor
+from kerasformers.models.glm4v import Glm4vConditionalGenerate, Glm4vProcessor
 
-model = Glm4vGenerate.from_weights("glm-4.1v-9b-thinking")
+model = Glm4vConditionalGenerate.from_weights("glm-4.1v-9b-thinking")
 processor = Glm4vProcessor.from_weights("glm-4.1v-9b-thinking")
 
 conversation = [

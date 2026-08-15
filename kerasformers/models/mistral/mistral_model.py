@@ -20,7 +20,7 @@ class MistralModel(SubclassedBaseModel):
     layer. ``head_dim`` may differ from ``embed_dim // num_heads``
     (Mistral-Nemo). Covers the whole ``model_type: "mistral"`` line: 7B
     v0.1-v0.3, Nemo-12B, Small-24B-2501, Ministral-8B. Subclassed
-    (imperative) model; returns raw features: use :class:`MistralGenerate`
+    (imperative) model; returns raw features: use :class:`MistralTextGenerate`
     for logits / text.
 
         model = MistralModel.from_weights("mistral-7b-v0.3")
@@ -38,7 +38,7 @@ class MistralModel(SubclassedBaseModel):
         rope_theta: Rotary base frequency.
         sliding_window: Causal attention window in tokens; ``None`` (most
             checkpoints) means full causal attention.
-        tie_embeddings: Whether :class:`MistralGenerate` ties the LM head to
+        tie_embeddings: Whether :class:`MistralTextGenerate` ties the LM head to
             the token embedding (Mistral checkpoints do not).
     """
 
@@ -180,7 +180,7 @@ class MistralModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MistralGenerate(MistralModel, BaseGeneration):
+class MistralTextGenerate(MistralModel, BaseGeneration):
     """Mistral backbone + a language-model head and fast ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`MistralModel`: a separate
@@ -193,7 +193,7 @@ class MistralGenerate(MistralModel, BaseGeneration):
     sliding window when set. Constructor ``Args`` are inherited from
     :class:`MistralModel`.
 
-        gen = MistralGenerate.from_weights("mistral-7b-instruct-v0.3")
+        gen = MistralTextGenerate.from_weights("mistral-7b-instruct-v0.3")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

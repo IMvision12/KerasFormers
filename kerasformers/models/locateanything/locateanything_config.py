@@ -114,10 +114,10 @@ class LocateAnythingConfig(BaseConfig):
     Example:
 
     ```python
-    >>> from kerasformers.models.locateanything import LocateAnythingConfig, LocateAnythingGenerate
+    >>> from kerasformers.models.locateanything import LocateAnythingConfig, LocateAnythingConditionalGenerate
 
     >>> configuration = LocateAnythingConfig()
-    >>> model = LocateAnythingGenerate(configuration)
+    >>> model = LocateAnythingConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

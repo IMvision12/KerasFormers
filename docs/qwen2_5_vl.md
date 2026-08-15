@@ -71,7 +71,7 @@ Qwen2.5-VL multimodal backbone: windowed vision tower + Qwen2.5 decoder.
 | `vision_start_token_id` | `151652` | token id opening a vision span |
 | `vision_end_token_id` | `151653` | token id closing a vision span |
 
-### `Qwen2_5VLGenerate`
+### `Qwen2_5VLConditionalGenerate`
 
 Qwen2.5-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -145,9 +145,12 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.qwen2_5_vl import Qwen2_5VLGenerate, Qwen2_5VLProcessor
+from kerasformers.models.qwen2_5_vl import (
+    Qwen2_5VLConditionalGenerate,
+    Qwen2_5VLProcessor,
+)
 
-model = Qwen2_5VLGenerate.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
+model = Qwen2_5VLConditionalGenerate.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
 processor = Qwen2_5VLProcessor.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
 
 image = Image.open("photo.jpg")
@@ -231,7 +234,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen2_5VLGenerate.from_weights(
+model = Qwen2_5VLConditionalGenerate.from_weights(
     "kerasformers/qwen2.5-vl-3b-instruct",
     quantization="int8",
     load_dtype="bfloat16",

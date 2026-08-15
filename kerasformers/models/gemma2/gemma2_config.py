@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class Gemma2Config(BaseConfig):
-    r"""Configuration for Gemma 2: [`Gemma2Model`] and [`Gemma2Generate`].
+    r"""Configuration for Gemma 2: [`Gemma2Model`] and [`Gemma2TextGenerate`].
 
     Gemma 2 is Google's decoder-only transformer, extending Gemma with alternating
     sliding-window / full causal attention, attention- and final-logit tanh
@@ -38,15 +38,15 @@ class Gemma2Config(BaseConfig):
         rope_theta (`float`, *optional*, defaults to 10000.0):
             Rotary base frequency.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`Gemma2Generate`] ties the LM head to the token embedding.
+            Whether [`Gemma2TextGenerate`] ties the LM head to the token embedding.
 
     Examples:
 
     ```python
-    >>> from kerasformers.models.gemma2 import Gemma2Config, Gemma2Generate
+    >>> from kerasformers.models.gemma2 import Gemma2Config, Gemma2TextGenerate
 
     >>> configuration = Gemma2Config(embed_dim=3584, num_layers=42, num_kv_heads=8)
-    >>> model = Gemma2Generate(configuration)
+    >>> model = Gemma2TextGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

@@ -23,7 +23,7 @@ class DeepseekV2Model(SubclassedBaseModel):
     (plain or group-limited top-k, weights scaled but not renormalized) and
     add a shared-expert SwiGLU. The first ``first_k_dense`` layers use a
     dense MLP. Rope is YaRN-scaled per the checkpoint's ``rope_scaling``.
-    Returns raw features; use :class:`DeepseekV2Generate` for logits / text.
+    Returns raw features; use :class:`DeepseekV2TextGenerate` for logits / text.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads: Model geometry.
@@ -38,7 +38,7 @@ class DeepseekV2Model(SubclassedBaseModel):
         rope_scaling: The HF ``rope_scaling`` dict (yarn) or None.
         norm_eps: RMSNorm epsilon.
         max_position_embeddings: Used by the yarn attention-factor default.
-        tie_embeddings: Whether :class:`DeepseekV2Generate` ties the LM head.
+        tie_embeddings: Whether :class:`DeepseekV2TextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "deepseek_v2"
@@ -275,7 +275,7 @@ class DeepseekV2Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekV2Generate(DeepseekV2Model, BaseGeneration):
+class DeepseekV2TextGenerate(DeepseekV2Model, BaseGeneration):
     """DeepSeek-V2 with an LM head + fast ``.generate()``.
 
     The MLA cache stores expanded per-head keys and values as a per-layer

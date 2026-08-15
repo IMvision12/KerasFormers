@@ -40,13 +40,15 @@ bf16 Keras weights + `kf_config.json`); a raw `hf:` id also converts any matchin
 `model_type` on the fly:
 
 ```python
-from kerasformers.models.qwen3 import Qwen3Generate
-from kerasformers.models.qwen2_vl import Qwen2VLGenerate
+from kerasformers.models.qwen3 import Qwen3TextGenerate
+from kerasformers.models.qwen2_vl import Qwen2VLConditionalGenerate
 
-gen = Qwen3Generate.from_weights("kerasformers/qwen3-4b")  # text
-gen = Qwen2VLGenerate.from_weights("kerasformers/qwen2-vl-7b-instruct")  # multimodal
+gen = Qwen3TextGenerate.from_weights("kerasformers/qwen3-4b")  # text
+gen = Qwen2VLConditionalGenerate.from_weights(
+    "kerasformers/qwen2-vl-7b-instruct"
+)  # multimodal
 # raw hf: ids convert from the upstream safetensors:
-gen = Qwen3Generate.from_weights("hf:Qwen/Qwen3-4B")
+gen = Qwen3TextGenerate.from_weights("hf:Qwen/Qwen3-4B")
 ```
 
 ### Available variants
@@ -158,9 +160,9 @@ works too (`Qwen2Tokenizer.from_weights("hf:Qwen/Qwen2-7B-Instruct")`), and the 
 
 ```python
 # text LLM: tokenizer takes the chat messages
-from kerasformers.models.qwen3 import Qwen3Generate, Qwen3Tokenizer
+from kerasformers.models.qwen3 import Qwen3TextGenerate, Qwen3Tokenizer
 
-model = Qwen3Generate.from_weights("kerasformers/qwen3-0.6b")
+model = Qwen3TextGenerate.from_weights("kerasformers/qwen3-0.6b")
 tokenizer = Qwen3Tokenizer.from_weights("kerasformers/qwen3-0.6b")
 
 messages = [
@@ -172,9 +174,9 @@ outputs = model.generate(**inputs, max_new_tokens=128)
 print(tokenizer.decode(outputs[0]))
 
 # vision-language: processor takes the conversation (images inline)
-from kerasformers.models.qwen2_vl import Qwen2VLGenerate, Qwen2VLProcessor
+from kerasformers.models.qwen2_vl import Qwen2VLConditionalGenerate, Qwen2VLProcessor
 
-model = Qwen2VLGenerate.from_weights("kerasformers/qwen2-vl-2b-instruct")
+model = Qwen2VLConditionalGenerate.from_weights("kerasformers/qwen2-vl-2b-instruct")
 processor = Qwen2VLProcessor.from_weights("kerasformers/qwen2-vl-2b-instruct")
 
 conversation = [

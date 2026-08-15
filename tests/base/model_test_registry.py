@@ -1498,9 +1498,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory_kwargs": {"frames": 15, "audio_token_id": 4},
         "expected_output_shape": {"last_hidden_state": (2, 5, 64)},
     },
-    "GraniteSpeechGenerate": {
+    "GraniteSpeechConditionalGenerate": {
         "module": "kerasformers.models.granite_speech",
-        "model_cls": "GraniteSpeechGenerate",
+        "model_cls": "GraniteSpeechConditionalGenerate",
         "model_type": "audio",
         "init_kwargs": {
             "vocab_size": 128,
@@ -1575,9 +1575,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory_kwargs": {"frames": 15, "audio_token_id": 4},
         "expected_output_shape": {"last_hidden_state": (2, 5, 64)},
     },
-    "GraniteSpeechPlusGenerate": {
+    "GraniteSpeechPlusConditionalGenerate": {
         "module": "kerasformers.models.granite_speech_plus",
-        "model_cls": "GraniteSpeechPlusGenerate",
+        "model_cls": "GraniteSpeechPlusConditionalGenerate",
         "model_type": "audio",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2531,9 +2531,9 @@ MODEL_TEST_CONFIGS = {
     # ---- Multimodal LLM Generate classes: text-only path (input_ids -> logits).
     # Vision towers are built tiny but not forwarded; the vision path is covered
     # by the per-family converter parity scripts, not this offline suite. ----
-    "DeepseekVLGenerate": {
+    "DeepseekVLConditionalGenerate": {
         "module": "kerasformers.models.deepseek_vl",
-        "model_cls": "DeepseekVLGenerate",
+        "model_cls": "DeepseekVLConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2554,9 +2554,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "DeepseekVLHybridGenerate": {
+    "DeepseekVLHybridConditionalGenerate": {
         "module": "kerasformers.models.deepseek_vl_hybrid",
-        "model_cls": "DeepseekVLHybridGenerate",
+        "model_cls": "DeepseekVLHybridConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2586,9 +2586,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "Gemma3Generate": {
+    "Gemma3ConditionalGenerate": {
         "module": "kerasformers.models.gemma3",
-        "model_cls": "Gemma3Generate",
+        "model_cls": "Gemma3ConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2611,9 +2611,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "Glm4vGenerate": {
+    "Glm4vConditionalGenerate": {
         "module": "kerasformers.models.glm4v",
-        "model_cls": "Glm4vGenerate",
+        "model_cls": "Glm4vConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2636,9 +2636,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "Glm4vMoeGenerate": {
+    "Glm4vMoeConditionalGenerate": {
         "module": "kerasformers.models.glm4v_moe",
-        "model_cls": "Glm4vMoeGenerate",
+        "model_cls": "Glm4vMoeConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2669,9 +2669,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "InternVLGenerate": {
+    "InternVLConditionalGenerate": {
         "module": "kerasformers.models.internvl",
-        "model_cls": "InternVLGenerate",
+        "model_cls": "InternVLConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2691,9 +2691,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "JanusGenerate": {
+    "JanusConditionalGenerate": {
         "module": "kerasformers.models.janus",
-        "model_cls": "JanusGenerate",
+        "model_cls": "JanusConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2714,9 +2714,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "KimiK25Generate": {
+    "KimiK25ConditionalGenerate": {
         "module": "kerasformers.models.kimi_k25",
-        "model_cls": "KimiK25Generate",
+        "model_cls": "KimiK25ConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2746,9 +2746,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "LocateAnythingGenerate": {
+    "LocateAnythingConditionalGenerate": {
         "module": "kerasformers.models.locateanything",
-        "model_cls": "LocateAnythingGenerate",
+        "model_cls": "LocateAnythingConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2768,9 +2768,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "MiniMaxM3VLGenerate": {
+    "MiniMaxM3VLConditionalGenerate": {
         "module": "kerasformers.models.minimax_m3_vl",
-        "model_cls": "MiniMaxM3VLGenerate",
+        "model_cls": "MiniMaxM3VLConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -2797,9 +2797,9 @@ MODEL_TEST_CONFIGS = {
         "input_factory": "qwen_text_input",
         "expected_output_shape": {"logits": (2, 6, 128)},
     },
-    "Mistral3Generate": {
+    "Mistral3ConditionalGenerate": {
         "module": "kerasformers.models.mistral3",
-        "model_cls": "Mistral3Generate",
+        "model_cls": "Mistral3ConditionalGenerate",
         "model_type": "llm",
         "init_kwargs": {
             "vocab_size": 128,
@@ -3371,14 +3371,14 @@ MODEL_TEST_CONFIGS = {
 # The Qwen-VL `*Generate` classes share their base model's config + input but
 # add an LM head, so derive their test entries (logits output) from the bases.
 for _base in ("Qwen2VLModel", "Qwen2_5VLModel", "Qwen3VLModel"):
-    _gen = _base.replace("VLModel", "VLGenerate")
+    _gen = _base.replace("VLModel", "VLConditionalGenerate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])
     _entry["model_cls"] = _gen
     _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
     MODEL_TEST_CONFIGS[_gen] = _entry
 
 for _base in ("Qwen3_5MoeModel", "Qwen3VLMoeModel"):
-    _gen = _base.replace("Model", "Generate")
+    _gen = _base.replace("Model", "ConditionalGenerate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])
     _entry["model_cls"] = _gen
     _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
@@ -3415,7 +3415,7 @@ for _base in (
     "Qwen3MoeModel",
     "Qwen3NextModel",
 ):
-    _gen = _base.replace("Model", "Generate")
+    _gen = _base.replace("Model", "TextGenerate")
     _entry = dict(MODEL_TEST_CONFIGS[_base])
     _entry["model_cls"] = _gen
     _entry["expected_output_shape"] = {"logits": (2, 6, 128)}
@@ -3427,9 +3427,9 @@ for _base in (
 # audio config it is a plain text generator. Derived on its own rather than through
 # the flat loop above, which assumes `Generate` shares its base model's signature.
 _g4 = MODEL_TEST_CONFIGS["Gemma4Model"]
-MODEL_TEST_CONFIGS["Gemma4Generate"] = {
+MODEL_TEST_CONFIGS["Gemma4ConditionalGenerate"] = {
     "module": _g4["module"],
-    "model_cls": "Gemma4Generate",
+    "model_cls": "Gemma4ConditionalGenerate",
     "model_type": "llm",
     "init_kwargs": {"text_config": dict(_g4["init_kwargs"])},
     "input_factory": _g4["input_factory"],

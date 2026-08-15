@@ -67,7 +67,7 @@ DeepSeek-VL Hybrid (7B) backbone: dual vision (SigLIP @384 + SAM @1024) + 3-way 
 | `high_res_norm_eps` | `1e-06` |  |
 | `image_token_id` | `100015` | placeholder token id expanded per image |
 
-### `DeepseekVLHybridGenerate`
+### `DeepseekVLHybridConditionalGenerate`
 
 DeepSeek-VL Hybrid with an LM head + fast ``.generate()``.
 
@@ -136,11 +136,13 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
 from kerasformers.models.deepseek_vl_hybrid import (
-    DeepseekVLHybridGenerate,
+    DeepseekVLHybridConditionalGenerate,
     DeepseekVLHybridProcessor,
 )
 
-model = DeepseekVLHybridGenerate.from_weights("kerasformers/deepseek_vl_7b_chat")
+model = DeepseekVLHybridConditionalGenerate.from_weights(
+    "kerasformers/deepseek_vl_7b_chat"
+)
 processor = DeepseekVLHybridProcessor.from_weights("kerasformers/deepseek_vl_7b_chat")
 
 image = Image.open("photo.jpg")
@@ -238,7 +240,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = DeepseekVLHybridGenerate.from_weights(
+model = DeepseekVLHybridConditionalGenerate.from_weights(
     "kerasformers/deepseek_vl_7b_chat",
     quantization="int8",
     load_dtype="bfloat16",

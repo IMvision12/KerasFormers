@@ -57,7 +57,7 @@ class Gemma4UnifiedAudioConfig(BaseConfig):
 
 class Gemma4UnifiedConfig(Gemma4Config):
     r"""Configuration for Gemma 4 unified: [`Gemma4UnifiedModel`] /
-    [`Gemma4UnifiedGenerate`].
+    [`Gemma4UnifiedConditionalGenerate`].
 
     The composite for the encoder-free unified checkpoints (google/gemma-4-12B):
     the text decoder reuses [`Gemma4TextConfig`] (``text_config``), the vision and
@@ -88,7 +88,7 @@ class Gemma4UnifiedConfig(Gemma4Config):
 
     ```python
     >>> from kerasformers.models.gemma4_unified import (
-    ...     Gemma4UnifiedConfig, Gemma4UnifiedGenerate
+    ...     Gemma4UnifiedConfig, Gemma4UnifiedConditionalGenerate
     ... )
 
     >>> configuration = Gemma4UnifiedConfig(
@@ -96,7 +96,7 @@ class Gemma4UnifiedConfig(Gemma4Config):
     ...     vision_config={"mm_embed_dim": 3840},
     ...     audio_config={"audio_embed_dim": 640},
     ... )
-    >>> model = Gemma4UnifiedGenerate(configuration)
+    >>> model = Gemma4UnifiedConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

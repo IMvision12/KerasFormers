@@ -110,7 +110,7 @@ The one entry point you normally use. It dispatches on `identifier`:
 ```python
 model = SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
 model = SegFormerSemanticSegment.from_weights("hf:<user>/my-finetune")
-model = Qwen3Generate.from_weights(
+model = Qwen3TextGenerate.from_weights(
     "qwen3-8b", load_dtype="bfloat16", quantization="int8"
 )
 ```

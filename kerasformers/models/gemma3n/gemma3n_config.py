@@ -46,7 +46,7 @@ class Gemma3nTextConfig(BaseConfig):
         hidden_activation (`str`, *optional*, defaults to ``"gelu_pytorch_tanh"``):
             GeGLU activation.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`Gemma3nGenerate`] ties the LM head to the token embedding.
+            Whether [`Gemma3nConditionalGenerate`] ties the LM head to the token embedding.
         vocab_size_per_layer_input (`int`, *optional*, defaults to 262144):
             Per-Layer-Embedding auxiliary vocabulary size.
         hidden_size_per_layer_input (`int`, *optional*, defaults to 256):

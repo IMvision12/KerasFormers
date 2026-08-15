@@ -7,7 +7,7 @@ from kerasformers.models.locateanything.locateanything_image_processor import (
     LocateAnythingImageProcessor,
 )
 from kerasformers.models.locateanything.locateanything_model import (
-    LocateAnythingGenerate,
+    LocateAnythingConditionalGenerate,
     LocateAnythingModel,
 )
 from kerasformers.models.locateanything.locateanything_processor import (
@@ -24,7 +24,7 @@ from kerasformers.models.locateanything.locateanything_vision import (
 
 __all__ = [
     "LocateAnythingModel",
-    "LocateAnythingGenerate",
+    "LocateAnythingConditionalGenerate",
     "LocateAnythingVisionModel",
     "LocateAnythingTokenizer",
     "LocateAnythingImageProcessor",

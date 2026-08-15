@@ -65,7 +65,7 @@ InternVL3 multimodal backbone: InternViT tower + pixel-shuffle projector + Qwen2
 | `downsample_ratio` | `0.5` |  |
 | `image_token_id` | `151667` | placeholder token id expanded per image |
 
-### `InternVLGenerate`
+### `InternVLConditionalGenerate`
 
 InternVL3 with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -162,9 +162,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.internvl import InternVLGenerate, InternVLProcessor
+from kerasformers.models.internvl import InternVLConditionalGenerate, InternVLProcessor
 
-model = InternVLGenerate.from_weights("internvl3-1b")
+model = InternVLConditionalGenerate.from_weights("internvl3-1b")
 processor = InternVLProcessor.from_weights("internvl3-1b")
 
 image = Image.open("photo.jpg")
@@ -262,7 +262,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = InternVLGenerate.from_weights(
+model = InternVLConditionalGenerate.from_weights(
     "internvl3-1b", quantization="int8", load_dtype="bfloat16"
 )
 ```

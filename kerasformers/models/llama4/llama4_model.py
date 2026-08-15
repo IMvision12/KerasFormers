@@ -59,7 +59,7 @@ class Llama4Model(SubclassedBaseModel):
     densely and combines by the routing scores: mathematically identical to
     sparse routing, compute O(num_experts). Text-only: the vision tower of the
     multimodal checkpoints is not ported; their ``language_model.*`` weights
-    load directly. Returns raw features; use :class:`Llama4Generate` for
+    load directly. Returns raw features; use :class:`Llama4TextGenerate` for
     logits / text.
 
         model = Llama4Model.from_weights("llama4-scout-17b-16e")
@@ -89,7 +89,7 @@ class Llama4Model(SubclassedBaseModel):
             (Maverick). 16.0 for Scout.
         rope_low_freq_factor / rope_high_freq_factor: scaling band edges.
         rope_original_max_pos: Pretraining context the bands are relative to.
-        tie_embeddings: Whether :class:`Llama4Generate` ties the LM head
+        tie_embeddings: Whether :class:`Llama4TextGenerate` ties the LM head
             (released checkpoints: ``False``).
     """
 
@@ -336,7 +336,7 @@ class Llama4Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Llama4Generate(Llama4Model, BaseGeneration):
+class Llama4TextGenerate(Llama4Model, BaseGeneration):
     """Llama 4 text backbone + a language-model head and fast ``.generate()``.
 
     Adds a bias-free ``lm_head`` on top of :class:`Llama4Model` (the released
@@ -349,7 +349,7 @@ class Llama4Generate(Llama4Model, BaseGeneration):
     the rope layers' interleaved rotary. Constructor ``Args`` are inherited
     from :class:`Llama4Model`.
 
-        gen = Llama4Generate.from_weights("llama4-scout-17b-16e-instruct")
+        gen = Llama4TextGenerate.from_weights("llama4-scout-17b-16e-instruct")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

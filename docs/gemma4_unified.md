@@ -20,7 +20,7 @@ conformer), the unified model has **no vision or audio transformer towers**:
 
 The text decoder is the plain dense Gemma 4 decoder (no Per-Layer Embeddings, no
 MoE) with global `K = V` attention and a learned per-layer scalar, so it reuses
-[`Gemma4Model`](gemma4.md). A single `Gemma4UnifiedGenerate` drives text-only,
+[`Gemma4Model`](gemma4.md). A single `Gemma4UnifiedConditionalGenerate` drives text-only,
 image+text, and image+audio+text generation, like transformers'
 `Gemma4UnifiedForConditionalGeneration`.
 
@@ -69,7 +69,7 @@ onto their placeholder positions in `input_ids` before the decoder runs. Returns
 | `pad_token_id` | `0` | id used to embed placeholder slots before the scatter |
 | `use_bidirectional_vision` | `True` | blockwise bidirectional attention within each image block |
 
-### `Gemma4UnifiedGenerate`
+### `Gemma4UnifiedConditionalGenerate`
 
 `Gemma4UnifiedModel` plus a (tied) LM head with final-logit softcapping. Returns
 `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. The multimodal prefill
@@ -143,11 +143,11 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.gemma4_unified import (
-    Gemma4UnifiedGenerate,
+    Gemma4UnifiedConditionalGenerate,
     Gemma4UnifiedTokenizer,
 )
 
-model = Gemma4UnifiedGenerate.from_weights("kerasformers/gemma-4-12b-it")
+model = Gemma4UnifiedConditionalGenerate.from_weights("kerasformers/gemma-4-12b-it")
 tokenizer = Gemma4UnifiedTokenizer.from_weights("kerasformers/gemma-4-12b-it")
 
 inputs = tokenizer(
@@ -163,11 +163,11 @@ print(tokenizer.decode(outputs[0]))
 ```python
 from PIL import Image
 from kerasformers.models.gemma4_unified import (
-    Gemma4UnifiedGenerate,
+    Gemma4UnifiedConditionalGenerate,
     Gemma4UnifiedProcessor,
 )
 
-model = Gemma4UnifiedGenerate.from_weights("kerasformers/gemma-4-12b-it")
+model = Gemma4UnifiedConditionalGenerate.from_weights("kerasformers/gemma-4-12b-it")
 processor = Gemma4UnifiedProcessor.from_weights("kerasformers/gemma-4-12b-it")
 
 inputs = processor(
@@ -190,7 +190,7 @@ print(processor.decode(outputs[0]))
 ### Loading from the Hub (upstream)
 
 ```python
-model = Gemma4UnifiedGenerate.from_weights("hf:google/gemma-4-12B-it")
+model = Gemma4UnifiedConditionalGenerate.from_weights("hf:google/gemma-4-12B-it")
 ```
 
 ### Lower memory
@@ -199,7 +199,7 @@ The 12B fits comfortably in bf16; weight-only quantization shrinks it further. S
 [quantization.md](quantization.md):
 
 ```python
-model = Gemma4UnifiedGenerate.from_weights(
+model = Gemma4UnifiedConditionalGenerate.from_weights(
     "kerasformers/gemma-4-12b-it",
     quantization="int8",
     load_dtype="bfloat16",

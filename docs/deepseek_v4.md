@@ -69,7 +69,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `norm_eps` | `1e-06` | RMSNorm epsilon |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `DeepseekV4Generate`
+### `DeepseekV4TextGenerate`
 
 `DeepseekV4Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `DeepseekV4Model`.
@@ -122,9 +122,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.deepseek_v4 import DeepseekV4Generate, DeepseekV4Tokenizer
+from kerasformers.models.deepseek_v4 import DeepseekV4TextGenerate, DeepseekV4Tokenizer
 
-model = DeepseekV4Generate.from_weights("deepseek-v4-flash")
+model = DeepseekV4TextGenerate.from_weights("deepseek-v4-flash")
 tokenizer = DeepseekV4Tokenizer.from_weights("deepseek-v4-flash")
 
 inputs = tokenizer("Explain rotary embeddings in one sentence.")
@@ -166,7 +166,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = DeepseekV4Generate.from_weights("hf:deepseek-ai/DeepSeek-V4-Flash")
+model = DeepseekV4TextGenerate.from_weights("hf:deepseek-ai/DeepSeek-V4-Flash")
 ```
 
 ### Lower memory
@@ -175,7 +175,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = DeepseekV4Generate.from_weights(
+model = DeepseekV4TextGenerate.from_weights(
     "deepseek-v4-flash", quantization="int8", load_dtype="bfloat16"
 )
 ```

@@ -180,7 +180,7 @@ class Gemma3Model(SubclassedBaseModel):
     ``rope_scaling_factor`` (8 on 4B+). Projected image embeddings replace
     the ``image_token_id`` placeholder slots, and image-token groups attend
     *bidirectionally* (OR-ed into both the causal and sliding masks).
-    Returns raw features; use :class:`Gemma3Generate` for logits / text.
+    Returns raw features; use :class:`Gemma3ConditionalGenerate` for logits / text.
 
     Output dict:
 
@@ -208,7 +208,7 @@ class Gemma3Model(SubclassedBaseModel):
         rope_local_theta: Sliding-layer rotary base (1e4).
         rope_scaling_factor: Linear factor dividing the global-layer inverse
             frequencies (``None`` disables; 8.0 on the multimodal sizes).
-        tie_embeddings: Whether :class:`Gemma3Generate` ties the LM head.
+        tie_embeddings: Whether :class:`Gemma3ConditionalGenerate` ties the LM head.
         vision_embed_dim / vision_mlp_dim / vision_num_layers /
         vision_num_heads: SigLIP tower dims (``vision_num_layers=0`` builds
             the text-only 1B).
@@ -526,7 +526,7 @@ class Gemma3Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma3Generate(Gemma3Model, BaseGeneration):
+class Gemma3ConditionalGenerate(Gemma3Model, BaseGeneration):
     """Gemma 3 with a (tied) LM head + fast ``.generate()`` (text or
     image+text -> text).
 

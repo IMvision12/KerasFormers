@@ -18,7 +18,7 @@ class Qwen3MoeModel(SubclassedBaseModel):
     routed experts (optionally renormalized), with NO shared expert. Layers
     selected by ``decoder_sparse_step`` / ``mlp_only_layers`` are MoE; the
     rest are dense SwiGLU. Returns raw features; use
-    :class:`Qwen3MoeGenerate` for logits.
+    :class:`Qwen3MoeTextGenerate` for logits.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads / num_kv_heads /
@@ -31,7 +31,7 @@ class Qwen3MoeModel(SubclassedBaseModel):
         mlp_only_layers: Layer indices forced to dense MLP.
         rope_theta: Rotary base frequency.
         norm_eps: RMSNorm epsilon.
-        tie_embeddings: Whether :class:`Qwen3MoeGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`Qwen3MoeTextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "qwen3_moe"
@@ -205,7 +205,7 @@ class Qwen3MoeModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3MoeGenerate(Qwen3MoeModel, BaseGeneration):
+class Qwen3MoeTextGenerate(Qwen3MoeModel, BaseGeneration):
     """Qwen2-MoE with an LM head + fast ``.generate()`` (text -> text).
 
     Adds an optional bias-free ``lm_head`` (tied to the token embedding when

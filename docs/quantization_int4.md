@@ -6,14 +6,14 @@ gets a checkpoint onto a GPU that int8 cannot.
 ## Usage
 
 ```python
-from kerasformers.models.qwen3 import Qwen3Generate
+from kerasformers.models.qwen3 import Qwen3TextGenerate
 from kerasformers.quantization import quantize_model
 
 # load and quantize in one call
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="int4")
 
 # a named scheme picks the block size
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4-g128")
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="int4-g128")
 
 # or quantize a model you already have, in place
 quantize_model(model, "int4")
@@ -28,7 +28,7 @@ int4 is also the usual reason to want the **no-float** load. For subclassed LLMs
 rather than the bf16 model it would otherwise build first:
 
 ```python
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="int4")
 ```
 
 This is automatic and needs no flag. It covers subclassed LLMs whose converter assigns
@@ -64,7 +64,7 @@ from kerasformers.quantization import Int4Config, quantize_model
 
 cfg = Int4Config(group_size=128)
 
-model = Qwen3Generate.from_weights("qwen3-4b", quantization=cfg)
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization=cfg)
 quantize_model(model, cfg)
 ```
 

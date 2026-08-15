@@ -4,7 +4,7 @@ from tqdm import tqdm
 from kerasformers.conversion.exceptions import WeightMappingError
 from kerasformers.conversion.weight_transfer_util import transfer_weights
 
-from .granite_speech_model import GraniteSpeechGenerate
+from .granite_speech_model import GraniteSpeechConditionalGenerate
 
 DECODER_MAPPING = {
     "language_model.token_embedding.embeddings": "language_model.model.embed_tokens.weight",
@@ -167,7 +167,7 @@ if __name__ == "__main__":
                 v.to(torch.float32).cpu().numpy()
             )
 
-    model = GraniteSpeechGenerate(**GRANITE_SPEECH_RECIPES[VARIANT])
+    model = GraniteSpeechConditionalGenerate(**GRANITE_SPEECH_RECIPES[VARIANT])
     transfer_granite_speech_weights(model, state)
 
     frames = 4 * model.window_size

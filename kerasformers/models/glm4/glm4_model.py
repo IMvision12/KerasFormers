@@ -16,7 +16,7 @@ class Glm4Model(SubclassedBaseModel):
     Same as GLM-4 but each block adds sandwich norms: the attention and MLP
     outputs are RMSNorm'd before being added back to the residual. Grouped-query
     attention, partial *interleaved* rotary, biased q/k/v, fused-SwiGLU MLP.
-    Returns raw features; use :class:`Glm4Generate` for logits / text.
+    Returns raw features; use :class:`Glm4TextGenerate` for logits / text.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads / num_kv_heads /
@@ -171,7 +171,7 @@ class Glm4Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4Generate(Glm4Model, BaseGeneration):
+class Glm4TextGenerate(Glm4Model, BaseGeneration):
     """GLM-4-0414 with an LM head + fast ``.generate()``."""
 
     eos_token_id = (151329, 151336, 151338)

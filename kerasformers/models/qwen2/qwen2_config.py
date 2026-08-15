@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class Qwen2Config(BaseConfig):
-    r"""Configuration for Qwen2: [`Qwen2Model`] and [`Qwen2Generate`].
+    r"""Configuration for Qwen2: [`Qwen2Model`] and [`Qwen2TextGenerate`].
 
     Qwen2 is Alibaba's decoder-only transformer: grouped-query attention with a
     bias on the q/k/v projections, SwiGLU MLPs, RMSNorm, and 1D rotary positions.
@@ -29,15 +29,15 @@ class Qwen2Config(BaseConfig):
         rope_theta (`float`, *optional*, defaults to 1000000.0):
             Rotary base frequency.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`Qwen2Generate`] ties the LM head to the token embedding.
+            Whether [`Qwen2TextGenerate`] ties the LM head to the token embedding.
 
     Examples:
 
     ```python
-    >>> from kerasformers.models.qwen2 import Qwen2Config, Qwen2Generate
+    >>> from kerasformers.models.qwen2 import Qwen2Config, Qwen2TextGenerate
 
     >>> configuration = Qwen2Config(embed_dim=3584, num_layers=28, num_kv_heads=4)
-    >>> model = Qwen2Generate(configuration)
+    >>> model = Qwen2TextGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

@@ -166,7 +166,7 @@ class Glm4vMoeModel(SubclassedBaseModel):
     The GLM-4V vision tower produces image embeddings scattered into the
     ``image_token_id`` slots of a GLM-4.5 MoE decoder (grouped-topk routing,
     shared expert, NeoX partial rope), with 3D M-RoPE positions. Returns raw
-    features; use :class:`Glm4vMoeGenerate` for logits / text.
+    features; use :class:`Glm4vMoeConditionalGenerate` for logits / text.
     """
 
     HF_MODEL_TYPE = "glm4v_moe"
@@ -553,7 +553,7 @@ class Glm4vMoeModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4vMoeGenerate(Glm4vMoeModel, BaseGeneration):
+class Glm4vMoeConditionalGenerate(Glm4vMoeModel, BaseGeneration):
     """GLM-4.5V with an LM head + fast ``.generate()`` (image+text -> text)."""
 
     eos_token_id = (151329,)

@@ -243,7 +243,7 @@ class Qwen2_5VLTextModel(layers.Layer):
 
     Architecturally the same as the Qwen2 text decoder (GQA with qkv bias, SwiGLU).
     The token embedding lives here (``token_embedding``) and is reused (tied) as the
-    LM head by :class:`Qwen2_5VLGenerate`. ``call`` takes the pre-computed
+    LM head by :class:`Qwen2_5VLConditionalGenerate`. ``call`` takes the pre-computed
     multimodal-fused ``inputs_embeds`` and merged M-RoPE ``cos`` / ``sin``, and
     threads an optional KV cache for incremental decoding.
 
@@ -362,7 +362,7 @@ class Qwen2_5VLModel(Qwen2VLModel):
     **windowed** vision tower (:class:`Qwen2_5VLVisionModel`) and adds its extra
     configuration (``window_size``, ``fullatt_block_indexes``, ``tokens_per_second``
     and the ``vision_*`` dims). This base model returns raw features (no LM head);
-    use :class:`Qwen2_5VLGenerate` for logits / text.
+    use :class:`Qwen2_5VLConditionalGenerate` for logits / text.
 
     Output dict:
 
@@ -400,7 +400,7 @@ class Qwen2_5VLModel(Qwen2VLModel):
         rope_theta: Rotary base frequency.
         mrope_section: Per-axis (temporal, height, width) channel split of the
             merged M-RoPE; sums to ``head_dim // 2``.
-        tie_embeddings: Whether :class:`Qwen2_5VLGenerate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen2_5VLConditionalGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         vision_depth: Number of vision-transformer blocks.
         vision_embed_dim: Vision hidden width.
@@ -594,11 +594,11 @@ class Qwen2_5VLModel(Qwen2VLModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2_5VLGenerate(Qwen2_5VLModel, BaseGeneration):
+class Qwen2_5VLConditionalGenerate(Qwen2_5VLModel, BaseGeneration):
     """Qwen2.5-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
     Same fast multimodal generation as
-    :class:`~kerasformers.models.qwen2_vl.qwen2_vl_model.Qwen2VLGenerate`: ``build_cache``
+    :class:`~kerasformers.models.qwen2_vl.qwen2_vl_model.Qwen2VLConditionalGenerate`: ``build_cache``
     runs the vision encoder + 3-axis M-RoPE prefill into a fixed KV cache (carrying
     ``rope_deltas``), then ``call_with_cache`` does text-only decode at M-RoPE position
     ``cache_idx + rope_delta``. The Qwen2.5-VL backbone (windowed vision encoder) resolves

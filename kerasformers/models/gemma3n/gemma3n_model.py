@@ -32,14 +32,14 @@ class Gemma3nTextModel(SubclassedBaseModel):
     sliding/global schedule (``layer_types``) with dual rotary bases, and a tail of
     ``num_kv_shared_layers`` that reuse an earlier layer's K/V per attention type.
     The streams are magnitude-matched back to one and normed at the end. Returns raw
-    features; use :class:`Gemma3nGenerate`.
+    features; use :class:`Gemma3nConditionalGenerate`.
 
     Args:
         vocab_size / embed_dim / mlp_dim / num_layers / num_heads / num_kv_heads /
         head_dim: Core decoder geometry (``mlp_dim`` may be a per-layer list).
         sliding_window / sliding_window_pattern / layer_types: Attention schedule.
         final_logit_softcapping / norm_eps / rope_theta / rope_local_theta: Misc.
-        tie_embeddings: Whether :class:`Gemma3nGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`Gemma3nConditionalGenerate` ties the LM head.
         vocab_size_per_layer_input / hidden_size_per_layer_input: Per-Layer Embeddings.
         altup_num_inputs / altup_active_idx / altup_correct_scale: AltUp settings.
         num_kv_shared_layers / laurel_rank / activation_sparsity_pattern: Extras.
@@ -408,7 +408,7 @@ class Gemma3nTextModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma3nGenerate(Gemma3nTextModel, BaseGeneration):
+class Gemma3nConditionalGenerate(Gemma3nTextModel, BaseGeneration):
     """Gemma 3n text backbone + a (tied) LM head with fast ``.generate()``.
 
     The prefill runs the AltUp/LAuReL/PLE stack over the prompt and stores a

@@ -19,7 +19,7 @@ class MiniMaxModel(SubclassedBaseModel):
     with the MiniMax norm-first weighted residuals
     (``norm(x) * alpha + sublayer(norm(x)) * beta``). Rotary embeddings only
     feed the full-attention layers. Returns raw features; use
-    :class:`MiniMaxGenerate` for logits / text.
+    :class:`MiniMaxTextGenerate` for logits / text.
 
     Args:
         vocab_size: Token vocabulary size.
@@ -38,7 +38,7 @@ class MiniMaxModel(SubclassedBaseModel):
             HF reference implementation).
         rope_theta: Rotary base frequency.
         norm_eps: RMSNorm epsilon.
-        tie_embeddings: Whether :class:`MiniMaxGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`MiniMaxTextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "minimax"
@@ -242,7 +242,7 @@ class MiniMaxModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MiniMaxGenerate(MiniMaxModel, BaseGeneration):
+class MiniMaxTextGenerate(MiniMaxModel, BaseGeneration):
     """MiniMax with an LM head + fast ``.generate()``.
 
     The hybrid cache is a per-layer tuple: full-attention layers carry a

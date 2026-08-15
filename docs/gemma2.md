@@ -62,7 +62,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `rope_theta` | `10000.0` | rotary base frequency |
 | `tie_embeddings` | `True` | reuse the embedding matrix as the LM head |
 
-### `Gemma2Generate`
+### `Gemma2TextGenerate`
 
 `Gemma2Model` plus a (tied) LM head with final-logit softcapping. Returns
 `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
@@ -115,9 +115,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gemma2 import Gemma2Generate, Gemma2Tokenizer
+from kerasformers.models.gemma2 import Gemma2TextGenerate, Gemma2Tokenizer
 
-model = Gemma2Generate.from_weights("kerasformers/gemma-2-2b-it")
+model = Gemma2TextGenerate.from_weights("kerasformers/gemma-2-2b-it")
 tokenizer = Gemma2Tokenizer.from_weights("kerasformers/gemma-2-2b-it")
 
 inputs = tokenizer(
@@ -155,7 +155,7 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 2304)
 ### Loading from the Hub
 
 ```python
-model = Gemma2Generate.from_weights("hf:google/gemma-2-9b-it")
+model = Gemma2TextGenerate.from_weights("hf:google/gemma-2-9b-it")
 ```
 
 ### Lower memory
@@ -164,7 +164,7 @@ The 27B checkpoint needs quantization to fit comfortably on a single 80GB GPU. S
 [quantization.md](quantization.md):
 
 ```python
-model = Gemma2Generate.from_weights(
+model = Gemma2TextGenerate.from_weights(
     "kerasformers/gemma-2-27b-it",
     quantization="int8",
     load_dtype="bfloat16",

@@ -826,7 +826,7 @@ class PreprocessorMixin(keras.layers.Layer):
     *same* identifier as its model and can pull its files from a packaged
     variant id or from the HF Hub (an ``"hf:org/repo"`` id)::
 
-        gen = Qwen2Generate.from_weights("qwen2-7b-instruct")
+        gen = Qwen2TextGenerate.from_weights("qwen2-7b-instruct")
         tok = Qwen2Tokenizer.from_weights("qwen2-7b-instruct")
         tok = CLIPTokenizer.from_weights("hf:openai/clip-vit-base-patch16")
 
