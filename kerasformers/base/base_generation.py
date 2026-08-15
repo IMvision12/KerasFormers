@@ -54,10 +54,9 @@ class BaseGeneration:
 
     # Repos whose ``kf_config.json`` declares one of these classes are loaded by building
     # that (fuller, e.g. multimodal) model and copying THIS head's backbone weights out of
-    # it, ignoring the rest -- the kerasformers analog of transformers'
-    # ``*ForCausalLM.from_pretrained`` reading a ``*ForConditionalGeneration`` checkpoint
-    # (the vision/audio weights become unused keys). Maps a declared class name -> the
-    # module path it lives in.
+    # it, ignoring the rest (e.g. a text head reading a vision-language checkpoint: the
+    # vision / audio weights become unused keys). Maps a declared class name -> the module
+    # path it lives in.
     FULL_CHECKPOINT_SOURCES = {}
 
     @classmethod
@@ -65,26 +64,54 @@ class BaseGeneration:
         """Build ``full_cls`` from ``repo_id`` and copy this head's backbone out of it.
 
         The head is constructed from the constructor kwargs it shares with the built full
-        model (read off the full model's attributes), so extra config the head does not
-        take (vision dims, M-RoPE sections) is dropped. Weights are matched by keras path
-        suffix: an exact suffix, else the unique full-model weight ending in ``/<suffix>``
-        (the text backbone is nested one level down, e.g. under ``language_model``); the
-        full model's extra (vision) weights are simply never referenced.
+        model, so extra config the head does not take (vision dims, M-RoPE sections) is
+        dropped. Weights are matched by keras path suffix (see :meth:`_head_from_full`).
         """
         full = full_cls.from_weights(repo_id, load_weights=load_weights, **kwargs)
+        return cls._head_from_full(full, copy_weights=load_weights)
+
+    @classmethod
+    def _head_from_full(cls, full, copy_weights=True):
+        """Reconstruct this head off an already-built full (multimodal) model.
+
+        Each head constructor param is read from the full model wherever it lives: on
+        the full model directly (VLMs that duplicate the text dims at top level), else
+        one level down in its text tower -- a ``language_model`` submodel or a
+        ``text_config`` dict (VLMs that nest the decoder). Weights are matched by keras
+        path suffix: an exact suffix, else the unique full-model weight ending in
+        ``/<suffix>`` (the text backbone sits one level down, e.g. under
+        ``language_model``); the full model's extra (vision / audio) weights are never
+        referenced.
+        """
         names = set()
         for klass in cls.__mro__:
             init = klass.__dict__.get("__init__")
             if init is None:
                 continue
             for name, param in inspect.signature(init).parameters.items():
-                if name != "self" and param.kind in (
+                if name in ("self", "name", "dtype", "trainable"):
+                    continue
+                if param.kind in (
                     param.POSITIONAL_OR_KEYWORD,
                     param.KEYWORD_ONLY,
                 ):
                     names.add(name)
-        head = cls(**{n: getattr(full, n) for n in names if hasattr(full, n)})
-        if load_weights:
+        missing = object()
+
+        def resolve(name):
+            if hasattr(full, name):
+                return getattr(full, name)
+            lm = getattr(full, "language_model", None)
+            if lm is not None and hasattr(lm, name):
+                return getattr(lm, name)
+            tc = getattr(full, "text_config", None)
+            if isinstance(tc, dict) and name in tc:
+                return tc[name]
+            return missing
+
+        resolved = {n: resolve(n) for n in names}
+        head = cls(**{n: v for n, v in resolved.items() if v is not missing})
+        if copy_weights:
             head({"input_ids": np.array([[0, 1, 2, 3]], dtype="int64")})  # build
             by_suffix = {w.path.split("/", 1)[1]: w for w in full.weights}
             suffixes = list(by_suffix)
@@ -97,7 +124,7 @@ class BaseGeneration:
                     if len(cand) != 1:
                         raise KeyError(
                             f"cannot match head weight '{hw.path}' in "
-                            f"{full_cls.__name__} ({len(cand)} candidates for '{suffix}')"
+                            f"{type(full).__name__} ({len(cand)} candidates for '{suffix}')"
                         )
                     src = by_suffix[cand[0]]
                 hw.assign(ops.convert_to_tensor(src))
@@ -303,3 +330,57 @@ class BaseGeneration:
                 cache, logits, prompt_len, noise, max_new_tokens, eos, sampler
             )
         return ops.convert_to_numpy(out)
+
+
+class TextOnlyGeneration:
+    """Text-only counterpart of a multimodal ``*ConditionalGenerate`` head.
+
+    Pair this mixin (first, so it wins the MRO) with a ``*ConditionalGenerate`` whose
+    backbone builds a plain decoder when given no vision / audio tower, e.g.::
+
+        class Gemma4TextGenerate(TextOnlyGeneration, Gemma4ConditionalGenerate):
+            config_class = Gemma4TextConfig
+
+    It builds the model text-only and exposes a pure-text ``build_cache`` (the multimodal
+    prefill inputs are dropped, so ``.generate()`` takes just token ids). Set
+    ``config_class`` to the text sub-config: a multimodal checkpoint then loads as
+    text-only, its vision / audio config simply ignored. A head may combine this mixin
+    with :attr:`BaseGeneration.FULL_CHECKPOINT_SOURCES` when the family ships no separate
+    text-only repo (Gemma 3n): the mixin keeps the build text-only, the source map extracts
+    the text backbone out of the multimodal checkpoint. Families whose text and multimodal
+    decoders truly differ (M-RoPE VLMs like Qwen-VL) instead give the text head its own
+    distinct backbone.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # Some multimodal backbones nest the text decoder under a ``text_config`` dict
+        # (towers keyed by ``vision_config`` / ``audio_config``); route the flat text
+        # fields the loader passes into it, leaving the towers unset -> a plain decoder.
+        # Flat backbones (a single ``*Model`` with optional-tower kwargs) pass through.
+        if not args and "text_config" not in kwargs and self._nests_text_config():
+            reserved = {
+                k: kwargs.pop(k) for k in ("name", "dtype", "trainable") if k in kwargs
+            }
+            kwargs = {"text_config": kwargs, **reserved}
+        # A text-only head never builds modality towers: drop any sibling ``*_config``
+        # (``vision_config`` / ``audio_config`` / ...) so a full multimodal config -- e.g.
+        # the one reconstructed when extracting the text backbone from a VLM checkpoint --
+        # still yields a plain decoder.
+        for key in [k for k in kwargs if k.endswith("_config") and k != "text_config"]:
+            kwargs.pop(key)
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def _nests_text_config(cls):
+        for klass in cls.__mro__:
+            if klass is TextOnlyGeneration:
+                continue
+            init = klass.__dict__.get("__init__")
+            if init and "text_config" in inspect.signature(init).parameters:
+                return True
+        return False
+
+    def build_cache(self, token_ids, padding_mask, max_len):
+        # text-only prefill: the multimodal inputs (pixel_values / input_features / ...)
+        # default to None on the inherited build_cache.
+        return super().build_cache(token_ids, padding_mask, max_len)

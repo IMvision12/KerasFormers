@@ -15,6 +15,7 @@ from kerasformers.models.gemma4_unified.gemma4_unified_layers import (
 from kerasformers.models.gemma4_unified.gemma4_unified_model import (
     Gemma4UnifiedConditionalGenerate,
     Gemma4UnifiedModel,
+    Gemma4UnifiedTextGenerate,
 )
 from kerasformers.models.gemma4_unified.gemma4_unified_processor import (
     Gemma4UnifiedProcessor,
@@ -29,6 +30,7 @@ __all__ = [
     "Gemma4UnifiedAudioConfig",
     "Gemma4UnifiedModel",
     "Gemma4UnifiedConditionalGenerate",
+    "Gemma4UnifiedTextGenerate",
     "Gemma4UnifiedVisionEmbedder",
     "Gemma4UnifiedTokenizer",
     "Gemma4UnifiedImageProcessor",

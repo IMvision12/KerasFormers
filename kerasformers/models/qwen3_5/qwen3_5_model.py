@@ -239,9 +239,8 @@ class Qwen3_5TextGenerate(Qwen3_5Model, BaseGeneration):
     # turn-end). Explicit generate() args (or the tokenizer's eos) override this.
     eos_token_id = (248044, 248046)
     # The dense Qwen3.5 checkpoints are VLMs (kf_config declares Qwen3_5ConditionalGenerate);
-    # this text head loads their text backbone, dropping the vision tower -- the counterpart
-    # to transformers' Qwen3_5ForCausalLM on a Qwen3_5 checkpoint. Handled generically by
-    # BaseGeneration._load_backbone_from_full.
+    # this text head loads just their text backbone, dropping the vision tower. Handled
+    # generically by BaseGeneration._load_backbone_from_full.
     FULL_CHECKPOINT_SOURCES = {
         "Qwen3_5ConditionalGenerate": "kerasformers.models.qwen3_5.qwen3_5_vl_model"
     }

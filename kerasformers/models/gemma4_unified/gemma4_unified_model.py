@@ -1,7 +1,8 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseGeneration, SubclassedBaseModel
+from kerasformers.base import BaseGeneration, SubclassedBaseModel, TextOnlyGeneration
+from kerasformers.models.gemma4.gemma4_config import Gemma4TextConfig
 from kerasformers.models.gemma4.gemma4_layers import Gemma4MultimodalEmbedder
 from kerasformers.models.gemma4.gemma4_model import Gemma4Model
 
@@ -287,8 +288,7 @@ class Gemma4UnifiedModel(SubclassedBaseModel):
 class Gemma4UnifiedConditionalGenerate(Gemma4UnifiedModel, BaseGeneration):
     """Gemma 4 unified backbone + a (tied) LM head with fast ``.generate()``.
 
-    The single generation entry point, mirroring transformers'
-    ``Gemma4UnifiedForConditionalGeneration``: it drives the encoder-free
+    The single multimodal generation entry point: it drives the encoder-free
     multimodal 12B and any text-only unified checkpoint through the same API.
     When a vision or audio tower is present the prefill fuses the soft tokens and
     applies the blockwise vision mask; text-only prompts skip straight to the text
@@ -303,6 +303,10 @@ class Gemma4UnifiedConditionalGenerate(Gemma4UnifiedModel, BaseGeneration):
     default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     eos_token_id = (1, 106)
+    # text-only checkpoints load with either head off the same weights
+    HUB_REPO_SIBLINGS = frozenset(
+        {"Gemma4UnifiedConditionalGenerate", "Gemma4UnifiedTextGenerate"}
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -437,3 +441,15 @@ class Gemma4UnifiedConditionalGenerate(Gemma4UnifiedModel, BaseGeneration):
                 shared_stacked[layer_type] = stacked
         logits = self.project(lm.final_norm(h))[:, 0, :]
         return logits, tuple(new_caches)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Gemma4UnifiedTextGenerate(TextOnlyGeneration, Gemma4UnifiedConditionalGenerate):
+    """Gemma 4 unified text-only decoder + (tied) LM head with fast ``.generate()``.
+
+    The text-only counterpart to :class:`Gemma4UnifiedConditionalGenerate` (built with no
+    vision or audio embedder). All generation logic is inherited; :class:`TextOnlyGeneration`
+    builds it text-only and drops the multimodal prefill inputs.
+    """
+
+    config_class = Gemma4TextConfig
