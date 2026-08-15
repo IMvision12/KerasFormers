@@ -15,7 +15,7 @@ class MoonshineProcessor(BaseProcessor):
     (``from_weights`` / ``from_hf``) are inherited from :class:`BaseProcessor`.
 
     ``decoder_start_token_id`` is ``<s>`` (id 1): the token
-    :class:`~kerasformers.models.moonshine.MoonshineSpeechToText` seeds greedy
+    :class:`~kerasformers.models.moonshine.MoonshineConditionalGenerate` seeds greedy
     decoding with.
     """
 

@@ -1305,9 +1305,9 @@ MODEL_TEST_CONFIGS = {
             "logits": (2, 5, 128),
         },
     },
-    "WhisperSpeechToText": {
+    "WhisperConditionalGenerate": {
         "module": "kerasformers.models.whisper",
-        "model_cls": "WhisperSpeechToText",
+        "model_cls": "WhisperConditionalGenerate",
         "model_type": "audio",
         "init_kwargs": {
             "hidden_dim": 64,
@@ -1383,9 +1383,9 @@ MODEL_TEST_CONFIGS = {
             "logits": (2, 5, 128),
         },
     },
-    "Speech2TextSpeechToText": {
+    "Speech2TextConditionalGenerate": {
         "module": "kerasformers.models.speech2text",
-        "model_cls": "Speech2TextSpeechToText",
+        "model_cls": "Speech2TextConditionalGenerate",
         "model_type": "audio",
         "init_kwargs": {
             "hidden_dim": 64,
@@ -1438,9 +1438,9 @@ MODEL_TEST_CONFIGS = {
             "logits": (2, 5, 128),
         },
     },
-    "MoonshineSpeechToText": {
+    "MoonshineConditionalGenerate": {
         "module": "kerasformers.models.moonshine",
-        "model_cls": "MoonshineSpeechToText",
+        "model_cls": "MoonshineConditionalGenerate",
         "model_type": "audio",
         "init_kwargs": {
             "hidden_dim": 64,

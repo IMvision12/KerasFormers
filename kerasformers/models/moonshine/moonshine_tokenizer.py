@@ -19,7 +19,7 @@ class MoonshineTokenizer(BaseTokenizer):
     ``MoonshineTokenizer.from_weights("kerasformers/moonshine_tiny")``.
 
     The encode path (used for label preparation) does **not** add special
-    tokens; ``MoonshineSpeechToText`` seeds decoding with
+    tokens; ``MoonshineConditionalGenerate`` seeds decoding with
     ``decoder_start_token_id`` itself. Decoding drops the ``<s>`` / ``</s>`` /
     ``<unk>`` specials by default.
 

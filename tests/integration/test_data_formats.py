@@ -25,12 +25,12 @@ MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 #   require an alternate code path in the backbone.
 SKIP_DATA_FORMAT = {
     "WhisperModel",
-    "WhisperSpeechToText",
+    "WhisperConditionalGenerate",
     "WhisperAudioClassify",
     "Speech2TextModel",
-    "Speech2TextSpeechToText",
+    "Speech2TextConditionalGenerate",
     "MoonshineModel",
-    "MoonshineSpeechToText",
+    "MoonshineConditionalGenerate",
     "GraniteSpeechModel",
     "GraniteSpeechConditionalGenerate",
     "GraniteSpeechPlusModel",

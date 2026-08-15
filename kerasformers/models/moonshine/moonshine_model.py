@@ -13,7 +13,7 @@ from .moonshine_layers import (
     apply_rotary_pos_emb,
 )
 
-MOONSHINE_HUB_SIBLINGS = frozenset({"MoonshineModel", "MoonshineSpeechToText"})
+MOONSHINE_HUB_SIBLINGS = frozenset({"MoonshineModel", "MoonshineConditionalGenerate"})
 
 
 def moonshine_encoder_mlp(x, hidden_dim, mlp_dim, activation, prefix):
@@ -281,7 +281,7 @@ class MoonshineModel(FunctionalBaseModel):
     >>> out["logits"]                  # (B, L, vocab_size)
 
     This is the teacher-forced training path. For autoregressive inference use
-    :class:`MoonshineSpeechToText`, which subclasses this and adds a
+    :class:`MoonshineConditionalGenerate`, which subclasses this and adds a
     ``.generate(audio, processor, ...)`` method.
 
     Construction:
@@ -507,7 +507,7 @@ class MoonshineModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MoonshineSpeechToText(MoonshineModel, BaseSeq2SeqGeneration):
+class MoonshineConditionalGenerate(MoonshineModel, BaseSeq2SeqGeneration):
     """Moonshine speech-to-text model (transcription).
 
     Composes the same encoder + decoder + tied LM head Functional graph as
@@ -523,7 +523,7 @@ class MoonshineSpeechToText(MoonshineModel, BaseSeq2SeqGeneration):
 
     .. code-block:: python
 
-        model = MoonshineSpeechToText.from_weights("moonshine_tiny")
+        model = MoonshineConditionalGenerate.from_weights("moonshine_tiny")
         processor = MoonshineProcessor.from_weights("moonshine_tiny")
         text = model.generate(audio, processor)
     """

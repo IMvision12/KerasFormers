@@ -23,10 +23,10 @@ SiLU, and every LayerNorm is scale-only.
 
 ## API
 
-### MoonshineSpeechToText
+### MoonshineConditionalGenerate
 
 ```python
-MoonshineSpeechToText(
+MoonshineConditionalGenerate(
     hidden_dim=288,
     encoder_num_layers=6,
     decoder_num_layers=6,
@@ -43,7 +43,7 @@ MoonshineSpeechToText(
     encoder_activation="gelu",
     decoder_activation="silu",
     layer_norm_eps=1e-05,
-    name="MoonshineSpeechToText",
+    name="MoonshineConditionalGenerate",
 )
 ```
 
@@ -62,7 +62,7 @@ pipeline. **This is the class for speech to text.**
 - **rope_theta** (`float`, *optional*, defaults to `10000.0`): RoPE base frequency.
 - **max_position_embeddings** (`int`, *optional*, defaults to `194`): size of the stored rotary tables. It does **not** cap the audio you can transcribe, see [Audio Format](#audio-format).
 - **encoder_activation** / **decoder_activation** / **layer_norm_eps**: block-level knobs, set from the variant config.
-- **name** (`str`, *optional*, defaults to `"MoonshineSpeechToText"`): model name.
+- **name** (`str`, *optional*, defaults to `"MoonshineConditionalGenerate"`): model name.
 
 **Call** `model({"input_values": ..., "decoder_input_ids": ...})` for a teacher-forced
 forward pass. **Returns** a `dict` with **logits** `(B, T, vocab_size)` and
@@ -92,7 +92,7 @@ MoonshineModel(hidden_dim=288, encoder_num_layers=6, decoder_num_layers=6, ...,
 ```
 
 The encoder-decoder without the LM head, for features or a custom head. Same arguments as
-`MoonshineSpeechToText`.
+`MoonshineConditionalGenerate`.
 
 ## Preprocessing
 
@@ -162,9 +162,12 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import soundfile as sf
-from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToText
+from kerasformers.models.moonshine import (
+    MoonshineProcessor,
+    MoonshineConditionalGenerate,
+)
 
-model = MoonshineSpeechToText.from_weights("kerasformers/moonshine_tiny")
+model = MoonshineConditionalGenerate.from_weights("kerasformers/moonshine_tiny")
 processor = MoonshineProcessor.from_weights("kerasformers/moonshine_tiny")
 
 audio, sr = sf.read("assets/speech_etchings.wav", dtype="float32")  # 16 kHz mono
@@ -240,13 +243,16 @@ commands, so cut long recordings into segments rather than feeding a whole meeti
 Any Hugging Face repo whose `model_type` is `"moonshine"` loads with the `hf:` prefix.
 
 ```python
-from kerasformers.models.moonshine import MoonshineProcessor, MoonshineSpeechToText
+from kerasformers.models.moonshine import (
+    MoonshineProcessor,
+    MoonshineConditionalGenerate,
+)
 
-model = MoonshineSpeechToText.from_weights("hf:UsefulSensors/moonshine-tiny")
+model = MoonshineConditionalGenerate.from_weights("hf:UsefulSensors/moonshine-tiny")
 processor = MoonshineProcessor.from_weights("hf:UsefulSensors/moonshine-tiny")
 
 # Architecture only, randomly initialized
-model = MoonshineSpeechToText.from_weights(
+model = MoonshineConditionalGenerate.from_weights(
     "kerasformers/moonshine_tiny", load_weights=False
 )
 ```
