@@ -46,7 +46,7 @@ class Gemma3nTextConfig(BaseConfig):
         hidden_activation (`str`, *optional*, defaults to ``"gelu_pytorch_tanh"``):
             GeGLU activation.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`Gemma3nConditionalGenerate`] ties the LM head to the token embedding.
+            Whether [`Gemma3nTextGenerate`] ties the LM head to the token embedding.
         vocab_size_per_layer_input (`int`, *optional*, defaults to 262144):
             Per-Layer-Embedding auxiliary vocabulary size.
         hidden_size_per_layer_input (`int`, *optional*, defaults to 256):
@@ -198,7 +198,7 @@ class Gemma3nVisionConfig(BaseConfig):
 
 class Gemma3nConfig(BaseConfig):
     r"""Configuration for Gemma 3n: [`Gemma3nModel`] and
-    [`Gemma3nForConditionalGeneration`].
+    [`Gemma3nConditionalGenerate`].
 
     A composite config: the text decoder lives in a [`Gemma3nTextConfig`]
     (``text_config``), the MobileNet-V5 tower in a [`Gemma3nVisionConfig`]
@@ -234,13 +234,13 @@ class Gemma3nConfig(BaseConfig):
     Examples:
 
     ```python
-    >>> from kerasformers.models.gemma3n import Gemma3nConfig, Gemma3nForConditionalGeneration
+    >>> from kerasformers.models.gemma3n import Gemma3nConfig, Gemma3nConditionalGenerate
 
     >>> configuration = Gemma3nConfig(
     ...     text_config={"num_layers": 30},
     ...     audio_config=None,
     ... )
-    >>> model = Gemma3nForConditionalGeneration(configuration)
+    >>> model = Gemma3nConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

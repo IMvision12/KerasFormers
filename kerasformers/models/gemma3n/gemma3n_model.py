@@ -32,14 +32,14 @@ class Gemma3nTextModel(SubclassedBaseModel):
     sliding/global schedule (``layer_types``) with dual rotary bases, and a tail of
     ``num_kv_shared_layers`` that reuse an earlier layer's K/V per attention type.
     The streams are magnitude-matched back to one and normed at the end. Returns raw
-    features; use :class:`Gemma3nConditionalGenerate`.
+    features; use :class:`Gemma3nTextGenerate`.
 
     Args:
         vocab_size / embed_dim / mlp_dim / num_layers / num_heads / num_kv_heads /
         head_dim: Core decoder geometry (``mlp_dim`` may be a per-layer list).
         sliding_window / sliding_window_pattern / layer_types: Attention schedule.
         final_logit_softcapping / norm_eps / rope_theta / rope_local_theta: Misc.
-        tie_embeddings: Whether :class:`Gemma3nConditionalGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`Gemma3nTextGenerate` ties the LM head.
         vocab_size_per_layer_input / hidden_size_per_layer_input: Per-Layer Embeddings.
         altup_num_inputs / altup_active_idx / altup_correct_scale: AltUp settings.
         num_kv_shared_layers / laurel_rank / activation_sparsity_pattern: Extras.
@@ -408,7 +408,7 @@ class Gemma3nTextModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma3nConditionalGenerate(Gemma3nTextModel, BaseGeneration):
+class Gemma3nTextGenerate(Gemma3nTextModel, BaseGeneration):
     """Gemma 3n text backbone + a (tied) LM head with fast ``.generate()``.
 
     The prefill runs the AltUp/LAuReL/PLE stack over the prompt and stores a
@@ -697,7 +697,7 @@ class Gemma3nModel(SubclassedBaseModel):
     vocab, offset past the text vocab) are embedded via the projectors; pixel /
     audio inputs become soft tokens that are scattered onto the ``image_token_id``
     / ``audio_token_id`` slots. Returns raw text features; the LM head lives in
-    :class:`Gemma3nForConditionalGeneration`.
+    :class:`Gemma3nConditionalGenerate`.
 
     Args:
         text_config: Keyword arguments forwarded to :class:`Gemma3nTextModel`.
@@ -997,11 +997,11 @@ class Gemma3nModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma3nForConditionalGeneration(Gemma3nModel, BaseGeneration):
+class Gemma3nConditionalGenerate(Gemma3nModel, BaseGeneration):
     """Gemma 3n multimodal backbone + a (tied) LM head with fast ``.generate()``.
 
     The single generation entry point, like transformers'
-    ``Gemma3nForConditionalGeneration``: it drives text-only and vision / audio
+    ``Gemma3nConditionalGenerate``: it drives text-only and vision / audio
     prompts through one API. The prefill fuses soft tokens; decoding is text-only
     and reuses the per-layer sliding / global K/V cache. Pass ``pixel_values`` /
     ``input_features`` / ``input_features_mask`` as keyword prefill inputs to
@@ -1153,4 +1153,4 @@ class Gemma3nForConditionalGeneration(Gemma3nModel, BaseGeneration):
 
 
 Gemma3nModel.config_class = Gemma3nConfig
-Gemma3nForConditionalGeneration.config_class = Gemma3nConfig
+Gemma3nConditionalGenerate.config_class = Gemma3nConfig

@@ -96,7 +96,7 @@ def resolve_fusion_name(rel):
         return "model.vision_tower.timm_model." + resolve_vision_name(body)
     if rel.startswith("lm_head."):
         return _apply({"kernel": "weight"}, rel)
-    # Bare text decoder (standalone Gemma3nConditionalGenerate loaded from a full checkpoint).
+    # Bare text decoder (standalone Gemma3nTextGenerate loaded from a full checkpoint).
     return "model.language_model." + _apply(TEXT_MAP, rel)
 
 
@@ -122,7 +122,7 @@ def transfer_gemma3n_weights(keras_model, hf_state_dict):
 
     The standalone :class:`Gemma3nTextModel` maps to the bare ``model.*`` text
     decoder, or the nested ``model.language_model.*`` decoder of a full checkpoint.
-    The multimodal :class:`Gemma3nModel` / :class:`Gemma3nForConditionalGeneration`
+    The multimodal :class:`Gemma3nModel` / :class:`Gemma3nConditionalGenerate`
     routes each tower to its ``model.<tower>.*`` prefix and the tied / untied
     ``lm_head`` to the top level. The AltUp value norm and the KV-shared tail carry
     no weights, matching the Keras model."""
