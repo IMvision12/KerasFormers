@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .gemma3_config import Gemma3Config
+from .gemma3_config import Gemma3Config, Gemma3TextConfig
 from .gemma3_layers import Gemma3DecoderLayer, Gemma3RMSNorm, Gemma3VisionLayer
 
 MASK_NEG = -1e9
@@ -542,6 +542,10 @@ class Gemma3ConditionalGenerate(Gemma3Model, BaseGeneration):
 
     # Gemma <eos> / <end_of_turn> stop ids. Explicit generate() args override.
     eos_token_id = (1, 106)
+    # text-only checkpoints (1B / 270M) load with either head off the same weights
+    HUB_REPO_SIBLINGS = frozenset(
+        {"Gemma3Model", "Gemma3ConditionalGenerate", "Gemma3TextGenerate"}
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -628,3 +632,24 @@ class Gemma3ConditionalGenerate(Gemma3Model, BaseGeneration):
         cache = ops.stack(layer_caches, axis=1)
         logits = self.project(self.final_norm(h))[:, 0, :]
         return logits, cache
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Gemma3TextGenerate(Gemma3ConditionalGenerate):
+    """Gemma 3 text-only decoder + (tied) LM head with fast ``.generate()``.
+
+    The text-only counterpart to :class:`Gemma3ConditionalGenerate`, mirroring
+    transformers' ``Gemma3ForCausalLM`` (vs ``Gemma3ForConditionalGeneration``).
+    It is the head for the text-only Gemma 3 checkpoints (1B / 270M, built with
+    ``vision_num_layers=0`` so no SigLIP tower) and takes a pure-text prefill:
+    the LM head, hybrid sliding/global cache, and decode step are all inherited.
+
+        gen = Gemma3TextGenerate.from_weights("kerasformers/gemma-3-1b-it")
+        ids = gen.generate(tokenizer(messages)["input_ids"])
+    """
+
+    config_class = Gemma3TextConfig
+
+    def build_cache(self, token_ids, padding_mask, max_len):
+        # text-only prefill: no vision tower, no pixel_values
+        return super().build_cache(token_ids, padding_mask, max_len, pixel_values=None)

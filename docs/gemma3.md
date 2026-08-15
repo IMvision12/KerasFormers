@@ -92,6 +92,22 @@ generate(
 Image inputs ride along as `**prefill_inputs` (`pixel_values`), which the processor
 produces for you.
 
+### `Gemma3TextGenerate`
+
+The text-only head for the text-only Gemma 3 checkpoints (`gemma-3-1b`, `gemma-3-270m`,
+which have no SigLIP tower), mirroring transformers' `Gemma3ForCausalLM` (vs
+`Gemma3ForConditionalGeneration`). Same behaviour as `Gemma3ConditionalGenerate` minus the
+`pixel_values` prefill; it shares the backbone weights, so a text-only repo loads under
+either head.
+
+```python
+from kerasformers.models.gemma3 import Gemma3TextGenerate, Gemma3Tokenizer
+
+model = Gemma3TextGenerate.from_weights("kerasformers/gemma-3-1b-it")
+tokenizer = Gemma3Tokenizer.from_weights("kerasformers/gemma-3-1b-it")
+outputs = model.generate(**tokenizer("The capital of France is"), max_new_tokens=32)
+```
+
 ### `Gemma3VisionModel`
 
 The SigLIP vision tower: biased conv patch embed and learned position embeddings into
@@ -164,9 +180,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gemma3 import Gemma3ConditionalGenerate, Gemma3Tokenizer
+from kerasformers.models.gemma3 import Gemma3TextGenerate, Gemma3Tokenizer
 
-model = Gemma3ConditionalGenerate.from_weights("gemma-3-1b-it")
+model = Gemma3TextGenerate.from_weights("gemma-3-1b-it")
 tokenizer = Gemma3Tokenizer.from_weights("gemma-3-1b-it")
 
 inputs = tokenizer(
