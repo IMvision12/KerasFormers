@@ -14,9 +14,9 @@ from .whisper_layers import (
     WhisperSinusoidalPositionEmbedding,
 )
 
-# WhisperModel (encoder-decoder) and WhisperSpeechToText (+ .generate) share the
+# WhisperModel (encoder-decoder) and WhisperConditionalGenerate (+ .generate) share the
 # variant's weights repo, whose kf_config.json declares the canonical WhisperModel.
-WHISPER_HUB_SIBLINGS = frozenset({"WhisperModel", "WhisperSpeechToText"})
+WHISPER_HUB_SIBLINGS = frozenset({"WhisperModel", "WhisperConditionalGenerate"})
 
 _ACTIVATION_ALIASES = {
     "gelu": lambda x: keras.activations.gelu(x, approximate=False),
@@ -263,7 +263,7 @@ class WhisperModel(FunctionalBaseModel):
     >>> out["logits"]                  # (B, L, vocab_size)
 
     This is the teacher-forced training path. For autoregressive
-    inference use :class:`WhisperSpeechToText`, which subclasses this
+    inference use :class:`WhisperConditionalGenerate`, which subclasses this
     and adds a ``.generate(audio, processor, ...)`` method.
 
     Construction:
@@ -307,7 +307,7 @@ class WhisperModel(FunctionalBaseModel):
     HUB_REPO_SIBLINGS = WHISPER_HUB_SIBLINGS
     HF_MODEL_TYPE = "whisper"
     # Default generation settings, written to kf_config.json under generate_args and
-    # re-attached on repo-id load; WhisperSpeechToText.generate() reads them.
+    # re-attached on repo-id load; WhisperConditionalGenerate.generate() reads them.
     generate_args = {
         "suppress_tokens": [
             1,
@@ -542,7 +542,7 @@ class WhisperModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
+class WhisperConditionalGenerate(WhisperModel, BaseSeq2SeqGeneration):
     """Whisper speech-to-text model (transcription + translation).
 
     Composes the same encoder + decoder + tied LM head Functional graph as
@@ -559,7 +559,7 @@ class WhisperSpeechToText(WhisperModel, BaseSeq2SeqGeneration):
 
     .. code-block:: python
 
-        model = WhisperSpeechToText.from_weights("whisper_tiny")
+        model = WhisperConditionalGenerate.from_weights("whisper_tiny")
         processor = WhisperProcessor.from_weights("whisper_tiny")
         text = model.generate(audio, processor, language="en", task="transcribe")
     """

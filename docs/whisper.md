@@ -21,10 +21,10 @@ padded, longer ones need chunking.
 
 ## API
 
-### WhisperSpeechToText
+### WhisperConditionalGenerate
 
 ```python
-WhisperSpeechToText(
+WhisperConditionalGenerate(
     hidden_dim=384,
     encoder_num_layers=4,
     decoder_num_layers=4,
@@ -39,7 +39,7 @@ WhisperSpeechToText(
     activation_function="gelu",
     layer_norm_eps=1e-05,
     scale_embedding=False,
-    name="WhisperSpeechToText",
+    name="WhisperConditionalGenerate",
 )
 ```
 
@@ -57,7 +57,7 @@ transcription pipeline. **This is the class for speech to text.**
 - **max_target_positions** (`int`, *optional*, defaults to `448`): decoder context length.
 - **vocab_size** (`int`, *optional*, defaults to `51865`): BPE vocabulary.
 - **activation_function** / **layer_norm_eps** / **scale_embedding**: block-level knobs, set from the variant config.
-- **name** (`str`, *optional*, defaults to `"WhisperSpeechToText"`): model name.
+- **name** (`str`, *optional*, defaults to `"WhisperConditionalGenerate"`): model name.
 
 **Call** `model({"input_features": ..., "decoder_input_ids": ...})` for a teacher-forced
 forward pass. **Returns** a `dict` with **logits** `(B, T, vocab_size)` and
@@ -101,7 +101,7 @@ WhisperModel(hidden_dim=384, encoder_num_layers=4, decoder_num_layers=4, ...,
 ```
 
 The encoder-decoder without the LM head, for features or a custom head. Same arguments as
-`WhisperSpeechToText`.
+`WhisperConditionalGenerate`.
 
 ### WhisperAudioClassify
 
@@ -215,9 +215,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 import soundfile as sf
-from kerasformers.models.whisper import WhisperProcessor, WhisperSpeechToText
+from kerasformers.models.whisper import WhisperProcessor, WhisperConditionalGenerate
 
-model = WhisperSpeechToText.from_weights("kerasformers/whisper_base")
+model = WhisperConditionalGenerate.from_weights("kerasformers/whisper_base")
 processor = WhisperProcessor.from_weights("kerasformers/whisper_base")
 
 audio, sr = sf.read("assets/speech_festive_season.wav", dtype="float32")  # 16 kHz mono
@@ -299,15 +299,15 @@ Any Hugging Face repo whose `model_type` is `"whisper"` loads with the `hf:` pre
 including the original OpenAI checkpoints and community fine-tunes.
 
 ```python
-from kerasformers.models.whisper import WhisperProcessor, WhisperSpeechToText
+from kerasformers.models.whisper import WhisperProcessor, WhisperConditionalGenerate
 
-model = WhisperSpeechToText.from_weights("hf:openai/whisper-small")
+model = WhisperConditionalGenerate.from_weights("hf:openai/whisper-small")
 processor = WhisperProcessor.from_weights("hf:openai/whisper-small")
 
-model = WhisperSpeechToText.from_weights("hf:<user>/whisper-small-finetuned")
+model = WhisperConditionalGenerate.from_weights("hf:<user>/whisper-small-finetuned")
 
 # Architecture only, randomly initialized
-model = WhisperSpeechToText.from_weights(
+model = WhisperConditionalGenerate.from_weights(
     "kerasformers/whisper_tiny", load_weights=False
 )
 ```

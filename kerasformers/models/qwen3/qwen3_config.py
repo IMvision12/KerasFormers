@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class Qwen3Config(BaseConfig):
-    r"""Configuration for Qwen3 (dense): [`Qwen3Model`] and [`Qwen3Generate`].
+    r"""Configuration for Qwen3 (dense): [`Qwen3Model`] and [`Qwen3TextGenerate`].
 
     A Qwen3 decoder: grouped-query attention with per-head QK-norm and bias-free
     QKV projections, SwiGLU MLP, RMSNorm, and 1D rotary positions.

@@ -18,7 +18,7 @@ class Qwen2MoeModel(SubclassedBaseModel):
     experts (optionally renormalized) plus a full-width shared expert scaled
     by ``sigmoid(shared_expert_gate(x))``. Layers selected by
     ``decoder_sparse_step`` / ``mlp_only_layers`` are MoE; the rest are dense
-    SwiGLU. Returns raw features; use :class:`Qwen2MoeGenerate` for logits.
+    SwiGLU. Returns raw features; use :class:`Qwen2MoeTextGenerate` for logits.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads / num_kv_heads /
@@ -32,7 +32,7 @@ class Qwen2MoeModel(SubclassedBaseModel):
         mlp_only_layers: Layer indices forced to dense MLP.
         rope_theta: Rotary base frequency.
         norm_eps: RMSNorm epsilon.
-        tie_embeddings: Whether :class:`Qwen2MoeGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`Qwen2MoeTextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "qwen2_moe"
@@ -213,7 +213,7 @@ class Qwen2MoeModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2MoeGenerate(Qwen2MoeModel, BaseGeneration):
+class Qwen2MoeTextGenerate(Qwen2MoeModel, BaseGeneration):
     """Qwen2-MoE with an LM head + fast ``.generate()`` (text -> text).
 
     Adds an optional bias-free ``lm_head`` (tied to the token embedding when

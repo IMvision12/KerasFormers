@@ -19,10 +19,10 @@ from .deepseek_vl_hybrid_layers import (
 MASK_NEG = -1e9
 
 # The backbone (DeepseekVLHybridModel) and generative head
-# (DeepseekVLHybridGenerate) share the variant's weights repo, whose
+# (DeepseekVLHybridConditionalGenerate) share the variant's weights repo, whose
 # kf_config.json declares DeepseekVLHybridModel.
 DEEPSEEK_VL_HYBRID_HUB_SIBLINGS = frozenset(
-    {"DeepseekVLHybridModel", "DeepseekVLHybridGenerate"}
+    {"DeepseekVLHybridModel", "DeepseekVLHybridConditionalGenerate"}
 )
 
 
@@ -37,7 +37,7 @@ class DeepseekVLHybridModel(SubclassedBaseModel):
     :class:`DeepseekVLHybridAligner` concatenates the two streams into the text
     width and scatters them into the ``image_token_id`` slots of the decoder.
     Covers the HF ``model_type: "deepseek_vl_hybrid"`` checkpoints (the 7B
-    chat/base repos). Returns raw features; use :class:`DeepseekVLHybridGenerate`
+    chat/base repos). Returns raw features; use :class:`DeepseekVLHybridConditionalGenerate`
     for logits / text.
     """
 
@@ -357,7 +357,7 @@ class DeepseekVLHybridModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekVLHybridGenerate(DeepseekVLHybridModel, BaseGeneration):
+class DeepseekVLHybridConditionalGenerate(DeepseekVLHybridModel, BaseGeneration):
     """DeepSeek-VL Hybrid with an LM head + fast ``.generate()``.
 
     Adds a bias-free ``lm_head`` on top of :class:`DeepseekVLHybridModel`.

@@ -12,9 +12,9 @@ from .janus_layers import (
 
 MASK_NEG = -1e9
 
-# The backbone (JanusModel) and generative head (JanusGenerate) share the
+# The backbone (JanusModel) and generative head (JanusConditionalGenerate) share the
 # variant's weights repo, whose kf_config.json declares JanusModel.
-JANUS_HUB_SIBLINGS = frozenset({"JanusModel", "JanusGenerate"})
+JANUS_HUB_SIBLINGS = frozenset({"JanusModel", "JanusConditionalGenerate"})
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -120,7 +120,7 @@ class JanusModel(SubclassedBaseModel):
     the decoder input. The VQ-VAE image-generation stack of the released
     checkpoints (``vqmodel`` + generation heads) is not ported: this is the
     understanding (image+text -> text) path only. Returns raw features; use
-    :class:`JanusGenerate` for logits / text.
+    :class:`JanusConditionalGenerate` for logits / text.
 
     Args:
         vocab_size: Token vocabulary size.
@@ -132,7 +132,7 @@ class JanusModel(SubclassedBaseModel):
         head_dim: Text per-head dim.
         norm_eps: Text RMSNorm epsilon.
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`JanusGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`JanusConditionalGenerate` ties the LM head.
         vision_embed_dim / vision_mlp_dim / vision_num_layers /
         vision_num_heads: SigLIP tower dims.
         image_size / patch_size: Vision input geometry (384 / 16).
@@ -371,7 +371,7 @@ class JanusModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class JanusGenerate(JanusModel, BaseGeneration):
+class JanusConditionalGenerate(JanusModel, BaseGeneration):
     """DeepSeek-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
     Adds a bias-free ``lm_head`` on top of :class:`JanusModel`. ``call``

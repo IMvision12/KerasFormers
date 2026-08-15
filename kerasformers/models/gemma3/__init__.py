@@ -5,9 +5,10 @@ from kerasformers.models.gemma3.gemma3_config import (
 )
 from kerasformers.models.gemma3.gemma3_image_processor import Gemma3ImageProcessor
 from kerasformers.models.gemma3.gemma3_model import (
-    Gemma3Generate,
+    Gemma3ConditionalGenerate,
     Gemma3Model,
     Gemma3MultiModalProjector,
+    Gemma3TextGenerate,
     Gemma3VisionModel,
 )
 from kerasformers.models.gemma3.gemma3_processor import Gemma3Processor
@@ -18,7 +19,8 @@ __all__ = [
     "Gemma3TextConfig",
     "Gemma3VisionConfig",
     "Gemma3Model",
-    "Gemma3Generate",
+    "Gemma3ConditionalGenerate",
+    "Gemma3TextGenerate",
     "Gemma3VisionModel",
     "Gemma3MultiModalProjector",
     "Gemma3ImageProcessor",

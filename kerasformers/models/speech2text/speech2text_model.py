@@ -12,7 +12,9 @@ from .speech2text_layers import (
     Speech2TextSinusoidalPositionEmbedding,
 )
 
-SPEECH2TEXT_HUB_SIBLINGS = frozenset({"Speech2TextModel", "Speech2TextSpeechToText"})
+SPEECH2TEXT_HUB_SIBLINGS = frozenset(
+    {"Speech2TextModel", "Speech2TextConditionalGenerate"}
+)
 
 _ACTIVATION_ALIASES = {
     "relu": keras.activations.relu,
@@ -263,7 +265,7 @@ class Speech2TextModel(FunctionalBaseModel):
     >>> out["logits"]                  # (B, L, vocab_size)
 
     This is the teacher-forced path. For autoregressive transcription use
-    :class:`Speech2TextSpeechToText`, which adds ``.generate(audio, processor)``.
+    :class:`Speech2TextConditionalGenerate`, which adds ``.generate(audio, processor)``.
 
     Construction:
 
@@ -304,7 +306,7 @@ class Speech2TextModel(FunctionalBaseModel):
     HUB_REPO_SIBLINGS = SPEECH2TEXT_HUB_SIBLINGS
     HF_MODEL_TYPE = "speech_to_text"
     # Default generation settings, written to kf_config.json under generate_args and
-    # re-attached on repo-id load; Speech2TextSpeechToText.generate() reads them.
+    # re-attached on repo-id load; Speech2TextConditionalGenerate.generate() reads them.
     generate_args = {"max_new_tokens": 200}
 
     @classmethod
@@ -470,7 +472,7 @@ class Speech2TextModel(FunctionalBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Speech2TextSpeechToText(Speech2TextModel, BaseSeq2SeqGeneration):
+class Speech2TextConditionalGenerate(Speech2TextModel, BaseSeq2SeqGeneration):
     """Speech2Text speech-to-text model (transcription / speech translation).
 
     Composes the same encoder + decoder + ``lm_head`` Functional graph as
@@ -481,7 +483,7 @@ class Speech2TextSpeechToText(Speech2TextModel, BaseSeq2SeqGeneration):
 
     .. code-block:: python
 
-        model = Speech2TextSpeechToText.from_weights("s2t-small-librispeech-asr")
+        model = Speech2TextConditionalGenerate.from_weights("s2t-small-librispeech-asr")
         processor = Speech2TextProcessor.from_weights("s2t-small-librispeech-asr")
         text = model.generate(audio, processor)
     """

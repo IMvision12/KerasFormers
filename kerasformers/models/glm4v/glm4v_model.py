@@ -127,7 +127,7 @@ class Glm4vModel(SubclassedBaseModel):
     positions, packed-attention rotary blocks, 2x2 downsample, SwiGLU merger)
     produces image embeddings that are scattered into the ``image_token_id``
     placeholder slots of a GLM-4 decoder, with 3D M-RoPE positions from
-    :meth:`get_rope_index`. Returns raw features; use :class:`Glm4vGenerate`
+    :meth:`get_rope_index`. Returns raw features; use :class:`Glm4vConditionalGenerate`
     for logits / text.
 
     Args:
@@ -478,7 +478,7 @@ class Glm4vModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4vGenerate(Glm4vModel, BaseGeneration):
+class Glm4vConditionalGenerate(Glm4vModel, BaseGeneration):
     """GLM-4V with an LM head + fast ``.generate()`` (image+text -> text)."""
 
     eos_token_id = (151329, 151336, 151338)

@@ -57,7 +57,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `attention_bias` | `True` | add bias terms to the qkv projections |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `Glm4Generate`
+### `Glm4TextGenerate`
 
 `Glm4Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `Glm4Model`.
@@ -110,9 +110,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.glm4 import Glm4Generate, Glm4Tokenizer
+from kerasformers.models.glm4 import Glm4TextGenerate, Glm4Tokenizer
 
-model = Glm4Generate.from_weights("glm-4-9b-0414")
+model = Glm4TextGenerate.from_weights("glm-4-9b-0414")
 tokenizer = Glm4Tokenizer.from_weights("glm-4-9b-0414")
 
 inputs = tokenizer("Explain rotary embeddings in one sentence.")
@@ -154,7 +154,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Glm4Generate.from_weights("hf:THUDM/GLM-4-9B-0414")
+model = Glm4TextGenerate.from_weights("hf:THUDM/GLM-4-9B-0414")
 ```
 
 ### Lower memory
@@ -163,7 +163,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Glm4Generate.from_weights(
+model = Glm4TextGenerate.from_weights(
     "glm-4-9b-0414", quantization="int8", load_dtype="bfloat16"
 )
 ```

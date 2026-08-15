@@ -19,7 +19,7 @@ class LocateAnythingModel(SubclassedBaseModel):
     ``image_token_index`` positions, then run through the reused Qwen2 decoder.
     The forward here uses standard causal attention; the model's "magi" block
     attention + Parallel Box Decoding live in the generation path. Returns raw
-    features; use :class:`LocateAnythingGenerate` for logits.
+    features; use :class:`LocateAnythingConditionalGenerate` for logits.
     """
 
     HF_MODEL_TYPE = "locateanything"
@@ -27,7 +27,9 @@ class LocateAnythingModel(SubclassedBaseModel):
     BASE_MODEL_CONFIG = None
     BASE_WEIGHT_CONFIG = None
     config_class = LocateAnythingConfig
-    HUB_REPO_SIBLINGS = frozenset({"LocateAnythingModel", "LocateAnythingGenerate"})
+    HUB_REPO_SIBLINGS = frozenset(
+        {"LocateAnythingModel", "LocateAnythingConditionalGenerate"}
+    )
 
     def __init__(
         self,
@@ -320,7 +322,7 @@ class LocateAnythingModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class LocateAnythingGenerate(LocateAnythingModel):
+class LocateAnythingConditionalGenerate(LocateAnythingModel):
     """LocateAnything-3B with the (tied) Qwen2 LM head -> logits."""
 
     eos_token_id = (151645,)

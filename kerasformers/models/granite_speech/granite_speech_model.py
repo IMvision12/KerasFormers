@@ -16,10 +16,12 @@ from .granite_speech_layers import (
 
 MASK_NEG = -1e9
 
-# GraniteSpeechModel (backbone) and GraniteSpeechGenerate (+ LM head + .generate)
+# GraniteSpeechModel (backbone) and GraniteSpeechConditionalGenerate (+ LM head + .generate)
 # share the variant's weights repo, whose kf_config.json declares the canonical
-# GraniteSpeechGenerate. GraniteSpeechPlus has its own repos + sibling set.
-GRANITE_SPEECH_HUB_SIBLINGS = frozenset({"GraniteSpeechModel", "GraniteSpeechGenerate"})
+# GraniteSpeechConditionalGenerate. GraniteSpeechPlus has its own repos + sibling set.
+GRANITE_SPEECH_HUB_SIBLINGS = frozenset(
+    {"GraniteSpeechModel", "GraniteSpeechConditionalGenerate"}
+)
 
 
 def rope_cos_sin(position_ids, head_dim, theta):
@@ -171,7 +173,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
     a vision-language model splices image embeddings). The decoder carries
     Granite's scalar multipliers and a query/value LoRA adapter that is enabled
     only when audio is present. The forward runs eagerly with ``keras.ops``. This
-    base returns raw features (no LM head); use :class:`GraniteSpeechGenerate` for
+    base returns raw features (no LM head); use :class:`GraniteSpeechConditionalGenerate` for
     logits / text.
 
     GraniteSpeechPlus is the same architecture with ``cat_hidden_layers`` set: the
@@ -540,7 +542,7 @@ class GraniteSpeechModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GraniteSpeechGenerate(GraniteSpeechModel, BaseGeneration):
+class GraniteSpeechConditionalGenerate(GraniteSpeechModel, BaseGeneration):
     """Granite Speech with an LM head + fast ``.generate()`` (audio+text -> text).
 
     Adds the (tied) vocabulary projection on top of :class:`GraniteSpeechModel`,

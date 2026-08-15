@@ -18,7 +18,7 @@ class Gemma2Model(SubclassedBaseModel):
     attention-logit tanh softcapping (50.0) applied before the mask,
     ``query_pre_attn_scalar`` attention scaling, and alternating
     sliding-window (even layers) / full (odd layers) causal attention.
-    Returns raw features; use :class:`Gemma2Generate` for logits / text
+    Returns raw features; use :class:`Gemma2TextGenerate` for logits / text
     (which also applies the final-logit softcap, 30.0).
 
         model = Gemma2Model.from_weights("kerasformers/gemma-2-2b")
@@ -38,7 +38,7 @@ class Gemma2Model(SubclassedBaseModel):
         sliding_window: Window of the sliding (even) layers.
         norm_eps: RMSNorm epsilon.
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`Gemma2Generate` ties the LM head
+        tie_embeddings: Whether :class:`Gemma2TextGenerate` ties the LM head
             (Gemma 2 checkpoints do).
     """
 
@@ -206,7 +206,7 @@ class Gemma2Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma2Generate(Gemma2Model, BaseGeneration):
+class Gemma2TextGenerate(Gemma2Model, BaseGeneration):
     """Gemma 2 backbone + a (tied) LM head with final-logit softcapping and
     fast ``.generate()``.
 
@@ -218,7 +218,7 @@ class Gemma2Generate(Gemma2Model, BaseGeneration):
     ``call_with_cache``, respecting the per-layer full / sliding masks.
     Constructor ``Args`` are inherited from :class:`Gemma2Model`.
 
-        gen = Gemma2Generate.from_weights("kerasformers/gemma-2-2b-it")
+        gen = Gemma2TextGenerate.from_weights("kerasformers/gemma-2-2b-it")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

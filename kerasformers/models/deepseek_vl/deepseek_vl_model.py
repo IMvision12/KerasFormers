@@ -12,9 +12,11 @@ from .deepseek_vl_layers import (
 
 MASK_NEG = -1e9
 
-# The backbone (DeepseekVLModel) and generative head (DeepseekVLGenerate) share the
+# The backbone (DeepseekVLModel) and generative head (DeepseekVLConditionalGenerate) share the
 # variant's weights repo, whose kf_config.json declares DeepseekVLModel.
-DEEPSEEK_VL_HUB_SIBLINGS = frozenset({"DeepseekVLModel", "DeepseekVLGenerate"})
+DEEPSEEK_VL_HUB_SIBLINGS = frozenset(
+    {"DeepseekVLModel", "DeepseekVLConditionalGenerate"}
+)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -120,7 +122,7 @@ class DeepseekVLModel(SubclassedBaseModel):
     ``image_token_id`` (``<image_placeholder>``) slots of the decoder input.
     Covers the HF-native ``model_type: "deepseek_vl"`` checkpoints (the 7B
     "hybrid" variant adds a SAM high-res branch and is a different model
-    type, not ported). Returns raw features; use :class:`DeepseekVLGenerate`
+    type, not ported). Returns raw features; use :class:`DeepseekVLConditionalGenerate`
     for logits / text.
 
     Args:
@@ -133,7 +135,7 @@ class DeepseekVLModel(SubclassedBaseModel):
         head_dim: Text per-head dim.
         norm_eps: Text RMSNorm epsilon.
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`DeepseekVLGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`DeepseekVLConditionalGenerate` ties the LM head.
         vision_embed_dim / vision_mlp_dim / vision_num_layers /
         vision_num_heads: SigLIP tower dims.
         image_size / patch_size: Vision input geometry (384 / 16).
@@ -368,7 +370,7 @@ class DeepseekVLModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekVLGenerate(DeepseekVLModel, BaseGeneration):
+class DeepseekVLConditionalGenerate(DeepseekVLModel, BaseGeneration):
     """DeepSeek-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
     Adds a bias-free ``lm_head`` on top of :class:`DeepseekVLModel`. ``call``

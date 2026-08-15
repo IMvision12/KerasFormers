@@ -2,7 +2,7 @@ from kerasformers.models.mistral3.mistral3_image_processor import (
     Mistral3ImageProcessor,
 )
 from kerasformers.models.mistral3.mistral3_model import (
-    Mistral3Generate,
+    Mistral3ConditionalGenerate,
     Mistral3Model,
     Mistral3TextModel,
     Mistral3VisionModel,
@@ -12,7 +12,7 @@ from kerasformers.models.mistral3.mistral3_tokenizer import Mistral3Tokenizer
 
 __all__ = [
     "Mistral3Model",
-    "Mistral3Generate",
+    "Mistral3ConditionalGenerate",
     "Mistral3TextModel",
     "Mistral3VisionModel",
     "Mistral3ImageProcessor",

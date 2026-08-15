@@ -20,7 +20,7 @@ class Llama2Model(SubclassedBaseModel):
     (``num_kv_heads == num_heads``); the 70B uses grouped-query attention.
     CodeLlama shares the architecture with ``rope_theta=1e6``. Subclassed
     (imperative) model: the forward runs eagerly with ``keras.ops``. Returns
-    raw features; use :class:`Llama2Generate` for logits / text.
+    raw features; use :class:`Llama2TextGenerate` for logits / text.
 
         model = Llama2Model.from_weights("llama2-7b")
         out = model({"input_ids": ids})["last_hidden_state"]  # (B, L, embed_dim)
@@ -35,7 +35,7 @@ class Llama2Model(SubclassedBaseModel):
         head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
         norm_eps: RMSNorm epsilon.
         rope_theta: Rotary base frequency (Llama 2: 10000, CodeLlama: 1e6).
-        tie_embeddings: Whether :class:`Llama2Generate` ties the LM head to
+        tie_embeddings: Whether :class:`Llama2TextGenerate` ties the LM head to
             the token embedding (Llama 2 checkpoints do not).
     """
 
@@ -167,7 +167,7 @@ class Llama2Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Llama2Generate(Llama2Model, BaseGeneration):
+class Llama2TextGenerate(Llama2Model, BaseGeneration):
     """Llama 2 / CodeLlama backbone + a language-model head and fast ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`Llama2Model`: a separate
@@ -179,7 +179,7 @@ class Llama2Generate(Llama2Model, BaseGeneration):
     and ``call_with_cache`` (one compiled decode step). Constructor ``Args``
     are inherited from :class:`Llama2Model`.
 
-        gen = Llama2Generate.from_weights("llama2-7b-chat")
+        gen = Llama2TextGenerate.from_weights("llama2-7b-chat")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

@@ -74,7 +74,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `max_position_embeddings` | `163840` | maximum context length |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `DeepseekV2Generate`
+### `DeepseekV2TextGenerate`
 
 `DeepseekV2Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `DeepseekV2Model`.
@@ -127,9 +127,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.deepseek_v2 import DeepseekV2Generate, DeepseekV2Tokenizer
+from kerasformers.models.deepseek_v2 import DeepseekV2TextGenerate, DeepseekV2Tokenizer
 
-model = DeepseekV2Generate.from_weights("deepseek-v2-lite")
+model = DeepseekV2TextGenerate.from_weights("deepseek-v2-lite")
 tokenizer = DeepseekV2Tokenizer.from_weights("deepseek-v2-lite")
 
 inputs = tokenizer("Explain rotary embeddings in one sentence.")
@@ -171,7 +171,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = DeepseekV2Generate.from_weights("hf:deepseek-ai/DeepSeek-V2-Lite")
+model = DeepseekV2TextGenerate.from_weights("hf:deepseek-ai/DeepSeek-V2-Lite")
 ```
 
 ### Lower memory
@@ -180,7 +180,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = DeepseekV2Generate.from_weights(
+model = DeepseekV2TextGenerate.from_weights(
     "deepseek-v2-lite", quantization="int8", load_dtype="bfloat16"
 )
 ```

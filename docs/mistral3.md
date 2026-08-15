@@ -59,7 +59,7 @@ Mistral 3 multimodal backbone (Mistral Small 3.1/3.2): Pixtral vision tower + 2x
 | `projector_bias` | `False` |  |
 | `image_token_id` | `10` | placeholder token id expanded per image |
 
-### `Mistral3Generate`
+### `Mistral3ConditionalGenerate`
 
 Mistral 3 with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -149,9 +149,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.mistral3 import Mistral3Generate, Mistral3Processor
+from kerasformers.models.mistral3 import Mistral3ConditionalGenerate, Mistral3Processor
 
-model = Mistral3Generate.from_weights("mistral-small-3.1-24b-instruct")
+model = Mistral3ConditionalGenerate.from_weights("mistral-small-3.1-24b-instruct")
 processor = Mistral3Processor.from_weights("mistral-small-3.1-24b-instruct")
 
 image = Image.open("photo.jpg")
@@ -249,7 +249,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Mistral3Generate.from_weights(
+model = Mistral3ConditionalGenerate.from_weights(
     "mistral-small-3.1-24b-instruct",
     quantization="int8",
     load_dtype="bfloat16",

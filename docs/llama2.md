@@ -58,7 +58,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `rope_theta` | `10000.0` | rotary base frequency |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `Llama2Generate`
+### `Llama2TextGenerate`
 
 `Llama2Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `Llama2Model`.
@@ -111,9 +111,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.llama2 import Llama2Generate, Llama2Tokenizer
+from kerasformers.models.llama2 import Llama2TextGenerate, Llama2Tokenizer
 
-model = Llama2Generate.from_weights("llama2-7b")
+model = Llama2TextGenerate.from_weights("llama2-7b")
 tokenizer = Llama2Tokenizer.from_weights("llama2-7b")
 
 inputs = tokenizer(
@@ -157,7 +157,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Llama2Generate.from_weights("hf:meta-llama/Llama-2-7b-hf")
+model = Llama2TextGenerate.from_weights("hf:meta-llama/Llama-2-7b-hf")
 ```
 
 ### Lower memory
@@ -166,7 +166,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Llama2Generate.from_weights(
+model = Llama2TextGenerate.from_weights(
     "llama2-7b", quantization="int8", load_dtype="bfloat16"
 )
 ```

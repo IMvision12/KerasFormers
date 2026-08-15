@@ -257,7 +257,7 @@ class InternVLModel(SubclassedBaseModel):
     tile), projected to the text width, and scattered into the
     ``image_token_id`` (``<IMG_CONTEXT>``) placeholder slots of the decoder
     input. Standard 1D rotary positions. The forward pass runs eagerly with
-    ``keras.ops``. Returns raw features; use :class:`InternVLGenerate` for
+    ``keras.ops``. Returns raw features; use :class:`InternVLConditionalGenerate` for
     logits / text.
 
     Output dict:
@@ -286,7 +286,7 @@ class InternVLModel(SubclassedBaseModel):
         num_kv_heads: Key/value heads per text layer (GQA).
         norm_eps: Text RMSNorm epsilon.
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`InternVLGenerate` ties the LM head
+        tie_embeddings: Whether :class:`InternVLConditionalGenerate` ties the LM head
             (every InternVL3-hf checkpoint materializes ``lm_head``: False).
         vision_embed_dim, vision_mlp_dim, vision_num_layers, vision_num_heads:
             InternViT tower dimensions.
@@ -567,7 +567,7 @@ class InternVLModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class InternVLGenerate(InternVLModel, BaseGeneration):
+class InternVLConditionalGenerate(InternVLModel, BaseGeneration):
     """InternVL3 with an LM head + fast ``.generate()`` (image+text -> text).
 
     Adds a vocabulary projection on top of :class:`InternVLModel` (a separate

@@ -53,7 +53,7 @@ DeepSeek-VL multimodal backbone: SigLIP tower + 2-linear GELU aligner + Llama de
 | `vision_norm_eps` | `1e-06` | vision tower norm epsilon |
 | `image_token_id` | `100015` | placeholder token id expanded per image |
 
-### `DeepseekVLGenerate`
+### `DeepseekVLConditionalGenerate`
 
 DeepSeek-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -131,9 +131,12 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.deepseek_vl import DeepseekVLGenerate, DeepseekVLProcessor
+from kerasformers.models.deepseek_vl import (
+    DeepseekVLConditionalGenerate,
+    DeepseekVLProcessor,
+)
 
-model = DeepseekVLGenerate.from_weights("kerasformers/deepseek_vl_1.3b_chat")
+model = DeepseekVLConditionalGenerate.from_weights("kerasformers/deepseek_vl_1.3b_chat")
 processor = DeepseekVLProcessor.from_weights("kerasformers/deepseek_vl_1.3b_chat")
 
 image = Image.open("photo.jpg")
@@ -231,7 +234,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = DeepseekVLGenerate.from_weights(
+model = DeepseekVLConditionalGenerate.from_weights(
     "kerasformers/deepseek_vl_1.3b_chat",
     quantization="int8",
     load_dtype="bfloat16",

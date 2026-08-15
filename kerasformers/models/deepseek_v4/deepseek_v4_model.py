@@ -63,7 +63,7 @@ class DeepseekV4Model(SubclassedBaseModel):
     select experts from the frozen ``tid2eid`` token-hash table). Sliding
     layers use plain rope at ``rope_theta``; compressor layers and the
     compressed entries use yarn rope at ``compress_rope_theta``. Returns raw
-    features; use :class:`DeepseekV4Generate` for logits / text.
+    features; use :class:`DeepseekV4TextGenerate` for logits / text.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads / head_dim: Geometry.
@@ -80,7 +80,7 @@ class DeepseekV4Model(SubclassedBaseModel):
         rope_scaling: Yarn dict applied to the compress rope (the reference
             forces its cos/sin ``attention_factor`` to 1.0).
         norm_eps: RMSNorm epsilon.
-        tie_embeddings: Whether :class:`DeepseekV4Generate` ties the LM head.
+        tie_embeddings: Whether :class:`DeepseekV4TextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "deepseek_v4"
@@ -381,7 +381,7 @@ class DeepseekV4Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekV4Generate(DeepseekV4Model, BaseGeneration):
+class DeepseekV4TextGenerate(DeepseekV4Model, BaseGeneration):
     """DeepSeek-V4 with an LM head + fast ``.generate()``.
 
     The streaming state per layer is ``(kv,)`` for sliding layers and

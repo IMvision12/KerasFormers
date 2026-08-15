@@ -323,7 +323,7 @@ class Qwen2VLModel(SubclassedBaseModel):
     ``image_token_id`` / ``video_token_id`` placeholder slots of a Qwen2 decoder,
     with 3D M-RoPE positions from :meth:`get_rope_index`. The forward pass runs
     eagerly with ``keras.ops``. This base model returns raw features (no LM head);
-    use :class:`Qwen2VLGenerate` for logits / text.
+    use :class:`Qwen2VLConditionalGenerate` for logits / text.
 
     Output dict:
 
@@ -361,7 +361,7 @@ class Qwen2VLModel(SubclassedBaseModel):
         rope_theta: Rotary base frequency.
         mrope_section: Per-axis (temporal, height, width) channel split of the
             merged M-RoPE; sums to ``head_dim // 2``.
-        tie_embeddings: Whether :class:`Qwen2VLGenerate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen2VLConditionalGenerate` ties the LM head to the
             token embedding instead of a separate projection.
         vision_depth: Number of vision-transformer blocks.
         vision_embed_dim: Vision hidden width.
@@ -723,7 +723,7 @@ class Qwen2VLModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2VLGenerate(Qwen2VLModel, BaseGeneration):
+class Qwen2VLConditionalGenerate(Qwen2VLModel, BaseGeneration):
     """Qwen2-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
     Adds a vocabulary projection on top of :class:`Qwen2VLModel` (a separate

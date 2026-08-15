@@ -5,7 +5,7 @@ from kerasformers.models.janus.janus_config import (
 )
 from kerasformers.models.janus.janus_image_processor import JanusImageProcessor
 from kerasformers.models.janus.janus_model import (
-    JanusGenerate,
+    JanusConditionalGenerate,
     JanusModel,
     JanusVisionModel,
 )
@@ -17,7 +17,7 @@ __all__ = [
     "JanusTextConfig",
     "JanusVisionConfig",
     "JanusModel",
-    "JanusGenerate",
+    "JanusConditionalGenerate",
     "JanusVisionModel",
     "JanusImageProcessor",
     "JanusProcessor",

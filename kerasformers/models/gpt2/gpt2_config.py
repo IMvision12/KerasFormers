@@ -3,7 +3,7 @@ from kerasformers.base import BaseConfig
 
 class GPT2Config(BaseConfig):
     r"""Configuration for the GPT-2 backbone ([`GPT2Model`]) and its generative
-    head ([`GPT2Generate`]).
+    head ([`GPT2TextGenerate`]).
 
     GPT-2 is a decoder-only transformer with learned token and absolute-position
     embeddings, pre-LayerNorm blocks, and a final LayerNorm. One `kf_config.json`
@@ -27,7 +27,7 @@ class GPT2Config(BaseConfig):
         norm_eps (`float`, *optional*, defaults to 1e-5):
             LayerNorm epsilon.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`GPT2Generate`] ties the LM head to the token embeddings.
+            Whether [`GPT2TextGenerate`] ties the LM head to the token embeddings.
 
     Examples:
 

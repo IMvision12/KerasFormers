@@ -179,14 +179,14 @@ including the class count of a fine-tune, are read from the repo config.
 <div markdown="1">
 
 ```python
-from kerasformers.models.qwen3 import Qwen3Generate
+from kerasformers.models.qwen3 import Qwen3TextGenerate
 from kerasformers.models.segformer import SegFormerSemanticSegment
 
 # Preconverted Keras weights (kf_config.json)
 SegFormerSemanticSegment.from_weights("kerasformers/segformer_b0_ade_512")
 
 # Bare variant: converted from upstream on the fly
-Qwen3Generate.from_weights("qwen3-8b")
+Qwen3TextGenerate.from_weights("qwen3-8b")
 
 # Any Hub repo with a matching model_type
 SegFormerSemanticSegment.from_weights("hf:nvidia/segformer-b0-finetuned-ade-512-512")
@@ -276,13 +276,15 @@ keras.config.set_image_data_format("channels_first")
 <div markdown="1">
 
 ```python
-from kerasformers.models.gpt_oss import GptOssGenerate
+from kerasformers.models.gpt_oss import GptOssTextGenerate
 
 # Experts stay packed in MXFP4, dequantized in the expert layer's call
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-120b")
+model = GptOssTextGenerate.from_weights("kerasformers/gpt-oss-120b")
 
 # Quantize weight-only on the way in, for a smaller footprint again
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-120b", quantization="int8")
+model = GptOssTextGenerate.from_weights(
+    "kerasformers/gpt-oss-120b", quantization="int8"
+)
 ```
 
 </div>

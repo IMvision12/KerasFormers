@@ -26,7 +26,7 @@ class JanusTextConfig(BaseConfig):
         rope_theta (`float`, *optional*, defaults to 10000.0):
             Rotary base frequency.
         tie_embeddings (`bool`, *optional*, defaults to `False`):
-            Whether [`JanusGenerate`] ties the LM head to the token embeddings.
+            Whether [`JanusConditionalGenerate`] ties the LM head to the token embeddings.
 
     Example:
 
@@ -102,10 +102,10 @@ class JanusConfig(BaseConfig):
     Example:
 
     ```python
-    >>> from kerasformers.models.janus import JanusConfig, JanusGenerate
+    >>> from kerasformers.models.janus import JanusConfig, JanusConditionalGenerate
 
     >>> configuration = JanusConfig()
-    >>> model = JanusGenerate(configuration)
+    >>> model = JanusConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

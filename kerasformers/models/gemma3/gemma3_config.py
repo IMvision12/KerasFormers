@@ -40,7 +40,7 @@ class Gemma3TextConfig(BaseConfig):
             Linear factor dividing the global-layer inverse frequencies (`None`
             disables; 8.0 on the multimodal sizes).
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`Gemma3Generate`] ties the LM head to the token embedding."""
+            Whether [`Gemma3ConditionalGenerate`] ties the LM head to the token embedding."""
 
     model_type = "gemma3_text"
 
@@ -93,7 +93,7 @@ class Gemma3VisionConfig(BaseConfig):
 
 
 class Gemma3Config(BaseConfig):
-    r"""Configuration for Gemma 3: [`Gemma3Model`] and [`Gemma3Generate`].
+    r"""Configuration for Gemma 3: [`Gemma3Model`] and [`Gemma3ConditionalGenerate`].
 
     A composite config: the text decoder lives in a [`Gemma3TextConfig`]
     (``text_config``) and the optional SigLIP tower in a [`Gemma3VisionConfig`]
@@ -116,13 +116,13 @@ class Gemma3Config(BaseConfig):
     Examples:
 
     ```python
-    >>> from kerasformers.models.gemma3 import Gemma3Config, Gemma3Generate
+    >>> from kerasformers.models.gemma3 import Gemma3Config, Gemma3ConditionalGenerate
 
     >>> configuration = Gemma3Config(
     ...     text_config={"embed_dim": 2560, "num_layers": 34},
     ...     vision_config={"num_layers": 27},
     ... )
-    >>> model = Gemma3Generate(configuration)
+    >>> model = Gemma3ConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

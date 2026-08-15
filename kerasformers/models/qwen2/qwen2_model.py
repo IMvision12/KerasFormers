@@ -17,7 +17,7 @@ class Qwen2Model(SubclassedBaseModel):
     grouped-query attention and 1D rotary positions. This is a subclassed
     (imperative) :class:`FunctionalBaseModel`: the sequence length and decode-step count are
     data dependent, so the forward pass runs eagerly with ``keras.ops`` rather
-    than as a static graph. Returns raw features; use :class:`Qwen2Generate` for
+    than as a static graph. Returns raw features; use :class:`Qwen2TextGenerate` for
     logits / text.
 
         model = Qwen2Model.from_weights("qwen2-0.5b-instruct")
@@ -33,7 +33,7 @@ class Qwen2Model(SubclassedBaseModel):
         head_dim: Per-head dim; defaults to ``embed_dim // num_heads``.
         norm_eps: RMSNorm epsilon.
         rope_theta: Rotary base frequency.
-        tie_embeddings: Whether :class:`Qwen2Generate` ties the LM head to the
+        tie_embeddings: Whether :class:`Qwen2TextGenerate` ties the LM head to the
             token embedding instead of a separate projection.
     """
 
@@ -155,7 +155,7 @@ class Qwen2Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen2Generate(Qwen2Model, BaseGeneration):
+class Qwen2TextGenerate(Qwen2Model, BaseGeneration):
     """Qwen2 backbone + a (tied) language-model head and fast ``.generate()``.
 
     Adds a vocabulary projection on top of :class:`Qwen2Model`: a separate
@@ -166,7 +166,7 @@ class Qwen2Generate(Qwen2Model, BaseGeneration):
     (parallel prefill into a fixed KV cache) and ``call_with_cache`` (one compiled
     decode step). Constructor ``Args`` are inherited from :class:`Qwen2Model`.
 
-        gen = Qwen2Generate.from_weights("qwen2-0.5b-instruct")
+        gen = Qwen2TextGenerate.from_weights("qwen2-0.5b-instruct")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 

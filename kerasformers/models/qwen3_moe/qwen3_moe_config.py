@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class Qwen3MoeConfig(BaseConfig):
-    r"""Configuration for Qwen3-MoE: [`Qwen3MoeModel`] and [`Qwen3MoeGenerate`].
+    r"""Configuration for Qwen3-MoE: [`Qwen3MoeModel`] and [`Qwen3MoeTextGenerate`].
 
     A Qwen3 decoder whose MLP is a sparse Mixture-of-Experts: a softmax router picks
     ``num_experts_per_tok`` of ``num_experts`` fused SwiGLU experts (a dense MLP is

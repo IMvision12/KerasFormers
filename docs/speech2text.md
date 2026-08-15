@@ -22,10 +22,10 @@ what keeps a full utterance affordable.
 
 ## API
 
-### Speech2TextSpeechToText
+### Speech2TextConditionalGenerate
 
 ```python
-Speech2TextSpeechToText(
+Speech2TextConditionalGenerate(
     hidden_dim=256,
     encoder_num_layers=12,
     decoder_num_layers=6,
@@ -43,7 +43,7 @@ Speech2TextSpeechToText(
     scale_embedding=True,
     activation_function="relu",
     layer_norm_eps=1e-05,
-    name="Speech2TextSpeechToText",
+    name="Speech2TextConditionalGenerate",
 )
 ```
 
@@ -62,7 +62,7 @@ pipeline. **This is the class for speech to text.**
 - **conv_channels** / **conv_kernel_sizes** / **num_conv_layers**: the 1-D subsampler that downsamples time by 4x before the transformer stack.
 - **scale_embedding** (`bool`, *optional*, defaults to `True`): scale embeddings by `sqrt(hidden_dim)`.
 - **activation_function** / **layer_norm_eps**: block-level knobs, set from the variant config.
-- **name** (`str`, *optional*, defaults to `"Speech2TextSpeechToText"`): model name.
+- **name** (`str`, *optional*, defaults to `"Speech2TextConditionalGenerate"`): model name.
 
 **Call** `model({"input_features": ..., "decoder_input_ids": ...})` for a teacher-forced
 forward pass. **Returns** a `dict` with **logits** `(B, T, vocab_size)` and
@@ -95,7 +95,7 @@ Speech2TextModel(hidden_dim=256, encoder_num_layers=12, decoder_num_layers=6,
 ```
 
 The encoder-decoder without the LM head, for features or a custom head. Same arguments as
-`Speech2TextSpeechToText`.
+`Speech2TextConditionalGenerate`.
 
 ## Preprocessing
 
@@ -183,10 +183,12 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 import soundfile as sf
 from kerasformers.models.speech2text import (
     Speech2TextProcessor,
-    Speech2TextSpeechToText,
+    Speech2TextConditionalGenerate,
 )
 
-model = Speech2TextSpeechToText.from_weights("kerasformers/s2t-small-librispeech-asr")
+model = Speech2TextConditionalGenerate.from_weights(
+    "kerasformers/s2t-small-librispeech-asr"
+)
 processor = Speech2TextProcessor.from_weights("kerasformers/s2t-small-librispeech-asr")
 
 audio, sr = sf.read("assets/speech_quilter_manner.wav", dtype="float32")  # 16 kHz mono
@@ -247,14 +249,16 @@ including the multilingual speech-translation checkpoints.
 ```python
 from kerasformers.models.speech2text import (
     Speech2TextProcessor,
-    Speech2TextSpeechToText,
+    Speech2TextConditionalGenerate,
 )
 
-model = Speech2TextSpeechToText.from_weights("hf:facebook/s2t-small-librispeech-asr")
+model = Speech2TextConditionalGenerate.from_weights(
+    "hf:facebook/s2t-small-librispeech-asr"
+)
 processor = Speech2TextProcessor.from_weights("hf:facebook/s2t-small-librispeech-asr")
 
 # Architecture only, randomly initialized
-model = Speech2TextSpeechToText.from_weights(
+model = Speech2TextConditionalGenerate.from_weights(
     "kerasformers/s2t-small-librispeech-asr", load_weights=False
 )
 ```

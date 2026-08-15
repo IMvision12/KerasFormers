@@ -279,7 +279,7 @@ class Mistral3Model(SubclassedBaseModel):
     rotary, packed sequence), RMS-normed, spatially merged 2x2, projected to
     the text width, and scattered into the ``image_token_id`` (``[IMG]``)
     placeholder slots of the decoder input. The forward pass runs eagerly
-    with ``keras.ops``. Returns raw features; use :class:`Mistral3Generate`
+    with ``keras.ops``. Returns raw features; use :class:`Mistral3ConditionalGenerate`
     for logits / text.
 
     Output dict:
@@ -305,7 +305,7 @@ class Mistral3Model(SubclassedBaseModel):
         head_dim: Text per-head dim.
         norm_eps: Text RMSNorm epsilon.
         rope_theta: Text rotary base frequency.
-        tie_embeddings: Whether :class:`Mistral3Generate` ties the LM head.
+        tie_embeddings: Whether :class:`Mistral3ConditionalGenerate` ties the LM head.
         vision_embed_dim / vision_mlp_dim / vision_num_layers /
         vision_num_heads: Pixtral tower dimensions.
         image_size: Maximum image side in pixels (1540).
@@ -555,7 +555,7 @@ class Mistral3Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Mistral3Generate(Mistral3Model, BaseGeneration):
+class Mistral3ConditionalGenerate(Mistral3Model, BaseGeneration):
     """Mistral 3 with an LM head + fast ``.generate()`` (image+text -> text).
 
     Adds a bias-free ``lm_head`` on top of :class:`Mistral3Model` (the

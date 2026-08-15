@@ -3,7 +3,7 @@ from kerasformers.base import BaseConfig
 
 class GptConfig(BaseConfig):
     r"""Configuration for the original GPT backbone ([`GptModel`]) and its
-    generative head ([`GptGenerate`]).
+    generative head ([`GptTextGenerate`]).
 
     GPT (Radford et al. 2018) is a decoder-only transformer with learned token and
     absolute-position embeddings and post-LayerNorm blocks (no final norm). One
@@ -27,7 +27,7 @@ class GptConfig(BaseConfig):
         norm_eps (`float`, *optional*, defaults to 1e-5):
             LayerNorm epsilon.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`GptGenerate`] ties the LM head to the token embeddings.
+            Whether [`GptTextGenerate`] ties the LM head to the token embeddings.
 
     Examples:
 

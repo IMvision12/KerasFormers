@@ -68,7 +68,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `rope_theta` | `1000000.0` | rotary base frequency |
 | `tie_embeddings` | `True` | reuse the embedding matrix as the LM head |
 
-### `Qwen3Generate`
+### `Qwen3TextGenerate`
 
 `Qwen3Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `Qwen3Model`.
@@ -121,9 +121,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.qwen3 import Qwen3Generate, Qwen3Tokenizer
+from kerasformers.models.qwen3 import Qwen3TextGenerate, Qwen3Tokenizer
 
-model = Qwen3Generate.from_weights("kerasformers/qwen3-0.6b")
+model = Qwen3TextGenerate.from_weights("kerasformers/qwen3-0.6b")
 tokenizer = Qwen3Tokenizer.from_weights("kerasformers/qwen3-0.6b")
 
 inputs = tokenizer(
@@ -167,7 +167,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Qwen3Generate.from_weights("hf:Qwen/Qwen3-0.6B")
+model = Qwen3TextGenerate.from_weights("hf:Qwen/Qwen3-0.6B")
 ```
 
 ### Lower memory
@@ -176,7 +176,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Qwen3Generate.from_weights(
+model = Qwen3TextGenerate.from_weights(
     "kerasformers/qwen3-0.6b", quantization="int8", load_dtype="bfloat16"
 )
 ```

@@ -4,7 +4,7 @@ from kerasformers.models.qwen3_vl.qwen3_vl_config import (
     Qwen3VLVisionConfig,
 )
 from kerasformers.models.qwen3_vl.qwen3_vl_model import (
-    Qwen3VLGenerate,
+    Qwen3VLConditionalGenerate,
     Qwen3VLModel,
     Qwen3VLTextModel,
     Qwen3VLVisionModel,
@@ -17,7 +17,7 @@ __all__ = [
     "Qwen3VLTextConfig",
     "Qwen3VLVisionConfig",
     "Qwen3VLModel",
-    "Qwen3VLGenerate",
+    "Qwen3VLConditionalGenerate",
     "Qwen3VLTextModel",
     "Qwen3VLVisionModel",
     "Qwen3VLProcessor",

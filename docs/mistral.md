@@ -58,7 +58,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `sliding_window` | `None` | local attention span |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `MistralGenerate`
+### `MistralTextGenerate`
 
 `MistralModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `MistralModel`.
@@ -111,9 +111,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.mistral import MistralGenerate, MistralTokenizer
+from kerasformers.models.mistral import MistralTextGenerate, MistralTokenizer
 
-model = MistralGenerate.from_weights("mistral-7b-v0.1")
+model = MistralTextGenerate.from_weights("mistral-7b-v0.1")
 tokenizer = MistralTokenizer.from_weights("mistral-7b-v0.1")
 
 inputs = tokenizer(
@@ -157,7 +157,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = MistralGenerate.from_weights("hf:mistralai/Mistral-7B-v0.1")
+model = MistralTextGenerate.from_weights("hf:mistralai/Mistral-7B-v0.1")
 ```
 
 ### Lower memory
@@ -166,7 +166,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = MistralGenerate.from_weights(
+model = MistralTextGenerate.from_weights(
     "mistral-7b-v0.1", quantization="int8", load_dtype="bfloat16"
 )
 ```

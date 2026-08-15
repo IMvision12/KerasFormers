@@ -57,7 +57,7 @@ Janus-Pro multimodal understanding backbone: SigLIP-style tower + depth-2 GELU a
 | `vision_norm_eps` | `1e-06` | vision tower norm epsilon |
 | `image_token_id` | `100581` | placeholder token id expanded per image |
 
-### `JanusGenerate`
+### `JanusConditionalGenerate`
 
 DeepSeek-VL with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -136,9 +136,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.janus import JanusGenerate, JanusProcessor
+from kerasformers.models.janus import JanusConditionalGenerate, JanusProcessor
 
-model = JanusGenerate.from_weights("kerasformers/janus_pro_1b")
+model = JanusConditionalGenerate.from_weights("kerasformers/janus_pro_1b")
 processor = JanusProcessor.from_weights("kerasformers/janus_pro_1b")
 
 image = Image.open("photo.jpg")
@@ -236,7 +236,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = JanusGenerate.from_weights(
+model = JanusConditionalGenerate.from_weights(
     "kerasformers/janus_pro_1b",
     quantization="int8",
     load_dtype="bfloat16",

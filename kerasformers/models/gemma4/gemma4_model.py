@@ -40,7 +40,7 @@ class Gemma4Model(SubclassedBaseModel):
     weights). The E2B/E4B "Elastic" variants add Per-Layer Embeddings
     (``hidden_size_per_layer_input``), tail layers that share an earlier layer's
     K/V (``num_kv_shared_layers``), and an optional double-wide MLP on those
-    shared layers. Returns raw features; use :class:`Gemma4Generate`.
+    shared layers. Returns raw features; use :class:`Gemma4ConditionalGenerate`.
 
     Args:
         vocab_size: Token vocabulary size.
@@ -62,7 +62,7 @@ class Gemma4Model(SubclassedBaseModel):
         norm_eps: RMSNorm epsilon.
         rope_theta: Global-layer rotary base (1e6).
         rope_local_theta: Sliding-layer rotary base (1e4).
-        tie_embeddings: Whether :class:`Gemma4Generate` ties the LM head.
+        tie_embeddings: Whether :class:`Gemma4ConditionalGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = ("gemma4", "gemma4_text")
@@ -619,7 +619,7 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
     soft tokens attend bidirectionally within their image block (the ``vision``
     setting of Gemma 4's ``use_bidirectional_attention``); the global layers stay
     strictly causal. Returns raw text features; the LM head lives in
-    :class:`Gemma4Generate`.
+    :class:`Gemma4ConditionalGenerate`.
 
     Args:
         text_config: Keyword arguments forwarded to :class:`Gemma4Model`.
@@ -934,7 +934,7 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma4Generate(Gemma4MultimodalModel, BaseGeneration):
+class Gemma4ConditionalGenerate(Gemma4MultimodalModel, BaseGeneration):
     """Gemma 4 backbone + a (tied) LM head with fast ``.generate()``.
 
     The single generation entry point, like transformers'

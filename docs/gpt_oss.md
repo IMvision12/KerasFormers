@@ -79,7 +79,7 @@ A subclassed (imperative) model whose forward runs eagerly with `keras.ops`.
 | `attention_bias` | `True` | whether q/k/v/o projections carry a bias |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `GptOssGenerate`
+### `GptOssTextGenerate`
 
 `GptOssModel` plus an (untied) LM head. Returns `{"logits": (batch, seq, vocab_size),
 "last_hidden_state": ...}` and adds `.generate()` (greedy, with a KV cache that
@@ -138,9 +138,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gpt_oss import GptOssGenerate, GptOssTokenizer
+from kerasformers.models.gpt_oss import GptOssTextGenerate, GptOssTokenizer
 
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b")
+model = GptOssTextGenerate.from_weights("kerasformers/gpt-oss-20b")
 tokenizer = GptOssTokenizer.from_weights("kerasformers/gpt-oss-20b")
 
 inputs = tokenizer(
@@ -181,7 +181,7 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 2880)
 ### Loading from the Hub
 
 ```python
-model = GptOssGenerate.from_weights("hf:openai/gpt-oss-20b")
+model = GptOssTextGenerate.from_weights("hf:openai/gpt-oss-20b")
 ```
 
 ### Precision
@@ -192,8 +192,8 @@ GPT-OSS loads in **bfloat16 by default** (the dense weights are bf16, the expert
 memory), pass `load_dtype="float32"`:
 
 ```python
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b")  # bf16 (default)
-model = GptOssGenerate.from_weights(
+model = GptOssTextGenerate.from_weights("kerasformers/gpt-oss-20b")  # bf16 (default)
+model = GptOssTextGenerate.from_weights(
     "kerasformers/gpt-oss-20b", load_dtype="float32"
 )  # fp32
 ```

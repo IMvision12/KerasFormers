@@ -20,7 +20,7 @@ class Glm5MoeModel(SubclassedBaseModel):
     dense). GLM-5/5.1/5.2 share this forward; 5.2's IndexShare is an
     inference-time optimization not applied here. The checkpoint's trailing MTP
     layer (index ``num_layers``) is ignored. Returns raw features; use
-    :class:`Glm5MoeGenerate` for logits / text.
+    :class:`Glm5MoeTextGenerate` for logits / text.
     """
 
     HF_MODEL_TYPE = "glm_moe_dsa"
@@ -238,7 +238,7 @@ class Glm5MoeModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm5MoeGenerate(Glm5MoeModel, BaseGeneration):
+class Glm5MoeTextGenerate(Glm5MoeModel, BaseGeneration):
     """GLM-5 with an LM head + fast cached ``.generate()``.
 
     Decode uses MLA k/v caching; the DSA indexer is skipped at decode time (it is

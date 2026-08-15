@@ -16,7 +16,7 @@ class GlmModel(SubclassedBaseModel):
     Pre-norm decoder with grouped-query attention, partial *interleaved* rotary
     embeddings (``partial_rotary_factor`` of each head is rotated), biased q/k/v
     projections, and a fused-SwiGLU MLP. Returns raw features; use
-    :class:`GlmGenerate` for logits / text.
+    :class:`GlmTextGenerate` for logits / text.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads / num_kv_heads /
@@ -172,7 +172,7 @@ class GlmModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class GlmGenerate(GlmModel, BaseGeneration):
+class GlmTextGenerate(GlmModel, BaseGeneration):
     """GLM-4 with an LM head + fast ``.generate()``."""
 
     eos_token_id = (151329, 151336, 151338)

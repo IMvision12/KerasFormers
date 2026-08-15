@@ -9,9 +9,9 @@ Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 
 Google's on-device Gemma 3n, ported to pure Keras 3: a novel text decoder paired with
 a **MobileNet-V5** vision tower and a **USM** audio tower, for image + audio + text.
-A single `Gemma3nForConditionalGeneration` drives generation for text, image+text, and
-image+audio+text, like transformers' `Gemma3nForConditionalGeneration`. The text-only
-backbone is `Gemma3nTextModel` (with `Gemma3nGenerate`), and the multimodal backbone is
+A single `Gemma3nConditionalGenerate` drives generation for text, image+text, and
+image+audio+text, like transformers' `Gemma3nConditionalGenerate`. The text-only
+backbone is `Gemma3nTextModel` (with `Gemma3nTextGenerate`), and the multimodal backbone is
 `Gemma3nModel`.
 
 What is new in the Gemma 3n decoder:
@@ -62,7 +62,7 @@ accept the terms on the upstream Google card before downloading.
 | `gemma-3n-e4b` | [`kerasformers/gemma-3n-e4b`](https://huggingface.co/kerasformers/gemma-3n-e4b) | full (35 layers) | text + image + audio |
 | `gemma-3n-e4b-it` | [`kerasformers/gemma-3n-e4b-it`](https://huggingface.co/kerasformers/gemma-3n-e4b-it) | full (35 layers) | text + image + audio |
 
-`Gemma3nForConditionalGeneration` builds the towers automatically from the checkpoint:
+`Gemma3nConditionalGenerate` builds the towers automatically from the checkpoint:
 the MobileNet-V5 vision tower and the USM audio tower for every variant. E2B is a
 MatFormer sub-model of E4B (fewer layers, narrower per-layer MLPs), loaded the same way.
 
@@ -102,7 +102,7 @@ The text decoder backbone, no LM head. Returns
 | `laurel_rank` | `64` | inner rank of the LAuReL residual |
 | `activation_sparsity_pattern` | `None` | per-layer Gaussian top-k sparsity (default: 0.95 on the first 10 layers) |
 
-### `Gemma3nForConditionalGeneration`
+### `Gemma3nConditionalGenerate`
 
 The single generation class, over the `Gemma3nModel` backbone plus a (tied) LM head with
 final-logit softcapping. Returns `{"logits": (batch, seq, vocab_size)}` and adds
@@ -209,11 +209,11 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.gemma3n import (
-    Gemma3nForConditionalGeneration,
+    Gemma3nConditionalGenerate,
     Gemma3nTokenizer,
 )
 
-model = Gemma3nForConditionalGeneration.from_weights("kerasformers/gemma-3n-e2b-it")
+model = Gemma3nConditionalGenerate.from_weights("kerasformers/gemma-3n-e2b-it")
 tokenizer = Gemma3nTokenizer.from_weights("kerasformers/gemma-3n-e2b-it")
 
 inputs = tokenizer(
@@ -229,11 +229,11 @@ print(tokenizer.decode(outputs[0]))
 ```python
 from PIL import Image
 from kerasformers.models.gemma3n import (
-    Gemma3nForConditionalGeneration,
+    Gemma3nConditionalGenerate,
     Gemma3nProcessor,
 )
 
-model = Gemma3nForConditionalGeneration.from_weights("kerasformers/gemma-3n-e4b-it")
+model = Gemma3nConditionalGenerate.from_weights("kerasformers/gemma-3n-e4b-it")
 processor = Gemma3nProcessor.from_weights("kerasformers/gemma-3n-e4b-it")
 
 inputs = processor(
@@ -300,8 +300,8 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ### Loading from the Hub (upstream)
 
 ```python
-model = Gemma3nForConditionalGeneration.from_weights("hf:google/gemma-3n-E2B-it")
-model = Gemma3nForConditionalGeneration.from_weights("hf:google/gemma-3n-E4B-it")
+model = Gemma3nConditionalGenerate.from_weights("hf:google/gemma-3n-E2B-it")
+model = Gemma3nConditionalGenerate.from_weights("hf:google/gemma-3n-E4B-it")
 ```
 
 ### Lower memory
@@ -310,7 +310,7 @@ Load in int8 to shrink the resident weights (the per-layer embedding table is la
 E4B). See [quantization.md](quantization.md):
 
 ```python
-model = Gemma3nForConditionalGeneration.from_weights(
+model = Gemma3nConditionalGenerate.from_weights(
     "kerasformers/gemma-3n-e4b-it",
     quantization="int8",
     load_dtype="bfloat16",

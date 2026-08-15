@@ -7,7 +7,7 @@ from kerasformers.models.granite_speech.granite_speech_feature_extractor import 
     GraniteSpeechFeatureExtractor,
 )
 from kerasformers.models.granite_speech.granite_speech_model import (
-    GraniteSpeechGenerate,
+    GraniteSpeechConditionalGenerate,
     GraniteSpeechModel,
     GraniteSpeechTextModel,
 )
@@ -20,7 +20,7 @@ from kerasformers.models.granite_speech.granite_speech_tokenizer import (
 
 __all__ = [
     "GraniteSpeechModel",
-    "GraniteSpeechGenerate",
+    "GraniteSpeechConditionalGenerate",
     "GraniteSpeechTextModel",
     "GraniteSpeechFeatureExtractor",
     "GraniteSpeechProcessor",

@@ -53,7 +53,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `norm_eps` | `1e-5` | LayerNorm epsilon |
 | `tie_embeddings` | `True` | reuse the embedding matrix as the LM head |
 
-### `GptGenerate`
+### `GptTextGenerate`
 
 `GptModel` plus a tied LM head. Returns
 `{"logits": (batch, seq, vocab_size), "last_hidden_state": ...}` and adds `.generate()`.
@@ -107,9 +107,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gpt import GptGenerate, GptTokenizer
+from kerasformers.models.gpt import GptTextGenerate, GptTokenizer
 
-model = GptGenerate.from_weights("kerasformers/gpt")
+model = GptTextGenerate.from_weights("kerasformers/gpt")
 tokenizer = GptTokenizer.from_weights("kerasformers/gpt")
 
 inputs = tokenizer("the meaning of life is")
@@ -147,10 +147,10 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, 768)
 The upstream checkpoint converts on the fly with the `hf:` prefix:
 
 ```python
-model = GptGenerate.from_weights("hf:openai-community/openai-gpt")
+model = GptTextGenerate.from_weights("hf:openai-community/openai-gpt")
 ```
 
 ## Verified parity
 
-`GptGenerate` logits vs the real `openai-community/openai-gpt` (HF): **max |Δ| 1.2e-5**,
+`GptTextGenerate` logits vs the real `openai-community/openai-gpt` (HF): **max |Δ| 1.2e-5**,
 argmax 100% agree. Build + forward + `.generate()` pass on TF / Torch / JAX.

@@ -71,7 +71,7 @@ The backbone: text decoder, plus the SigLIP tower and projector when
 | `vision_mlp_dim` | `4304` | SigLIP MLP width |
 | `vision_num_layers` | `0` | SigLIP depth; `0` builds a text-only model |
 
-### `Gemma3Generate`
+### `Gemma3ConditionalGenerate`
 
 `Gemma3Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and
 adds `.generate()` for text or image+text to text. Same constructor arguments as
@@ -91,6 +91,22 @@ generate(
 
 Image inputs ride along as `**prefill_inputs` (`pixel_values`), which the processor
 produces for you.
+
+### `Gemma3TextGenerate`
+
+The text-only head for the text-only Gemma 3 checkpoints (`gemma-3-1b`, `gemma-3-270m`,
+which have no SigLIP tower), mirroring transformers' `Gemma3ForCausalLM` (vs
+`Gemma3ForConditionalGeneration`). Same behaviour as `Gemma3ConditionalGenerate` minus the
+`pixel_values` prefill; it shares the backbone weights, so a text-only repo loads under
+either head.
+
+```python
+from kerasformers.models.gemma3 import Gemma3TextGenerate, Gemma3Tokenizer
+
+model = Gemma3TextGenerate.from_weights("kerasformers/gemma-3-1b-it")
+tokenizer = Gemma3Tokenizer.from_weights("kerasformers/gemma-3-1b-it")
+outputs = model.generate(**tokenizer("The capital of France is"), max_new_tokens=32)
+```
 
 ### `Gemma3VisionModel`
 
@@ -164,9 +180,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gemma3 import Gemma3Generate, Gemma3Tokenizer
+from kerasformers.models.gemma3 import Gemma3TextGenerate, Gemma3Tokenizer
 
-model = Gemma3Generate.from_weights("gemma-3-1b-it")
+model = Gemma3TextGenerate.from_weights("gemma-3-1b-it")
 tokenizer = Gemma3Tokenizer.from_weights("gemma-3-1b-it")
 
 inputs = tokenizer(
@@ -183,9 +199,9 @@ Use `Gemma3Processor` with a 4B or larger variant:
 
 ```python
 from PIL import Image
-from kerasformers.models.gemma3 import Gemma3Generate, Gemma3Processor
+from kerasformers.models.gemma3 import Gemma3ConditionalGenerate, Gemma3Processor
 
-model = Gemma3Generate.from_weights("gemma-3-4b-it")
+model = Gemma3ConditionalGenerate.from_weights("gemma-3-4b-it")
 processor = Gemma3Processor.from_weights("gemma-3-4b-it")
 
 image = Image.open("photo.jpg")
@@ -232,7 +248,7 @@ hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ### Loading from the Hub
 
 ```python
-model = Gemma3Generate.from_weights("hf:google/gemma-3-4b-it")
+model = Gemma3ConditionalGenerate.from_weights("hf:google/gemma-3-4b-it")
 ```
 
 ### Lower memory
@@ -241,7 +257,7 @@ The 12B and 27B checkpoints benefit from bf16 or weight-only quantization. See
 [quantization.md](quantization.md):
 
 ```python
-model = Gemma3Generate.from_weights(
+model = Gemma3ConditionalGenerate.from_weights(
     "gemma-3-27b-it", quantization="int8", load_dtype="bfloat16"
 )
 ```

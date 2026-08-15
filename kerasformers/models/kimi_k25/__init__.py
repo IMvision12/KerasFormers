@@ -9,7 +9,7 @@ from kerasformers.models.kimi_k25.kimi_k25_layers import (
     KimiK25MultimodalProjection,
 )
 from kerasformers.models.kimi_k25.kimi_k25_model import (
-    KimiK25Generate,
+    KimiK25ConditionalGenerate,
     KimiK25Model,
 )
 from kerasformers.models.kimi_k25.kimi_k25_processor import KimiK25Processor
@@ -21,7 +21,7 @@ from kerasformers.models.kimi_k25.kimi_k25_vision import KimiK25VisionModel
 
 __all__ = [
     "KimiK25Model",
-    "KimiK25Generate",
+    "KimiK25ConditionalGenerate",
     "KimiK25VisionModel",
     "KimiK25MultimodalProjection",
     "KimiK25Tokenizer",

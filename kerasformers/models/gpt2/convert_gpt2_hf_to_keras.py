@@ -97,7 +97,7 @@ if __name__ == "__main__":
     from safetensors.numpy import load_file
     from transformers import GPT2LMHeadModel
 
-    from kerasformers.models.gpt2 import GPT2Generate
+    from kerasformers.models.gpt2 import GPT2TextGenerate
 
     HF_SOURCES = {
         "gpt2": "openai-community/gpt2",
@@ -113,7 +113,7 @@ if __name__ == "__main__":
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
         sd = load_file(hf_hub_download(hf_id, "model.safetensors"))
-        model = GPT2Generate(**arch)
+        model = GPT2TextGenerate(**arch)
         transfer_gpt2_weights(model, sd)
         del sd
 

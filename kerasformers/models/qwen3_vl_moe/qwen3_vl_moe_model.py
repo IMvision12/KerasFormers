@@ -289,7 +289,7 @@ class Qwen3VLMoeModel(Qwen3VLModel):
     Identical to :class:`Qwen3VLModel` (vision tower with DeepStack, interleaved M-RoPE,
     QK-norm GQA attention, image/video fusion) except the text decoder's MLP is a
     sparse Mixture-of-Experts (routed experts, no shared expert). Returns raw features;
-    use :class:`Qwen3VLMoeGenerate` for logits / text.
+    use :class:`Qwen3VLMoeConditionalGenerate` for logits / text.
 
     Output dict (vision keys optional: images, video, both, or neither):
 
@@ -518,10 +518,10 @@ class Qwen3VLMoeModel(Qwen3VLModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Qwen3VLMoeGenerate(Qwen3VLMoeModel, BaseGeneration):
+class Qwen3VLMoeConditionalGenerate(Qwen3VLMoeModel, BaseGeneration):
     """Qwen3-VL-MoE with an LM head + fast ``.generate()`` (image+text -> text).
 
-    Same fast multimodal generation as :class:`~kerasformers.models.qwen3_vl.Qwen3VLGenerate`:
+    Same fast multimodal generation as :class:`~kerasformers.models.qwen3_vl.Qwen3VLConditionalGenerate`:
     ``build_cache`` runs the vision encoder + M-RoPE prefill into a fixed KV cache
     (DeepStack vision features threaded through the prefill; ``rope_deltas`` carried in
     the cache), then ``call_with_cache`` does text-only decode at M-RoPE position

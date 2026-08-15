@@ -58,7 +58,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `sliding_window` | `None` | local attention span |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `MixtralGenerate`
+### `MixtralTextGenerate`
 
 `MixtralModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `MixtralModel`.
@@ -111,9 +111,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.mixtral import MixtralGenerate, MixtralTokenizer
+from kerasformers.models.mixtral import MixtralTextGenerate, MixtralTokenizer
 
-model = MixtralGenerate.from_weights("mixtral-8x7b")
+model = MixtralTextGenerate.from_weights("mixtral-8x7b")
 tokenizer = MixtralTokenizer.from_weights("mixtral-8x7b")
 
 inputs = tokenizer(
@@ -157,7 +157,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = MixtralGenerate.from_weights("hf:mistralai/Mixtral-8x7B-v0.1")
+model = MixtralTextGenerate.from_weights("hf:mistralai/Mixtral-8x7B-v0.1")
 ```
 
 ### Lower memory
@@ -166,7 +166,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = MixtralGenerate.from_weights(
+model = MixtralTextGenerate.from_weights(
     "mixtral-8x7b", quantization="int8", load_dtype="bfloat16"
 )
 ```

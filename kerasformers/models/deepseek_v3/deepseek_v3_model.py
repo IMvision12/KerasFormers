@@ -25,7 +25,7 @@ class DeepseekV3Model(SubclassedBaseModel):
     top-2-sum selection over ``n_group``/``topk_group``), renormalize the
     unbiased weights, scale by ``routed_scaling_factor``, and add a
     shared-expert SwiGLU. The first ``first_k_dense`` layers are dense.
-    Returns raw features; use :class:`DeepseekV3Generate` for logits / text.
+    Returns raw features; use :class:`DeepseekV3TextGenerate` for logits / text.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads: Model geometry.
@@ -40,7 +40,7 @@ class DeepseekV3Model(SubclassedBaseModel):
         rope_scaling: The HF ``rope_scaling`` dict (yarn) or None.
         norm_eps: RMSNorm epsilon.
         max_position_embeddings: Used by the yarn attention-factor default.
-        tie_embeddings: Whether :class:`DeepseekV3Generate` ties the LM head.
+        tie_embeddings: Whether :class:`DeepseekV3TextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "deepseek_v3"
@@ -291,7 +291,7 @@ class DeepseekV3Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class DeepseekV3Generate(DeepseekV3Model, BaseGeneration):
+class DeepseekV3TextGenerate(DeepseekV3Model, BaseGeneration):
     """DeepSeek-V2 with an LM head + fast ``.generate()``.
 
     The MLA cache stores expanded per-head keys and values as a per-layer

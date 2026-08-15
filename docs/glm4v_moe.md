@@ -79,7 +79,7 @@ GLM-4.5V multimodal backbone: GLM-4V vision tower + GLM-4.5 MoE decoder.
 | `video_start_token_id` | `151341` |  |
 | `video_end_token_id` | `151342` |  |
 
-### `Glm4vMoeGenerate`
+### `Glm4vMoeConditionalGenerate`
 
 GLM-4.5V with an LM head + fast ``.generate()`` (image+text -> text).
 
@@ -155,9 +155,9 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from kerasformers.models.glm4v_moe import Glm4vMoeGenerate, Glm4vMoeProcessor
+from kerasformers.models.glm4v_moe import Glm4vMoeConditionalGenerate, Glm4vMoeProcessor
 
-model = Glm4vMoeGenerate.from_weights("glm-4.5v")
+model = Glm4vMoeConditionalGenerate.from_weights("glm-4.5v")
 processor = Glm4vMoeProcessor.from_weights("glm-4.5v")
 
 image = Image.open("photo.jpg")
@@ -255,7 +255,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Glm4vMoeGenerate.from_weights(
+model = Glm4vMoeConditionalGenerate.from_weights(
     "glm-4.5v", quantization="int8", load_dtype="bfloat16"
 )
 ```

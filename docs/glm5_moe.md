@@ -72,7 +72,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `attention_bias` | `False` | add bias terms to the qkv projections |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `Glm5MoeGenerate`
+### `Glm5MoeTextGenerate`
 
 `Glm5MoeModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `Glm5MoeModel`.
@@ -125,9 +125,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.glm5_moe import Glm5MoeGenerate, Glm5MoeTokenizer
+from kerasformers.models.glm5_moe import Glm5MoeTextGenerate, Glm5MoeTokenizer
 
-model = Glm5MoeGenerate.from_weights("glm5")
+model = Glm5MoeTextGenerate.from_weights("glm5")
 tokenizer = Glm5MoeTokenizer.from_weights("glm5")
 
 inputs = tokenizer("Explain rotary embeddings in one sentence.")
@@ -169,7 +169,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Glm5MoeGenerate.from_weights("hf:zai-org/GLM-5")
+model = Glm5MoeTextGenerate.from_weights("hf:zai-org/GLM-5")
 ```
 
 ### Lower memory
@@ -178,5 +178,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Glm5MoeGenerate.from_weights("glm5", quantization="int8", load_dtype="bfloat16")
+model = Glm5MoeTextGenerate.from_weights(
+    "glm5", quantization="int8", load_dtype="bfloat16"
+)
 ```

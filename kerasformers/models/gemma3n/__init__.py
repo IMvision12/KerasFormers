@@ -11,9 +11,9 @@ from kerasformers.models.gemma3n.gemma3n_image_processor import Gemma3nImageProc
 from kerasformers.models.gemma3n.gemma3n_layers import Gemma3nMultimodalEmbedder
 from kerasformers.models.gemma3n.gemma3n_model import (
     Gemma3nAudioEncoder,
-    Gemma3nForConditionalGeneration,
-    Gemma3nGenerate,
+    Gemma3nConditionalGenerate,
     Gemma3nModel,
+    Gemma3nTextGenerate,
     Gemma3nTextModel,
     MobileNetV5Encoder,
 )
@@ -26,11 +26,11 @@ __all__ = [
     "Gemma3nVisionConfig",
     "Gemma3nConfig",
     "Gemma3nTextModel",
-    "Gemma3nGenerate",
+    "Gemma3nTextGenerate",
     "Gemma3nAudioEncoder",
     "MobileNetV5Encoder",
     "Gemma3nModel",
-    "Gemma3nForConditionalGeneration",
+    "Gemma3nConditionalGenerate",
     "Gemma3nMultimodalEmbedder",
     "Gemma3nTokenizer",
     "Gemma3nImageProcessor",

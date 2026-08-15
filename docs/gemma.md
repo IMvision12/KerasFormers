@@ -52,7 +52,7 @@ Use it for feature extraction or as the base for a custom head.
 | `rope_theta` | `10000.0` | rotary base frequency |
 | `tie_embeddings` | `True` | reuse the embedding matrix as the LM head |
 
-### `GemmaGenerate`
+### `GemmaTextGenerate`
 
 `GemmaModel` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and
 adds `.generate()`. Takes the same constructor arguments as `GemmaModel`.
@@ -105,9 +105,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.gemma import GemmaGenerate, GemmaTokenizer
+from kerasformers.models.gemma import GemmaTextGenerate, GemmaTokenizer
 
-model = GemmaGenerate.from_weights("kerasformers/gemma-2b-it")
+model = GemmaTextGenerate.from_weights("kerasformers/gemma-2b-it")
 tokenizer = GemmaTokenizer.from_weights("kerasformers/gemma-2b-it")
 
 inputs = tokenizer(
@@ -150,7 +150,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including commun
 fine-tunes:
 
 ```python
-model = GemmaGenerate.from_weights("hf:google/gemma-2b-it")
+model = GemmaTextGenerate.from_weights("hf:google/gemma-2b-it")
 ```
 
 ### Lower memory
@@ -158,7 +158,7 @@ model = GemmaGenerate.from_weights("hf:google/gemma-2b-it")
 The 7B checkpoints load in bf16 or quantized weight-only. See [quantization.md](quantization.md):
 
 ```python
-model = GemmaGenerate.from_weights(
+model = GemmaTextGenerate.from_weights(
     "kerasformers/gemma-7b-it",
     quantization="int8",
     load_dtype="bfloat16",

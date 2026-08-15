@@ -56,7 +56,7 @@ class Gemma4TextConfig(BaseConfig):
         rope_local_theta (`float`, *optional*, defaults to 10000.0):
             Sliding-layer rotary base.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`Gemma4Generate`] ties the LM head to the token embedding.
+            Whether [`Gemma4ConditionalGenerate`] ties the LM head to the token embedding.
         hidden_size_per_layer_input (`int`, *optional*, defaults to 0):
             Per-Layer Embedding width (0 disables PLE; 256 on E2B/E4B).
         vocab_size_per_layer_input (`int`, *optional*, defaults to 262144):
@@ -196,7 +196,7 @@ class Gemma4AudioConfig(BaseConfig):
 
 class Gemma4Config(BaseConfig):
     r"""Configuration for Gemma 4: [`Gemma4Model`], [`Gemma4MultimodalModel`], and
-    [`Gemma4Generate`].
+    [`Gemma4ConditionalGenerate`].
 
     A composite config: the text decoder lives in a [`Gemma4TextConfig`]
     (``text_config``), the optional NaViT tower in a [`Gemma4VisionConfig`]
@@ -228,13 +228,13 @@ class Gemma4Config(BaseConfig):
     Examples:
 
     ```python
-    >>> from kerasformers.models.gemma4 import Gemma4Config, Gemma4Generate
+    >>> from kerasformers.models.gemma4 import Gemma4Config, Gemma4ConditionalGenerate
 
     >>> configuration = Gemma4Config(
     ...     text_config={"embed_dim": 2560, "num_layers": 34},
     ...     vision_config={"num_layers": 27},
     ... )
-    >>> model = Gemma4Generate(configuration)
+    >>> model = Gemma4ConditionalGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

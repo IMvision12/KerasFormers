@@ -29,7 +29,7 @@ class KimiK25Model(SubclassedBaseModel):
     lifts each merged patch into the text width. Merged patches then replace the
     ``image_token_id`` / ``video_token_id`` placeholders in the prompt.
     ``video_token_id`` equals ``vocab_size``, so placeholders are zeroed before
-    the embedding lookup. Returns raw features; use :class:`KimiK25Generate` for
+    the embedding lookup. Returns raw features; use :class:`KimiK25ConditionalGenerate` for
     logits / text.
 
     Args:
@@ -44,7 +44,7 @@ class KimiK25Model(SubclassedBaseModel):
         rope_theta / rope_scaling: Text rope (yarn).
         norm_eps: Text RMSNorm epsilon.
         max_position_embeddings: Used by the yarn attention-factor default.
-        tie_embeddings: Whether :class:`KimiK25Generate` ties the LM head.
+        tie_embeddings: Whether :class:`KimiK25ConditionalGenerate` ties the LM head.
         vision_embed_dim / vision_depth / vision_num_heads / vision_mlp_dim /
         vision_patch_size: MoonViT geometry.
         pos_emb_height / pos_emb_width / pos_emb_time: Learned position tables.
@@ -429,7 +429,7 @@ class KimiK25Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class KimiK25Generate(KimiK25Model, BaseGeneration):
+class KimiK25ConditionalGenerate(KimiK25Model, BaseGeneration):
     """Kimi K2.5 with an LM head + fast ``.generate()`` (image/video+text -> text).
 
     Media only enters through the prefill, so ``pixel_values`` / ``image_grid_thw``

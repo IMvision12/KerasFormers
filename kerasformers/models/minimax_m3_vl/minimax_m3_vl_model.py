@@ -107,7 +107,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
     Lightning-Indexer block-sparse attention on the sparse layers, and
     per-layer dense SwiGLU-OAI MLPs or sigmoid-routed MoE (top-4 of 128, x2
     routed scaling, shared expert). Returns raw features; use
-    :class:`MiniMaxM3VLGenerate` for logits / text.
+    :class:`MiniMaxM3VLConditionalGenerate` for logits / text.
 
     Args:
         vocab_size / embed_dim / mlp_dim / dense_mlp_dim / shared_mlp_dim /
@@ -125,7 +125,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
         spatial_merge_size / vision_rope_theta / vision_norm_eps: Tower dims.
         projector_dim: Projector MLP hidden width.
         image_token_id / video_token_id: Placeholder ids (200025 / 200026).
-        tie_embeddings: Whether :class:`MiniMaxM3VLGenerate` ties the LM head.
+        tie_embeddings: Whether :class:`MiniMaxM3VLConditionalGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "minimax_m3_vl"
@@ -511,7 +511,7 @@ class MiniMaxM3VLModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MiniMaxM3VLGenerate(MiniMaxM3VLModel, BaseGeneration):
+class MiniMaxM3VLConditionalGenerate(MiniMaxM3VLModel, BaseGeneration):
     """MiniMax-M3 VL with an LM head + fast ``.generate()`` (image+text -> text).
 
     ``build_cache`` runs the vision tower + projector + prefill once

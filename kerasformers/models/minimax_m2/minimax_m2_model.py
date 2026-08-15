@@ -16,7 +16,7 @@ class MiniMaxM2Model(SubclassedBaseModel):
     Standard pre-norm GQA transformer with full-width QK RMSNorm and a
     sigmoid-scored top-8-of-256 MoE on every layer (DeepSeek-style aux-free
     selection bias; the gathered weights stay the unbiased sigmoid scores).
-    Returns raw features; use :class:`MiniMaxM2Generate` for logits / text.
+    Returns raw features; use :class:`MiniMaxM2TextGenerate` for logits / text.
 
     Args:
         vocab_size: Token vocabulary size (200064).
@@ -30,7 +30,7 @@ class MiniMaxM2Model(SubclassedBaseModel):
             HF reference implementation).
         rope_theta: Rotary base frequency (5e6).
         norm_eps: RMSNorm epsilon (1e-6).
-        tie_embeddings: Whether :class:`MiniMaxM2Generate` ties the LM head.
+        tie_embeddings: Whether :class:`MiniMaxM2TextGenerate` ties the LM head.
     """
 
     HF_MODEL_TYPE = "minimax_m2"
@@ -180,7 +180,7 @@ class MiniMaxM2Model(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class MiniMaxM2Generate(MiniMaxM2Model, BaseGeneration):
+class MiniMaxM2TextGenerate(MiniMaxM2Model, BaseGeneration):
     """MiniMax-M2 with an LM head + fast ``.generate()``."""
 
     # MiniMax-M2 eos `[e~[`. Explicit generate() args override.

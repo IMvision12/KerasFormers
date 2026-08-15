@@ -83,7 +83,7 @@ The decoder backbone, no LM head. Returns `{"last_hidden_state": (batch, seq, em
 | `rope_original_max_pos` | `8192` |  |
 | `tie_embeddings` | `False` | reuse the embedding matrix as the LM head |
 
-### `Llama4Generate`
+### `Llama4TextGenerate`
 
 `Llama4Model` plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds `.generate()`. Same constructor
 arguments as `Llama4Model`.
@@ -136,9 +136,9 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from kerasformers.models.llama4 import Llama4Generate, Llama4Tokenizer
+from kerasformers.models.llama4 import Llama4TextGenerate, Llama4Tokenizer
 
-model = Llama4Generate.from_weights("llama4-scout-17b-16e")
+model = Llama4TextGenerate.from_weights("llama4-scout-17b-16e")
 tokenizer = Llama4Tokenizer.from_weights("llama4-scout-17b-16e")
 
 inputs = tokenizer(
@@ -182,7 +182,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Llama4Generate.from_weights("hf:meta-llama/Llama-4-Scout-17B-16E")
+model = Llama4TextGenerate.from_weights("hf:meta-llama/Llama-4-Scout-17B-16E")
 ```
 
 ### Lower memory
@@ -191,7 +191,7 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 [quantization.md](quantization.md):
 
 ```python
-model = Llama4Generate.from_weights(
+model = Llama4TextGenerate.from_weights(
     "llama4-scout-17b-16e", quantization="int8", load_dtype="bfloat16"
 )
 ```

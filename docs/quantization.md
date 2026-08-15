@@ -26,12 +26,14 @@ class. The rest of this page is the machinery they share.
 ## Quick start
 
 ```python
-from kerasformers.models.qwen3 import Qwen3Generate
+from kerasformers.models.qwen3 import Qwen3TextGenerate
 
 # load + quantize in one call
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int8")  # ~4x smaller
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")  # ~8x smaller
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="fp8")  # ~4x (torch/jax)
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="int8")  # ~4x smaller
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="int4")  # ~8x smaller
+model = Qwen3TextGenerate.from_weights(
+    "qwen3-4b", quantization="fp8"
+)  # ~4x (torch/jax)
 
 # or quantize a model you already built/loaded
 from kerasformers.quantization import quantize_model
@@ -52,7 +54,7 @@ loads quantized:
 
 ```python
 # never materializes the bf16 model: quantizes each tensor as it loads
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="int4")
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="int4")
 ```
 
 This is automatic and needs no flag, matching the forced low-memory path
@@ -94,11 +96,11 @@ model = keras.saving.load_model("model.keras")  # rebuilt quantized, weights loa
 # Weights-only (.weights.h5) carries values, not structure, so the target must already
 # be quantized before load_weights. From a Hub repo that is automatic (kf_config's
 # quantization_config drives it):
-model = Qwen3Generate.from_weights("kerasformers/qwen3-4b-int8")
+model = Qwen3TextGenerate.from_weights("kerasformers/qwen3-4b-int8")
 
 # Into a hand-built model, apply the quantizer first, then load_weights:
 model.save_weights("model.weights.h5")
-skeleton = Qwen3Generate.from_weights("qwen3-4b", load_weights=False)
+skeleton = Qwen3TextGenerate.from_weights("qwen3-4b", load_weights=False)
 get_kf_quantizer({"quant_method": "int8"}).preprocess_model(skeleton)
 skeleton(dummy_inputs)  # build the now-int8 skeleton
 skeleton.load_weights("model.weights.h5")
@@ -131,7 +133,7 @@ quantized repo loads with **no flag**:
 
 ```python
 # reads quantization_config -> loads bf16 dense + mxfp4 experts, by default
-model = GptOssGenerate.from_weights("kerasformers/gpt-oss-20b")
+model = GptOssTextGenerate.from_weights("kerasformers/gpt-oss-20b")
 ```
 
 The models stay **quantization-agnostic** (no per-model flags): the model builds the

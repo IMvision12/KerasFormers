@@ -13,11 +13,11 @@ or `quantize_model` and Dense / EinsumDense / fused-expert kernels are stored pa
 dequantized on the fly. Runs on **all three backends** (pure `keras.ops`).
 
 ```python
-from kerasformers.models.qwen3 import Qwen3Generate
+from kerasformers.models.qwen3 import Qwen3TextGenerate
 from kerasformers.quantization import quantize_model, Mxfp4Config
 
 # load + quantize in one call
-model = Qwen3Generate.from_weights("qwen3-4b", quantization="mxfp4")  # ~8x smaller
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization="mxfp4")  # ~8x smaller
 
 # or quantize a built model in place
 quantize_model(model, "mxfp4")
@@ -58,7 +58,7 @@ from kerasformers.quantization import Mxfp4Config, quantize_model
 
 cfg = Mxfp4Config(skip_modules=("lm_head", "router"))
 
-model = Qwen3Generate.from_weights("qwen3-4b", quantization=cfg)
+model = Qwen3TextGenerate.from_weights("qwen3-4b", quantization=cfg)
 quantize_model(model, cfg)
 ```
 

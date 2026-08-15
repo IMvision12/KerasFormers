@@ -2,7 +2,7 @@ from kerasformers.base import BaseConfig
 
 
 class GemmaConfig(BaseConfig):
-    r"""Configuration for Gemma: [`GemmaModel`] and [`GemmaGenerate`].
+    r"""Configuration for Gemma: [`GemmaModel`] and [`GemmaTextGenerate`].
 
     Gemma is Google's decoder-only transformer: `(1 + w)` RMSNorm, GeGLU
     (tanh-approximate gelu) MLPs, scaled token embeddings, a `head_dim` (256)
@@ -30,15 +30,15 @@ class GemmaConfig(BaseConfig):
         rope_theta (`float`, *optional*, defaults to 10000.0):
             Rotary base frequency.
         tie_embeddings (`bool`, *optional*, defaults to `True`):
-            Whether [`GemmaGenerate`] ties the LM head to the token embedding.
+            Whether [`GemmaTextGenerate`] ties the LM head to the token embedding.
 
     Examples:
 
     ```python
-    >>> from kerasformers.models.gemma import GemmaConfig, GemmaGenerate
+    >>> from kerasformers.models.gemma import GemmaConfig, GemmaTextGenerate
 
     >>> configuration = GemmaConfig(embed_dim=3072, num_layers=28, num_heads=16)
-    >>> model = GemmaGenerate(configuration)
+    >>> model = GemmaTextGenerate(configuration)
     >>> configuration = model.config
     ```"""
 

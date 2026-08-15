@@ -19,7 +19,7 @@ class Glm4MoeModel(SubclassedBaseModel):
     selection, unbiased gathered weights renormalized and scaled by
     ``routed_scaling_factor``, with a shared-expert SwiGLU. The first
     ``first_k_dense`` layers are dense. Returns raw features; use
-    :class:`Glm4MoeGenerate` for logits / text.
+    :class:`Glm4MoeTextGenerate` for logits / text.
 
     Args:
         vocab_size / embed_dim / num_layers / num_heads / num_kv_heads /
@@ -230,7 +230,7 @@ class Glm4MoeModel(SubclassedBaseModel):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4MoeGenerate(Glm4MoeModel, BaseGeneration):
+class Glm4MoeTextGenerate(Glm4MoeModel, BaseGeneration):
     """GLM-4.5 MoE with an LM head + fast ``.generate()``."""
 
     eos_token_id = (151329,)
