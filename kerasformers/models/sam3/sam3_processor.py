@@ -1,8 +1,12 @@
+import keras
 import numpy as np
 from keras import ops
 from PIL import Image
 
+from kerasformers.base import BaseProcessor
+
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
+from .sam3_image_processor import SAM3ImageProcessor
 from .sam3_utils import box_xyxy_to_cxcywh, compute_scores, scale_boxes, sigmoid
 
 IMAGE_SIZE = 1008
@@ -11,7 +15,13 @@ IMAGE_MEAN = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 IMAGE_STD = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 
 
-def preprocess_image(image, target_size=IMAGE_SIZE):
+def preprocess_image(
+    image,
+    target_size=IMAGE_SIZE,
+    image_mean=IMAGE_MEAN,
+    image_std=IMAGE_STD,
+    rescale_factor=RESCALE_FACTOR,
+):
     """Preprocess an image for SAM3 inference.
 
     Resizes to a square target size using backend-native bilinear
@@ -21,12 +31,17 @@ def preprocess_image(image, target_size=IMAGE_SIZE):
     Args:
         image: PIL Image, numpy array ``(H, W, 3)``, or file path.
         target_size (int): Target square size. Defaults to ``1008``.
+        image_mean: Per-channel normalization mean. Defaults to ``(0.5, 0.5, 0.5)``.
+        image_std: Per-channel normalization std. Defaults to ``(0.5, 0.5, 0.5)``.
+        rescale_factor (float): Pixel rescale factor. Defaults to ``1/255``.
 
     Returns:
         Tuple of ``(pixel_values, original_size)`` where
         ``pixel_values`` is ``(1, H, W, 3)`` float32 and
         ``original_size`` is ``(height, width)``.
     """
+    image_mean = np.asarray(image_mean, dtype=np.float32)
+    image_std = np.asarray(image_std, dtype=np.float32)
     if isinstance(image, str):
         if Image is None:
             raise ImportError("PIL required for loading images from paths")
@@ -54,8 +69,8 @@ def preprocess_image(image, target_size=IMAGE_SIZE):
     resized = ops.round(resized)
     resized = ops.convert_to_numpy(resized)[0]
 
-    image = (resized.astype(np.float64) * RESCALE_FACTOR).astype(np.float32)
-    image = (image - IMAGE_MEAN) / IMAGE_STD
+    image = (resized.astype(np.float64) * rescale_factor).astype(np.float32)
+    image = (image - image_mean) / image_std
     return image[np.newaxis], original_size
 
 
@@ -271,3 +286,169 @@ def post_process_semantic_segmentation(outputs, target_sizes=None, threshold=0.5
         mask = (mask > threshold).astype(np.int32)
         results.append(mask)
     return results
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class SAM3Processor(BaseProcessor):
+    """Compose the CLIP tokenizer + image processor into SAM3 model inputs.
+
+    Mirrors transformers' ``Sam3Processor``: one call turns raw images, a text
+    noun phrase, and optional box prompts into the tensors the model consumes.
+    Load it alongside the model with ``SAM3Processor.from_weights("kerasformers/sam3")``
+    (the image config comes from ``kf_preprocessor.json``, the tokenizer from
+    ``tokenizer.json``); both are hosted ungated.
+
+        proc = SAM3Processor.from_weights("kerasformers/sam3")
+        inputs = proc(images=img, text="cat")
+        # -> pixel_values, input_ids, attention_mask, original_sizes
+
+    The high-level ``SAM3Detect`` / ``SAM3InstanceSegment`` / ``SAM3SemanticSegment``
+    ``.predict(...)`` wrappers reuse the same image processor internally, so this
+    class is the transformers-style entry point plus the ``post_process_*`` helpers.
+
+    Args:
+        hf_id: Hub repo for the tokenizer's ``tokenizer.json`` (default
+            ``"kerasformers/sam3"``, ungated).
+        tokenizer / image_processor: Optional pre-built components.
+        target_size: Square resolution; defaults to the image processor's.
+        point_pad_value: Padding sentinel for batched box prompts (default -10).
+    """
+
+    TOKENIZER_CLS = SAM3CLIPTokenizer
+    IMAGE_PROCESSOR_CLS = SAM3ImageProcessor
+    COMPONENTS = ("tokenizer", "image_processor")
+
+    def __init__(
+        self,
+        hf_id="kerasformers/sam3",
+        tokenizer=None,
+        image_processor=None,
+        target_size=None,
+        point_pad_value=POINT_PAD_VALUE,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.hf_id = hf_id
+        self.tokenizer = tokenizer or SAM3CLIPTokenizer(hf_id=hf_id)
+        self.image_processor = image_processor or SAM3ImageProcessor()
+        self.point_pad_value = point_pad_value
+        self.target_size = (
+            target_size
+            if target_size is not None
+            else self.image_processor.image_resolution
+        )
+
+    @classmethod
+    def from_hf(cls, repo, **kwargs):
+        return cls(hf_id=repo, **kwargs)
+
+    @classmethod
+    def from_hub_repo(cls, repo_id, **kwargs):
+        # tokenizer.json for the tokenizer, kf_preprocessor.json for the image
+        # processor (the composed processor is not itself described by a file).
+        import inspect
+
+        from kerasformers.conversion.kf_config import load_kf_preprocessor
+
+        repo_id = repo_id.rstrip("/")
+        tokenizer = cls.TOKENIZER_CLS.from_weights(repo_id)
+        spec = load_kf_preprocessor(repo_id) or {}
+        img_params = set(inspect.signature(cls.IMAGE_PROCESSOR_CLS.__init__).parameters)
+        img_kwargs = {k: v for k, v in spec.items() if k in img_params}
+        return cls(
+            hf_id=repo_id,
+            tokenizer=tokenizer,
+            image_processor=cls.IMAGE_PROCESSOR_CLS(**img_kwargs),
+            **kwargs,
+        )
+
+    def resolve_text(self, text, input_boxes):
+        """Fill missing text with ``"visual"`` for any image that has boxes."""
+        if text is None:
+            return "visual" if input_boxes else None
+        if not isinstance(text, (list, tuple)):
+            return text
+        text = list(text)
+        if input_boxes is not None and len(text) != len(input_boxes):
+            raise ValueError(
+                f"Got {len(text)} text prompts but {len(input_boxes)} box entries."
+            )
+        for i, value in enumerate(text):
+            if (
+                value is None
+                and input_boxes is not None
+                and i < len(input_boxes)
+                and input_boxes[i] is not None
+            ):
+                text[i] = "visual"
+        return text
+
+    def call(
+        self,
+        images=None,
+        text=None,
+        input_boxes=None,
+        input_boxes_labels=None,
+        original_sizes=None,
+    ):
+        out = {}
+        if images is not None:
+            imgs = images if isinstance(images, (list, tuple)) else [images]
+            pixels, sizes = [], []
+            for img in imgs:
+                res = self.image_processor.call(img)
+                pixels.append(np.asarray(res["pixel_values"])[0])
+                sizes.append(res["original_size"])
+            out["pixel_values"] = np.stack(pixels)
+            original_sizes = sizes
+        if original_sizes is not None:
+            out["original_sizes"] = list(original_sizes)
+
+        text = self.resolve_text(text, input_boxes)
+        if text is not None:
+            input_ids, attention_mask = self.tokenizer.encode(text)
+            out["input_ids"] = input_ids
+            out["attention_mask"] = attention_mask
+
+        if input_boxes is not None:
+            if original_sizes is None:
+                raise ValueError(
+                    "`images` or `original_sizes` is required to normalize `input_boxes`."
+                )
+            boxes, labels, mask = preprocess_boxes(
+                input_boxes, input_boxes_labels, original_sizes
+            )
+            out["input_boxes"] = boxes
+            out["input_boxes_labels"] = labels
+            out["box_mask"] = mask
+        return out
+
+    def post_process_object_detection(self, outputs, threshold=0.3, target_sizes=None):
+        return self.image_processor.post_process_object_detection(
+            outputs, threshold, target_sizes
+        )
+
+    def post_process_instance_segmentation(
+        self, outputs, threshold=0.3, mask_threshold=0.5, target_sizes=None
+    ):
+        return self.image_processor.post_process_instance_segmentation(
+            outputs, threshold, mask_threshold, target_sizes
+        )
+
+    def post_process_semantic_segmentation(
+        self, outputs, target_sizes=None, threshold=0.5
+    ):
+        return self.image_processor.post_process_semantic_segmentation(
+            outputs, target_sizes, threshold
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "hf_id": self.hf_id,
+                "target_size": self.target_size,
+                "point_pad_value": self.point_pad_value,
+            }
+        )
+        return config

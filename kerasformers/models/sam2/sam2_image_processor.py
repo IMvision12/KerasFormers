@@ -112,7 +112,7 @@ class SAM2ImageProcessor(BaseImageProcessor):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAM2ImageProcessorWithPrompts(SAM2ImageProcessor):
+class SAM2Processor(SAM2ImageProcessor):
     """Preprocess an image plus optional point or box prompts for Sam2 inference.
 
     Extends :class:`SAM2ImageProcessor` by also encoding point and box

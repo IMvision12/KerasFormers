@@ -9,7 +9,7 @@ SAM3_VOCAB_SIZE = 49408
 SAM3_BOS_TOKEN_ID = 49406
 SAM3_EOS_TOKEN_ID = 49407
 SAM3_PAD_TOKEN_ID = 49407
-SAM3_HF_REPO = "facebook/sam3"
+SAM3_HF_REPO = "kerasformers/sam3"
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -17,15 +17,14 @@ class SAM3CLIPTokenizer(BaseTokenizer):
     """BPE tokenizer for SAM3's CLIP text encoder (max_seq_len=32).
 
     SAM3's text encoder reuses the OpenAI CLIP tokenizer. The ``tokenizer.json``
-    is pulled on the fly from the gated ``facebook/sam3`` repo: the same source
-    as the weights, so accept the license at https://huggingface.co/facebook/sam3
-    and authenticate (``huggingface-cli login`` / ``HF_TOKEN``). Pass an explicit
-    ``hf_id`` (e.g. ``"openai/clip-vit-base-patch16"``) or ``tokenizer_file`` to
-    avoid the gate. CLIP truncation + ``<|endoftext|>`` padding to ``max_seq_len``
-    (32) is re-enabled on load.
+    is pulled on the fly from the ungated ``kerasformers/sam3`` repo (identical to
+    the gated ``facebook/sam3`` file, no license gate). Pass an explicit ``hf_id``
+    (e.g. ``"facebook/sam3"`` or ``"openai/clip-vit-base-patch16"``) or
+    ``tokenizer_file`` to override. CLIP truncation + ``<|endoftext|>`` padding to
+    ``max_seq_len`` (32) is re-enabled on load.
 
     Args:
-        hf_id: HF repo to pull ``tokenizer.json`` from (default ``"facebook/sam3"``).
+        hf_id: HF repo to pull ``tokenizer.json`` from (default ``"kerasformers/sam3"``).
         tokenizer_file: Optional explicit ``tokenizer.json`` path (overrides hf_id).
         max_seq_len: Max sequence length (default 32 for SAM3).
 

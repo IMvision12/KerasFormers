@@ -2,7 +2,7 @@ from .sam_config import SamConfig
 from .sam_image_processor import (
     SAMGenerateMasks,
     SAMImageProcessor,
-    SAMImageProcessorWithPrompts,
+    SAMProcessor,
 )
 from .sam_model import SAMModel, SAMPromptableSegment
 
@@ -11,6 +11,6 @@ __all__ = [
     "SAMModel",
     "SAMPromptableSegment",
     "SAMImageProcessor",
-    "SAMImageProcessorWithPrompts",
+    "SAMProcessor",
     "SAMGenerateMasks",
 ]

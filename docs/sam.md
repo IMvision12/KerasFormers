@@ -54,16 +54,18 @@ once and prompt many times without paying for the ViT again.
 
 ## Preprocessing
 
-### SAMImageProcessorWithPrompts
+### SAMProcessor
 
 ```python
-SAMImageProcessorWithPrompts(
+SAMProcessor(
     target_length=1024, image_mean=None, image_std=None, data_format=None
 )
 ```
 
 Resizes the long edge to `target_length`, pads to a square, normalizes, and rescales
-any prompt coordinates by the same factor.
+any prompt coordinates by the same factor. Load it with
+`SAMProcessor.from_weights("kerasformers/sam_vit_<size>")`, which reads the repo's
+`kf_preprocessor.json`.
 
 **Call** `processor(image, input_points=None, input_labels=None, input_boxes=None)`.
 **Returns** a `dict`:
@@ -125,12 +127,12 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam import (
-    SAMImageProcessorWithPrompts,
+    SAMProcessor,
     SAMPromptableSegment,
 )
 
 model = SAMPromptableSegment.from_weights("kerasformers/sam_vit_base")
-processor = SAMImageProcessorWithPrompts()
+processor = SAMProcessor.from_weights("kerasformers/sam_vit_base")
 
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
@@ -239,7 +241,7 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam import (
-    SAMImageProcessorWithPrompts,
+    SAMProcessor,
     SAMPromptableSegment,
 )
 
@@ -247,7 +249,7 @@ from kerasformers.models.sam import (
 model = SAMPromptableSegment.from_weights(
     "kerasformers/sam_vit_base", enable_boxes=True
 )
-processor = SAMImageProcessorWithPrompts()
+processor = SAMProcessor.from_weights("kerasformers/sam_vit_base")
 
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
@@ -352,10 +354,10 @@ import keras
 import numpy as np
 import torch
 from PIL import Image
-from kerasformers.models.sam import SAMImageProcessorWithPrompts, SAMPromptableSegment
+from kerasformers.models.sam import SAMProcessor, SAMPromptableSegment
 
 model = SAMPromptableSegment.from_weights("kerasformers/sam_vit_base")
-processor = SAMImageProcessorWithPrompts()
+processor = SAMProcessor.from_weights("kerasformers/sam_vit_base")
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
 # Run the ViT once.
