@@ -68,9 +68,7 @@ encode once and prompt repeatedly.
 ### SAM2Processor
 
 ```python
-SAM2Processor(
-    target_length=1024, image_mean=None, image_std=None, data_format=None
-)
+SAM2Processor(target_length=1024, image_mean=None, image_std=None, data_format=None)
 ```
 
 Stretches the image to a square `target_length`, normalizes, and rescales prompt

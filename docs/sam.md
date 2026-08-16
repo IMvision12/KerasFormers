@@ -57,9 +57,7 @@ once and prompt many times without paying for the ViT again.
 ### SAMProcessor
 
 ```python
-SAMProcessor(
-    target_length=1024, image_mean=None, image_std=None, data_format=None
-)
+SAMProcessor(target_length=1024, image_mean=None, image_std=None, data_format=None)
 ```
 
 Resizes the long edge to `target_length`, pads to a square, normalizes, and rescales
