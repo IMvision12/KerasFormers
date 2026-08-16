@@ -648,7 +648,7 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
             declared = spec.get("model_class")
             # A head can load its backbone out of a fuller (e.g. multimodal) sibling
             # checkpoint: build that model and copy this head's weights in, dropping the
-            # rest (transformers' *ForCausalLM-on-a-VLM-checkpoint pattern).
+            # rest (e.g. a text head loading the language model out of a VLM checkpoint).
             sources = getattr(cls, "FULL_CHECKPOINT_SOURCES", None)
             if sources and declared in sources and declared != cls.__name__:
                 import importlib

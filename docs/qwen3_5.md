@@ -9,10 +9,15 @@ shards for the larger checkpoints). Load with
 <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 </div>
 
-Alibaba's Qwen3.5 hybrid-attention LLM, ported to pure Keras 3. It interleaves
-Gated-DeltaNet linear-attention layers with periodic full-attention layers
-(`full_attention_interval`), keeping partial rotary embeddings and QK-RMSNorm on
-the full-attention path.
+Alibaba's Qwen3.5 (Qwen3-Next) hybrid-attention model, ported to pure Keras 3. It
+interleaves Gated-DeltaNet linear-attention layers with periodic full-attention layers
+(`full_attention_interval`), keeping partial rotary embeddings and QK-RMSNorm on the
+full-attention path. The dense checkpoints are vision-language models: a ViT vision
+tower feeds soft tokens into the text decoder. Two heads drive generation, the two-class
+API used across the library: `Qwen3_5TextGenerate` (text-only) and
+`Qwen3_5ConditionalGenerate` (image + text). A multimodal repo loads under
+`Qwen3_5ConditionalGenerate`; `Qwen3_5TextGenerate` reads the same checkpoint and keeps
+just the text backbone, dropping the vision tower.
 
 
 See also [qwen3.md](qwen3.md), [qwen3_next.md](qwen3_next.md).
@@ -94,6 +99,46 @@ generate(
 | `sampler` | `None` | sampling strategy; greedy when unset |
 | `seed` | `None` | seed for stochastic samplers |
 
+### `Qwen3_5ConditionalGenerate`
+
+The multimodal head, over the `Qwen3_5VLModel` backbone (text decoder + ViT vision tower)
+plus a (tied) LM head. Returns `{"logits": (batch, seq, vocab_size)}` and adds
+`.generate()`. Text-only when no image tensors are passed, multimodal when they are; the
+prefill runs the vision tower and scatters the resulting soft tokens onto the image
+placeholders, then decoding is text-only over the hybrid per-layer cache. Pair it with
+`Qwen3_5Processor`.
+
+```python
+generate(
+    input_ids,
+    attention_mask=None,
+    max_new_tokens=None,
+    eos_token_id=None,
+    sampler=None,
+    seed=None,
+    pixel_values=None,
+    image_grid_thw=None,
+    pixel_values_videos=None,
+)
+```
+
+| Arg | Default | Meaning |
+|---|---|---|
+| `input_ids` | required | `(batch, seq)` token ids |
+| `attention_mask` | `None` | `(batch, seq)` 1 = keep, 0 = padding |
+| `max_new_tokens` | `None` | tokens to generate |
+| `eos_token_id` | `None` | stop token (defaults to the tokenizer's) |
+| `sampler` / `seed` | `None` | sampling strategy (greedy when unset) / seed |
+| `pixel_values` / `image_grid_thw` | `None` | flattened image patches + their `(t, h, w)` grid |
+| `pixel_values_videos` | `None` | flattened video patches |
+
+### `Qwen3_5Processor`
+
+Image + text processor: a 16px-patch Qwen image processor paired with the Qwen3.5
+tokenizer. Call it on a chat conversation (text and `image` items) and it returns
+`{"input_ids", "attention_mask", "pixel_values", "image_grid_thw"}`, ready to splat into
+`generate`. Decode with `.decode(ids)` / `.batch_decode(ids)`.
+
 ### `Qwen3_5Tokenizer`
 
 Tokenizer on the `tokenizers` backend.
@@ -114,7 +159,7 @@ sequence or `.batch_decode(ids)` for a batch.
 
 ## End-to-end example
 
-### Single input
+### Single input (text only)
 
 ```python
 import os
@@ -132,6 +177,29 @@ inputs = tokenizer(
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 print(tokenizer.decode(outputs[0]))
+```
+
+### Single input (image + text)
+
+```python
+from kerasformers.models.qwen3_5 import Qwen3_5ConditionalGenerate, Qwen3_5Processor
+
+model = Qwen3_5ConditionalGenerate.from_weights("kerasformers/qwen3.5-4b")
+processor = Qwen3_5Processor.from_weights("kerasformers/qwen3.5-4b")
+
+conversation = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "image", "url": "https://.../cat.jpg"},
+            {"type": "text", "text": "What is in this image?"},
+        ],
+    }
+]
+inputs = processor(conversation)  # input_ids, attention_mask, pixel_values, image_grid_thw
+outputs = model.generate(**inputs, max_new_tokens=64)
+
+print(processor.decode(outputs[0]))
 ```
 
 ### Batch

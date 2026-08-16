@@ -95,10 +95,10 @@ produces for you.
 ### `Gemma3TextGenerate`
 
 The text-only head for the text-only Gemma 3 checkpoints (`gemma-3-1b`, `gemma-3-270m`,
-which have no SigLIP tower), mirroring transformers' `Gemma3ForCausalLM` (vs
-`Gemma3ForConditionalGeneration`). Same behaviour as `Gemma3ConditionalGenerate` minus the
+which have no SigLIP tower). Same behaviour as `Gemma3ConditionalGenerate` minus the
 `pixel_values` prefill; it shares the backbone weights, so a text-only repo loads under
-either head.
+either head. This is the shared-decoder half of the two-class API: `Gemma3TextGenerate`
+(text) and `Gemma3ConditionalGenerate` (multimodal).
 
 ```python
 from kerasformers.models.gemma3 import Gemma3TextGenerate, Gemma3Tokenizer

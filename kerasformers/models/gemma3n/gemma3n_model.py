@@ -1,7 +1,11 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseGeneration, SubclassedBaseModel
+from kerasformers.base import (
+    BaseGeneration,
+    SubclassedBaseModel,
+    TextOnlyGeneration,
+)
 
 from .gemma3n_config import Gemma3nConfig, Gemma3nTextConfig
 from .gemma3n_layers import (
@@ -405,147 +409,6 @@ class Gemma3nTextModel(SubclassedBaseModel):
             }
         )
         return config
-
-
-@keras.saving.register_keras_serializable(package="kerasformers")
-class Gemma3nTextGenerate(Gemma3nTextModel, BaseGeneration):
-    """Gemma 3n text backbone + a (tied) LM head with fast ``.generate()``.
-
-    The prefill runs the AltUp/LAuReL/PLE stack over the prompt and stores a
-    fixed-size per-layer sliding/global K/V cache (the KV-shared tail reuses the last
-    non-shared layer's cache per attention type); decoding steps one token through
-    the same stack over that cache.
-    """
-
-    HF_MODEL_TYPE = ("gemma3n", "gemma3n_text")
-    config_class = Gemma3nTextConfig
-    default_load_dtype = "bfloat16"
-
-    eos_token_id = (1, 106)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.lm_head = (
-            None
-            if self.tie_embeddings
-            else layers.Dense(self.vocab_size, use_bias=False, name="lm_head")
-        )
-
-    def project(self, hidden):
-        if self.lm_head is not None:
-            logits = self.lm_head(hidden)
-        else:
-            logits = ops.matmul(hidden, ops.transpose(self.token_embedding.embeddings))
-        if self.final_logit_softcapping is not None:
-            cap = self.final_logit_softcapping
-            logits = ops.tanh(logits / cap) * cap
-        return logits
-
-    def call(self, inputs):
-        hidden = super().call(inputs)["last_hidden_state"]
-        return {"logits": self.project(hidden), "last_hidden_state": hidden}
-
-    def build_cache(self, token_ids, padding_mask, max_len):
-        batch = int(token_ids.shape[0])
-        prompt_len = int(token_ids.shape[1])
-        token_ids = ops.cast(ops.convert_to_tensor(token_ids), "int32")
-        inputs_embeds = self.embed_scaled(token_ids)
-        per_layer_inputs = self.compute_per_layer_inputs(token_ids, inputs_embeds)
-        hidden = self.altup_expand(inputs_embeds)
-        position_ids = self.compute_position_ids(padding_mask, batch, prompt_len)
-        rope = self.rope_for(position_ids)
-        masks = self.build_masks(prompt_len, padding_mask)
-
-        layer_caches = []
-        shared = {}  # layer_type -> storing layer's prompt-length (k, v)
-        shared_stacked = {}  # layer_type -> storing layer's padded [ck, cv]
-        for i, layer in enumerate(self.decoder_layers):
-            lt = self.layer_types[i]
-            cos, sin = rope[lt]
-            pli = per_layer_inputs[:, :, i, :]
-            is_shared = (
-                self.num_kv_shared_layers > 0
-                and self.first_kv_shared > 0
-                and i >= self.first_kv_shared
-            )
-            hidden, (k, v) = layer(
-                hidden,
-                cos,
-                sin,
-                pli,
-                attention_mask=masks[lt],
-                shared_kv=shared.get(lt) if is_shared else None,
-            )
-            if is_shared:
-                layer_caches.append(shared_stacked[lt])
-                continue
-            nkv, hd = int(k.shape[1]), int(k.shape[3])
-            ck = ops.slice_update(
-                ops.zeros((batch, nkv, max_len, hd), dtype=k.dtype), (0, 0, 0, 0), k
-            )
-            cv = ops.slice_update(
-                ops.zeros((batch, nkv, max_len, hd), dtype=v.dtype), (0, 0, 0, 0), v
-            )
-            stacked = ops.stack([ck, cv], axis=1)
-            layer_caches.append(stacked)
-            if self.num_kv_shared_layers > 0:
-                shared[lt] = (k, v)
-                shared_stacked[lt] = stacked
-        logits = self.project(self.altup_unembed(hidden)[:, -1, :])
-        return tuple(layer_caches), logits
-
-    def call_with_cache(self, token_ids, cache, cache_update_index):
-        batch = int(token_ids.shape[0])
-        max_len = int(cache[0].shape[3])
-        pos = cache_update_index
-        positions = ops.broadcast_to(ops.reshape(pos, (1, 1)), (batch, 1))
-        rope = self.rope_for(positions)
-        ar = ops.arange(max_len)
-        full_km = ops.cast(ops.where(ar <= pos, 0.0, MASK_NEG), "float32")[
-            None, None, None, :
-        ]
-        sliding_km = ops.cast(
-            ops.where(
-                ops.logical_and(ar <= pos, ar > pos - self.sliding_window),
-                0.0,
-                MASK_NEG,
-            ),
-            "float32",
-        )[None, None, None, :]
-        km = {"full_attention": full_km, "sliding_attention": sliding_km}
-
-        token_ids = ops.cast(token_ids, "int32")
-        inputs_embeds = self.embed_scaled(token_ids)
-        per_layer_inputs = self.compute_per_layer_inputs(token_ids, inputs_embeds)
-        hidden = self.altup_expand(inputs_embeds)
-
-        new_caches = []
-        shared_stacked = {}
-        for i, layer in enumerate(self.decoder_layers):
-            lt = self.layer_types[i]
-            cos, sin = rope[lt]
-            pli = per_layer_inputs[:, :, i, :]
-            is_shared = (
-                self.num_kv_shared_layers > 0
-                and self.first_kv_shared > 0
-                and i >= self.first_kv_shared
-            )
-            if is_shared:
-                stacked = shared_stacked[lt]
-                hidden, _ = layer.decode_step(
-                    hidden, cos, sin, pli, stacked[:, 0], stacked[:, 1], pos, km[lt]
-                )
-                new_caches.append(stacked)
-                continue
-            hidden, (ck, cv) = layer.decode_step(
-                hidden, cos, sin, pli, cache[i][:, 0], cache[i][:, 1], pos, km[lt]
-            )
-            stacked = ops.stack([ck, cv], axis=1)
-            new_caches.append(stacked)
-            if self.num_kv_shared_layers > 0:
-                shared_stacked[lt] = stacked
-        logits = self.project(self.altup_unembed(hidden))[:, 0, :]
-        return logits, tuple(new_caches)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
@@ -1000,12 +863,11 @@ class Gemma3nModel(SubclassedBaseModel):
 class Gemma3nConditionalGenerate(Gemma3nModel, BaseGeneration):
     """Gemma 3n multimodal backbone + a (tied) LM head with fast ``.generate()``.
 
-    The single generation entry point, like transformers'
-    ``Gemma3nConditionalGenerate``: it drives text-only and vision / audio
-    prompts through one API. The prefill fuses soft tokens; decoding is text-only
-    and reuses the per-layer sliding / global K/V cache. Pass ``pixel_values`` /
-    ``input_features`` / ``input_features_mask`` as keyword prefill inputs to
-    ``generate`` when the checkpoint has the towers."""
+    The single multimodal generation entry point: it drives text-only and vision /
+    audio prompts through one API. The prefill fuses soft tokens; decoding is
+    text-only and reuses the per-layer sliding / global K/V cache. Pass
+    ``pixel_values`` / ``input_features`` / ``input_features_mask`` as keyword
+    prefill inputs to ``generate`` when the checkpoint has the towers."""
 
     HF_MODEL_TYPE = ("gemma3n", "gemma3n_text")
     config_class = None  # set below to Gemma3nConfig
@@ -1154,3 +1016,26 @@ class Gemma3nConditionalGenerate(Gemma3nModel, BaseGeneration):
 
 Gemma3nModel.config_class = Gemma3nConfig
 Gemma3nConditionalGenerate.config_class = Gemma3nConfig
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Gemma3nTextGenerate(TextOnlyGeneration, Gemma3nConditionalGenerate):
+    """Gemma 3n text-only decoder + (tied) LM head with fast ``.generate()``.
+
+    The text-only counterpart to :class:`Gemma3nConditionalGenerate` (built with no vision
+    or audio tower). All generation logic is inherited; :class:`TextOnlyGeneration` builds
+    it text-only and drops the multimodal prefill inputs. The Gemma 3n checkpoints are
+    multimodal (kf_config declares Gemma3nConditionalGenerate), so this head extracts just
+    their text backbone via :attr:`FULL_CHECKPOINT_SOURCES`, dropping the towers.
+
+        gen = Gemma3nTextGenerate.from_weights("kerasformers/gemma-3n-...")
+        ids = gen.generate(tokenizer(messages)["input_ids"])
+    """
+
+    HF_MODEL_TYPE = ("gemma3n", "gemma3n_text")
+    config_class = Gemma3nTextConfig
+    default_load_dtype = "bfloat16"
+    eos_token_id = (1, 106)
+    FULL_CHECKPOINT_SOURCES = {
+        "Gemma3nConditionalGenerate": "kerasformers.models.gemma3n.gemma3n_model"
+    }

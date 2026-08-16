@@ -14,6 +14,7 @@ from kerasformers.models.gemma4.gemma4_model import (
     Gemma4ConditionalGenerate,
     Gemma4Model,
     Gemma4MultimodalModel,
+    Gemma4TextGenerate,
     Gemma4VisionModel,
 )
 from kerasformers.models.gemma4.gemma4_processor import Gemma4Processor
@@ -26,6 +27,7 @@ __all__ = [
     "Gemma4AudioConfig",
     "Gemma4Model",
     "Gemma4ConditionalGenerate",
+    "Gemma4TextGenerate",
     "Gemma4MultimodalModel",
     "Gemma4VisionModel",
     "Gemma4AudioModel",

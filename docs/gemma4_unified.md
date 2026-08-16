@@ -21,8 +21,8 @@ conformer), the unified model has **no vision or audio transformer towers**:
 The text decoder is the plain dense Gemma 4 decoder (no Per-Layer Embeddings, no
 MoE) with global `K = V` attention and a learned per-layer scalar, so it reuses
 [`Gemma4Model`](gemma4.md). A single `Gemma4UnifiedConditionalGenerate` drives text-only,
-image+text, and image+audio+text generation, like transformers'
-`Gemma4UnifiedForConditionalGeneration`.
+image+text, and image+audio+text generation; `Gemma4UnifiedTextGenerate` is its
+text-only counterpart (built with no towers).
 
 Links:
 
@@ -89,6 +89,28 @@ generate(
     input_features=None,
     input_features_mask=None,
 )
+```
+
+### `Gemma4UnifiedTextGenerate`
+
+The text-only counterpart of `Gemma4UnifiedConditionalGenerate`: the unified decoder plus
+a (tied) LM head, built with no vision / audio embedder. `.generate()` takes just token
+ids. It shares the decoder weights with `Gemma4UnifiedConditionalGenerate`. Set
+`config_class = Gemma4TextConfig`.
+
+```python
+from kerasformers.models.gemma4_unified import (
+    Gemma4UnifiedTextGenerate,
+    Gemma4UnifiedTokenizer,
+)
+
+model = Gemma4UnifiedTextGenerate.from_weights("kerasformers/gemma-4-12b-it")
+tokenizer = Gemma4UnifiedTokenizer.from_weights("kerasformers/gemma-4-12b-it")
+outputs = model.generate(
+    **tokenizer([{"role": "user", "content": "Summarize attention in one line."}]),
+    max_new_tokens=64,
+)
+print(tokenizer.decode(outputs[0]))
 ```
 
 ### `Gemma4UnifiedVisionEmbedder`

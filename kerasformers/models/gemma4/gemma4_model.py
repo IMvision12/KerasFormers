@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseGeneration, SubclassedBaseModel
+from kerasformers.base import BaseGeneration, SubclassedBaseModel, TextOnlyGeneration
 
 from .gemma4_config import Gemma4Config, Gemma4TextConfig
 from .gemma4_layers import (
@@ -937,9 +937,8 @@ class Gemma4MultimodalModel(SubclassedBaseModel):
 class Gemma4ConditionalGenerate(Gemma4MultimodalModel, BaseGeneration):
     """Gemma 4 backbone + a (tied) LM head with fast ``.generate()``.
 
-    The single generation entry point, like transformers'
-    ``Gemma4ForConditionalGeneration``: it drives text-only checkpoints and the
-    vision / audio multimodal ones through the same API. When a vision or audio
+    The single multimodal generation entry point: it drives text-only checkpoints
+    and the vision / audio multimodal ones through the same API. When a vision or audio
     tower is present the prefill fuses the soft tokens and applies the blockwise
     vision mask; text-only prompts (or checkpoints built without towers) skip
     straight to the text decoder. Decoding is always text-only and reuses the
@@ -953,6 +952,8 @@ class Gemma4ConditionalGenerate(Gemma4MultimodalModel, BaseGeneration):
     default_load_dtype = "bfloat16"  # Google ships gemma-4 in bf16
 
     eos_token_id = (1, 106)
+    # text-only checkpoints load with either head off the same weights
+    HUB_REPO_SIBLINGS = frozenset({"Gemma4ConditionalGenerate", "Gemma4TextGenerate"})
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1114,3 +1115,18 @@ class Gemma4ConditionalGenerate(Gemma4MultimodalModel, BaseGeneration):
                 shared_stacked[layer_type] = stacked
         logits = self.project(lm.final_norm(h))[:, 0, :]
         return logits, tuple(new_caches)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Gemma4TextGenerate(TextOnlyGeneration, Gemma4ConditionalGenerate):
+    """Gemma 4 text-only decoder + (tied) LM head with fast ``.generate()``.
+
+    The text-only counterpart to :class:`Gemma4ConditionalGenerate` (built with no vision
+    or audio tower). All generation logic is inherited; :class:`TextOnlyGeneration` builds
+    it text-only and drops the multimodal prefill inputs.
+
+        gen = Gemma4TextGenerate.from_weights("kerasformers/gemma-4-...")
+        ids = gen.generate(tokenizer(messages)["input_ids"])
+    """
+
+    config_class = Gemma4TextConfig
