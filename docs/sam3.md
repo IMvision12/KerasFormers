@@ -295,7 +295,7 @@ semantic mode asks *where is balloon*, and returns one merged binary mask.
 ```python
 from kerasformers.models.sam3 import SAM3SemanticSegment
 
-semantic = SAM3SemanticSegment(model=segmenter.model)
+semantic = SAM3SemanticSegment.from_weights("kerasformers/sam3")
 
 with torch.no_grad():
     mask = semantic.predict(images="assets/data/coco_apartment.jpg", text="balloon")[0]
@@ -318,7 +318,7 @@ Skip the mask decoder when boxes are all you need:
 ```python
 from kerasformers.models.sam3 import SAM3Detect
 
-detector = SAM3Detect(model=segmenter.model)
+detector = SAM3Detect.from_weights("kerasformers/sam3")
 
 with torch.no_grad():
     result = detector.predict(images="assets/data/coco_city_bus.jpg", text="car")[0]
