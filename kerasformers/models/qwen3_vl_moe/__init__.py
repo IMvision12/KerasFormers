@@ -6,6 +6,7 @@ from kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_config import (
 from kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_model import (
     Qwen3VLMoeConditionalGenerate,
     Qwen3VLMoeModel,
+    Qwen3VLMoeTextGenerate,
     Qwen3VLMoeTextModel,
 )
 from kerasformers.models.qwen3_vl_moe.qwen3_vl_moe_processor import Qwen3VLMoeProcessor
@@ -17,6 +18,7 @@ __all__ = [
     "Qwen3VLMoeVisionConfig",
     "Qwen3VLMoeModel",
     "Qwen3VLMoeConditionalGenerate",
+    "Qwen3VLMoeTextGenerate",
     "Qwen3VLMoeTextModel",
     "Qwen3VLMoeProcessor",
     "Qwen3VLMoeTokenizer",

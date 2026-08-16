@@ -7,7 +7,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     vision_rotary_cos_sin,
 )
 
-from .qwen3_vl_config import QWEN3_VL_TOKENS, Qwen3VLConfig
+from .qwen3_vl_config import QWEN3_VL_TOKENS, Qwen3VLConfig, Qwen3VLTextConfig
 from .qwen3_vl_layers import (
     Qwen3VLRMSNorm,
     Qwen3VLTextDecoderLayer,
@@ -460,6 +460,7 @@ class Qwen3VLModel(Qwen2VLModel):
         video_token_id=QWEN3_VL_TOKENS["video_token_id"],
         vision_start_token_id=QWEN3_VL_TOKENS["vision_start_token_id"],
         vision_end_token_id=QWEN3_VL_TOKENS["vision_end_token_id"],
+        build_vision=True,
         **kwargs,
     ):
         # Skip Qwen2VLModel.__init__ (it builds the 2-VL layers); run only the
@@ -496,19 +497,24 @@ class Qwen3VLModel(Qwen2VLModel):
         self.vision_end_token_id = vision_end_token_id
         self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
         self.tokens_per_second = 1
+        self.build_vision = build_vision
 
-        self.visual = Qwen3VLVisionModel(
-            embed_dim=vision_embed_dim,
-            depth=vision_depth,
-            num_heads=vision_num_heads,
-            intermediate_size=vision_mlp_dim,
-            out_hidden_size=self.vision_out_dim,
-            num_position_embeddings=num_position_embeddings,
-            deepstack_visual_indexes=deepstack_visual_indexes,
-            hidden_act=vision_act,
-            patch_size=patch_size,
-            spatial_merge_size=spatial_merge_size,
-            name="visual",
+        self.visual = (
+            Qwen3VLVisionModel(
+                embed_dim=vision_embed_dim,
+                depth=vision_depth,
+                num_heads=vision_num_heads,
+                intermediate_size=vision_mlp_dim,
+                out_hidden_size=self.vision_out_dim,
+                num_position_embeddings=num_position_embeddings,
+                deepstack_visual_indexes=deepstack_visual_indexes,
+                hidden_act=vision_act,
+                patch_size=patch_size,
+                spatial_merge_size=spatial_merge_size,
+                name="visual",
+            )
+            if build_vision
+            else None
         )
         self.language_model = Qwen3VLTextModel(
             vocab_size=vocab_size,
@@ -793,3 +799,27 @@ class Qwen3VLConditionalGenerate(Qwen3VLModel, BaseGeneration):
         kv_cache = ops.stack(layer_caches, axis=1)
         logits = self.project(self.language_model.final_norm(h))[:, 0, :]
         return logits, (kv_cache, rope_deltas)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen3VLTextGenerate(Qwen3VLConditionalGenerate):
+    """Text-only counterpart of :class:`Qwen3VLConditionalGenerate` (no vision tower).
+
+    Built with ``build_vision=False`` so the DeepStack ViT is never constructed;
+    ``.generate()`` takes just token ids. Loads just the text backbone of a Qwen3-VL
+    checkpoint: the target-driven ``hf:`` transfer copies only the language-model weights,
+    and a kerasformers checkpoint declaring ``Qwen3VLConditionalGenerate`` is read via
+    :attr:`FULL_CHECKPOINT_SOURCES`.
+
+        gen = Qwen3VLTextGenerate.from_weights("hf:Qwen/Qwen3-VL-...")
+        ids = gen.generate(tokenizer(messages)["input_ids"])
+    """
+
+    config_class = Qwen3VLTextConfig
+    FULL_CHECKPOINT_SOURCES = {
+        "Qwen3VLConditionalGenerate": "kerasformers.models.qwen3_vl.qwen3_vl_model"
+    }
+
+    def __init__(self, *args, **kwargs):
+        kwargs["build_vision"] = False
+        super().__init__(*args, **kwargs)

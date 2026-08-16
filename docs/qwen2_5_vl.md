@@ -90,6 +90,29 @@ generate(
 Image and video tensors ride along as `**prefill_inputs`; the processor
 produces them for you.
 
+### `Qwen2_5VLTextGenerate`
+
+Text-only counterpart of `Qwen2_5VLConditionalGenerate`, built with no vision tower
+(`build_vision=False`), so `.generate()` takes just token ids. It reads only the language
+model out of a Qwen2.5-VL checkpoint: `hf:` conversion copies just the text weights, and a
+kerasformers repo declaring `Qwen2_5VLConditionalGenerate` is read through
+`FULL_CHECKPOINT_SOURCES`. Qwen2.5-VL ships no dedicated tokenizer class, so drive text
+through `Qwen2_5VLProcessor` with a text-only conversation. Set
+`config_class = Qwen2_5VLTextConfig`.
+
+```python
+from kerasformers.models.qwen2_5_vl import Qwen2_5VLTextGenerate, Qwen2_5VLProcessor
+
+model = Qwen2_5VLTextGenerate.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
+processor = Qwen2_5VLProcessor.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
+conversation = [
+    {"role": "user", "content": [{"type": "text", "text": "Who wrote Dune?"}]},
+]
+inputs = processor(conversation)
+outputs = model.generate(**inputs, max_new_tokens=32)
+print(processor.decode(outputs[0]))
+```
+
 ### `Qwen2_5VLTextModel`
 
 Qwen2.5 causal decoder: ``embed -> N x Qwen2_5VLDecoderLayer -> RMSNorm``.

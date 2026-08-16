@@ -82,6 +82,23 @@ Returns `{"logits": (batch, seq, vocab_size)}`. Same fast multimodal generation 
 Qwen3-VL: vision encoder + M-RoPE prefill into a fixed KV cache (DeepStack threaded
 through prefill), then text-only decode. The MoE MLP does not change the cache structure.
 
+### `Qwen3VLMoeTextGenerate`
+
+Text-only counterpart of `Qwen3VLMoeConditionalGenerate`, built with no vision tower
+(`build_vision=False`), so `.generate()` takes just token ids. It reads only the MoE
+language model out of a Qwen3-VL-MoE checkpoint: `hf:` conversion copies just the text
+weights, and a kerasformers repo declaring `Qwen3VLMoeConditionalGenerate` is read through
+`FULL_CHECKPOINT_SOURCES`. Set `config_class = Qwen3VLMoeTextConfig`.
+
+```python
+from kerasformers.models.qwen3_vl_moe import Qwen3VLMoeTextGenerate, Qwen3VLMoeTokenizer
+
+model = Qwen3VLMoeTextGenerate.from_weights("kerasformers/qwen3-vl-30b-a3b-instruct")
+tokenizer = Qwen3VLMoeTokenizer.from_weights("kerasformers/qwen3-vl-30b-a3b-instruct")
+outputs = model.generate(**tokenizer("Who wrote Dune?"), max_new_tokens=32)
+print(tokenizer.decode(outputs[0]))
+```
+
 ### `Qwen3VLMoeProcessor`
 
 Image/video + text processor (ChatML + image-pad expansion), a 16px-patch Qwen-VL

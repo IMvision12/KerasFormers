@@ -7,6 +7,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_image_processor import Qwen2VLImagePr
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     Qwen2VLConditionalGenerate,
     Qwen2VLModel,
+    Qwen2VLTextGenerate,
     Qwen2VLTextModel,
     Qwen2VLVisionModel,
 )
@@ -16,6 +17,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_tokenizer import Qwen2VLTokenizer
 __all__ = [
     "Qwen2VLModel",
     "Qwen2VLConditionalGenerate",
+    "Qwen2VLTextGenerate",
     "Qwen2VLTextModel",
     "Qwen2VLVisionModel",
     "Qwen2VLConfig",
