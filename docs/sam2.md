@@ -65,16 +65,18 @@ encode once and prompt repeatedly.
 
 ## Preprocessing
 
-### SAM2ImageProcessorWithPrompts
+### SAM2Processor
 
 ```python
-SAM2ImageProcessorWithPrompts(
+SAM2Processor(
     target_length=1024, image_mean=None, image_std=None, data_format=None
 )
 ```
 
 Stretches the image to a square `target_length`, normalizes, and rescales prompt
-coordinates the same way.
+coordinates the same way. Load it with
+`SAM2Processor.from_weights("kerasformers/sam2_hiera_<size>")`, which reads the repo's
+`kf_preprocessor.json`.
 
 > **SAM2 stretches, SAM pads.** SAM resizes the long edge and pads the short one, so a
 > single scale factor covers both axes. SAM2 stretches each axis independently, so `x`
@@ -135,12 +137,12 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam2 import (
-    SAM2ImageProcessorWithPrompts,
+    SAM2Processor,
     SAM2PromptableSegment,
 )
 
 model = SAM2PromptableSegment.from_weights("kerasformers/sam2_hiera_tiny")
-processor = SAM2ImageProcessorWithPrompts()
+processor = SAM2Processor.from_weights("kerasformers/sam2_hiera_tiny")
 
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
@@ -236,14 +238,14 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam2 import (
-    SAM2ImageProcessorWithPrompts,
+    SAM2Processor,
     SAM2PromptableSegment,
 )
 
 model = SAM2PromptableSegment.from_weights(
     "kerasformers/sam2_hiera_tiny", include_box_input=True
 )
-processor = SAM2ImageProcessorWithPrompts()
+processor = SAM2Processor.from_weights("kerasformers/sam2_hiera_tiny")
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
 # (x1, y1, x2, y2) in original pixel space, shaped (batch, num_boxes, 4).
@@ -338,12 +340,12 @@ import numpy as np
 import torch
 from PIL import Image
 from kerasformers.models.sam2 import (
-    SAM2ImageProcessorWithPrompts,
+    SAM2Processor,
     SAM2PromptableSegment,
 )
 
 model = SAM2PromptableSegment.from_weights("kerasformers/sam2_hiera_tiny")
-processor = SAM2ImageProcessorWithPrompts()
+processor = SAM2Processor.from_weights("kerasformers/sam2_hiera_tiny")
 image = Image.open("assets/data/coco_cats.jpg").convert("RGB")
 
 # Run the Hiera backbone once.

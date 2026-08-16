@@ -113,7 +113,7 @@ class SAMImageProcessor(BaseImageProcessor):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class SAMImageProcessorWithPrompts(SAMImageProcessor):
+class SAMProcessor(SAMImageProcessor):
     """Preprocess an image plus optional prompts for SAM inference.
 
     Extends :class:`SAMImageProcessor` by also encoding prompt inputs
@@ -123,13 +123,10 @@ class SAMImageProcessorWithPrompts(SAMImageProcessor):
 
     Example:
         ```python
-        from kerasformers.models.sam import SAMViTHuge
-        from kerasformers.models.sam.sam_image_processor import (
-            SAMImageProcessorWithPrompts,
-        )
+        from kerasformers.models.sam import SAMProcessor, SAMPromptableSegment
 
-        model = SAMViTHuge(weights="sa1b")
-        proc = SAMImageProcessorWithPrompts()
+        model = SAMPromptableSegment.from_weights("kerasformers/sam_vit_huge")
+        proc = SAMProcessor.from_weights("kerasformers/sam_vit_huge")
         inputs = proc(
             "photo.jpg",
             input_points=np.array([[[450, 600]]]),
@@ -926,8 +923,8 @@ def SAMGenerateMasks(
 
     Example:
         ```python
-        from kerasformers.models.sam import SAMViTBase, SAMGenerateMasks
-        model = SAMViTBase(weights="sa1b")
+        from kerasformers.models.sam import SAMGenerateMasks, SAMPromptableSegment
+        model = SAMPromptableSegment.from_weights("kerasformers/sam_vit_base")
         out = SAMGenerateMasks(model, "photo.jpg", points_per_side=16)
         print(len(out["masks"]))
         ```
