@@ -932,15 +932,15 @@ class SAM3Model(FunctionalBaseModel):
     ``"channels_last"`` and ``"channels_first"`` via
     ``keras.config.image_data_format()``.
 
-    Weights are gated on the model Hub (``facebook/sam3``). On first use
-    with ``SAM3Model.from_weights("sam3_saco")``, the model is downloaded
-    from the model Hub, converted to Keras format, and cached locally at
-    ``~/.cache/kerasformers/sam3_saco/``.
+    Preconverted Keras weights are hosted ungated at ``kerasformers/sam3`` (SAM
+    license); the gated upstream ``facebook/sam3`` also converts on the fly via the
+    ``hf:`` prefix.
 
     Construction:
 
-    >>> SAM3Model.from_weights("sam3_saco")
-    >>> SAM3Model.from_weights("sam3_saco", load_weights=False)  # random init
+    >>> SAM3Model.from_weights("kerasformers/sam3")
+    >>> SAM3Model.from_weights("hf:facebook/sam3")  # gated upstream, converts in-process
+    >>> SAM3Model.from_weights("kerasformers/sam3", load_weights=False)  # random init
 
     Args:
         vit_hidden_size (int): ViT hidden dimension. Defaults to ``1024``.
@@ -1238,6 +1238,7 @@ class SAM3Model(FunctionalBaseModel):
         self.input_tensor = input_tensor
         self._data_format = data_format
         self._tokenizer = None
+        self._image_processor = None
         self._submodel_cache = {}
 
     def build_decoder_model(self):
@@ -1380,12 +1381,27 @@ class SAM3Model(FunctionalBaseModel):
 
     @property
     def tokenizer(self):
-        """Lazily-instantiated :class:`SAM3CLIPTokenizer` for text prompts."""
+        """Lazily-instantiated :class:`SAM3CLIPTokenizer` for text prompts.
+
+        Pulls the CLIP ``tokenizer.json`` from the ungated ``kerasformers/sam3``
+        (identical to the gated ``facebook/sam3`` file, no license gate).
+        """
         if self._tokenizer is None:
             from .sam3_clip_tokenizer import SAM3CLIPTokenizer
 
-            self._tokenizer = SAM3CLIPTokenizer()
+            self._tokenizer = SAM3CLIPTokenizer(hf_id="kerasformers/sam3")
         return self._tokenizer
+
+    @property
+    def image_processor(self):
+        """Lazily-instantiated :class:`SAM3ImageProcessor` at the model's resolution."""
+        if self._image_processor is None:
+            from .sam3_image_processor import SAM3ImageProcessor
+
+            self._image_processor = SAM3ImageProcessor(
+                image_resolution=self.vit_image_size
+            )
+        return self._image_processor
 
     def _vision_geo_submodel(self):
         """Sub-model returning the 1x FPN feature map + projected text.
@@ -1469,9 +1485,8 @@ class SAM3Model(FunctionalBaseModel):
         call. Pass the returned dict as ``vision_embeds`` to
         :meth:`detect` / :meth:`segment_instances` / :meth:`segment_semantic`.
         """
-        from .sam3_processor import preprocess_image
-
-        pixel_values, original_size = preprocess_image(image)
+        out = self.image_processor.call(image)
+        pixel_values, original_size = out["pixel_values"], out["original_size"]
         vision_model = self._vision_submodel()
         # Decoder is built here so it is ready when the call uses
         # ``vision_embeds``. Dummy text inputs are fine: the vision
@@ -1565,7 +1580,6 @@ class SAM3Model(FunctionalBaseModel):
         """
         from .sam3_processor import (
             preprocess_boxes,
-            preprocess_image,
             preprocess_text_with_encoder,
         )
 
@@ -1581,9 +1595,9 @@ class SAM3Model(FunctionalBaseModel):
             all_pixels = []
             original_sizes = []
             for img in images:
-                pv, orig = preprocess_image(img)
-                all_pixels.append(pv[0])
-                original_sizes.append(orig)
+                out = self.image_processor.call(img)
+                all_pixels.append(np.asarray(out["pixel_values"])[0])
+                original_sizes.append(out["original_size"])
             pixel_values = np.stack(all_pixels)
             batch_size = len(images)
 
@@ -1920,9 +1934,9 @@ class SAM3Model(FunctionalBaseModel):
 class _SAM3Task:
     """Task-specific wrapper around a :class:`SAM3Model` model.
 
-    Holds a single ``SAM3Model`` instance (created lazily on first use if
-    none is supplied) and exposes ``predict`` along with the shared
-    ``encode_image`` / ``encode_text`` shortcuts.
+    Holds a ``SAM3Model`` instance and exposes ``predict`` along with the shared
+    ``encode_image`` / ``encode_text`` shortcuts. Load one with ``from_weights``;
+    pass ``model=`` to wrap an already-loaded backbone and share its weights.
 
     Subclasses implement task-specific post-processing by delegating
     to one of the ``SAM3Model`` inference methods (``detect`` /
@@ -1931,14 +1945,23 @@ class _SAM3Task:
 
     _METHOD: str = ""
 
-    def __init__(self, model=None, variant="sam3_saco", load_weights=True):
-        if model is None:
-            model = SAM3Model.from_weights(variant, load_weights=load_weights)
+    def __init__(self, model):
         if not isinstance(model, SAM3Model):
             raise TypeError(
-                f"`model` must be a SAM3Model instance, got {type(model).__name__}"
+                f"`model` must be a SAM3Model instance, got {type(model).__name__}. "
+                f"Load one with {type(self).__name__}.from_weights(...)."
             )
         self.model = model
+
+    @classmethod
+    def from_weights(cls, repo_id="kerasformers/sam3", load_weights=True, **kwargs):
+        """Load the SAM3 checkpoint and wrap it in this task.
+
+        There is a single SAM3 model, hosted ungated at ``kerasformers/sam3``;
+        ``kwargs`` (e.g. ``vit_image_size`` / ``image_size``) are forwarded to
+        :meth:`SAM3Model.from_weights` for custom-resolution builds.
+        """
+        return cls(SAM3Model.from_weights(repo_id, load_weights=load_weights, **kwargs))
 
     @property
     def tokenizer(self):
@@ -1957,16 +1980,15 @@ class _SAM3Task:
 class SAM3Detect(_SAM3Task):
     """SAM3 open-vocabulary object detector.
 
-    Thin wrapper around :meth:`SAM3Model.detect`. Holds a ``SAM3Model`` instance
-    (auto-loaded from ``"sam3_saco"`` on first use unless ``model`` is
-    passed explicitly) and exposes ``predict`` that returns one
-    ``{"scores", "boxes"}`` dict per image.
+    Thin wrapper around :meth:`SAM3Model.detect`, returning one
+    ``{"scores", "boxes"}`` dict per image. Load with ``from_weights``, or pass
+    ``model=`` to share an already-loaded backbone.
 
     Example::
 
         from kerasformers.models.sam3 import SAM3Detect
 
-        detector = SAM3Detect()
+        detector = SAM3Detect.from_weights("kerasformers/sam3")
         results = detector.predict("cat.jpg", text="cat")
         for r in results:
             print(r["scores"], r["boxes"])
