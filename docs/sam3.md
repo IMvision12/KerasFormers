@@ -31,8 +31,10 @@ single SAM3 checkpoint, hosted ungated at `kerasformers/sam3`, so load with `fro
 (no `variant` to pick):
 
 ```python
-Task.from_weights(repo_id="kerasformers/sam3", load_weights=True, **kwargs)  # load + wrap
-Task(model)                                                                  # wrap an existing SAM3Model
+Task.from_weights(
+    repo_id="kerasformers/sam3", load_weights=True, **kwargs
+)  # load + wrap
+Task(model)  # wrap an existing SAM3Model
 ```
 
 **Load once, share the backbone** across tasks rather than paying for a second copy:
@@ -113,8 +115,8 @@ Boxes are normalized and padded here too (`(x1, y1, x2, y2)` pixels to normalize
 ```python
 inputs = processor(
     images="cats.jpg",
-    input_boxes=[[[133, 183, 512, 340]]],   # [image][box][xyxy]
-    input_boxes_labels=[[1]],               # 1 = positive, 0 = negative
+    input_boxes=[[[133, 183, 512, 340]]],  # [image][box][xyxy]
+    input_boxes_labels=[[1]],  # 1 = positive, 0 = negative
 )
 # -> input_boxes (norm cxcywh), input_boxes_labels, box_mask, pixel_values, ...
 ```
@@ -230,8 +232,8 @@ TV = [158, 5, 560, 272]
 with torch.no_grad():
     result = segmenter.predict(
         images=["assets/data/coco_cat_tv.jpg"],
-        input_boxes=[[CAT, TV]],       # two boxes, one image  -> [[...]]
-        input_boxes_labels=[[1, 0]],   # keep the cat region, suppress the tv region
+        input_boxes=[[CAT, TV]],  # two boxes, one image  -> [[...]]
+        input_boxes_labels=[[1, 0]],  # keep the cat region, suppress the tv region
     )[0]
 ```
 
@@ -295,7 +297,7 @@ semantic mode asks *where is balloon*, and returns one merged binary mask.
 ```python
 from kerasformers.models.sam3 import SAM3SemanticSegment
 
-semantic = SAM3SemanticSegment(model=segmenter.model)
+semantic = SAM3SemanticSegment.from_weights("kerasformers/sam3")
 
 with torch.no_grad():
     mask = semantic.predict(images="assets/data/coco_apartment.jpg", text="balloon")[0]
@@ -318,7 +320,7 @@ Skip the mask decoder when boxes are all you need:
 ```python
 from kerasformers.models.sam3 import SAM3Detect
 
-detector = SAM3Detect(model=segmenter.model)
+detector = SAM3Detect.from_weights("kerasformers/sam3")
 
 with torch.no_grad():
     result = detector.predict(images="assets/data/coco_city_bus.jpg", text="car")[0]
@@ -432,8 +434,11 @@ import torch
 from kerasformers.models.sam3 import SAM3InstanceSegment, SAM3Model
 
 # build the graph at 1512x1512 (grid 108x108) and load the hosted weights
-model = SAM3Model.from_weights("kerasformers/sam3", vit_image_size=1512, image_size=1512)
-segmenter = SAM3InstanceSegment(model=model)  # its image processor follows model.vit_image_size
+model = SAM3Model.from_weights(
+    "kerasformers/sam3", vit_image_size=1512, image_size=1512
+)
+# the task's image processor follows model.vit_image_size
+segmenter = SAM3InstanceSegment(model=model)
 
 with torch.no_grad():
     result = segmenter.predict(images="large.jpg", text="person")[0]
