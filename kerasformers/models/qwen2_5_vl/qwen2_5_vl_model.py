@@ -7,7 +7,7 @@ from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     vision_rotary_cos_sin,
 )
 
-from .qwen2_5_vl_config import Qwen2_5VLConfig
+from .qwen2_5_vl_config import Qwen2_5VLConfig, Qwen2_5VLTextConfig
 from .qwen2_5_vl_layers import (
     Qwen2_5_VisionPatchEmbed,
     Qwen2_5VLDecoderLayer,
@@ -454,6 +454,7 @@ class Qwen2_5VLModel(Qwen2VLModel):
         video_token_id=151656,
         vision_start_token_id=151652,
         vision_end_token_id=151653,
+        build_vision=True,
         **kwargs,
     ):
         from kerasformers.base import SubclassedBaseModel
@@ -491,18 +492,23 @@ class Qwen2_5VLModel(Qwen2VLModel):
         self.vision_start_token_id = vision_start_token_id
         self.vision_end_token_id = vision_end_token_id
         self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
+        self.build_vision = build_vision
 
-        self.visual = Qwen2_5VLVisionModel(
-            embed_dim=vision_embed_dim,
-            depth=vision_depth,
-            num_heads=vision_num_heads,
-            intermediate_size=vision_mlp_dim,
-            out_hidden_size=self.vision_out_dim,
-            window_size=window_size,
-            fullatt_block_indexes=fullatt_block_indexes,
-            patch_size=patch_size,
-            spatial_merge_size=spatial_merge_size,
-            name="visual",
+        self.visual = (
+            Qwen2_5VLVisionModel(
+                embed_dim=vision_embed_dim,
+                depth=vision_depth,
+                num_heads=vision_num_heads,
+                intermediate_size=vision_mlp_dim,
+                out_hidden_size=self.vision_out_dim,
+                window_size=window_size,
+                fullatt_block_indexes=fullatt_block_indexes,
+                patch_size=patch_size,
+                spatial_merge_size=spatial_merge_size,
+                name="visual",
+            )
+            if build_vision
+            else None
         )
         self.language_model = Qwen2_5VLTextModel(
             vocab_size=vocab_size,
@@ -704,3 +710,27 @@ class Qwen2_5VLConditionalGenerate(Qwen2_5VLModel, BaseGeneration):
         kv_cache = ops.stack(layer_caches, axis=1)
         logits = self.project(self.language_model.final_norm(h))[:, 0, :]
         return logits, (kv_cache, rope_deltas)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2_5VLTextGenerate(Qwen2_5VLConditionalGenerate):
+    """Text-only counterpart of :class:`Qwen2_5VLConditionalGenerate` (no vision tower).
+
+    Built with ``build_vision=False`` so the windowed ViT is never constructed;
+    ``.generate()`` takes just token ids. Loads just the text backbone of a Qwen2.5-VL
+    checkpoint: the target-driven ``hf:`` transfer copies only the language-model weights,
+    and a kerasformers checkpoint declaring ``Qwen2_5VLConditionalGenerate`` is read via
+    :attr:`FULL_CHECKPOINT_SOURCES`.
+
+        gen = Qwen2_5VLTextGenerate.from_weights("hf:Qwen/Qwen2.5-VL-3B-Instruct")
+        ids = gen.generate(tokenizer(messages)["input_ids"])
+    """
+
+    config_class = Qwen2_5VLTextConfig
+    FULL_CHECKPOINT_SOURCES = {
+        "Qwen2_5VLConditionalGenerate": "kerasformers.models.qwen2_5_vl.qwen2_5_vl_model"
+    }
+
+    def __init__(self, *args, **kwargs):
+        kwargs["build_vision"] = False
+        super().__init__(*args, **kwargs)

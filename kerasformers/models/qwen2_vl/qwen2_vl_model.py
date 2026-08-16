@@ -5,7 +5,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .qwen2_vl_config import Qwen2VLConfig
+from .qwen2_vl_config import Qwen2VLConfig, Qwen2VLTextConfig
 from .qwen2_vl_layers import (
     Qwen2VLDecoderLayer,
     Qwen2VLPatchEmbed,
@@ -400,6 +400,7 @@ class Qwen2VLModel(SubclassedBaseModel):
         video_token_id=151656,
         vision_start_token_id=151652,
         vision_end_token_id=151653,
+        build_vision=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -428,15 +429,20 @@ class Qwen2VLModel(SubclassedBaseModel):
         self.vision_end_token_id = vision_end_token_id
         self.patch_dim = in_channels * temporal_patch_size * patch_size * patch_size
         self.tokens_per_second = 1
+        self.build_vision = build_vision
 
-        self.visual = Qwen2VLVisionModel(
-            embed_dim=vision_embed_dim,
-            depth=vision_depth,
-            num_heads=vision_num_heads,
-            llm_hidden_size=embed_dim,
-            mlp_ratio=vision_mlp_ratio,
-            spatial_merge_size=spatial_merge_size,
-            name="visual",
+        self.visual = (
+            Qwen2VLVisionModel(
+                embed_dim=vision_embed_dim,
+                depth=vision_depth,
+                num_heads=vision_num_heads,
+                llm_hidden_size=embed_dim,
+                mlp_ratio=vision_mlp_ratio,
+                spatial_merge_size=spatial_merge_size,
+                name="visual",
+            )
+            if build_vision
+            else None
         )
         self.language_model = Qwen2VLTextModel(
             vocab_size=vocab_size,
@@ -836,3 +842,28 @@ class Qwen2VLConditionalGenerate(Qwen2VLModel, BaseGeneration):
         kv_cache = ops.stack(layer_caches, axis=1)
         logits = self.project(self.language_model.final_norm(h))[:, 0, :]
         return logits, (kv_cache, rope_deltas)
+
+
+@keras.saving.register_keras_serializable(package="kerasformers")
+class Qwen2VLTextGenerate(Qwen2VLConditionalGenerate):
+    """Text-only counterpart of :class:`Qwen2VLConditionalGenerate` (no vision tower).
+
+    Same Qwen2 decoder and fast ``.generate()``, built with ``build_vision=False`` so the
+    ViT is never constructed; ``.generate()`` takes just token ids. The Qwen2-VL
+    checkpoints are multimodal, so this head loads just their text backbone: on-the-fly
+    ``hf:`` conversion copies only the language-model weights (the target-driven transfer
+    never reads the vision keys), and a kerasformers checkpoint declaring
+    ``Qwen2VLConditionalGenerate`` is read through :attr:`FULL_CHECKPOINT_SOURCES`.
+
+        gen = Qwen2VLTextGenerate.from_weights("hf:Qwen/Qwen2-VL-2B-Instruct")
+        ids = gen.generate(tokenizer(messages)["input_ids"])
+    """
+
+    config_class = Qwen2VLTextConfig
+    FULL_CHECKPOINT_SOURCES = {
+        "Qwen2VLConditionalGenerate": "kerasformers.models.qwen2_vl.qwen2_vl_model"
+    }
+
+    def __init__(self, *args, **kwargs):
+        kwargs["build_vision"] = False
+        super().__init__(*args, **kwargs)

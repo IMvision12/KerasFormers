@@ -42,10 +42,16 @@ Preconverted, bf16 weights are hosted under `kerasformers/`. Load with
 | `qwen3.5-9b` | [`kerasformers/qwen3.5-9b`](https://huggingface.co/kerasformers/qwen3.5-9b) |
 | `qwen3.5-9b-base` | [`kerasformers/qwen3.5-9b-base`](https://huggingface.co/kerasformers/qwen3.5-9b-base) |
 | `qwen3.5-27b` | [`kerasformers/qwen3.5-27b`](https://huggingface.co/kerasformers/qwen3.5-27b) |
+| `qwen3.8-27b` | [`kerasformers/qwen3.8-27b`](https://huggingface.co/kerasformers/qwen3.8-27b) |
+
+`qwen3.8-27b` is Alibaba's Qwen3.8-27B, which shares this same Qwen3.5 architecture (it
+loads under `kerasformers.models.qwen3_5`): the full vision-language checkpoint, driven by
+`Qwen3_5ConditionalGenerate` for image + text or `Qwen3_5TextGenerate` for text-only.
 
 Upstream Qwen safetensors also load directly via the `hf:` prefix, e.g.
-`from_weights("hf:Qwen/Qwen3.5-4B")`, which converts them in process (pass
-`cache_converted=True` to keep the result). See [Loading Weights](loading_weights.md).
+`from_weights("hf:Qwen/Qwen3.5-4B")` or `from_weights("hf:Qwen/Qwen3.8-27B")`, which
+convert them in process (pass `cache_converted=True` to keep the result). See
+[Loading Weights](loading_weights.md).
 
 ## API
 

@@ -128,6 +128,28 @@ generate(
 Image and video tensors ride along as `**prefill_inputs`; the processor
 produces them for you.
 
+### `Qwen3VLTextGenerate`
+
+Text-only counterpart of `Qwen3VLConditionalGenerate`, built with no vision tower
+(`build_vision=False`), so `.generate()` takes just token ids. It reads only the language
+model out of a Qwen3-VL checkpoint: `hf:` conversion copies just the text weights, and a
+kerasformers repo declaring `Qwen3VLConditionalGenerate` is read through
+`FULL_CHECKPOINT_SOURCES`. Qwen3-VL ships no dedicated tokenizer class, so drive text
+through `Qwen3VLProcessor` with a text-only conversation. Set
+`config_class = Qwen3VLTextConfig`.
+
+```python
+from kerasformers.models.qwen3_vl import Qwen3VLTextGenerate, Qwen3VLProcessor
+
+model = Qwen3VLTextGenerate.from_weights("kerasformers/qwen3-vl-2b-instruct")
+processor = Qwen3VLProcessor.from_weights("kerasformers/qwen3-vl-2b-instruct")
+inputs = processor(conversation=[
+    {"role": "user", "content": [{"type": "text", "text": "Who wrote Dune?"}]}
+])
+outputs = model.generate(**inputs, max_new_tokens=32)
+print(processor.decode(outputs[0]))
+```
+
 ### `Qwen3VLTextModel`
 
 Qwen3 causal decoder with DeepStack visual-feature injection.

@@ -94,6 +94,24 @@ generate(
 Image and video tensors ride along as `**prefill_inputs`; the processor
 produces them for you.
 
+### `Qwen2VLTextGenerate`
+
+Text-only counterpart of `Qwen2VLConditionalGenerate`, built with no vision tower
+(`build_vision=False`), so `.generate()` takes just token ids. It reads only the language
+model out of a Qwen2-VL checkpoint: `hf:` conversion copies just the text weights (the
+vision keys are never touched), and a kerasformers repo declaring
+`Qwen2VLConditionalGenerate` is read through `FULL_CHECKPOINT_SOURCES`.
+Set `config_class = Qwen2VLTextConfig`.
+
+```python
+from kerasformers.models.qwen2_vl import Qwen2VLTextGenerate, Qwen2VLTokenizer
+
+model = Qwen2VLTextGenerate.from_weights("kerasformers/qwen2-vl-2b")
+tokenizer = Qwen2VLTokenizer.from_weights("kerasformers/qwen2-vl-2b")
+outputs = model.generate(**tokenizer("Who wrote Dune?"), max_new_tokens=32)
+print(tokenizer.decode(outputs[0]))
+```
+
 ### `Qwen2VLTextModel`
 
 Qwen2 causal decoder: ``embed -> num_layers x Qwen2VLDecoderLayer -> RMSNorm``.
@@ -250,15 +268,16 @@ Text-only prompts batch the same way: pass `text=[...]` with no `images`.
 
 ### Text only
 
-`Qwen2VLTokenizer` encodes raw text: it has no chat template, so pass a prompt you
-have rendered yourself (or go through the processor above).
+For text-only generation use `Qwen2VLTextGenerate`, which drops the vision tower and
+loads just the language model. `Qwen2VLTokenizer` encodes raw text (no chat template, so
+pass a prompt you have rendered yourself).
 
 ```python
-from kerasformers.models.qwen2_vl import Qwen2VLTokenizer
+from kerasformers.models.qwen2_vl import Qwen2VLTextGenerate, Qwen2VLTokenizer
 
+model = Qwen2VLTextGenerate.from_weights("kerasformers/qwen2-vl-2b")
 tokenizer = Qwen2VLTokenizer.from_weights("kerasformers/qwen2-vl-2b")
-inputs = tokenizer("Who wrote Dune?")
-outputs = model.generate(**inputs, max_new_tokens=32)
+outputs = model.generate(**tokenizer("Who wrote Dune?"), max_new_tokens=32)
 print(tokenizer.decode(outputs[0]))
 ```
 
