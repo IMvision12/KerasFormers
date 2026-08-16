@@ -105,9 +105,10 @@ from kerasformers.models.qwen2_5_vl import Qwen2_5VLTextGenerate, Qwen2_5VLProce
 
 model = Qwen2_5VLTextGenerate.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
 processor = Qwen2_5VLProcessor.from_weights("kerasformers/qwen2.5-vl-3b-instruct")
-inputs = processor(conversation=[
-    {"role": "user", "content": [{"type": "text", "text": "Who wrote Dune?"}]}
-])
+conversation = [
+    {"role": "user", "content": [{"type": "text", "text": "Who wrote Dune?"}]},
+]
+inputs = processor(conversation)
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(processor.decode(outputs[0]))
 ```

@@ -202,7 +202,8 @@ conversation = [
         ],
     }
 ]
-inputs = processor(conversation)  # input_ids, attention_mask, pixel_values, image_grid_thw
+inputs = processor(conversation)
+# inputs -> input_ids, attention_mask, pixel_values, image_grid_thw
 outputs = model.generate(**inputs, max_new_tokens=64)
 
 print(processor.decode(outputs[0]))

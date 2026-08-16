@@ -143,9 +143,10 @@ from kerasformers.models.qwen3_vl import Qwen3VLTextGenerate, Qwen3VLProcessor
 
 model = Qwen3VLTextGenerate.from_weights("kerasformers/qwen3-vl-2b-instruct")
 processor = Qwen3VLProcessor.from_weights("kerasformers/qwen3-vl-2b-instruct")
-inputs = processor(conversation=[
-    {"role": "user", "content": [{"type": "text", "text": "Who wrote Dune?"}]}
-])
+conversation = [
+    {"role": "user", "content": [{"type": "text", "text": "Who wrote Dune?"}]},
+]
+inputs = processor(conversation)
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(processor.decode(outputs[0]))
 ```
