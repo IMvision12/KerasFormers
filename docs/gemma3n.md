@@ -10,9 +10,8 @@ Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>.
 Google's on-device Gemma 3n, ported to pure Keras 3: a novel text decoder paired with
 a **MobileNet-V5** vision tower and a **USM** audio tower, for image + audio + text.
 A single `Gemma3nConditionalGenerate` drives generation for text, image+text, and
-image+audio+text, like transformers' `Gemma3nConditionalGenerate`. The text-only
-backbone is `Gemma3nTextModel` (with `Gemma3nTextGenerate`), and the multimodal backbone is
-`Gemma3nModel`.
+image+audio+text; `Gemma3nTextGenerate` is its text-only counterpart. The text-only
+backbone is `Gemma3nTextModel`, and the multimodal backbone is `Gemma3nModel`.
 
 What is new in the Gemma 3n decoder:
 
@@ -133,6 +132,26 @@ generate(
 | `sampler` / `seed` | `None` | sampling strategy (greedy when unset) / seed |
 | `pixel_values` | `None` | `(num_images, H, W, 3)` normalized image pixels |
 | `input_features` / `input_features_mask` | `None` | audio mel frames + valid mask |
+
+### `Gemma3nTextGenerate`
+
+The text-only counterpart of `Gemma3nConditionalGenerate`: the Gemma 3n text decoder plus
+a (tied) LM head, built with no vision / audio tower. `.generate()` takes just token ids.
+The Gemma 3n checkpoints are all multimodal, so this head extracts just their text
+backbone from the checkpoint (its `FULL_CHECKPOINT_SOURCES` builds the full model and
+copies the decoder weights out, dropping the towers). Set `config_class = Gemma3nTextConfig`.
+
+```python
+from kerasformers.models.gemma3n import Gemma3nTextGenerate, Gemma3nTokenizer
+
+model = Gemma3nTextGenerate.from_weights("kerasformers/gemma-3n-e2b-it")
+tokenizer = Gemma3nTokenizer.from_weights("kerasformers/gemma-3n-e2b-it")
+outputs = model.generate(
+    **tokenizer([{"role": "user", "content": "What is on-device inference?"}]),
+    max_new_tokens=64,
+)
+print(tokenizer.decode(outputs[0]))
+```
 
 ### `Gemma3nModel`
 

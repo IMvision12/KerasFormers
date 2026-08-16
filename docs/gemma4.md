@@ -11,9 +11,9 @@ The fourth Gemma generation, ported to pure Keras 3: dense and Mixture-of-Expert
 text models paired with a NaViT vision tower and a USM audio tower, with a 256K
 context window and the "Elastic" **E-variants** (per-layer embeddings + KV-sharing).
 A single `Gemma4ConditionalGenerate` drives generation for text-only, image+text, and
-image+audio+text checkpoints, like transformers' `Gemma4ForConditionalGeneration`.
-The backbones are `Gemma4Model` (text decoder) and `Gemma4MultimodalModel` (vision +
-audio + text).
+image+audio+text checkpoints; `Gemma4TextGenerate` is its text-only counterpart (built
+with no towers). The backbones are `Gemma4Model` (text decoder) and
+`Gemma4MultimodalModel` (vision + audio + text).
 
 The **12B** checkpoints are a separate, encoder-free architecture
 (`gemma4_unified`) and live on their own page: see
@@ -143,6 +143,26 @@ generate(
 | `sampler` / `seed` | `None` | sampling strategy (greedy when unset) / seed |
 | `pixel_values` / `pixel_position_ids` | `None` | image patches + 2-D coords |
 | `input_features` / `input_features_mask` | `None` | audio frames + mask |
+
+### `Gemma4TextGenerate`
+
+The text-only counterpart of `Gemma4ConditionalGenerate`: the `Gemma4Model` decoder plus
+a (tied) LM head, built with no vision / audio tower. `.generate()` takes just token ids
+(no `pixel_values` / `input_features`). It shares the decoder weights with
+`Gemma4ConditionalGenerate`, so a text-only Gemma 4 repo loads under either head. Set
+`config_class = Gemma4TextConfig`.
+
+```python
+from kerasformers.models.gemma4 import Gemma4TextGenerate, Gemma4Tokenizer
+
+model = Gemma4TextGenerate.from_weights("kerasformers/gemma-4-e4b-it")
+tokenizer = Gemma4Tokenizer.from_weights("kerasformers/gemma-4-e4b-it")
+outputs = model.generate(
+    **tokenizer([{"role": "user", "content": "Explain MoE routing in one sentence."}]),
+    max_new_tokens=64,
+)
+print(tokenizer.decode(outputs[0]))
+```
 
 ### `Gemma4MultimodalModel`
 
