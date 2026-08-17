@@ -33,6 +33,16 @@ Load any of these with `from_weights("<variant>")`.
 | `internvl3-14b` | [`OpenGVLab/InternVL3-14B-hf`](https://huggingface.co/OpenGVLab/InternVL3-14B-hf) |
 | `internvl3-38b` | [`OpenGVLab/InternVL3-38B-hf`](https://huggingface.co/OpenGVLab/InternVL3-38B-hf) |
 | `internvl3-78b` | [`OpenGVLab/InternVL3-78B-hf`](https://huggingface.co/OpenGVLab/InternVL3-78B-hf) |
+| `internvl3.5-1b` | [`OpenGVLab/InternVL3_5-1B-HF`](https://huggingface.co/OpenGVLab/InternVL3_5-1B-HF) |
+| `internvl3.5-2b` | [`OpenGVLab/InternVL3_5-2B-HF`](https://huggingface.co/OpenGVLab/InternVL3_5-2B-HF) |
+| `internvl3.5-4b` | [`OpenGVLab/InternVL3_5-4B-HF`](https://huggingface.co/OpenGVLab/InternVL3_5-4B-HF) |
+| `internvl3.5-8b` | [`OpenGVLab/InternVL3_5-8B-HF`](https://huggingface.co/OpenGVLab/InternVL3_5-8B-HF) |
+| `internvl3.5-14b` | [`OpenGVLab/InternVL3_5-14B-HF`](https://huggingface.co/OpenGVLab/InternVL3_5-14B-HF) |
+| `internvl3.5-38b` | [`OpenGVLab/InternVL3_5-38B-HF`](https://huggingface.co/OpenGVLab/InternVL3_5-38B-HF) |
+| `internvl3.5-30b-a3b` | [`OpenGVLab/InternVL3_5-30B-A3B-HF`](https://huggingface.co/OpenGVLab/InternVL3_5-30B-A3B-HF) |
+
+The InternVL3 rows use a Qwen2.5 text tower; InternVL3.5 dense uses Qwen3, and
+`internvl3.5-30b-a3b` uses a Qwen3-MoE tower. One class loads them all.
 
 ## API
 
