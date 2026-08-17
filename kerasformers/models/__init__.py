@@ -38,6 +38,7 @@ from kerasformers.models import (
     glm,
     glm4,
     glm4_moe,
+    glm4_moe_lite,
     glm4v,
     glm4v_moe,
     glm5_moe,
