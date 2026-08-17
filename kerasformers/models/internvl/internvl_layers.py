@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 from kerasformers.base.base_attention import fused_attention
+from kerasformers.models.qwen3_moe.qwen3_moe_layers import Qwen3MoeSparseBlock
 
 
 def rotate_half(x):
@@ -398,18 +399,25 @@ class InternVLMultiModalProjector(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class InternVLTextAttention(layers.Layer):
-    """Qwen2-style grouped-query causal self-attention (InternVL text decoder).
+    """Grouped-query causal self-attention for the InternVL text decoder.
 
-    ``query`` / ``key`` / ``value`` projections carry a bias (the Qwen2
-    signature), ``output_proj`` is bias-free; half-rotation rotary positions
-    are applied to the per-head query and key, and K/V heads are repeated for
-    GQA. A KV cache can be threaded through ``past_key_value``.
+    Backbone-parametric so one layer covers every InternVL text tower: Qwen2
+    (biased ``query`` / ``key`` / ``value``, no QK norm) and Qwen3 / Qwen3-MoE
+    (bias-free QKV, per-head RMSNorm on the query and key before rotary).
+    ``output_proj`` is always bias-free; half-rotation rotary positions are
+    applied to the per-head query and key, and K/V heads are repeated for GQA. A
+    KV cache can be threaded through ``past_key_value``.
 
     Args:
         embed_dim: Text width (output dim of ``output_proj``).
         num_heads: Number of query heads.
         num_kv_heads: Number of key/value heads (GQA).
         head_dim: Per-head dim.
+        attention_bias: Whether ``query`` / ``key`` / ``value`` carry a bias
+            (Qwen2: True, Qwen3 / Qwen3-MoE: False).
+        qk_norm: Whether to RMS-normalize the per-head query and key before
+            rotary (Qwen3 / Qwen3-MoE: True).
+        norm_eps: Epsilon for the QK norms.
 
     Call args:
         hidden_states: ``(batch, q_len, embed_dim)``.
@@ -425,18 +433,43 @@ class InternVLTextAttention(layers.Layer):
         when ``use_cache`` is set.
     """
 
-    def __init__(self, embed_dim, num_heads, num_kv_heads, head_dim, **kwargs):
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        num_kv_heads,
+        head_dim,
+        attention_bias=True,
+        qk_norm=False,
+        norm_eps=1e-6,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
+        self.attention_bias = attention_bias
+        self.qk_norm = qk_norm
+        self.norm_eps = norm_eps
         self.num_kv_groups = num_heads // num_kv_heads
         self.scaling = head_dim**-0.5
-        self.query = layers.Dense(num_heads * head_dim, use_bias=True, name="query")
-        self.key = layers.Dense(num_kv_heads * head_dim, use_bias=True, name="key")
-        self.value = layers.Dense(num_kv_heads * head_dim, use_bias=True, name="value")
+        self.query = layers.Dense(
+            num_heads * head_dim, use_bias=attention_bias, name="query"
+        )
+        self.key = layers.Dense(
+            num_kv_heads * head_dim, use_bias=attention_bias, name="key"
+        )
+        self.value = layers.Dense(
+            num_kv_heads * head_dim, use_bias=attention_bias, name="value"
+        )
         self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
+        self.query_norm = (
+            InternVLRMSNorm(eps=norm_eps, name="query_norm") if qk_norm else None
+        )
+        self.key_norm = (
+            InternVLRMSNorm(eps=norm_eps, name="key_norm") if qk_norm else None
+        )
 
     def call(
         self,
@@ -458,6 +491,9 @@ class InternVLTextAttention(layers.Layer):
         v = ops.reshape(
             self.value(hidden_states), (b, q_len, self.num_kv_heads, self.head_dim)
         )
+        if self.query_norm is not None:
+            q = self.query_norm(q)
+            k = self.key_norm(k)
         q = ops.transpose(q, (0, 2, 1, 3))
         k = ops.transpose(k, (0, 2, 1, 3))
         v = ops.transpose(v, (0, 2, 1, 3))
@@ -497,6 +533,9 @@ class InternVLTextAttention(layers.Layer):
         v = ops.reshape(
             self.value(hidden_states), (b, 1, self.num_kv_heads, self.head_dim)
         )
+        if self.query_norm is not None:
+            q = self.query_norm(q)
+            k = self.key_norm(k)
         q = ops.transpose(q, (0, 2, 1, 3))
         k = ops.transpose(k, (0, 2, 1, 3))
         v = ops.transpose(v, (0, 2, 1, 3))
@@ -527,6 +566,9 @@ class InternVLTextAttention(layers.Layer):
                 "num_heads": self.num_heads,
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
+                "attention_bias": self.attention_bias,
+                "qk_norm": self.qk_norm,
+                "norm_eps": self.norm_eps,
             }
         )
         return config
@@ -555,20 +597,28 @@ class InternVLTextMLP(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kerasformers")
 class InternVLDecoderLayer(layers.Layer):
-    """One InternVL text block: pre-norm Qwen2-style attention, then pre-norm SwiGLU.
+    """One InternVL text block: pre-norm attention, then a pre-norm feed-forward.
 
     Computes ``h = x + attention(attention_norm(x))`` followed by
     ``h = h + mlp(mlp_norm(h))``: RMSNorm pre-normalization with residual
     adds. The rotary tables, mask, and KV cache pass straight through to the
-    attention.
+    attention. Backbone-parametric: the attention takes the Qwen2 vs Qwen3
+    (``qk_norm`` / ``attention_bias``) flags, and the feed-forward is either the
+    dense SwiGLU (:class:`InternVLTextMLP`) or, for Qwen3-MoE towers, the reused
+    :class:`~kerasformers.models.qwen3_moe.qwen3_moe_layers.Qwen3MoeSparseBlock`.
 
     Args:
         embed_dim: Text / residual-stream width.
-        mlp_dim: SwiGLU hidden width.
+        mlp_dim: Dense SwiGLU hidden width (ignored when ``use_moe``).
         num_heads: Number of query heads.
         num_kv_heads: Number of key/value heads (GQA).
         head_dim: Per-head dim.
-        norm_eps: Epsilon shared by both RMSNorms.
+        norm_eps: Epsilon shared by both RMSNorms (and the QK norms).
+        attention_bias: Whether the attention QKV carry a bias (Qwen2: True).
+        qk_norm: Whether the attention RMS-normalizes per-head q/k (Qwen3: True).
+        use_moe: Swap the dense SwiGLU for a sparse Qwen3-MoE block.
+        num_experts / num_experts_per_tok / moe_mlp_dim / norm_topk_prob: MoE
+            routing shape, used only when ``use_moe``.
 
     Call args:
         hidden_states, cos, sin, attention_mask, past_key_value, use_cache: as
@@ -587,6 +637,13 @@ class InternVLDecoderLayer(layers.Layer):
         num_kv_heads,
         head_dim,
         norm_eps=1e-6,
+        attention_bias=True,
+        qk_norm=False,
+        use_moe=False,
+        num_experts=0,
+        num_experts_per_tok=0,
+        moe_mlp_dim=0,
+        norm_topk_prob=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -596,12 +653,37 @@ class InternVLDecoderLayer(layers.Layer):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
         self.norm_eps = norm_eps
+        self.attention_bias = attention_bias
+        self.qk_norm = qk_norm
+        self.use_moe = use_moe
+        self.num_experts = num_experts
+        self.num_experts_per_tok = num_experts_per_tok
+        self.moe_mlp_dim = moe_mlp_dim
+        self.norm_topk_prob = norm_topk_prob
         self.attention_norm = InternVLRMSNorm(eps=norm_eps, name="attention_norm")
         self.attention = InternVLTextAttention(
-            embed_dim, num_heads, num_kv_heads, head_dim, name="attention"
+            embed_dim,
+            num_heads,
+            num_kv_heads,
+            head_dim,
+            attention_bias=attention_bias,
+            qk_norm=qk_norm,
+            norm_eps=norm_eps,
+            name="attention",
         )
         self.mlp_norm = InternVLRMSNorm(eps=norm_eps, name="mlp_norm")
-        self.mlp = InternVLTextMLP(embed_dim, mlp_dim, name="mlp")
+        self.mlp = (
+            Qwen3MoeSparseBlock(
+                num_experts,
+                num_experts_per_tok,
+                embed_dim,
+                moe_mlp_dim,
+                norm_topk_prob=norm_topk_prob,
+                name="mlp",
+            )
+            if use_moe
+            else InternVLTextMLP(embed_dim, mlp_dim, name="mlp")
+        )
 
     def call(
         self,
@@ -655,6 +737,13 @@ class InternVLDecoderLayer(layers.Layer):
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
                 "norm_eps": self.norm_eps,
+                "attention_bias": self.attention_bias,
+                "qk_norm": self.qk_norm,
+                "use_moe": self.use_moe,
+                "num_experts": self.num_experts,
+                "num_experts_per_tok": self.num_experts_per_tok,
+                "moe_mlp_dim": self.moe_mlp_dim,
+                "norm_topk_prob": self.norm_topk_prob,
             }
         )
         return config

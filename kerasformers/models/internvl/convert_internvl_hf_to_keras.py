@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 from tqdm import tqdm
 
@@ -6,20 +8,30 @@ from kerasformers.conversion.weight_transfer_util import transfer_weights
 
 # The text decoder and lm_head (keras paths starting "language_model." /
 # "lm_head" / the bare "token_embedding", which builds under the outer model's
-# name scope because the fusion path calls it directly).
+# name scope because the fusion path calls it directly). Backbone-parametric:
+# the QK-norm rules cover Qwen3 / Qwen3-MoE towers, and the MoE router / dense
+# SwiGLU rules are disjoint so one map serves qwen2, qwen3 and qwen3_moe.
 TEXT_MAPPING = {
     "token_embedding.embeddings": "language_model.embed_tokens.weight",
     "language_model.final_norm.weight": "language_model.norm.weight",
     "decoder_layer_": "layers.",
+    # Qwen3 / Qwen3-MoE per-head QK norms: specific, before the q/k proj rules
+    # so "attention.query" cannot clip "attention.query_norm".
+    "attention.query_norm": "self_attn.q_norm",
+    "attention.key_norm": "self_attn.k_norm",
     "attention.query": "self_attn.q_proj",
     "attention.key": "self_attn.k_proj",
     "attention.value": "self_attn.v_proj",
     "attention.output_proj": "self_attn.o_proj",
     "attention_norm": "input_layernorm",
     "mlp_norm": "post_attention_layernorm",
-    "mlp.gate": "mlp.gate_proj",
-    "mlp.up": "mlp.up_proj",
-    "mlp.down": "mlp.down_proj",
+    # MoE router (specific, before the dense gate rule).
+    "mlp.gate_weight": "mlp.gate.weight",
+    # Dense SwiGLU (explicit ".kernel" so it cannot corrupt the MoE router's
+    # "mlp.gate.weight" or the fused expert banks).
+    "mlp.gate.kernel": "mlp.gate_proj.weight",
+    "mlp.up.kernel": "mlp.up_proj.weight",
+    "mlp.down.kernel": "mlp.down_proj.weight",
     "kernel": "weight",
 }
 
@@ -65,8 +77,49 @@ def normalize_keys(hf_state_dict):
     return out
 
 
+def fuse_expert_weights(state):
+    """Fuse hub per-expert ``...mlp.experts.N.{gate,up,down}_proj`` (Qwen3-MoE text
+    towers) into the fused ``mlp.experts.gate_up_proj`` (E, 2I, H) / ``down_proj``
+    (E, H, I) banks the reused ``Qwen3MoeSparseBlock`` expects. In-memory state
+    dicts that already carry the fused tensors pass through untouched. Operates on
+    post-``normalize_keys`` names, so the layer prefix is ``language_model.layers.N``
+    (the leading ``.*`` in the pattern also accepts the bare ``model.layers.N``).
+    """
+    pat = re.compile(
+        r"^(.*layers\.\d+)\.mlp\.experts\.(\d+)\.(gate_proj|up_proj|down_proj)\.weight$"
+    )
+    if not any(pat.match(k) for k in state):
+        return state
+    out = {}
+    gate, up, down = {}, {}, {}
+    for key, value in state.items():
+        match = pat.match(key)
+        if match:
+            layer, expert, which = match.group(1), int(match.group(2)), match.group(3)
+            {"gate_proj": gate, "up_proj": up, "down_proj": down}[which].setdefault(
+                layer, {}
+            )[expert] = value
+        else:
+            out[key] = value
+    for layer in gate:
+        experts = sorted(gate[layer])
+        gate_up = np.stack(
+            [
+                np.concatenate(
+                    [np.asarray(gate[layer][e]), np.asarray(up[layer][e])], axis=0
+                )
+                for e in experts
+            ],
+            axis=0,
+        )
+        down_w = np.stack([np.asarray(down[layer][e]) for e in experts], axis=0)
+        out[f"{layer}.mlp.experts.gate_up_proj"] = gate_up
+        out[f"{layer}.mlp.experts.down_proj"] = down_w
+    return out
+
+
 def transfer_internvl_weights(keras_model, hf_state_dict):
-    state = normalize_keys(hf_state_dict)
+    state = fuse_expert_weights(normalize_keys(hf_state_dict))
     if not keras_model.built or not keras_model.weights:
         size = keras_model.image_size
         n_tokens = int(
@@ -96,5 +149,12 @@ def transfer_internvl_weights(keras_model, hf_state_dict):
         if name.endswith("patch_embeddings.projection.weight"):
             # Conv2D patch embed: HF (out, in, kh, kw) -> Keras (kh, kw, in, out).
             weight.assign(np.transpose(np.asarray(state[name]), (2, 3, 1, 0)))
+        elif (
+            ".experts.gate_up_proj" in name
+            or ".experts.down_proj" in name
+            or name.endswith("mlp.gate.weight")
+        ):
+            # Fused Qwen3-MoE expert banks + the (E, H) router: direct copy.
+            weight.assign(np.asarray(state[name]))
         else:
             transfer_weights(weight.path, weight, state[name])

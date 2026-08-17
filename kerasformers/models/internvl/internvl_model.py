@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .internvl_config import INTERNVL_CONFIG, INTERNVL_WEIGHTS_URLS
+from .internvl_config import InternVLConfig
 from .internvl_layers import (
     InternVLDecoderLayer,
     InternVLMultiModalProjector,
@@ -171,6 +171,14 @@ class InternVLTextModel(layers.Layer):
         num_kv_heads,
         head_dim=None,
         norm_eps=1e-6,
+        attention_bias=True,
+        qk_norm=False,
+        num_experts=0,
+        num_experts_per_tok=0,
+        moe_mlp_dim=0,
+        norm_topk_prob=True,
+        decoder_sparse_step=1,
+        mlp_only_layers=(),
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -182,6 +190,14 @@ class InternVLTextModel(layers.Layer):
         self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim or embed_dim // num_heads
         self.norm_eps = norm_eps
+        self.attention_bias = attention_bias
+        self.qk_norm = qk_norm
+        self.num_experts = num_experts
+        self.num_experts_per_tok = num_experts_per_tok
+        self.moe_mlp_dim = moe_mlp_dim
+        self.norm_topk_prob = norm_topk_prob
+        self.decoder_sparse_step = decoder_sparse_step
+        self.mlp_only_layers = tuple(mlp_only_layers)
 
         self.token_embedding = layers.Embedding(
             vocab_size, embed_dim, name="token_embedding"
@@ -194,11 +210,28 @@ class InternVLTextModel(layers.Layer):
                 num_kv_heads,
                 self.head_dim,
                 norm_eps,
+                attention_bias=attention_bias,
+                qk_norm=qk_norm,
+                use_moe=self.is_moe_layer(i),
+                num_experts=num_experts,
+                num_experts_per_tok=num_experts_per_tok,
+                moe_mlp_dim=moe_mlp_dim,
+                norm_topk_prob=norm_topk_prob,
                 name=f"decoder_layer_{i}",
             )
             for i in range(num_layers)
         ]
         self.final_norm = InternVLRMSNorm(eps=norm_eps, name="final_norm")
+
+    def is_moe_layer(self, i):
+        # Mirrors Qwen3-MoE: every ``decoder_sparse_step``-th layer is sparse
+        # unless it is pinned dense in ``mlp_only_layers``. num_experts == 0
+        # (the qwen2 / qwen3 dense towers) makes every layer dense.
+        return (
+            i not in self.mlp_only_layers
+            and self.num_experts > 0
+            and (i + 1) % self.decoder_sparse_step == 0
+        )
 
     def call(
         self,
@@ -241,6 +274,14 @@ class InternVLTextModel(layers.Layer):
                 "num_kv_heads": self.num_kv_heads,
                 "head_dim": self.head_dim,
                 "norm_eps": self.norm_eps,
+                "attention_bias": self.attention_bias,
+                "qk_norm": self.qk_norm,
+                "num_experts": self.num_experts,
+                "num_experts_per_tok": self.num_experts_per_tok,
+                "moe_mlp_dim": self.moe_mlp_dim,
+                "norm_topk_prob": self.norm_topk_prob,
+                "decoder_sparse_step": self.decoder_sparse_step,
+                "mlp_only_layers": self.mlp_only_layers,
             }
         )
         return config
@@ -274,7 +315,7 @@ class InternVLModel(SubclassedBaseModel):
 
     Construction:
 
-    >>> InternVLModel.from_weights("internvl3-1b")
+    >>> InternVLModel.from_weights("kerasformers/internvl3-1b")
     >>> InternVLModel.from_weights("hf:OpenGVLab/InternVL3-1B-hf")
 
     Args:
@@ -303,8 +344,7 @@ class InternVLModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "internvl"
-    BASE_MODEL_CONFIG = INTERNVL_CONFIG
-    BASE_WEIGHT_CONFIG = INTERNVL_WEIGHTS_URLS
+    config_class = InternVLConfig
 
     def __init__(
         self,
@@ -314,9 +354,17 @@ class InternVLModel(SubclassedBaseModel):
         num_layers=24,
         num_heads=14,
         num_kv_heads=2,
+        head_dim=None,
+        text_backbone="qwen2",
         norm_eps=1e-6,
         rope_theta=1000000.0,
         tie_embeddings=False,
+        num_experts=0,
+        num_experts_per_tok=0,
+        moe_mlp_dim=0,
+        norm_topk_prob=True,
+        decoder_sparse_step=1,
+        mlp_only_layers=(),
         vision_embed_dim=1024,
         vision_mlp_dim=4096,
         vision_num_layers=24,
@@ -339,10 +387,19 @@ class InternVLModel(SubclassedBaseModel):
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
-        self.head_dim = embed_dim // num_heads
+        self.head_dim = head_dim or embed_dim // num_heads
+        self.text_backbone = text_backbone
+        self.qk_norm = text_backbone in ("qwen3", "qwen3_moe")
+        self.attention_bias = text_backbone == "qwen2"
         self.norm_eps = norm_eps
         self.rope_theta = rope_theta
         self.tie_embeddings = tie_embeddings
+        self.num_experts = num_experts
+        self.num_experts_per_tok = num_experts_per_tok
+        self.moe_mlp_dim = moe_mlp_dim
+        self.norm_topk_prob = norm_topk_prob
+        self.decoder_sparse_step = decoder_sparse_step
+        self.mlp_only_layers = tuple(mlp_only_layers)
         self.vision_embed_dim = vision_embed_dim
         self.vision_mlp_dim = vision_mlp_dim
         self.vision_num_layers = vision_num_layers
@@ -384,6 +441,14 @@ class InternVLModel(SubclassedBaseModel):
             num_kv_heads=num_kv_heads,
             head_dim=self.head_dim,
             norm_eps=norm_eps,
+            attention_bias=self.attention_bias,
+            qk_norm=self.qk_norm,
+            num_experts=num_experts,
+            num_experts_per_tok=num_experts_per_tok,
+            moe_mlp_dim=moe_mlp_dim,
+            norm_topk_prob=norm_topk_prob,
+            decoder_sparse_step=decoder_sparse_step,
+            mlp_only_layers=mlp_only_layers,
             name="language_model",
         )
 
@@ -496,6 +561,10 @@ class InternVLModel(SubclassedBaseModel):
     def config_from_hf(cls, hf_config):
         text = hf_config["text_config"]
         vision = hf_config["vision_config"]
+        # The text tower type drives QK-norm / attention-bias / dense-vs-MoE: the
+        # HF InternVL config nests a full text sub-config, so its model_type is
+        # qwen2 (InternVL3), qwen3 (InternVL3.5 dense), or qwen3_moe (3.5 MoE).
+        backbone = text.get("model_type", "qwen2")
         return {
             "vocab_size": text["vocab_size"],
             "embed_dim": text["hidden_size"],
@@ -503,9 +572,17 @@ class InternVLModel(SubclassedBaseModel):
             "num_layers": text["num_hidden_layers"],
             "num_heads": text["num_attention_heads"],
             "num_kv_heads": text["num_key_value_heads"],
+            "head_dim": text.get("head_dim"),
+            "text_backbone": backbone,
             "norm_eps": text.get("rms_norm_eps", 1e-6),
             "rope_theta": text.get("rope_theta", 1000000.0),
             "tie_embeddings": bool(text.get("tie_word_embeddings") or False),
+            "num_experts": text.get("num_experts", 0),
+            "num_experts_per_tok": text.get("num_experts_per_tok", 0),
+            "moe_mlp_dim": text.get("moe_intermediate_size", 0),
+            "norm_topk_prob": bool(text.get("norm_topk_prob", True)),
+            "decoder_sparse_step": text.get("decoder_sparse_step", 1),
+            "mlp_only_layers": tuple(text.get("mlp_only_layers", ()) or ()),
             "vision_embed_dim": vision["hidden_size"],
             "vision_mlp_dim": vision["intermediate_size"],
             "vision_num_layers": vision["num_hidden_layers"],
@@ -545,9 +622,17 @@ class InternVLModel(SubclassedBaseModel):
                 "num_layers": self.num_layers,
                 "num_heads": self.num_heads,
                 "num_kv_heads": self.num_kv_heads,
+                "head_dim": self.head_dim,
+                "text_backbone": self.text_backbone,
                 "norm_eps": self.norm_eps,
                 "rope_theta": self.rope_theta,
                 "tie_embeddings": self.tie_embeddings,
+                "num_experts": self.num_experts,
+                "num_experts_per_tok": self.num_experts_per_tok,
+                "moe_mlp_dim": self.moe_mlp_dim,
+                "norm_topk_prob": self.norm_topk_prob,
+                "decoder_sparse_step": self.decoder_sparse_step,
+                "mlp_only_layers": self.mlp_only_layers,
                 "vision_embed_dim": self.vision_embed_dim,
                 "vision_mlp_dim": self.vision_mlp_dim,
                 "vision_num_layers": self.vision_num_layers,
