@@ -188,11 +188,15 @@ class Glm4MoeMoE(layers.Layer):
             initializer="zeros",
             trainable=True,
         )
+        # Kept in float32 (transformers' `_keep_in_fp32_modules_strict`): this bias
+        # decides group / expert selection, so bf16 rounding could flip the top-k.
+        # `dtype` overrides the bf16 build policy; the load path stores/reads it fp32.
         self.e_score_correction_bias = self.add_weight(
             name="e_score_correction_bias",
             shape=(self.num_experts,),
             initializer="zeros",
             trainable=True,
+            dtype="float32",
         )
         self.built = True
 
