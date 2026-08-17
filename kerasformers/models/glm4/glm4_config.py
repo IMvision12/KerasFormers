@@ -1,53 +1,41 @@
-# Only the per-variant differences live here; everything common to all GLM-4
-# checkpoints (vocab_size, num_kv_heads, head_dim, partial_rotary_factor,
-# norm_eps, rope_theta, attention_bias, tie_embeddings) is baked into the
-# Glm4Model.__init__ defaults.
-GLM4_CONFIG = {
-    "glm-4-9b-0414": {
-        "embed_dim": 4096,
-        "num_layers": 40,
-        "num_heads": 32,
-        "mlp_dim": 13696,
-    },
-    "glm-4-32b-0414": {
-        "embed_dim": 6144,
-        "num_layers": 61,
-        "num_heads": 48,
-        "mlp_dim": 23040,
-    },
-    "glm-z1-9b-0414": {
-        "embed_dim": 4096,
-        "num_layers": 40,
-        "num_heads": 32,
-        "mlp_dim": 13696,
-    },
-    "glm-z1-32b-0414": {
-        "embed_dim": 6144,
-        "num_layers": 61,
-        "num_heads": 48,
-        "mlp_dim": 23040,
-    },
-}
+from kerasformers.base import BaseConfig
 
-GLM4_WEIGHTS_URLS = {
-    "glm-4-9b-0414": {
-        "hf_id": "THUDM/GLM-4-9B-0414",
-        "gated": False,
-        "safetensors": True,
-    },
-    "glm-4-32b-0414": {
-        "hf_id": "THUDM/GLM-4-32B-0414",
-        "gated": False,
-        "safetensors": True,
-    },
-    "glm-z1-9b-0414": {
-        "hf_id": "THUDM/GLM-Z1-9B-0414",
-        "gated": False,
-        "safetensors": True,
-    },
-    "glm-z1-32b-0414": {
-        "hf_id": "THUDM/GLM-Z1-32B-0414",
-        "gated": False,
-        "safetensors": True,
-    },
-}
+
+class Glm4Config(BaseConfig):
+    """Configuration for GLM-4-0414 / GLM-Z1: [`Glm4Model`] and [`Glm4TextGenerate`].
+
+    Same flat decoder recipe as GLM-4-9B (partial *interleaved* rotary, biased q/k/v,
+    fused-SwiGLU MLP), but each block adds **sandwich norms** -- a
+    ``post_self_attn_layernorm`` on the attention output and a ``post_mlp_layernorm``
+    on the MLP output, both applied before the residual add. That extra structure is
+    why GLM-4-0414 is its own ``model_type`` (``glm4``) and folder, not ``glm``.
+
+    Args:
+        vocab_size: Token vocabulary size.
+        embed_dim: Text / residual-stream width.
+        num_layers: Number of decoder blocks.
+        num_heads: Query heads per layer.
+        num_kv_heads: Key/value heads per layer (GQA).
+        head_dim: Per-head dim.
+        mlp_dim: SwiGLU hidden width (``intermediate_size``).
+        partial_rotary_factor: Fraction of each head that receives rotary.
+        norm_eps: RMSNorm epsilon.
+        rope_theta: Rotary base frequency.
+        attention_bias: Whether q/k/v carry a bias.
+        tie_embeddings: Whether the LM head ties to the token embedding.
+    """
+
+    model_type = "glm4"
+
+    vocab_size: int = 151552
+    embed_dim: int = 4096
+    num_layers: int = 40
+    num_heads: int = 32
+    num_kv_heads: int = 2
+    head_dim: int = 128
+    mlp_dim: int = 13696
+    partial_rotary_factor: float = 0.5
+    norm_eps: float = 0.00000015625
+    rope_theta: float = 10000.0
+    attention_bias: bool = True
+    tie_embeddings: bool = False
