@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .glm_config import GLM_CONFIG, GLM_WEIGHTS_URLS
+from .glm_config import GlmConfig
 from .glm_layers import GlmDecoderLayer, GlmRMSNorm
 
 MASK_NEG = -1e9
@@ -30,8 +30,7 @@ class GlmModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "glm"
-    BASE_MODEL_CONFIG = GLM_CONFIG
-    BASE_WEIGHT_CONFIG = GLM_WEIGHTS_URLS
+    config_class = GlmConfig
 
     def __init__(
         self,

@@ -1,13 +1,13 @@
 # GLM-4
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + <code>model.weights.h5</code>, stored
+in <b>bfloat16</b>). Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>,
+or convert an original checkpoint on the fly with
+<code>from_weights("hf:zai-org/GLM-4-9B-0414")</code>. See
+<a href="../loading_weights/">Loading Weights</a>.
 </div>
 
 Zhipu's GLM-4 dense decoder-only LLM, ported to pure Keras 3. It uses partial
@@ -27,14 +27,16 @@ See also [glm4_moe.md](glm4_moe.md), [glm5_moe.md](glm5_moe.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")` (or convert the
+upstream checkpoint on the fly with `from_weights("hf:<upstream>")`).
 
-| Variant | Hub |
-|---|---|
-| `glm-4-9b-0414` | [`THUDM/GLM-4-9B-0414`](https://huggingface.co/THUDM/GLM-4-9B-0414) |
-| `glm-4-32b-0414` | [`THUDM/GLM-4-32B-0414`](https://huggingface.co/THUDM/GLM-4-32B-0414) |
-| `glm-z1-9b-0414` | [`THUDM/GLM-Z1-9B-0414`](https://huggingface.co/THUDM/GLM-Z1-9B-0414) |
-| `glm-z1-32b-0414` | [`THUDM/GLM-Z1-32B-0414`](https://huggingface.co/THUDM/GLM-Z1-32B-0414) |
+| Variant | Hosted | Upstream |
+|---|---|---|
+| `glm-4-9b-0414` | `kerasformers/glm-4-9b-0414` | [`zai-org/GLM-4-9B-0414`](https://huggingface.co/zai-org/GLM-4-9B-0414) |
+| `glm-4-32b-0414` | `kerasformers/glm-4-32b-0414` | [`zai-org/GLM-4-32B-0414`](https://huggingface.co/zai-org/GLM-4-32B-0414) |
+| `glm-4-32b-base-0414` | `kerasformers/glm-4-32b-base-0414` | [`zai-org/GLM-4-32B-Base-0414`](https://huggingface.co/zai-org/GLM-4-32B-Base-0414) |
+| `glm-z1-9b-0414` | `kerasformers/glm-z1-9b-0414` | [`zai-org/GLM-Z1-9B-0414`](https://huggingface.co/zai-org/GLM-Z1-9B-0414) |
+| `glm-z1-32b-0414` | `kerasformers/glm-z1-32b-0414` | [`zai-org/GLM-Z1-32B-0414`](https://huggingface.co/zai-org/GLM-Z1-32B-0414) |
 
 ## API
 
@@ -112,8 +114,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.glm4 import Glm4TextGenerate, Glm4Tokenizer
 
-model = Glm4TextGenerate.from_weights("glm-4-9b-0414")
-tokenizer = Glm4Tokenizer.from_weights("glm-4-9b-0414")
+model = Glm4TextGenerate.from_weights("kerasformers/glm-4-9b-0414")
+tokenizer = Glm4Tokenizer.from_weights("kerasformers/glm-4-9b-0414")
 
 inputs = tokenizer("Explain rotary embeddings in one sentence.")
 outputs = model.generate(**inputs, max_new_tokens=64)
@@ -144,7 +146,7 @@ for text in tokenizer.batch_decode(outputs):
 ```python
 from kerasformers.models.glm4 import Glm4Model
 
-backbone = Glm4Model.from_weights("glm-4-9b-0414")
+backbone = Glm4Model.from_weights("kerasformers/glm-4-9b-0414")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
@@ -154,7 +156,7 @@ Any Hub repo with this architecture works via the `hf:` prefix, including
 community fine-tunes:
 
 ```python
-model = Glm4TextGenerate.from_weights("hf:THUDM/GLM-4-9B-0414")
+model = Glm4TextGenerate.from_weights("hf:zai-org/GLM-4-9B-0414")
 ```
 
 ### Lower memory
@@ -164,6 +166,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Glm4TextGenerate.from_weights(
-    "glm-4-9b-0414", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/glm-4-9b-0414", quantization="int8", load_dtype="bfloat16"
 )
 ```

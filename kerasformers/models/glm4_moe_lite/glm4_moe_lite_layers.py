@@ -1,3 +1,5 @@
+import math
+
 import keras
 import numpy as np
 from keras import layers, ops
@@ -5,32 +7,52 @@ from keras import layers, ops
 from kerasformers.base.base_attention import fused_attention
 
 
-def rotate_half(x):
-    # NeoX (non-interleaved) rotate: split into halves and swap with a sign.
-    half = ops.shape(x)[-1] // 2
-    x1 = x[..., :half]
-    x2 = x[..., half:]
-    return ops.concatenate([-x2, x1], axis=-1)
+def yarn_inv_freq(
+    dim, base, factor, original_max_position_embeddings, beta_fast=32, beta_slow=1
+):
+    """YaRN inverse frequencies (the HF `_compute_yarn_parameters` recipe)."""
+
+    def find_correction_dim(num_rotations):
+        return (
+            dim
+            * math.log(original_max_position_embeddings / (num_rotations * 2 * math.pi))
+        ) / (2 * math.log(base))
+
+    low = max(math.floor(find_correction_dim(beta_fast)), 0)
+    high = min(math.ceil(find_correction_dim(beta_slow)), dim - 1)
+    if low == high:
+        high += 0.001
+    ramp = np.clip((np.arange(dim // 2, dtype="float32") - low) / (high - low), 0, 1)
+    pos_freqs = base ** (np.arange(0, dim, 2, dtype="float32") / dim)
+    inv_extra = 1.0 / pos_freqs
+    inv_inter = 1.0 / (factor * pos_freqs)
+    return inv_inter * ramp + inv_extra * (1 - ramp)
 
 
-def apply_glm_rope(x, cos, sin, rotary_dim):
-    # Partial NeoX rope: rotate the first ``rotary_dim`` channels (cos / sin are
-    # ``cat((freqs, freqs))``) and pass the rest through.
-    dtype = x.dtype
-    x_rot = ops.cast(x[..., :rotary_dim], "float32")
-    x_pass = x[..., rotary_dim:]
-    cos = ops.cast(cos, "float32")
-    sin = ops.cast(sin, "float32")
-    out = x_rot * cos + rotate_half(x_rot) * sin
-    return ops.concatenate([ops.cast(out, dtype), x_pass], axis=-1)
+def yarn_get_mscale(scale=1.0, mscale=1.0):
+    if scale <= 1:
+        return 1.0
+    return 0.1 * mscale * math.log(scale) + 1.0
+
+
+def apply_interleaved_rope(x, cos, sin):
+    """DeepSeek interleaved rope: pairs ``(x[2i], x[2i+1])`` rotate by one angle.
+
+    ``cos`` / ``sin`` carry one entry per pair ``(..., dim // 2)``. The output
+    is laid out de-interleaved (evens then odds): bit-identical attention to
+    the reference complex formulation since q and k transform consistently.
+    """
+    x1 = x[..., 0::2]
+    x2 = x[..., 1::2]
+    return ops.concatenate([x1 * cos - x2 * sin, x2 * cos + x1 * sin], axis=-1)
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4MoeRMSNorm(layers.Layer):
+class Glm4MoeLiteRMSNorm(layers.Layer):
     """Root-mean-square norm (plain learned weight, ones init).
 
     Args:
-        eps: Variance epsilon.
+        eps: Variance epsilon (1e-6).
     """
 
     def __init__(self, eps=1e-6, **kwargs):
@@ -57,10 +79,8 @@ class Glm4MoeRMSNorm(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4MoeMLP(layers.Layer):
-    """SwiGLU feed-forward: ``down(silu(gate(x)) * up(x))`` (separate gate/up).
-
-    Used for the leading dense layers and the shared expert.
+class Glm4MoeLiteMLP(layers.Layer):
+    """SwiGLU feed-forward: ``down(silu(gate(x)) * up(x))``.
 
     Args:
         embed_dim: Output width.
@@ -85,11 +105,11 @@ class Glm4MoeMLP(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4MoeExperts(layers.Layer):
+class Glm4MoeLiteExperts(layers.Layer):
     """Dense bank of SwiGLU experts via einsum (fused HF layout).
 
     ``gate_up_proj`` ``(E, 2I, H)`` (gate stacked over up), ``down_proj``
-    ``(E, H, I)``; the dense ``(T, E)`` routing matrix equals sparse dispatch.
+    ``(E, H, I)``; dense ``(T, E)`` routing weights equal sparse dispatch.
 
     Args:
         num_experts / embed_dim / mlp_dim: Bank shape.
@@ -136,21 +156,23 @@ class Glm4MoeExperts(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4MoeMoE(layers.Layer):
-    """GLM-4.5 MoE block: sigmoid grouped-topk router + shared expert.
+class Glm4MoeLiteMoE(layers.Layer):
+    """DeepSeek-V3 MoE block: sigmoid "noaux" router + shared experts.
 
     Scores are float32 sigmoids; expert *choice* adds the learned
-    ``e_score_correction_bias``, groups are ranked by the sum of their top-2
-    biased scores and only ``topk_group`` groups stay eligible; the gathered
-    weights are the *unbiased* sigmoid scores, renormalized when
-    ``norm_topk_prob`` and scaled by ``routed_scaling_factor``. A shared-expert
-    SwiGLU of the block input is added.
+    ``e_score_correction_bias`` (kept float32), groups are ranked by the sum of their top-2
+    biased scores and only the ``topk_group`` best groups stay eligible; the
+    gathered weights are the unbiased sigmoid scores, renormalized when
+    ``norm_topk_prob`` and scaled by ``routed_scaling_factor``. A
+    shared-expert SwiGLU of the block input is added.
 
     Args:
-        num_experts / num_experts_per_tok: Routing shape.
+        num_experts / num_experts_per_tok: Routing shape (256 / 8).
         embed_dim / mlp_dim: Expert dims (``moe_intermediate_size``).
         shared_mlp_dim: Shared-expert hidden width.
-        n_group / topk_group / norm_topk_prob / routed_scaling_factor: Routing.
+        n_group / topk_group: Group-limited routing geometry (8 / 4).
+        norm_topk_prob: Renormalize the selected weights.
+        routed_scaling_factor: Routed-weight multiplier (2.5).
     """
 
     def __init__(
@@ -160,10 +182,10 @@ class Glm4MoeMoE(layers.Layer):
         embed_dim,
         mlp_dim,
         shared_mlp_dim,
-        n_group=1,
-        topk_group=1,
+        n_group=8,
+        topk_group=4,
         norm_topk_prob=True,
-        routed_scaling_factor=1.0,
+        routed_scaling_factor=2.5,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -176,8 +198,10 @@ class Glm4MoeMoE(layers.Layer):
         self.topk_group = topk_group
         self.norm_topk_prob = norm_topk_prob
         self.routed_scaling_factor = routed_scaling_factor
-        self.experts = Glm4MoeExperts(num_experts, embed_dim, mlp_dim, name="experts")
-        self.shared_experts = Glm4MoeMLP(
+        self.experts = Glm4MoeLiteExperts(
+            num_experts, embed_dim, mlp_dim, name="experts"
+        )
+        self.shared_experts = Glm4MoeLiteMLP(
             embed_dim, shared_mlp_dim, name="shared_experts"
         )
 
@@ -188,14 +212,14 @@ class Glm4MoeMoE(layers.Layer):
             initializer="zeros",
             trainable=True,
         )
-        # Kept in float32 (transformers' `_keep_in_fp32_modules_strict`): this bias
-        # decides group / expert selection, so bf16 rounding could flip the top-k.
-        # `dtype` overrides the bf16 build policy; the load path stores/reads it fp32.
         self.e_score_correction_bias = self.add_weight(
             name="e_score_correction_bias",
             shape=(self.num_experts,),
             initializer="zeros",
             trainable=True,
+            # GLM-4.7-Flash keeps the router selection bias float32 (its bf16 + f32
+            # checkpoint; transformers' _keep_in_fp32_modules_strict): bf16 rounding
+            # here could flip the group / expert top-k. Overrides the build policy.
             dtype="float32",
         )
         self.built = True
@@ -249,119 +273,137 @@ class Glm4MoeMoE(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4MoeAttention(layers.Layer):
-    """GLM-4.5 grouped-query attention with partial NeoX rope + optional QK-norm.
+class Glm4MoeLiteAttention(layers.Layer):
+    """Multi-head Latent Attention (MLA).
 
-    The ``query`` / ``key`` / ``value`` projections carry an optional bias
-    (``attention_bias``); ``output_proj`` is bias-free. When ``use_qk_norm`` the
-    per-head query and key are RMSNorm'd (over ``head_dim``) before rotary.
+    Queries go through an optional low-rank bottleneck
+    (``query_a`` -> RMSNorm -> ``query_b``; plain ``query`` when
+    ``q_lora_rank`` is None, e.g. V2-Lite); keys/values are jointly
+    compressed by ``kv_a`` into ``kv_lora_rank`` latents plus a single
+    *shared* rope key, normalized, and expanded by ``kv_b`` into per-head
+    ``(qk_nope_head_dim | v_head_dim)``. Interleaved rope rotates the
+    per-head query rope slice and the shared key rope slice (broadcast to
+    all heads). Scores use ``softmax_scale`` (qk_head_dim^-0.5 times the
+    optional yarn mscale^2 correction).
 
     Args:
-        embed_dim: Model width.
-        num_heads / num_kv_heads / head_dim: Attention geometry.
-        rotary_dim: Channels of each head that receive rotary embeddings.
-        use_qk_norm: Apply the per-head RMSNorm on q/k.
-        norm_eps: QK-norm epsilon.
-        attention_bias: Whether the q/k/v projections carry bias.
+        embed_dim / num_heads: Model geometry.
+        q_lora_rank: Query bottleneck width (None disables it).
+        kv_lora_rank: KV latent width (512).
+        qk_nope_head_dim / qk_rope_head_dim / v_head_dim: Per-head splits.
+        softmax_scale: Attention score scale.
+        norm_eps: Epsilon of the two MLA bottleneck norms. The reference builds
+            them with the RMSNorm class default and never with the model's
+            ``rms_norm_eps``, so this stays 1e-6 even for checkpoints whose other
+            norms use 1e-5 (Kimi K2.5, GLM-5).
     """
 
     def __init__(
         self,
         embed_dim,
         num_heads,
-        num_kv_heads,
-        head_dim,
-        rotary_dim,
-        use_qk_norm=False,
-        norm_eps=1e-5,
-        attention_bias=False,
+        q_lora_rank,
+        kv_lora_rank,
+        qk_nope_head_dim,
+        qk_rope_head_dim,
+        v_head_dim,
+        softmax_scale,
+        norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.num_kv_heads = num_kv_heads
-        self.head_dim = head_dim
-        self.rotary_dim = rotary_dim
-        self.use_qk_norm = use_qk_norm
+        self.q_lora_rank = q_lora_rank
+        self.kv_lora_rank = kv_lora_rank
+        self.qk_nope_head_dim = qk_nope_head_dim
+        self.qk_rope_head_dim = qk_rope_head_dim
+        self.v_head_dim = v_head_dim
+        self.softmax_scale = softmax_scale
         self.norm_eps = norm_eps
-        self.attention_bias = attention_bias
-        self.num_kv_groups = num_heads // num_kv_heads
-        self.scaling = head_dim**-0.5
-        self.query = layers.Dense(
-            num_heads * head_dim, use_bias=attention_bias, name="query"
+        self.qk_head_dim = qk_nope_head_dim + qk_rope_head_dim
+
+        if q_lora_rank is None:
+            self.query = layers.Dense(
+                num_heads * self.qk_head_dim, use_bias=False, name="query"
+            )
+        else:
+            self.query_a = layers.Dense(q_lora_rank, use_bias=False, name="query_a")
+            self.query_a_norm = Glm4MoeLiteRMSNorm(eps=norm_eps, name="query_a_norm")
+            self.query_b = layers.Dense(
+                num_heads * self.qk_head_dim, use_bias=False, name="query_b"
+            )
+        self.kv_a = layers.Dense(
+            kv_lora_rank + qk_rope_head_dim, use_bias=False, name="kv_a"
         )
-        self.key = layers.Dense(
-            num_kv_heads * head_dim, use_bias=attention_bias, name="key"
-        )
-        self.value = layers.Dense(
-            num_kv_heads * head_dim, use_bias=attention_bias, name="value"
+        self.kv_a_norm = Glm4MoeLiteRMSNorm(eps=norm_eps, name="kv_a_norm")
+        self.kv_b = layers.Dense(
+            num_heads * (qk_nope_head_dim + v_head_dim), use_bias=False, name="kv_b"
         )
         self.output_proj = layers.Dense(embed_dim, use_bias=False, name="output_proj")
-        if use_qk_norm:
-            self.query_norm = Glm4MoeRMSNorm(eps=norm_eps, name="query_norm")
-            self.key_norm = Glm4MoeRMSNorm(eps=norm_eps, name="key_norm")
 
-    def project(self, hidden_states):
+    def project_qkv(self, hidden_states, cos, sin):
         b = ops.shape(hidden_states)[0]
         s = ops.shape(hidden_states)[1]
-        q = ops.reshape(
-            self.query(hidden_states), (b, s, self.num_heads, self.head_dim)
+        if self.q_lora_rank is None:
+            q = self.query(hidden_states)
+        else:
+            q = self.query_b(self.query_a_norm(self.query_a(hidden_states)))
+        q = ops.transpose(
+            ops.reshape(q, (b, s, self.num_heads, self.qk_head_dim)), (0, 2, 1, 3)
         )
-        k = ops.reshape(
-            self.key(hidden_states), (b, s, self.num_kv_heads, self.head_dim)
-        )
-        v = ops.reshape(
-            self.value(hidden_states), (b, s, self.num_kv_heads, self.head_dim)
-        )
-        if self.use_qk_norm:
-            q = self.query_norm(q)
-            k = self.key_norm(k)
-        return (
-            ops.transpose(q, (0, 2, 1, 3)),
-            ops.transpose(k, (0, 2, 1, 3)),
-            ops.transpose(v, (0, 2, 1, 3)),
-        )
+        q_nope = q[..., : self.qk_nope_head_dim]
+        q_rope = q[..., self.qk_nope_head_dim :]
 
-    def attend(self, q, k, v, attention_mask):
-        if self.num_kv_groups > 1:
-            k = ops.repeat(k, self.num_kv_groups, axis=1)
-            v = ops.repeat(v, self.num_kv_groups, axis=1)
-        return fused_attention(q, k, v, self.scaling, attention_mask)
+        compressed = self.kv_a(hidden_states)
+        kv_latent = compressed[..., : self.kv_lora_rank]
+        k_rope = compressed[..., self.kv_lora_rank :][:, None, :, :]  # (B,1,S,rd)
+        kv = self.kv_b(self.kv_a_norm(kv_latent))
+        kv = ops.transpose(
+            ops.reshape(
+                kv, (b, s, self.num_heads, self.qk_nope_head_dim + self.v_head_dim)
+            ),
+            (0, 2, 1, 3),
+        )
+        k_nope = kv[..., : self.qk_nope_head_dim]
+        v = kv[..., self.qk_nope_head_dim :]
 
-    def call(self, hidden_states, cos, sin, attention_mask=None, use_cache=False):
-        b = ops.shape(hidden_states)[0]
-        s = ops.shape(hidden_states)[1]
-        q, k, v = self.project(hidden_states)
         cos_e = ops.expand_dims(cos, axis=1)
         sin_e = ops.expand_dims(sin, axis=1)
-        q = apply_glm_rope(q, cos_e, sin_e, self.rotary_dim)
-        k = apply_glm_rope(k, cos_e, sin_e, self.rotary_dim)
-        new_kv = (k, v) if use_cache else None
-        out = self.attend(q, k, v, attention_mask)
+        q_rope = apply_interleaved_rope(q_rope, cos_e, sin_e)
+        k_rope = apply_interleaved_rope(k_rope, cos_e, sin_e)
+        k_rope = ops.broadcast_to(k_rope, (b, self.num_heads, s, self.qk_rope_head_dim))
+        q = ops.concatenate([q_nope, q_rope], axis=-1)
+        k = ops.concatenate([k_nope, k_rope], axis=-1)
+        return q, k, v
+
+    def attend(self, q, k, v, attention_mask):
+        b = ops.shape(q)[0]
+        s = ops.shape(q)[2]
+        out = fused_attention(q, k, v, self.softmax_scale, attention_mask)
         out = ops.reshape(
-            ops.transpose(out, (0, 2, 1, 3)), (b, s, self.num_heads * self.head_dim)
+            ops.transpose(out, (0, 2, 1, 3)), (b, s, self.num_heads * self.v_head_dim)
         )
-        out = self.output_proj(out)
-        return (out, new_kv) if use_cache else out
+        return self.output_proj(out)
+
+    def call(self, hidden_states, cos, sin, attention_mask=None, use_cache=False):
+        q, k, v = self.project_qkv(hidden_states, cos, sin)
+        out = self.attend(q, k, v, attention_mask)
+        return (out, (k, v)) if use_cache else out
 
     def decode_step(
         self, hidden_states, cos, sin, cache_k, cache_v, write_pos, key_mask
     ):
-        b = ops.shape(hidden_states)[0]
-        q, k, v = self.project(hidden_states)
-        cos_e = ops.expand_dims(cos, axis=1)
-        sin_e = ops.expand_dims(sin, axis=1)
-        q = apply_glm_rope(q, cos_e, sin_e, self.rotary_dim)
-        k = apply_glm_rope(k, cos_e, sin_e, self.rotary_dim)
+        q, k, v = self.project_qkv(hidden_states, cos, sin)
         # rope runs in float32; match the cache dtype before writing
         k = ops.cast(k, cache_k.dtype)
         v = ops.cast(v, cache_v.dtype)
         cache_k = ops.slice_update(cache_k, (0, 0, write_pos, 0), k)
         cache_v = ops.slice_update(cache_v, (0, 0, write_pos, 0), v)
-        out = self.attend(q, cache_k, cache_v, key_mask)
+        out = fused_attention(q, cache_k, cache_v, self.softmax_scale, key_mask)
+        b = ops.shape(q)[0]
         out = ops.reshape(
-            ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.head_dim)
+            ops.transpose(out, (0, 2, 1, 3)), (b, 1, self.num_heads * self.v_head_dim)
         )
         return self.output_proj(out), cache_k, cache_v
 
@@ -371,28 +413,29 @@ class Glm4MoeAttention(layers.Layer):
             {
                 "embed_dim": self.embed_dim,
                 "num_heads": self.num_heads,
-                "num_kv_heads": self.num_kv_heads,
-                "head_dim": self.head_dim,
-                "rotary_dim": self.rotary_dim,
-                "use_qk_norm": self.use_qk_norm,
+                "q_lora_rank": self.q_lora_rank,
+                "kv_lora_rank": self.kv_lora_rank,
+                "qk_nope_head_dim": self.qk_nope_head_dim,
+                "qk_rope_head_dim": self.qk_rope_head_dim,
+                "v_head_dim": self.v_head_dim,
+                "softmax_scale": self.softmax_scale,
                 "norm_eps": self.norm_eps,
-                "attention_bias": self.attention_bias,
             }
         )
         return config
 
 
 @keras.saving.register_keras_serializable(package="kerasformers")
-class Glm4MoeDecoderLayer(layers.Layer):
-    """One GLM-4.5 block: pre-norm attention then pre-norm dense MLP or MoE.
+class Glm4MoeLiteDecoderLayer(layers.Layer):
+    """One DeepSeek-V2 block: pre-norm MLA, then pre-norm dense MLP or MoE.
 
     Args:
-        embed_dim / num_heads / num_kv_heads / head_dim / rotary_dim: Attention.
-        use_qk_norm / attention_bias: Attention options.
+        embed_dim / num_heads + MLA dims: see :class:`Glm4MoeLiteAttention`.
         use_moe: MoE block (True) or dense MLP (first ``first_k_dense`` layers).
         mlp_dim: Dense-MLP hidden width (``intermediate_size``).
         moe_mlp_dim / shared_mlp_dim / num_experts / num_experts_per_tok /
         n_group / topk_group / norm_topk_prob / routed_scaling_factor: MoE shape.
+        softmax_scale: Attention score scale.
         norm_eps: RMSNorm epsilon.
     """
 
@@ -400,30 +443,34 @@ class Glm4MoeDecoderLayer(layers.Layer):
         self,
         embed_dim,
         num_heads,
-        num_kv_heads,
-        head_dim,
-        rotary_dim,
+        q_lora_rank,
+        kv_lora_rank,
+        qk_nope_head_dim,
+        qk_rope_head_dim,
+        v_head_dim,
+        softmax_scale,
         use_moe,
         mlp_dim,
         moe_mlp_dim,
         shared_mlp_dim,
         num_experts,
         num_experts_per_tok,
-        n_group=1,
-        topk_group=1,
+        n_group=8,
+        topk_group=4,
         norm_topk_prob=True,
-        routed_scaling_factor=1.0,
-        use_qk_norm=False,
-        attention_bias=False,
-        norm_eps=1e-5,
+        routed_scaling_factor=2.5,
+        norm_eps=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.num_kv_heads = num_kv_heads
-        self.head_dim = head_dim
-        self.rotary_dim = rotary_dim
+        self.q_lora_rank = q_lora_rank
+        self.kv_lora_rank = kv_lora_rank
+        self.qk_nope_head_dim = qk_nope_head_dim
+        self.qk_rope_head_dim = qk_rope_head_dim
+        self.v_head_dim = v_head_dim
+        self.softmax_scale = softmax_scale
         self.use_moe = use_moe
         self.mlp_dim = mlp_dim
         self.moe_mlp_dim = moe_mlp_dim
@@ -434,27 +481,25 @@ class Glm4MoeDecoderLayer(layers.Layer):
         self.topk_group = topk_group
         self.norm_topk_prob = norm_topk_prob
         self.routed_scaling_factor = routed_scaling_factor
-        self.use_qk_norm = use_qk_norm
-        self.attention_bias = attention_bias
         self.norm_eps = norm_eps
 
-        self.input_layernorm = Glm4MoeRMSNorm(eps=norm_eps, name="input_layernorm")
-        self.attention = Glm4MoeAttention(
+        self.attention_norm = Glm4MoeLiteRMSNorm(eps=norm_eps, name="attention_norm")
+        # norm_eps is deliberately not forwarded: the MLA bottleneck norms keep
+        # the 1e-6 default (see Glm4MoeLiteAttention), unlike the block norms.
+        self.attention = Glm4MoeLiteAttention(
             embed_dim,
             num_heads,
-            num_kv_heads,
-            head_dim,
-            rotary_dim,
-            use_qk_norm=use_qk_norm,
-            norm_eps=norm_eps,
-            attention_bias=attention_bias,
+            q_lora_rank,
+            kv_lora_rank,
+            qk_nope_head_dim,
+            qk_rope_head_dim,
+            v_head_dim,
+            softmax_scale,
             name="attention",
         )
-        self.post_attention_layernorm = Glm4MoeRMSNorm(
-            eps=norm_eps, name="post_attention_layernorm"
-        )
+        self.mlp_norm = Glm4MoeLiteRMSNorm(eps=norm_eps, name="mlp_norm")
         if use_moe:
-            self.mlp = Glm4MoeMoE(
+            self.mlp = Glm4MoeLiteMoE(
                 num_experts,
                 num_experts_per_tok,
                 embed_dim,
@@ -467,12 +512,12 @@ class Glm4MoeDecoderLayer(layers.Layer):
                 name="mlp",
             )
         else:
-            self.mlp = Glm4MoeMLP(embed_dim, mlp_dim, name="mlp")
+            self.mlp = Glm4MoeLiteMLP(embed_dim, mlp_dim, name="mlp")
 
     def call(self, hidden_states, cos, sin, attention_mask=None, use_cache=False):
         residual = hidden_states
         attn_out = self.attention(
-            self.input_layernorm(hidden_states),
+            self.attention_norm(hidden_states),
             cos,
             sin,
             attention_mask=attention_mask,
@@ -483,9 +528,7 @@ class Glm4MoeDecoderLayer(layers.Layer):
             attn_out, new_kv = attn_out
         hidden_states = residual + attn_out
         residual = hidden_states
-        hidden_states = residual + self.mlp(
-            self.post_attention_layernorm(hidden_states)
-        )
+        hidden_states = residual + self.mlp(self.mlp_norm(hidden_states))
         return (hidden_states, new_kv) if use_cache else hidden_states
 
     def decode_step(
@@ -493,7 +536,7 @@ class Glm4MoeDecoderLayer(layers.Layer):
     ):
         residual = hidden_states
         attn_out, cache_k, cache_v = self.attention.decode_step(
-            self.input_layernorm(hidden_states),
+            self.attention_norm(hidden_states),
             cos,
             sin,
             cache_k,
@@ -503,9 +546,7 @@ class Glm4MoeDecoderLayer(layers.Layer):
         )
         hidden_states = residual + attn_out
         residual = hidden_states
-        hidden_states = residual + self.mlp(
-            self.post_attention_layernorm(hidden_states)
-        )
+        hidden_states = residual + self.mlp(self.mlp_norm(hidden_states))
         return hidden_states, cache_k, cache_v
 
     def get_config(self):
@@ -514,9 +555,12 @@ class Glm4MoeDecoderLayer(layers.Layer):
             {
                 "embed_dim": self.embed_dim,
                 "num_heads": self.num_heads,
-                "num_kv_heads": self.num_kv_heads,
-                "head_dim": self.head_dim,
-                "rotary_dim": self.rotary_dim,
+                "q_lora_rank": self.q_lora_rank,
+                "kv_lora_rank": self.kv_lora_rank,
+                "qk_nope_head_dim": self.qk_nope_head_dim,
+                "qk_rope_head_dim": self.qk_rope_head_dim,
+                "v_head_dim": self.v_head_dim,
+                "softmax_scale": self.softmax_scale,
                 "use_moe": self.use_moe,
                 "mlp_dim": self.mlp_dim,
                 "moe_mlp_dim": self.moe_mlp_dim,
@@ -527,8 +571,6 @@ class Glm4MoeDecoderLayer(layers.Layer):
                 "topk_group": self.topk_group,
                 "norm_topk_prob": self.norm_topk_prob,
                 "routed_scaling_factor": self.routed_scaling_factor,
-                "use_qk_norm": self.use_qk_norm,
-                "attention_bias": self.attention_bias,
                 "norm_eps": self.norm_eps,
             }
         )

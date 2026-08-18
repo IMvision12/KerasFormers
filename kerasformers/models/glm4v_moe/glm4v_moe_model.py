@@ -10,7 +10,7 @@ from kerasformers.models.glm4_moe.glm4_moe_layers import (
 )
 from kerasformers.models.glm4v.glm4v_vision_layers import Glm4vVisionModel
 
-from .glm4v_moe_config import GLM4V_MOE_COMMON, GLM4V_MOE_CONFIG, GLM4V_MOE_WEIGHTS_URLS
+from .glm4v_moe_config import Glm4vMoeConfig
 
 MASK_NEG = -1e9
 
@@ -170,8 +170,7 @@ class Glm4vMoeModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "glm4v_moe"
-    BASE_MODEL_CONFIG = GLM4V_MOE_CONFIG
-    BASE_WEIGHT_CONFIG = GLM4V_MOE_WEIGHTS_URLS
+    config_class = Glm4vMoeConfig
 
     def __init__(
         self,
@@ -207,12 +206,12 @@ class Glm4vMoeModel(SubclassedBaseModel):
         temporal_patch_size=2,
         in_channels=3,
         vision_norm_eps=1e-5,
-        image_token_id=GLM4V_MOE_COMMON["image_token_id"],
-        video_token_id=GLM4V_MOE_COMMON["video_token_id"],
-        image_start_token_id=GLM4V_MOE_COMMON["image_start_token_id"],
-        image_end_token_id=GLM4V_MOE_COMMON["image_end_token_id"],
-        video_start_token_id=GLM4V_MOE_COMMON["video_start_token_id"],
-        video_end_token_id=GLM4V_MOE_COMMON["video_end_token_id"],
+        image_token_id=151363,
+        video_token_id=151364,
+        image_start_token_id=151339,
+        image_end_token_id=151340,
+        video_start_token_id=151341,
+        video_end_token_id=151342,
         **kwargs,
     ):
         super().__init__(**kwargs)

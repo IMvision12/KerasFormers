@@ -36,6 +36,7 @@ KF_METADATA_KEYS = frozenset(
         "weights",
         "schema_version",
         "weight_dtype",
+        "weight_dtype_overrides",
         "quantization_config",
         "generate_args",
     }
@@ -121,6 +122,7 @@ def write_kf_config(
     config,
     weights_filename="model.weights.h5",
     weight_dtype=None,
+    weight_dtype_overrides=None,
     quantization_config=None,
     generate_args=None,
 ):
@@ -131,7 +133,17 @@ def write_kf_config(
     (``model_type`` + ``text_config`` + optional ``vision_config`` + glue).
 
     ``weight_dtype`` (e.g. ``"bfloat16"``) records the stored weights' dtype so the
-    loader can rebuild at native precision; ``quantization_config`` (a
+    loader can rebuild at native precision. It is a single value: the build policy
+    the whole model is created under (transformers' ``config.torch_dtype``). When a
+    few tensors are stored at a different precision (e.g. a MoE router's
+    ``e_score_correction_bias`` kept float32 while the rest is bfloat16), pass
+    ``weight_dtype_overrides`` as a ``{name-substring: dtype}`` mapping recording
+    those exceptions (transformers' ``_keep_in_fp32_modules_strict``). It is
+    descriptive metadata that documents the mixed-precision layout of the repo; the
+    variables are actually born at that dtype in model code (``add_weight(dtype=...)``),
+    so the loader does not need to read it to load correctly. Omitted when empty.
+
+    ``quantization_config`` (a
     ``{"quant_method": ...}`` dict, transformers style) records the quant scheme so a
     quantized repo loads without a flag: the loader builds the plain model and runs
     the matching ``KfQuantizer``. Both are omitted when ``None``.
@@ -153,6 +165,11 @@ def write_kf_config(
     }
     if weight_dtype is not None:
         payload["weight_dtype"] = str(weight_dtype)
+    if weight_dtype_overrides:
+        payload["weight_dtype_overrides"] = {
+            str(name): str(dtype)
+            for name, dtype in dict(weight_dtype_overrides).items()
+        }
     if quantization_config is not None:
         payload["quantization_config"] = _jsonable(dict(quantization_config))
     payload.update(model_config_dict(config))

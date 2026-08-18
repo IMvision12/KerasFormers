@@ -3,7 +3,7 @@ from keras import layers, ops
 
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 
-from .glm4_moe_config import GLM4_MOE_CONFIG, GLM4_MOE_WEIGHTS_URLS
+from .glm4_moe_config import Glm4MoeConfig
 from .glm4_moe_layers import Glm4MoeDecoderLayer, Glm4MoeRMSNorm
 
 MASK_NEG = -1e9
@@ -38,8 +38,7 @@ class Glm4MoeModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "glm4_moe"
-    BASE_MODEL_CONFIG = GLM4_MOE_CONFIG
-    BASE_WEIGHT_CONFIG = GLM4_MOE_WEIGHTS_URLS
+    config_class = Glm4MoeConfig
 
     def __init__(
         self,
