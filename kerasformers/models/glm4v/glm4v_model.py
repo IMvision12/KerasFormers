@@ -6,7 +6,7 @@ from keras import layers, ops
 from kerasformers.base import BaseGeneration, SubclassedBaseModel
 from kerasformers.models.glm4.glm4_layers import Glm4DecoderLayer, Glm4RMSNorm
 
-from .glm4v_config import GLM4V_COMMON, GLM4V_CONFIG, GLM4V_WEIGHTS_URLS
+from .glm4v_config import Glm4vConfig
 from .glm4v_vision_layers import Glm4vVisionModel
 
 MASK_NEG = -1e9
@@ -143,8 +143,7 @@ class Glm4vModel(SubclassedBaseModel):
     """
 
     HF_MODEL_TYPE = "glm4v"
-    BASE_MODEL_CONFIG = GLM4V_CONFIG
-    BASE_WEIGHT_CONFIG = GLM4V_WEIGHTS_URLS
+    config_class = Glm4vConfig
 
     def __init__(
         self,
@@ -170,12 +169,12 @@ class Glm4vModel(SubclassedBaseModel):
         temporal_patch_size=2,
         in_channels=3,
         vision_norm_eps=1e-5,
-        image_token_id=GLM4V_COMMON["image_token_id"],
-        video_token_id=GLM4V_COMMON["video_token_id"],
-        image_start_token_id=GLM4V_COMMON["image_start_token_id"],
-        image_end_token_id=GLM4V_COMMON["image_end_token_id"],
-        video_start_token_id=GLM4V_COMMON["video_start_token_id"],
-        video_end_token_id=GLM4V_COMMON["video_end_token_id"],
+        image_token_id=151343,
+        video_token_id=151344,
+        image_start_token_id=151339,
+        image_end_token_id=151340,
+        video_start_token_id=151341,
+        video_end_token_id=151342,
         **kwargs,
     ):
         super().__init__(**kwargs)
