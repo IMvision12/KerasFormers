@@ -44,7 +44,7 @@ dequantized) — used for the checkpoints too large to re-host.
 from kerasformers.models.glm import GlmTextGenerate
 from kerasformers.models.glm4_moe import Glm4MoeTextGenerate
 
-gen = GlmTextGenerate.from_weights("kerasformers/glm-4-9b-chat")    # text
+gen = GlmTextGenerate.from_weights("kerasformers/glm-4-9b-chat")  # text
 gen = Glm4MoeTextGenerate.from_weights("kerasformers/glm-4.5-air")  # text MoE
 # a raw hf: id converts on the fly (e.g. the not-hosted full-size GLM-4.5)
 gen = Glm4MoeTextGenerate.from_weights("hf:zai-org/GLM-4.5")
