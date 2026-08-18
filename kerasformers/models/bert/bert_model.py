@@ -1,10 +1,7 @@
-import warnings
-
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
-from kerasformers.conversion import copy_weights_by_path_suffix
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 
 from .bert_config import BertConfig
 from .bert_layers import (
@@ -16,8 +13,10 @@ from .bert_layers import (
 
 MASK_NEG = -1e9
 
-# All BERT classes (encoder + masked-LM + task heads) share the variant's weights repo,
-# whose kf_config.json declares the canonical BertModel encoder (model.weights.h5).
+# All BERT classes (encoder + masked-LM + task heads) share the variant's weights repo.
+# The single hosted model.weights.h5 is the FULL checkpoint (encoder + pooler + MLM head),
+# saved from BertMaskedLM(add_pooler=True); each class loads its own subset (Keras ignores
+# the weights it does not have). The kf_config.json declares the canonical BertModel.
 BERT_HUB_SIBLINGS = frozenset(
     {
         "BertModel",
@@ -29,47 +28,6 @@ BERT_HUB_SIBLINGS = frozenset(
         "BertMultipleChoice",
     }
 )
-
-
-def _bert_mlm_from_hub_repo(
-    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
-):
-    # The masked-LM weights sit in the same repo under model_mlm.weights.* (the encoder
-    # kf_config declares model.weights.*); build from kf_config, then load that file.
-    from kerasformers.conversion.kf_config import load_kf_config
-
-    model = cls.build_from_hub_repo(repo_id, **kwargs)
-    if load_weights:
-        spec = load_kf_config(repo_id) or {}
-        mlm_weights = spec.get("weights", "model.weights.h5").replace(
-            "model.weights", "model_mlm.weights"
-        )
-        cls.load_weights_from_url(
-            model,
-            f"https://huggingface.co/{repo_id}/resolve/main/{mlm_weights}",
-            skip_mismatch,
-        )
-    return model
-
-
-def _bert_head_from_hub_repo(
-    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
-):
-    # Task heads warm-start: build from the encoder kf_config, then copy the encoder
-    # weights from BertModel's repo; the head layer(s) stay randomly initialized.
-    model = cls.build_from_hub_repo(repo_id, **kwargs)
-    if load_weights:
-        src = BertModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
-        skipped = copy_weights_by_path_suffix(src, model)
-        del src
-        if skipped:
-            warnings.warn(
-                f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are randomly "
-                f"initialized: the loaded checkpoint has no weights for them. "
-                f"Fine-tune before use.",
-                stacklevel=2,
-            )
-    return model
 
 
 def bert_encoder_layer(
@@ -240,6 +198,9 @@ class BertModel(FunctionalBaseModel):
     HF_MODEL_TYPE = "bert"
     config_class = BertConfig
     HUB_REPO_SIBLINGS = BERT_HUB_SIBLINGS
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -386,7 +347,6 @@ class BertMaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "bert"
     config_class = BertConfig
     HUB_REPO_SIBLINGS = BERT_HUB_SIBLINGS
-    from_hub_repo = classmethod(_bert_mlm_from_hub_repo)
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -397,6 +357,10 @@ class BertMaskedLM(FunctionalBaseModel):
     @classmethod
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
+
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -412,10 +376,11 @@ class BertMaskedLM(FunctionalBaseModel):
         pad_token_id=0,
         dropout=0.0,
         attention_dropout=0.0,
+        add_pooler=False,
         name="BertMaskedLM",
         **kwargs,
     ):
-        for k in ("model", "hf_id", "url", "mlm_url", "num_classes", "add_pooler"):
+        for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
             kwargs.pop(k, None)
         norm_eps = kwargs.pop("layer_norm_eps", norm_eps)
 
@@ -432,7 +397,7 @@ class BertMaskedLM(FunctionalBaseModel):
             pad_token_id=pad_token_id,
             dropout=dropout,
             attention_dropout=attention_dropout,
-            add_pooler=False,
+            add_pooler=add_pooler,
             name=f"{name}_backbone",
         )
 
@@ -444,7 +409,19 @@ class BertMaskedLM(FunctionalBaseModel):
         )
         logits = layers.Dense(vocab_size, name="mlm_decoder")(x)
 
-        super().__init__(inputs=backbone.input, outputs=logits, name=name, **kwargs)
+        # add_pooler=True also carries the pretrained [CLS] pooler, so a single hosted
+        # checkpoint (saved from here) serves BertModel (encoder + pooler) and
+        # BertMaskedLM (encoder + MLM head) alike -- each class loads its own subset.
+        # Default False keeps the plain fill-mask output; loaded models use this default.
+        if add_pooler:
+            outputs = {
+                "logits": logits,
+                "pooler_output": backbone.output["pooler_output"],
+            }
+        else:
+            outputs = logits
+
+        super().__init__(inputs=backbone.input, outputs=outputs, name=name, **kwargs)
 
         self.vocab_size = vocab_size
         self.embed_dim = embed_dim
@@ -458,6 +435,7 @@ class BertMaskedLM(FunctionalBaseModel):
         self.pad_token_id = pad_token_id
         self.dropout = dropout
         self.attention_dropout = attention_dropout
+        self.add_pooler = add_pooler
 
     def get_config(self):
         config = super().get_config()
@@ -475,6 +453,7 @@ class BertMaskedLM(FunctionalBaseModel):
                 "pad_token_id": self.pad_token_id,
                 "dropout": self.dropout,
                 "attention_dropout": self.attention_dropout,
+                "add_pooler": self.add_pooler,
                 "name": self.name,
             }
         )
@@ -532,7 +511,9 @@ class BertSequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    from_hub_repo = classmethod(_bert_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -673,7 +654,9 @@ class BertTokenClassify(FunctionalBaseModel):
         )
         return config
 
-    from_hub_repo = classmethod(_bert_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -805,7 +788,9 @@ class BertNextSentencePredict(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
 
-    from_hub_repo = classmethod(_bert_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -925,7 +910,9 @@ class BertQnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
 
-    from_hub_repo = classmethod(_bert_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,
@@ -1047,7 +1034,9 @@ class BertMultipleChoice(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return BertModel.config_from_hf(hf_config)
 
-    from_hub_repo = classmethod(_bert_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "BertMaskedLM", build_kwargs={"add_pooler": True}
+    )
 
     def __init__(
         self,

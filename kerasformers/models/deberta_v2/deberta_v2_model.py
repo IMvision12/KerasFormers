@@ -1,10 +1,7 @@
-import warnings
-
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
-from kerasformers.conversion import copy_weights_by_path_suffix
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 
 from .deberta_v2_config import (
     DebertaV2Config,
@@ -31,47 +28,6 @@ DEBERTA_V2_HUB_SIBLINGS = frozenset(
         "DebertaV2MultipleChoice",
     }
 )
-
-
-def _deberta_v2_mlm_from_hub_repo(
-    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
-):
-    # Masked-LM weights sit in the same repo under model_mlm.weights.* (the encoder
-    # kf_config declares model.weights.*); build from kf_config, then load that file.
-    from kerasformers.conversion.kf_config import load_kf_config
-
-    model = cls.build_from_hub_repo(repo_id, **kwargs)
-    if load_weights:
-        spec = load_kf_config(repo_id) or {}
-        mlm_weights = spec.get("weights", "model.weights.h5").replace(
-            "model.weights", "model_mlm.weights"
-        )
-        cls.load_weights_from_url(
-            model,
-            f"https://huggingface.co/{repo_id}/resolve/main/{mlm_weights}",
-            skip_mismatch,
-        )
-    return model
-
-
-def _deberta_v2_head_from_hub_repo(
-    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
-):
-    # Task heads warm-start: build from the encoder kf_config, then copy the encoder
-    # weights from DebertaV2Model's repo; the head layer(s) stay randomly initialized.
-    model = cls.build_from_hub_repo(repo_id, **kwargs)
-    if load_weights:
-        src = DebertaV2Model.from_weights(repo_id, skip_mismatch=skip_mismatch)
-        skipped = copy_weights_by_path_suffix(src, model)
-        del src
-        if skipped:
-            warnings.warn(
-                f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are randomly "
-                f"initialized: the loaded checkpoint has no weights for them. "
-                f"Fine-tune before use.",
-                stacklevel=2,
-            )
-    return model
 
 
 def deberta_v2_encoder_layer(
@@ -253,6 +209,7 @@ class DebertaV2Model(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV2Config
     HUB_REPO_SIBLINGS = DEBERTA_V2_HUB_SIBLINGS
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -432,7 +389,7 @@ class DebertaV2MaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta-v2"
     config_class = DebertaV2Config
     HUB_REPO_SIBLINGS = DEBERTA_V2_HUB_SIBLINGS
-    from_hub_repo = classmethod(_deberta_v2_mlm_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -538,7 +495,7 @@ class DebertaV2SequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    from_hub_repo = classmethod(_deberta_v2_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(
         self,
@@ -653,7 +610,7 @@ class DebertaV2TokenClassify(FunctionalBaseModel):
         )
         return config
 
-    from_hub_repo = classmethod(_deberta_v2_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(
         self,
@@ -754,7 +711,7 @@ class DebertaV2QnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    from_hub_repo = classmethod(_deberta_v2_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(self, name="DebertaV2QnA", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):
@@ -838,7 +795,7 @@ class DebertaV2MultipleChoice(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaV2Model.config_from_hf(hf_config)
 
-    from_hub_repo = classmethod(_deberta_v2_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaV2MaskedLM")
 
     def __init__(
         self,

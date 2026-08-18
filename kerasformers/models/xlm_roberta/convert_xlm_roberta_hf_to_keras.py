@@ -53,6 +53,9 @@ if __name__ == "__main__":
     from transformers import XLMRobertaForMaskedLM
     from transformers import XLMRobertaModel as HFXLMRobertaModel
 
+    from kerasformers.conversion.weight_transfer_util import (
+        copy_weights_by_path_suffix,
+    )
     from kerasformers.models.xlm_roberta import XLMRobertaMaskedLM, XLMRobertaModel
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -86,54 +89,88 @@ if __name__ == "__main__":
             "attention_mask": torch.from_numpy(mask),
         }
 
-        hf_model = HFXLMRobertaModel.from_pretrained(hf_id, token=HF_TOKEN).eval()
-        keras_model = XLMRobertaModel(**arch)
-        transfer_xlm_roberta_weights(keras_model, dict(hf_model.state_dict()))
+        hf_model = HFXLMRobertaModel.from_pretrained(
+            hf_id, token=HF_TOKEN
+        ).eval()  # + pooler
+        hf_mlm = XLMRobertaForMaskedLM.from_pretrained(  # + MLM head
+            hf_id, token=HF_TOKEN
+        ).eval()
+
+        # One superset checkpoint = encoder + pooler + MLM head. HF splits these across
+        # XLMRobertaModel (pooler) and XLMRobertaForMaskedLM (MLM head), so merge both state
+        # dicts. The tied MLM decoder kernel is stripped from safetensors -- drop it so the
+        # converter reconstructs it from the word embeddings (mirrors the `hf:` path). Each
+        # kerasformers class then loads its own subset out of this single file.
+        merged = {**dict(hf_mlm.state_dict()), **dict(hf_model.state_dict())}
+        merged.pop("lm_head.decoder.weight", None)
+        keras_full = XLMRobertaMaskedLM(**arch, add_pooler=True)
+        transfer_xlm_roberta_weights(keras_full, merged)
+
         with torch.no_grad():
             hf_out = hf_model(**pt)
-        k_out = keras_model(k_inputs, training=False)
-        seq = k_out["last_hidden_state"].detach().cpu().numpy()
-        pool = k_out["pooler_output"].detach().cpu().numpy()
-        d_seq = float(
-            np.abs(hf_out.last_hidden_state.detach().cpu().numpy() - seq).max()
+            hf_logits = hf_mlm(**pt).logits
+        full_out = keras_full(k_inputs, training=False)
+        d_mlm = float(
+            np.abs(
+                hf_logits.detach().cpu().numpy()
+                - full_out["logits"].detach().cpu().numpy()
+            ).max()
         )
-        d_pool = float(np.abs(hf_out.pooler_output.detach().cpu().numpy() - pool).max())
-        print(
-            f"  last_hidden_state max diff: {d_seq:.3e}   pooler max diff: {d_pool:.3e}"
+        d_pool = float(
+            np.abs(
+                hf_out.pooler_output.detach().cpu().numpy()
+                - full_out["pooler_output"].detach().cpu().numpy()
+            ).max()
         )
-        if max(d_seq, d_pool) > 1e-3:
-            raise ValueError(f"{variant}: XLMRobertaModel parity failed")
+        print(f"  full checkpoint   mlm diff: {d_mlm:.3e}   pooler diff: {d_pool:.3e}")
+        if max(d_mlm, d_pool) > 1e-3:
+            raise ValueError(f"{variant}: full-checkpoint parity failed")
+
         total_gb = (
-            sum(int(np.prod(w.shape)) for w in keras_model.weights) * 4 / (1024**3)
+            sum(int(np.prod(w.shape)) for w in keras_full.weights) * 4 / (1024**3)
         )
         if total_gb > SHARD_THRESHOLD_GB:
             out_path = f"{variant}.weights.json"
-            keras_model.save_weights(out_path, max_shard_size=1.7)
+            keras_full.save_weights(out_path, max_shard_size=1.7)
         else:
             out_path = f"{variant}.weights.h5"
-            keras_model.save_weights(out_path)
-        print(f"  Saved -> {out_path} (~{total_gb:.2f} GiB)")
+            keras_full.save_weights(out_path)
+        print(f"  Saved single file -> {out_path} (~{total_gb:.2f} GiB)")
 
-        hf_mlm = XLMRobertaForMaskedLM.from_pretrained(hf_id, token=HF_TOKEN).eval()
-        keras_mlm = XLMRobertaMaskedLM(**arch)
-        transfer_xlm_roberta_weights(keras_mlm, dict(hf_mlm.state_dict()))
-        with torch.no_grad():
-            hf_logits = hf_mlm(**pt).logits
-        k_logits = keras_mlm(k_inputs, training=False)
-        mlm = k_logits.detach().cpu().numpy()
-        d_mlm = float(np.abs(hf_logits.detach().cpu().numpy() - mlm).max())
-        print(f"  mlm logits max diff: {d_mlm:.3e}")
-        if d_mlm > 1e-3:
-            raise ValueError(f"{variant}: XLMRobertaMaskedLM parity failed")
-        total_gb = sum(int(np.prod(w.shape)) for w in keras_mlm.weights) * 4 / (1024**3)
-        if total_gb > SHARD_THRESHOLD_GB:
-            out_path = f"{variant}_mlm.weights.json"
-            keras_mlm.save_weights(out_path, max_shard_size=1.7)
-        else:
-            out_path = f"{variant}_mlm.weights.h5"
-            keras_mlm.save_weights(out_path)
-        print(f"  Saved -> {out_path} (~{total_gb:.2f} GiB)")
+        # Verify the ONE file serves every view: reload into a same-class reference, copy
+        # each subset out by semantic path, and re-check parity end to end.
+        ref = XLMRobertaMaskedLM(**arch, add_pooler=True)
+        ref.load_weights(out_path)
+        rm = XLMRobertaModel(**arch)
+        copy_weights_by_path_suffix(ref, rm)
+        rm_out = rm(k_inputs, training=False)
+        d_seq = float(
+            np.abs(
+                hf_out.last_hidden_state.detach().cpu().numpy()
+                - rm_out["last_hidden_state"].detach().cpu().numpy()
+            ).max()
+        )
+        d_rmpool = float(
+            np.abs(
+                hf_out.pooler_output.detach().cpu().numpy()
+                - rm_out["pooler_output"].detach().cpu().numpy()
+            ).max()
+        )
+        mlm2 = XLMRobertaMaskedLM(**arch)
+        copy_weights_by_path_suffix(ref, mlm2)
+        d_mlm2 = float(
+            np.abs(
+                hf_logits.detach().cpu().numpy()
+                - mlm2(k_inputs, training=False).detach().cpu().numpy()
+            ).max()
+        )
+        print(
+            f"  reload   XLMRobertaModel seq: {d_seq:.3e}  pooler: {d_rmpool:.3e}  |  "
+            f"XLMRobertaMaskedLM mlm: {d_mlm2:.3e}"
+        )
+        if max(d_seq, d_rmpool, d_mlm2) > 1e-3:
+            raise ValueError(f"{variant}: single-file reload parity failed")
 
-        del hf_model, hf_mlm, keras_model, keras_mlm
+        del hf_model, hf_mlm, keras_full, ref, rm, mlm2
         keras.backend.clear_session()
         gc.collect()

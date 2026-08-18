@@ -52,11 +52,13 @@ class BaseGeneration:
             f"{type(self).__name__} must implement call_with_cache()."
         )
 
-    # Repos whose ``kf_config.json`` declares one of these classes are loaded by building
-    # that (fuller, e.g. multimodal) model and copying THIS head's backbone weights out of
-    # it, ignoring the rest (e.g. a text head reading a vision-language checkpoint: the
-    # vision / audio weights become unused keys). Maps a declared class name -> the module
-    # path it lives in.
+    # LEGACY spelling of a match="path" CheckpointSource: repos whose ``kf_config.json``
+    # declares one of these classes are loaded by building that (fuller, e.g. multimodal)
+    # model and copying THIS head's backbone weights out of it, ignoring the rest (e.g. a
+    # text head reading a vision-language checkpoint: the vision / audio weights become
+    # unused keys). Maps a declared class name -> the module path it lives in. Prefer
+    # ``CHECKPOINT_SOURCE = CheckpointSource(name, module=..., match="path")``; both are
+    # normalized by ``WeightLoadingMixin._normalized_checkpoint_source``.
     FULL_CHECKPOINT_SOURCES = {}
 
     @classmethod
@@ -345,8 +347,8 @@ class TextOnlyGeneration:
     prefill inputs are dropped, so ``.generate()`` takes just token ids). Set
     ``config_class`` to the text sub-config: a multimodal checkpoint then loads as
     text-only, its vision / audio config simply ignored. A head may combine this mixin
-    with :attr:`BaseGeneration.FULL_CHECKPOINT_SOURCES` when the family ships no separate
-    text-only repo (Gemma 3n): the mixin keeps the build text-only, the source map extracts
+    with a ``match="path"`` :attr:`CHECKPOINT_SOURCE` when the family ships no separate
+    text-only repo (Gemma 3n): the mixin keeps the build text-only, the source extracts
     the text backbone out of the multimodal checkpoint. Families whose text and multimodal
     decoders truly differ (M-RoPE VLMs like Qwen-VL) instead give the text head its own
     distinct backbone.

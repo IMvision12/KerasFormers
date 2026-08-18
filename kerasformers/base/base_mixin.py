@@ -1,8 +1,12 @@
 import contextlib
+import importlib
 import inspect
 import json
 import os
+import sys
 import urllib.request
+import warnings
+from typing import NamedTuple, Optional
 
 import keras
 from huggingface_hub import hf_hub_download
@@ -17,6 +21,34 @@ from kerasformers.conversion.weight_transfer_util import (
 )
 
 _HF_PREFIX = "hf:"
+
+
+class CheckpointSource(NamedTuple):
+    """Declares that this class loads its pretrained weights out of a DIFFERENT (bigger)
+    class's hosted checkpoint, instead of reading the repo's weights file directly.
+
+    One mechanism serves two families (see :meth:`WeightLoadingMixin.\
+_load_from_checkpoint_source`):
+
+    * encoder families (BERT / RoBERTa / DeBERTa): the hosted file is a SUPERSET
+      (``*MaskedLM`` + pooler); the encoder and task heads copy their subset out by
+      counter-stripped path suffix (``match="suffix"``). The superset class lives in the
+      same module unless ``module`` says otherwise; ``build_kwargs`` build it as the full
+      reference (e.g. ``{"add_pooler": True}``).
+    * multimodal families (VLMs): the hosted file is the full ``*ConditionalGenerate``
+      (declared in its ``kf_config.json``); a text head copies its backbone out by full
+      post-root path (``match="path"``), dropping the vision / audio towers. ``module`` is
+      the full class's import path; the source fires only when a repo declares that class.
+
+    ``match`` picks the copy strategy (the two are NOT interchangeable: encoders collide on
+    bare suffixes so they need the short counter-stripped key; VLM decoders repeat suffixes
+    across layers so they need the full path).
+    """
+
+    source: str
+    module: Optional[str] = None
+    build_kwargs: Optional[dict] = None
+    match: str = "suffix"
 
 
 def warn_skipped(skipped):
@@ -177,6 +209,25 @@ class WeightLoadingMixin:
     # override to ``"bfloat16"`` so they load at native ~2 bytes/param instead of an
     # fp32 upcast. Pass ``load_dtype=...`` to override per call.
     default_load_dtype = "float32"
+
+    # This class loads its weights out of a DIFFERENT (bigger) class's hosted checkpoint,
+    # instead of reading the repo's weights file directly. Set a :class:`CheckpointSource`:
+    #
+    #     CHECKPOINT_SOURCE = CheckpointSource("BertMaskedLM", build_kwargs={"add_pooler": True})
+    #     CHECKPOINT_SOURCE = CheckpointSource("DebertaV3Model")  # source == cls -> direct load
+    #     CHECKPOINT_SOURCE = CheckpointSource(                    # VLM text head
+    #         "Qwen3VLConditionalGenerate", module="kerasformers.models.qwen3_vl.qwen3_vl_model",
+    #         match="path")
+    #
+    # ``from_weights`` builds the source, loads the hosted file into it, and copies THIS
+    # class's subset out (by counter-stripped suffix for encoders, by full path for VLM text
+    # heads). ``None`` = the normal single-class path. See :meth:`_load_from_checkpoint_source`.
+    #
+    # Two legacy attrs are still recognized and normalized to a CheckpointSource:
+    # ``SHARED_CHECKPOINT = (name, build_kwargs)`` (encoder superset) and
+    # ``FULL_CHECKPOINT_SOURCES = {declared_full_class: module}`` (VLM text head).
+    CHECKPOINT_SOURCE = None
+    SHARED_CHECKPOINT = None  # legacy alias for CHECKPOINT_SOURCE (encoder superset)
 
     @classmethod
     def from_weights(
@@ -625,6 +676,100 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         return model
 
     @classmethod
+    def _normalized_checkpoint_source(cls, declared):
+        """Resolve this class's checkpoint source to a :class:`CheckpointSource`, or ``None``.
+
+        Prefers the ``CHECKPOINT_SOURCE`` attr; falls back to the legacy ``SHARED_CHECKPOINT``
+        (encoder superset) and ``FULL_CHECKPOINT_SOURCES`` (VLM full model, keyed by the repo's
+        declared ``model_class``) spellings, so old declarations keep working.
+        """
+        cs = getattr(cls, "CHECKPOINT_SOURCE", None)
+        if cs is not None:
+            return cs
+        shared = getattr(cls, "SHARED_CHECKPOINT", None)
+        if shared is not None:
+            name, build_kwargs = shared
+            return CheckpointSource(name, None, build_kwargs, "suffix")
+        full = getattr(cls, "FULL_CHECKPOINT_SOURCES", None) or {}
+        if declared in full:
+            return CheckpointSource(declared, full[declared], None, "path")
+        return None
+
+    @classmethod
+    def _checkpoint_source_for(cls, declared, match):
+        """The :class:`CheckpointSource` to apply for this load, or ``None``.
+
+        ``match`` selects the family so the dispatch keeps its ordering: a ``"path"`` (VLM)
+        source is resolved BEFORE the sibling guard and fires only when the repo's kf_config
+        declares the full source class (and it is not this class); a ``"suffix"`` (encoder)
+        source is resolved AFTER the guard and is unconditional.
+        """
+        cs = cls._normalized_checkpoint_source(declared)
+        if cs is None or cs.match != match:
+            return None
+        if cs.match == "path" and (declared != cs.source or declared == cls.__name__):
+            return None
+        return cs
+
+    @classmethod
+    def _load_from_checkpoint_source(
+        cls, repo_id, cs, load_weights=True, skip_mismatch=False, **kwargs
+    ):
+        """Load THIS class out of a bigger sibling's hosted checkpoint (see
+        :class:`CheckpointSource`).
+
+        ``match="path"``: build the full model and copy this head's backbone out of it (a VLM
+        text head reading a multimodal checkpoint; the vision / audio weights go unused).
+
+        ``match="suffix"``: the family ships one SUPERSET file (encoder + masked-LM + task
+        heads). Keras' ``.weights.h5`` maps weights by structural index, so a direct
+        cross-class load misplaces them; instead the superset is loaded into a reference of
+        its OWN class (an exact structural match) and this class's weights are copied out by
+        counter-stripped path suffix. When this class *is* the superset and builds identically
+        (no reference kwargs), the file loads directly.
+        """
+        if cs.match == "path":
+            full_cls = getattr(importlib.import_module(cs.module), cs.source)
+            return cls._load_backbone_from_full(
+                full_cls, repo_id, load_weights=load_weights, **kwargs
+            )
+
+        from kerasformers.conversion import copy_weights_by_path_suffix
+
+        model = cls.build_from_hub_repo(repo_id, **kwargs)
+        if not load_weights:
+            return model
+        if hasattr(model, "build_for_transfer") and not model.built:
+            model.build_for_transfer()
+
+        url = f"https://huggingface.co/{repo_id}"
+        ref_name = cs.source
+        ref_kwargs = cs.build_kwargs or {}
+        if cls.__name__ == ref_name and not ref_kwargs:
+            cls.load_weights_from_url(model, url, skip_mismatch)
+            return model
+
+        ref_module = (
+            importlib.import_module(cs.module)
+            if cs.module
+            else sys.modules[cls.__module__]
+        )
+        ref_cls = getattr(ref_module, ref_name)
+        ref = ref_cls.build_from_hub_repo(repo_id, **ref_kwargs)
+        if hasattr(ref, "build_for_transfer") and not ref.built:
+            ref.build_for_transfer()
+        ref_cls.load_weights_from_url(ref, url, skip_mismatch)
+        skipped = copy_weights_by_path_suffix(ref, model)
+        del ref
+        if skipped:
+            warnings.warn(
+                f"{cls.__name__}: [{', '.join(skipped)}] left randomly initialized "
+                f"(the checkpoint has no weights for them). Fine-tune before use.",
+                stacklevel=2,
+            )
+        return model
+
+    @classmethod
     def from_hub_repo(cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs):
         """Build + load a model from a Hub repo id carrying ``kf_config.json``.
 
@@ -644,18 +789,20 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
         repo_id = repo_id.rstrip("/")
         variant = repo_id.rsplit("/", 1)[-1]
         spec = load_kf_config(repo_id)
+        declared = spec.get("model_class") if spec is not None else None
         if spec is not None:
-            declared = spec.get("model_class")
             # A head can load its backbone out of a fuller (e.g. multimodal) sibling
-            # checkpoint: build that model and copy this head's weights in, dropping the
-            # rest (e.g. a text head loading the language model out of a VLM checkpoint).
-            sources = getattr(cls, "FULL_CHECKPOINT_SOURCES", None)
-            if sources and declared in sources and declared != cls.__name__:
-                import importlib
-
-                full_cls = getattr(importlib.import_module(sources[declared]), declared)
-                return cls._load_backbone_from_full(
-                    full_cls, repo_id, load_weights=load_weights, **kwargs
+            # checkpoint whose kf_config declares that full class: build it and copy this
+            # head's weights out, dropping the rest (a text head reading a VLM checkpoint).
+            # Checked before the sibling guard, since the head does not "accept" that class.
+            cs = cls._checkpoint_source_for(declared, "path")
+            if cs is not None:
+                return cls._load_from_checkpoint_source(
+                    repo_id,
+                    cs,
+                    load_weights=load_weights,
+                    skip_mismatch=skip_mismatch,
+                    **kwargs,
                 )
             if (
                 declared
@@ -667,6 +814,19 @@ download_weights`: a Hugging Face repo is fetched through the HF cache
                     f"'{declared}', but {cls.__name__}.from_weights() was called. "
                     f"Load it with {declared}.from_weights('{repo_id}')."
                 )
+
+        # A family sharing one superset checkpoint (encoder + masked-LM + task heads) loads
+        # this class's weights out of that checkpoint by path suffix -- so the whole family is
+        # one hosted file. (Runs after the sibling guard above so cross-family loads raise.)
+        cs = cls._checkpoint_source_for(declared, "suffix")
+        if cs is not None:
+            return cls._load_from_checkpoint_source(
+                repo_id,
+                cs,
+                load_weights=load_weights,
+                skip_mismatch=skip_mismatch,
+                **kwargs,
+            )
 
         config = cls._config_from_kf_spec(spec, variant)
         config.update(kwargs)

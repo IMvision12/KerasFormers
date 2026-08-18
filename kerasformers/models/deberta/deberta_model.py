@@ -1,10 +1,7 @@
-import warnings
-
 import keras
 from keras import layers, ops
 
-from kerasformers.base import FunctionalBaseModel
-from kerasformers.conversion import copy_weights_by_path_suffix
+from kerasformers.base import CheckpointSource, FunctionalBaseModel
 
 from .deberta_config import (
     DebertaConfig,
@@ -26,47 +23,6 @@ DEBERTA_HUB_SIBLINGS = frozenset(
         "DebertaQnA",
     }
 )
-
-
-def _deberta_mlm_from_hub_repo(
-    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
-):
-    # Masked-LM weights sit in the same repo under model_mlm.weights.* (the encoder
-    # kf_config declares model.weights.*); build from kf_config, then load that file.
-    from kerasformers.conversion.kf_config import load_kf_config
-
-    model = cls.build_from_hub_repo(repo_id, **kwargs)
-    if load_weights:
-        spec = load_kf_config(repo_id) or {}
-        mlm_weights = spec.get("weights", "model.weights.h5").replace(
-            "model.weights", "model_mlm.weights"
-        )
-        cls.load_weights_from_url(
-            model,
-            f"https://huggingface.co/{repo_id}/resolve/main/{mlm_weights}",
-            skip_mismatch,
-        )
-    return model
-
-
-def _deberta_head_from_hub_repo(
-    cls, repo_id, load_weights=True, skip_mismatch=False, **kwargs
-):
-    # Task heads warm-start: build from the encoder kf_config, then copy the encoder
-    # weights from DebertaModel's repo; the head layer(s) stay randomly initialized.
-    model = cls.build_from_hub_repo(repo_id, **kwargs)
-    if load_weights:
-        src = DebertaModel.from_weights(repo_id, skip_mismatch=skip_mismatch)
-        skipped = copy_weights_by_path_suffix(src, model)
-        del src
-        if skipped:
-            warnings.warn(
-                f"{cls.__name__}: task head(s) [{', '.join(skipped)}] are randomly "
-                f"initialized: the loaded checkpoint has no weights for them. "
-                f"Fine-tune before use.",
-                stacklevel=2,
-            )
-    return model
 
 
 def deberta_encoder_layer(
@@ -231,6 +187,7 @@ class DebertaModel(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta"
     config_class = DebertaConfig
     HUB_REPO_SIBLINGS = DEBERTA_HUB_SIBLINGS
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -384,7 +341,7 @@ class DebertaMaskedLM(FunctionalBaseModel):
     HF_MODEL_TYPE = "deberta"
     config_class = DebertaConfig
     HUB_REPO_SIBLINGS = DEBERTA_HUB_SIBLINGS
-    from_hub_repo = classmethod(_deberta_mlm_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     @classmethod
     def transfer_from_hf(cls, keras_model, state_dict):
@@ -485,7 +442,7 @@ class DebertaSequenceClassify(FunctionalBaseModel):
         )
         return config
 
-    from_hub_repo = classmethod(_deberta_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     def __init__(
         self,
@@ -595,7 +552,7 @@ class DebertaTokenClassify(FunctionalBaseModel):
         )
         return config
 
-    from_hub_repo = classmethod(_deberta_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     def __init__(
         self,
@@ -691,7 +648,7 @@ class DebertaQnA(FunctionalBaseModel):
     def config_from_hf(cls, hf_config):
         return DebertaModel.config_from_hf(hf_config)
 
-    from_hub_repo = classmethod(_deberta_head_from_hub_repo)
+    CHECKPOINT_SOURCE = CheckpointSource("DebertaMaskedLM")
 
     def __init__(self, name="DebertaQnA", **kwargs):
         for k in ("model", "hf_id", "url", "mlm_url", "num_classes"):

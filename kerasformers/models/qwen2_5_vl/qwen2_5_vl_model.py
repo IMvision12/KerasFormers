@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops
 
-from kerasformers.base import BaseGeneration
+from kerasformers.base import BaseGeneration, CheckpointSource
 from kerasformers.models.qwen2_vl.qwen2_vl_model import (
     Qwen2VLModel,
     vision_rotary_cos_sin,
@@ -720,16 +720,18 @@ class Qwen2_5VLTextGenerate(Qwen2_5VLConditionalGenerate):
     ``.generate()`` takes just token ids. Loads just the text backbone of a Qwen2.5-VL
     checkpoint: the target-driven ``hf:`` transfer copies only the language-model weights,
     and a kerasformers checkpoint declaring ``Qwen2_5VLConditionalGenerate`` is read via
-    :attr:`FULL_CHECKPOINT_SOURCES`.
+    :attr:`CHECKPOINT_SOURCE`.
 
         gen = Qwen2_5VLTextGenerate.from_weights("hf:Qwen/Qwen2.5-VL-3B-Instruct")
         ids = gen.generate(tokenizer(messages)["input_ids"])
     """
 
     config_class = Qwen2_5VLTextConfig
-    FULL_CHECKPOINT_SOURCES = {
-        "Qwen2_5VLConditionalGenerate": "kerasformers.models.qwen2_5_vl.qwen2_5_vl_model"
-    }
+    CHECKPOINT_SOURCE = CheckpointSource(
+        "Qwen2_5VLConditionalGenerate",
+        module="kerasformers.models.qwen2_5_vl.qwen2_5_vl_model",
+        match="path",
+    )
 
     def __init__(self, *args, **kwargs):
         kwargs["build_vision"] = False
