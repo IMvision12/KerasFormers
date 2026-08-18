@@ -1,13 +1,12 @@
 # GLM-4.5V (GLM-4V MoE)
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + a sharded <code>model.weights.json</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>, or convert an original
+checkpoint on the fly with <code>from_weights("hf:zai-org/GLM-4.5V")</code>. See
+<a href="../loading_weights/">Loading Weights</a>.
 </div>
 
 The Mixture-of-Experts GLM-4V, ported to pure Keras 3. It pairs the GLM-4V vision
@@ -16,6 +15,13 @@ node-limited routing.
 
 Memory is governed by **total** parameters, not active ones: every expert stays
 resident.
+
+Like the upstream checkpoints, the weights are stored **bfloat16** except the MoE
+router correction bias (`e_score_correction_bias`, one per MoE layer), kept in
+**float32** so bf16 rounding cannot flip the group / expert top-k selection. This
+mirrors transformers' `_keep_in_fp32_modules_strict`; the hosted `kf_config.json`
+records it as `weight_dtype: "bfloat16"` + `weight_dtype_overrides:
+{"e_score_correction_bias": "float32"}`.
 
 Links:
 
@@ -26,11 +32,16 @@ See also [glm4v.md](glm4v.md), [glm4_moe.md](glm4_moe.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")` (or convert the
+upstream checkpoint on the fly with `from_weights("hf:<upstream>")`).
 
-| Variant | Hub |
-|---|---|
-| `glm-4.5v` | [`zai-org/GLM-4.5V`](https://huggingface.co/zai-org/GLM-4.5V) |
+| Variant | Hosted | Upstream |
+|---|---|---|
+| `glm-4.5v` | `kerasformers/glm-4.5v` | [`zai-org/GLM-4.5V`](https://huggingface.co/zai-org/GLM-4.5V) |
+| `glm-4.6v` | `kerasformers/glm-4.6v` | [`zai-org/GLM-4.6V`](https://huggingface.co/zai-org/GLM-4.6V) |
+
+Both are ~108B MoE (`glm4v_moe`) VLMs: the GLM-4V vision tower on a GLM-4.5 MoE
+decoder. GLM-4.6V is the newer checkpoint.
 
 ## API
 
@@ -157,8 +168,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.glm4v_moe import Glm4vMoeConditionalGenerate, Glm4vMoeProcessor
 
-model = Glm4vMoeConditionalGenerate.from_weights("glm-4.5v")
-processor = Glm4vMoeProcessor.from_weights("glm-4.5v")
+model = Glm4vMoeConditionalGenerate.from_weights("kerasformers/glm-4.5v")
+processor = Glm4vMoeProcessor.from_weights("kerasformers/glm-4.5v")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -243,7 +254,7 @@ have rendered yourself (or go through the processor above).
 ```python
 from kerasformers.models.glm4v_moe import Glm4vMoeTokenizer
 
-tokenizer = Glm4vMoeTokenizer.from_weights("glm-4.5v")
+tokenizer = Glm4vMoeTokenizer.from_weights("kerasformers/glm-4.5v")
 inputs = tokenizer("Who wrote Dune?")
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(tokenizer.decode(outputs[0]))
@@ -256,6 +267,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Glm4vMoeConditionalGenerate.from_weights(
-    "glm-4.5v", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/glm-4.5v", quantization="int8", load_dtype="bfloat16"
 )
 ```

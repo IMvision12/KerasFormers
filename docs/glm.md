@@ -1,13 +1,12 @@
 # GLM (text & vision-language)
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> most GLM families are hosted as preconverted Keras weights under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a> (each repo
+carries <code>kf_config.json</code> + the <code>.weights.h5</code>) — load with
+<code>from_weights("kerasformers/&lt;variant&gt;")</code>. The largest checkpoints
+(full-size GLM-4.5 / GLM-4.6 and the GLM-5 MoE series) are not re-hosted; convert them on
+the fly with a raw <code>hf:</code> id. See <a href="../loading_weights/">Loading Weights</a>.
 </div>
 
 Zhipu / Z.ai's **GLM** family in pure Keras 3: the text LLMs (GLM-4 through the
@@ -36,37 +35,39 @@ Each family exposes a `*Model` (features, `call` → `last_hidden_state`) and a
 
 ## Loading
 
-Weights convert **on the fly** from the public Hugging Face checkpoints
-(safetensors downloaded + mapped at load time; bf16 cast to float32, FP8 MoE
-checkpoints dequantized). Use the friendly variant name, or a raw `hf:` id:
+Hosted checkpoints load by their `kerasformers/<variant>` repo id (preconverted
+bf16 `.weights.h5` + `kf_config.json`). A raw `hf:` id converts any matching
+upstream checkpoint on the fly (safetensors mapped at load time; FP8 MoE
+dequantized) — used for the checkpoints too large to re-host.
 
 ```python
 from kerasformers.models.glm import GlmTextGenerate
 from kerasformers.models.glm4_moe import Glm4MoeTextGenerate
 
-gen = GlmTextGenerate.from_weights("glm-4-9b-chat")  # text
-gen = Glm4MoeTextGenerate.from_weights("glm-4.5-air")  # text MoE
-# raw hf: ids work too
-gen = GlmTextGenerate.from_weights("hf:THUDM/glm-4-9b-chat-hf")
+gen = GlmTextGenerate.from_weights("kerasformers/glm-4-9b-chat")    # text
+gen = Glm4MoeTextGenerate.from_weights("kerasformers/glm-4.5-air")  # text MoE
+# a raw hf: id converts on the fly (e.g. the not-hosted full-size GLM-4.5)
+gen = Glm4MoeTextGenerate.from_weights("hf:zai-org/GLM-4.5")
 ```
 
 ### Available variants
 
-Text:
+Text (load hosted ones as `kerasformers/<variant>`):
 
-| Family | Variants (`from_weights("…")`) | Hub |
-|---|---|---|
-| GLM-4-9B | `glm-4-9b`, `glm-4-9b-chat` | `THUDM/glm-4-9b{,-chat-hf}` |
-| GLM-4-0414 / GLM-Z1 | `glm-4-9b-0414`, `glm-4-32b-0414`, `glm-z1-9b-0414`, `glm-z1-32b-0414` | `THUDM/GLM-4-*-0414`, `THUDM/GLM-Z1-*-0414` |
-| GLM-4.5 / GLM-4.6 (MoE) | `glm-4.5`, `glm-4.5-air`, `glm-4.6` | `zai-org/GLM-4.5{,-Air}`, `zai-org/GLM-4.6` |
-| GLM-5 / GLM-5.1 / GLM-5.2 (MoE) | `glm5`, `glm5_1`, `glm5_2` | `zai-org/GLM-5{,.1,.2}` |
+| Family | Variants | Hosted? | Upstream |
+|---|---|---|---|
+| GLM-4-9B | `glm-4-9b`, `glm-4-9b-chat`, `glm-4-9b-chat-1m` | yes | `zai-org/glm-4-9b{,-chat,-chat-1m}-hf` |
+| GLM-4-0414 / GLM-Z1 | `glm-4-9b-0414`, `glm-4-32b-0414`, `glm-4-32b-base-0414`, `glm-z1-9b-0414`, `glm-z1-32b-0414` | yes | `zai-org/GLM-4-*-0414`, `zai-org/GLM-Z1-*-0414` |
+| GLM-4.5 (MoE) | `glm-4.5-air`, `glm-4.5-air-base` | yes | `zai-org/GLM-4.5-Air{,-Base}` |
+| GLM-4.5 / GLM-4.6 (MoE, full) | `glm-4.5`, `glm-4.6` | `hf:` only | `zai-org/GLM-4.5`, `zai-org/GLM-4.6` |
+| GLM-5 / GLM-5.1 / GLM-5.2 (MoE) | `glm5`, `glm5_1`, `glm5_2` | `hf:` only | `zai-org/GLM-5{,.1,.2}` |
 
 Vision-language:
 
-| Family | Variants | Hub |
-|---|---|---|
-| GLM-4.1V | `glm-4.1v-9b-thinking`, `glm-4.1v-9b-base` | `zai-org/GLM-4.1V-9B-{Thinking,Base}` |
-| GLM-4.5V (MoE) | `glm-4.5v` | `zai-org/GLM-4.5V` |
+| Family | Variants | Hosted? | Upstream |
+|---|---|---|---|
+| GLM-4.1V / 4.6V-Flash | `glm-4.1v-9b-thinking`, `glm-4.1v-9b-base`, `glm-4.6v-flash` | yes | `zai-org/GLM-4.1V-9B-{Thinking,Base}`, `zai-org/GLM-4.6V-Flash` |
+| GLM-4.5V / 4.6V (MoE) | `glm-4.5v`, `glm-4.6v` | yes | `zai-org/GLM-4.5V`, `zai-org/GLM-4.6V` |
 
 ## Generation
 
@@ -79,8 +80,8 @@ identifier you give the model.
 # text LLM
 from kerasformers.models.glm import GlmTextGenerate, GlmTokenizer
 
-model = GlmTextGenerate.from_weights("glm-4-9b-chat")
-tokenizer = GlmTokenizer.from_weights("glm-4-9b-chat")
+model = GlmTextGenerate.from_weights("kerasformers/glm-4-9b-chat")
+tokenizer = GlmTokenizer.from_weights("kerasformers/glm-4-9b-chat")
 
 messages = [{"role": "user", "content": "Name three prime numbers."}]
 inputs = tokenizer(messages)
@@ -90,8 +91,8 @@ print(tokenizer.decode(outputs[0]))
 # vision-language (GLM-4.1V)
 from kerasformers.models.glm4v import Glm4vConditionalGenerate, Glm4vProcessor
 
-model = Glm4vConditionalGenerate.from_weights("glm-4.1v-9b-thinking")
-processor = Glm4vProcessor.from_weights("glm-4.1v-9b-thinking")
+model = Glm4vConditionalGenerate.from_weights("kerasformers/glm-4.1v-9b-thinking")
+processor = Glm4vProcessor.from_weights("kerasformers/glm-4.1v-9b-thinking")
 
 conversation = [
     {

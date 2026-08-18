@@ -1,13 +1,13 @@
 # GLM-4.5 (GLM-4 MoE)
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> the GLM-4.5-Air checkpoints are hosted as preconverted Keras weights on
+Hugging Face under <a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + a sharded <code>model.weights.json</code>).
+Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>. The full-size
+GLM-4.5 / GLM-4.6 (~358B) are too large to re-host: convert them on the fly with
+<code>from_weights("hf:zai-org/GLM-4.5")</code>. See
+<a href="../loading_weights/">Loading Weights</a>.
 </div>
 
 Zhipu's GLM-4.5 / GLM-4.6 Mixture-of-Experts LLM, ported to pure Keras 3. It
@@ -21,6 +21,12 @@ models use the NeoX (half-split) layout. Mixing the two silently destroys parity
 Memory is governed by **total** parameters, not active ones: every expert stays
 resident.
 
+The hosted weights are stored **bfloat16** except the MoE router correction bias
+(`e_score_correction_bias`, one per MoE layer), kept in **float32** so bf16 rounding
+cannot flip the group / expert top-k selection (mirroring transformers'
+`_keep_in_fp32_modules_strict`). `kf_config.json` records this as `weight_dtype:
+"bfloat16"` + `weight_dtype_overrides: {"e_score_correction_bias": "float32"}`.
+
 Links:
 
 - Paper: [GLM-4.5: Agentic, Reasoning, and Coding (ARC) Foundation Models (arXiv:2508.06471)](https://arxiv.org/abs/2508.06471)
@@ -30,13 +36,16 @@ See also [glm4.md](glm4.md), [glm5_moe.md](glm5_moe.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+The GLM-4.5-Air checkpoints are hosted; load them with
+`from_weights("kerasformers/<variant>")`. The full-size GLM-4.5 / GLM-4.6 are not
+re-hosted (too large) but load on the fly with `from_weights("hf:<upstream>")`.
 
-| Variant | Hub |
-|---|---|
-| `glm-4.5` | [`zai-org/GLM-4.5`](https://huggingface.co/zai-org/GLM-4.5) |
-| `glm-4.5-air` | [`zai-org/GLM-4.5-Air`](https://huggingface.co/zai-org/GLM-4.5-Air) |
-| `glm-4.6` | [`zai-org/GLM-4.6`](https://huggingface.co/zai-org/GLM-4.6) |
+| Variant | Hosted | Upstream |
+|---|---|---|
+| `glm-4.5-air` | `kerasformers/glm-4.5-air` | [`zai-org/GLM-4.5-Air`](https://huggingface.co/zai-org/GLM-4.5-Air) |
+| `glm-4.5-air-base` | `kerasformers/glm-4.5-air-base` | [`zai-org/GLM-4.5-Air-Base`](https://huggingface.co/zai-org/GLM-4.5-Air-Base) |
+| `glm-4.5` | `hf:` only | [`zai-org/GLM-4.5`](https://huggingface.co/zai-org/GLM-4.5) |
+| `glm-4.6` | `hf:` only | [`zai-org/GLM-4.6`](https://huggingface.co/zai-org/GLM-4.6) |
 
 ## API
 
@@ -124,8 +133,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from kerasformers.models.glm4_moe import Glm4MoeTextGenerate, Glm4MoeTokenizer
 
-model = Glm4MoeTextGenerate.from_weights("glm-4.5")
-tokenizer = Glm4MoeTokenizer.from_weights("glm-4.5")
+model = Glm4MoeTextGenerate.from_weights("kerasformers/glm-4.5-air")
+tokenizer = Glm4MoeTokenizer.from_weights("kerasformers/glm-4.5-air")
 
 inputs = tokenizer("Explain rotary embeddings in one sentence.")
 outputs = model.generate(**inputs, max_new_tokens=64)
@@ -156,7 +165,7 @@ for text in tokenizer.batch_decode(outputs):
 ```python
 from kerasformers.models.glm4_moe import Glm4MoeModel
 
-backbone = Glm4MoeModel.from_weights("glm-4.5")
+backbone = Glm4MoeModel.from_weights("kerasformers/glm-4.5-air")
 hidden = backbone(inputs)["last_hidden_state"]  # (batch, seq, embed_dim)
 ```
 
@@ -176,6 +185,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Glm4MoeTextGenerate.from_weights(
-    "glm-4.5", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/glm-4.5-air", quantization="int8", load_dtype="bfloat16"
 )
 ```

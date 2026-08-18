@@ -1,13 +1,13 @@
 # GLM-4V
 
-<div class="kf-note kf-note--convert">
-<b>On-the-fly conversion:</b> these weights are <b>not</b> mirrored as preconverted
-<code>.weights.h5</code> under <code>kerasformers/</code>.
-<code>from_weights("&lt;variant&gt;")</code> downloads the original safetensors
-from the Hub and converts them in process on every load, because checkpoints this large are
-impractical to re-host.
-Pass <code>cache_converted=True</code> to keep the converted result and skip the download and
-conversion next time. See <a href="../loading_weights/">Loading Weights</a>.
+<div class="kf-note kf-note--weights">
+<b>Weights:</b> pretrained Keras weights live on Hugging Face under
+<a href="https://huggingface.co/kerasformers">kerasformers/&lt;variant&gt;</a>
+(each repo carries <code>kf_config.json</code> + a sharded <code>model.weights.json</code>,
+stored in <b>bfloat16</b>). Load with <code>from_weights("kerasformers/&lt;variant&gt;")</code>,
+or convert an original checkpoint on the fly with
+<code>from_weights("hf:zai-org/GLM-4.1V-9B-Thinking")</code>. See
+<a href="../loading_weights/">Loading Weights</a>.
 </div>
 
 Zhipu's GLM-4V vision-language models, ported to pure Keras 3. A ViT tower with
@@ -27,12 +27,17 @@ See also [glm4v_moe.md](glm4v_moe.md), [glm4.md](glm4.md).
 
 ## Variants
 
-Load any of these with `from_weights("<variant>")`.
+Load any of these with `from_weights("kerasformers/<variant>")` (or convert the
+upstream checkpoint on the fly with `from_weights("hf:<upstream>")`).
 
-| Variant | Hub |
-|---|---|
-| `glm-4.1v-9b-thinking` | [`zai-org/GLM-4.1V-9B-Thinking`](https://huggingface.co/zai-org/GLM-4.1V-9B-Thinking) |
-| `glm-4.1v-9b-base` | [`zai-org/GLM-4.1V-9B-Base`](https://huggingface.co/zai-org/GLM-4.1V-9B-Base) |
+| Variant | Hosted | Upstream |
+|---|---|---|
+| `glm-4.1v-9b-thinking` | `kerasformers/glm-4.1v-9b-thinking` | [`zai-org/GLM-4.1V-9B-Thinking`](https://huggingface.co/zai-org/GLM-4.1V-9B-Thinking) |
+| `glm-4.1v-9b-base` | `kerasformers/glm-4.1v-9b-base` | [`zai-org/GLM-4.1V-9B-Base`](https://huggingface.co/zai-org/GLM-4.1V-9B-Base) |
+| `glm-4.6v-flash` | `kerasformers/glm-4.6v-flash` | [`zai-org/GLM-4.6V-Flash`](https://huggingface.co/zai-org/GLM-4.6V-Flash) |
+
+All three are dense (`glm4v`) VLMs sharing the GLM-4V vision tower and a GLM-4
+decoder; GLM-4.6V-Flash is the newest ~10B checkpoint.
 
 ## API
 
@@ -171,8 +176,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from kerasformers.models.glm4v import Glm4vConditionalGenerate, Glm4vProcessor
 
-model = Glm4vConditionalGenerate.from_weights("glm-4.1v-9b-thinking")
-processor = Glm4vProcessor.from_weights("glm-4.1v-9b-thinking")
+model = Glm4vConditionalGenerate.from_weights("kerasformers/glm-4.1v-9b-thinking")
+processor = Glm4vProcessor.from_weights("kerasformers/glm-4.1v-9b-thinking")
 
 image = Image.open("photo.jpg")
 inputs = processor(
@@ -257,7 +262,7 @@ have rendered yourself (or go through the processor above).
 ```python
 from kerasformers.models.glm4v import Glm4vTokenizer
 
-tokenizer = Glm4vTokenizer.from_weights("glm-4.1v-9b-thinking")
+tokenizer = Glm4vTokenizer.from_weights("kerasformers/glm-4.1v-9b-thinking")
 inputs = tokenizer("Who wrote Dune?")
 outputs = model.generate(**inputs, max_new_tokens=32)
 print(tokenizer.decode(outputs[0]))
@@ -270,6 +275,6 @@ Larger checkpoints load in bf16 or weight-only quantized. See
 
 ```python
 model = Glm4vConditionalGenerate.from_weights(
-    "glm-4.1v-9b-thinking", quantization="int8", load_dtype="bfloat16"
+    "kerasformers/glm-4.1v-9b-thinking", quantization="int8", load_dtype="bfloat16"
 )
 ```
